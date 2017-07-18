@@ -1,0 +1,22 @@
+---
+- name: Add Virtualbox apt key
+  apt_key:
+    url: "https://www.virtualbox.org/download/oracle_vbox.asc"
+    state: present
+  become: true
+
+- name: Add Virtualbox apt respository
+  apt_repository:
+    repo: deb http://download.virtualbox.org/virtualbox/debian {{ ansible_distribution_release }} contrib
+    update_cache: yes
+  become: true
+
+- name: Install Virtualbox system packages
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - virtualbox
+    - virtualbox-dkms
+  become: true
+

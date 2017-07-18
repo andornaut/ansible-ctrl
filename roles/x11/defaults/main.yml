@@ -1,0 +1,11 @@
+---
+bspwm_projects:
+  - { name: lemonbar, repo: 'https://github.com/krypt-n/bar.git', version: xft-port }
+  - { name: sres, repo: 'https://github.com/baskerville/sres', version: HEAD }
+  - { name: sutils, repo: 'https://github.com/baskerville/sutils', version: HEAD }
+  - { name: sxhkd, repo: 'https://github.com/baskerville/sxhkd', version: HEAD }
+  - { name: txtw, repo: 'https://github.com/baskerville/txtw', version: HEAD }
+  - { name: xdo, repo: 'https://github.com/baskerville/xdo', version: HEAD }
+  - { name: xtitle, repo: 'https://github.com/baskerville/xtitle', version: HEAD }
+  - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: HEAD }
+

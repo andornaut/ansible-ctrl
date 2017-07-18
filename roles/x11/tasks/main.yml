@@ -1,0 +1,90 @@
+---
+- name: Install system packages
+  apt:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - adwaita-icon-theme-full
+    - audacity
+    - desktop-file-utils
+    - feh
+    - filezilla
+    - firefox
+    - gimp
+    - gksu
+    - gnome-control-center
+    - gnome-disk-utility
+    - gnome-themes-standard
+    - gtk-redshift
+    - gtk-theme-switch
+    - gtk2-engines
+    - gtk2-engines-murrine
+    - gtk2-engines-pixbuf
+    - hsetroot
+    - inkscape
+    - intltool
+    - libc6
+    - libcairo2
+    - libglib2.0-0
+    - libglib2.0-dev
+    - libgtk2.0-0
+    - libgtk2.0-bin
+    - libgtk2.0-dev
+    - libpango1.0-0
+    - libreoffice
+    - libudev-dev
+    - libudev1
+    - libx11-6
+    - lightdm
+    - pkg-config
+    - scrot
+    - shared-mime-info
+    - solaar
+    - spacefm
+    - suckless-tools
+    - thunderbird
+    - ttf-dejavu
+    - ttf-mscorefonts-installer
+    - udevil
+    - usb-creator-gtk
+    - vlc
+    - wireshark
+    - x11-xserver-utils
+    - xautolock
+    - xcompmgr
+    - xdotool
+    - xfce4-power-manager
+    - xfonts-terminus
+    - xorg
+    - xss-lock
+    - xul-ext-calendar-timezones
+    - xul-ext-lightning
+  become: true
+
+- name: Install binary drivers
+  command: ubuntu-drivers autoinstall
+  become: true
+
+- name: Install Atom
+  apt:
+    deb: https://atom.io/download/deb
+  become: true
+
+- name: Install Google Chrome
+  apt:
+    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  become: true
+
+- name: Upgrade Xorg and Linux Kernel on Ubuntu Xenial
+  apt:
+    name: xserver-xorg-hwe-16.04
+    install_recommends: yes
+    state: latest
+  when: ansible_distribution_release == 'xenial'
+  become: true
+
+- include: bspwm.yml
+- include: insync.yml
+- include: notify-osd.yml
+- include: spotify.yml

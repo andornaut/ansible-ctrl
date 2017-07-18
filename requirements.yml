@@ -1,0 +1,18 @@
+---
+- src: https://github.com/andornaut/ansible-role-base
+  name: base
+
+- src: https://github.com/andornaut/ansible-role-docker
+  name: docker
+
+- src: https://github.com/andornaut/ansible-role-letsencrypt
+  name: letsencrypt
+
+- src: https://github.com/andornaut/ansible-role-nginx
+  name: nginx
+
+- src: https://github.com/andornaut/ansible-role-rsnapshot
+  name: rsnapshot
+
+- src: https://github.com/andornaut/ansible-role-zoneminder
+  name: zoneminder

@@ -1,0 +1,39 @@
+---
+- name: Install system packages
+  apt:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  become: true
+  with_items:
+  - ant
+  - git
+  - golang
+  - libmysqlclient-dev
+  - libxml2-dev
+  - libxslt-dev
+  - meld
+  - mercurial
+  - mysql-client
+  - node-less
+  - openjdk-8-jdk
+  - postgresql-client
+  - pydb
+  - python
+  - python-dev
+  - python-pip
+  - python-virtualenv
+  - ruby
+  - virtualenvwrapper
+  - xserver-xephyr
+
+- name: Upgrade pip
+  pip:
+    name: pip
+    state: latest
+  become: true
+
+- include: jetbrains.yml
+- include: vagrant.yml
+- include: virtualbox.yml
+

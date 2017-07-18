@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  tasks: 
+  - name: apt-get dist-upgrade
+    apt:
+      update_cache: yes
+      upgrade: dist
+    become: true
