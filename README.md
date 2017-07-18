@@ -1,6 +1,6 @@
 # ansible-workstation
 
-Provision your workstation with Ansible
+Provision a workstation with Ansible
 
 ## Getting started
 
