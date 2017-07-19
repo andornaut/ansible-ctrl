@@ -9,3 +9,4 @@ bspwm_projects:
   - { name: xtitle, repo: 'https://github.com/baskerville/xtitle', version: HEAD }
   - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: HEAD }
 
+install_insync: false
