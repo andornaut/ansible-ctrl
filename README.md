@@ -1,5 +1,7 @@
 # ansible-workstation
 
+Provision a workstation with Ansible.
+
 ## Getting started
 
 Requirements:
