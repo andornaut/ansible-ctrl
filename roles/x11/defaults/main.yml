@@ -7,6 +7,6 @@ bspwm_projects:
   - { name: txtw, repo: 'https://github.com/baskerville/txtw', version: HEAD }
   - { name: xdo, repo: 'https://github.com/baskerville/xdo', version: HEAD }
   - { name: xtitle, repo: 'https://github.com/baskerville/xtitle', version: HEAD }
-  - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: HEAD }
+  - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: 0.9.3 }
 
 install_insync: false
