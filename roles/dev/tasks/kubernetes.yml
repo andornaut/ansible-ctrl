@@ -23,3 +23,15 @@
     dest: /usr/local/bin/minikube
     mode: 0755
   become: true
+
+- name: Install helm
+  unarchive:
+    src: "https://kubernetes-helm.storage.googleapis.com/helm-v2.5.0-linux-amd64.tar.gz"
+    dest: /usr/local/bin/
+    extra_opts:
+      - '--strip-components=1'
+    exclude:
+      - LICENSE
+      - README.md
+    remote_src: true
+  become: true
