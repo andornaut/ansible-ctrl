@@ -34,6 +34,6 @@
   become: true
 
 - include: jetbrains.yml
+- include: kubernetes.yml
 - include: vagrant.yml
 - include: virtualbox.yml
-
