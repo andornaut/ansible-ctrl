@@ -5,9 +5,13 @@
     url: https://storage.googleapis.com/kubernetes-release/release/stable.txt
     dest: /tmp/kubernetes_stable_version.txt
 
+- name: Set kubernetes version fact
+  set_fact:
+    kubernetes_version: "{{ lookup('file', '/tmp/kubernetes_stable_version.txt') }}"
+
 - name: Install kubectl
   get_url:
-    url: "https://storage.googleapis.com/kubernetes-release/release/{{ lookup('file', '/tmp/kubernetes_stable_version.txt') }}/bin/linux/amd64/kubectl"
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{ kubernetes_version }}/bin/linux/amd64/kubectl"
     dest: /usr/local/bin/kubectl
     mode: 0755
   become: true
