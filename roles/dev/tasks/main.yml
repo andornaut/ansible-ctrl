@@ -25,6 +25,7 @@
   - python-virtualenv
   - ruby
   - virtualenvwrapper
+  - visual-studio-code
   - xserver-xephyr
 
 - name: Upgrade pip
@@ -34,6 +35,10 @@
   become: true
 
 - include: jetbrains.yml
+
 - include: kubernetes.yml
+
 - include: vagrant.yml
+
 - include: virtualbox.yml
+  when: ansible_distribution_release == 'xenial'

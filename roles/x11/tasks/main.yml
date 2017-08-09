@@ -85,7 +85,11 @@
   become: true
 
 - include: bspwm.yml
+
 - include: insync.yml
-  when: install_insync
+  when: ansible_distribution_release == 'xenial' and install_insync
+
 - include: notify-osd.yml
+  when: ansible_distribution_release == 'xenial'
+
 - include: spotify.yml
