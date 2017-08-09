@@ -1,7 +1,7 @@
 ---
 bspwm_projects:
   - { name: lemonbar, repo: 'https://github.com/krypt-n/bar.git', version: xft-port }
-  - { name: pavolume, repo: 'https://github.com/andornaut/pavolume', version HEAD }
+  - { name: pavolume, repo: 'https://github.com/andornaut/pavolume', version: HEAD }
   - { name: sres, repo: 'https://github.com/baskerville/sres', version: HEAD }
   - { name: sutils, repo: 'https://github.com/baskerville/sutils', version: HEAD }
   - { name: sxhkd, repo: 'https://github.com/baskerville/sxhkd', version: HEAD }
