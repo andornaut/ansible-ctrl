@@ -1,0 +1,15 @@
+---
+- name: Accept mscorefonts EULA
+  debconf:
+    name: ttf-mscorefonts-installer
+    question: msttcorefonts/accepted-mscorefonts-eula
+    vtype: select
+    value: true
+  become: true
+
+- name: Install mscorefonts
+  apt:
+    name: ttf-mscorefonts-installer
+    state: latest
+  become: true
+

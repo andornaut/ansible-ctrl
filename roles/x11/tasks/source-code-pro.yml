@@ -1,0 +1,17 @@
+---
+- name: Download and extract soure-code-pro package
+  unarchive:
+    src: 'https://github.com/adobe-fonts/source-code-pro/archive/2.030R-ro/1.050R-it.zip'
+    dest: /tmp
+    remote_src: yes
+    creates: /tmp/source-code-pro-2.030R-ro-1.050R-it
+
+# FIXME: This does not work without ssh-agent forwarding. Disabling for now.
+# https://github.com/ansible/ansible/issues/15070
+#- name: Copy source-code-pro TTF files
+#  synchronize:
+#    src: /tmp/source-code-pro-2.030R-ro-1.050R-it/TTF/
+#    dest: /usr/share/fonts/truetype/source-code-pro
+#  delegate_to: "{{ inventory_hostname }}"
+#  notify: Update font cache
+#  become: true

@@ -93,3 +93,7 @@
   when: ansible_distribution_release == 'xenial'
 
 - include: spotify.yml
+
+- include: mscorefonts.yml
+
+- include: source-code-pro.yml
