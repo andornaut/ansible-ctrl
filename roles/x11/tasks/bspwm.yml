@@ -46,5 +46,10 @@
     target: install
   with_items: "{{ bspwm_projects  }}"
   ignore_errors: yes # Ignore "cp: cannot create regular file ... Text file busy"
+  register: r
   become: yes
 
+- name: Ensure that the 'Make install BSPWM projects' play succeeded
+  fail: msg="The 'Make install BSPWM projects' play failed"
+  when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
+  with_items: "{{r.results}}"
