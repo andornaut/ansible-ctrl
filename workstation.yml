@@ -4,5 +4,5 @@
     - base
     - desktop
     - dev
-    - docker
-    - games
+    #- docker
+    #- games
