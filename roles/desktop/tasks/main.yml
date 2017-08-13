@@ -86,6 +86,8 @@
 
 - include: bspwm.yml
 
+- include: dimpl.yml
+
 - include: insync.yml
   when: ansible_distribution_release == 'xenial' and install_insync
 

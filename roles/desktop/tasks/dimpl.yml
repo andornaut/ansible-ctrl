@@ -1,0 +1,22 @@
+---
+- name: Create dimpl directory
+  file:
+    path: /opt/dimpl
+    state: directory
+  become: true
+
+- name: Download and extract dimpl package
+  unarchive:
+    src: "{{ dimpl_url }}"
+    dest: /opt/dimpl
+    remote_src: yes
+    creates: /opt/dimpl/dimpl
+  become: true
+
+- name: Symlink dimpl binary file
+  file:
+    src: /opt/dimpl/dimpl
+    path: /usr/local/bin/dimpl
+    force: yes
+    state: link
+  become: true
