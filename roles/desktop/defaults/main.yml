@@ -11,6 +11,6 @@ bspwm_projects:
   - { name: xtitle, repo: 'https://github.com/baskerville/xtitle', version: HEAD }
   - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: HEAD }
 
-dimpl_url: 'https://github.com/andornaut/dimpl/releases/download/v0.7.1/dimpl-linux-x64.zip'
+dimpl_url: 'https://github.com/andornaut/dimpl/releases/download/v0.8.0/dimpl-linux-x64.zip'
 
 install_insync: false
