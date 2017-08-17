@@ -1,21 +1,21 @@
 ---
 - name: Create dimpl directory
   file:
-    path: /opt/dimpl
+    path: /opt/dimpl-{{ dimpl_version }}
     state: directory
   become: true
 
 - name: Download and extract dimpl package
   unarchive:
-    src: "{{ dimpl_url }}"
-    dest: /opt/dimpl
+    src: "https://github.com/andornaut/dimpl/releases/download/v{{ dimpl_version }}/dimpl-linux-x64.zip"
+    dest: /opt/dimpl-{{ dimpl_version }}
     remote_src: yes
-    creates: /opt/dimpl/dimpl
+    creates: /opt/dimpl-{{ dimpl_version }}/dimpl
   become: true
 
 - name: Symlink dimpl binary file
   file:
-    src: /opt/dimpl/dimpl
+    src: /opt/dimpl-{{ dimpl_version }}/dimpl
     path: /usr/local/bin/dimpl
     force: yes
     state: link
