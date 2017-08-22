@@ -88,6 +88,8 @@
 
 - include: dimpl.yml
 
+- include: dunst.yml
+
 - include: insync.yml
   when: ansible_distribution_release == 'xenial' and install_insync
 
