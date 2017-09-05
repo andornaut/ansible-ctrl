@@ -1,0 +1,17 @@
+---
+- hosts: webservers
+  roles:
+    - base
+    # On first run only, certs don't exist until letsencrypt has completed,
+    # so run nginx again after letsencrypt
+    - nginx
+    - letsencrypt
+
+- name: Cone website repositories
+  hosts: webservers
+  git:
+    repo: "{{ item.repo }}"
+    dest: "{{ web_root_directory }}/{{ item.domain }}"
+  when: item.repo is defined
+  with_items: "{{ websites }}"
+  become: true

@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: upgrade
   tasks: 
   - name: apt-get dist-upgrade
     apt:
