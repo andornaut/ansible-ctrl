@@ -24,8 +24,6 @@ make zoneminder
 
 ## Example `hosts` file
 
-hosts
-
 ```
 localhost ansible_connection=local
 
