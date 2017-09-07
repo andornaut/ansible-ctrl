@@ -3,15 +3,16 @@
   hosts: webservers
   roles:
     - letsencrypt
-
-- name: Restart Nginx and set Let's Encrypt renewal schedule
-  hosts: localhost
   tasks:
-    - service:
+    - name: Restart Nginx
+      service:
         name: nginx
         state: restarted
       become: true
 
+- name: Set Let's Encrypt renewal schedule
+  hosts: localhost
+  tasks:
     - cron:
         name: letsencrypt
         cron_file: /etc/crontab
