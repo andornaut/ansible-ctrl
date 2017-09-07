@@ -4,14 +4,19 @@
   roles:
     - letsencrypt
 
-- name: Set Let's Encrypt renewal schedule
+- name: Restart Nginx and set Let's Encrypt renewal schedule
   hosts: localhost
   tasks:
+    - service:
+        name: nginx
+        state: restarted
+      become: true
+
     - cron:
         name: letsencrypt
         cron_file: /etc/crontab
         user: root
-        minute: "1"
-        hour: "2"
+        minute: "11"
+        hour: "22"
         job: cd {{ playbook_dir }} && ansible-playbook letsencrypt.yml
       become: true
