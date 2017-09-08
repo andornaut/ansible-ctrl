@@ -19,5 +19,5 @@
         user: root
         minute: "11"
         hour: "22"
-        job: cd {{ playbook_dir }} && ansible-playbook letsencrypt.yml
+        job: cd {{ playbook_dir }} && ansible-playbook letsencrypt.yml > /dev/null
       become: true
