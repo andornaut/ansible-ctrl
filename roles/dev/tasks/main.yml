@@ -42,3 +42,5 @@
 
 - include: virtualbox.yml
   when: ansible_distribution_release == 'xenial'
+
+- include: visual-studio-code.yml
