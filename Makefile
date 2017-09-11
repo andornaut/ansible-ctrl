@@ -10,19 +10,19 @@ requirements:
 	ansible-galaxy install -p .roles/ -r requirements.yml
 
 letsencrypt: requirements
-	ansible-playbook letsencrypt.yml
+	ansible-playbook --ask-become-pass letsencrypt.yml
 
 rsnapshot: requirements
-	ansible-playbook rsnapshot.yml
+	ansible-playbook --ask-become-pass rsnapshot.yml
 
 upgrade: requirements
-	ansible-playbook upgrade.yml
+	ansible-playbook --ask-become-pass upgrade.yml
 
 websites: requirements
-	ansible-playbook websites.yml
+	ansible-playbook --ask-become-pass websites.yml
 
 workstation: requirements
-	ansible-playbook workstation.yml
+	ansible-playbook --ask-become-pass workstation.yml
 
 zoneminder: requirements
-	ansible-playbook zoneminder.yml
+	ansible-playbook --ask-become-pass zoneminder.yml
