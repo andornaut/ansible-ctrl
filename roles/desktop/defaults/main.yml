@@ -7,7 +7,7 @@ bspwm_projects:
   - { name: sutils, repo: 'https://github.com/baskerville/sutils', version: HEAD }
   - { name: sxhkd, repo: 'https://github.com/baskerville/sxhkd', version: HEAD }
   - { name: txtw, repo: 'https://github.com/baskerville/txtw', version: HEAD }
-  - { name: xdo, repo: 'https://github.com/baskerville/xdo', version: HEAD }
+  - { name: xdo, repo: 'https://github.com/andornaut/xdo', version: fix-undeclared-symbol }
   - { name: xtitle, repo: 'https://github.com/baskerville/xtitle', version: HEAD }
   - { name: bspwm, repo: 'https://github.com/baskerville/bspwm', version: HEAD }
 
