@@ -25,7 +25,6 @@
   - python-virtualenv
   - ruby
   - virtualenvwrapper
-  - visual-studio-code
   - xserver-xephyr
 
 - name: Upgrade pip
