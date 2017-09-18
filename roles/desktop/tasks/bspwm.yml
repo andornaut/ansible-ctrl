@@ -49,6 +49,15 @@
   register: r
   become: yes
 
+- name: Copy .desktop file
+  copy:
+    src: bspwm.desktop
+    dest: /usr/share/xsessions/
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+
 - name: Ensure that the 'Make install BSPWM projects' play succeeded
   fail: msg="The 'Make install BSPWM projects' play failed"
   when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
