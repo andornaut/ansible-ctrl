@@ -7,7 +7,7 @@
     - nginx
     - letsencrypt
 
-- name: Cone website repositories
+- name: Clone website repositories
   hosts: webservers
   git:
     repo: "{{ item.repo }}"
