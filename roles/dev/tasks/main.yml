@@ -24,6 +24,9 @@
   - python-pip
   - python-virtualenv
   - ruby
+  - virtualbox
+  - virtualbox-guest-dkms
+  - virtualbox-dkms
   - virtualenvwrapper
   - xserver-xephyr
 
@@ -38,8 +41,6 @@
 - include: kubernetes.yml
 
 - include: vagrant.yml
-
-- include: virtualbox.yml
   when: ansible_distribution_release == 'xenial'
 
 - include: visual-studio-code.yml
