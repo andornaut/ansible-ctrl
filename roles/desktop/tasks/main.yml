@@ -79,6 +79,24 @@
     state: latest
   when: ansible_distribution_release == 'xenial'
   become: true
+  
+- name: Disable language switcher keyboard shortcut
+  dconf:
+    key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
+    value: "[]"
+    state: present
+  
+- name: Disable ibus-daemon keyboard shortcuts
+  dconf:
+    key: "/org/gnome/settings-daemon/plugins/keyboard/active"
+    value: "false"
+    state: present
+  
+- name: Configure US keyboard layouts
+  dconf:
+    key: "/org/gnome/desktop/input-sources/sources"
+    value: "[('xkb', 'us')]"
+    state: present
 
 - include: bspwm.yml
 
