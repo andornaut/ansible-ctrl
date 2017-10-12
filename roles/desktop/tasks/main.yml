@@ -39,6 +39,7 @@
     - libx11-6
     - lightdm
     - pkg-config
+    - python-psutil
     - scrot
     - shared-mime-info
     - solaar
