@@ -1,0 +1,23 @@
+---
+- name: Upgrade psutil (required by ansible dconf module)
+  pip:
+    name: psutil
+    state: latest
+
+- name: Disable language switcher keyboard shortcut
+  dconf:
+    key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
+    value: "@au []"
+    state: present
+
+- name: Configure US keyboard layouts
+  dconf:
+    key: "/org/gnome/desktop/input-sources/sources"
+    value: "[('xkb', 'us')]"
+    state: present
+  
+- name: Disable ibus-daemon keyboard shortcuts
+  dconf:
+    key: "/org/gnome/settings-daemon/plugins/keyboard/active"
+    value: "false"
+    state: present
