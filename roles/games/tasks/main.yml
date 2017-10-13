@@ -3,6 +3,14 @@
   command: dpkg --add-architecture i386
   become: true
 
+- name: Accept Steam EULA
+  debconf:
+    name: steam
+    question: steam/question
+    vtype: select
+    value: "I AGREE"
+  become: true
+ 
 - name: Install system packages
   apt:
     name: "{{ item }}"
