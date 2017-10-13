@@ -72,14 +72,6 @@
   apt:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
-
-- name: Upgrade Xorg and Linux Kernel on Ubuntu Xenial
-  apt:
-    name: xserver-xorg-hwe-16.04
-    install_recommends: yes
-    state: latest
-  when: ansible_distribution_release == 'xenial'
-  become: true
   
 - include: bspwm.yml
 
