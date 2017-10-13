@@ -1,15 +1,4 @@
 ---
-- name: Add libretro repository
-  apt_repository:
-    repo: 'ppa:libretro/stable'
-    update_cache: yes
-  become: true
-
-- name: Install Steam system package
-  apt:
-    deb: 'http://repo.steampowered.com/steam/archive/precise/steam_latest.deb'
-  become: true
-
 - name: Install system packages
   apt:
     name: "{{ item }}"
@@ -18,8 +7,5 @@
   with_items:
   - higan
   - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
-  - retroarch # Additional: retroarch-* libretro-*
+  - steam
   become: true
-
-- include: steam.yml
-
