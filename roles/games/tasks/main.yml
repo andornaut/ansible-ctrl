@@ -1,4 +1,8 @@
 ---
+- name: Enable i386 architecture repositories (for Steam)
+  command: dpkg --add-architecture i386
+  become: true
+
 - name: Install system packages
   apt:
     name: "{{ item }}"
