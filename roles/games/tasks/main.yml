@@ -1,11 +1,16 @@
 ---
-- name: Add libretro repository
-  apt_repository:
-    repo: 'ppa:libretro/stable'
-    update_cache: yes
-  when: ansible_distribution_release == 'xenial'
+- name: Enable i386 architecture repositories (for Steam)
+  command: dpkg --add-architecture i386
   become: true
 
+- name: Accept Steam EULA
+  debconf:
+    name: steam
+    question: steam/question
+    vtype: select
+    value: "I AGREE"
+  become: true
+ 
 - name: Install system packages
   apt:
     name: "{{ item }}"
@@ -14,9 +19,5 @@
   with_items:
   - higan
   - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
-  - retroarch # Additional: retroarch-* libretro-*
-  when: ansible_distribution_release == 'xenial'
+  - steam
   become: true
-
-- include: steam.yml
-
