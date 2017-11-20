@@ -7,7 +7,6 @@
   become: true
   with_items:
   - ant
-  - code
   - git
   - golang
   - libmysqlclient-dev
