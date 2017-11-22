@@ -1,0 +1,4 @@
+---
+- name: update font cache
+  command: fc-cache --force
+  become: true
