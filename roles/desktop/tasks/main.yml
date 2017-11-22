@@ -16,6 +16,7 @@
     - gksu
     - gnome-control-center
     - gnome-disk-utility
+    - gnome-keyring
     - gnome-themes-standard
     - gtk-redshift
     - gtk-theme-switch
@@ -34,6 +35,8 @@
     - libgtk2.0-dev
     - libpango1.0-0
     - libreoffice
+    - libsecret-1-0
+    - libsecret-tools
     - libudev-dev
     - libudev1
     - libx11-6
@@ -72,7 +75,7 @@
   apt:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
-  
+
 - include: bspwm.yml
 
 - include: dconf.yml
@@ -83,9 +86,6 @@
 
 - include: insync.yml
   when: ansible_distribution_release == 'xenial' and install_insync
-
-- include: notify-osd.yml
-  when: ansible_distribution_release == 'xenial'
 
 - include: spotify.yml
 

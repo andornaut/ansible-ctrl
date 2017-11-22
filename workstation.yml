@@ -4,6 +4,6 @@
     - base
     - desktop
     - dev
-    # Disable Docker until they support 17.04
-    #- docker
-    - games
+    # Disable Docker until they support 17.10
+    - docker
+    #- games

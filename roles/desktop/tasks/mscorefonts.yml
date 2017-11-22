@@ -11,5 +11,6 @@
   apt:
     name: ttf-mscorefonts-installer
     state: latest
+  notify: update font cache
   become: true
 
