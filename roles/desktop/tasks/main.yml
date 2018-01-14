@@ -76,8 +76,6 @@
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
 
-- import_tasks: bspwm.yml
-
 - import_tasks: dconf.yml
 
 - import_tasks: dimpl.yml
