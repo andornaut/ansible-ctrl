@@ -76,19 +76,19 @@
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
 
-- include: bspwm.yml
+- import_tasks bspwm.yml
 
-- include: dconf.yml
+- import_tasks dconf.yml
 
-- include: dimpl.yml
+- import_tasks dimpl.yml
 
-- include: dunst.yml
+- import_tasks dunst.yml
 
-- include: insync.yml
+- import_tasks insync.yml
   when: ansible_distribution_release == 'xenial' and install_insync
 
-- include: spotify.yml
+- import_tasks spotify.yml
 
-- include: mscorefonts.yml
+- import_tasks mscorefonts.yml
 
-- include: source-code-pro.yml
+- import_tasks source-code-pro.yml
