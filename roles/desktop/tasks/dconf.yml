@@ -3,6 +3,7 @@
   pip:
     name: psutil
     state: latest
+  become: true
 
 - name: Disable language switcher keyboard shortcut
   dconf:
