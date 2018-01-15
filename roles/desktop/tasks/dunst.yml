@@ -23,11 +23,11 @@
 
 - name: Make dunst
   make:
-    chdir: /tmp/{{ item.name }}.git
-  with_items: "{{ bspwm_projects  }}"
+    chdir: /tmp/dunst.git
+  become: true
 
 - name: Make install dunst
   make:
     chdir: /tmp/dunst.git
     target: install
-  become: yes
+  become: true

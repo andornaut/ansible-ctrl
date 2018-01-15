@@ -36,8 +36,8 @@
     state: latest
   become: true
 
-- include: jetbrains.yml
+- import_tasks: jetbrains.yml
 
-- include: kubernetes.yml
+- import_tasks: kubernetes.yml
 
-- include: vagrant.yml
+- import_tasks: vagrant.yml

@@ -1,9 +1,34 @@
 ---
 - hosts: localhost
+  vars_prompt:
+    - name: run_base
+      prompt: base
+      default: y
+    - name: run_desktop
+      prompt: desktop
+      default: y
+    - name: run_bspwm
+      prompt: bspwm
+      default: y
+    - name: run_dev
+      prompt: dev
+      default: y
+    - name: run_docker
+      prompt: docker
+      default: y
+    - name: run_games
+      prompt: games
+      default: y
   roles:
-    - base
-    - desktop
-    - dev
-    # Disable Docker until they support 17.10
-    - docker
-    #- games
+    - role: base
+      when: run_base == "y"
+    - role: desktop
+      when: run_desktop == "y"
+    - role: bspwm
+      when: run_bspwm == "y"
+    - role: dev
+      when: run_dev == "y"
+    - role: docker
+      when: run_docker == "y"
+    - role: games
+      when: run_games == "y"
