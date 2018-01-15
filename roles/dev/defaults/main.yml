@@ -1,6 +1,6 @@
 ---
 projects:
-  - { name: idea, version: '2017.2.6',  url_prefix: 'https://download.jetbrains.com/idea/ideaIC-' }
-  - { name: pycharm, version: '2017.2.4', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
+  - { name: idea, version: '2017.3.2',  url_prefix: 'https://download.jetbrains.com/idea/ideaIC-' }
+  - { name: pycharm, version: '2017.3.2', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
 
 bashrc_path: "{{ ansible_env.HOME }}/.bashrc"
