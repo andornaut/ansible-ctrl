@@ -11,9 +11,18 @@
     value: "I AGREE"
   become: true
 
-  #TODO Install Lutris, install 32bit libs: 
-  # libxtst6:i386 libgdk-pixbuf2.0-0:i386 libgtk2.0-0:i386 
-  # libva1:i386 libva-x11-1:i386 libbz2-1.0:i386 libvdpau1:i386 
+- name: Install Lutris apt key
+  apt_key:
+    url: "https://download.opensuse.org/repositories/home:/strycore/xUbuntu_{{ ansible_distribution_version }}/Release.key"
+    state: present
+  become: true
+
+- name: Install Lutris apt repository
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/home:/strycore/xUbuntu_{{ ansible_distribution_version }}/ ./"
+    state: present
+    update_cache: yes
+  become: true
 
 - name: Install system packages
   apt:
@@ -23,5 +32,14 @@
   with_items:
   - higan
   - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
+  - lutris
   - steam
+  # Libs used by Steam games
+  - libxtst6:i386
+  - libgdk-pixbuf2.0-0:i386
+  - libgtk2.0-0:i386
+  - libva1:i386
+  - libva-x11-1:i386
+  - libbz2-1.0:i386
+  - libvdpau1:i386
   become: true

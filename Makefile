@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean requirements rsnapshot upgrade workstation zoneminder
+.PHONY: clean requirements rsnapshot upgrade websites workstation zoneminder
 
 clean:
 	rm -rf .roles
