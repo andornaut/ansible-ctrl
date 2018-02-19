@@ -24,9 +24,9 @@
   - python-pip
   - python-virtualenv
   - ruby
-  - virtualbox
-  - virtualbox-guest-dkms
-  - virtualbox-dkms
+  #- virtualbox
+  #- virtualbox-guest-dkms
+  #- virtualbox-dkms
   - virtualenvwrapper
   - xserver-xephyr
 
