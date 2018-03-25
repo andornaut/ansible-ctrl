@@ -4,7 +4,7 @@ Provision a workstation using Ansible.
 
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.4.0
+* [Ansible](https://www.ansible.com/) >= 2.4.2
 * [Make](https://www.gnu.org/software/make/)
 * Ubuntu >= 16.04
 
