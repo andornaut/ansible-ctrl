@@ -6,13 +6,3 @@
     # so run nginx again after letsencrypt
     - nginx
     - letsencrypt
-
-- name: Clone website repositories
-  hosts: webservers
-  tasks:
-    - git:
-        repo: "{{ item.repo }}"
-        dest: "{{ web_root_directory }}/{{ item.domain }}"
-      when: item.repo is defined
-      with_items: "{{ websites }}"
-      become: true
