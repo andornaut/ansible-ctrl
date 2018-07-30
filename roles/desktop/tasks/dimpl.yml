@@ -1,21 +1,27 @@
 ---
+- name: Check for latest dimpl version
+  uri:
+    url: https://api.github.com/repos/andornaut/dimpl/releases/latest
+    return_content: "yes"
+  register: dimpl_version 
+
 - name: Create dimpl directory
   file:
-    path: /opt/dimpl-{{ dimpl_version }}
+    path: /opt/dimpl-{{ dimpl_version.json.tag_name }}
     state: directory
   become: true
 
 - name: Download and extract dimpl package
   unarchive:
-    src: "https://github.com/andornaut/dimpl/releases/download/v{{ dimpl_version }}/dimpl-linux-x64.zip"
-    dest: /opt/dimpl-{{ dimpl_version }}
+    src: "https://github.com/andornaut/dimpl/releases/download/{{ dimpl_version.json.tag_name }}/dimpl-linux-x64.zip"
+    dest: /opt/dimpl-{{ dimpl_version.json.tag_name }}
     remote_src: yes
-    creates: /opt/dimpl-{{ dimpl_version }}/dimpl
+    creates: /opt/dimpl-{{ dimpl_version.json.tag_name }}/dimpl
   become: true
 
 - name: Symlink dimpl binary file
   file:
-    src: /opt/dimpl-{{ dimpl_version }}/dimpl
+    src: /opt/dimpl-{{ dimpl_version.json.tag_name }}/dimpl
     path: /usr/local/bin/dimpl
     force: yes
     state: link

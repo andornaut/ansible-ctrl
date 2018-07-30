@@ -9,6 +9,7 @@
   - ant
   - git
   - golang
+  - jq
   - libmysqlclient-dev
   - libxml2-dev
   - libxslt-dev
@@ -16,9 +17,8 @@
   - mercurial
   - mysql-client
   - node-less
-  - openjdk-8-jdk
+  - openjdk-9-jdk
   - postgresql-client
-  - pydb
   - python
   - python-dev
   - python-pip
