@@ -2,8 +2,8 @@
 nas_backup_directory: "/media/nas/backups"
 nas_backup_directories_retention: 10
 nas_mount_directory: "/media/nas"
-nas_raid1_left_device: "/dev/null"
-nas_raid1_right_device: "/dev/null"
+nas_raid1_left_device:
+nas_raid1_right_device:
 nas_raid1_key_file: "${HOME}/.luks-raid1-key"
-nas_usb_device: "/dev/null"
+nas_usb_device:
 nas_usb_key_file: "${HOME}/.luks-usb-key"
