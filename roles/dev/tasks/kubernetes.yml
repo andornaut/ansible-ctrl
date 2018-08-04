@@ -18,7 +18,7 @@
 
 - name: Install BASH completion for kubectl
   lineinfile:
-    path: "{{ bashrc_path }}"
+    path: "{{ dev_bashrc_path }}"
     line: 'source <(kubectl completion bash)'
 
 - name: Install minikube

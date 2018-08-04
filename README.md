@@ -27,22 +27,19 @@ This playbook will prompt you to choose which of its roles to include.
 ```
 localhost ansible_connection=local
 
-[rsnapshot]
-localhost
-
 [upgrade]
 localhost
-
-[webservers]
-localhost
-
-[zoneminder]
-localhost
+example.com
 ```
+
+## NAS
+
+### Creating a BTRFS raid array of LUKS-encrypted devices
+
+
 
 ## Related projects
 
-* [andornaut/dotfiles](https://github.com/andornaut/dotfiles)
 * [ansible-role-base](https://github.com/andornaut/ansible-role-base)
 * [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm)
 * [ansible-role-docker](https://github.com/andornaut/ansible-role-docker)

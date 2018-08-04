@@ -1,6 +1,6 @@
 ---
 - name: Install Zoneminder
-  hosts: zoneminder
+  hosts: localhost
   roles:
     - base
     - nginx

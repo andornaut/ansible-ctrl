@@ -19,6 +19,9 @@
     - name: run_games
       prompt: games
       default: y
+    - name: run_nas
+      prompt: nas
+      default: y
   roles:
     - role: base
       when: run_base == "y"
@@ -32,3 +35,5 @@
       when: run_docker == "y"
     - role: games
       when: run_games == "y"
+    - role: nas
+      when: run_nas == "y"
