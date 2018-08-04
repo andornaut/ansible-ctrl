@@ -57,6 +57,14 @@ cryptsetup luksOpen --key-file ${keyfile} ${device} left
 
 # Create BTRFS raid1 array
 mkfs.btrfs -m raid1 -d raid1 /dev/mapper/left /dev/mapper/right
+
+# Mount the array
+mount \
+    -t btrfs /dev/mapper/left \
+    -o device=/dev/mapper/left,device=/dev/mapper/right \
+    /media/nas
+
+btrfs filesystem show /media/nas
 ```
 
 ## Related projects
