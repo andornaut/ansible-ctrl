@@ -43,16 +43,16 @@ echo "Target dir: ${target_dir}"
 
 mkdir -p "${target_dir}"
 
-# Delete backup dirs other than the ${RETENTION_NUMBER} newest
+echo "Deleting backups older than the ${RETENTION} most recent"
 ls -1p "${mount_dir}" | \
     grep -P '^backup\.\d{4}-\d{2}-\d{2}/$' | \
     head -n-${RETENTION} | \
-    xargs -I {} rm -rf -- {}
+    xargs -I {} rm -rf -- "${mount_dir}/{}"
 
 echo "Starting backup"
 rsync --archive --delete "${backup_dir}" "${target_dir}"
 
-tree -L 1 "${target_dir}"
+tree -L 2 "${mount_dir}"
 
 echo "Closing LUKS device ${name}"
 closeluks ${name}
