@@ -34,9 +34,26 @@ example.com
 
 ## NAS
 
-### Creating a BTRFS raid array of LUKS-encrypted devices
+### Creating a BTRFS raid1 array of LUKS-encrypted devices
 
+- [Btrfs Multi Device Dmcrypt](http://marc.merlins.org/perso/btrfs/post_2014-04-27_Btrfs-Multi-Device-Dmcrypt.html)
+- [Cryptsetup](https://gitlab.com/cryptsetup/cryptsetup)
+- [Using Btrfs with Multiple Devices](https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_with_Multiple_Devices)
 
+```bash
+# Create a keyfile
+head -c 256 /dev/random > keyfile
+
+# Create LUKS devices
+device=/dev/...
+cryptsetup luksFormat ${device}
+
+# Map the container to /dev/mapper/left
+cryptsetup luksOpen ${device} left
+
+# Create BTRFS raid1 array
+mkfs.btrfs -m raid1 -d raid1 /dev/mapper/left -d /dev/mapper/right
+```
 
 ## Related projects
 
