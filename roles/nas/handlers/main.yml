@@ -1,5 +1,5 @@
 ---
-- name: Restart mountnas service
+- name: restart mountnas
   systemd:
     name: mountnas
     daemon_reload: yes

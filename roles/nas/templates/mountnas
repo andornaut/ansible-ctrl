@@ -17,26 +17,26 @@ elif [[ $# -eq 0 ]]; then
     key_file="{{ nas_raid1_key_file }}"
     mount_dir="{{ nas_mount_directory }}"
 else
-    echo "Usage: $(basename "${0}") left /dev/sdb right /dev/sdc /cryptsetup/key/file /media/nas" >&2
+    echo "Usage: $(basename "${0}") left /dev/sda right /dev/sdb /luks/key/file /media/nas" >&2
     exit 1
 fi
 
-[[ ${EUID} -eq 0 ]] || { echo 'Must be run as root' >&2; exit 1; }
-[[ ! "$(ls -A "${mount_dir}")" ]] || { echo "${mount_dir} is not empty" >&2; exit; }
+[[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
+[[ ! "$(ls -A "${mount_dir}")" ]] || { echo "${mount_dir} is not empty">&2; exit 1; }
 
-is_mounted() {
+is_mapped() {
 	local name=$1
 	cryptsetup status ${name} >/dev/null
 }
 
-mount_luks() {
+open_luks() {
 	local name=$1
 	local device=$2
 	cryptsetup --key-file ${key_file} luksOpen ${device} ${name}
 }
 
-is_mounted ${name_left} || mount_luks ${name_left} ${device_left} || { echo 'Failed to mount luks device' >&2; exit 1; }
-is_mounted ${name_right} || mount_luks ${name_right} ${device_right} || { echo 'Failed to mount luks device' >&2; exit 1; }
+is_mapped ${name_left} || open_luks ${name_left} ${device_left} || { echo 'Failed to open luks device'>&2; exit 1; }
+is_mapped ${name_right} || open_luks ${name_right} ${device_right} || { echo 'Failed to open luks device'>&2; exit 1; }
 mount \
     -t btrfs /dev/mapper/${name_left} \
     -o device=/dev/mapper/${name_left},device=/dev/mapper/${name_right} \

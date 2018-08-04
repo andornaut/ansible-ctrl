@@ -2,7 +2,7 @@
 - name: Configure Let's Encrypt and Nginx
   hosts: webservers
   roles:
-    - letsencrypt
+    - letsencrypt-nginx
   tasks:
     - name: Restart Nginx
       service:

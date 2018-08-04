@@ -8,11 +8,8 @@
 - src: https://github.com/andornaut/ansible-role-docker
   name: docker
 
-- src: https://github.com/andornaut/ansible-role-letsencrypt
-  name: letsencrypt
-
-- src: https://github.com/andornaut/ansible-role-nginx
-  name: nginx
+- src: https://github.com/andornaut/ansible-role-letsencrypt-nginx
+  name: letsencrypt-nginx
 
 - src: https://github.com/andornaut/ansible-role-rsnapshot
   name: rsnapshot
