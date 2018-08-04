@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -e
+
+if [[ $# -eq 6 ]]; then
+    name_left="${1}"
+    device_left="${2}"
+    name_right="${3}"
+    device_right="${4}"
+    key_file="${5}"
+    mount_dir="${6}"
+elif [[ $# -eq 0 ]]; then
+    name_left=left
+    device_left="{{ nas_raid1_left_device }}" # /dev/sdb
+    name_right=right
+    device_right="{{ nas_raid1_right_device }}" # /dev/sdc
+    key_file="{{ nas_raid1_key_file }}"
+    mount_dir="{{ nas_mount_directory }}"
+else
+    echo "Usage: $(basename "${0}") left /dev/sdb right /dev/sdc /cryptsetup/key/file /media/nas" >&2
+    exit 1
+fi
+
+[[ ${EUID} -eq 0 ]] || { echo 'Must be run as root' >&2; exit 1; }
+[[ ! "$(ls -A "${mount_dir}")" ]] || { echo "${mount_dir} is not empty" >&2; exit; }
+
+is_mounted() {
+	local name=$1
+	cryptsetup status ${name} >/dev/null
+}
+
+mount_luks() {
+	local name=$1
+	local device=$2
+	cryptsetup --key-file ${key_file} luksOpen ${device} ${name}
+}
+
+is_mounted ${name_left} || mount_luks ${name_left} ${device_left} || { echo 'Failed to mount luks device' >&2; exit 1; }
+is_mounted ${name_right} || mount_luks ${name_right} ${device_right} || { echo 'Failed to mount luks device' >&2; exit 1; }
+mount \
+    -t btrfs /dev/mapper/${name_left} \
+    -o device=/dev/mapper/${name_left},device=/dev/mapper/${name_right} \
+    ${mount_dir}

@@ -1,4 +1,4 @@
 ---
-- hosts: rsnapshot
-  roles: 
+- hosts: localhost
+  roles:
     - rsnapshot

@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean requirements letsencrypt rsnapshot upgrade websites workstation zoneminder
+.PHONY: clean letsencrypt requirements rsnapshot upgrade websites workstation zoneminder
 
 workstation: requirements
 	ansible-playbook --ask-become-pass workstation.yml
