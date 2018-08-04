@@ -3,7 +3,6 @@
   hosts: localhost
   roles:
     - base
-    - nginx
-    - letsencrypt
-    - nginx # On first run only, certs don't exist until letsencrypt has completed, so run nginx again to install the certs.
+    - letsencrypt-nginx
+    # On first run only, certs don't exist until letsencrypt has completed, so run nginx again to install the certs.
     - zoneminder
