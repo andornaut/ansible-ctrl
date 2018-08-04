@@ -2,7 +2,4 @@
 - hosts: webservers
   roles:
     - base
-    # On first run only, certs don't exist until letsencrypt has completed,
-    # so run nginx again after letsencrypt
-    - nginx
-    - letsencrypt
+    - letsencrypt-nginx
