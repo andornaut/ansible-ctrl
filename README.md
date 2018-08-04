@@ -1,6 +1,6 @@
 # ansible-workstation
 
-Provision a workstation using Ansible.
+Provision a workstation using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
@@ -21,6 +21,20 @@ make zoneminder
 
 The `make workstation` target will run the [workstation](./workstation.yml) playbook.
 This playbook will prompt you to choose which of its roles to include.
+
+## Configuration
+
+See default variables:
+
+- [ansible-role-base](https://github.com/andornaut/ansible-role-base/blob/master/defaults/main.yml)
+- [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm/blob/master/defaults/main.yml)
+- [ansible-role-desktop](./roles/desktop/defaults/main.yml)
+- [ansible-role-dev](./roles/dev/defaults/main.yml)
+- [ansible-role-docker](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml)
+- [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml)
+- [ansible-role-nas](./roles/nas/defaults/main.yml)
+- [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml)
+- [ansible-role-zoneminder](https://github.com/andornaut/ansible-role-zoneminder)
 
 ## Example Ansible `hosts` file
 
@@ -45,7 +59,7 @@ example.com
 head -c 256 /dev/random > keyfile
 
 # Create LUKS devices
-device=/dev/...
+device=/dev/disk/by-id/...
 cryptsetup luksFormat ${device}
 
 # Add a key-file (which can be used instead of the passphrase created above)
@@ -67,12 +81,8 @@ mount \
 btrfs filesystem show /media/nas
 ```
 
-## Related projects
+Mounting [a degraded array](https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_with_Multiple_Devices#Replacing_failed_devices):
 
-* [ansible-role-base](https://github.com/andornaut/ansible-role-base)
-* [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm)
-* [ansible-role-docker](https://github.com/andornaut/ansible-role-docker)
-* [ansible-role-letsencrypt](https://github.com/andornaut/ansible-role-letsencrypt)
-* [ansible-role-nginx](https://github.com/andornaut/ansible-role-nginx)
-* [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot)
-* [ansible-role-zoneminder](https://github.com/andornaut/ansible-role-zoneminder)
+```bash
+mount -o degraded /dev/mapper/left /media/left
+```
