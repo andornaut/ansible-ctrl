@@ -50,7 +50,7 @@ ls -1p "${mount_dir}" | \
     xargs -I {} rm -rf -- "${mount_dir}/{}"
 
 echo "Starting backup"
-rsync --archive --delete "${backup_dir}" "${target_dir}"
+rsync --archive --delete --human-readable "${backup_dir}" "${target_dir}"
 
 tree -L 2 "${mount_dir}"
 
