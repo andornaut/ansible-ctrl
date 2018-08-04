@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+[[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
+[[ $# -eq 1 ]] || { echo "Usage: $(basename "${0}") luksName">&2; exit 1; }
+
+name="${1}"
+
+# May not be mounted
+mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${name}")" || true
+if [[ -n "${mount_dirs}" ]]; then
+	for mount_dir in "${mount_dirs}"; do
+	    umount "${mount_dir}"
+	done
+fi
+
+cryptsetup luksClose "${name}"
