@@ -14,7 +14,7 @@ is_mapped() {
 }
 
 open_luks() {
-    cryptsetup --key-file ${key_file} luksOpen ${device} ${name}
+    cryptsetup --key-file "${key_file}" luksOpen ${device} ${name}
 }
 
 is_mapped || open_luks

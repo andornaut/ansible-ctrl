@@ -54,5 +54,4 @@ rsync --archive --delete "${backup_dir}" "${target_dir}"
 
 tree -L 2 "${mount_dir}"
 
-echo "Closing LUKS device ${name}"
 closeluks ${name}

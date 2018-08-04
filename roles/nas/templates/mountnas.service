@@ -7,4 +7,3 @@ ExecStart=/usr/local/bin/mountnas
 
 [Install]
 WantedBy=home-{{ ansible_env.USER }}.mount
-
