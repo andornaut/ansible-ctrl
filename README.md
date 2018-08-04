@@ -48,11 +48,15 @@ head -c 256 /dev/random > keyfile
 device=/dev/...
 cryptsetup luksFormat ${device}
 
+# Add a key-file (which can be used instead of the passphrase created above)
+keyfile=/home/...
+cryptsetup luksAddKey ${device} ${keyfile}
+
 # Map the container to /dev/mapper/left
-cryptsetup luksOpen ${device} left
+cryptsetup luksOpen --key-file ${keyfile} ${device} left
 
 # Create BTRFS raid1 array
-mkfs.btrfs -m raid1 -d raid1 /dev/mapper/left -d /dev/mapper/right
+mkfs.btrfs -m raid1 -d raid1 /dev/mapper/left /dev/mapper/right
 ```
 
 ## Related projects
