@@ -4,7 +4,7 @@ Provision a workstation using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.4.2
+* [Ansible](https://www.ansible.com/) >= 2.5.0 (you can [install the latest version using pip](https://docs.ansible.com/ansible/2.5/installation_guide/intro_installation.html#latest-releases-via-pip)
 * [Make](https://www.gnu.org/software/make/)
 * Ubuntu >= 16.04
 
@@ -85,4 +85,11 @@ Mounting [a degraded array](https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_
 
 ```bash
 mount -o degraded /dev/mapper/left /media/left
+```
+
+Umount a luks device
+
+```bash
+umount /media/usb
+cryptsetup luksClose /dev/mapper/usb
 ```

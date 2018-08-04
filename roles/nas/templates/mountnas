@@ -3,18 +3,18 @@
 set -e
 
 if [[ $# -eq 6 ]]; then
-    name_left="${1}"
-    device_left="${2}"
-    name_right="${3}"
-    device_right="${4}"
+    name_a="${1}"
+    device_a="${2}"
+    name_b="${3}"
+    device_b="${4}"
     key_file="${5}"
     mount_dir="${6}"
 elif [[ $# -eq 0 ]]; then
-    name_left=left
-    device_left="{{ nas_raid1_left_device }}" # /dev/sdb
-    name_right=right
-    device_right="{{ nas_raid1_right_device }}" # /dev/sdc
-    key_file="{{ nas_raid1_key_file }}"
+    name_a=nas-raid1-a
+    device_a="{{ nas_device_raid1_a }}" # /dev/sdb
+    name_b=nas-raid1-b
+    device_b="{{ nas_device_raid1_b }}" # /dev/sdc
+    key_file="{{ nas_key_file }}"
     mount_dir="{{ nas_mount_directory }}"
 else
     echo "Usage: $(basename "${0}") left /dev/sda right /dev/sdb /luks/key/file /media/nas" >&2
@@ -22,22 +22,12 @@ else
 fi
 
 [[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
-[[ ! "$(ls -A "${mount_dir}")" ]] || { echo "${mount_dir} is not empty">&2; exit 1; }
+[[ ! "$(ls -A "${mount_dir}")" ]] || { echo "Mount dir must be empty: ${mount_dir}">&2; exit 1; }
 
-is_mapped() {
-	local name=$1
-	cryptsetup status ${name} >/dev/null
-}
+openluks "${name_a}" "${device_a}" "${key_file}"
+openluks "${name_b}" "${device_b}" "${key_file}"
 
-open_luks() {
-	local name=$1
-	local device=$2
-	cryptsetup --key-file ${key_file} luksOpen ${device} ${name}
-}
-
-is_mapped ${name_left} || open_luks ${name_left} ${device_left} || { echo 'Failed to open luks device'>&2; exit 1; }
-is_mapped ${name_right} || open_luks ${name_right} ${device_right} || { echo 'Failed to open luks device'>&2; exit 1; }
 mount \
-    -t btrfs /dev/mapper/${name_left} \
-    -o device=/dev/mapper/${name_left},device=/dev/mapper/${name_right} \
+    -t btrfs /dev/mapper/${name_a} \
+    -o device=/dev/mapper/${name_a},device=/dev/mapper/${name_b} \
     ${mount_dir}

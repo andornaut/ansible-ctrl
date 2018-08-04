@@ -1,13 +1,25 @@
 ---
-- name: Install local templated scripts
+- name: Install templated scripts
   template:
     src: "{{ item }}"
     dest: "/usr/local/bin/{{ item }}"
     mode: 0755
   with_items:
-    - backupusb
+    - backupnas
     - mountnas
   become: true
+
+- name: Install scripts
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: 0755
+  with_items:
+    - closeluks
+    - openluks
+  become: true
+  delegate_to: localhost
+
 
 - name: Copy mountnas systemd unit file
   template:
