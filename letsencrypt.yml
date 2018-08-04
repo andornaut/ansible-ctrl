@@ -10,7 +10,7 @@
         state: restarted
       become: true
 
-- name: Set Let's Encrypt renewal schedule
+- name: Set Let's Encrypt renewal crontab
   hosts: localhost
   tasks:
     - cron:

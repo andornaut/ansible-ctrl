@@ -1,0 +1,25 @@
+---
+- name: Install local templated scripts
+  template:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: 0755
+  with_items:
+    - backupusb
+    - mountnas
+  become: true
+
+- name: Copy mountnas systemd unit file
+  template:
+    src: mountnas.service
+    dest: /etc/systemd/system/
+  become: true
+  notify: restart mountnas
+
+- name: Start mountnas service on boot
+  systemd:
+    name: mountnas
+    daemon_reload: yes
+    state: started
+    enabled: yes
+  become: true
