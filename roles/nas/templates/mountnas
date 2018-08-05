@@ -11,13 +11,13 @@ if [[ $# -eq 6 ]]; then
     mount_dir="${6}"
 elif [[ $# -eq 0 ]]; then
     name_a=nas-raid1-a
-    device_a="{{ nas_device_raid1_a }}" # /dev/sdb
+    device_a="{{ nas_device_raid1_a }}"
     name_b=nas-raid1-b
-    device_b="{{ nas_device_raid1_b }}" # /dev/sdc
+    device_b="{{ nas_device_raid1_b }}"
     key_file="{{ nas_key_file }}"
     mount_dir="{{ nas_mount_directory }}"
 else
-    echo "Usage: $(basename "${0}") left /dev/sda right /dev/sdb /luks/key/file /media/nas" >&2
+    echo "Usage: $(basename "${0}") luksNameA /dev/sda luksNameB /dev/sdb /luks/key/file /media/nas">&2
     exit 1
 fi
 

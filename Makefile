@@ -1,16 +1,13 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean letsencrypt requirements rsnapshot upgrade websites workstation zoneminder
+.PHONY: clean requirements rsnapshot upgrade webservers workstation zoneminder
 
 workstation: requirements
 	ansible-playbook --ask-become-pass workstation.yml
 
 clean:
 	rm -rf .roles
-
-letsencrypt: requirements
-	ansible-playbook --ask-become-pass letsencrypt.yml
 
 requirements:
 	ansible-galaxy install -p .roles/ -r requirements.yml
@@ -21,8 +18,8 @@ rsnapshot: requirements
 upgrade: requirements
 	ansible-playbook --ask-become-pass upgrade.yml
 
-websites: requirements
-	ansible-playbook --ask-become-pass websites.yml
+webservers: requirements
+	ansible-playbook --ask-become-pass webservers.yml
 
 zoneminder: requirements
 	ansible-playbook --ask-become-pass zoneminder.yml

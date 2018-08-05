@@ -2,6 +2,7 @@
 - name: Configure Let's Encrypt and Nginx
   hosts: webservers
   roles:
+    - base
     - letsencrypt-nginx
   tasks:
     - name: Restart Nginx
@@ -14,10 +15,10 @@
   hosts: localhost
   tasks:
     - cron:
-        name: letsencrypt
+        name: webservers
         cron_file: /etc/crontab
         user: root
         minute: "11"
         hour: "22"
-        job: cd {{ playbook_dir }} && ansible-playbook letsencrypt.yml > /dev/null
+        job: cd {{ playbook_dir }} && ansible-playbook webservers.yml > /dev/null
       become: true
