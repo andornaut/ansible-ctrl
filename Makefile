@@ -3,9 +3,6 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := workstation
 .PHONY: clean requirements rsnapshot upgrade webservers workstation zoneminder
 
-workstation: requirements
-	ansible-playbook --ask-become-pass workstation.yml
-
 clean:
 	rm -rf .roles
 
@@ -20,6 +17,9 @@ upgrade: requirements
 
 webservers: requirements
 	ansible-playbook --ask-become-pass webservers.yml
+
+workstation: requirements
+	ansible-playbook --ask-become-pass workstation.yml
 
 zoneminder: requirements
 	ansible-playbook --ask-become-pass zoneminder.yml
