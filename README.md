@@ -11,10 +11,9 @@ Provision a workstation using [Ansible](https://www.ansible.com/).
 ## Usage
 
 ```
-make letsencrypt
 make rsnapshot
 make upgrade
-make websites
+make webservers
 make workstation
 make zoneminder
 ```
