@@ -17,7 +17,7 @@ elif [[ $# -eq 0 ]]; then
     key_file="{{ nas_key_file }}"
     backup_dir="{{ nas_backup_directory }}"
 else
-    echo "Usage: $(basename "${0}") luksName /dev/sda /key/file /media/nas/backups">&2
+    echo "Usage: $(basename "${0}") luksName /dev/sda /luks/key/file /media/nas/backups">&2
     exit 1
 fi
 

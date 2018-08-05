@@ -1,5 +1,0 @@
----
-- hosts: webservers
-  roles:
-    - base
-    - letsencrypt-nginx
