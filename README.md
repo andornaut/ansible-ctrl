@@ -33,7 +33,7 @@ See default variables:
 - [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml)
 - [ansible-role-nas](./roles/nas/defaults/main.yml)
 - [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml)
-- [ansible-role-zoneminder](https://github.com/andornaut/ansible-role-zoneminder)
+- [ansible-role-zoneminder](https://github.com/andornaut/ansible-role-zoneminder/blob/master/defaults/main.yml)
 
 ## Example Ansible `hosts` file
 

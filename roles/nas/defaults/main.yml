@@ -1,8 +1,8 @@
 ---
 nas_backup_directory: /media/nas/backups
 nas_backup_directories_retention: 10
-nas_device_backup:
-nas_device_raid1_a:
-nas_device_raid1_b:
+#nas_device_backup:
+#nas_device_raid1_a:
+#nas_device_raid1_b:
 nas_key_file: "${HOME}/.luks-raid1-key"
 nas_mount_directory: /media/nas
