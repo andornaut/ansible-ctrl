@@ -21,6 +21,13 @@ else
     exit 1
 fi
 
+mount_device="/dev/mapper/${name_a}"
+
+if [[ "$(findmnt -rno SOURCE "${mount_dir}")" == "${mount_device}" ]]; then
+    # Already mounted
+    exit
+fi
+
 [[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
 [[ ! "$(ls -A "${mount_dir}")" ]] || { echo "Mount dir must be empty: ${mount_dir}">&2; exit 1; }
 
@@ -28,6 +35,6 @@ openluks "${name_a}" "${device_a}" "${key_file}"
 openluks "${name_b}" "${device_b}" "${key_file}"
 
 mount \
-    -t btrfs /dev/mapper/${name_a} \
+    -t btrfs "${mount_device}" \
     -o device=/dev/mapper/${name_a},device=/dev/mapper/${name_b} \
     ${mount_dir}
