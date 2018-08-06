@@ -4,7 +4,7 @@ Provision a workstation using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.5.0 (you can [install the latest version using pip](https://docs.ansible.com/ansible/2.5/installation_guide/intro_installation.html#latest-releases-via-pip))
+* [Ansible](https://www.ansible.com/) >= 2.6.0 (you can [install the latest version using pip](https://docs.ansible.com/ansible/2.5/installation_guide/intro_installation.html#latest-releases-via-pip))
 * [Make](https://www.gnu.org/software/make/)
 * Ubuntu >= 16.04
 
