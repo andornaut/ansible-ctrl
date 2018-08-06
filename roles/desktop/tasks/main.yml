@@ -84,7 +84,7 @@
 - import_tasks: dunst.yml
 
 - include_tasks: insync.yml
-  when: install_insync
+  when: desktop_install_insync
 
 - import_tasks: spotify.yml
 
