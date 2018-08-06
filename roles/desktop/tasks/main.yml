@@ -83,7 +83,7 @@
 - import_tasks: dunst.yml
 
 - include_tasks: insync.yml
-  when: ansible_distribution_release == 'xenial' and install_insync
+  when: install_insync
 
 - import_tasks: spotify.yml
 
