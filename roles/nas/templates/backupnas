@@ -29,11 +29,11 @@ echo "Backup dir: ${backup_dir}"
 openluks "${name}" "${device}" "${key_file}"
 
 if mount_dir="$(findmnt -rno TARGET "/dev/mapper/${name}")"; then
-	# It may be mounted to multiple mount points, so take the first one.
-	mount_dir="$(echo -n "${mount_dir}"|head -1)"
+    # It may be mounted to multiple mount points, so take the first one.
+    mount_dir="$(echo -n "${mount_dir}"|head -1)"
 else
-	mount_dir="$(mktemp -d)"
-	mount /dev/mapper/${name} ${mount_dir}
+    mount_dir="$(mktemp -d)"
+    mount /dev/mapper/${name} ${mount_dir}
 fi
 echo "Mount dir: ${mount_dir}"
 
