@@ -45,6 +45,7 @@
     - python-psutil
     - scrot
     - shared-mime-info
+    - software-properties-gtk
     - solaar
     - spacefm
     - suckless-tools
