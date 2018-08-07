@@ -16,7 +16,6 @@
     update_cache: yes
   become: true
   with_items:
-  - bsd-mailx
   - msmtp
   - s-nail
 
