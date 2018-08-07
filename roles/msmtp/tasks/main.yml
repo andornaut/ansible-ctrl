@@ -1,0 +1,38 @@
+---
+- name: Install system packages
+  apt:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  become: true
+  with_items:
+  - bsd-mailx
+  - msmtp
+  - s-nail
+
+- name: Copy msmtp config file
+  template:
+    src: msmtprc
+    dest: /etc/
+    owner: root
+    group: root
+    mode: 0600
+  become: true
+
+- name: Copy /etc/aliases
+  template:
+    src: aliases
+    dest: /etc/
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+
+- name: Set msmtp as sendmail MTA
+  copy:
+    src: mail.rc
+    dest: /etc/
+    owner: root
+    group: root
+    mode: 0644
+  become: true

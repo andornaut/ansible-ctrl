@@ -19,6 +19,9 @@
     - name: run_games
       prompt: games
       default: y
+    - name: run_msmtp
+      prompt: msmtp
+      default: y
     - name: run_nas
       prompt: nas
       default: y
@@ -35,5 +38,7 @@
       when: run_docker == "y"
     - role: games
       when: run_games == "y"
+    - role: msmtp
+      when: run_msmtp == "y"
     - role: nas
       when: run_nas == "y"

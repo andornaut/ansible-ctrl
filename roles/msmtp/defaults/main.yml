@@ -1,0 +1,7 @@
+---
+msmtp_host: smtp.gmail.com
+msmtp_port: 587
+#msmtp_domain:
+#msmtp_user:
+#msmtp_password_INSECURE:
+msmtp_send_all_email_to: admin@{{ msmtp_domain }}
