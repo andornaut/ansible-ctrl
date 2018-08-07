@@ -50,7 +50,7 @@
   lineinfile:
     path: /etc/s-nail.rc
     regexp: '^set\ sendmail'
-    line: 'set sendmail /usr/bin/msmtp'
+    line: 'set sendmail="/usr/bin/msmtp"'
   become: true
 
 - name: Link sendmail to msmtp
