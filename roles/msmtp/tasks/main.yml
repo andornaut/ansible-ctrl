@@ -45,3 +45,12 @@
     group: root
     mode: 0644
   become: true
+
+- name: Link sendmail to msmtp
+  file:
+    src: /usr/bin/msmtp
+    dest: /usr/sbin/sendmail
+    owner: root
+    group: root
+    state: link
+  become: true
