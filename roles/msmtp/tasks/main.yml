@@ -49,7 +49,7 @@
 - name: Set msmtp as sendmail MTA in s-nail
   lineinfile:
     path: /etc/s-nail.rc
-    regexp: '^set\ sendmail'
+    regexp: '^set sendmail'
     line: 'set sendmail="/usr/bin/msmtp"'
   become: true
 
