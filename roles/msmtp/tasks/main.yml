@@ -1,4 +1,14 @@
 ---
+- name: Uninstall MTAs
+  apt:
+    name: "{{ item }}"
+    state: absent
+  become: true
+  with_items:
+  - exim
+  - postfix
+  - sendmail
+
 - name: Install system packages
   apt:
     name: "{{ item }}"
