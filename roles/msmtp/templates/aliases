@@ -1,0 +1,5 @@
+postmaster:  {{ msmtp_send_all_email_to }}
+root: {{ msmtp_send_all_email_to }}
+
+# https://marlam.de/msmtp/msmtp.html#Commands-specific-to-sendmail-mode
+default: {{ msmtp_send_all_email_to }}
