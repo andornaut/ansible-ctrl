@@ -16,11 +16,6 @@
     mode: 0755
   become: true
 
-- name: Install BASH completion for kubectl
-  lineinfile:
-    path: "{{ dev_bashrc_path }}"
-    line: 'source <(kubectl completion bash)'
-
 - name: Install minikube
   get_url:
     url: "https://storage.googleapis.com/minikube/releases/v0.21.0/minikube-linux-amd64"
