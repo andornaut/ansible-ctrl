@@ -24,7 +24,7 @@
     src: msmtprc
     dest: /etc/
     owner: root
-    group: mail
+    group: root
     mode: 0644
   become: true
 
