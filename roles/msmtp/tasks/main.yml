@@ -24,8 +24,8 @@
     src: msmtprc
     dest: /etc/
     owner: root
-    group: root
-    mode: 0600
+    group: mail
+    mode: 0660
   become: true
 
 - name: Copy /etc/aliases
