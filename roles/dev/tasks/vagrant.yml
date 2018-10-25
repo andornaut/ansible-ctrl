@@ -35,9 +35,8 @@
 
 - name: Download Vagrant (workaround https://github.com/ansible/ansible/issues/25402)
   get_url:
-    url: https://releases.hashicorp.com/vagrant/1.9.5/vagrant_1.9.5_x86_64.deb
+    url: https://releases.hashicorp.com/vagrant/2.2.0/vagrant_2.2.0_x86_64.deb
     dest: /tmp/vagrant.deb
-    validate_certs: no # This sometimes fails with SSL errors.
 
 - name: Install Vagrant
   apt:
