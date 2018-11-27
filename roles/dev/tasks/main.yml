@@ -39,4 +39,6 @@
 
 - import_tasks: kubernetes.yml
 
+- import_tasks: python3.7.yml
+
 - import_tasks: vagrant.yml
