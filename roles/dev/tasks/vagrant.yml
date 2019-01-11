@@ -48,7 +48,6 @@
   command: vagrant plugin install {{ item }}
   with_items:
     - vagrant-address
-    - winrm
   when: install_vagrant.changed
   become: true
 
