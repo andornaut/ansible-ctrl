@@ -1,5 +1,5 @@
 ---
 dev_bashrc_path: "{{ ansible_env.HOME }}/.bashrc"
 dev_jetbrains_applications:
-- { name: idea, version: '2018.3.1',  url_prefix: 'https://download.jetbrains.com/idea/ideaIC-' }
-- { name: pycharm, version: '2018.3.1', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
+- { name: idea, version: '2018.3.4',  url_prefix: 'https://download.jetbrains.com/idea/ideaIC-' }
+- { name: pycharm, version: '2018.3.4', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
