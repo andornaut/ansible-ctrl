@@ -35,13 +35,23 @@
 
 - name: Download Vagrant (workaround https://github.com/ansible/ansible/issues/25402)
   get_url:
-    url: https://releases.hashicorp.com/vagrant/2.2.0/vagrant_2.2.0_x86_64.deb
+    url: https://releases.hashicorp.com/vagrant/2.2.4/vagrant_2.2.4_x86_64.deb
     dest: /tmp/vagrant.deb
+  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
 
-- name: Install Vagrant
+- name: Install Vagrant (legacy)
   apt:
     deb: /tmp/vagrant.deb
   register: install_vagrant
+  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
+  become: true
+
+- name: Install Vagrant
+  apt:
+    name: vagrant
+    state: latest
+    update_cache: yes
+  when: ansible_distribution_release not in ('bionic', 'artful', 'zesty', 'yakkety')
   become: true
 
 - name: Install Vagrant plugins
