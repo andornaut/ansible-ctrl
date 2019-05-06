@@ -23,9 +23,9 @@
   - python-pip
   - python-virtualenv
   - ruby
-  #- virtualbox
-  #- virtualbox-guest-dkms
-  #- virtualbox-dkms
+  - virtualbox
+  - virtualbox-guest-dkms
+  - virtualbox-dkms
   - virtualenvwrapper
   - xserver-xephyr
 
@@ -40,6 +40,7 @@
 - import_tasks: kubernetes.yml
 
 # Doesn't work in ubuntu 18.10
-#- import_tasks: python3.7.yml
+- import_tasks: python3.7.yml
+  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
 
 - import_tasks: vagrant.yml
