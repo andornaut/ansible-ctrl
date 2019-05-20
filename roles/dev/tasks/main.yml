@@ -8,7 +8,7 @@
   with_items:
   - ant
   - git
-  - golang
+  - golang-1.12
   - jq
   - libmysqlclient-dev
   - libxml2-dev
@@ -39,7 +39,7 @@
 
 - import_tasks: kubernetes.yml
 
-# Doesn't work in ubuntu 18.10
+# Doesn't work in ubuntu >=18.10
 - import_tasks: python3.7.yml
   when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
 
