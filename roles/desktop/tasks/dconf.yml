@@ -1,4 +1,11 @@
 ---
+- name: Install system packages
+  apt:
+    name: dconf-cli
+    state: latest
+    update_cache: yes
+  become: true
+
 - name: Upgrade psutil (required by ansible dconf module)
   pip:
     name: psutil
@@ -16,7 +23,7 @@
     key: "/org/gnome/desktop/input-sources/sources"
     value: "[('xkb', 'us')]"
     state: present
-  
+
 - name: Disable ibus-daemon keyboard shortcuts
   dconf:
     key: "/org/gnome/settings-daemon/plugins/keyboard/active"
