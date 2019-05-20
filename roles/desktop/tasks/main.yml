@@ -7,7 +7,6 @@
   with_items:
     - adwaita-icon-theme-full
     - audacity
-    - dconf-tools
     - desktop-file-utils
     - feh
     - filezilla
@@ -40,7 +39,6 @@
     - libudev-dev
     - libudev1
     - libx11-6
-    - lightdm
     - pkg-config
     - python-psutil
     - scrot
@@ -52,6 +50,7 @@
     - thunderbird
     - ttf-dejavu
     - ttf-mscorefonts-installer
+    - ubuntu-drivers-common
     - udevil
     - usb-creator-gtk
     - vlc
@@ -86,8 +85,8 @@
 - include_tasks: insync.yml
   when: desktop_install_insync
 
-- import_tasks: spotify.yml
-
 - import_tasks: mscorefonts.yml
 
 - import_tasks: source-code-pro.yml
+
+- import_tasks: spotify.yml

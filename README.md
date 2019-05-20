@@ -8,6 +8,11 @@ Provision a workstation using [Ansible](https://www.ansible.com/).
 * [Make](https://www.gnu.org/software/make/)
 * Ubuntu >= 16.04
 
+Create a file in the project root named "hosts":
+```
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+```
+
 ## Usage
 
 ```
