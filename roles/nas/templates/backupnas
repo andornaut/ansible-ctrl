@@ -55,3 +55,14 @@ rsync --archive --delete --human-readable "${backup_dir}" "${target_dir}"
 tree -L 2 "${mount_dir}"
 
 closeluks ${name}
+
+echo -e '\nDone\n'
+
+echo Open with:
+echo "openluks '${name}' '${device}' '${key_file}'"
+echo mkdir /tmp/backup
+echo "mount /dev/mapper/${name} /tmp/backup"
+echo cd /tmp/backup
+echo
+echo Close:
+echo "closeluks ${name}"
