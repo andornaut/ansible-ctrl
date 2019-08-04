@@ -65,4 +65,5 @@ echo "mount /dev/mapper/${name} /tmp/backup"
 echo cd /tmp/backup
 echo
 echo Close:
+echo umount /tmp/backup
 echo "closeluks ${name}"
