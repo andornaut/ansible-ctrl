@@ -2,8 +2,8 @@
 - name: Install Zoneminder
   hosts: localhost
   roles:
-    - base
+    #- base
     #- docker
-    - letsencrypt-nginx
+    #- letsencrypt-nginx
     # On first run only, certs don't exist until letsencrypt has completed, so run nginx again to install the certs.
     - zoneminder
