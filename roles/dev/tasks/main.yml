@@ -14,10 +14,9 @@
       - mysql-client
       - node-less
       - postgresql-client
-      - python
-      - python-dev
-      - python-pip
       - python-virtualenv
+      - python2
+      - python2-dev
       - python3-pip
       - python3-virtualenvwrapper
       - ruby
@@ -42,6 +41,6 @@
 
 # Doesn't work in ubuntu >=18.10
 - import_tasks: python3.7.yml
-  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
+  when: ansible_distribution_major_version in ('16', '18')
 
 - import_tasks: vagrant.yml

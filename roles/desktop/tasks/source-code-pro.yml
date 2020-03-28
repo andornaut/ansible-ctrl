@@ -1,14 +1,14 @@
 ---
 - name: Download and extract soure-code-pro package
   unarchive:
-    src: 'https://github.com/adobe-fonts/source-code-pro/archive/variable-fonts.zip'
+    src: 'https://github.com/adobe-fonts/source-code-pro/archive/1.010R.zip'
     dest: /tmp
     remote_src: yes
-    creates: /tmp/variable-fonts.zip
+    creates: /tmp/1.010R.zip
 
 - name: Copy source-code-pro TTF files
   copy:
-    src: /tmp/variable-fonts/TTF/
+    src: /tmp/source-code-pro-1.010R/TTF/
     dest: /usr/share/fonts/truetype/source-code-pro
   delegate_to: "{{ inventory_hostname }}"
   notify: update font cache
