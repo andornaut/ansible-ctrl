@@ -1,33 +1,34 @@
 ---
 - name: Install system packages
   apt:
-    name: "{{ item }}"
+    name:
+      - ant
+      - git
+      - golang
+      - jq
+      - libmysqlclient-dev
+      - libxml2-dev
+      - libxslt-dev
+      - meld
+      - mercurial
+      - mysql-client
+      - node-less
+      - postgresql-client
+      - python
+      - python-dev
+      - python-pip
+      - python-virtualenv
+      - python3-pip
+      - python3-virtualenvwrapper
+      - ruby
+      - virtualbox
+      - virtualbox-dkms
+      - virtualbox-guest-dkms
+      - virtualenvwrapper
+      - xserver-xephyr
     state: latest
     update_cache: yes
   become: true
-  with_items:
-  - ant
-  - git
-  - golang-1.12
-  - jq
-  - libmysqlclient-dev
-  - libxml2-dev
-  - libxslt-dev
-  - meld
-  - mercurial
-  - mysql-client
-  - node-less
-  - postgresql-client
-  - python
-  - python-dev
-  - python-pip
-  - python-virtualenv
-  - ruby
-  - virtualbox
-  - virtualbox-guest-dkms
-  - virtualbox-dkms
-  - virtualenvwrapper
-  - xserver-xephyr
 
 - name: Upgrade pip
   pip:

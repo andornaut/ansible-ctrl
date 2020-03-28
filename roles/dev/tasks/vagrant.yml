@@ -1,63 +1,39 @@
 ---
-- name: Install system packages
-  apt:
-    name: "{{ item }}"
-    state: latest
-    update_cache: yes
-  with_items:
-    - bsdtar
-    - redir
-    - ruby-childprocess
-    - ruby-dev
-    - ruby-domain-name
-    - ruby-erubis
-    - ruby-ffi
-    - ruby-http-cookie
-    - ruby-i18n
-    - ruby-listen
-    - ruby-log4r
-    - ruby-mime-types
-    - ruby-net-scp
-    - ruby-net-sftp
-    - ruby-net-ssh
-    - ruby-rb-inotify
-    - ruby-rest-client
-    - ruby-sqlite3
-    - ruby-unf
-    - ruby-unf-ext
-  become: true
-
 - name: Install winrm gem
   gem:
     name: winrm
     state: latest
   become: true
 
-- name: Download Vagrant (workaround https://github.com/ansible/ansible/issues/25402)
-  get_url:
-    url: https://releases.hashicorp.com/vagrant/2.2.4/vagrant_2.2.4_x86_64.deb
-    dest: /tmp/vagrant.deb
-  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
-
-- name: Install Vagrant (legacy)
+- name: Install system packages
   apt:
-    deb: /tmp/vagrant.deb
-  register: install_vagrant
-  when: ansible_distribution_release in ('bionic', 'artful', 'zesty', 'yakkety')
-  become: true
-
-- name: Install Vagrant
-  apt:
-    name: vagrant
+    name:
+      - bsdtar
+      - redir
+      - ruby-childprocess
+      - ruby-dev
+      - ruby-domain-name
+      - ruby-erubis
+      - ruby-ffi
+      - ruby-http-cookie
+      - ruby-i18n
+      - ruby-listen
+      - ruby-log4r
+      - ruby-mime-types
+      - ruby-net-scp
+      - ruby-net-sftp
+      - ruby-net-ssh
+      - ruby-rb-inotify
+      - ruby-rest-client
+      - ruby-sqlite3
+      - ruby-unf
+      - ruby-unf-ext
+      - vagrant
     state: latest
     update_cache: yes
-  when: ansible_distribution_release not in ('bionic', 'artful', 'zesty', 'yakkety')
   become: true
 
 - name: Install Vagrant plugins
-  command: vagrant plugin install {{ item }}
-  with_items:
-    - vagrant-address
+  command: vagrant plugin install vagrant-address
   when: install_vagrant.changed
   become: true
-
