@@ -1,23 +1,21 @@
 ---
 - name: Uninstall MTAs
   apt:
-    name: "{{ item }}"
+    name:
+      - exim
+      - postfix
+      - sendmail
     state: absent
   become: true
-  with_items:
-  - exim
-  - postfix
-  - sendmail
 
 - name: Install system packages
   apt:
-    name: "{{ item }}"
+    name:
+      - msmtp
+      - s-nail
     state: latest
     update_cache: yes
   become: true
-  with_items:
-  - msmtp
-  - s-nail
 
 - name: Copy msmtp config file
   template:
@@ -31,6 +29,15 @@
 - name: Copy /etc/aliases
   template:
     src: aliases
+    dest: /etc/
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+
+- name: Copy /etc/mailname
+  template:
+    src: mailname
     dest: /etc/
     owner: root
     group: root
