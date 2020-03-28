@@ -8,7 +8,6 @@
 - name: Install system packages
   apt:
     name:
-      - bsdtar
       - redir
       - ruby-childprocess
       - ruby-dev
@@ -31,9 +30,10 @@
       - vagrant
     state: latest
     update_cache: yes
+  register: apt_install
   become: true
 
 - name: Install Vagrant plugins
   command: vagrant plugin install vagrant-address
-  when: install_vagrant.changed
+  when: apt_install.changed
   become: true

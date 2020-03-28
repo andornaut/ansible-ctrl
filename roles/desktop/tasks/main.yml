@@ -78,10 +78,11 @@
 - import_tasks: dunst.yml
 
 - include_tasks: insync.yml
-  when: desktop_install_insync
+  when: desktop_install_insync and ansible_distribution_major_version in ('16', '18')
 
 - import_tasks: mscorefonts.yml
 
 - import_tasks: source-code-pro.yml
 
 - import_tasks: spotify.yml
+  when: ansible_distribution_major_version in ('16', '18')
