@@ -1,70 +1,65 @@
 ---
 - name: Install system packages
   apt:
-    name: "{{ item }}"
+    name:
+      - adwaita-icon-theme-full
+      - audacity
+      - desktop-file-utils
+      - feh
+      - filezilla
+      - firefox
+      - gimp
+      - gksu
+      - gnome-disk-utility
+      - gnome-keyring
+      - gnome-themes-standard
+      - gtk-redshift
+      - gtk-theme-switch
+      - gtk2-engines
+      - gtk2-engines-murrine
+      - gtk2-engines-pixbuf
+      - hsetroot
+      - inkscape
+      - intltool
+      - libc6
+      - libcairo2
+      - libglib2.0-0
+      - libglib2.0-dev
+      - libgtk2.0-0
+      - libgtk2.0-bin
+      - libgtk2.0-dev
+      - libpango1.0-0
+      - libreoffice
+      - libsecret-1-0
+      - libsecret-tools
+      - libudev-dev
+      - libudev1
+      - libx11-6
+      - pkg-config
+      - scrot
+      - shared-mime-info
+      - software-properties-gtk
+      - solaar
+      - spacefm
+      - suckless-tools
+      - ttf-dejavu
+      - ttf-mscorefonts-installer
+      - ubuntu-drivers-common
+      - udevil
+      - usb-creator-gtk
+      - vlc
+      - wireshark
+      - x11-xserver-utils
+      - xautolock
+      - xcompmgr
+      - xdotool
+      - xfonts-terminus
+      - xorg
+      - xss-lock
+      - xul-ext-calendar-timezones
+      - xul-ext-lightning
     state: latest
     update_cache: yes
-  with_items:
-    - adwaita-icon-theme-full
-    - audacity
-    - desktop-file-utils
-    - feh
-    - filezilla
-    - firefox
-    - gimp
-    - gksu
-    - gnome-control-center
-    - gnome-disk-utility
-    - gnome-keyring
-    - gnome-themes-standard
-    - gtk-redshift
-    - gtk-theme-switch
-    - gtk2-engines
-    - gtk2-engines-murrine
-    - gtk2-engines-pixbuf
-    - hsetroot
-    - inkscape
-    - intltool
-    - libc6
-    - libcairo2
-    - libglib2.0-0
-    - libglib2.0-dev
-    - libgtk2.0-0
-    - libgtk2.0-bin
-    - libgtk2.0-dev
-    - libpango1.0-0
-    - libreoffice
-    - libsecret-1-0
-    - libsecret-tools
-    - libudev-dev
-    - libudev1
-    - libx11-6
-    - pkg-config
-    - python-psutil
-    - scrot
-    - shared-mime-info
-    - software-properties-gtk
-    - solaar
-    - spacefm
-    - suckless-tools
-    - thunderbird
-    - ttf-dejavu
-    - ttf-mscorefonts-installer
-    - ubuntu-drivers-common
-    - udevil
-    - usb-creator-gtk
-    - vlc
-    - wireshark
-    - x11-xserver-utils
-    - xautolock
-    - xcompmgr
-    - xdotool
-    - xfce4-power-manager
-    - xfonts-terminus
-    - xorg
-    - xss-lock
-    - xul-ext-calendar-timezones
-    - xul-ext-lightning
   become: true
 
 - name: Install binary drivers
