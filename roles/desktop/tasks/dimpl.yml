@@ -1,5 +1,5 @@
 ---
-- name: Check for latest dimpl version
+- name: Get the latest dimpl version
   uri:
     url: https://api.github.com/repos/andornaut/dimpl/releases/latest
     return_content: "yes"
