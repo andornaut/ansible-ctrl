@@ -16,4 +16,3 @@
     name: spotify-client
     state: latest
   become: true
-
