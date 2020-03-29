@@ -41,6 +41,6 @@
 
 # Doesn't work in ubuntu >=18.10
 - import_tasks: python3.7.yml
-  when: ansible_distribution_major_version in ('16', '18')
+  when: ansible_distribution_major_version in ('16', '17', '18')
 
 - import_tasks: vagrant.yml
