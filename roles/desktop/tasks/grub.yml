@@ -1,0 +1,21 @@
+---
+- name: grub - show menu
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?GRUB_TIMEOUT_STYLE\s*='
+    line: 'GRUB_TIMEOUT_STYLE=menu'
+  become: true
+
+- name: grub - set timeout
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?GRUB_TIMEOUT\s*='
+    line: 'GRUB_TIMEOUT=3'
+  become: true
+
+- name: grub - clear linux command
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT=""'
+  become: true
