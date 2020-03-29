@@ -1,0 +1,59 @@
+---
+- name: Clone ly git repositories
+  git:
+    repo: "https://github.com/cylgom/ly.git"
+    dest: /tmp/ly.git
+    force: yes
+
+- name: Make github target
+  make:
+    chdir: /tmp/ly.git
+    target: github
+
+- name: Make default target
+  make:
+    chdir: /tmp/ly.git
+
+- name: Make install target
+  make:
+    chdir: /tmp/ly.git
+    target: install
+  become: true
+
+- name: Hide borders
+  lineinfile:
+    path: /etc/ly/config.ini
+    regexp: '^#?hide_borders\s*\=\s*true'
+    line: 'hide_borders = true'
+  become: true
+
+# > If you need to switch between ttys after Ly's start you also have to
+# > disable getty on Ly's tty to prevent "login" from spawning on top of it.
+# https://github.com/cylgom/ly#cloning-and-compiling
+- name: Disable other display manager services
+  systemd:
+    name: getty@tty2.service
+    daemon_reload: yes
+    state: stopped
+    enabled: no
+  become: true
+
+- name: Disable other display manager services
+  systemd:
+    name: "{{ item }}"
+    daemon_reload: yes
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  with_items:
+    - lightdm
+    - gdm3
+  become: true
+
+- name: Uninstall other display managers
+  apt:
+    name:
+      - lightdm
+      - gdm3
+    state: absent
+  become: true
