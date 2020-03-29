@@ -1,15 +1,11 @@
 ---
 - name: Install system packages
   apt:
-    name: dconf-cli
+    name:
+      - dconf-cli
+      - python-psutil
     state: latest
     update_cache: yes
-  become: true
-
-- name: Upgrade psutil (required by ansible dconf module)
-  pip:
-    name: psutil
-    state: latest
   become: true
 
 - name: Disable language switcher keyboard shortcut
