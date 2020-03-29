@@ -45,7 +45,7 @@
       - libbz2-1.0:i386
       - libgdk-pixbuf2.0-0:i386
       - libgtk2.0-0:i386
-      - libva-x11-1:i386
+      - libva-x11-2:i386
       - libva1:i386
       - libvdpau1:i386
       - libxtst6:i386
