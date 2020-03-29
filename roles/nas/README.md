@@ -1,4 +1,4 @@
-# ansible role nas
+# ansible-role-nas
 
 Mount, unmount, and backup encrypted BTRFS raid arrays.
 
