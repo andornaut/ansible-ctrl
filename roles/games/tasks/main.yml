@@ -29,10 +29,17 @@
 
 - name: Install system packages
   apt:
+    name: lutris
+    state: latest
+    update_cache: yes
+  become: true
+  when: ansible_distribution_major_version in ('16', '17', '18', '19')
+
+- name: Install system packages
+  apt:
     name:
       - higan
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
-      - lutris
       - steam
       # Libs used by Steam games
       - libbz2-1.0:i386
