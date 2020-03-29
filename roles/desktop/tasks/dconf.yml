@@ -3,7 +3,7 @@
   apt:
     name:
       - dconf-cli
-      - python-psutil
+      - python3-psutil
     state: latest
     update_cache: yes
   become: true
