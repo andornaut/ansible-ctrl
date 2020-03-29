@@ -1,4 +1,10 @@
 ---
+- name: Install build dependencies
+  apt:
+    name: libpam0g-dev
+    state: present
+  become: true
+
 - name: Clone ly git repositories
   git:
     repo: "https://github.com/cylgom/ly.git"
