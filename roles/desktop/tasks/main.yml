@@ -84,6 +84,10 @@
   when: desktop_install_insync and ansible_distribution_major_version in ('16', '17', '18', '19')
 
 - import_tasks: ly.yml
+  when: desktop_install_ly_instead_of_gdm3
+
+- import_tasks: gdm3.yml
+  when: not desktop_install_ly_instead_of_gdm3
 
 - import_tasks: mscorefonts.yml
 

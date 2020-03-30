@@ -1,0 +1,27 @@
+---
+- name: Disable other display manager services
+  systemd:
+    name: "{{ item }}"
+    daemon_reload: yes
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  with_items:
+    - display-manager
+    - lightdm
+    - ly
+  become: true
+
+- name: Install gdm3
+  apt:
+    name: gdm3
+    state: present
+  become: true
+
+- name: Enable gdm3.service
+  systemd:
+    name: ly
+    daemon_reload: yes
+    state: started
+    enabled: yes
+  become: true
