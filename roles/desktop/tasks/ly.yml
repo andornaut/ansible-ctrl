@@ -52,6 +52,7 @@
     enabled: no
   ignore_errors: yes
   with_items:
+    - display-manager
     - lightdm
     - gdm3
   become: true
@@ -63,3 +64,12 @@
       - gdm3
     state: absent
   become: true
+
+- name: Enable ly.service
+  systemd:
+    name: ly
+    daemon_reload: yes
+    state: started
+    enabled: yes
+  become: true
+
