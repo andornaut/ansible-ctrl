@@ -12,7 +12,9 @@
       - meld
       - mercurial
       - mysql-client
-      - node-less
+      #- node
+      #- node-less
+      #- npm
       - postgresql-client
       - python-virtualenv
       - python2
