@@ -69,6 +69,5 @@
   systemd:
     name: ly
     daemon_reload: yes
-    state: started
     enabled: yes
   become: true
