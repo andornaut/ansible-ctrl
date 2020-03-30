@@ -11,6 +11,7 @@
       - gimp
       - gnome-disk-utility
       - gnome-keyring
+      - gnome-screensaver
       - gnome-themes-standard
       - gtk-redshift
       - gtk-theme-switch

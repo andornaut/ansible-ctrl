@@ -11,12 +11,6 @@
     value: "I AGREE"
   become: true
 
-  # Key is not available on disco
-    url: "https://download.opensuse.org/repositories/home:/strycore/xUbuntu_{{ ansible_distribution_version }}/Release.key"
-    state: present
-  become: true
-  when: ansible_distribution_major_version in ('16', '17', '18', '19')
-
 - name: Install Lutris apt repository
   apt_repository:
     repo: "ppa:lutris-team/lutris"
