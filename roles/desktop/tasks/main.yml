@@ -28,7 +28,7 @@
       - libgtk2.0-0
       - libgtk2.0-bin
       - libgtk2.0-dev
-      - libpango1.0-0
+      - libpango-1.0-0
       - libreoffice
       - libsecret-1-0
       - libsecret-tools
@@ -83,11 +83,11 @@
 - include_tasks: insync.yml
   when: desktop_install_insync and ansible_distribution_major_version in ('16', '17', '18', '19')
 
-- import_tasks: ly.yml
-  when: desktop_install_ly_instead_of_gdm3
+- import_tasks: lightdm.yml
+  when: not desktop_install_ly_instead_of_lightdm
 
-- import_tasks: gdm3.yml
-  when: not desktop_install_ly_instead_of_gdm3
+- import_tasks: ly.yml
+  when: desktop_install_ly_instead_of_lightdm
 
 - import_tasks: mscorefonts.yml
 
