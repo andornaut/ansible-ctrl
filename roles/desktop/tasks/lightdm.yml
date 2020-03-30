@@ -3,24 +3,31 @@
   systemd:
     name: "{{ item }}"
     daemon_reload: yes
-    state: stopped
     enabled: no
   ignore_errors: yes
   with_items:
-    - display-manager
-    - lightdm
+    - gdm3
     - ly
+    - display-manager
   become: true
 
-- name: Install gdm3
+- name: Uninstall other display managers
   apt:
-    name: gdm3
+    name:
+      - gdm3
+      - ly
+    state: absent
+  become: true
+
+- name: Install lightdm
+  apt:
+    name: lightdm
     state: present
   become: true
 
-- name: Enable gdm3.service
+- name: Enable lightdm.service
   systemd:
-    name: gdm3
+    name: lightdm
     daemon_reload: yes
     enabled: yes
   become: true

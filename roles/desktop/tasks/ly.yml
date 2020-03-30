@@ -37,27 +37,26 @@
   systemd:
     name: "{{ item }}"
     daemon_reload: yes
-    state: stopped
     enabled: no
   ignore_errors: yes
   with_items:
-    - display-manager
-    - lightdm
     - gdm3
+    - lightdm
+    - display-manager
   become: true
 
 - name: Uninstall other display managers
   apt:
     name:
-      - lightdm
       - gdm3
+      - lightdm
     state: absent
   become: true
 
 # > If you need to switch between ttys after Ly's start you also have to
 # > disable getty on Ly's tty to prevent "login" from spawning on top of it.
 # https://github.com/cylgom/ly#cloning-and-compiling
-- name: Disable other display manager services
+- name: Disable getty on tty2
   systemd:
     name: getty@tty2.service
     daemon_reload: yes
