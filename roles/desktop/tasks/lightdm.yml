@@ -25,9 +25,9 @@
     state: present
   become: true
 
+# lightdm uses a sysvinit init script, so cannot be enabled directly.
+# The ubuntu package creates a symlink to /etc/systemd/system/display-manager.service,
+# which may need to be recreated if its been deleted by the ly.yml task (when switching DMs).
 - name: Enable lightdm.service
-  systemd:
-    name: lightdm
-    daemon_reload: yes
-    enabled: yes
+  command: dpkg-reconfigure lightdm
   become: true
