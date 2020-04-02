@@ -13,9 +13,14 @@
     line: 'GRUB_TIMEOUT=3'
   become: true
 
-- name: grub - clear linux command
+- name: grub - disable splash screen
   lineinfile:
     path: /etc/default/grub
     regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
     line: 'GRUB_CMDLINE_LINUX_DEFAULT=""'
   become: true
+
+- name: grub - run update-grub
+  command: update-grub
+  become: true
+
