@@ -31,3 +31,11 @@
 - name: Enable lightdm.service
   command: dpkg-reconfigure lightdm
   become: true
+
+# Re-enable getty in case it was disabled by the ly.yml tasks
+- name: Enable getty on tt.service
+  systemd:
+    name: getty@tty2.se2rvice
+    daemon_reload: yes
+    enabled: yes
+  become: true
