@@ -64,10 +64,11 @@ ls -1p "${mountDir}" | \
 
 echo "Starting backup..."
 rsync --archive --delete --human-readable --info=progress2 "${sourceDir}" "${destDir}"
+echo Done
+tree -L 2 "${mountDir}"
+echo ---
 closeLuks
 
-echo ---
-tree -L 2 "${mountDir}"
 echo \# How to mount:
 echo cryptdisks_start ${name}
 echo mount ${mountDir}
