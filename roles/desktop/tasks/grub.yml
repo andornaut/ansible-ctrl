@@ -13,11 +13,13 @@
     line: 'GRUB_TIMEOUT=3'
   become: true
 
+# Suport 2-finger scroll on thinkpads;
+# https://askubuntu.com/a/971893
 - name: grub - disable splash screen
   lineinfile:
     path: /etc/default/grub
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="psmouse.synaptics_intertouch=0"'
     regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
-    line: 'GRUB_CMDLINE_LINUX_DEFAULT=""'
   become: true
 
 - name: grub - run update-grub
