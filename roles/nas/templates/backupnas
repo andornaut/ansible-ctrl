@@ -5,65 +5,78 @@ set -e
 [[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
 
 RETENTION="{{ nas_backup_directories_retention }}"
+RETRY_SECS=10
 
-if [[ $# -eq 4 ]]; then
+if [[ $# -eq 0 ]]; then
+    name=nasbackup
+    backupDir="{{ nas_backup_directory }}"
+elif [[ $# -eq 2 ]]; then
     name="${1}"
-    device="${2}"
-    key_file="${3}"
-    backup_dir="${4}"
-elif [[ $# -eq 0 ]]; then
-    name=nas-backup
-    device="{{ nas_device_backup }}"
-    key_file="{{ nas_key_file }}"
-    backup_dir="{{ nas_backup_directory }}"
+    backupDir="${2}"
 else
-    echo "Usage: $(basename "${0}") luksName /dev/sda /luks/key/file /media/nas/backups">&2
+    echo "Usage: $(basename "${0}") luksName /media/nas/backups">&2
     exit 1
 fi
 
-[[ -d "${backup_dir}" ]] || { echo "Backup dir does not exist: ${backup_dir}">&2; exit 1; }
+[[ -d "${backupDir}" ]] || { echo "Backup dir does not exist: ${backupDir}">&2; exit 1; }
 
-echo "Device: ${device}"
-echo "Backup dir: ${backup_dir}"
+echo "Backup dir: ${backupDir}"
 
-openluks "${name}" "${device}" "${key_file}"
+closeLuks() {
+	name="${1}"
+	# May not be mounted
+	mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${name}")" || true
+	if [[ -n "${mount_dirs}" ]]; then
+	    echo "Unmounting: ${mount_dirs}"
+	    for mountDir in "${mount_dirs}"; do
+		if ! umount "${mountDir}"; then
+		    echo "Sleeping for ${RETRY_SECS} seconds"
+		    sleep ${RETRY_SECS}
+		    umount "${mountDir}"
+		fi
+	    done
+	fi
 
-if mount_dir="$(findmnt -rno TARGET "/dev/mapper/${name}")"; then
+	echo "Closing LUKS device: ${name}"
+	cryptsetup luksClose "${name}"
+}
+
+openLuks() {
+	name="${1}"
+	cryptsetup status ${name}>/dev/null || cryptdisks_start ${name}
+}
+
+openLuks "${name}"
+
+if mountDir="$(findmnt -rno TARGET "/dev/mapper/${name}")"; then
     # It may be mounted to multiple mount points, so take the first one.
-    mount_dir="$(echo -n "${mount_dir}"|head -1)"
+    mountDir="$(echo -n "${mountDir}"|head -1)"
 else
-    mount_dir="$(mktemp -d)"
-    mount /dev/mapper/${name} ${mount_dir}
+    mountDir="$(mktemp -d)"
+    mount /dev/mapper/${name} ${mountDir}
 fi
-echo "Mount dir: ${mount_dir}"
+echo "Mount dir: ${mountDir}"
 
 # eg. /tmp/tmp.xxx/backup.2018-12-30
-target_dir="${mount_dir}/$(date -d @$(stat --format=%Y "${backup_dir}") +backup.%Y-%m-%d)"
-echo "Target dir: ${target_dir}"
+targetDir="${mountDir}/$(date -d @$(stat --format=%Y "${backupDir}") +backup.%Y-%m-%d)"
+echo "Target dir: ${targetDir}"
 
-mkdir -p "${target_dir}"
+mkdir -p "${targetDir}"
 
 echo "Deleting backups older than the ${RETENTION} most recent"
-ls -1p "${mount_dir}" | \
+ls -1p "${mountDir}" | \
     grep -P '^backup\.\d{4}-\d{2}-\d{2}/$' | \
     head -n-${RETENTION} | \
-    xargs -I {} rm -rf -- "${mount_dir}/{}"
+    xargs -I {} rm -rf -- "${mountDir}/{}"
 
 echo "Starting backup"
-rsync --archive --delete --human-readable "${backup_dir}" "${target_dir}"
+rsync --archive --delete --human-readable "${backupDir}" "${targetDir}"
 
-tree -L 2 "${mount_dir}"
+tree -L 2 "${mountDir}"
 
 closeluks ${name}
 
 echo -e '\nDone\n'
-
-echo Open with:
-echo "openluks '${name}' '${device}' '${key_file}'"
-echo mkdir /tmp/backup
-echo "mount /dev/mapper/${name} /tmp/backup"
-echo cd /tmp/backup
-echo
-echo Close:
+echo How to close:
 echo umount /tmp/backup
-echo "closeluks ${name}"
+echo "cryptdisks_stop ${name}"

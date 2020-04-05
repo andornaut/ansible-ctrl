@@ -1,37 +1,48 @@
 ---
-- name: Install templated scripts
+- name: Update crypttab for nas_raid_devices
+  lineinfile:
+    path: /etc/crypttab
+    line: "nas{{ index }} {{ item }} {{ nas_key_file }} luks,noauto"
+    regexp: "^nas{{ index }}"
+  loop: "{{ nas_raid_devices }}"
+  loop_control:
+    index_var: index
+  become: true
+
+- name: Update crypttab for nas_backup_device
+  lineinfile:
+    path: /etc/crypttab
+    line: "nasbackup {{ nas_backup_device }} {{ nas_key_file }} luks,noauto"
+    regexp: "^nasbackup"
+  when: nas_backup_device is defined
+  become: true
+
+- name: Update fstab
+  lineinfile:
+    path: /etc/fstab
+    line: "/dev/mapper/nas0 /media/nas btrfs noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
+    regexp: "^\/dev\/mapper\/nas0"
+  become: true
+
+- name: Install backupnas
   template:
-    src: "{{ item }}"
-    dest: "/usr/local/bin/{{ item }}"
+    src: backupnas
+    dest: /usr/local/bin/
     mode: 0755
-  with_items:
-    - backupnas
-    - mountnas
+  when: nas_backup_device is defined
   become: true
 
-- name: Install scripts
-  copy:
-    src: "{{ item }}"
-    dest: "/usr/local/bin/{{ item }}"
-    mode: 0755
-  with_items:
-    - closeluks
-    - openluks
-  become: true
-  delegate_to: localhost
-
-
-- name: Copy mountnas systemd unit file
+- name: Override media-nas.mount Systemd unit
   template:
-    src: mountnas.service
-    dest: /etc/systemd/system/
+    src: override.conf
+    dest: /etc/systemd/system/media-nas.mount.d/
   become: true
-  notify: restart mountnas
 
-- name: Start mountnas service on boot
-  systemd:
-    name: mountnas
-    daemon_reload: yes
-    state: started
-    enabled: yes
+
+- name: Secure key_file owernship
+  file:
+    path: "{{ nas_key_file }}"
+    owner: root
+    group: root
+    mode: '0400'
   become: true
