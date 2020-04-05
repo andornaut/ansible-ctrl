@@ -20,7 +20,7 @@
 - name: Update fstab
   lineinfile:
     path: /etc/fstab
-    line: "/dev/mapper/nas0 /media/nas btrfs noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
+    line: "/dev/mapper/nas0 /media/nas btrfs defaults,noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
     regexp: "^\/dev\/mapper\/nas0"
   become: true
 
@@ -32,17 +32,23 @@
   when: nas_backup_device is defined
   become: true
 
-- name: Override media-nas.mount Systemd unit
-  template:
-    src: override.conf
-    dest: /etc/systemd/system/media-nas.mount.d/
-  become: true
-
-
 - name: Secure key_file owernship
   file:
     path: "{{ nas_key_file }}"
     owner: root
     group: root
     mode: '0400'
+  become: true
+
+- name: Override media-nas.mount Systemd unit
+  template:
+    src: override.conf
+    dest: /etc/systemd/system/media-nas.mount.d/
+  become: true
+
+- name: Enable media-nas.mount Systemd unit
+  systemd:
+    name: media-nas.mount
+    daemon_reload: yes
+    enabled: yes
   become: true
