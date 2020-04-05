@@ -64,7 +64,7 @@ Alternative:
 ```
 cryptdisks_start nas0
 cryptdisks_start nas1
-umount /media/nas
+mount /media/nas
 ```
 
 #### Mounting degraded
