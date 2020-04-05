@@ -5,4 +5,5 @@
 #nas_wanted_by: "home-{{ ansible_env.USER }}.mount"
 nas_backup_directory: /media/nas/backups
 nas_backup_directories_retention: 10
-nas_mount_directory: /media/nas
+nas_backup_mount_directory: /media/nasbackup
+nas_raid_mount_directory: /media/nas

@@ -1,4 +1,26 @@
 ---
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    state: directory
+  loop:
+    - "{{ nas_backup_mount_directory }}"
+    - "{{ nas_raid_mount_directory }}"
+  become: true
+
+# See:
+# https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
+# https://ubuntuforums.org/archive/index.php/t-1551985.html
+- name: Workaround usb modeswitching bug
+  lineinfile:
+    path: /etc/usb_modeswitch.conf
+    line: "DisableSwitching=1"
+    regex: "^#?\\s*DisableSwitching\\s*"
+  become: true
+
 - name: Update crypttab for nas_raid_devices
   lineinfile:
     path: /etc/crypttab
@@ -9,28 +31,36 @@
     index_var: index
   become: true
 
+- name: Update fstab for nas_raid_devices
+  lineinfile:
+    path: /etc/fstab
+    line: "/dev/mapper/nas0 {{ nas_raid_mount_directory }} btrfs defaults,noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
+    regexp: "^\/dev\/mapper\/nas0"
+  become: true
+
 - name: Update crypttab for nas_backup_device
   lineinfile:
     path: /etc/crypttab
     line: "nasbackup {{ nas_backup_device }} {{ nas_key_file }} luks,noauto"
     regexp: "^nasbackup"
-  when: nas_backup_device is defined
   become: true
+  when: nas_backup_device is defined
 
-- name: Update fstab
+- name: Update fstab for nas_backup_device
   lineinfile:
     path: /etc/fstab
-    line: "/dev/mapper/nas0 /media/nas btrfs defaults,noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
-    regexp: "^\/dev\/mapper\/nas0"
+    line: "/dev/mapper/nasbackup {{ nas_backup_mount_directory }} ext4 defaults,noauto 0 0"
+    regexp: "^\/dev\/mapper\/nasbackup"
   become: true
+  when: nas_backup_device is defined
 
 - name: Install backupnas
   template:
     src: backupnas
     dest: /usr/local/bin/
     mode: 0755
-  when: nas_backup_device is defined
   become: true
+  when: nas_backup_device is defined
 
 - name: Secure key_file owernship
   file:
