@@ -29,6 +29,7 @@
       - libretro-mgba
       - libretro-mupen64plus
       - libretro-nestopia
+      - libvulkan-dev
       - retroarch
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
       - lutris
