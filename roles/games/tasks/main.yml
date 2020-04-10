@@ -23,7 +23,12 @@
     name:
       - higan
       - libretro-bsnes-mercury-balanced
+      - libretro-desmume
+      - libretro-gambatte
       - libretro-genesisplusgx
+      - libretro-mgba
+      - libretro-mupen64plus
+      - libretro-nestopia
       - retroarch
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
       - lutris
