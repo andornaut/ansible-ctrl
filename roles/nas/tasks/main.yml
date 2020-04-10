@@ -1,4 +1,13 @@
 ---
+# Workaround error in boot log:
+# libbd_mdraid.so.2: cannot open shared object file
+# https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
+- name: Install system dependencies
+  apt:
+    name: libblockdev-mdraid2
+    state: latest
+    update_cache: yes
+  become: true
 
 - name: Create directories
   file:
@@ -34,7 +43,7 @@
 - name: Update fstab for nas_raid_devices
   lineinfile:
     path: /etc/fstab
-    line: "/dev/mapper/nas0 {{ nas_raid_mount_directory }} btrfs defaults,noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %} 0 0"
+    line: "/dev/mapper/nas0 {{ nas_raid_mount_directory }} btrfs defaults,noauto,{% for i in range(nas_raid_devices|length) %}device=/dev/mapper/nas{{ i }},x-systemd.after=blockdev@dev-mapper-nas{{ i }}.target,x-systemd.requires=dev-mapper-nas{{ i }}.device,x-systemd.requires-mounts-for=/dev/mapper/nas{{ i }}{% if i == 0 %},{% endif %}{% endfor %}{% if nas_wanted_by is defined %},x-systemd.after={{ nas_wanted_by }},x-systemd.wanted-by={{ nas_wanted_by }}{% endif %},x-systemd.device-timeout=10s 0 0"
     regexp: "^\/dev\/mapper\/nas0"
   become: true
 
@@ -54,7 +63,7 @@
   become: true
   when: nas_backup_device is defined
 
-- name: Install backupnas
+- name: Install backupnas script
   template:
     src: backupnas
     dest: /usr/local/bin/
@@ -68,17 +77,3 @@
     owner: root
     group: root
     mode: '0400'
-  become: true
-
-- name: Override media-nas.mount Systemd unit
-  template:
-    src: override.conf
-    dest: /etc/systemd/system/media-nas.mount.d/
-  become: true
-
-- name: Enable media-nas.mount Systemd unit
-  systemd:
-    name: media-nas.mount
-    daemon_reload: yes
-    enabled: yes
-  become: true

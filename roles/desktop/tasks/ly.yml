@@ -26,6 +26,13 @@
     target: install
   become: true
 
+- name: Blank failed password
+  lineinfile:
+    path: /etc/ly/config.ini
+    regexp: '^#?blank_password\s*\=\s*true'
+    line: 'blank_password = true'
+  become: true
+
 - name: Hide borders
   lineinfile:
     path: /etc/ly/config.ini

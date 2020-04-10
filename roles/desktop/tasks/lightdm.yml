@@ -33,9 +33,9 @@
   become: true
 
 # Re-enable getty in case it was disabled by the ly.yml tasks
-- name: Enable getty on tt.service
+- name: Enable getty on tty2.service
   systemd:
-    name: getty@tty2.se2rvice
+    name: getty@tty2.service
     daemon_reload: yes
     enabled: yes
   become: true
