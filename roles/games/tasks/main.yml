@@ -22,6 +22,9 @@
   apt:
     name:
       - higan
+      - libretro-bsnes-mercury-balanced
+      - libretro-genesisplusgx
+      - retroarch
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
       - lutris
       - steam
