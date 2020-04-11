@@ -8,10 +8,10 @@ RETENTION_NUMBER="{{ nas_backup_directories_retention }}"
 RETRY_SECS=10
 
 if [[ $# -eq 0 ]]; then
-    name=nasbackup
+    deviceName=nasbackup
     sourceDir="{{ nas_backup_directory }}"
 elif [[ $# -eq 2 ]]; then
-    name="${1}"
+    deviceName="${1}"
     sourceDir="${2}"
 else
     echo "Usage: $(basename "${0}") nasbackup /media/nas/backups">&2
@@ -21,7 +21,7 @@ fi
 [[ -d "${sourceDir}" ]] || { echo "Backup dir does not exist: ${sourceDir}">&2; exit 1; }
 
 closeLuks() {
-    mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${name}")" || true
+    mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")" || true
     if [[ -n "${mount_dirs}" ]]; then
         echo "Unmounting: ${mount_dirs}"
         for mountDir in "${mount_dirs}"; do
@@ -32,17 +32,13 @@ closeLuks() {
         fi
         done
     fi
-    cryptdisks_stop ${name}
+    cryptdisks_stop ${deviceName}
 }
 
-openLuks() {
-    cryptsetup status ${name}>/dev/null || cryptdisks_start ${name}
-}
-
-openLuks
-
-mount "/dev/mapper/${name}" || true
-if mountDir="$(findmnt -rno TARGET "/dev/mapper/${name}")"; then
+# Derive mountpoint. This is only useful when running with non-default args, b/c the default case could just use
+# {{ nas_backup_mount_directory }}
+mount "/dev/mapper/${deviceName}" || true
+if mountDir="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")"; then
     # It may be mounted to multiple mount points, so take the first one.
     mountDir="$(echo -n "${mountDir}"|head -1)"
 fi
@@ -70,8 +66,7 @@ echo ---
 closeLuks
 
 echo \# How to mount:
-echo cryptdisks_start ${name}
 echo mount ${mountDir}
 echo \# How to unmount:
 echo umount ${mountDir}
-echo cryptdisks_stop ${name}
+echo cryptdisks_stop ${deviceName}
