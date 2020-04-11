@@ -2,7 +2,7 @@
 - name: Check if usb_modeswitch.conf exists
   stat:
     path: /etc/usb_modeswitch.conf
-  register: stat_usb_modeswitch.conf
+  register: stat_usb_modeswitch
 
 # See:
 # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
@@ -13,7 +13,7 @@
     line: "DisableSwitching=1"
     regex: "^#?\\s*DisableSwitching\\s*"
   become: true
-  when: stat_usb_modeswitch.conf.stat.exists
+  when: stat_usb_modeswitch.stat.exists
 
 
 # Workaround error in boot log:
