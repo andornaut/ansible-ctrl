@@ -21,19 +21,11 @@
 - name: Install system packages
   apt:
     name:
-      - higan
-      - libretro-bsnes-mercury-balanced
-      - libretro-desmume
-      - libretro-gambatte
-      - libretro-genesisplusgx
-      - libretro-mgba
-      - libretro-mupen64plus
-      - libretro-nestopia
-      - libvulkan-dev
-      - retroarch
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
       - lutris
       - steam
+      # Needed by some games
+      - libvulkan-dev
       # Libs used by Steam games
       - libbz2-1.0:i386
       - libgdk-pixbuf2.0-0:i386
@@ -45,3 +37,5 @@
     state: latest
     update_cache: yes
   become: true
+
+- import_tasks: retroarch.yml

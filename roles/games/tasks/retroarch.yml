@@ -1,0 +1,25 @@
+---
+- name: Install Retroarch apt repository
+  apt_repository:
+    repo: "ppa:libretro/stable"
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install system packages
+  apt:
+    name:
+      - libretro-beetle-psx
+      - libretro-bsnes-mercury-balanced
+      - libretro-core-info
+      - libretro-desmume
+      - libretro-gambatte
+      - libretro-genesisplusgx
+      - libretro-mgba
+      - libretro-mupen64plus
+      - libretro-nestopia
+      - retroarch-assets
+      - retroarch
+    state: latest
+    update_cache: yes
+  become: true
