@@ -36,12 +36,12 @@
       - libudev1
       - libx11-6
       - pavucontrol
+      - pcmanfm
       - pkg-config
       - scrot
       - shared-mime-info
       - software-properties-gtk
       - solaar
-      - spacefm
       - suckless-tools
       - ttf-dejavu
       - ttf-mscorefonts-installer
