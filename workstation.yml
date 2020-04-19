@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: workstations
   vars_prompt:
     - name: run_base
       prompt: base
