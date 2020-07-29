@@ -43,6 +43,18 @@ if mountDir="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")"; then
     mountDir="$(echo -n "${mountDir}"|head -1)"
 fi
 
+if [[ -z "${mountDir}" ]]; then
+	echo 'Could not derive $mountDir' >2
+	exit 1
+fi
+
+echo \# How to mount:
+echo systemctl start ${mountDir}
+echo \# How to unmount:
+echo umount ${mountDir}
+echo cryptdisks_stop ${deviceName}
+echo ---
+
 # eg. /media/nasbackup/backup.2020-04-30
 destDir="${mountDir}/$(date -d @$(stat --format=%Y "${sourceDir}") +backup.%Y-%m-%d)"
 echo "Device mounted to: ${mountDir}"
@@ -65,8 +77,3 @@ tree -L 2 "${mountDir}"
 echo ---
 closeLuks
 
-echo \# How to mount:
-echo systemctl start ${mountDir}
-echo \# How to unmount:
-echo umount ${mountDir}
-echo cryptdisks_stop ${deviceName}
