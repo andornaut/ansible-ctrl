@@ -18,7 +18,7 @@ else
     exit 1
 fi
 
-[[ -d "${sourceDir}" ]] || { echo "Backup dir does not exist: ${sourceDir}">&2; exit 1; }
+[[ -d "${sourceDir}" ]] || { echo "\$sourceDir does not exist: ${sourceDir}">&2; exit 1; }
 
 closeLuks() {
     mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")" || true
@@ -37,6 +37,7 @@ closeLuks() {
 
 # Derive mountpoint. This is only useful when running with non-default args, b/c the default case could just use
 # {{ nas_backup_mount_directory }}
+# This may fail when already mounted.
 mount "/dev/mapper/${deviceName}" || true
 if mountDir="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")"; then
     # It may be mounted to multiple mount points, so take the first one.
@@ -76,4 +77,3 @@ echo Done
 tree -L 2 "${mountDir}"
 echo ---
 closeLuks
-
