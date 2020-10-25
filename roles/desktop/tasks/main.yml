@@ -63,6 +63,10 @@
     update_cache: yes
   become: true
 
+- name: Set urxvt as default gnome terminal
+  command: update-alternatives --set x-terminal-emulator /usr/bin/urxvt
+  become: true
+
 - name: Install binary drivers
   command: ubuntu-drivers autoinstall
   become: true
