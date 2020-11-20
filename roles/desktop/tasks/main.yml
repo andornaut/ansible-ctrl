@@ -71,6 +71,10 @@
   command: ubuntu-drivers autoinstall
   become: true
 
+- name: Set default printer paper size
+  command: paperconfig -p letter
+  become: true
+
 - name: Install Google Chrome
   apt:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
