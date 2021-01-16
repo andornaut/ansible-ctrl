@@ -15,7 +15,7 @@ localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
 
 ## Usage
 
-```
+```bash
 make rsnapshot
 make upgrade
 make webservers
