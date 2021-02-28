@@ -53,9 +53,11 @@
       - x11-xserver-utils
       - xautolock
       - xcompmgr
+      - xclip
       - xdotool
       - xfonts-terminus
       - xorg
+      - xsel
       - xss-lock
       - xul-ext-calendar-timezones
       - xul-ext-lightning
