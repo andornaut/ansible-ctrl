@@ -1,10 +1,13 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean requirements rsnapshot upgrade webservers workstation zoneminder
+.PHONY: clean homeassistant requirements rsnapshot upgrade webservers workstation zoneminder
 
 clean:
 	rm -rf .roles
+
+homeassistant: requirements
+	ansible-playbook --ask-become-pass homeassistant.yml
 
 requirements:
 	ansible-galaxy install -p .roles/ -r requirements.yml
