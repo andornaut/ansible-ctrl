@@ -1,0 +1,5 @@
+---
+homeassistant_docker_image: homeassistant/home-assistant:stable
+homeassistant_docker_volumes:
+  config: /var/docker-volumes/home-assistant/config
+  localtime: /etc/localtime
