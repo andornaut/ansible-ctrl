@@ -4,6 +4,4 @@
   roles:
     #- base
     #- docker
-    #- letsencrypt-nginx
-    # On first run only, run nginx again to install the certs.
     - zoneminder
