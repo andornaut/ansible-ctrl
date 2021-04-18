@@ -1,9 +1,9 @@
 ---
-- name: Install Zoneminder
-  hosts: zoneminder
+- name: Install Home Assistant
+  hosts: homeassistant
   roles:
     #- base
     #- docker
     #- letsencrypt-nginx
     # On first run only, run nginx again to install the certs.
-    - zoneminder
+    - homeassistant
