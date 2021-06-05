@@ -15,10 +15,15 @@
     name:
       - s-nail
       # msmtp build dependencies
+      - automake
+      - gettext
       - libgnutls28-dev
       - libidn2-dev
       - libsecret-1-dev
+      - libtool
+      - mailutils
       - texinfo
+    install_recommends: no
     state: latest
     update_cache: yes
   become: true
@@ -30,6 +35,11 @@
     dest: /tmp/msmtp.git
     force: yes 
 
+- name: Automake msmtp
+  command:
+    cmd: automake --add-missing
+    chdir: /tmp/msmtp.git
+
 - name: Autoreconf msmtp
   command: 
     cmd: autoreconf -i
@@ -40,6 +50,7 @@
     cmd: ./configure --sysconfdir=/etc
     chdir: /tmp/msmtp.git
 
+# This fails when using gettext versions <0.20, which ships with Ubuntu hirsute
 - name: Make msmtp
   make:
     chdir: /tmp/msmtp.git
