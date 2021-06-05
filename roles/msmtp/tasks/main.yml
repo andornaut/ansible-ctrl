@@ -50,7 +50,8 @@
     cmd: ./configure --sysconfdir=/etc
     chdir: /tmp/msmtp.git
 
-# This fails when using gettext versions <0.20, which ships with Ubuntu hirsute
+# This fails when using gettext versions <0.20,
+# which ship with Ubuntu releases prior to hirsute
 - name: Make msmtp
   make:
     chdir: /tmp/msmtp.git
