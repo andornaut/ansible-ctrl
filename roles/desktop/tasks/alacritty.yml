@@ -1,0 +1,21 @@
+- name: Install Alacritty apt respository
+  apt_repository:
+    repo: ppa:aslatter/ppa
+    update_cache: yes
+  become: true
+
+- name: Install system packages
+  apt:
+    name:
+      - alacritty
+    state: latest
+    update_cache: yes
+  become: true
+
+- name: Register Alacritty alternative
+  command: update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 50
+  become: true
+
+- name: Set Alacritty as default x-terminal-emulator
+  command: update-alternatives --set x-terminal-emulator /usr/bin/alacritty
+  become: true

@@ -1,7 +1,7 @@
 ---
 - name: Install Retroarch apt repository
   apt_repository:
-    repo: "ppa:libretro/stable"
+    repo: ppa:libretro/stable
     state: present
     update_cache: yes
   become: true

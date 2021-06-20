@@ -1,14 +1,19 @@
 ---
+- name: Create a temp directory
+  ansible.builtin.file:
+    path: /tmp/source-code-pro
+    state: directory
+
 - name: Download and extract soure-code-pro package
   unarchive:
-    src: 'https://github.com/adobe-fonts/source-code-pro/archive/1.010R.zip'
-    dest: /tmp
+    src: "{{ desktop_source_code_pro_url }}"
+    dest: /tmp/source-code-pro/
     remote_src: yes
-    creates: /tmp/1.010R.zip
+    creates: /tmp/source-code-pro/LICENSE.md
 
 - name: Copy source-code-pro TTF files
   copy:
-    src: /tmp/source-code-pro-1.010R/TTF/
+    src: /tmp/source-code-pro/
     dest: /usr/share/fonts/truetype/source-code-pro
   delegate_to: "{{ inventory_hostname }}"
   notify: update font cache

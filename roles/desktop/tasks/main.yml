@@ -8,6 +8,9 @@
       - feh
       - filezilla
       - firefox
+      - fonts-dejavu
+      - fonts-hack
+      - fonts-ubuntu-console
       - gimp
       - gnome-disk-utility
       - gnome-keyring
@@ -43,7 +46,6 @@
       - software-properties-gtk
       - solaar
       - suckless-tools
-      - ttf-dejavu
       - ttf-mscorefonts-installer
       - ubuntu-drivers-common
       - udevil
@@ -52,8 +54,8 @@
       - wireshark
       - x11-xserver-utils
       - xautolock
-      - xcompmgr
       - xclip
+      - xcompmgr
       - xdotool
       - xfonts-terminus
       - xorg
@@ -63,10 +65,6 @@
       - xul-ext-lightning
     state: latest
     update_cache: yes
-  become: true
-
-- name: Set urxvt as default gnome terminal
-  command: update-alternatives --set x-terminal-emulator /usr/bin/urxvt
   become: true
 
 - name: Install binary drivers
@@ -81,6 +79,8 @@
   apt:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
+
+- import_tasks: alacritty.yml
 
 - import_tasks: dconf.yml
 
