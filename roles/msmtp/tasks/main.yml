@@ -16,7 +16,9 @@
       - s-nail
       # msmtp build dependencies
       - automake
-      - gettext
+      # Requires gettext v0.21 from Ubuntu hirsute
+      # https://github.com/marlam/msmtp-mirror/issues/55
+      #- gettext
       - libgnutls28-dev
       - libidn2-dev
       - libsecret-1-dev
@@ -33,7 +35,7 @@
     #repo: https://git.marlam.de/git/msmtp.git
     repo: https://github.com/marlam/msmtp-mirror.git
     dest: /tmp/msmtp.git
-    force: yes 
+    force: yes
 
 - name: Automake msmtp
   command:
@@ -41,7 +43,7 @@
     chdir: /tmp/msmtp.git
 
 - name: Autoreconf msmtp
-  command: 
+  command:
     cmd: autoreconf -i
     chdir: /tmp/msmtp.git
 
