@@ -21,6 +21,8 @@
 - name: Install system packages
   apt:
     name:
+      - 2048-qt
+      - bsdgames
       - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
       - lutris
       - steam
