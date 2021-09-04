@@ -35,6 +35,7 @@ See default variables:
 - [ansible-role-desktop](./roles/desktop/defaults/main.yml)
 - [ansible-role-dev](./roles/dev/defaults/main.yml)
 - [ansible-role-docker](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml)
+- [ansible-role-homeassistant](./roles/homeassistant/defaults/main.yml)
 - [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml)
 - [ansible-role-msmtp](./roles/msmtp/defaults/main.yml)
 - [ansible-role-nas](./roles/nas/defaults/main.yml)
