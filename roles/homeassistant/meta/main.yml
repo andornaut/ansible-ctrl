@@ -1,8 +1,0 @@
----
-galaxy_info:
-  author: andornaut
-  description: Dockerized Home Assistant on Ubuntu
-  galaxy_tags:
-    - docker home assistant
-  license: MIT
-  min_ansible_version: 2.8

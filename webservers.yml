@@ -2,7 +2,7 @@
 - name: Configure Let's Encrypt and Nginx
   hosts: webservers
   roles:
-    - base
+    #- base
     - letsencrypt-nginx
   tasks:
     - name: Restart Nginx
@@ -12,7 +12,7 @@
       become: true
 
 - name: Set Let's Encrypt renewal crontab
-  hosts: localhost
+  hosts: tron
   tasks:
     - cron:
         name: webservers
