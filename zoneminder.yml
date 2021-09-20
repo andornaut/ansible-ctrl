@@ -1,7 +1,0 @@
----
-- name: Install Zoneminder
-  hosts: zoneminder
-  roles:
-    #- base
-    #- docker
-    - zoneminder
