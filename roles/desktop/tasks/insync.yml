@@ -7,7 +7,7 @@
 
 - name: Install Insync apt respository
   apt_repository:
-    repo: deb http://apt.insynchq.com/ubuntu {{ ansible_distribution_release }} non-free contrib
+    repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
     update_cache: yes
   become: true
 

@@ -9,7 +9,9 @@
   git:
     repo: "https://github.com/cylgom/ly.git"
     dest: /tmp/ly.git
+    depth: 1
     force: yes
+    recursive: no
 
 - name: Make github target
   make:

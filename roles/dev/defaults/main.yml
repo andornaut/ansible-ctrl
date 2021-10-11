@@ -1,8 +1,8 @@
 ---
 dev_bashrc_path: "{{ ansible_env.HOME }}/.bashrc"
 dev_jetbrains_applications:
-- { name: goland, version: '2020.2.3',  url_prefix: 'https://download.jetbrains.com/go/goland-' }
-- { name: idea, version: '2020.2.3',  url_prefix: 'https://download.jetbrains.com/idea/ideaIU-' }
-- { name: pycharm, version: '2020.2.3', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
-- { name: rubymine, version: '2020.2.3', url_prefix: 'https://download.jetbrains.com/ruby/RubyMine-' }
-- { name: webstorm, version: '2020.2.3', url_prefix: 'https://download.jetbrains.com/webstorm/WebStorm-' }
+- { name: goland, version: '2021.2.2',  url_prefix: 'https://download.jetbrains.com/go/goland-' }
+- { name: idea, version: '2021.2.2',  url_prefix: 'https://download.jetbrains.com/idea/ideaIU-' }
+- { name: pycharm, version: '2021.2.2', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
+- { name: rubymine, version: '2021.2.2', url_prefix: 'https://download.jetbrains.com/ruby/RubyMine-' }
+- { name: webstorm, version: '2021.2.2', url_prefix: 'https://download.jetbrains.com/webstorm/WebStorm-' }

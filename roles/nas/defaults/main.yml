@@ -1,13 +1,13 @@
 ---
 #nas_backup_device:
-nas_backup_directory: /media/nas/backups
 nas_backup_directories_retention: 10
-nas_backup_fs_type: ext4
+nas_backup_directory: /media/nas/backups
 nas_backup_fs_defaults: defaults,noauto
+nas_backup_fs_type: ext4
 nas_backup_mount_directory: /media/nasbackup
 #nas_raid_devices:
-nas_raid_fs_type: ext4
 nas_raid_fs_defaults: defaults,noauto
+nas_raid_fs_type: ext4
 nas_raid_mount_directory: /media/nas
-#nas_raid_wanted_by: "home-{{ ansible_env.USER }}.mount"
 #nas_key_file: "{{ ansible_env.HOME }}/.nas-luks-key"
+#nas_raid_wanted_by: "home-{{ ansible_env.USER }}.mount"
