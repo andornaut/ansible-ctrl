@@ -35,12 +35,8 @@
     #repo: https://git.marlam.de/git/msmtp.git
     repo: https://github.com/marlam/msmtp-mirror.git
     dest: /tmp/msmtp.git
+    depth: 1
     force: yes
-
-- name: Automake msmtp
-  command:
-    cmd: automake --add-missing
-    chdir: /tmp/msmtp.git
 
 - name: Autoreconf msmtp
   command:

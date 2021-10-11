@@ -91,7 +91,7 @@
 - import_tasks: grub.yml
 
 - include_tasks: insync.yml
-  when: desktop_install_insync and ansible_distribution_major_version in ('16', '17', '18', '19')
+  when: desktop_install_insync and ansible_distribution_major_version in ('16', '17', '18', '19', '20')
 
 - import_tasks: lightdm.yml
   when: not desktop_install_ly_instead_of_lightdm

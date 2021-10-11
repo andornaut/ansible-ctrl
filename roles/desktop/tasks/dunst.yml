@@ -18,6 +18,7 @@
 - name: Clone dunst git repository
   git:
     repo: "https://github.com/dunst-project/dunst.git"
+    depth: 1
     dest: /tmp/dunst.git
     version: "HEAD"
 
