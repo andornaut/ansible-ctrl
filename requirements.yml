@@ -1,18 +1,21 @@
 ---
-- src: https://github.com/andornaut/ansible-role-base
-  name: base
+collections:
+  - community.crypto
+roles:
+  - src: https://github.com/andornaut/ansible-role-base
+    name: base
 
-- src: https://github.com/andornaut/ansible-role-bspwm
-  name: bspwm
+  - src: https://github.com/andornaut/ansible-role-bspwm
+    name: bspwm
 
-- src: https://github.com/andornaut/ansible-role-docker
-  name: docker
+  - src: https://github.com/andornaut/ansible-role-docker
+    name: docker
 
-- src: https://github.com/andornaut/ansible-role-homeassistant-frigate
-  name: homeassistant-frigate
+  - src: https://github.com/andornaut/ansible-role-homeassistant-frigate
+    name: homeassistant-frigate
 
-- src: https://github.com/andornaut/ansible-role-letsencrypt-nginx
-  name: letsencrypt-nginx
+  - src: https://github.com/andornaut/ansible-role-letsencrypt-nginx
+    name: letsencrypt-nginx
 
-- src: https://github.com/andornaut/ansible-role-rsnapshot
-  name: rsnapshot
+  - src: https://github.com/andornaut/ansible-role-rsnapshot
+    name: rsnapshot

@@ -10,7 +10,9 @@ homeassistant-frigate: requirements
 	ansible-playbook --ask-become-pass homeassistant-frigate.yml
 
 requirements:
-	ansible-galaxy install -p .roles/ -r requirements.yml
+	ansible-galaxy role install -r requirements.yml
+	ansible-galaxy collection install -r requirements.yml
+
 
 rsnapshot: requirements
 	ansible-playbook --ask-become-pass rsnapshot.yml
