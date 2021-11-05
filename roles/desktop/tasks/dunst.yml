@@ -18,9 +18,9 @@
 - name: Clone dunst git repository
   git:
     repo: "https://github.com/dunst-project/dunst.git"
-    depth: 1
     dest: /tmp/dunst.git
-    version: "HEAD"
+    # Cannot set `depth: 1` or this error is produced:
+    # fatal: No names found, cannot describe anything
 
 - name: Make dunst
   make:
