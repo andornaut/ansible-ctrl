@@ -1,5 +1,7 @@
 ---
 dev_bashrc_path: "{{ ansible_env.HOME }}/.bashrc"
+dev_install_jetbrains: false
+dev_install_python37: false
 dev_jetbrains_applications:
 - { name: goland, version: '2020.2.4',  url_prefix: 'https://download.jetbrains.com/go/goland-' }
 - { name: idea, version: '2020.2.4',  url_prefix: 'https://download.jetbrains.com/idea/ideaIU-' }
