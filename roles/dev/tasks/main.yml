@@ -47,14 +47,11 @@
   ignore_errors: yes
   become: true
 
-# No longer using
-#- import_tasks: jetbrains.yml
+- import_tasks: jetbrains.yml
+  when: dev_install_jetbrains
 
-# Outdated
-#- import_tasks: kubernetes.yml
-
-# Doesn't work in ubuntu >=18.10
+# Ubuntu >=18.10 installs Python >3.7 by default
 - import_tasks: python3.7.yml
-  when: ansible_distribution_major_version in ('16', '17', '18')
+  when: dev_install_python37 and ansible_distribution_major_version in ('16', '17', '18')
 
 - import_tasks: vagrant.yml

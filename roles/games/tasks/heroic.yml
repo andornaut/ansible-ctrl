@@ -1,0 +1,16 @@
+---
+- name: Get the latest Heroic version
+  uri:
+    url: https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest
+    return_content: "yes"
+  register: heroic_version
+
+- name: Download Heroic installer
+  get_url:
+    url: "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/{{ heroic_version.json.tag_name }}/heroic_{{ heroic_version.json.tag_name.split('v')[-1] }}_amd64.deb"
+    dest: "/tmp/heroic-{{ heroic_version.json.tag_name }}.deb"
+
+- name: Install Heroic
+  apt:
+    deb: "/tmp/heroic-{{ heroic_version.json.tag_name }}.deb"
+  become: true

@@ -16,7 +16,6 @@
       - gnome-keyring
       - gnome-screensaver
       - gnome-themes-standard
-      - gtk-redshift
       - gtk-theme-switch
       - gtk2-engines
       - gtk2-engines-murrine
@@ -41,6 +40,7 @@
       - pavucontrol
       - pcmanfm
       - pkg-config
+      - redshift-gtk
       - scrot
       - shared-mime-info
       - software-properties-gtk
@@ -91,7 +91,7 @@
 - import_tasks: grub.yml
 
 - include_tasks: insync.yml
-  when: desktop_install_insync and ansible_distribution_major_version in ('16', '17', '18', '19', '20')
+  when: desktop_install_insync
 
 - import_tasks: lightdm.yml
   when: not desktop_install_ly_instead_of_lightdm
@@ -102,6 +102,3 @@
 - import_tasks: mscorefonts.yml
 
 - import_tasks: source-code-pro.yml
-
-- import_tasks: spotify.yml
-  when: desktop_install_spotify and ansible_distribution_major_version in ('16', '17', '18', '19')
