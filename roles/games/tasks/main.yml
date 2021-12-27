@@ -41,3 +41,5 @@
   become: true
 
 - import_tasks: retroarch.yml
+
+- import_tasks: heroic.yml

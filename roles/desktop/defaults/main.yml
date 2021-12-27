@@ -1,5 +1,4 @@
 ---
 desktop_install_insync: false
 desktop_install_ly_instead_of_lightdm: false
-desktop_install_spotify: false
 desktop_source_code_pro_url: "https://github.com/adobe-fonts/source-code-pro/releases/download/2.038R-ro%2F1.058R-it%2F1.018R-VAR/TTF-source-code-pro-2.038R-ro-1.058R-it.zip"

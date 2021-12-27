@@ -15,7 +15,6 @@
   become: true
   when: stat_usb_modeswitch.stat.exists
 
-
 # Workaround error in boot log:
 # libbd_mdraid.so.2: cannot open shared object file
 # https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
