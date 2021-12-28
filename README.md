@@ -33,23 +33,23 @@ This playbook will prompt you to choose which of its roles to include.
 
 Each role defines default Ansible variables that can be overidden in `./host_vars`.
 
-- [ansible-role-base](https://github.com/andornaut/ansible-role-base/blob/master/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-base/blob/master/defaults/main.yml)
-- [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm/blob/master/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-bspwm/blob/master/defaults/main.yml)
-- [ansible-role-desktop](./roles/desktop/defaults/main.yml) -
-[variables](./roles/desktop/defaults/main.yml)
-- [ansible-role-dev](./roles/dev/defaults/main.yml) -
-[variables](./roles/dev/defaults/main.yml)
-- [ansible-role-docker](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml)
-- [ansible-role-homeassistant-frigate](https://github.com/andornaut/ansible-role-homeassistant-frigate/blob/main/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-homeassistant-frigate/blob/main/defaults/main.yml)
-- [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml)
-- [ansible-role-msmtp](./roles/msmtp/defaults/main.yml) -
-[variables](./roles/msmtp/defaults/main.yml)
-- [ansible-role-nas](./roles/nas/defaults/main.yml) -
-[variables](./roles/nas/defaults/main.yml)
-- [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml) -
-[variables](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml)
+- [ansible-role-base](https://github.com/andornaut/ansible-role-base/)
+([variables](https://github.com/andornaut/ansible-role-base/blob/master/defaults/main.yml))
+- [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm/)
+([variables](https://github.com/andornaut/ansible-role-bspwm/blob/master/defaults/main.yml))
+- [ansible-role-desktop](./roles/desktop/)
+([variables](./roles/desktop/defaults/main.yml))
+- [ansible-role-dev](./roles/dev/)
+([variables](./roles/dev/defaults/main.yml))
+- [ansible-role-docker](https://github.com/andornaut/ansible-role-docker/)
+([variables](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml))
+- [ansible-role-homeassistant-frigate](https://github.com/andornaut/ansible-role-homeassistant-frigate/)
+([variables](https://github.com/andornaut/ansible-role-homeassistant-frigate/blob/main/defaults/main.yml))
+- [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/)
+([variables](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml))
+- [ansible-role-msmtp](./roles/msmtp/)
+([variables](./roles/msmtp/defaults/main.yml))
+- [ansible-role-nas](./roles/nas/)
+([variables](./roles/nas/defaults/main.yml))
+- [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/)
+([variables](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml))
