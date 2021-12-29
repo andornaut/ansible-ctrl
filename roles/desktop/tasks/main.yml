@@ -44,7 +44,8 @@
       - scrot
       - shared-mime-info
       - software-properties-gtk
-      - solaar
+      # Solaar is used to manage logitech receivers
+      #- solaar
       - suckless-tools
       - ttf-mscorefonts-installer
       - ubuntu-drivers-common
