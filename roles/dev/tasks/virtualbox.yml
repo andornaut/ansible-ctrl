@@ -1,0 +1,19 @@
+---
+- name: Install Virtualbox system packages
+  apt:
+    name:
+      - virtualbox
+      - virtualbox-dkms
+      - virtualbox-guest-dkms
+    state: latest
+    update_cache: yes
+  become: true
+
+- name: Disable vboxweb (workaround failure to start)
+  systemd:
+    name: vboxweb
+    daemon_reload: yes
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  become: true
