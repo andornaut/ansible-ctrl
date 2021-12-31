@@ -1,0 +1,9 @@
+---
+- name: Install Rust system packages
+  apt:
+    name:
+      - cargo
+      - rustc
+    state: latest
+    update_cache: yes
+  become: true

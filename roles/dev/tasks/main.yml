@@ -16,42 +16,24 @@
       #- node-less
       #- npm
       - postgresql-client
-      - python-virtualenv
-      - python2
-      - python2-dev
-      - python3-pip
-      - python3-virtualenvwrapper
       - ruby
       - ruby-dev
-      - virtualbox
-      - virtualbox-dkms
-      - virtualbox-guest-dkms
-      - virtualenvwrapper
       - xserver-xephyr
     state: latest
     update_cache: yes
   become: true
 
-- name: Upgrade pip
-  pip:
-    name: pip
-    state: latest
-  become: true
-
-- name: Disable vboxweb (workaround failure to start)
-  systemd:
-    name: vboxweb
-    daemon_reload: yes
-    state: stopped
-    enabled: no
-  ignore_errors: yes
-  become: true
-
 - import_tasks: jetbrains.yml
   when: dev_install_jetbrains
+
+- import_tasks: python.yml
 
 # Ubuntu >=18.10 installs Python >3.7 by default
 - import_tasks: python3.7.yml
   when: dev_install_python37 and ansible_distribution_major_version in ('16', '17', '18')
 
+- import_tasks: rust.yml
+
 - import_tasks: vagrant.yml
+
+- import_tasks: virtualbox.yml
