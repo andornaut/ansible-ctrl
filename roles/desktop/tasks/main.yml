@@ -38,6 +38,7 @@
       - libudev-dev
       - libudev1
       - libx11-6
+      - network-manager-gnome
       - pavucontrol
       - pcmanfm
       - pkg-config
