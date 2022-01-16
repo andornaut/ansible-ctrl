@@ -2,7 +2,6 @@
 - name: Install Python system packages
   apt:
     name:
-      - python-virtualenv
       - python2
       - python2-dev
       - python3-dev
