@@ -4,7 +4,6 @@
     name:
       - virtualbox
       - virtualbox-dkms
-      - virtualbox-guest-dkms
     state: latest
     update_cache: yes
   become: true

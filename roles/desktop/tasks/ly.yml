@@ -74,16 +74,17 @@
     line: 'password   optional     pam_gnome_keyring.so'
   become: true
 
+# Disabled, because this causes the desktop session to exit.
 # > If you need to switch between ttys after Ly's start you also have to
 # > disable getty on Ly's tty to prevent "login" from spawning on top of it.
 # https://github.com/cylgom/ly#cloning-and-compiling
-- name: Disable getty on tty2
-  systemd:
-    name: getty@tty2.service
-    daemon_reload: yes
-    state: stopped
-    enabled: no
-  become: true
+#- name: Disable getty on tty2
+#  systemd:
+#    name: getty@tty2.service
+#    daemon_reload: yes
+#    state: stopped
+#    enabled: no
+#  become: true
 
 - name: Enable ly.service
   systemd:
