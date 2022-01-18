@@ -22,9 +22,6 @@
     - name: run_msmtp
       prompt: msmtp
       default: n
-    - name: run_nas
-      prompt: nas
-      default: n
   roles:
     - role: base
       when: run_base == "y"
@@ -40,5 +37,3 @@
       when: run_games == "y"
     - role: msmtp
       when: run_msmtp == "y"
-    - role: nas
-      when: run_nas == "y"

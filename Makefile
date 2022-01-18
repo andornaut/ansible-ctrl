@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean homeassistant-frigate requirements rsnapshot upgrade webservers workstation
+.PHONY: clean homeassistant-frigate nas requirements rsnapshot upgrade webservers workstation
 
 clean:
 	rm -rf .roles
@@ -9,10 +9,12 @@ clean:
 homeassistant-frigate: requirements
 	ansible-playbook --ask-become-pass homeassistant-frigate.yml
 
+nas: requirements
+	ansible-playbook --ask-become-pass nas.yml
+
 requirements:
 	ansible-galaxy role install -r requirements.yml
 	ansible-galaxy collection install -r requirements.yml
-
 
 rsnapshot: requirements
 	ansible-playbook --ask-become-pass rsnapshot.yml
