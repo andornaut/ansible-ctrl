@@ -4,12 +4,6 @@
   roles:
     #- base
     - letsencrypt-nginx
-  tasks:
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
-      become: true
 
 - name: Set Let's Encrypt renewal crontab
   hosts: tron
