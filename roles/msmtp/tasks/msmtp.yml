@@ -18,7 +18,7 @@
       - automake
       # Requires gettext v0.21 from Ubuntu hirsute
       # https://github.com/marlam/msmtp-mirror/issues/55
-      #- gettext
+      - gettext
       - libgnutls28-dev
       - libidn2-dev
       - libsecret-1-dev
