@@ -3,6 +3,7 @@
   hosts: webservers
   roles:
     #- base
+    #- msmtp
     - letsencrypt-nginx
 
 - name: Set Let's Encrypt renewal crontab
