@@ -2,25 +2,16 @@
 - name: Install system packages
   apt:
     name:
-      - adwaita-icon-theme-full
       - audacity
       - blueman
       - desktop-file-utils
       - feh
       - filezilla
       - firefox
-      - fonts-dejavu
-      - fonts-hack
-      - fonts-ubuntu-console
       - gimp
       - gnome-disk-utility
       - gnome-keyring
       - gnome-screensaver
-      - gnome-themes-standard
-      - gtk-theme-switch
-      - gtk2-engines
-      - gtk2-engines-murrine
-      - gtk2-engines-pixbuf
       - hsetroot
       - inkscape
       - intltool
@@ -38,6 +29,7 @@
       - libudev-dev
       - libudev1
       - libx11-6
+      - lxappearance
       - network-manager-gnome
       - pavucontrol
       - pcmanfm
@@ -49,7 +41,6 @@
       # Solaar is used to manage logitech receivers
       #- solaar
       - suckless-tools
-      - ttf-mscorefonts-installer
       - ubuntu-drivers-common
       - udevil
       - usb-creator-gtk
@@ -60,7 +51,6 @@
       - xclip
       - xcompmgr
       - xdotool
-      - xfonts-terminus
       - xorg
       - xsel
       - xss-lock
@@ -91,6 +81,8 @@
 
 - import_tasks: dunst.yml
 
+- import_tasks: fonts.yml
+
 - import_tasks: grub.yml
 
 - include_tasks: insync.yml
@@ -102,6 +94,4 @@
 - import_tasks: ly.yml
   when: desktop_install_ly_instead_of_lightdm
 
-- import_tasks: mscorefonts.yml
-
-- import_tasks: source-code-pro.yml
+- import_tasks: themes.yml

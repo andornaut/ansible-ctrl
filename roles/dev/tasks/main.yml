@@ -37,3 +37,5 @@
 - import_tasks: vagrant.yml
 
 - import_tasks: virtualbox.yml
+
+- import_tasks: vscode.yml
