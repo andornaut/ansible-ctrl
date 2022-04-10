@@ -1,0 +1,19 @@
+---
+- name: Install themes system packages
+  apt:
+    name:
+      - adwaita-icon-theme-full
+      - gnome-themes-extra
+      - gnome-themes-standard
+      - gtk-theme-switch
+      - gtk2-engines
+      - gtk2-engines-murrine
+      - gtk2-engines-pixbuf
+      - materia-gtk-theme
+      - numix-gtk-theme
+      - numix-icon-theme
+      - paper-icon-theme
+      - papirus-icon-theme
+    state: latest
+    update_cache: yes
+  become: true
