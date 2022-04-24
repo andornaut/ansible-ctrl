@@ -2,4 +2,4 @@
 # msmtp fails to install when using gettext versions <0.20,
 # which ship with Ubuntu releases prior to hirsute
 - include_tasks: msmtp.yml
-  when: ansible_distribution_major_version in ('21')
+  when: ansible_distribution_version is version('21.04', '>=')

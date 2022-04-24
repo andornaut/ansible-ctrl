@@ -1,0 +1,24 @@
+---
+- name: Clone pavolume git repository
+  git:
+    repo: "https://github.com/andornaut/pavolume.git"
+    dest: /tmp/pavolume.git
+    depth: 1
+    force: yes
+
+- name: Make pavolume
+  make:
+    chdir: /tmp/pavolume.git
+
+- name: Make install pavolume
+  make:
+    chdir: /tmp/pavolume.git
+    target: install
+  ignore_errors: yes # Ignore "cp: cannot create regular file ... Text file busy"
+  register: r
+  become: true
+
+- name: Ensure that the 'Make install pavolume' play succeeded or failed with 'file busy'
+  fail: msg="The 'Make install pavolume' play failed"
+  when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
+  with_items: "{{r.results}}"

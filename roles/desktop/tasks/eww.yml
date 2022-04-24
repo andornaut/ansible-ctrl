@@ -1,0 +1,21 @@
+---
+- name: Clone eww git repository
+  git:
+    repo: "https://github.com/elkowar/eww.git"
+    dest: /tmp/eww.git
+    depth: 1
+    force: yes
+
+- name: Build eww
+  command:
+    cmd: cargo build --release
+    chdir: /tmp/eww.git
+
+- name: Copy eww binary to /usr/local/bin/
+  ansible.builtin.copy:
+    src: /tmp/eww.git/target/release/eww
+    dest: /usr/local/bin/
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
