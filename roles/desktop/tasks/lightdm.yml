@@ -22,7 +22,7 @@
 - name: Install lightdm
   apt:
     name: lightdm
-    state: present
+    state: latest
   become: true
 
 # lightdm uses a sysvinit init script, so cannot be enabled directly.

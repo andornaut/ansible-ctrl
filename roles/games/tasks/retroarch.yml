@@ -17,7 +17,6 @@
       - libretro-genesisplusgx
       - libretro-mgba
       - libretro-mupen64plus
-      - libretro-nestopia
       - retroarch-assets
       - retroarch
     state: latest

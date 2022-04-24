@@ -7,7 +7,6 @@
       - desktop-file-utils
       - feh
       - filezilla
-      - firefox
       - gimp
       - gnome-disk-utility
       - gnome-keyring
@@ -34,7 +33,7 @@
       - pavucontrol
       - pcmanfm
       - pkg-config
-      - redshift-gtk
+      #- redshift-gtk
       - scrot
       - shared-mime-info
       - software-properties-gtk
@@ -56,9 +55,11 @@
       - xss-lock
       - xul-ext-calendar-timezones
       - xul-ext-lightning
+    install_recommends: no
     state: latest
     update_cache: yes
   become: true
+
 
 - name: Install binary drivers
   command: ubuntu-drivers autoinstall
@@ -77,21 +78,8 @@
 
 - import_tasks: dconf.yml
 
-- import_tasks: dimpl.yml
-
 - import_tasks: dunst.yml
 
-- import_tasks: fonts.yml
+- import_tasks: eww.yml
 
-- import_tasks: grub.yml
-
-- include_tasks: insync.yml
-  when: desktop_install_insync
-
-- import_tasks: lightdm.yml
-  when: not desktop_install_ly_instead_of_lightdm
-
-- import_tasks: ly.yml
-  when: desktop_install_ly_instead_of_lightdm
-
-- import_tasks: themes.yml
+- import_tasks: firefox.yml
