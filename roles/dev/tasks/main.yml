@@ -30,7 +30,7 @@
 
 # Ubuntu >=18.10 installs Python >3.7 by default
 - import_tasks: python3.7.yml
-  when: dev_install_python37 and ansible_distribution_major_version in ('16', '17', '18')
+  when: dev_install_python37 and ansible_distribution_version is version('18.10', '<=')
 
 - import_tasks: rust.yml
 
