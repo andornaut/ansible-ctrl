@@ -2,7 +2,7 @@
 - name: Install build dependencies
   apt:
     name: libpam0g-dev
-    state: present
+    state: latest
   become: true
 
 - name: Clone ly git repositories
@@ -10,6 +10,7 @@
     repo: "https://github.com/cylgom/ly.git"
     dest: /tmp/ly.git
     depth: 1
+    force: yes
 
 - name: Make default target
   make:

@@ -1,0 +1,121 @@
+---
+- name: Apt uninstall snap and applications that will be replaced by flatpak
+  apt:
+    name:
+      - audacity
+      - blender
+      - chromium-browser
+      - filezilla*
+      - firefox
+      - gimp
+      - gnome-software-plugin-snap
+      - inkscape
+      - libreoffice
+      - snapd
+      - vlc
+      - wireshark
+    purge: yes
+    state: absent
+  become: true
+
+- name: Apt autoclean
+  apt:
+    autoclean: yes
+  become: true
+
+- name: Apt autoremove
+  apt:
+    autoremove: yes
+    purge: yes
+  become: true
+
+- name: Apt hold snap and applications that will be replaced by flatpak
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+      - audacity
+      - blender
+      - chromium-browser
+      - filezila
+      - firefox
+      - gimp
+      - gnome-software-plugin-snap
+      - inkscape
+      - libreoffice
+      - snapd
+      - vlc
+      - wireshark
+  become: true
+
+- name: Find user snap directories
+  find:
+    paths: /home
+    patterns: snap
+    depth: 2
+    file_type: directory
+    recurse: yes
+  register: snap_directories_result
+  become: true
+
+- name: Remove user snap directories
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ snap_directories_result.files }}"
+  become: true
+
+- name: Remove root snap directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /root/snap
+    - /var/cache/snapd
+  become: true
+
+- name: Apt install flatpak
+  apt:
+    name: flatpak
+    state: latest
+  become: true
+
+- name: Add the flathub flatpak repository remote to the user installation
+  community.general.flatpak_remote:
+    name: flathub
+    flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+    method: user
+
+- name: Install flatpak packages
+  community.general.flatpak:
+    name:
+      - org.gtk.Gtk3theme.Adwaita-dark
+
+      - org.audacityteam.Audacity
+      - com.obsproject.Studio
+      - org.blender.Blender
+      - org.chromium.Chromium
+      - org.filezillaproject.Filezilla
+      - org.gimp.GIMP
+      - org.inkscape.Inkscape
+      - org.libreoffice.LibreOffice
+      - org.mozilla.firefox
+      - org.videolan.VLC
+      - org.wireshark.Wireshark
+    method: user
+
+- name: Override cursor theme for flatpak GUI applications
+  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+  loop:
+    - com.obsproject.Studio
+    - org.audacityteam.Audacity
+    - org.blender.Blender
+    - org.chromium.Chromium
+    - org.filezillaproject.Filezilla
+    - org.gimp.GIMP
+    - org.inkscape.Inkscape
+    - org.libreoffice.LibreOffice
+    - org.mozilla.firefox
+    - org.videolan.VLC
+    - org.wireshark.Wireshark

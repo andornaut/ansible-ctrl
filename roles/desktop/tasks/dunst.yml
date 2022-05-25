@@ -19,8 +19,12 @@
   git:
     repo: "https://github.com/dunst-project/dunst.git"
     dest: /tmp/dunst.git
+    force: yes
     # Cannot set `depth: 1` or this error is produced:
     # fatal: No names found, cannot describe anything
+    #depth: 1
+  # Become "root" to avoid a git error: ... is owned by someone else
+  become: true
 
 - name: Make dunst
   make:
