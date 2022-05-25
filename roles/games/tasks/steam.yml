@@ -1,0 +1,12 @@
+---
+- name: Install steam flatpak package
+  community.general.flatpak:
+    name:
+      - com.valvesoftware.Steam
+    method: user
+
+- name: Override cursor theme for flatpak GUI applications
+  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+  loop:
+      - com.valvesoftware.Steam

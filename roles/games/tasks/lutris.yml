@@ -1,0 +1,15 @@
+---
+- name: Install Lutris apt repository
+  apt_repository:
+    repo: "ppa:lutris-team/lutris"
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install system packages
+  apt:
+    name:
+      - lutris
+    state: latest
+    update_cache: yes
+  become: true

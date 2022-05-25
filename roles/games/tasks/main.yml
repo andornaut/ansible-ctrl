@@ -1,45 +1,17 @@
 ---
-- name: Enable i386 architecture repositories (for Steam)
-  command: dpkg --add-architecture i386
-  become: true
-
-- name: Accept Steam EULA
-  debconf:
-    name: steam
-    question: steam/question
-    vtype: select
-    value: "I AGREE"
-  become: true
-
-- name: Install Lutris apt repository
-  apt_repository:
-    repo: "ppa:lutris-team/lutris"
-    state: present
-    update_cache: yes
-  become: true
-
 - name: Install system packages
   apt:
     name:
       - 2048-qt
       - bsdgames
-      - libasound2-plugins:i386 # Workaround for Guild Wars 2 audio in CrossOver
-      - lutris
-      - steam
-      # Needed by some games
-      - libvulkan-dev
-      # Libs used by Steam games
-      - libbz2-1.0:i386
-      - libgdk-pixbuf2.0-0:i386
-      - libgtk2.0-0:i386
-      - libva-x11-2:i386
-      - libva2:i386
-      - libvdpau1:i386
-      - libxtst6:i386
     state: latest
     update_cache: yes
   become: true
 
 - import_tasks: heroic.yml
 
+- import_tasks: lutris.yml
+
 - import_tasks: retroarch.yml
+
+- import_tasks: steam.yml
