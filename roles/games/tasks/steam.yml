@@ -1,4 +1,13 @@
 ---
+- name: Install apt packages
+  apt:
+    name:
+      # Configures udev rules to support gamepads, etc.
+      - steam-devices
+    state: latest
+    update_cache: yes
+  become: true
+
 - name: Install steam flatpak package
   community.general.flatpak:
     name:
