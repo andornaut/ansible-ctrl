@@ -119,3 +119,6 @@
     - org.mozilla.firefox
     - org.videolan.VLC
     - org.wireshark.Wireshark
+
+- name: Make Firefox the default web browser
+  command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
