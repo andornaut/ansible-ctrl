@@ -8,10 +8,10 @@
     update_cache: yes
   become: true
 
+- import_tasks: flatpak.yml
+
 - import_tasks: heroic.yml
 
 - import_tasks: lutris.yml
 
 - import_tasks: retroarch.yml
-
-- import_tasks: steam.yml
