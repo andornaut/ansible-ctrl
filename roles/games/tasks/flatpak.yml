@@ -1,5 +1,5 @@
 ---
-- name: Install apt packages
+- name: Install steam-devices apt package
   apt:
     name:
       # Configures udev rules to support gamepads, etc.
@@ -8,10 +8,11 @@
     update_cache: yes
   become: true
 
-- name: Install steam flatpak package
+- name: Install flatpak packages
   community.general.flatpak:
     name:
       - com.valvesoftware.Steam
+      - net.davidotek.pupgui2
     method: user
 
 - name: Override cursor theme for flatpak GUI applications
@@ -19,3 +20,4 @@
   command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
   loop:
       - com.valvesoftware.Steam
+      - net.davidotek.pupgui2
