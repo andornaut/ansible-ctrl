@@ -13,6 +13,7 @@
     name:
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
+      - net.lutris.Lutris
     method: user
 
 - name: Override cursor theme for flatpak GUI applications
@@ -21,3 +22,4 @@
   loop:
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
+      - net.lutris.Lutris

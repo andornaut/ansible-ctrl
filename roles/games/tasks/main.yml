@@ -12,6 +12,4 @@
 
 - import_tasks: heroic.yml
 
-- import_tasks: lutris.yml
-
 - import_tasks: retroarch.yml
