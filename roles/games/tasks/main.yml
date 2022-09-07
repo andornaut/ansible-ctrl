@@ -9,7 +9,3 @@
   become: true
 
 - import_tasks: flatpak.yml
-
-- import_tasks: heroic.yml
-
-- import_tasks: retroarch.yml
