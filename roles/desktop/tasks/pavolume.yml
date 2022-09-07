@@ -20,5 +20,4 @@
 
 - name: Ensure that the 'Make install pavolume' play succeeded or failed with 'file busy'
   fail: msg="The 'Make install pavolume' play failed"
-  when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
-  with_items: "{{r.results}}"
+  when: "r.failed and 'cp: cannot create regular file' not in r.stderr"
