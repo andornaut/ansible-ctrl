@@ -29,11 +29,13 @@
       - pcmanfm
       - pkg-config
       #- redshift-gtk
+      - rofi
       - scrot
       - shared-mime-info
       - software-properties-gtk
       # Solaar is used to manage logitech receivers
       #- solaar
+      - stalonetray
       - suckless-tools
       - ubuntu-drivers-common
       - udevil
@@ -75,3 +77,20 @@
 - import_tasks: eww.yml
 
 - import_tasks: flatpak.yml
+
+- import_tasks: fonts.yml
+
+- import_tasks: grub.yml
+
+- include_tasks: insync.yml
+  when: desktop_install_insync
+
+- import_tasks: lightdm.yml
+  when: not desktop_install_ly_instead_of_lightdm
+
+- import_tasks: ly.yml
+  when: desktop_install_ly_instead_of_lightdm
+
+- import_tasks: pavolume.yml
+
+- import_tasks: themes.yml

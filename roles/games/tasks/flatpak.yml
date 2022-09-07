@@ -11,15 +11,19 @@
 - name: Install flatpak packages
   community.general.flatpak:
     name:
+      - com.heroicgameslauncher.hgl
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
       - net.lutris.Lutris
+      - org.libretro.RetroArch
     method: user
 
 - name: Override cursor theme for flatpak GUI applications
   # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
   command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
   loop:
+      - com.heroicgameslauncher.hgl
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
       - net.lutris.Lutris
+      - org.libretro.RetroArch
