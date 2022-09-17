@@ -5,6 +5,9 @@
     dest: /tmp/eww.git
     depth: 1
     force: yes
+    # Temperature reporting is broken in v0.4.0, wait
+    # until it's fixed
+    version: "v0.3.0"
 
 - name: Build eww
   command:
