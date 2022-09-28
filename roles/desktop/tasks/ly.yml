@@ -7,7 +7,7 @@
 
 - name: Clone ly git repositories
   git:
-    repo: "https://github.com/cylgom/ly.git"
+    repo: "https://github.com/fairyglade/ly.git"
     dest: /tmp/ly.git
     depth: 1
     force: yes
