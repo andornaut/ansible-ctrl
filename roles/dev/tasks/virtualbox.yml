@@ -4,6 +4,8 @@
     name:
       - virtualbox
       - virtualbox-dkms
+      - virtualbox-ext-pack
+      - virtualbox-guest-additions-iso
     state: latest
     update_cache: yes
   become: true

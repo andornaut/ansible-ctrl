@@ -120,5 +120,9 @@
     - org.videolan.VLC
     - org.wireshark.Wireshark
 
+- name: Override share=ipc to fix FileZilla
+  # https://forum-francophone-linuxmint.fr/viewtopic.php?t=18119
+  command: flatpak override --user --share=ipc org.filezillaproject.Filezilla
+
 - name: Make Firefox the default web browser
   command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
