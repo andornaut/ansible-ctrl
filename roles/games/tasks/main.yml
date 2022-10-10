@@ -4,6 +4,10 @@
     name:
       - 2048-qt
       - bsdgames
+
+      # For `chdman` to create .chd archives
+      - mame-tools
+    install_recommends: no
     state: latest
     update_cache: yes
   become: true
