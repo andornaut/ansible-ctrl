@@ -1,8 +1,21 @@
 ---
 - hosts: upgrade
-  tasks: 
+  tasks:
   - name: apt-get dist-upgrade
     apt:
       update_cache: yes
       upgrade: dist
     become: true
+
+  - name: Gathering package facts
+    ansible.builtin.package_facts:
+
+  - name: Upgrade flatpak system packages
+    ansible.builtin.command: flatpak --noninteractive --system upgrade
+    become: true
+    when: "'flatpak' in ansible_facts.packages"
+
+  - name: Upgrade flatpak user packages
+    ansible.builtin.command: flatpak --noninteractive --user upgrade
+    become: true
+    when: "'flatpak' in ansible_facts.packages"
