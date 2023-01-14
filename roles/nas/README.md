@@ -15,7 +15,7 @@ cryptsetup luksFormat ${device}
 
 # Add a key-file (which can be used instead of the passphrase created above)
 keyfile=/path/to/keyfile
-head -c 256 /dev/random > 
+head -c 256 /dev/random > ${keyfile}
 cryptsetup luksAddKey ${device} ${keyfile}
 
 # Map the container to /dev/mapper/nas0
