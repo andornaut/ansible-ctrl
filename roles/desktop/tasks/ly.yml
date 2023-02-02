@@ -11,8 +11,6 @@
     dest: /tmp/ly.git
     depth: 1
     force: yes
-    # Pin version to workaround: https://github.com/fairyglade/ly/issues/443
-    version: "86d0353"
 
 - name: Make default target
   make:
