@@ -42,6 +42,7 @@
   copy:
     src: /tmp/source-code-pro/
     dest: /usr/share/fonts/truetype/source-code-pro
+    remote_src: yes
   delegate_to: "{{ inventory_hostname }}"
   notify: update font cache
   become: true
