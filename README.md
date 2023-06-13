@@ -4,7 +4,7 @@ Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.9.0
+* [Ansible](https://www.ansible.com/) >= 2.11.0
 * [Make](https://www.gnu.org/software/make/)
 * Ubuntu >= 20.04
 
@@ -14,6 +14,14 @@ example ansible_connection=local ansible_host=example.com ansible_user=andornaut
 
 [upgrade]
 example
+```
+
+### Installing or upgrading Ansible on Ubuntu
+
+```
+sudo apt remove ansible --purge
+sudo apt-add-repository ppa:ansible/ansible
+sudo apt install ansible
 ```
 
 ## Usage

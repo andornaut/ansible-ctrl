@@ -2,8 +2,9 @@
 - name: Configure Let's Encrypt and Nginx
   hosts: webservers
   roles:
+    # Uncomment the `base` and `docker` on the first run
     #- base
-    #- msmtp
+    #- docker
     - letsencrypt-nginx
 
 - name: Set Let's Encrypt renewal crontab
