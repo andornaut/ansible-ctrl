@@ -22,19 +22,11 @@
     update_cache: yes
   become: true
 
-- import_tasks: jetbrains.yml
-  when: dev_install_jetbrains
-
 - import_tasks: python.yml
 
-# Ubuntu >=18.10 installs Python >3.7 by default
-- import_tasks: python3.7.yml
-  when: dev_install_python37 and ansible_distribution_version is version('18.10', '<')
+- import_tasks: ruby.yml
 
 - import_tasks: rust.yml
-
-- import_tasks: vagrant.yml
-  when: dev_install_vagrant
 
 - import_tasks: virtualbox.yml
 
