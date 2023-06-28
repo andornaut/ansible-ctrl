@@ -1,0 +1,66 @@
+---
+- name: Install system packages
+  apt:
+    name:
+      - ruby
+      - ruby-dev
+    state: latest
+    update_cache: yes
+  become: true
+
+- name: Create a temporary directory
+  tempfile:
+    state: directory
+  register: tmp_ruby
+
+- name: Get the latest version of chruby
+  uri:
+    url: https://api.github.com/repos/postmodern/chruby/releases/latest
+    return_content: yes
+  register: chruby_version
+
+- name: Download chruby package
+  get_url:
+    url: "{{ chruby_version.json.assets[0].browser_download_url }}"
+    dest: "{{ tmp_ruby.path}}/chruby.tar.gz"
+    mode: 0644
+  become: true
+
+- name: Decompress chruby.tar.gz
+  ansible.builtin.unarchive:
+    src: "{{ tmp_ruby.path}}/chruby.tar.gz"
+    remote_src: true
+    dest: "{{ tmp_ruby.path}}"
+  become: true
+
+- name: Make install chruby
+  make:
+    chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_version.json.name }}"
+    target: install
+  become: true
+
+- name: Get the latest version of ruby-install
+  uri:
+    url: https://api.github.com/repos/postmodern/ruby-install/releases/latest
+    return_content: yes
+  register: ruby_install_version
+
+- name: Download ruby-install package
+  get_url:
+    url: "{{ ruby_install_version.json.assets[0].browser_download_url }}"
+    dest: "{{ tmp_ruby.path}}/ruby-install.tar.gz"
+    mode: 0644
+  become: true
+
+- name: Decompress ruby-install.tar.gz
+  ansible.builtin.unarchive:
+    src: "{{ tmp_ruby.path}}/ruby-install.tar.gz"
+    remote_src: true
+    dest: "{{ tmp_ruby.path}}"
+  become: true
+
+- name: Make install ruby-install
+  make:
+    chdir: "{{ tmp_ruby.path}}/ruby-install-{{ ruby_install_version.json.name }}"
+    target: install
+  become: true
