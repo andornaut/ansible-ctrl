@@ -1,11 +1,2 @@
 ---
 dev_bashrc_path: "{{ ansible_env.HOME }}/.bashrc"
-dev_install_jetbrains: false
-dev_install_python37: false
-dev_install_vagrant: false
-dev_jetbrains_applications:
-- { name: goland, version: '2020.2.4',  url_prefix: 'https://download.jetbrains.com/go/goland-' }
-- { name: idea, version: '2020.2.4',  url_prefix: 'https://download.jetbrains.com/idea/ideaIU-' }
-- { name: pycharm, version: '2020.2.5', url_prefix: 'https://download.jetbrains.com/python/pycharm-professional-' }
-- { name: rubymine, version: '2020.2.4', url_prefix: 'https://download.jetbrains.com/ruby/RubyMine-' }
-- { name: webstorm, version: '2020.2.4', url_prefix: 'https://download.jetbrains.com/webstorm/WebStorm-' }
