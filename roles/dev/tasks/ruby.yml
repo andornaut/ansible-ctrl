@@ -1,5 +1,5 @@
 ---
-- name: Install system packages
+- name: Install Ruby system packages
   apt:
     name:
       - ruby
@@ -22,16 +22,14 @@
 - name: Download chruby package
   get_url:
     url: "{{ chruby_version.json.assets[0].browser_download_url }}"
-    dest: "{{ tmp_ruby.path}}/chruby.tar.gz"
+    dest: "{{ tmp_ruby.path }}/chruby.tar.gz"
     mode: 0644
-  become: true
 
 - name: Decompress chruby.tar.gz
   ansible.builtin.unarchive:
-    src: "{{ tmp_ruby.path}}/chruby.tar.gz"
+    src: "{{ tmp_ruby.path }}/chruby.tar.gz"
     remote_src: true
     dest: "{{ tmp_ruby.path}}"
-  become: true
 
 - name: Make install chruby
   make:
@@ -48,19 +46,17 @@
 - name: Download ruby-install package
   get_url:
     url: "{{ ruby_install_version.json.assets[0].browser_download_url }}"
-    dest: "{{ tmp_ruby.path}}/ruby-install.tar.gz"
+    dest: "{{ tmp_ruby.path }}/ruby-install.tar.gz"
     mode: 0644
-  become: true
 
 - name: Decompress ruby-install.tar.gz
   ansible.builtin.unarchive:
-    src: "{{ tmp_ruby.path}}/ruby-install.tar.gz"
+    src: "{{ tmp_ruby.path }}/ruby-install.tar.gz"
     remote_src: true
-    dest: "{{ tmp_ruby.path}}"
-  become: true
+    dest: "{{ tmp_ruby.path }}"
 
 - name: Make install ruby-install
   make:
-    chdir: "{{ tmp_ruby.path}}/ruby-install-{{ ruby_install_version.json.name }}"
+    chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_version.json.name }}"
     target: install
   become: true
