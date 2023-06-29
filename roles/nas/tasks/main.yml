@@ -1,4 +1,16 @@
 ---
+- name: Install system dependencies
+  apt:
+    name:
+      - btrfsmaintenance
+      # Workaround error in boot log:
+      # libbd_mdraid.so.2: cannot open shared object file
+      # https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
+      - libblockdev-mdraid2
+    state: latest
+    update_cache: yes
+  become: true
+
 - name: Check if usb_modeswitch.conf exists
   stat:
     path: /etc/usb_modeswitch.conf
@@ -14,16 +26,6 @@
     regex: "^#?\\s*DisableSwitching\\s*"
   become: true
   when: stat_usb_modeswitch.stat.exists
-
-# Workaround error in boot log:
-# libbd_mdraid.so.2: cannot open shared object file
-# https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
-- name: Install system dependencies
-  apt:
-    name: libblockdev-mdraid2
-    state: latest
-    update_cache: yes
-  become: true
 
 - name: Create directories
   file:
