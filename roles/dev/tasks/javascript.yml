@@ -1,0 +1,20 @@
+---
+- name: Create a temporary directory
+  tempfile:
+    state: directory
+  register: tmp_javascript
+
+- name: Get the latest version of nvm
+  uri:
+    url: https://api.github.com/repos/nvm-sh/nvm/releases/latest
+    return_content: yes
+  register: nvm_version
+
+- name: Download nvm installer
+  get_url:
+    url: "https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version.json.name }}/install.sh"
+    dest: "{{ tmp_javascript.path }}/nvm-install.sh"
+    mode: 0755
+
+- name: Run nvm installer
+  command: "{{ tmp_javascript.path }}/nvm-install.sh"

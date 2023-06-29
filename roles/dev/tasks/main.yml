@@ -11,16 +11,13 @@
       - meld
       - mercurial
       - mysql-client
-      #- node
-      #- node-less
-      #- npm
       - postgresql-client
-      - ruby
-      - ruby-dev
       - xserver-xephyr
     state: latest
     update_cache: yes
   become: true
+
+- import_tasks: javascript.yml
 
 - import_tasks: python.yml
 
