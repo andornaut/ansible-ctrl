@@ -12,7 +12,7 @@
   tasks:
     - cron:
         name: webservers
-        cron_file: /etc/cron.d/ansible-workspace
+        cron_file: /etc/cron.d/ansible-role-letsencrypt-nginx
         user: root
         minute: "11"
         hour: "22"

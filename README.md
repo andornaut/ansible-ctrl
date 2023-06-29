@@ -1,12 +1,12 @@
-# ansible-workstation
+# ansible-ctrl
 
 Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.11.0
+* [Ansible](https://www.ansible.com/) >= 2.14.6
 * [Make](https://www.gnu.org/software/make/)
-* Ubuntu >= 20.04
+* Ubuntu >= 22.04
 
 Create a file in the project root named "hosts":
 ```
