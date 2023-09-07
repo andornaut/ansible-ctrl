@@ -6,7 +6,6 @@
       - blender
       - chromium-browser
       - filezilla*
-      #- firefox
       - gimp
       - gnome-software-plugin-snap
       - inkscape
@@ -34,18 +33,17 @@
     name: "{{ item }}"
     selection: hold
   loop:
-      - audacity
-      - blender
-      - chromium-browser
-      - filezila
-      #- firefox
-      - gimp
-      - gnome-software-plugin-snap
-      - inkscape
-      - libreoffice
-      - snapd
-      - vlc
-      - wireshark
+    - audacity
+    - blender
+    - chromium-browser
+    - filezila
+    - gimp
+    - gnome-software-plugin-snap
+    - inkscape
+    - libreoffice
+    - snapd
+    - vlc
+    - wireshark
   become: true
 
 - name: Find user snap directories
@@ -99,7 +97,6 @@
       - org.gimp.GIMP
       - org.inkscape.Inkscape
       - org.libreoffice.LibreOffice
-      #- org.mozilla.firefox
       - org.videolan.VLC
       - org.wireshark.Wireshark
     method: user
@@ -116,13 +113,9 @@
     - org.gimp.GIMP
     - org.inkscape.Inkscape
     - org.libreoffice.LibreOffice
-    #- org.mozilla.firefox
     - org.videolan.VLC
     - org.wireshark.Wireshark
 
 - name: Override share=ipc to fix FileZilla
   # https://forum-francophone-linuxmint.fr/viewtopic.php?t=18119
   command: flatpak override --user --share=ipc org.filezillaproject.Filezilla
-
-#- name: Make Firefox the default web browser
-#  command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
