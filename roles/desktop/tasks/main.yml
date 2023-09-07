@@ -78,6 +78,8 @@
 
 - import_tasks: flatpak.yml
 
+- import_tasks: firefox.yml # May depend on flatpak being installed
+
 - import_tasks: fonts.yml
 
 - import_tasks: grub.yml

@@ -1,0 +1,55 @@
+# Apt
+- name: Uninstall Firefox (flatpak), because it will be installed by apt
+  community.general.flatpak:
+    name: org.mozilla.firefox
+    method: user
+    state: absent
+  when: not desktop_install_firefox_flatpak
+
+- name: Install Firefox (apt)
+  apt:
+    name:
+      - firefox
+      # https://support.mozilla.org/en-US/kb/speechd-setup
+      - speech-dispatcher
+    state: latest
+  become: true
+  when: not desktop_install_firefox_flatpak
+
+- name: Make Firefox the default web browser (apt)
+  command: xdg-settings set default-web-browser firefox.desktop
+  when: not desktop_install_firefox_flatpak
+
+# Flatpak
+- name: Uninstall Firefox (apt), because it will be installed using flatpak
+  apt:
+    name:
+      - firefox
+    purge: yes
+    state: absent
+  become: true
+  when: desktop_install_firefox_flatpak
+
+- name: Apt hold Firefox, because it will be installed using flatpak
+  dpkg_selections:
+    name: firefox
+    selection: hold
+  become: true
+  when: desktop_install_firefox_flatpak
+
+- name: Install Firefox (flatpak)
+  community.general.flatpak:
+    name: org.mozilla.firefox
+    method: user
+  when: desktop_install_firefox_flatpak
+
+- name: Override cursor theme for Firefox (flatpak)
+  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+  loop:
+    - org.mozilla.firefox
+  when: desktop_install_firefox_flatpak
+
+- name: Make Firefox the default web browser (flatpak)
+  command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
+  when: desktop_install_firefox_flatpak
