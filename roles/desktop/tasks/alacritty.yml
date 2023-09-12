@@ -1,3 +1,4 @@
+---
 - name: Install Alacritty apt respository
   apt_repository:
     repo: ppa:aslatter/ppa
