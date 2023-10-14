@@ -74,7 +74,9 @@
 
 - name: Apt install flatpak
   apt:
-    name: flatpak
+    name: 
+      - flatpak
+      - flatpak-builder
     state: latest
   become: true
 
@@ -94,6 +96,7 @@
       - org.blender.Blender
       - org.chromium.Chromium
       - org.filezillaproject.Filezilla
+      - org.flameshot.Flameshot
       - org.gimp.GIMP
       - org.inkscape.Inkscape
       - org.libreoffice.LibreOffice
@@ -109,6 +112,7 @@
     - org.audacityteam.Audacity
     - org.blender.Blender
     - org.chromium.Chromium
+    - org.flameshot.Flameshot
     - org.filezillaproject.Filezilla
     - org.gimp.GIMP
     - org.inkscape.Inkscape
