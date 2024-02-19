@@ -63,10 +63,10 @@
   command: paperconfig -p letter
   become: true
 
-#- name: Install Google Chrome
-#  apt:
-#    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-#  become: true
+- name: Install Google Chrome
+  apt:
+    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  become: true
 
 - import_tasks: alacritty.yml
 
