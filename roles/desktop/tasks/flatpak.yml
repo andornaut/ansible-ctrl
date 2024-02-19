@@ -4,7 +4,6 @@
     name:
       - audacity
       - blender
-      - chromium-browser
       - filezilla*
       - gimp
       - gnome-software-plugin-snap
@@ -35,7 +34,6 @@
   loop:
     - audacity
     - blender
-    - chromium-browser
     - filezila
     - gimp
     - gnome-software-plugin-snap
@@ -94,7 +92,6 @@
       - org.audacityteam.Audacity
       - com.obsproject.Studio
       - org.blender.Blender
-      - org.chromium.Chromium
       - org.filezillaproject.Filezilla
       - org.flameshot.Flameshot
       - org.gimp.GIMP
@@ -111,7 +108,6 @@
     - com.obsproject.Studio
     - org.audacityteam.Audacity
     - org.blender.Blender
-    - org.chromium.Chromium
     - org.flameshot.Flameshot
     - org.filezillaproject.Filezilla
     - org.gimp.GIMP
