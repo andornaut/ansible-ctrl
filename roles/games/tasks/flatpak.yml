@@ -15,7 +15,8 @@
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
       - net.lutris.Lutris
-      - org.libretro.RetroArch
+      # Fails to install. Wait for a workaround.
+      #- org.libretro.RetroArch
     method: user
 
 - name: Override cursor theme for flatpak GUI applications
@@ -26,4 +27,5 @@
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
       - net.lutris.Lutris
+      # Fails to install. Wait for a workaround.
       - org.libretro.RetroArch
