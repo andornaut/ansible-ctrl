@@ -42,6 +42,7 @@
     - snapd
     - vlc
     - wireshark
+  ignore_errors: true # This can produce errors if the package doesn't exist, which we don't care about
   become: true
 
 - name: Find user snap directories

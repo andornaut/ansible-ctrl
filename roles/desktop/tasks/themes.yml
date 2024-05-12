@@ -2,7 +2,7 @@
 - name: Install themes system packages
   apt:
     name:
-      - adwaita-icon-theme-full
+      - adwaita-icon-theme
       - gnome-themes-extra
       - gnome-themes-standard
       - gtk-theme-switch

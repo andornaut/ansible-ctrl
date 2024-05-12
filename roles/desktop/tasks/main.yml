@@ -4,6 +4,7 @@
     name:
       - blueman
       - desktop-file-utils
+      - evince # PDF reader
       - feh
       - gnome-disk-utility
       - gnome-keyring
@@ -14,7 +15,9 @@
       - libcairo2
       - libglib2.0-0
       - libglib2.0-dev
-      - libgtk2.0-0
+      # Fails in Ubuntu noble; workaround: use t64 version
+      #- libgtk2.0-0
+      - libgtk2.0-0t64
       - libgtk2.0-bin
       - libgtk2.0-dev
       - libpango-1.0-0
@@ -24,7 +27,8 @@
       - libudev1
       - libx11-6
       - lxappearance
-      - network-manager-gnome
+      # Fails in Ubuntu noble
+      #- network-manager-gnome
       - pavucontrol
       - pcmanfm
       - pkg-config
