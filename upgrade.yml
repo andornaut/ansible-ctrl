@@ -1,8 +1,12 @@
 ---
 - hosts: upgrade
   tasks:
-  - name: apt-get dist-upgrade
+  - name: apt-get autoremove, clean, dist-upgrade
     apt:
+      autoclean: true
+      autoremove: true
+      clean: true
+      purge: true
       update_cache: yes
       upgrade: dist
     become: true
