@@ -1,0 +1,43 @@
+---
+- name: Get the latest version of OrcaSlicer
+  uri:
+    url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
+    return_content: yes
+  register: orcaslicer_version
+
+- name: Download OrcaSlicer binary
+  get_url:
+    url: "https://github.com/SoftFever/OrcaSlicer/releases/download/{{ orcaslicer_version.json.tag_name }}/OrcaSlicer_Linux_{{ orcaslicer_version.json.tag_name }}.AppImage"
+    dest: "/usr/local/bin/OrcaSlicer"
+  become: true
+
+- name: Change file ownership, group and permissions of OrcaSlicer
+  ansible.builtin.file:
+    path: "/usr/local/bin/OrcaSlicer"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Install Kicad apt respository
+  apt_repository:
+    repo: ppa:kicad/kicad-8.0-releases
+    update_cache: yes
+  become: true
+
+- name: Install Kicad system packages
+  apt:
+    name:
+      - kicad
+      # https://github.com/andornaut/splinter-keyboard/?tab=readme-ov-file#fix-error-when-running-npm-run-build
+      - libocct-modeling-algorithms-7.6t64
+    state: latest
+    update_cache: yes
+  become: true
+
+- name: Install kikit from PyPI
+  pip:
+    name:
+      - kikit
+    extra_args: "--break-system-packages"
+  become: true
