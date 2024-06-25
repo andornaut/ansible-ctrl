@@ -94,8 +94,11 @@
 - import_tasks: lightdm.yml
   when: not desktop_install_ly_instead_of_lightdm
 
-- import_tasks: ly.yml
-  when: desktop_install_ly_instead_of_lightdm
+# TODO: Install zig and update ly, whose new install process requires zig:
+# https://ziglang.org/learn/getting-started/#direct-download
+# https://github.com/fairyglade/ly
+# - import_tasks: ly.yml
+#   when: desktop_install_ly_instead_of_lightdm
 
 - import_tasks: pavolume.yml
 

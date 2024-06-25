@@ -1,17 +1,22 @@
 ---
+- name: Install eww's build dependencies
+  apt:
+    name:
+      - libdbusmenu-glib-dev
+      - libdbusmenu-gtk3-dev
+    state: latest
+  become: true
+
 - name: Clone eww git repository
   git:
     repo: "https://github.com/elkowar/eww.git"
     dest: /tmp/eww.git
     depth: 1
     force: yes
-    # Temperature reporting is broken in v0.4.0, wait
-    # until it's fixed
-    version: "v0.3.0"
 
 - name: Build eww
   command:
-    cmd: cargo build --release
+    cmd: cargo build --release --no-default-features --features x11
     chdir: /tmp/eww.git
 
 - name: Copy eww binary to /usr/local/bin/
