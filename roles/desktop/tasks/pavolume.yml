@@ -14,7 +14,7 @@
   make:
     chdir: /tmp/pavolume.git
     target: install
-  ignore_errors: yes # Ignore "cp: cannot create regular file ... Text file busy"
+  ignore_errors: true # Ignore "cp: cannot create regular file ... Text file busy"
   register: r
   become: true
 

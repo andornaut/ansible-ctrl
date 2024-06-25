@@ -90,8 +90,9 @@
     name:
       - org.gtk.Gtk3theme.Adwaita-dark
 
-      - org.audacityteam.Audacity
       - com.obsproject.Studio
+      - io.missioncenter.MissionCenter
+      - org.audacityteam.Audacity
       - org.blender.Blender
       - org.filezillaproject.Filezilla
       - org.flameshot.Flameshot
@@ -107,10 +108,11 @@
   command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
   loop:
     - com.obsproject.Studio
+    - io.missioncenter.MissionCenter
     - org.audacityteam.Audacity
     - org.blender.Blender
-    - org.flameshot.Flameshot
     - org.filezillaproject.Filezilla
+    - org.flameshot.Flameshot
     - org.gimp.GIMP
     - org.inkscape.Inkscape
     - org.libreoffice.LibreOffice

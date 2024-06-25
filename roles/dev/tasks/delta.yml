@@ -2,7 +2,7 @@
 - name: Create a temporary directory
   tempfile:
     state: directory
-  register: tmp_delta
+  register: delta_tmp
 
 - name: Get the latest version of Delta
   uri:
@@ -13,9 +13,9 @@
 - name: Download Delta package
   get_url:
     url: "https://github.com/dandavison/delta/releases/download/{{ delta_version.json.name }}/git-delta_{{ delta_version.json.name }}_amd64.deb"
-    dest: "{{ tmp_delta.path }}/delta.deb"
+    dest: "{{ delta_tmp.path }}/delta.deb"
 
 - name: Install Delta package
   apt:
-    deb: "{{ tmp_delta.path }}/delta.deb"
+    deb: "{{ delta_tmp.path }}/delta.deb"
   become: true

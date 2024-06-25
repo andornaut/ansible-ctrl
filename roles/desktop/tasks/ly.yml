@@ -1,7 +1,10 @@
 ---
 - name: Install ly's build dependencies
   apt:
-    name: libpam0g-dev
+    name:
+      - build-essential
+      - libpam0g-dev
+      - libxcb-xkb-dev
     state: latest
   become: true
 
@@ -34,14 +37,14 @@
   lineinfile:
     path: /etc/ly/config.ini
     regexp: '^#?blank_password\s*\=\s*true'
-    line: 'blank_password = true'
+    line: "blank_password = true"
   become: true
 
 - name: Hide borders
   lineinfile:
     path: /etc/ly/config.ini
     regexp: '^#?hide_borders\s*\=\s*true'
-    line: 'hide_borders = true'
+    line: "hide_borders = true"
   become: true
 
 - name: Disable other display manager services
@@ -49,7 +52,7 @@
     name: "{{ item }}"
     daemon_reload: yes
     enabled: no
-  ignore_errors: yes
+  ignore_errors: true
   with_items:
     - gdm3
     - lightdm
@@ -68,19 +71,19 @@
 - name: Unlock Gnome keyring on login (1of3)
   lineinfile:
     path: /etc/pam.d/login
-    line: 'auth       optional     pam_gnome_keyring.so'
+    line: "auth       optional     pam_gnome_keyring.so"
   become: true
 
 - name: Unlock Gnome keyring on login (2of3)
   lineinfile:
     path: /etc/pam.d/login
-    line: 'session    optional     pam_gnome_keyring.so auto_start'
+    line: "session    optional     pam_gnome_keyring.so auto_start"
   become: true
 
 - name: Unlock Gnome keyring on login (3of3)
   lineinfile:
     path: /etc/pam.d/ly
-    line: 'password   optional     pam_gnome_keyring.so'
+    line: "password   optional     pam_gnome_keyring.so"
   become: true
 
 # Disabled, because this causes the desktop session to exit.
