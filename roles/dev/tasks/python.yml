@@ -4,6 +4,7 @@
     name:
       # Avoid error: fatal error: ffi.h: No such file or directory
       - libffi-dev
+      - pipenv
       - python3-dev
       - python3-pip
       - python3-venv
@@ -17,16 +18,4 @@
     path: /usr/bin/python3
     link: /usr/bin/python
     priority: 0
-  become: true
-
-- name: Install the latest pip
-  pip:
-    name: pip
-    state: latest
-  become: true
-
-- name: Install the latest Pipenv
-  pip:
-    name: pipenv
-    state: latest
   become: true
