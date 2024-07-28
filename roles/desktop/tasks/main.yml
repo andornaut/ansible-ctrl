@@ -67,14 +67,9 @@
   command: paperconfig -p letter
   become: true
 
-# TODO: Disabled b/c this fails on thinkpad, with:
-# Dependency is not satisfiable: libglib2.0-0 (>= 2.39.4)
-#- name: Install Google Chrome
-#  apt:
-#    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-#  become: true
-
 - import_tasks: alacritty.yml
+
+- import_tasks: chrome.yml
 
 - import_tasks: dconf.yml
 
