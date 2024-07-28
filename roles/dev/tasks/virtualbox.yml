@@ -1,20 +1,21 @@
 ---
+# TODO: These license questions have changed, and need to be updated
 # https://www.reddit.com/r/ansible/comments/l1wof8/install_virtualboxextpack_accepting_the_eula/
-- name: Accept virtualbox-ext-pack seen license
-  debconf:
-    name: virtualbox-ext-pack
-    question: virtualbox-ext-pack/license
-    value: "true"
-    vtype: seen
-  become: true
+#- name: Accept virtualbox-ext-pack seen license
+#  debconf:
+#    name: virtualbox-ext-pack
+#    question: virtualbox-ext-pack/license
+#    value: "true"
+#    vtype: seen
+#  become: true
 
-- name: Accept virtualbox-ext-pack select license
-  debconf:
-    name: virtualbox-ext-pack
-    question: virtualbox-ext-pack/license
-    value: "true"
-    vtype: select
-  become: true
+#- name: Accept virtualbox-ext-pack select license
+#  debconf:
+#    name: virtualbox-ext-pack
+#    question: virtualbox-ext-pack/license
+#    value: "true"
+#    vtype: select
+#  become: true
 
 - name: Install Virtualbox system packages
   apt:
@@ -28,7 +29,7 @@
   become: true
 
 - name: Disable vboxweb (workaround failure to start)
-  systemd:
+  systemd_service:
     name: vboxweb
     daemon_reload: yes
     state: stopped
