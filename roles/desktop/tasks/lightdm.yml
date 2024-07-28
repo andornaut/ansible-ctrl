@@ -1,6 +1,6 @@
 ---
 - name: Disable other display manager services
-  systemd:
+  systemd_service:
     name: "{{ item }}"
     daemon_reload: yes
     enabled: no
@@ -34,7 +34,7 @@
 
 # Re-enable getty in case it was disabled by the ly.yml tasks
 - name: Enable getty on tty2.service
-  systemd:
+  systemd_service:
     name: getty@tty2.service
     daemon_reload: yes
     enabled: yes

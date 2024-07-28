@@ -3,35 +3,50 @@
   apt:
     name:
       - build-essential
+      - clang
+      - libclang-dev
+      - liblldb-dev
       - libpam0g-dev
       - libxcb-xkb-dev
+      - lld
+      - llvm
+      - llvm-dev
     state: latest
   become: true
 
-- name: Clone ly git repositories
+- name: Download zig
+  get_url:
+    url: "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz"
+    dest: /tmp/zig.tar.gz
+
+- name: Create /opt/zig directory
+  ansible.builtin.file:
+    path: /opt/zig
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Extract zig.tar.gz into /opt/zig
+  ansible.builtin.unarchive:
+    src: /tmp/zig.tar.gz
+    dest: /opt/zig
+    extra_opts:
+      - --strip-components
+      - 1
+  become: true
+
+- name: Clone ly git repository
   git:
     repo: "https://github.com/fairyglade/ly.git"
     dest: /tmp/ly.git
     depth: 1
     force: yes
 
-- name: Make default target
-  make:
+- name: Build and install ly
+  command:
+    cmd: /opt/zig/zig build installsystemd
     chdir: /tmp/ly.git
-
-- name: Make install target
-  make:
-    chdir: /tmp/ly.git
-    target: install
   become: true
-
-# Note above workaround for https://github.com/fairyglade/ly/issues/443
-# Uncomment after upgrading to commit >=0cefb3da8e50c4ef8a2df66ab529c5943b8effdf
-#- name: Make installsystemd target
-#  make:
-#    chdir: /tmp/ly.git
-#    target: installsystemd
-#  become: true
 
 - name: Clear failed password
   lineinfile:
@@ -45,26 +60,6 @@
     path: /etc/ly/config.ini
     regexp: '^#?\s*hide_borders\s*='
     line: "hide_borders = true"
-  become: true
-
-- name: Disable other display manager services
-  systemd:
-    name: "{{ item }}"
-    daemon_reload: yes
-    enabled: no
-  ignore_errors: true
-  with_items:
-    - gdm3
-    - lightdm
-    - display-manager
-  become: true
-
-- name: Uninstall other display managers
-  apt:
-    name:
-      - gdm3
-      - lightdm
-    state: absent
   become: true
 
 # https://github.com/nullgemm/ly/issues/228
@@ -85,22 +80,43 @@
     path: /etc/pam.d/ly
     line: "password   optional     pam_gnome_keyring.so"
   become: true
-
 # Disabled, because this causes the desktop session to exit.
 # > If you need to switch between ttys after Ly's start you also have to
 # > disable getty on Ly's tty to prevent "login" from spawning on top of it.
 # https://github.com/cylgom/ly#cloning-and-compiling
-#- name: Disable getty on tty2
-#  systemd:
-#    name: getty@tty2.service
-#    daemon_reload: yes
-#    state: stopped
-#    enabled: no
-#  become: true
+- name: Disable getty on tty2
+  systemd_service:
+    name: getty@tty2.service
+    daemon_reload: yes
+    state: stopped
+    enabled: no
+  become: true
+
+- name: Disable other display manager services
+  systemd_service:
+    name: "{{ item }}"
+    daemon_reload: true
+    enabled: false
+    masked: true
+  ignore_errors: true
+  loop:
+    - display-manager
+    - gdm3
+    - lightdm
+  become: true
 
 - name: Enable ly.service
-  systemd:
-    name: ly
-    daemon_reload: yes
-    enabled: yes
+  systemd_service:
+    name: ly.service
+    daemon_reload: true
+    enabled: true
+    masked: false
+  become: true
+
+- name: Uninstall other display managers
+  apt:
+    name:
+      - gdm3
+      - lightdm
+    state: absent
   become: true
