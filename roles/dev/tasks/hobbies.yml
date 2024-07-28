@@ -35,7 +35,7 @@
   get_url:
     url: "https://github.com/SoftFever/OrcaSlicer/releases/download/{{ orcaslicer_version.json.tag_name }}/OrcaSlicer_Linux_{{ orcaslicer_version.json.tag_name }}.AppImage"
     dest: "/usr/local/bin/OrcaSlicer"
-    force: true
+    force: true # TODO: This will force the upgrade, but we should check if the latest is already installed
   become: true
 
 - name: Change file ownership, group and permissions of OrcaSlicer
