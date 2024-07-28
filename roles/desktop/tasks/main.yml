@@ -13,7 +13,8 @@
       - intltool
       - libc6
       - libcairo2
-      - libglib2.0-0
+      # Fails in Ubuntu noble; workaround: use t64 version
+      - libglib2.0-0t64 # >=Ubunbu v24.04 only
       - libglib2.0-dev
       # Fails in Ubuntu noble; workaround: use t64 version
       #- libgtk2.0-0
