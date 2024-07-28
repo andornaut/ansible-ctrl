@@ -6,10 +6,16 @@
     state: absent
   when: not desktop_install_firefox_flatpak
 
-- name: Install Mozilla apt respository
+- name: Install Firefox Next apt respository
   apt_repository:
-    repo: ppa:mozillateam/ppa
-    update_cache: yes
+    repo: ppa:mozillateam/firefox-next
+    update_cache: true
+  become: true
+
+- name: Prioritize mozilla's ppa for Firefox
+  ansible.builtin.copy:
+    src: firefox/firefox-no-snap
+    dest: /etc/apt/preferences.d/
   become: true
 
 - name: Install Firefox (apt)
