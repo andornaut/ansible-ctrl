@@ -33,17 +33,17 @@
 #    target: installsystemd
 #  become: true
 
-- name: Blank failed password
+- name: Clear failed password
   lineinfile:
+    line: "clear_password = true"
     path: /etc/ly/config.ini
-    regexp: '^#?blank_password\s*\=\s*true'
-    line: "blank_password = true"
+    regexp: '^#?\s*clear_password\s*='
   become: true
 
 - name: Hide borders
   lineinfile:
     path: /etc/ly/config.ini
-    regexp: '^#?hide_borders\s*\=\s*true'
+    regexp: '^#?\s*hide_borders\s*='
     line: "hide_borders = true"
   become: true
 
