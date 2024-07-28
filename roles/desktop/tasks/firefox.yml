@@ -6,6 +6,12 @@
     state: absent
   when: not desktop_install_firefox_flatpak
 
+- name: Install Mozilla apt respository
+  apt_repository:
+    repo: ppa:mozillateam/ppa
+    update_cache: yes
+  become: true
+
 - name: Install Firefox (apt)
   apt:
     name:
