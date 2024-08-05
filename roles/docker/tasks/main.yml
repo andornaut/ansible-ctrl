@@ -1,0 +1,5 @@
+---
+- import_tasks: docker.yml
+
+- import_tasks: kubernetes.yml
+  when: docker_install_kubernetes

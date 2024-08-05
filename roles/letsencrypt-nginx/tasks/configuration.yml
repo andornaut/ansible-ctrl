@@ -1,0 +1,50 @@
+---
+- name: Create configuration directory
+  file:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}"
+    state: directory
+  become: true
+
+- name: Copy "partial" configurations
+  copy:
+    src: "{{ item }}"
+    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/partial/"
+  loop:
+    - common_site_configuration
+    - proxy_params
+    - selfsigned_certificate
+  become: true
+
+- name: Find *.conf files
+  find:
+    paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
+    patterns: "*.conf"
+  register: find_conf_files
+
+# Will always cause changes
+- name: Delete *.conf files
+  file:
+    path: "{{ item['path'] }}"
+    state: absent
+  with_items: "{{ find_conf_files.files }}"
+  become: true
+
+- name: Copy default site config
+  copy:
+    src: 00-default.conf
+    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/"
+  become: true
+
+- name: Check if CRTs exist
+  stat:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.crt"
+  loop: "{{ letsencryptnginx_websites }}"
+  register: check_crts
+  become: true
+
+- name: Copy site configurations
+  template:
+    src: site.j2
+    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/{{ item.item.domain }}.conf"
+  loop: "{{ check_crts.results }}"
+  become: true
