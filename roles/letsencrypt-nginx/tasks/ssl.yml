@@ -1,0 +1,50 @@
+---
+- name: Create SSL directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt"
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key"
+  become: true
+
+- name: Create keys
+  openssl_privatekey:
+    path: "{{ item }}"
+  loop:
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/public.pem"
+  register: create_keys
+  become: true
+
+- name: Delete CSR directory if keys have changed
+  file:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+    state: absent
+  when: create_keys is changed
+  become: true
+
+- name: Create CSR directory if keys have changed
+  file:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+    state: directory
+  when: create_keys is changed
+  become: true
+
+- name: Create CSRs
+  openssl_csr:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.csr"
+    privatekey_path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
+    countryName: "{{ letsencryptnginx_csr_country }}"
+    commonName: "{{ item.csr_common_name|default(item.domain) }}"
+  loop: "{{ letsencryptnginx_websites }}"
+  when: not item.use_selfsigned_certificate|default(False)
+  become: true
+
+- name: Create self-signed certificate
+  community.crypto.x509_certificate:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/selfsigned.pem"
+    privatekey_path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
+    provider: selfsigned
+  become: true

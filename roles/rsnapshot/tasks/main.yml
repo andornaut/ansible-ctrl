@@ -1,0 +1,41 @@
+---
+- name: Install Rsnapshot system packages
+  apt:
+    name:
+      - cron
+      - rsnapshot
+    update_cache: yes
+  become: true
+
+- name: Download database backup scripts
+  get_url:
+    url: "{{ item }}"
+    dest: /usr/local/bin/
+    owner: root
+    group: root
+    mode: 0755
+  with_items:
+    - https://raw.githubusercontent.com/andornaut/backup-mysql/master/backupmysql
+    - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/master/backupdockerpostgresql
+  become: true
+
+- name: Create backup_directory directory
+  file:
+    path: "{{ rsnapshot_directory }}"
+    state: directory
+    mode: 0700
+  become: true
+
+- name: Create rsnapshot.conf
+  template:
+    src: rsnapshot.conf.j2
+    dest: /etc/rsnapshot.conf
+  register: rsnapshot_conf
+  become: true
+
+- name: Validate rsnapshot.conf
+  command: rsnapshot configtest
+  when: rsnapshot_conf.changed
+  become: true
+
+- import_tasks: cron.yml

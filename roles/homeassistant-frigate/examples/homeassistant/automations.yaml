@@ -1,0 +1,425 @@
+- id: '1647101709492'
+  alias: Reload the Meross or Roborock integrations if they are unavailable
+  trigger:
+  - platform: homeassistant
+    event: start
+  - platform: state
+    entity_id:
+    - cover.garage_door_msg100_main_channel
+    - vacuum.roborock_s7_maxv
+    to: unavailable
+    for:
+      seconds: 10
+  action:
+  - repeat:
+      while:
+      - condition: template
+        value_template: '{{ repeat.index < 120 }}'
+      - condition: template
+        value_template: '{{ unavailable_ids | length > 0 }}'
+      sequence:
+      - service: logbook.log
+        data:
+          entity_id: '{{ this.entity_id }}'
+          message: 'Reloading: {{ unavailable_names | join('', '') }}'
+          name: '{{ this.attributes.friendly_name }}'
+      - service: homeassistant.reload_config_entry
+        data: {}
+        target:
+          entity_id: '{{ unavailable_ids }}'
+      - delay:
+          minutes: 1
+  mode: single
+  variables:
+    entity_ids:
+    - cover.garage_door_msg100_main_channel
+    - vacuum.roborock_s7_maxv
+    unavailable_ids: '{{ entity_ids | select(''is_state'', ''unavailable'') | list
+      }}'
+    unavailable_names: '{{ unavailable_ids | map(''state_attr'', ''friendly_name'')
+      | list }}'
+- id: '1632690078533'
+  alias: Alert if the garage is open at night
+  description: ''
+  mode: single
+  variables:
+    message: detected that the garage door is open at night
+  trigger:
+  - platform: time
+    at: 00:00:00
+  - platform: state
+    entity_id: cover.garage_door_msg100_main_channel
+    to: open
+  condition:
+  - condition: state
+    entity_id: cover.garage_door_msg100_main_channel
+    state: open
+  - condition: time
+    after: 00:00:00
+    before: 06:30:00
+  action:
+  - service: logbook.log
+    data:
+      entity_id: '{{ this.entity_id }}'
+      message: '{{ message }}'
+      name: '{{ this.attributes.friendly_name }}'
+  - service: notify.notify
+    data:
+      message: Home Assistant {{ message }}
+- id: '1627235600150'
+  alias: Alert if the security system is not armed at night
+  description: ''
+  mode: single
+  variables:
+    message: detected that the security system is not armed at night
+  trigger:
+  - platform: time
+    at: 00:00:00
+  condition:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: armed_away
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: armed_home
+  action:
+  - service: logbook.log
+    data:
+      entity_id: '{{ this.entity_id }}'
+      message: '{{ message }}'
+      name: '{{ this.attributes.friendly_name }}'
+  - service: notify.notify
+    data:
+      message: Home Assistant {{ message }}
+- id: '1632703838394'
+  alias: Alert if a person is detected at night
+  description: Send a critical/urgent notification.
+  max_exceeded: silent
+  mode: single
+  variables:
+    id: '{{ trigger.payload_json[''after''][''id''] }}'
+    base_url: http://example.com
+    camera: '{{ trigger.payload_json[''after''][''camera''] }}'
+    camera_friendly_name: '{{ camera|replace(''_'', '' '')|title }}'
+    object: '{{ trigger.payload_json[''after''][''label''] }}'
+    message: detected a "{{ object|title }}" on the "{{ camera_friendly_name }}" camera
+    objects_to_alert_on:
+    - person
+    type: '{{ trigger.payload_json[''type''] }}'
+  trigger:
+  - platform: mqtt
+    topic: frigate/events
+    value_template: '{{ value_json[''after''][''camera''] }}'
+  condition:
+  - condition: template
+    value_template: '{{ type != ''end'' }}'
+  - condition: template
+    value_template: '{{ objects_to_alert_on|length == 0 or object in objects_to_alert_on
+      }}'
+  - condition: time
+    alias: At night
+    after: 00:00
+    before: 06:30
+  action:
+  - service: logbook.log
+    data:
+      entity_id: '{{ this.entity_id }}'
+      message: '{{ message }}'
+      name: '{{ this.attributes.friendly_name }}'
+  - service: notify.notify
+    data:
+      message: '{{ message }}'
+      data:
+        tag: '{{ id }}'
+        group: frigate-notification-{{ camera }}
+        image: /api/frigate/notifications/{{id}}/thumbnail.jpg?format=android
+        channel: alarm_stream
+        priority: high
+        ttl: 0
+        attachment:
+          url: /api/frigate/notifications/{{id}}/thumbnail.jpg
+        push:
+          sound:
+            name: default
+            critical: 1
+            volume: 1
+  - repeat:
+      sequence:
+      - wait_for_trigger:
+        - platform: mqtt
+          topic: frigate/events
+          payload: '{{ id }}'
+          value_template: '{{ value_json[''after''][''id''] }}'
+        timeout: '300'
+        continue_on_timeout: false
+      - condition: template
+        value_template: '{{ wait.trigger.payload_json[''type''] == ''end'' }}'
+      - service: notify.notify
+        data:
+          message: '{{ message }}'
+          data:
+            tag: '{{ id }}'
+            group: frigate-notification-{{ camera }}
+            url: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            clickAction: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            image: /api/frigate/notifications/{{id}}/thumbnail.jpg?format=android
+            sound: none
+            attachment:
+              url: /api/frigate/notifications/{{id}}/thumbnail.jpg
+            actions:
+            - action: URI
+              title: View Clip
+              uri: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            - action: URI
+              title: View Snapshot
+              uri: '{{base_url}}/api/frigate/notifications/{{id}}/snapshot.jpg'
+            - action: silence-{{ camera }}
+              title: Silence Notifications
+              destructive: true
+      until:
+      - condition: template
+        value_template: '{{ wait.trigger.payload_json[''type''] == ''end'' }}'
+  - wait_for_trigger:
+    - platform: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: silence-{{ camera }}
+    continue_on_timeout: false
+    timeout: '300'
+  - delay:
+      minutes: 30
+- id: '1632703838392'
+  alias: Alert if a person is detected during the day/evening and no one is home
+  description: Sends a normal (non-critical) notification.
+  max_exceeded: silent
+  mode: single
+  variables:
+    id: '{{ trigger.payload_json[''after''][''id''] }}'
+    base_url: http://example.com
+    camera: '{{ trigger.payload_json[''after''][''camera''] }}'
+    camera_friendly_name: '{{ camera|replace(''_'', '' '')|title }}'
+    object: '{{ trigger.payload_json[''after''][''label''] }}'
+    message: detected a "{{ object|title }}" on the "{{ camera_friendly_name }}" camera
+    objects_to_alert_on:
+    - person
+    type: '{{ trigger.payload_json[''type''] }}'
+  trigger:
+  - platform: mqtt
+    topic: frigate/events
+    value_template: '{{ value_json[''after''][''camera''] }}'
+  condition:
+  - condition: template
+    value_template: '{{ type != ''end'' }}'
+  - condition: template
+    value_template: '{{ not objects_to_alert_on|length or object in objects_to_alert_on
+      }}'
+  - condition: time
+    alias: During the day/evening
+    after: 06:30:00
+    before: 00:00:00
+  action:
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  - condition: state
+    entity_id: zone.home
+    state: '0'
+  - service: logbook.log
+    data:
+      entity_id: '{{ this.entity_id }}'
+      message: '{{ message }}'
+      name: '{{ this.attributes.friendly_name }}'
+  - service: notify.notify
+    data:
+      message: '{{ message}}'
+      data:
+        tag: '{{ id }}'
+        group: frigate-notification-{{ camera }}
+        image: /api/frigate/notifications/{{id}}/thumbnail.jpg?format=android
+        attachment:
+          url: /api/frigate/notifications/{{id}}/thumbnail.jpg
+  - repeat:
+      sequence:
+      - wait_for_trigger:
+        - platform: mqtt
+          topic: frigate/events
+          payload: '{{ id }}'
+          value_template: '{{ value_json[''after''][''id''] }}'
+        timeout: '300'
+        continue_on_timeout: false
+      - condition: template
+        value_template: '{{ wait.trigger.payload_json[''type''] == ''end'' }}'
+      - service: notify.notify
+        data:
+          message: '{{ message}}'
+          data:
+            tag: '{{ id }}'
+            group: frigate-notification-{{ camera }}
+            url: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            clickAction: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            image: /api/frigate/notifications/{{id}}/thumbnail.jpg?format=android
+            sound: none
+            attachment:
+              url: /api/frigate/notifications/{{id}}/thumbnail.jpg
+            actions:
+            - action: URI
+              title: View Clip
+              uri: '{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/clip.mp4'
+            - action: URI
+              title: View Snapshot
+              uri: '{{base_url}}/api/frigate/notifications/{{id}}/snapshot.jpg'
+            - action: silence-{{ camera }}
+              title: Silence Notifications
+              destructive: true
+      until:
+      - condition: template
+        value_template: '{{ wait.trigger.payload_json[''type''] == ''end'' }}'
+  - wait_for_trigger:
+    - platform: event
+      event_type: mobile_app_notification_action
+      event_data:
+        action: silence-{{ camera }}
+    continue_on_timeout: false
+    timeout: '300'
+  - delay:
+      minutes: 30
+- id: '1634149196139'
+  alias: Update a person's state when a device tracker's state changes
+  description: ''
+  max: 10
+  mode: queued
+  variables:
+    person: '{{ trigger.id }}'
+    entity_id: person.{{ person }}
+    is_home: '{{ trigger.to_state.state == "home" }}'
+    new_state: '{% if is_home %}home{% else %}not_home{% endif %}'
+  trigger:
+  - platform: state
+    entity_id: device_tracker.iphone13
+    id: a
+  - platform: state
+    entity_id: device_tracker.pixel6
+    id: b
+  - platform: state
+    entity_id: device_tracker.ruckus_iphone11pro
+    id: c
+  - platform: state
+    entity_id: device_tracker.ruckus_iphone13
+    id: a
+  - platform: state
+    entity_id: device_tracker.ruckus_pixel6
+    id: b
+  action:
+  - service: logbook.log
+    data:
+      entity_id: '{{ this.entity_id }}'
+      message: set {{ person|title }}'s state to "{{ new_state }}"
+      name: '{{ this.attributes.friendly_name }}'
+  - service: python_script.set_state
+    data:
+      entity_id: '{{ entity_id }}'
+      state: '{{ new_state }}'
+- id: '1635387890899'
+  alias: Turn off all lights at night
+  description: ''
+  mode: single
+  trigger:
+  - platform: time
+    at: 00:00:00
+  action:
+  - service: light.turn_off
+    target:
+      area_id:
+      - backyard
+      - bedroom
+      - front_foyer
+      - garage
+      - guest_bedroom
+      - kid_s_bedroom
+      - kitchen
+      - living_room
+      - office
+      - upstairs_hallway
+      entity_id:
+      - light.basement_back_lights
+      - light.basement_couch_lights
+      - light.basement_stairs_bottom_lights
+      - light.basement_stairs_top_lights
+    data: {}
+- id: '1635390023842'
+  alias: Turn on some lights on weekday mornings
+  description: ''
+  mode: single
+  trigger:
+  - platform: time
+    at: 07:00:00
+  condition:
+  - condition: time
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+    before: 00:00:00
+    after: 00:00:00
+  action:
+  - service: light.turn_on
+    target:
+      area_id:
+      - bedroom
+      - kid_s_bedroom
+      - kitchen
+      entity_id: light.office_lights
+    data: {}
+- id: '1635390023844'
+  alias: Turn on some lights on weekend mornings
+  description: ''
+  mode: single
+  trigger:
+  - platform: time
+    at: 08:00:00
+  condition:
+  - condition: time
+    weekday:
+    - sat
+    - sun
+    before: 00:00:00
+    after: 00:00:00
+  action:
+  - service: light.turn_on
+    target:
+      area_id:
+      - kitchen
+      - living_room
+    data: {}
+- id: '1670647863334'
+  alias: Turn off outdoor Xmas decorations at night
+  description: ''
+  mode: single
+  trigger:
+  - platform: time
+    at: '23:00:00'
+  condition: []
+  action:
+  - type: turn_off
+    device_id: d3b6a61c19b67306fa648280f71b2afe
+    entity_id: switch.outlet_outdoors_mss620_main_channel
+    domain: switch
+- id: '1670647912019'
+  alias: Turn on outdoor Xmas decorations in the evening
+  description: ''
+  mode: single
+  trigger:
+  - platform: time
+    at: '16:00:00'
+  condition: []
+  action:
+  - type: turn_on
+    device_id: d3b6a61c19b67306fa648280f71b2afe
+    entity_id: switch.outlet_outdoors_mss620_main_channel
+    domain: switch

@@ -1,0 +1,66 @@
+---
+- name: Create www/ directory
+  file:
+    path: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+    state: directory
+    owner: root
+    group: root
+  become: true
+
+- name: Install Bubble Card bubble-card.js
+  get_url:
+    url: https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
+- name: Install Bubble Card bubble-pop-up-fix.js
+  get_url:
+    url: https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-pop-up-fix.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
+- name: Install Button Card
+  get_url:
+    url: https://github.com/custom-cards/button-card/releases/latest/download/button-card.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
+- name: Download Frigate Card
+  get_url:
+    url: https://github.com/dermotduffy/frigate-hass-card/releases/latest/download/frigate-hass-card.zip
+    dest: /tmp/frigate-hass-card.zip
+
+- name: Create frigate-hass-card directory
+  ansible.builtin.file:
+    path: "{{ homeassistantfrigate_required_volumes.config }}/www/frigate-hass-card"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Install Frigate Card
+  ansible.builtin.unarchive:
+    src: /tmp/frigate-hass-card.zip
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/frigate-hass-card"
+    # Drop the ./dist directory
+    # -j junk  paths. The  archive's directory structure is not recreated;
+    # all files are deposited in the extraction directory (by default, the current one).
+    extra_opts: "-j"
+  become: true
+
+- name: Install Layout Card
+  get_url:
+    url: https://raw.githubusercontent.com/thomasloven/lovelace-layout-card/master/layout-card.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
+- name: Install Mini Media Player Card
+  get_url:
+    url: https://github.com/kalkih/mini-media-player/releases/latest/download/mini-media-player-bundle.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
+- name: Install Slider Entry Row Card
+  get_url:
+    url: https://raw.githubusercontent.com/thomasloven/lovelace-slider-entity-row/master/slider-entity-row.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true

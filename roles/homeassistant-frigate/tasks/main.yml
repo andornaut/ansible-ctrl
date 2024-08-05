@@ -1,0 +1,11 @@
+---
+# Home Assistant
+- import_tasks: custom_components.yml
+- import_tasks: themes.yml
+- import_tasks: www.yml
+
+# Mosquitto
+- import_tasks: mosquitto.yml
+
+# Start all Docker containers
+- import_tasks: docker.yml

@@ -1,0 +1,102 @@
+---
+- name: Get group ids
+  getent:
+    database: group
+
+- name: Copy docker-ble-policy
+  ansible.builtin.copy:
+    src: homeassistant/docker-ble-policy
+    dest: /etc/apparmor.d/
+    owner: root
+    group: root
+    mode: "0644"
+  register: apparmor_policy
+  become: true
+
+- name: Reload apparmor.service
+  ansible.builtin.systemd_service:
+    name: apparmor.service
+    state: restarted
+  when: apparmor_policy.changed
+  become: true
+
+- name: Start Home Assistant Docker containers
+  vars:
+    required_volumes:
+      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+    frigate_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_frigate_required_volumes.media }}:/media/frigate"
+    frigate_tmpfs_volume:
+      type: tmpfs # Optional ram-drive to reduce storage wear
+      target: /tmp/cache
+      tmpfs:
+        size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1000000 }}"
+  docker_compose:
+    project_name: homeassistant
+    pull: yes
+    recreate: always
+    definition:
+      version: "3.9"
+      services:
+        homeassistant:
+          container_name: homeassistant
+          image: "{{ homeassistantfrigate_docker_image }}"
+          devices: "{{ homeassistantfrigate_devices }}"
+          # `network_mode: host` is required by the Google Cast integration:
+          # https://www.home-assistant.io/integrations/cast/#home-assistant-container
+          network_mode: host
+          restart: unless-stopped
+          # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
+          security_opt:
+            - "apparmor:docker-ble-policy"
+          volumes: "{{ required_volumes + homeassistantfrigate_extra_volumes }}"
+        frigate:
+          container_name: frigate
+          image: "{{ homeassistantfrigate_frigate_docker_image }}"
+          devices: "{{ homeassistantfrigate_frigate_devices }}"
+          environment: "{{ homeassistantfrigate_frigate_env }}"
+          group_add:
+            - "{{ getent_group.render[1] }}"
+            - "{{ getent_group.video[1] }}"
+          ports:
+            - "{{ homeassistantfrigate_frigate_port }}:5000"
+            - "{{ homeassistantfrigate_frigate_rtsp_port }}:1935"
+            # RTSP restream https://docs.frigate.video/configuration/restream/
+            - "8554:8554/tcp"
+            - "8555:8555/tcp" # WebRTC over TCP
+            - "8555:8555/udp" # WebRTC over UDP
+          # *Disabled for security reasons*
+          # Fix error: Unable to poll intel GPU stats: Failed to initialize PMU! (Operation not permitted)
+          # https://github.com/blakeblackshear/frigate/issues/6028#issuecomment-1506283282
+          #privileged: true
+          restart: unless-stopped
+          shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
+          volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
+        mosquitto:
+          container_name: mosquitto
+          image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
+          ports:
+            - "{{ homeassistantfrigate_mosquitto_port }}:1883"
+          restart: unless-stopped
+          volumes:
+            - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+            - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
+            - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
+            - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
+
+- name: Modify envisalink alarm-panel code. Workaround 1/2 for https://github.com/home-assistant/core/issues/119443
+  community.docker.docker_container_exec:
+    container: homeassistant
+    argv:
+      - /bin/bash
+      - "-c"
+      - "sed -i 's/self._attr_code_format = CodeFormat.NUMBER/self._attr_code_format = None if code else CodeFormat.NUMBER;self._attr_code_arm_required = not code/g' /usr/src/homeassistant/homeassistant/components/envisalink/alarm_control_panel.py"
+
+- name: Restart the homeassistant container. Workaround 2/2 for https://github.com/home-assistant/core/issues/119443
+  community.docker.docker_container:
+    name: homeassistant
+    state: started
+    restart: true

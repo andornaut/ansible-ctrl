@@ -1,0 +1,38 @@
+---
+- name: Get the latest version of helm
+  uri:
+    url: https://api.github.com/repos/helm/helm/releases/latest
+    return_content: "yes"
+  register: helm_version
+
+- name: Install helm
+  unarchive:
+    src: https://get.helm.sh/helm-{{ helm_version.json.tag_name }}-linux-amd64.tar.gz
+    dest: /usr/local/bin/
+    extra_opts:
+      - '--strip-components=1'
+    exclude:
+      - LICENSE
+      - README.md
+    remote_src: true
+  become: true
+
+- name: Get the latest kubectl version
+  uri:
+    url: "https://storage.googleapis.com/kubernetes-release/release/stable.txt"
+    return_content: "yes"
+  register: kubectl_version
+
+- name: Install kubectl
+  get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version.content }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: 0755
+  become: true
+
+- name: Install minikube
+  get_url:
+    url: "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
+    dest: /usr/local/bin/minikube
+    mode: 0755
+  become: true

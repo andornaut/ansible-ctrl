@@ -1,0 +1,9 @@
+---
+bspwm_projects:
+  - { name: sres, repo: 'https://github.com/baskerville/sres.git' }
+  - { name: sutils, repo: 'https://github.com/baskerville/sutils.git' }
+  - { name: sxhkd, repo: 'https://github.com/baskerville/sxhkd.git' }
+  - { name: txtw, repo: 'https://github.com/baskerville/txtw.git' }
+  - { name: xdo, repo: 'https://github.com/baskerville/xdo.git' }
+  - { name: xtitle, repo: 'https://github.com/baskerville/xtitle.git' }
+  - { name: bspwm, repo: 'https://github.com/baskerville/bspwm' }

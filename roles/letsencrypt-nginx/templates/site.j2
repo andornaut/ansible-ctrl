@@ -1,0 +1,140 @@
+server {
+    listen 80;
+    server_name {{ item.item.domain }} www.{{ item.item.domain }};
+    access_log off;
+    error_log off;
+    log_not_found off;
+
+    location / {
+        rewrite ^/(.*) https://{{ item.item.domain }}/$1 permanent;
+    }
+
+    # Use regex match location to prevent the dotfile deny rule in the common snippet from taking precedence.
+    # https://serverfault.com/a/935270
+    location ^~ /.well-known {
+        root /var/www/{{ item.item.domain }};
+        access_log on;
+        error_log on;
+        log_not_found on;
+        allow all; # Override partial/common_site_configuration
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name www.{{ item.item.domain }};
+    rewrite ^/(.*) https://{{ item.item.domain }}/$1 permanent;
+    access_log off;
+    error_log off;
+    log_not_found off;
+
+{% if not item.stat.exists or item.item.use_selfsigned_certificate|default(False) %}
+    include /etc/nginx/conf.d/partial/selfsigned_certificate;
+{% else %}
+    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.crt;
+    ssl_certificate_key /etc/nginx/conf.d/ssl/key/private.pem;
+{% endif %}
+}
+
+server {
+    listen 443 ssl http2;
+    server_name {{ item.item.domain }};
+
+{% if item.item.http_basic_authentication is defined %}
+{% if item.item.http_basic_authentication.allowed_networks is defined %}
+    satisfy any;
+{% for allowed_network in item.item.http_basic_authentication.allowed_networks %}
+    allow {{ allowed_network }};
+{% endfor %}
+    deny all;
+{% endif %}
+    auth_basic "Restricted Content";
+    auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ item.item.domain }}.htpasswd;
+{% endif %}
+
+{% if not item.stat.exists or item.item.use_selfsigned_certificate|default(False) %}
+    include /etc/nginx/conf.d/partial/selfsigned_certificate;
+{% else %}
+    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.crt;
+    ssl_certificate_key /etc/nginx/conf.d/ssl/key/private.pem;
+
+    # Use regex match location to prevent the dotfile deny rule in the common snippet from taking precedence.
+    # https://serverfault.com/a/935270
+    location ^~ /.well-known {
+        root /var/www/{{ item.item.domain }};
+        access_log on;
+        error_log on;
+        log_not_found on;
+        allow all; # Override partial/common_site_configuration
+    }
+{% endif %}
+
+    location / {
+{% if item.item.proxy_port is defined %}
+        include /etc/nginx/conf.d/partial/proxy_params;
+{% if item.item.proxy_remove_authorization_header|default(False) %}
+        # The HTTP Basic Auth added by Nginx conflicts with Unifi.
+        # https://community.ui.com/questions/UniFi-5-9-29-behind-Apache-reverse-proxy-gives-400-bad-request-/432808a8-9f2d-489c-ba6f-c76d494bb702
+        proxy_set_header Authorization "";
+{% endif %}
+{% if item.item.proxy_redirect_http|default(False) %}
+        proxy_redirect ~*^http([^s].*)$ https$1;
+        proxy_pass https://127.0.0.1:{{ item.item.proxy_port }};
+{% else %}
+        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }};
+{% endif %}
+{% else %}
+        root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
+{% if item.item.default_path is defined and item.item.default_path %}
+        try_files $uri $uri/ {{ item.item.default_path }};
+{% endif %}
+{% endif %}
+
+{% if item.item.websocket_enabled|default(False) %}
+        # When `websocket_enabled` is True
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+
+        proxy_connect_timeout 4s;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 12s;
+{% endif %}
+    }
+
+{% if item.item.websocket_path is defined and item.item.websocket_path %}
+    location {{ item.item.websocket_path }} {
+        # When `websocket_path` is truthy
+        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ item.item.websocket_path }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+
+        proxy_connect_timeout 4s;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 12s;
+    }
+{% endif %}
+
+{% if item.item.locations is defined %}
+{% for location in item.item.locations %}
+    location {{ location.src }} {
+        alias {{ location.dest }};
+        autoindex on;
+{% if location.http_basic_authentication is defined %}
+{% if location.http_basic_authentication.allowed_networks is defined %}
+        satisfy any;
+{% for allowed_network in location.http_basic_authentication.allowed_networks %}
+        allow {{ allowed_network }};
+{% endfor %}
+        deny all;
+{% endif %}
+        auth_basic "Restricted Content";
+        auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ location.http_basic_authentication.password_filename }};
+{% endif %}
+    }
+{% endfor %}
+{% endif %}
+
+    include /etc/nginx/conf.d/partial/common_site_configuration;
+}
