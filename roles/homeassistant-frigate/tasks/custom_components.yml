@@ -1,0 +1,76 @@
+---
+- name: Create custom_components/ directory
+  file:
+    path: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    state: directory
+    owner: root
+    group: root
+  become: true
+
+- name: Download BambuLab custom component
+  git:
+    repo: "https://github.com/greghesp/ha-bambulab"
+    dest: /tmp/ansible-role-homeassistant-frigate/bambu_lab
+    depth: 1
+
+- name: Install BambuLab custom component
+  copy:
+    src: /tmp/ansible-role-homeassistant-frigate/bambu_lab/custom_components/bambu_lab
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+  become: true
+
+- name: Download Frigate custom component
+  git:
+    repo: "https://github.com/blakeblackshear/frigate-hass-integration"
+    dest: /tmp/ansible-role-homeassistant-frigate/frigate
+    depth: 1
+    # Workaround: >=5 is needed by Frigate v13-beta3
+    version: v5.0.0-beta.3
+
+- name: Install Frigate custom component
+  copy:
+    src: /tmp/ansible-role-homeassistant-frigate/frigate/custom_components/frigate
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+  become: true
+
+- name: Download Govee LAN custom component
+  git:
+    repo: "https://github.com/wez/govee-lan-hass"
+    dest: /tmp/ansible-role-homeassistant-frigate/govee_lan
+    depth: 1
+
+- name: Install Govee LAN custom component
+  copy:
+    src: /tmp/ansible-role-homeassistant-frigate/govee_lan/custom_components/govee_lan
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+  become: true
+
+- name: Download Meross custom component
+  git:
+    repo: "https://github.com/albertogeniola/meross-homeassistant"
+    dest: /tmp/ansible-role-homeassistant-frigate/meross
+    depth: 1
+
+- name: Install Meross custom component
+  copy:
+    src: /tmp/ansible-role-homeassistant-frigate/meross/custom_components/meross_cloud
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+  become: true
+
+- name: Download Simple Icons custom component
+  git:
+    repo: "https://github.com/vigonotion/hass-simpleicons"
+    dest: /tmp/ansible-role-homeassistant-frigate/simpleicons
+    depth: 1
+
+- name: Install Simple Icons custom component
+  copy:
+    src: /tmp/ansible-role-homeassistant-frigate/simpleicons/custom_components/simpleicons
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+  become: true
+
+- name: Copy python_scripts/ directory
+  copy:
+    src: homeassistant/python_scripts/
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/python_scripts/"
+  become: true

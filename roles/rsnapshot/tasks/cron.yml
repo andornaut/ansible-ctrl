@@ -1,0 +1,46 @@
+---
+- name: Set crontab hourly schedule
+  # TODO: Switch to systemd timers: https://wiki.archlinux.org/index.php/Rsnapshot#Automation
+  cron:
+    name: rsnapshot hourly
+    cron_file: /etc/cron.d/rsnapshot
+    user: root
+    minute: "1"
+    job: /usr/bin/rsnapshot hourly
+  when: rsnapshot_retention.hourly
+  become: true
+
+- name: Set crontab daily schedule
+  cron:
+    name: rsnapshot daily
+    cron_file: /etc/cron.d/rsnapshot
+    user: root
+    minute: "10"
+    hour: "1"
+    job: /usr/bin/rsnapshot daily
+  when: rsnapshot_retention.daily
+  become: true
+
+- name: Set crontab weekly schedule
+  cron:
+    name: rsnapshot weekly
+    cron_file: /etc/cron.d/rsnapshot
+    user: root
+    minute: "30"
+    hour: "3"
+    weekday: "1"
+    job: /usr/bin/rsnapshot weekly
+  when: rsnapshot_retention.weekly
+  become: true
+
+- name: Set crontab monthly schedule
+  cron:
+    name: rsnapshot monthly
+    cron_file: /etc/cron.d/rsnapshot
+    user: root
+    minute: "50"
+    hour: "5"
+    day: "1"
+    job: /usr/bin/rsnapshot monthly
+  when: rsnapshot_retention.monthly
+  become: true
