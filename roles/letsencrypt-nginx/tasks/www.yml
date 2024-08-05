@@ -1,0 +1,30 @@
+---
+- name: Create www directories
+  file:
+    path: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+    mode: "2755"
+    state: directory
+  loop: "{{ letsencryptnginx_websites }}"
+  become: true
+
+- name: Clone Git repositories
+  git:
+    repo: "{{ item.repo }}"
+    dest: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+    depth: 1
+    force: yes
+    version: "{{ item.version|default('HEAD') }}"
+  loop: "{{ letsencryptnginx_websites }}"
+  register: git_clone
+  when: item.repo is defined
+  become: true
+
+- name: Run website commands
+  shell: "{{ item.command }}"
+  args:
+    chdir: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+  loop: "{{ git_clone.results }}"
+  when:
+    - item.changed and item.command is defined
+    - item is not skipped
+  become: true

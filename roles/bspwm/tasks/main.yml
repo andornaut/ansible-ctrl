@@ -1,0 +1,62 @@
+---
+- name: Install system packages
+  apt:
+    name:
+      - dex
+      - libasound2-dev
+      - libcairo2-dev
+      - libpulse-dev
+      - libx11-xcb-dev
+      - libxcb1-dev
+      - libxcb-ewmh-dev
+      - libxcb-icccm4-dev
+      - libxcb-keysyms1-dev
+      - libxcb-randr0-dev
+      - libxcb-render-util0-dev
+      - libxcb-shape0-dev
+      - libxcb-util0-dev
+      - libxcb-xinerama0-dev
+      - libxcb-xtest0-dev
+      - libxft-dev
+      - libxinerama-dev
+      - libxpm-dev
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Clone BSPWM git repositories
+  git:
+    repo: "{{ item.repo }}"
+    dest: /tmp/{{ item.name }}.git
+    depth: 1
+    force: true
+    version: "{{ item.version if item.version is defined else 'HEAD' }}"
+  loop: "{{ bspwm_projects }}"
+
+- name: Make BSPWM projects
+  make:
+    chdir: /tmp/{{ item.name }}.git
+  loop: "{{ bspwm_projects  }}"
+
+- name: Make install BSPWM projects
+  make:
+    chdir: /tmp/{{ item.name }}.git
+    target: install
+  loop: "{{ bspwm_projects  }}"
+  ignore_errors: true # Ignore "cp: cannot create regular file ... Text file busy"
+  register: r
+  become: true
+
+- name: Install bspwm.desktop file
+  copy:
+    src: bspwm.desktop
+    dest: /usr/share/xsessions/
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+
+- name: Ensure that the 'Make install BSPWM projects' play succeeded or failed with 'file busy'
+  fail: msg="The 'Make install BSPWM projects' play failed"
+  when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
+  loop: "{{r.results}}"

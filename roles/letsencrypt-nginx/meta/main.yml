@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  author: andornaut
+  description: Provision an NGINX HTTP server as a Docker container and manage auto-renewal of HTTPS certificates using Let's Encrypt
+  license: MIT
+  min_ansible_version: "2.9"
+  galaxy_tags:
+    - acme
+    - docker
+    - encryption
+    - https
+    - letsencrypt
+    - nginx
+    - ssl
+    - tls
+    - web

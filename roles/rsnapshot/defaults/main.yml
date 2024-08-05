@@ -1,0 +1,9 @@
+---
+rsnapshot_directory: /var/backups/rsnapshot/
+rsnapshot_hosts: []
+rsnapshot_retention:
+  hourly:
+  daily: 7
+  weekly: 4
+  monthly: 12
+rsnapshot_sudo: false

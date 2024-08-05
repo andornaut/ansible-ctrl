@@ -1,0 +1,7 @@
+# http://kbeezie.com/nginx-configuration-examples/
+
+charset utf-8;
+
+location = /robots.txt  { access_log off; log_not_found off; }
+location = /favicon.ico { access_log off; log_not_found off; }
+location ~ /\.          { access_log off; log_not_found off; deny all; }

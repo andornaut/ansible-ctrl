@@ -1,0 +1,11 @@
+---
+- name: Install system packages
+  apt:
+    name:
+      - apache2-utils
+      - python3-openssl
+      - python3-passlib
+      - ssl-cert
+    state: latest
+    update_cache: yes
+  become: true

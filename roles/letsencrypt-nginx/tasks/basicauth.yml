@@ -1,0 +1,32 @@
+---
+- name: Create basicauth directory
+  file:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
+    state: directory
+  become: true
+
+- name: Configure HTTP Basic Authentication
+  htpasswd:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.domain }}.htpasswd"
+    name: "{{ item.1.username }}"
+    password: "{{ item.1.password }}"
+    mode: "0644"
+  when: item.1 is defined
+  with_subelements:
+    - "{{ letsencryptnginx_websites }}"
+    - http_basic_authentication.credentials
+    - skip_missing: True
+  become: true
+
+- name: Configure HTTP Basic Authentication for aliases
+  htpasswd:
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.password_filename }}"
+    name: "{{ item.1.username }}"
+    password: "{{ item.1.password }}"
+    mode: "0644"
+  when: item.1 is defined
+  with_subelements:
+    - "{{ letsencryptnginx_websites | selectattr('aliases','defined') | map(attribute='aliases') | flatten | selectattr('http_basic_authentication','defined') | map(attribute='http_basic_authentication') | flatten }}"
+    - credentials
+    - skip_missing: True
+  become: true

@@ -1,0 +1,23 @@
+---
+- name: Start Nginx Docker container
+  vars:
+    required_volumes:
+      - "{{ letsencryptnginx_docker_required_volumes.config }}:/etc/nginx/conf.d:ro"
+      - "{{ letsencryptnginx_docker_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ letsencryptnginx_docker_required_volumes.www }}:/var/www:ro"
+      - /var/cache/nginx
+      - /var/run
+  docker_compose:
+    project_name: nginx
+    pull: yes
+    recreate: always
+    definition:
+      version: "3.9"
+      services:
+        nginx:
+          container_name: nginx
+          image: "{{ letsencryptnginx_docker_image }}"
+          network_mode: host
+          restart: unless-stopped
+          volumes: "{{ required_volumes + letsencryptnginx_docker_extra_volumes }}"
+  become: true
