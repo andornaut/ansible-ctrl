@@ -33,7 +33,7 @@
       type: tmpfs # Optional ram-drive to reduce storage wear
       target: /tmp/cache
       tmpfs:
-        size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1000000 }}"
+        size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
   docker_compose:
     project_name: homeassistant
     pull: yes
