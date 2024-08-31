@@ -8,26 +8,6 @@
     update_cache: yes
   become: true
 
-# The RetroArch flatpak installation fails when it attempts to download the libretro-database, because
-# ecryptfs limits file names to <141 characters:
-# https://unix.stackexchange.com/questions/32795/what-is-the-maximum-allowed-filename-and-folder-size-with-ecryptfs/32834#32834
-# and some file names in https://github.com/libretro/libretro-database are longer
-# We work around this issue, by installing libretro flatpak to /opt/ and symlinking it into ~/...
-- name: "Workaround: Create /opt/flatpak-org.libretro.RetroArch directory"
-  ansible.builtin.file:
-    path: /opt/flatpak-org.libretro.RetroArch
-    state: directory
-    mode: "0775"
-    owner: "{{ ansible_user_id }}"
-  become: true
-
-- name: "Workaround: Create symlink to flatpak directory"
-  ansible.builtin.file:
-    src: /opt/flatpak-org.libretro.RetroArch
-    dest: "{{ ansible_env.HOME }}/.local/share/flatpak/app/org.libretro.RetroArch"
-    owner: "{{ ansible_user_id }}"
-    state: link
-
 - name: Install flatpak packages
   community.general.flatpak:
     name:
