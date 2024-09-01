@@ -53,6 +53,13 @@ nas1 UUID-3333-4444-5555 /root/luks-key luks,noauto
 
 ## Usage
 
+### Backing up
+
+```
+mount /media/nasbackup
+backupnas
+```
+
 #### Mounting
 
 ```
