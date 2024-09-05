@@ -3,10 +3,11 @@
   apt:
     name:
       - btrfsmaintenance
+      # TODO: Confirm as this was possibly fixed.
       # Workaround error in boot log:
       # libbd_mdraid.so.2: cannot open shared object file
       # https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
-      - libblockdev-mdraid2
+      #- libblockdev-mdraid2
     state: latest
     update_cache: yes
   become: true
@@ -89,7 +90,7 @@
     path: "{{ nas_key_file }}"
     owner: root
     group: root
-    mode: '0400'
+    mode: "0400"
   become: true
 
 - name: Install nas-luks-key.path
