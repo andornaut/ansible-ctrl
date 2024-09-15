@@ -16,6 +16,7 @@
       - net.davidotek.pupgui2
       - net.lutris.Lutris
       - org.libretro.RetroArch
+      - org.openjkdf2.OpenJKDF2
     method: user
 
 - name: Override cursor theme for flatpak GUI applications
@@ -27,3 +28,4 @@
     - net.davidotek.pupgui2
     - net.lutris.Lutris
     - org.libretro.RetroArch
+    - org.openjkdf2.OpenJKDF2
