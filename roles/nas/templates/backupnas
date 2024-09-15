@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu -o nounset
+set -euo nounset
 
 [[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
 
@@ -56,8 +56,8 @@ echo umount ${mountDir}
 echo cryptdisks_stop ${deviceName}
 echo ---
 
-# eg. /media/nasbackup/backup.2020-04-30
-destDir="${mountDir}/$(date -d @$(stat --format=%Y "${sourceDir}") +backup.%Y-%m-%d)"
+# eg. /media/nasbackup/rsnapshot.2020-04-30
+destDir="${mountDir}/rsnapshot.$(date -d @$(stat --format=%Y "${sourceDir}") +%Y-%m-%d)"
 echo "Device mounted to: ${mountDir}"
 echo "Backup source: ${sourceDir}"
 echo "Backup destination: ${destDir}"
@@ -67,7 +67,7 @@ mkdir -p "${destDir}"
 
 echo Deleting backups older than the last ${RETENTION_NUMBER}
 ls -1p "${mountDir}" | \
-    grep -P '^backup\.\d{4}-\d{2}-\d{2}/$' | \
+    grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | \
     head -n-${RETENTION_NUMBER} | \
     xargs -I {} rm -rf -- "${mountDir}/{}"
 
