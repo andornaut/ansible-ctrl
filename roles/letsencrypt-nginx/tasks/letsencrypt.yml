@@ -46,7 +46,7 @@
 - name: Pause to allow DNS to update
   pause:
     # Pause for slightly longer than the DNS TTL to ensure that it has propaged to (potential) intermediaries.
-    seconds: 180
+    seconds: 300
   when:
     - dns_record.changed
 
