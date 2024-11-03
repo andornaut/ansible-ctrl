@@ -28,8 +28,8 @@ An [Ansible](https://www.ansible.com/) role that provisions
 1. Change the `name` and `friendly_name` properties of `airgradient-one.yaml`:
    ```
    substitutions:
-     name: "airgradient"
-     friendly_name: "airgradient"
+     name: airgradient
+     friendly_name: airgradient
    ```
 1. Add your wifi details to `airgradient-one.yaml`:
    ```
