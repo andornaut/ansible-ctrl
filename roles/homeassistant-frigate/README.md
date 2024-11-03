@@ -14,6 +14,13 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
 * [Home Assistant SkyConnect USB Stick](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
 
+### AirGradient
+
+* [Official website](https://www.airgradient.com/)
+  * [Dashboard](https://app.airgradient.com/dashboard)
+  * [Online firmware flashing tool](https://www.airgradient.com/documentation/factory/)
+* [Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
+
 ### Bluetooth CSR8510 adapter
 
 * [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
