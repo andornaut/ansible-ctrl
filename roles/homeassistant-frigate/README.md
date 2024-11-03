@@ -21,6 +21,26 @@ An [Ansible](https://www.ansible.com/) role that provisions
   * [Online firmware flashing tool](https://www.airgradient.com/documentation/factory/)
 * [Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
 
+#### Configuring AirGradient for Home Assistant
+
+1. [Install ESPHome](https://esphome.io/guides/installing_esphome#linux)
+1. Download [airgradient-one.yaml](https://raw.githubusercontent.com/MallocArray/airgradient_esphome/refs/heads/main/airgradient-one.yaml)
+1. Change the `name` and `friendly_name` properties of `airgradient-one.yaml`:
+   ```
+   substitutions:
+     name: "airgradient"
+     friendly_name: "airgradient"
+   ```
+1. Add your wifi details to `airgradient-one.yaml`:
+   ```
+   wifi:
+     ssid: <insert password>
+     password: <insert password>
+   ```
+1. Run `esphome run airgradient-one.yaml` (you may be prompted to install missing dependencies, suh as `pillow`)
+1. Navigate to the ESPHome integration on your Home Assistant installation
+1. Click "Add Device" and follow the prompts to setup your new airgradient device
+
 ### Bluetooth CSR8510 adapter
 
 * [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
