@@ -40,15 +40,15 @@
     - not item.item.use_selfsigned_certificate|default(False)
   become: true
 
-#- ansible.builtin.debug:
-#    var: dns_record
+- ansible.builtin.debug:
+    var: dns_record
 
 - name: Pause to allow DNS to update
   pause:
     # Pause for slightly longer than the DNS TTL to ensure that it has propaged to (potential) intermediaries.
     seconds: 300
-  when:
-    - dns_record.changed
+#  when:
+#    - dns_record.changed
 
 - name: Create HTTP challenge resource directories
   file:
