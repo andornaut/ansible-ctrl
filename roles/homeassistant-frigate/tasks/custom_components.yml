@@ -12,6 +12,8 @@
     repo: "https://github.com/greghesp/ha-bambulab"
     dest: /tmp/ansible-role-homeassistant-frigate/bambu_lab
     depth: 1
+    force: true
+    single_branch: true
 
 - name: Install BambuLab custom component
   copy:
@@ -24,8 +26,8 @@
     repo: "https://github.com/blakeblackshear/frigate-hass-integration"
     dest: /tmp/ansible-role-homeassistant-frigate/frigate
     depth: 1
-    # Workaround: >=5 is needed by Frigate v13-beta3
-    version: v5.0.0-beta.3
+    force: true
+    single_branch: true
 
 - name: Install Frigate custom component
   copy:
@@ -38,6 +40,8 @@
     repo: "https://github.com/wez/govee-lan-hass"
     dest: /tmp/ansible-role-homeassistant-frigate/govee_lan
     depth: 1
+    force: true
+    single_branch: true
 
 - name: Install Govee LAN custom component
   copy:
@@ -50,6 +54,8 @@
     repo: "https://github.com/albertogeniola/meross-homeassistant"
     dest: /tmp/ansible-role-homeassistant-frigate/meross
     depth: 1
+    force: true
+    single_branch: true
 
 - name: Install Meross custom component
   copy:
@@ -62,6 +68,8 @@
     repo: "https://github.com/vigonotion/hass-simpleicons"
     dest: /tmp/ansible-role-homeassistant-frigate/simpleicons
     depth: 1
+    force: true
+    single_branch: true
 
 - name: Install Simple Icons custom component
   copy:
