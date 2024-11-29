@@ -34,12 +34,10 @@
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
-  docker_compose:
-    project_name: homeassistant
-    pull: yes
-    recreate: always
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate
+    pull: always
     definition:
-      version: "3.9"
       services:
         homeassistant:
           container_name: homeassistant
@@ -86,7 +84,6 @@
             - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
             - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
             - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
-
 #- name: Modify envisalink alarm-panel code. Workaround 1/2 for https://github.com/home-assistant/core/issues/119443
 #  community.docker.docker_container_exec:
 #    container: homeassistant
