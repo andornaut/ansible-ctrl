@@ -7,12 +7,10 @@
       - "{{ letsencryptnginx_docker_required_volumes.www }}:/var/www:ro"
       - /var/cache/nginx
       - /var/run
-  docker_compose:
+  community.docker.docker_compose_v2:
     project_name: nginx
-    pull: yes
-    recreate: always
+    pull: always
     definition:
-      version: "3.9"
       services:
         nginx:
           container_name: nginx
