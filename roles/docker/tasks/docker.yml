@@ -1,7 +1,17 @@
 ---
-- name: Uninstall docker-py system package (workaround)
+- name: Uninstall incompatible packages
   apt:
-    name: python3-docker
+    name:
+      # docker-py system package (workaround)
+      - python3-docker
+      # Old version: https://docs.docker.com/engine/install/ubuntu/
+      - containerd
+      - docker-compose
+      - docker-compose-v2
+      - docker-doc
+      - docker.io
+      - podman-docker
+      - runc
     state: absent
   become: true
 
@@ -10,17 +20,33 @@
 # https://github.com/geerlingguy/internet-pi/issues/567#issuecomment-1891163294
 - name: Install docker-py==6.1.3 from PyPI (workaround)
   pip:
-    name: 
+    name:
       - "docker==6.1.3"
     extra_args: "--break-system-packages"
+  become: true
+
+- name: Install Docker gpg key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+  become: true
+
+- name: Add Docker ppa
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable
+    state: present
   become: true
 
 - name: Install Docker system packages
   apt:
     name:
-      - docker.io
-      - docker-compose
       - docker-registry
+      # New versions: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
     state: latest
   become: true
 
