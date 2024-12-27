@@ -13,6 +13,8 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 * [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
 * [Home Assistant SkyConnect USB Stick](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
+* [M5Stack](https://www.aliexpress.com/item/1005003299215808.html)
+  * [ESPHome bluetooth proxy](https://esphome.io/projects/index.html)
 
 ### AirGradient
 
