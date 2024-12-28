@@ -28,17 +28,21 @@ An [Ansible](https://www.ansible.com/) role that provisions
 1. [Install ESPHome](https://esphome.io/guides/installing_esphome#linux)
 1. Download [airgradient-one.yaml](https://raw.githubusercontent.com/MallocArray/airgradient_esphome/refs/heads/main/airgradient-one.yaml)
 1. Change the `name` and `friendly_name` properties of `airgradient-one.yaml`:
-   ```
+
+   ```yaml
    substitutions:
      name: airgradient
      friendly_name: airgradient
    ```
+
 1. Add your wifi details to `airgradient-one.yaml`:
-   ```
+
+   ```yaml
    wifi:
      ssid: <insert password>
      password: <insert password>
    ```
+
 1. Run `esphome run airgradient-one.yaml` (you may be prompted to install missing dependencies, suh as `pillow`)
 1. Navigate to the ESPHome integration on your Home Assistant installation
 1. Click "Add Device" and follow the prompts to setup your new airgradient device
@@ -47,16 +51,6 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 * [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
 * [Home Assistant/bluetooth](https://www.home-assistant.io/integrations/bluetooth)
-
-```
-# Setup dbus-broker
-apt install dbus-broker
-systemctl enable dbus-broker.service
-
-# Make /run/dbus accessible from inside the container by editing host_vars/${host}:
-homeassistantfrigate_extra_volumes:
-  - "/run/dbus:/run/dbus:ro"
-```
 
 ### [ratgdo](https://paulwieland.github.io/ratgdo/) - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
@@ -74,7 +68,7 @@ Getting started
 1. Navigate to Home Assistant > Settings > Devices & services > Devices and then search for "ratgdo"
 1. Add a new card to your dashboard:
 
-   ```
+   ```yaml
    show_name: true
    show_icon: true
    type: button
@@ -99,7 +93,7 @@ Upgrading SONOFF Zigbee 3.0 USB Dongle Plus (ZBDongle-P) firmware:
 * [How to Use SONOFF Dongle Plus on Home Assistant](https://sonoff.tech/product-review/how-to-use-sonoff-dongle-plus-on-home-assistant-how-to-flash-firmware/)
 * [Sonoff Zigbee 3.0 USB Dongle Plus - How to upgrade the firmware (Video)](https://www.youtube.com/watch?v=KBAGWBWBATg)
 
-```
+```bash
 docker stop homeassistant
 docker run --rm \
     --device /dev/ttyUSB0:/dev/ttyUSB0 \
@@ -118,7 +112,7 @@ docker run --rm \
 
 Test configuration
 
-```
+```bash
 docker exec homeassistant hass --config /config --script check_config
 docker exec homeassistant hass --config /config --script check_config --secrets
 ```
@@ -135,7 +129,7 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 
 ##### Gathering information
 
-```
+```bash
 vainfo --display drm --device /dev/dri/renderD128
 ffmpeg -decoders | grep qsv
 ffmpeg -hwaccels
@@ -143,7 +137,7 @@ ffmpeg -hwaccels
 
 ##### Ansible variables
 
-```
+```yaml
 # AMD GPU
 homeassistant_frigate_env:
     LIBVA_DRIVER_NAME: radeonsi
@@ -155,7 +149,7 @@ homeassistant_frigate_env:
 
 ##### Monitor GPU usage
 
-```
+```bash
 sudo apt install intel-gpu-tools radeontop
 sudo intel_gpu_top
 sudo radeontop
@@ -165,7 +159,7 @@ sudo radeontop
 
 [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx) variables:
 
-```
+```yaml
 # Given:
 #homeassistant_port: 8080
 #homeassistant_frigate_port: 8081
@@ -183,7 +177,7 @@ letsencryptnginx_websites:
 
 * [Documentation](https://hacs.xyz/docs/setup/download):
 
-```
+```bash
 docker exec -ti homeassistant \
     bash -c 'wget -O - https://get.hacs.xyz | bash -'
 ```
@@ -194,7 +188,7 @@ docker exec -ti homeassistant \
 
 Get the cloud password (authn/z token):
 
-```
+```bash
 docker run -it node sh -c "npm install -g dorita980 && get-roomba-password-cloud ${websiteEmail} ${websitePassword}
 ```
 
@@ -216,7 +210,7 @@ Eg. Pin [pyenvisalink](https://github.com/Cinntax/pyenvisalink)
 to version 4.0 to workaround
 [this issue](https://github.com/home-assistant/core/issues/65762#issuecomment-1030872475).
 
-```
+```bash
 docker exec -ti homeassistant \
     bash -c "find /usr/src/homeassistant/ \
     -name 'requirements*.txt' -or -name manifest.json \
@@ -226,7 +220,7 @@ docker exec -ti homeassistant \
 
 Or upgrade the offending dependency directly as in these Ansible tasks:
 
-```
+```bash
 - name: "Install pexpect from the 'master' branch. Workaround 1/2 for: https://github.com/home-assistant/core/issues/94264"
   community.docker.docker_container_exec:
     container: homeassistant
@@ -257,7 +251,7 @@ When debugging, note that when a Coral.ai USB adpater is first connected its man
 
 Excerpt from dmesg:
 
-```
+```text
 [  303.677695] usb 3-2: new high-speed USB device number 22 using xhci_hcd
 [  303.827453] usb 3-2: New USB device found, idVendor=1a6e, idProduct=089a, bcdDevice= 1.00
 [  303.827457] usb 3-2: New USB device strings: Mfr=0, Product=0, SerialNumber=0
