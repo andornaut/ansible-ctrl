@@ -1,0 +1,15 @@
+---
+- name: Install Bluetooth system packages
+  apt:
+    name:
+      - bluez
+      - dbus-broker
+    state: latest
+  become: true
+
+- name: Enable dbus-broker.service
+  ansible.builtin.systemd_service:
+    name: dbus-broker.service
+    enabled: true
+    state: started
+  become: true

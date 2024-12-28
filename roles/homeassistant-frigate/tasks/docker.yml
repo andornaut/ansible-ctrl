@@ -24,7 +24,9 @@
   vars:
     required_volumes:
       - "{{ homeassistantfrigate_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
     frigate_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
@@ -34,6 +36,11 @@
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
+    mosquitto_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate
     pull: always
@@ -46,6 +53,8 @@
           # `network_mode: host` is required by the Google Cast integration:
           # https://www.home-assistant.io/integrations/cast/#home-assistant-container
           network_mode: host
+          # May improve bluetooth experience, though it should not be necessary due to the apparmor:docker-ble-policy below
+          privileged: true
           restart: unless-stopped
           # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
           security_opt:
@@ -79,11 +88,7 @@
           ports:
             - "{{ homeassistantfrigate_mosquitto_port }}:1883"
           restart: unless-stopped
-          volumes:
-            - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-            - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
-            - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
-            - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
+          volumes: "{{ mosquitto_volumes }}"
 #- name: Modify envisalink alarm-panel code. Workaround 1/2 for https://github.com/home-assistant/core/issues/119443
 #  community.docker.docker_container_exec:
 #    container: homeassistant

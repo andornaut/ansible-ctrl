@@ -4,6 +4,8 @@
 - import_tasks: themes.yml
 - import_tasks: www.yml
 
+- import_tasks: bluetooth.yml
+
 # Mosquitto
 - import_tasks: mosquitto.yml
 
