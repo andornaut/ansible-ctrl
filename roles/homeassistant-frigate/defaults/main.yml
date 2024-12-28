@@ -5,7 +5,9 @@ homeassistantfrigate_extra_volumes: []
 homeassistantfrigate_port: 8123
 homeassistantfrigate_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
+  dbus: /run/dbus
   localtime: /etc/localtime
+  udev: /run/udev
 homeassistantfrigate_frigate_devices: []
 homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable"
 homeassistantfrigate_frigate_env:
