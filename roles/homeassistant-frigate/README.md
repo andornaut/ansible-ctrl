@@ -20,8 +20,10 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 * [Official website](https://www.airgradient.com/)
   * [Dashboard](https://app.airgradient.com/dashboard)
+  * [Integrations](https://www.airgradient.com/integrations/)
   * [Online firmware flashing tool](https://www.airgradient.com/documentation/factory/)
-* [Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
+* [Official Home Assistant integration](https://www.home-assistant.io/integrations/airgradient)
+* [Alternative Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
 
 #### Configuring AirGradient for Home Assistant
 
