@@ -54,6 +54,16 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
 * [Home Assistant/bluetooth](https://www.home-assistant.io/integrations/bluetooth)
 
+### Home Assistant Connect ZBT-1 (Zigbee and Thread hub)
+
+* [Official documentation](https://connectzbt1.home-assistant.io/)
+
+### Home Assistant Voice
+
+* [Official site](https://www.home-assistant.io/voice-pe/)
+* [Piper](https://github.com/rhasspy/piper) - A fast, local neural text to speech system
+  * [hasspy/wyoming-piper Docker image](https://hub.docker.com/r/rhasspy/wyoming-piper)
+
 ### [ratgdo](https://paulwieland.github.io/ratgdo/) - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
 Getting started
@@ -80,10 +90,6 @@ Getting started
      action: toggle
    show_state: true
    ```
-
-### Home Assistant Connect ZBT-1
-
-* [Official documentation](https://connectzbt1.home-assistant.io/)
 
 ### [SONOFF Zigbee 3.0 USB Dongle Plus](https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/) (CC2652P)
 
