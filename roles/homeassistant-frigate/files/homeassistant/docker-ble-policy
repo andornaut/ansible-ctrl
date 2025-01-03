@@ -1,5 +1,8 @@
 # Original source:
 # https://github.com/edgexfoundry-holding/device-bluetooth-c/blob/main/docker-ble-policy
+#
+# Docker AppArmor docs:
+# https://docs.docker.com/engine/security/apparmor/
 
 #include <tunables/global>
 #

@@ -13,12 +13,18 @@
   register: apparmor_policy
   become: true
 
-- name: Reload apparmor.service
-  ansible.builtin.systemd_service:
-    name: apparmor.service
-    state: restarted
-  when: apparmor_policy.changed
+- name: Load docker-ble-policy
+  ansible.builtin.shell: apparmor_parser -r -W /etc/apparmor.d/docker-ble-policy
   become: true
+  when: apparmor_policy.changed
+
+# Shouldn't need to reload if we're loading the new profile above
+#- name: Reload apparmor.service
+#  ansible.builtin.systemd_service:
+#    name: apparmor.service
+#    state: restarted
+#  when: apparmor_policy.changed
+#  become: true
 
 - name: Start Home Assistant Docker containers
   vars:
@@ -54,11 +60,14 @@
           # https://www.home-assistant.io/integrations/cast/#home-assistant-container
           network_mode: host
           # May improve bluetooth experience, though it should not be necessary due to the apparmor:docker-ble-policy below
-          privileged: true
+          #privileged: true
           restart: unless-stopped
           # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
           security_opt:
             - "apparmor:docker-ble-policy"
+          # TODO Or use "=" instead of ":" as the key-value separator as per Ansible docs?
+          #- "apparmor=docker-ble-policy"
+          # Test with: `sudo aa-status|grep docker-ble-policy`
           volumes: "{{ required_volumes + homeassistantfrigate_extra_volumes }}"
         frigate:
           container_name: frigate
@@ -89,16 +98,3 @@
             - "{{ homeassistantfrigate_mosquitto_port }}:1883"
           restart: unless-stopped
           volumes: "{{ mosquitto_volumes }}"
-#- name: Modify envisalink alarm-panel code. Workaround 1/2 for https://github.com/home-assistant/core/issues/119443
-#  community.docker.docker_container_exec:
-#    container: homeassistant
-#    argv:
-#      - /bin/bash
-#      - "-c"
-#      - "sed -i 's/self._attr_code_format = CodeFormat.NUMBER/self._attr_code_format = None if code else CodeFormat.NUMBER;self._attr_code_arm_required = not code/g' /usr/src/homeassistant/homeassistant/components/envisalink/alarm_control_panel.py"
-
-#- name: Restart the homeassistant container. Workaround 2/2 for https://github.com/home-assistant/core/issues/119443
-#  community.docker.docker_container:
-#    name: homeassistant
-#    state: started
-#    restart: true
