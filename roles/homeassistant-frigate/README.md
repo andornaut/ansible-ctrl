@@ -13,8 +13,7 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 * [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
 * [Home Assistant SkyConnect USB Stick](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
-* [M5Stack](https://www.aliexpress.com/item/1005003299215808.html)
-  * [ESPHome bluetooth proxy](https://esphome.io/projects/index.html)
+
 
 ### AirGradient
 
@@ -49,11 +48,26 @@ An [Ansible](https://www.ansible.com/) role that provisions
 1. Navigate to the ESPHome integration on your Home Assistant installation
 1. Click "Add Device" and follow the prompts to setup your new airgradient device
 
-### Bluetooth CSR8510 adapter
+### Bluetooth
+
+#### CSR8510 adapter
 
 * [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
 * [Home Assistant/bluetooth](https://www.home-assistant.io/integrations/bluetooth)
 
+#### M5Stack bluetooth proxy
+
+Installation
+
+1. Plug the [M5Stack product page](https://www.aliexpress.com/item/1005003299215808.html) into a usb port
+2. Navigate to [ESPHome bluetooth proxy installation](https://esphome.io/projects/index.html) in Google Chrome
+3. From the "I want to create a:" options, select "Bluetooth proxy"
+4. From the "Pick the device you want to turn into a Bluetooth proxy: " options, select "M5Stack"
+5. Click the "Connect" button
+6. Select a port, then begin the installation
+7. Once the installation is complete, configure the Wifi network
+8. From Home Assistant, add a new ESPHome device and point to the hostname of the newly connected M5Stack
+   
 ### Home Assistant Connect ZBT-1 (Zigbee and Thread hub)
 
 * [Official documentation](https://connectzbt1.home-assistant.io/)
