@@ -25,6 +25,12 @@
     dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
   become: true
 
+- name: Install Card Mod
+  get_url:
+    url: https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/refs/heads/master/card-mod.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
+  become: true
+
 - name: Download Frigate Card
   get_url:
     url: https://github.com/dermotduffy/frigate-hass-card/releases/latest/download/frigate-hass-card.zip
