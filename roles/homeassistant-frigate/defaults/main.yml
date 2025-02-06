@@ -1,4 +1,5 @@
 ---
+# Home Assistant
 homeassistantfrigate_devices: []
 homeassistantfrigate_docker_image: "homeassistant/home-assistant:latest"
 homeassistantfrigate_extra_volumes: []
@@ -7,7 +8,10 @@ homeassistantfrigate_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
   dbus: /run/dbus
   localtime: /etc/localtime
+  timezone: /etc/timezone
   udev: /run/udev
+
+# Frigate
 homeassistantfrigate_frigate_devices: []
 homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable"
 homeassistantfrigate_frigate_env:
@@ -20,9 +24,28 @@ homeassistantfrigate_frigate_rtsp_port: 1935
 homeassistantfrigate_frigate_shm_size: "64mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
+# Mosquitto
 homeassistantfrigate_mosquitto_docker_image: eclipse-mosquitto
 homeassistantfrigate_mosquitto_port: 1883
 homeassistantfrigate_mosquitto_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/mosquitto/config
   data: /var/docker-volumes/homeassistant-frigate/mosquitto/data
   log: /var/docker-volumes/homeassistant-frigate/mosquitto/log
+
+# openWakeWord
+homeassistantfrigate_openwakeword_docker_image: rhasspy/wyoming-openwakeword
+homeassistantfrigate_openwakeword_port: 10400
+homeassistantfrigate_openwakeword_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/openwakeword/data
+
+# Piper
+homeassistantfrigate_piper_docker_image: rhasspy/wyoming-piper
+homeassistantfrigate_piper_port: 10200
+homeassistantfrigate_piper_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/piper/data
+
+# Whisper
+homeassistantfrigate_whisper_docker_image: rhasspy/wyoming-whisper
+homeassistantfrigate_whisper_port: 10300
+homeassistantfrigate_whisper_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/whisper/data
