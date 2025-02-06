@@ -14,7 +14,6 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
 * [Home Assistant SkyConnect USB Stick](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
 
-
 ### AirGradient
 
 * [Official website](https://www.airgradient.com/)
@@ -67,7 +66,7 @@ Installation
 6. Select a port, then begin the installation
 7. Once the installation is complete, configure the Wifi network
 8. From Home Assistant, add a new ESPHome device and point to the hostname of the newly connected M5Stack
-   
+
 ### Home Assistant Connect ZBT-1 (Zigbee and Thread hub)
 
 * [Official documentation](https://connectzbt1.home-assistant.io/)
@@ -75,8 +74,26 @@ Installation
 ### Home Assistant Voice
 
 * [Official site](https://www.home-assistant.io/voice-pe/)
-* [Piper](https://github.com/rhasspy/piper) - A fast, local neural text to speech system
-  * [hasspy/wyoming-piper Docker image](https://hub.docker.com/r/rhasspy/wyoming-piper)
+* [Documentation](https://voice-pe.home-assistant.io/documentation/)
+
+#### Integration
+
+* [Home Assistant local voice assistant documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
+* [microWakeWord](https://github.com/kahrendt/microWakeWord)
+  * [wake word models collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by "Home Assistant Voice Preview"
+* [openWakeWord](https://github.com/dscripka/openWakeWord)
+  * [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
+  * [Docker image](https://github.com/rhasspy/wyoming-openwakeword)
+  * [ipython notebook to train wakewords](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing#scrollTo=qgaKWIY6WlJ1)
+  * [wake world models collection](https://github.com/fwartner/home-assistant-wakewords-collection)
+* [Piper](https://github.com/rhasspy/piper)
+  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/piper/DOCS.md)
+  * [Docker image](https://github.com/rhasspy/wyoming-piper)
+  * [Voices](https://rhasspy.github.io/piper-samples/)
+* [Whisper](https://github.com/openai/whisper)
+  * [Docker image](https://github.com/rhasspy/wyoming-faster-whisper)
+  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/whisper/DOCS.md)
+* [Wyoming protocol Home Assistant integration](https://www.home-assistant.io/integrations/wyoming)
 
 ### [ratgdo](https://paulwieland.github.io/ratgdo/) - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
@@ -322,6 +339,7 @@ Excerpt from dmesg:
 * [Google Cast](https://www.home-assistant.io/integrations/cast/)
 * [HomeKit](https://www.home-assistant.io/integrations/homekit/)
 * [Neato](https://www.home-assistant.io/integrations/neato/)
+* [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
 * [Roborock](https://www.home-assistant.io/integrations/roborock/)
   * [pfsense Nat 1:1 workaround](https://github.com/rytilahti/python-miio/issues/422#issuecomment-573408811)
   * [Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor)
