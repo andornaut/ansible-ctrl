@@ -16,35 +16,42 @@ See [default values](./defaults/main.yml).
 
 Be sure to set `letsencryptnginx_acme_directory_url` for production use.
 
-```
+```yaml
 letsencryptnginx_account_email: info@example.com
 
 # Production URL
 letsencryptnginx_acme_directory_url: https://acme-v02.api.letsencrypt.org/directory
 
 letsencryptnginx_websites:
+  - domain: public.example.com
+    permit_untrusted_networks: true
+    repo: https://github.com/andornaut/public.example.com.git
+
   # Returns HTTP response code 404
-  - domain: subdomain.example.com
+  - domain: public404selfsigned.example.com
+    permit_untrusted_networks: true
     use_selfsigned_certificate: true
 
-  - domain: example.com
-    repo: https://github.com/andornaut/example.com.git
-
-  - domain: httpbasic.example.com
-    http_basic_authentication:
-      allowed_networks:
-        - 192.168.0.0/16
-      credentials:
-        - username: hello
-          password: world
+  - domain: basicauth.example.com
+    credentials:
+      - username: hello
+        password: world
     locations:
       - src: /nas
         dest: /media/nas
+        credentials:
+          - username: foo
+            password: bar
+            file_basename: basicauth.example.com.nas
+    permit_untrusted_networks: true
+    trusted_networks:
+      - 192.168.0.0/16
 
-  - domain: proxy.example.com
+  - domain: privateproxy.example.com
     cloudflare_api_token: token
     cloudflare_api_zone: example.com
     csr_commonName: *.example.com
+    permit_untrusted_networks: false
     proxy_port: 8123
     proxy_redirect_http: False
     proxy_remove_authorization_header: False
@@ -56,11 +63,14 @@ letsencryptnginx_websites:
 ### Restart Nginx after a folder is mounted
 
 1. Create a Systemd unit file
-   ```
+
+   ```bash
    sudo systemctl edit --force --full restart-nginx-after-nas.service
    ```
+
 1. Enter the following:
-   ```
+
+   ```ini
    [Unit]
    Description=Restart the Nginx Docker container after /media/nas has been mounted
    Requires=media-nas.mount
@@ -75,5 +85,6 @@ letsencryptnginx_websites:
    [Install]
    WantedBy=media-nas.mount
    ```
+
 1. Run `sudo systemctl daemon-reload`
 1. Run `sudo systemctl restart restart-nginx-after-nas.service`
