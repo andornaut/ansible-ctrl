@@ -1,63 +1,32 @@
 ---
-- name: Get group ids
-  getent:
-    database: group
-
-- name: Copy docker-ble-policy
-  ansible.builtin.copy:
-    src: homeassistant/docker-ble-policy
-    dest: /etc/apparmor.d/
-    owner: root
-    group: root
-    mode: "0644"
-  register: apparmor_policy
-  become: true
-
-- name: Load docker-ble-policy
-  ansible.builtin.shell: apparmor_parser -r -W /etc/apparmor.d/docker-ble-policy
-  become: true
-  when: apparmor_policy.changed
-
-# Shouldn't need to reload if we're loading the new profile above
-#- name: Reload apparmor.service
-#  ansible.builtin.systemd_service:
-#    name: apparmor.service
-#    state: restarted
-#  when: apparmor_policy.changed
-#  become: true
-
-- name: Start Home Assistant Docker containers
+- name: Start Home Assistant, Frigate and Mosquitto Docker containers
   vars:
     frigate_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_frigate_required_volumes.media }}:/media/frigate"
+
     frigate_tmpfs_volume:
       type: tmpfs # Optional ram-drive to reduce storage wear
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
+
     homeassistant_volumes:
       - "{{ homeassistantfrigate_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
+
     mosquitto_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
-    piper_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_piper_required_volumes.data }}:/data"
-    whisper_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_whisper_required_volumes.data }}:/data"
+
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate
     pull: always
@@ -84,6 +53,10 @@
           # https://github.com/blakeblackshear/frigate/issues/6028#issuecomment-1506283282
           #privileged: true
           restart: unless-stopped
+          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
+          # https://docs.docker.com/engine/security/seccomp/#run-without-the-default-seccomp-profile
+          security_opt:
+            - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
 
@@ -93,39 +66,21 @@
           devices: "{{ homeassistantfrigate_devices }}"
           # `network_mode: host` is required by the Google Cast integration:
           # https://www.home-assistant.io/integrations/cast/#home-assistant-container
-          network_mode: host
-          # May improve bluetooth experience, though it should not be necessary due to the apparmor:docker-ble-policy below
-          #privileged: true
+          #network_mode: host
+          ports:
+            - "{{ homeassistantfrigate_port }}:8123"
           restart: unless-stopped
           # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
+          # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
+          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
           security_opt:
-            - "apparmor:docker-ble-policy"
-          # TODO Or use "=" instead of ":" as the key-value separator as per Ansible docs?
-          #- "apparmor=docker-ble-policy"
-          # Test with: `sudo aa-status|grep docker-ble-policy`
+            - "apparmor=docker-ble-policy"
           volumes: "{{ homeassistant_volumes + homeassistantfrigate_extra_volumes }}"
 
         mosquitto:
           container_name: mosquitto
           image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
-          ports:
-            - "{{ homeassistantfrigate_mosquitto_port }}:1883"
+          # Use http://mosquitto:1883
+          #ports:
+          #  - "{{ homeassistantfrigate_mosquitto_port }}:1883"
           volumes: "{{ mosquitto_volumes }}"
-
-        piper:
-          container_name: piper
-          image: rhasspy/wyoming-piper
-          command: "{{ homeassistantfrigate_piper_command }}"
-          ports:
-            - "{{ homeassistantfrigate_piper_port }}:10200"
-          restart: unless-stopped
-          volumes: "{{ piper_volumes }}"
-
-        whisper:
-          container_name: whisper
-          image: rhasspy/wyoming-whisper
-          command: "{{ homeassistantfrigate_whisper_command }}"
-          ports:
-            - "{{ homeassistantfrigate_whisper_port }}:10300"
-          restart: unless-stopped
-          volumes: "{{ whisper_volumes }}"
