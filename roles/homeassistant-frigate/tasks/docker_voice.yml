@@ -1,0 +1,78 @@
+---
+- name: Start "Voice" Docker containers
+  vars:
+    microwakeword_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      # No data directory
+
+    openwakeword_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
+
+    piper_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_piper_required_volumes.data }}:/data"
+
+    whisper_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_whisper_required_volumes.data }}:/data"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate-voice
+    pull: always
+    remove_orphans: true
+    definition:
+      networks:
+        homeassistant-frigate_default:
+          external: true
+      services:
+        # Voice Preview (hardware) uses microWakeWord, not openWakeWord
+        #openwakeword:
+        #  container_name: openwakeword
+        #  image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
+        #  command: --custom-model-dir /custom --preload-model 'ok_nabu'
+        ## Use http://openwakeword:11434
+        ##   ports:
+        ##     - "{{ homeassistantfrigate_openwakeword_port }}:10400"
+        #  restart: unless-stopped
+        #  volumes: "{{ openwakeword_volumes }}"
+
+        # Used by Voice Preview (hardware)
+        microwakeword:
+          container_name: microwakeword
+          image: "{{ homeassistantfrigate_microwakeword_docker_image }}"
+          networks:
+            - homeassistant-frigate_default
+          # Use http://microwakeword:11434
+          #ports:
+          #  - "{{ homeassistantfrigate_microwakeword_port }}:10400"
+          restart: unless-stopped
+          volumes: "{{ microwakeword_volumes }}"
+
+        piper:
+          container_name: piper
+          image: rhasspy/wyoming-piper
+          command: "{{ homeassistantfrigate_piper_command }}"
+          networks:
+            - homeassistant-frigate_default
+          # Use http://piper:11434
+          #ports:
+          #  - "{{ homeassistantfrigate_piper_port }}:10200"
+          restart: unless-stopped
+          volumes: "{{ piper_volumes }}"
+
+        whisper:
+          container_name: whisper
+          image: rhasspy/wyoming-whisper
+          command: "{{ homeassistantfrigate_whisper_command }}"
+          networks:
+            - homeassistant-frigate_default
+          # Use http://whisper:11434
+          #ports:
+          #  - "{{ homeassistantfrigate_whisper_port }}:10300"
+          restart: unless-stopped
+          volumes: "{{ whisper_volumes }}"

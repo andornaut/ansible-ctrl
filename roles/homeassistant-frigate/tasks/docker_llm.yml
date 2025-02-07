@@ -1,64 +1,49 @@
 ---
-- name: Start Home Assistant Docker containers
+- name: Start "LLM" Docker containers
   vars:
     ollama_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_ollama_required_volumes.data }}:/root/.ollama"
-    openwakeword_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
+
     openwebui_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_openwebui_required_volumes.data }}:/app/backend/data"
+
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate-llm
     pull: always
     remove_orphans: true
     definition:
+      networks:
+        homeassistant-frigate_default:
+          external: true
       services:
         ollama:
-          # https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html#accessing-gpus-in-containers
-          # See "AMD GPU" instructions on https://hub.docker.com/r/ollama/ollama
-          # https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu
-          # Install `amdgpu-install --usecase=dkms,rocm`
           container_name: ollama
-          # AMD GPU:
-          # https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html
-          # Running rocminfo and rocm-smi inside the container will only enumerate the GPUs
-          # passed into the docker container.
-          devices:
-            - /dev/kfd # Main compute interface, shared by all GPUs.d
-            - /dev/dri # GPU
-          #group_add:
-          #  - video
+          devices: "{{ homeassistantfrigate_ollama_devices }}"
+          group_add:
+            - "{{ getent_group.render[1] }}"
+            - "{{ getent_group.video[1] }}"
           image: "{{ homeassistantfrigate_ollama_docker_image }}"
-          ports:
-            - "{{ homeassistantfrigate_ollama_port }}:11434"
-          # Workaround error:
-          # error gathering device information while adding custom device "/dev/kfd": no such file or directory
-          # This doesn't help: https://github.com/ROCm/ROCm/issues/1798#issuecomment-1849112550
-          privileged: true
+          networks:
+            - homeassistant-frigate_default
+          # Use http://ollama:11434
+          #ports:
+          #  - "{{ homeassistantfrigate_ollama_port }}:11434"
           restart: unless-stopped
+          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
+          # https://docs.docker.com/engine/security/seccomp/#run-without-the-default-seccomp-profile
           security_opt:
-            - seccomp:unconfined
+            - seccomp=unconfined
           volumes: "{{ ollama_volumes }}"
-
-        # Voice Preview (hardware) uses microWakeWord, not openWakeWord
-        #        openwakeword:
-        #          container_name: openwakeword
-        #          image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
-        #          command: --custom-model-dir /custom --preload-model 'ok_nabu'
-        #          ports:
-        #            - "{{ homeassistantfrigate_openwakeword_port }}:10400"
-        #          restart: unless-stopped
-        #          volumes: "{{ openwakeword_volumes }}"
 
         openwebui:
           container_name: openwebui
           image: "{{ homeassistantfrigate_openwebui_docker_image }}"
+          networks:
+            - homeassistant-frigate_default
           ports:
             - "{{ homeassistantfrigate_openwebui_port }}:8080"
           restart: unless-stopped
