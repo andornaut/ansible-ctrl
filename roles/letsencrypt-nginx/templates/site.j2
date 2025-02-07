@@ -40,14 +40,25 @@ server {
     listen 443 ssl http2;
     server_name {{ item.item.domain }};
 
-{% if item.item.http_basic_authentication is defined %}
-{% if item.item.http_basic_authentication.allowed_networks is defined %}
+{% if item.item.permit_untrusted_networks | default(False) %}
     satisfy any;
-{% for allowed_network in item.item.http_basic_authentication.allowed_networks %}
-    allow {{ allowed_network }};
+{% else %}
+    satisfy all;
+{% endif %}
+
+    allow 127.0.0.1/32;
+
+{% for network in item.item.trusted_networks | default([]) %}
+    allow {{ network }};
 {% endfor %}
+
+{% if not item.item.permit_untrusted_networks | default(False)
+        or item.item.credentials | default(False)
+        or item.item.trusted_network | default(False) %}
     deny all;
 {% endif %}
+
+{% if item.item.credentials | default(False) %}
     auth_basic "Restricted Content";
     auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ item.item.domain }}.htpasswd;
 {% endif %}
@@ -116,25 +127,36 @@ server {
     }
 {% endif %}
 
-{% if item.item.locations is defined %}
-{% for location in item.item.locations %}
+{% for location in item.item.locations | default([]) %}
     location {{ location.src }} {
         alias {{ location.dest }};
         autoindex on;
-{% if location.http_basic_authentication is defined %}
-{% if location.http_basic_authentication.allowed_networks is defined %}
-        satisfy any;
-{% for allowed_network in location.http_basic_authentication.allowed_networks %}
-        allow {{ allowed_network }};
+
+{% if location.permit_untrusted_networks | default(False) %}
+    satisfy any;
+{% else %}
+    satisfy all;
+{% endif %}
+
+    allow 127.0.0.1/32;
+
+{% for network in location.trusted_networks | default([]) %}
+    allow {{ network }};
 {% endfor %}
-        deny all;
+
+{% if not location.permit_untrusted_networks | default(False)
+        or location.credentials | default(False)
+        or location.trusted_network | default(False) %}
+    deny all;
 {% endif %}
-        auth_basic "Restricted Content";
-        auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ location.http_basic_authentication.password_filename }};
+
+{% if location.credentials | default(False) %}
+    auth_basic "Restricted Content";
+    auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ location.credentials.file_basename }}.htpasswd;
 {% endif %}
+
     }
 {% endfor %}
-{% endif %}
 
     include /etc/nginx/conf.d/partial/common_site_configuration;
 }
