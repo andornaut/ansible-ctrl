@@ -83,6 +83,7 @@ Installation
 * [OpenWebUI](https://openwebui.com/)
 * [AMD GPU dkms driver](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu)
 * [AMD ROCM quickstart on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
+* [Google AI studio](https://aistudio.google.com/prompts/new_chat)
 * [LocalAI](https://localai.io/basics/getting_started/)
 
 #### Integration
