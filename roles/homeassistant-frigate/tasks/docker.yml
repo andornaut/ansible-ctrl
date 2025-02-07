@@ -28,12 +28,6 @@
 
 - name: Start Home Assistant Docker containers
   vars:
-    required_volumes:
-      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
-      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
     frigate_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
@@ -44,16 +38,18 @@
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
+    homeassistant_volumes:
+      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
     mosquitto_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
-    openwakeword_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
     piper_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
       - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
@@ -65,25 +61,9 @@
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate
     pull: always
+    remove_orphans: true
     definition:
       services:
-        homeassistant:
-          container_name: homeassistant
-          image: "{{ homeassistantfrigate_docker_image }}"
-          devices: "{{ homeassistantfrigate_devices }}"
-          # `network_mode: host` is required by the Google Cast integration:
-          # https://www.home-assistant.io/integrations/cast/#home-assistant-container
-          network_mode: host
-          # May improve bluetooth experience, though it should not be necessary due to the apparmor:docker-ble-policy below
-          #privileged: true
-          restart: unless-stopped
-          # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
-          security_opt:
-            - "apparmor:docker-ble-policy"
-          # TODO Or use "=" instead of ":" as the key-value separator as per Ansible docs?
-          #- "apparmor=docker-ble-policy"
-          # Test with: `sudo aa-status|grep docker-ble-policy`
-          volumes: "{{ required_volumes + homeassistantfrigate_extra_volumes }}"
         frigate:
           container_name: frigate
           image: "{{ homeassistantfrigate_frigate_docker_image }}"
@@ -106,33 +86,45 @@
           restart: unless-stopped
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
+
+        homeassistant:
+          container_name: homeassistant
+          image: "{{ homeassistantfrigate_docker_image }}"
+          devices: "{{ homeassistantfrigate_devices }}"
+          # `network_mode: host` is required by the Google Cast integration:
+          # https://www.home-assistant.io/integrations/cast/#home-assistant-container
+          network_mode: host
+          # May improve bluetooth experience, though it should not be necessary due to the apparmor:docker-ble-policy below
+          #privileged: true
+          restart: unless-stopped
+          # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
+          security_opt:
+            - "apparmor:docker-ble-policy"
+          # TODO Or use "=" instead of ":" as the key-value separator as per Ansible docs?
+          #- "apparmor=docker-ble-policy"
+          # Test with: `sudo aa-status|grep docker-ble-policy`
+          volumes: "{{ homeassistant_volumes + homeassistantfrigate_extra_volumes }}"
+
         mosquitto:
           container_name: mosquitto
           image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
           ports:
             - "{{ homeassistantfrigate_mosquitto_port }}:1883"
           volumes: "{{ mosquitto_volumes }}"
-        # Voice Preview (hardware) uses microWakeWord, not openWakeWord
-        #        openwakeword:
-        #          container_name: openwakeword
-        #          image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
-        #          command: --custom-model-dir /custom --preload-model 'ok_nabu'
-        #          ports:
-        #            - "{{ homeassistantfrigate_openwakeword_port }}:10400"
-        #          restart: unless-stopped
-        #          volumes: "{{ openwakeword_volumes }}"
+
         piper:
           container_name: piper
           image: rhasspy/wyoming-piper
-          command: --voice en_US-amy-medium
+          command: "{{ homeassistantfrigate_piper_command }}"
           ports:
             - "{{ homeassistantfrigate_piper_port }}:10200"
           restart: unless-stopped
           volumes: "{{ piper_volumes }}"
+
         whisper:
           container_name: whisper
           image: rhasspy/wyoming-whisper
-          command: --model distil-small.en --language en
+          command: "{{ homeassistantfrigate_whisper_command }}"
           ports:
             - "{{ homeassistantfrigate_whisper_port }}:10300"
           restart: unless-stopped
