@@ -76,9 +76,19 @@ Installation
 * [Official site](https://www.home-assistant.io/voice-pe/)
 * [Documentation](https://voice-pe.home-assistant.io/documentation/)
 
+#### LLM
+
+* [Ollama](https://ollama.com/)
+  * [Models library](https://ollama.com/library)
+* [OpenWebUI](https://openwebui.com/)
+* [AMD GPU dkms driver](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu)
+* [AMD ROCM quickstart on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
+* [LocalAI](https://localai.io/basics/getting_started/)
+
 #### Integration
 
 * [Home Assistant local voice assistant documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
+* [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
 * [microWakeWord](https://github.com/kahrendt/microWakeWord)
   * [wake word models collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by "Home Assistant Voice Preview"
 * [openWakeWord](https://github.com/dscripka/openWakeWord)
