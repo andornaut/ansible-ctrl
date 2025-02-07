@@ -9,6 +9,81 @@ An [Ansible](https://www.ansible.com/) role that provisions
 [![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)
 [![frigate](./screenshots/frigate-small.png)](./screenshots/frigate.png)
 
+## LLM
+
+* [Google AI studio](https://aistudio.google.com/prompts/new_chat)
+* [Home LLM](https://github.com/acon96/home-llm)
+* [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
+* [Hugging Face](https://huggingface.co/)
+* [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
+* [LocalAI](https://localai.io/basics/getting_started/)
+* [Ollama](https://ollama.com/)
+  * [Models library](https://ollama.com/library)
+* [OpenWebUI](https://openwebui.com/)
+
+### AMD GPU
+
+* [AMD GPU drivers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu)
+* [AMD Quick start installation guide on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
+* [AMD Running ROCm Docker containers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html)
+
+#### Make `/dev/kfd` writable from within the container
+
+Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "video",
+because the Ollama container doesn't have a "render" group,
+and therefore docker compose `group_add` can't add a valid "render" group ID.
+
+```bash
+KERNEL=="kfd", GROUP="video", MODE="0660"
+```
+
+Recreate `/dev/kfd` by running:
+
+```bash
+sudo udevadm control --reload
+sudo udevadm trigger
+```
+
+### Models
+
+* [Home 1B v3](https://huggingface.co/acon96/Home-1B-v3-GGUF)
+* [Luna-AI-Llama2](https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF)
+* [gemma2:2b](https://ollama.com/library/gemma2)
+* [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
+* [phi3.5](https://ollama.com/library/phi3.5)
+* [phi3:mini](https://ollama.com/library/phi3:mini)
+
+## Voice Assistant
+
+* [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/)
+* [Voice Preview Edition (hardware) documentation](https://voice-pe.home-assistant.io/documentation/)
+* [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
+* [$13 voice assistant for Home Assistant](https://www.home-assistant.io/voice_control/thirteen-usd-voice-remote/) - Supports custom wake words with microWakeWord
+
+### Integrations
+
+* [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
+* [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)
+* [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
+
+#### Services
+
+* [microWakeWord](https://github.com/kahrendt/microWakeWord)
+  * [Docker image](https://hub.docker.com/r/rhasspy/wyoming-microwakeword)
+  * [model collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by Home Assistant Voice Preview (hardware)
+* [openWakeWord](https://github.com/dscripka/openWakeWord)
+  * [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
+  * [Docker image](https://github.com/rhasspy/wyoming-openwakeword)
+  * [ipython notebook to train wakewords](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing#scrollTo=qgaKWIY6WlJ1)
+  * [model collection](https://github.com/fwartner/home-assistant-wakewords-collection)
+* [Piper](https://github.com/rhasspy/piper)
+  * [Docker image](https://github.com/rhasspy/wyoming-piper)
+  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/piper/DOCS.md)
+  * [Voices](https://rhasspy.github.io/piper-samples/)
+* [Whisper](https://github.com/openai/whisper)
+  * [Docker image](https://github.com/rhasspy/wyoming-faster-whisper)
+  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/whisper/DOCS.md)
+
 ## Hardware
 
 * [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
@@ -70,41 +145,6 @@ Installation
 ### Home Assistant Connect ZBT-1 (Zigbee and Thread hub)
 
 * [Official documentation](https://connectzbt1.home-assistant.io/)
-
-### Home Assistant Voice
-
-* [Official site](https://www.home-assistant.io/voice-pe/)
-* [Documentation](https://voice-pe.home-assistant.io/documentation/)
-
-#### LLM
-
-* [Ollama](https://ollama.com/)
-  * [Models library](https://ollama.com/library)
-* [OpenWebUI](https://openwebui.com/)
-* [AMD GPU dkms driver](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu)
-* [AMD ROCM quickstart on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
-* [Google AI studio](https://aistudio.google.com/prompts/new_chat)
-* [LocalAI](https://localai.io/basics/getting_started/)
-
-#### Integration
-
-* [Home Assistant local voice assistant documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
-* [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
-* [microWakeWord](https://github.com/kahrendt/microWakeWord)
-  * [wake word models collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by "Home Assistant Voice Preview"
-* [openWakeWord](https://github.com/dscripka/openWakeWord)
-  * [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
-  * [Docker image](https://github.com/rhasspy/wyoming-openwakeword)
-  * [ipython notebook to train wakewords](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing#scrollTo=qgaKWIY6WlJ1)
-  * [wake world models collection](https://github.com/fwartner/home-assistant-wakewords-collection)
-* [Piper](https://github.com/rhasspy/piper)
-  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/piper/DOCS.md)
-  * [Docker image](https://github.com/rhasspy/wyoming-piper)
-  * [Voices](https://rhasspy.github.io/piper-samples/)
-* [Whisper](https://github.com/openai/whisper)
-  * [Docker image](https://github.com/rhasspy/wyoming-faster-whisper)
-  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/whisper/DOCS.md)
-* [Wyoming protocol Home Assistant integration](https://www.home-assistant.io/integrations/wyoming)
 
 ### [ratgdo](https://paulwieland.github.io/ratgdo/) - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 

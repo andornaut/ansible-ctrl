@@ -1,5 +1,7 @@
 ---
 homeassistantfrigate_install_llm: false
+homeassistantfrigate_install_voice: false
+homeassistantfrigate_avahi_interfaces: ""
 
 # Home Assistant
 homeassistantfrigate_devices: []
@@ -15,7 +17,7 @@ homeassistantfrigate_required_volumes:
 
 # Frigate
 homeassistantfrigate_frigate_devices: []
-homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable"
+homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate-rocm:stable"
 homeassistantfrigate_frigate_env:
   LIBVA_DRIVER_NAME: ""
 homeassistantfrigate_frigate_port: 5000
@@ -26,6 +28,10 @@ homeassistantfrigate_frigate_rtsp_port: 1935
 homeassistantfrigate_frigate_shm_size: "64mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
+# microWakeWord
+homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
+homeassistantfrigate_microwakeword_port: 10400
+
 # Mosquitto
 homeassistantfrigate_mosquitto_docker_image: eclipse-mosquitto
 homeassistantfrigate_mosquitto_port: 1883
@@ -35,6 +41,7 @@ homeassistantfrigate_mosquitto_required_volumes:
   log: /var/docker-volumes/homeassistant-frigate/mosquitto/log
 
 # Ollama
+homeassistantfrigate_ollama_devices: []
 homeassistantfrigate_ollama_docker_image: ollama/ollama:rocm
 homeassistantfrigate_ollama_port: 11434
 homeassistantfrigate_ollama_required_volumes:
