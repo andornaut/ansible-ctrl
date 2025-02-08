@@ -11,6 +11,7 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 ## LLM
 
+* [ChatGPT](https://chatgpt.com/)
 * [Google AI studio](https://aistudio.google.com/prompts/new_chat)
 * [Home LLM](https://github.com/acon96/home-llm)
 * [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
@@ -47,11 +48,18 @@ sudo udevadm trigger
 ### Models
 
 * [Home 3B v3](https://huggingface.co/acon96/Home-3B-v3-GGUF)
-* [Luna-AI-Llama2](https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF)
 * [gemma2:2b](https://ollama.com/library/gemma2)
 * [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
+* [Luna-AI-Llama2](https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF)
+* [mistral:7b](https://ollama.com/library/mistral:7b)
 * [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
 * [phi3:3.8b (mini)](https://ollama.com/library/phi3:3.8b)
+
+Install with:
+
+```bash
+docker exec ollama ollama pull mistral:7b
+```
 
 ## Voice Assistant
 
