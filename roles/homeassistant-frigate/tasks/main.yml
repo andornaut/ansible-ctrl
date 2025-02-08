@@ -1,11 +1,17 @@
 ---
+# Home Assistant
+- import_tasks: avahi.yml
+- import_tasks: bluetooth.yml
+- import_tasks: custom_components.yml
+- import_tasks: themes.yml
+- import_tasks: www.yml
+
+- import_tasks: mosquitto.yml
+
 # Must run before other docker*yml files
 - import_tasks: docker_prerequisites.yml
-
 - import_tasks: docker_homeassistant_frigate.yml
-
 - import_tasks: docker_llm.yml
   when: homeassistantfrigate_install_llm
-
 - import_tasks: docker_voice.yml
   when: homeassistantfrigate_install_voice
