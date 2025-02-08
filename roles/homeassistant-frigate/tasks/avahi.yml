@@ -1,0 +1,38 @@
+---
+# Use Avahi to make mDNS avaiable for Google Cast in Home Assistant without having to set --network_mode=host
+# https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24
+- name: Install system packages
+  apt:
+    name:
+      - avahi-daemon
+    state: latest
+    update_cache: yes
+  become: true
+  when: homeassistantfrigate_avahi_interfaces | length > 0
+
+- name: Configure allow-interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/avahi/avahi-daemon.conf
+    regexp: "^allow-interfaces\\s*="
+    line: "allow-interfaces={{ homeassistantfrigate_avahi_interfaces }}"
+  become: true
+  when: homeassistantfrigate_avahi_interfaces | length > 0
+  register: avahi_allow_interfaces
+
+- name: Configure enable-reflector
+  ansible.builtin.lineinfile:
+    path: /etc/avahi/avahi-daemon.conf
+    regexp: "^enable-reflector\\s*="
+    line: "enable-reflector=yes"
+  become: true
+  when: homeassistantfrigate_avahi_interfaces | length > 0
+  register: avahi_enable_reflector
+
+- name: Restart Avahi service
+  systemd:
+    name: avahi-daemon
+    daemon_reload: yes
+    state: started
+    enabled: yes
+  become: true
+  when: avahi_allow_interfaces.changed or avahi_enable_reflector.changed
