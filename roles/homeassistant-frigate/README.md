@@ -46,12 +46,12 @@ sudo udevadm trigger
 
 ### Models
 
-* [Home 1B v3](https://huggingface.co/acon96/Home-1B-v3-GGUF)
+* [Home 3B v3](https://huggingface.co/acon96/Home-3B-v3-GGUF)
 * [Luna-AI-Llama2](https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF)
 * [gemma2:2b](https://ollama.com/library/gemma2)
 * [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
-* [phi3.5](https://ollama.com/library/phi3.5)
-* [phi3:mini](https://ollama.com/library/phi3:mini)
+* [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
+* [phi3:3.8b (mini)](https://ollama.com/library/phi3:3.8b)
 
 ## Voice Assistant
 
@@ -64,6 +64,7 @@ sudo udevadm trigger
 
 * [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
 * [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)
+  * [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
 * [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 
 #### Services

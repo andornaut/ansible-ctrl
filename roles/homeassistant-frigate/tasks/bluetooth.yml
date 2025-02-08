@@ -13,3 +13,25 @@
     enabled: true
     state: started
   become: true
+
+- name: Copy docker-ble-policy
+  ansible.builtin.copy:
+    src: homeassistant/docker-ble-policy
+    dest: /etc/apparmor.d/
+    owner: root
+    group: root
+    mode: "0644"
+  register: apparmor_policy
+  become: true
+
+- name: Load docker-ble-policy
+  ansible.builtin.shell: apparmor_parser -r -W /etc/apparmor.d/docker-ble-policy
+  become: true
+  when: apparmor_policy.changed
+# Shouldn't need to reload if we're loading the new profile above
+#- name: Reload apparmor.service
+#  ansible.builtin.systemd_service:
+#    name: apparmor.service
+#    state: restarted
+#  when: apparmor_policy.changed
+#  become: true
