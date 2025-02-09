@@ -19,8 +19,8 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 * [LocalAI](https://localai.io/basics/getting_started/)
 * [Ollama](https://ollama.com/)
-  * [Models library](https://ollama.com/library)
 * [OpenWebUI](https://openwebui.com/)
+* [Speaches](https://speaches.ai/) - An OpenAI API-compatible server supporting streaming transcription, translation, and speech generation
 
 ### AMD GPU
 
@@ -47,13 +47,14 @@ sudo udevadm trigger
 
 ### Models
 
-* [Home 3B v3](https://huggingface.co/acon96/Home-3B-v3-GGUF)
-* [gemma2:2b](https://ollama.com/library/gemma2)
-* [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
-* [Luna-AI-Llama2](https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF)
-* [mistral:7b](https://ollama.com/library/mistral:7b)
-* [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
-* [phi3:3.8b (mini)](https://ollama.com/library/phi3:3.8b)
+* [Models library](https://ollama.com/library)
+  * [gemma2:2b](https://ollama.com/library/gemma2)
+  * [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
+* [Models that support "tools"](https://ollama.com/search?c=tools)
+  * [llama3.1:8b](https://ollama.com/library/llama3.1:8b)
+  * [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
+  * [mistral:7b](https://ollama.com/library/mistral:7b)
+  * [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b)
 
 Install with:
 
@@ -68,7 +69,7 @@ docker exec ollama ollama pull mistral:7b
 * [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
 * [$13 voice assistant for Home Assistant](https://www.home-assistant.io/voice_control/thirteen-usd-voice-remote/) - Supports custom wake words with microWakeWord
 
-### Integrations
+### Home Assistant integrations
 
 * [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
 * [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)
@@ -382,7 +383,7 @@ Excerpt from dmesg:
 * [Bubble card](https://github.com/Clooos/Bubble-Card)
 * [Button card](https://github.com/custom-cards/button-card/)
 * [Card mod](https://github.com/thomasloven/lovelace-card-mod)
-* [Frigate lovelace card](https://github.com/dermotduffy/frigate-hass-card)
+* [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
 * [Layout card](github.com/thomasloven/lovelace-layout-card)
 * [Mini media player](https://github.com/kalkih/mini-media-player)
 * [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
