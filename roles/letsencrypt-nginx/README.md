@@ -27,7 +27,7 @@ letsencryptnginx_websites:
     permit_untrusted_networks: true
     repo: https://github.com/andornaut/public.example.com.git
 
-  # Returns HTTP response code 404
+  # Returns HTTP status code 404, because no destinations are configured
   - domain: public404selfsigned.example.com
     permit_untrusted_networks: true
     use_selfsigned_certificate: true
@@ -37,8 +37,10 @@ letsencryptnginx_websites:
       - username: hello
         password: world
     locations:
-      - src: /nas
-        dest: /media/nas
+      - src: /inherit-credentials
+        dest: /var/www/inherit-credentials
+      - src: /custom-credentials
+        dest: /var/www/custom-credentials
         credentials:
           - username: foo
             password: bar
