@@ -62,3 +62,11 @@ Each role defines default Ansible variables that can be overidden in `./host_var
 ([variables](./roles/nas/defaults/main.yml))
 * [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/)
 ([variables](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml))
+
+## Troubleshooting
+
+If there's a bug in a community module, then try `--force` upgrading:
+
+```bash
+ansible-galaxy collection install --force community.general
+```
