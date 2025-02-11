@@ -17,7 +17,7 @@ homeassistantfrigate_required_volumes:
 
 # Frigate
 homeassistantfrigate_frigate_devices: []
-homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate-rocm:stable"
+homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
 homeassistantfrigate_frigate_env:
   LIBVA_DRIVER_NAME: ""
 homeassistantfrigate_frigate_port: 5000
