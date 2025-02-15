@@ -16,6 +16,7 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [Home LLM](https://github.com/acon96/home-llm)
 * [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
 * [Hugging Face](https://huggingface.co/)
+* [LibreChat](https://www.librechat.ai/)
 * [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 * [LocalAI](https://localai.io/basics/getting_started/)
 * [Ollama](https://ollama.com/)
@@ -396,6 +397,7 @@ Excerpt from dmesg:
 * [Elgato Light](https://www.home-assistant.io/integrations/elgato/)
 * [Envisalink](https://www.home-assistant.io/integrations/envisalink/)
   * [Envisalink Refactored](https://github.com/ufodone/envisalink_new) - Independent rewrite
+  * [esphome-dsckeybus](https://github.com/Dilbert66/esphome-dsckeybus)
 * [Foscam](https://www.home-assistant.io/integrations/foscam/)
 * [Google Cast](https://www.home-assistant.io/integrations/cast/)
 * [HomeKit](https://www.home-assistant.io/integrations/homekit/)
