@@ -32,6 +32,12 @@
     pull: always
     remove_orphans: true
     definition:
+      networks:
+        default:
+          driver: bridge
+          driver_opts:
+            com.docker.network.bridge.name: br-ha
+
       services:
         frigate:
           container_name: frigate
@@ -78,9 +84,7 @@
           volumes: "{{ homeassistant_volumes + homeassistantfrigate_extra_volumes }}"
 
         mosquitto:
+          # http://mosquitto:1883
           container_name: mosquitto
           image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
-          # Use http://mosquitto:1883
-          #ports:
-          #  - "{{ homeassistantfrigate_mosquitto_port }}:1883"
           volumes: "{{ mosquitto_volumes }}"

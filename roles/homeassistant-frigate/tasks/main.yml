@@ -1,6 +1,5 @@
 ---
 # Home Assistant
-- import_tasks: avahi.yml
 - import_tasks: bluetooth.yml
 - import_tasks: custom_components.yml
 - import_tasks: themes.yml
@@ -15,3 +14,6 @@
   when: homeassistantfrigate_install_llm
 - import_tasks: docker_voice.yml
   when: homeassistantfrigate_install_voice
+
+# Run avahi.yml last, because docker_homeasssistant_frigate.yml may have created a network bridge that Avahi binds to
+- import_tasks: avahi.yml

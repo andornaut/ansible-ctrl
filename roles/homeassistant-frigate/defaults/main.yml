@@ -30,11 +30,9 @@ homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
 # microWakeWord
 homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
-homeassistantfrigate_microwakeword_port: 10400
 
 # Mosquitto
 homeassistantfrigate_mosquitto_docker_image: eclipse-mosquitto
-homeassistantfrigate_mosquitto_port: 1883
 homeassistantfrigate_mosquitto_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/mosquitto/config
   data: /var/docker-volumes/homeassistant-frigate/mosquitto/data
@@ -43,13 +41,11 @@ homeassistantfrigate_mosquitto_required_volumes:
 # Ollama
 homeassistantfrigate_ollama_devices: []
 homeassistantfrigate_ollama_docker_image: ollama/ollama:rocm
-homeassistantfrigate_ollama_port: 11434
 homeassistantfrigate_ollama_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/ollama/data
 
 # openWakeWord
 homeassistantfrigate_openwakeword_docker_image: rhasspy/wyoming-openwakeword
-homeassistantfrigate_openwakeword_port: 10400
 homeassistantfrigate_openwakeword_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/openwakeword/data
 
@@ -62,13 +58,11 @@ homeassistantfrigate_openwebui_required_volumes:
 # Piper
 homeassistantfrigate_piper_command: "--voice en_US-amy-medium"
 homeassistantfrigate_piper_docker_image: rhasspy/wyoming-piper
-homeassistantfrigate_piper_port: 10200
 homeassistantfrigate_piper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/piper/data
 
 # Whisper
 homeassistantfrigate_whisper_command: "--model distil-small.en --language en"
 homeassistantfrigate_whisper_docker_image: rhasspy/wyoming-whisper
-homeassistantfrigate_whisper_port: 10300
 homeassistantfrigate_whisper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/whisper/data
