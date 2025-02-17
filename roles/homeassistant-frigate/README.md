@@ -285,6 +285,13 @@ docker exec -ti homeassistant \
 
 ## Troubleshooting
 
+### Avahi and Google Cast
+
+* [Google Cast with Docker - No Google Cast devices found](https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24)
+
+> On the host `tcpdump port 5353 -i any`
+> On the docker container, get a shell on the container and `apk add tcpdump && tcpdump port 5353`
+
 ### iRobot Roomba J7 cloud password
 
 Get the cloud password (authn/z token):

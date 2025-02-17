@@ -2,9 +2,7 @@
 - name: Uninstall incompatible packages
   apt:
     name:
-      # docker-py system package (workaround)
-      - python3-docker
-      # Old version: https://docs.docker.com/engine/install/ubuntu/
+      # Old versions: https://docs.docker.com/engine/install/ubuntu/
       - containerd
       - docker-compose
       - docker-compose-v2
@@ -15,13 +13,10 @@
     state: absent
   become: true
 
-# Workaround error: "Configuration error - kwargs_from_env() got an unexpected keyword argument 'ssl_version'"
-# https://github.com/docker/docker-py/issues/3194
-# https://github.com/geerlingguy/internet-pi/issues/567#issuecomment-1891163294
-- name: Install docker-py==6.1.3 from PyPI (workaround)
+- name: Install docker-py
   pip:
     name:
-      - "docker==6.1.3"
+      - docker
     extra_args: "--break-system-packages"
   become: true
 
@@ -41,6 +36,7 @@
   apt:
     name:
       - docker-registry
+      - python3-docker
       # New versions: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
       - containerd.io
       - docker-buildx-plugin
