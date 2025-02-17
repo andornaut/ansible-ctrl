@@ -309,7 +309,8 @@ Context: Some devices cannot be delete from the UI, such as old devices in the R
 
 1. Install [MQTT Explorer](https://mqtt-explorer.com/)
 1. User `docker inspect` to get the IP address of the `mosquitto` container, then connect to it using MQTT Explorer
-1. Delete the unwanted topic, e.g. "ratgdo"
+1. Delete the unwanted topic, e.g. `ratgdo`
+1. Delete related sub-topics of `homeassistant`, e.g. `homeassistant/cover/ratgdo`
 
 ### Sensi Thermostat HomeKit
 
