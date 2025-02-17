@@ -293,6 +293,17 @@ Get the cloud password (authn/z token):
 docker run -it node sh -c "npm install -g dorita980 && get-roomba-password-cloud ${websiteEmail} ${websitePassword}
 ```
 
+### Removing unwanted entities and devices
+
+* [Remove leftover-devices and -entities from integration that is uninstalled](https://community.home-assistant.io/t/remove-leftover-devices-and-entities-from-integration-that-is-uninstalled/316391)
+
+Context: Some devices cannot be delete from the UI, such as old devices in the Ruckus Unleashed integration.
+
+1. Rename the unwanted device names and entity IDs to contain the word "_deprecated"
+1. Run `docker stop homeassistant`
+1. Delete all entries with the word "_deprecated" from `./.storage/core.entity_registry` `core.device_registry`
+1. Run `docker start homeassistant`
+
 ### Sensi Thermostat HomeKit
 
 * [/r/homeassistant/ post](https://github.com/andornaut/ansible-role-homeassistant-frigate/edit/main/README.md)
