@@ -303,6 +303,13 @@ Context: Some devices cannot be delete from the UI, such as old devices in the R
 1. Run `docker stop homeassistant`
 1. Delete all entries with the word "_deprecated" from `./.storage/core.entity_registry` `core.device_registry`
 1. Run `docker start homeassistant`
+1. Run [`recorder.purge_entities`](https://www.home-assistant.io/integrations/recorder/#action-purge_entities) service with the "entity_globs" field set to e.g. "device_tracker.*_deprecated"
+
+#### Removing unwanted MQTT entities
+
+1. Install [MQTT Explorer](https://mqtt-explorer.com/)
+1. User `docker inspect` to get the IP address of the `mosquitto` container, then connect to it using MQTT Explorer
+1. Delete the unwanted topic, e.g. "ratgdo"
 
 ### Sensi Thermostat HomeKit
 
