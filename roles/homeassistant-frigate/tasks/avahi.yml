@@ -10,23 +10,27 @@
   become: true
   when: homeassistantfrigate_avahi_interfaces | length > 0
 
-- name: Configure allow-interfaces
-  ansible.builtin.lineinfile:
+- name: "Configure Avahi: allow-interfaces"
+  community.general.ini_file:
+    no_extra_spaces: true
+    option: allow-interfaces
     path: /etc/avahi/avahi-daemon.conf
-    regexp: "^allow-interfaces\\s*="
-    line: "allow-interfaces={{ homeassistantfrigate_avahi_interfaces }}"
+    section: server
+    value: "{{ homeassistantfrigate_avahi_interfaces }}"
   become: true
-  when: homeassistantfrigate_avahi_interfaces | length > 0
   register: avahi_allow_interfaces
-
-- name: Configure enable-reflector
-  ansible.builtin.lineinfile:
-    path: /etc/avahi/avahi-daemon.conf
-    regexp: "^enable-reflector\\s*="
-    line: "enable-reflector=yes"
-  become: true
   when: homeassistantfrigate_avahi_interfaces | length > 0
+
+- name: "Configure Avahi: enable-reflector"
+  community.general.ini_file:
+    no_extra_spaces: true
+    option: enable-reflector
+    path: /etc/avahi/avahi-daemon.conf
+    section: reflector
+    value: "yes"
+  become: true
   register: avahi_enable_reflector
+  when: homeassistantfrigate_avahi_interfaces | length > 0
 
 - name: Restart Avahi service
   systemd:
