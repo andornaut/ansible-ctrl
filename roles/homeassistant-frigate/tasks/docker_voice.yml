@@ -50,7 +50,7 @@
         #  volumes: "{{ microwakeword_volumes }}"
 
         piper:
-          # http://piper:11434
+          # http://piper:10200
           container_name: piper
           image: rhasspy/wyoming-piper
           command: "{{ homeassistantfrigate_piper_command }}"
@@ -58,7 +58,7 @@
           volumes: "{{ piper_volumes }}"
 
         whisper:
-          # http://whisper:11434
+          # http://whisper:10300
           container_name: whisper
           image: rhasspy/wyoming-whisper
           command: "{{ homeassistantfrigate_whisper_command }}"
