@@ -157,8 +157,10 @@ Installation
 
 * [Official documentation](https://connectzbt1.home-assistant.io/)
 
-### [ratgdo](https://paulwieland.github.io/ratgdo/) - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
+### ratgdo - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
+* [ratgdo](https://paulwieland.github.io/ratgdo/)
+* [ratgdo-compatible alternative hardware](https://www.gelidus.ca/product/gelidus-research-ratgdo-alternative-board-v2-usb-c/)
 Getting started
 
 1. Choose between:
