@@ -29,6 +29,26 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [AMD Quick start installation guide on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
 * [AMD Running ROCm Docker containers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html)
 
+#### Install/uninstall/reinstall AMD GPU driver on host
+
+```bash
+# Install
+sudo apt update
+sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
+sudo apt install python3-setuptools python3-wheel
+sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
+wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb
+sudo apt install ./amdgpu-install_6.3.60303-1_all.deb
+sudo apt update
+sudo apt install amdgpu-dkms rocm
+
+# Uninstall
+amdgpu-install --uninstall
+
+# Reinstal
+amdgpu-install
+```
+
 #### Make `/dev/kfd` writable from within the container
 
 Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "video",
