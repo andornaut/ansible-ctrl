@@ -31,14 +31,21 @@ An [Ansible](https://www.ansible.com/) role that provisions
 
 #### Install/uninstall/reinstall AMD GPU driver on host
 
+1. Navigate to https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/ and get a link to the latest `.deb` file
+2. Continue with the instructions below
+
 ```bash
 # Install
 sudo apt update
 sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
 sudo apt install python3-setuptools python3-wheel
 sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
-wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb
-sudo apt install ./amdgpu-install_6.3.60303-1_all.deb
+
+
+latestPackageUrl='https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb'
+latestPackageFile="./$(basename "${latestPackageUrl}")"
+wget "${latestPackageUrl}"
+sudo dpkg -i "${latestPackageFile}"
 sudo apt update
 sudo apt install amdgpu-dkms rocm
 
@@ -47,6 +54,9 @@ amdgpu-install --uninstall
 
 # Reinstal
 amdgpu-install
+
+# If dkms isn't working, try#
+amdgpu-install --no-dkms
 ```
 
 #### Make `/dev/kfd` writable from within the container
