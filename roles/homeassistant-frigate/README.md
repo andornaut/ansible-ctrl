@@ -23,39 +23,15 @@ An [Ansible](https://www.ansible.com/) role that provisions
 * [OpenWebUI](https://openwebui.com/)
 * [Speaches](https://speaches.ai/) - An OpenAI API-compatible server supporting streaming transcription, translation, and speech generation
 
-### AMD GPU
+### Make `/dev/kfd` (AMD GPU compute) writable from within the container
 
-* [AMD GPU drivers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#ubuntu)
-* [AMD Quick start installation guide on Ubuntu](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html)
-* [AMD Running ROCm Docker containers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html)
-
-#### Install/uninstall/reinstall AMD GPU driver on host
-
-```bash
-# Install
-sudo apt update
-sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
-sudo apt install python3-setuptools python3-wheel
-sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
-wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb
-sudo apt install ./amdgpu-install_6.3.60303-1_all.deb
-sudo apt update
-sudo apt install amdgpu-dkms rocm
-
-# Uninstall
-amdgpu-install --uninstall
-
-# Reinstal
-amdgpu-install
-```
-
-#### Make `/dev/kfd` writable from within the container
+* [AMD GPU driver installation](https://github.com/andornaut/til/blob/master/docs/ubuntu.md#install-amd-gpu-dkms-kernel-module-driver)
 
 Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "video",
 because the Ollama container doesn't have a "render" group,
 and therefore docker compose `group_add` can't add a valid "render" group ID.
 
-```bash
+```
 KERNEL=="kfd", GROUP="video", MODE="0660"
 ```
 
@@ -205,6 +181,66 @@ Getting started
      action: toggle
    show_state: true
    ```
+### Roborock vacuums
+
+* [Mop control](https://community.home-assistant.io/t/s7-mop-control/317393/42)
+* [Commands](https://github.com/marcelrv/XiaomiRobotVacuumProtocol?tab=readme-ov-file)
+
+[Custom mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/custom_mode.md)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_custom_mode
+  params: [{{ custom_mode }}]
+```
+
+Vacuum mode | Description
+--- | ---
+101 | Silent
+102 | Balanced
+103 | Turbo
+104 | Max
+105 | Off (mop only)
+106 | Custom (Auto)
+
+[Water Box Custom Mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/water_box_custom_mode.md#set-water-box-custom-mode)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_water_box_custom_mode
+  params: [{{ water_box_custom_mode }}]
+```
+
+Water box custom mode | Flow level
+--- | ---
+200 | Off
+201 | Low
+202 | Medium
+203 | High
+204 | Custom (Auto)
+207 | Custom (Levels)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_mop_mode
+  params: [{{ mop_mode }}]
+```
+
+Mop mode | Description
+--- | ---
+300 | Standard
+301 | Deep
+302 | Custom
+303 | Deep+
 
 ### [SONOFF Zigbee 3.0 USB Dongle Plus](https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/) (CC2652P)
 
