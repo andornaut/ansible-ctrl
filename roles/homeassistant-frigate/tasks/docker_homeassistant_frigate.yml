@@ -55,7 +55,7 @@
             - "8555:8555/tcp" # WebRTC over TCP
             - "8555:8555/udp" # WebRTC over UDP
           # *Disabled for security reasons*
-          # Fix error: Unable to poll intel GPU stats: Failed to initialize PMU! (Operation not permitted)
+          # TODO: Fix error: Unable to poll intel GPU stats: Failed to initialize PMU! (Operation not permitted)
           # https://github.com/blakeblackshear/frigate/issues/6028#issuecomment-1506283282
           #privileged: true
           restart: unless-stopped
@@ -70,13 +70,10 @@
           container_name: homeassistant
           image: "{{ homeassistantfrigate_docker_image }}"
           devices: "{{ homeassistantfrigate_devices }}"
-          # `network_mode: host` is required by the Google Cast integration:
-          # https://www.home-assistant.io/integrations/cast/#home-assistant-container
-          #network_mode: host
           ports:
             - "{{ homeassistantfrigate_port }}:8123"
           restart: unless-stopped
-          # Apply this Apparmor policy (installed above) to allow the container to access bluetooth via dbus-broker
+          # Apply this Apparmor policy (installed in `tasks/docker_prerequisites.yml`) to allow the container to access bluetooth via dbus-broker
           # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
           # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
           security_opt:
@@ -87,4 +84,5 @@
           # http://mosquitto:1883
           container_name: mosquitto
           image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
+          restart: unless-stopped
           volumes: "{{ mosquitto_volumes }}"
