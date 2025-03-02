@@ -181,6 +181,66 @@ Getting started
      action: toggle
    show_state: true
    ```
+### Roborock vacuums
+
+* [Mop control](https://community.home-assistant.io/t/s7-mop-control/317393/42)
+* [Commands](https://github.com/marcelrv/XiaomiRobotVacuumProtocol?tab=readme-ov-file)
+
+[Custom mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/custom_mode.md)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_custom_mode
+  params: [{{ custom_mode }}]
+```
+
+Vacuum mode | Description
+--- | ---
+101 | Silent
+102 | Balanced
+103 | Turbo
+104 | Max
+105 | Off (mop only)
+106 | Custom (Auto)
+
+[Water Box Custom Mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/water_box_custom_mode.md#set-water-box-custom-mode)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_water_box_custom_mode
+  params: [{{ water_box_custom_mode }}]
+```
+
+Water box custom mode | Flow level
+--- | ---
+200 | Off
+201 | Low
+202 | Medium
+203 | High
+204 | Custom (Auto)
+207 | Custom (Levels)
+
+```yaml
+service: vacuum.send_command
+target:
+  entity_id: vacuum.roborock_q_revo_s
+data:
+  command: set_mop_mode
+  params: [{{ mop_mode }}]
+```
+
+Mop mode | Description
+--- | ---
+300 | Standard
+301 | Deep
+302 | Custom
+303 | Deep+
 
 ### [SONOFF Zigbee 3.0 USB Dongle Plus](https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/) (CC2652P)
 
