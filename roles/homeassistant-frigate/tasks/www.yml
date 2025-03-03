@@ -7,6 +7,28 @@
     group: root
   become: true
 
+- name: Download advanced-camera-card
+  get_url:
+    url: https://github.com/dermotduffy/advanced-camera-card/releases/latest/download/advanced-camera-card.zip
+    dest: /tmp/advanced-camera-card.zip
+
+- name: Create advanced-camera-card directory
+  ansible.builtin.file:
+    path: "{{ homeassistantfrigate_required_volumes.config }}/www/advanced-camera-card"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Install advanced-camera-card
+  ansible.builtin.unarchive:
+    src: /tmp/advanced-camera-card.zip
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/advanced-camera-card"
+    # Drop the ./dist directory
+    # -j junk  paths. The  archive's directory structure is not recreated;
+    # all files are deposited in the extraction directory (by default, the current one).
+    extra_opts: "-j"
+  become: true
+
 - name: Install Bubble Card bubble-card.js
   get_url:
     url: https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js
@@ -31,26 +53,16 @@
     dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
   become: true
 
-- name: Download advanced-camera-card
+- name: Install Custom Features Tile Card
   get_url:
-    url: https://github.com/dermotduffy/advanced-camera-card/releases/latest/download/advanced-camera-card.zip
-    dest: /tmp/advanced-camera-card.zip
-
-- name: Create advanced-camera-card directory
-  ansible.builtin.file:
-    path: "{{ homeassistantfrigate_required_volumes.config }}/www/advanced-camera-card"
-    state: directory
-    mode: "0755"
+    url: https://raw.githubusercontent.com/Nerwyn/service-call-tile-feature/main/dist/custom-features-row.min.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
   become: true
 
-- name: Install advanced-camera-card
-  ansible.builtin.unarchive:
-    src: /tmp/advanced-camera-card.zip
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/advanced-camera-card"
-    # Drop the ./dist directory
-    # -j junk  paths. The  archive's directory structure is not recreated;
-    # all files are deposited in the extraction directory (by default, the current one).
-    extra_opts: "-j"
+- name: Install Decluttering Card
+  get_url:
+    url: https://github.com/custom-cards/decluttering-card/releases/latest/download/decluttering-card.js
+    dest: "{{ homeassistantfrigate_required_volumes.config }}/www/"
   become: true
 
 - name: Install Layout Card
