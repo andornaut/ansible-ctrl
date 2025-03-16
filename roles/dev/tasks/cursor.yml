@@ -1,0 +1,49 @@
+---
+- name: Download Cursor
+  get_url:
+    url: "https://downloader.cursor.sh/linux/appImage/x64"
+    dest: /usr/local/bin/cursor
+  become: true
+
+- name: Make Cursor executable
+  ansible.builtin.file:
+    path: /usr/local/bin/cursor
+    mode: "0755"
+  become: true
+
+- name: "Workaround: Cursor Appimage error when run on Ubuntu 24.04"
+  ansible.builtin.blockinfile:
+    append_newline: true
+    block: |
+      # Workaround issue with Cursor and Appimage:
+      # https://forum.cursor.com/t/cannot-launch-cursor-without-no-sandbox/35261/2
+      # https://askubuntu.com/questions/1511854/how-to-permanently-disable-ubuntus-new-apparmor-user-namespace-creation-restric
+      kernel.apparmor_restrict_unprivileged_userns = 0
+    create: true
+    path: /etc/sysctl.d/20-apparmor-donotrestrict.conf
+  become: true
+
+- name: Download Cursor icon
+  get_url:
+    url: "https://www.cursor.so/brand/icon.svg"
+    dest: "/usr/share/icons/cursor.svg"
+  become: true
+
+- name: Create cursor.desktop
+  ansible.builtin.blockinfile:
+    append_newline: true
+    block: |
+      [Desktop Entry]
+      Name=Cursor
+      Exec=/usr/local/bin/cursor
+      Terminal=false
+      Type=Application
+      Icon=/usr/share/icons/cursor.svg
+      StartupWMClass=Cursor
+      X-AppImage-Version=latest
+      Comment=Cursor is an AI-first coding environment.
+      MimeType=x-scheme-handler/cursor;
+      Categories=Utility;Development
+    create: true
+    path: /usr/share/applications/cursor.desktop
+  become: true
