@@ -89,6 +89,8 @@
 - include_tasks: insync.yml
   when: desktop_install_insync
 
+- import_tasks: lact.yml
+
 - import_tasks: lightdm.yml
   when: not desktop_install_ly_instead_of_lightdm
 
