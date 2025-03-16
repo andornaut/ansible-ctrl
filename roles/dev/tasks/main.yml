@@ -17,6 +17,8 @@
     update_cache: yes
   become: true
 
+- import_tasks: cursor.yml
+
 - import_tasks: delta.yml
 
 - import_tasks: hobbies.yml
