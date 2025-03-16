@@ -1,0 +1,21 @@
+---
+- name: Create a temporary directory
+  tempfile:
+    state: directory
+  register: lact_tmp
+
+- name: Get the latest version of LACT
+  uri:
+    url: https://api.github.com/repos/ilya-zlobintsev/LACT/releases/latest
+    return_content: yes
+  register: lact_version
+
+- name: Download LACT
+  get_url:
+    url: https://github.com/ilya-zlobintsev/LACT/releases/download/{{ lact_version.json.name }}/lact-{{ lact_version.json.name | replace('v', '') }}-0.amd64.ubuntu-2404.deb
+    dest: "{{ lact_tmp.path }}/lact.deb"
+
+- name: Install LACT package
+  apt:
+    deb: "{{ lact_tmp.path }}/lact.deb"
+  become: true
