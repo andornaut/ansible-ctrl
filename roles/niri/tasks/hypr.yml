@@ -1,0 +1,306 @@
+---
+# Install and configure Hyprland ecosystem tools
+# Each component is built from source in the following order:
+# - hyprlang: Core language parser
+# - hyprutils: Common utilities
+# - hyprgraphics: Graphics utilities
+# - hyprwayland-scanner: Wayland protocol scanner
+# - hypridle: Idle daemon
+# - hyprlock: Screen locker
+# - hyprpaper: Wallpaper utility
+
+- name: Install hyprlang
+  block:
+    - name: Create a temporary directory for hyprlang
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprlang_tmp
+
+    - name: Get the latest version of hyprlang
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
+        return_content: yes
+      register: hyprlang_version
+
+    - name: Download and unarchive hyprlang {{ hyprlang_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version.json.name }}/.tar.gz
+        dest: "{{ hyprlang_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprlang (1/2)
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprlang_tmp.path }}"
+
+    - name: Build hyprlang (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target hyprlang"
+        chdir: "{{ hyprlang_tmp.path }}"
+
+    - name: Install hyprlang
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_install }}"
+        chdir: "{{ hyprlang_tmp.path }}"
+      become: true
+
+    - name: Cleanup temporary directory
+      ansible.builtin.file:
+        path: "{{ hyprlang_tmp.path }}"
+        state: absent
+  tags: [hyprlang]
+
+- name: Install hyprutils
+  block:
+    - name: Create a temporary directory for hyprutils
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprutils_tmp
+
+    - name: Get the latest version of hyprutils
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprutils/releases/latest
+        return_content: yes
+      register: hyprutils_version
+
+    - name: Download and unarchive hyprutils {{ hyprutils_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ hyprutils_version.json.name }}/.tar.gz
+        dest: "{{ hyprutils_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprutils (1/2)
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprutils_tmp.path }}"
+
+    - name: Build hyprutils (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target all"
+        chdir: "{{ hyprutils_tmp.path }}"
+
+    - name: Install hyprutils
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_install }}"
+        chdir: "{{ hyprutils_tmp.path }}"
+      become: true
+
+    - name: Cleanup temporary directory
+      ansible.builtin.file:
+        path: "{{ hyprutils_tmp.path }}"
+        state: absent
+  tags: [hyprutils]
+
+- name: Install hyprgraphics
+  block:
+    - name: Create a temporary directory for hyprgraphics
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprgraphics_tmp
+
+    - name: Get the latest version of hyprgraphics
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprgraphics/releases/latest
+        return_content: yes
+      register: hyprgraphics_version
+
+    - name: Download and unarchive hyprgraphics {{ hyprgraphics_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ hyprgraphics_version.json.name }}/.tar.gz
+        dest: "{{ hyprgraphics_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprgraphics (1/2)
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprgraphics_tmp.path }}"
+
+    - name: Build hyprgraphics (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target all"
+        chdir: "{{ hyprgraphics_tmp.path }}"
+
+    - name: Install hyprgraphics
+      ansible.builtin.command:
+        cmd: cmake --install build
+        chdir: "{{ hyprgraphics_tmp.path }}"
+      become: true
+  tags: [hyprgraphics]
+
+- name: Install hyprwayland-scanner
+  block:
+    - name: Create a temporary directory for hyprwayland-scanner
+      ansible.builtin.tempfile:
+        state: directory
+      register: hypr_scanner_tmp
+
+    - name: Get the latest version of hyprwayland-scanner
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases/latest
+        return_content: yes
+      register: hypr_scanner_version
+
+    - name: Download and unarchive hyprwayland-scanner {{ hypr_scanner_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ hypr_scanner_version.json.name }}.tar.gz
+        dest: "{{ hypr_scanner_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprwayland-scanner (1/2)
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hypr_scanner_tmp.path }}"
+
+    - name: Build hyprwayland-scanner (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }}"
+        chdir: "{{ hypr_scanner_tmp.path }}"
+      become: true
+  tags: [hyprscanner]
+
+- name: Install hypridle
+  block:
+    - name: Create a temporary directory for hypridle
+      ansible.builtin.tempfile:
+        state: directory
+      register: hypridle_tmp
+
+    - name: Get the latest version of hypridle
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hypridle/releases/latest
+        return_content: yes
+      register: hypridle_version
+
+    - name: Download and unarchive hypridle {{ hypridle_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ hypridle_version.json.name }}/.tar.gz
+        dest: "{{ hypridle_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hypridle (1/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hypridle_tmp.path }}"
+
+    - name: Build hypridle (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target hypridle"
+        chdir: "{{ hypridle_tmp.path }}"
+
+    - name: Install hypridle
+      ansible.builtin.command:
+        cmd: cmake --install build
+        chdir: "{{ hypridle_tmp.path }}"
+      become: true
+
+    - name: Enable hypridle.service
+      ansible.builtin.systemd_service:
+        name: hypridle.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+  tags: [hypridle]
+
+- name: Install hyprlock
+  block:
+    - name: Create a temporary directory for hyprlock
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprlock_tmp
+
+    - name: Get the latest version of hyprlock
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprlock/releases/latest
+        return_content: yes
+      register: hyprlock_version
+
+    - name: Download and unarchive hyprlock {{ hyprlock_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ hyprlock_version.json.name }}.tar.gz
+        dest: "{{ hyprlock_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprlock (1/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprlock_tmp.path }}"
+
+    # This fails on versions >=0.6.1
+    # https://github.com/hyprwm/hyprlock/issues/710
+    - name: Build hyprlock (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target all"
+        chdir: "{{ hyprlock_tmp.path }}"
+
+    - name: Install hyprlock
+      ansible.builtin.command:
+        cmd: cmake --install build
+        chdir: "{{ hyprlock_tmp.path }}"
+      become: true
+  tags: [hyprlock]
+
+- name: Install hyprpaper
+  block:
+    - name: Create a temporary directory for hyprpaper
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprpaper_tmp
+
+    - name: Get the latest version of hyprpaper
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprpaper/releases/latest
+        return_content: yes
+      register: hyprpaper_version
+
+    - name: Download and unarchive hyprpaper {{ hyprpaper_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ hyprpaper_version.json.name }}.tar.gz
+        dest: "{{ hyprpaper_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprpaper (1/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprpaper_tmp.path }}"
+
+    - name: Build hyprpaper (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target hyprpaper"
+        chdir: "{{ hyprpaper_tmp.path }}"
+
+    - name: Install hyprpaper
+      ansible.builtin.command:
+        cmd: cmake --install build
+        chdir: "{{ hyprpaper_tmp.path }}"
+      become: true
+
+    - name: Enable hyprpaper.service
+      ansible.builtin.systemd_service:
+        name: hyprpaper.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+  tags: [hyprpaper]

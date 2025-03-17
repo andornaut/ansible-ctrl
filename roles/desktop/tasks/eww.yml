@@ -5,6 +5,7 @@
       - libdbusmenu-glib-dev
       - libdbusmenu-gtk3-dev
     state: latest
+    update_cache: true
   become: true
 
 - name: Clone eww git repository
@@ -16,7 +17,7 @@
 
 - name: Build eww
   command:
-    cmd: cargo build --release --no-default-features --features x11
+    cmd: cargo build --release --no-default-features --features x11 --features=wayland
     chdir: /tmp/eww.git
 
 - name: Copy eww binary to /usr/local/bin/
@@ -25,5 +26,35 @@
     dest: /usr/local/bin/
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   become: true
+
+- name: Install eww.service
+  copy:
+    dest: /etc/systemd/user/eww.service
+    content: |
+      [Unit]
+      Description=ElKowars wacky widgets
+      Documentation=https://elkowar.github.io/eww/
+      PartOf=graphical-session.target
+      Requires=graphical-session.target
+      After=graphical-session.target
+      #ConditionEnvironment=WAYLAND_DISPLAY
+
+      [Service]
+      Type=exec
+      ExecStart=/usr/local/bin/eww daemon --no-daemonize --logs
+      ExecStartPost=/usr/local/bin/eww open {{ desktop_eww_bar }}
+      Slice=session.slice
+
+      [Install]
+      WantedBy=graphical-session.target
+  become: true
+
+- name: Enable eww.service
+  systemd_service:
+    name: eww.service
+    daemon_reload: true
+    enabled: true
+    scope: user
+    state: started
