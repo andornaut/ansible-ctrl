@@ -16,8 +16,8 @@
 
 - name: Download zig
   get_url:
-    url: "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz"
-    dest: /tmp/zig.tar.gz
+    url: "https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz"
+    dest: /tmp/zig.tar.xz
 
 - name: Create /opt/zig directory
   ansible.builtin.file:
@@ -28,7 +28,7 @@
 
 - name: Extract zig.tar.gz into /opt/zig
   ansible.builtin.unarchive:
-    src: /tmp/zig.tar.gz
+    src: /tmp/zig.tar.xz
     dest: /opt/zig
     extra_opts:
       - --strip-components
@@ -37,14 +37,14 @@
 
 - name: Clone ly git repository
   git:
-    repo: "https://github.com/fairyglade/ly.git"
+    repo: "https://codeberg.org/AnErrupTion/ly.git"
     dest: /tmp/ly.git
     depth: 1
     force: yes
 
 - name: Build and install ly
   command:
-    cmd: /opt/zig/zig build installsystemd
+    cmd: /opt/zig/zig build installexe
     chdir: /tmp/ly.git
   become: true
 
@@ -80,6 +80,7 @@
     path: /etc/pam.d/ly
     line: "password   optional     pam_gnome_keyring.so"
   become: true
+
 # Disabled, because this causes the desktop session to exit.
 # > If you need to switch between ttys after Ly's start you also have to
 # > disable getty on Ly's tty to prevent "login" from spawning on top of it.
