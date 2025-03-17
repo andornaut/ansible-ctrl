@@ -3,3 +3,10 @@
   apt:
     deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
   become: true
+
+- name: "Workaround: Make Visual Studio Code run in Wayland"
+  ansible.builtin.replace:
+    path: /usr/share/applications/code.desktop
+    regexp: "^Exec\\S*=([\/\\w-]*)\\S*(.*)$"
+    replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
+  become: true
