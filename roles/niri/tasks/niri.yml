@@ -1,0 +1,83 @@
+---
+- name: Create a temporary directory
+  tempfile:
+    state: directory
+  register: niri_tmp
+
+- name: Get the latest version of niri
+  uri:
+    url: https://api.github.com/repos/YaLTeR/niri/releases/latest
+    return_content: yes
+  register: niri_version
+
+- name: Download and unarchive niri
+  ansible.builtin.unarchive:
+    src: https://github.com/YaLTeR/niri/releases/download/{{ niri_version.json.name }}/{{ niri_version.json.name }}.zip
+    dest: "{{ niri_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+# Remove pipewire temporarily, b/c its repo is experiencing a planned downtime until Mar 25, 2025
+- name: "Workaround 1/3: Remove pipewire dependency"
+  ansible.builtin.lineinfile:
+    path: "{{ niri_tmp.path }}/Cargo.toml"
+    regexp: "^pipewire"
+    state: absent
+
+- name: "Workaround 2/3: Remove xdp-gnome-screencast feature"
+  ansible.builtin.lineinfile:
+    path: "{{ niri_tmp.path }}/Cargo.toml"
+    regexp: "^xdp-gnome-screencast"
+    state: absent
+
+- name: "Workaround 3/3: Remove xdp-gnome-screencast from default features"
+  ansible.builtin.lineinfile:
+    path: "{{ niri_tmp.path }}/Cargo.toml"
+    regexp: "^default.*xdp-gnome-screencast"
+    line: 'default = ["dbus", "systemd"]'
+
+- name: Build niri
+  command:
+    cmd: cargo build --release
+    chdir: "{{ niri_tmp.path }}"
+
+- name: Fix path to niri in niri.service
+  ansible.builtin.lineinfile:
+    chdir: "{{ niri_tmp.path }}/resources/niri.service"
+    regexp: "^ExecStart"
+    line: ExecStart=/usr/local/bin/niri --session
+
+- name: Create /usr/share/wayland-sessions directory
+  ansible.builtin.file:
+    path: /usr/share/wayland-sessions
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Create /usr/share/wayland-sessions directory
+  ansible.builtin.file:
+    path: /usr/share/wayland-sessions
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Copy niri files
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop:
+    - src: "{{ niri_tmp.path }}/target/release/niri"
+      dest: /usr/local/bin/
+    - src: "{{ niri_tmp.path }}/resources/niri.desktop"
+      dest: /usr/share/wayland-sessions/
+    - src: "{{ niri_tmp.path }}/resources/niri-session"
+      dest: /usr/local/bin/
+    - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
+      dest: /usr/share/xdg-desktop-portal/
+    - src: "{{ niri_tmp.path }}/resources/niri.service"
+      dest: /etc/systemd/user/
+    - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
+      dest: /etc/systemd/user/
+  become: true

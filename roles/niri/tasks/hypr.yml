@@ -1,0 +1,274 @@
+---
+- name: Create a temporary directory for libsdbus
+  tempfile:
+    state: directory
+  register: libsdbus_tmp
+
+- name: Get the latest version of libsdbus
+  uri:
+    url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
+    return_content: yes
+  register: libsdbus_version
+
+- name: Download and unarchive libsdbus
+  ansible.builtin.unarchive:
+    src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}/.tar.gz
+    dest: "{{ libsdbus_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Create .build directory for libsdbus
+  ansible.builtin.file:
+    path: "{{ libsdbus_tmp.path }}/build"
+    state: directory
+    mode: "0755"
+
+# Workaround: Install into /usr instead of the default of /usr/local
+# https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
+- name: Build libsdbus (1/2)
+  ansible.builtin.shell:
+    cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr ${OTHER_CONFIG_FLAGS}
+    chdir: "{{ libsdbus_tmp.path }}/build"
+
+- name: Build libsdbus (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build .
+    chdir: "{{ libsdbus_tmp.path }}/build"
+
+- name: Install libsdbus
+  command:
+    cmd: cmake --build . --target install
+    chdir: "{{ libsdbus_tmp.path }}/build"
+  become: true
+
+- name: Create a temporary directory for hyprwayland-scanner
+  tempfile:
+    state: directory
+  register: hypr_scanner_tmp
+
+- name: Get the latest version of hyprwayland-scanner
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases/latest
+    return_content: yes
+  register: hypr_scanner_version
+
+- name: Download and unarchive hyprwayland-scanner
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ hypr_scanner_version.json.name }}.tar.gz
+    dest: "{{ hypr_scanner_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprwayland-scanner (1/2)
+  command:
+    cmd: cmake -DCMAKE_INSTALL_PREFIX=/usr -B build
+    chdir: "{{ hypr_scanner_tmp.path }}"
+
+- name: Build hyprwayland-scanner (2/2)
+  ansible.builtin.shell:
+    cmd: "cmake --build build -j $(nproc)"
+    chdir: "{{ hypr_scanner_tmp.path }}"
+
+- name: Install hyprwayland-scanner
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hypr_scanner_tmp.path }}"
+  become: true
+
+- name: Create a temporary directory for hyprlang
+  tempfile:
+    state: directory
+  register: hyprlang_tmp
+
+- name: Get the latest version of hyprlang
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
+    return_content: yes
+  register: hyprlang_version
+
+- name: Download and unarchive hyprlang
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version.json.name }}/.tar.gz
+    dest: "{{ hyprlang_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprlang (1/2)
+  ansible.builtin.shell:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
+    chdir: "{{ hyprlang_tmp.path }}"
+
+- name: Build hyprlang (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build ./build --config Release --target hyprlang -j`nproc 2>/dev/null || getconf _NPROCESSORS_CONF`
+    chdir: "{{ hyprlang_tmp.path }}"
+
+- name: Install hyprlang
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hyprlang_tmp.path }}"
+  become: true
+
+- name: Create a temporary directory for hyprutils
+  tempfile:
+    state: directory
+  register: hyprutils_tmp
+
+- name: Get the latest version of hyprutils
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprutils/releases/latest
+    return_content: yes
+  register: hyprutils_version
+
+- name: Download and unarchive hyprutils
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ hyprutils_version.json.name }}/.tar.gz
+    dest: "{{ hyprutils_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprutils (1/2)
+  ansible.builtin.shell:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
+    chdir: "{{ hyprutils_tmp.path }}"
+
+- name: Build hyprutils (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build ./build --config Release --target all -j`nproc 2>/dev/null || getconf NPROCESSORS_CONF`
+    chdir: "{{ hyprutils_tmp.path }}"
+
+- name: Install hyprutils
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hyprutils_tmp.path }}"
+  become: true
+
+- name: Create a temporary directory for hyprgraphics
+  tempfile:
+    state: directory
+  register: hyprgraphics_tmp
+
+- name: Get the latest version of hyprgraphics
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprgraphics/releases/latest
+    return_content: yes
+  register: hyprgraphics_version
+
+- name: Download and unarchive hyprgraphics
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ hyprgraphics_version.json.name }}/.tar.gz
+    dest: "{{ hyprgraphics_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprgraphics (1/2)
+  ansible.builtin.shell:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
+    chdir: "{{ hyprgraphics_tmp.path }}"
+
+- name: Build hyprgraphics (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build ./build --config Release --target all -j`nproc 2>/dev/null || getconf NPROCESSORS_CONF`
+    chdir: "{{ hyprgraphics_tmp.path }}"
+
+- name: Install hyprgraphics
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hyprgraphics_tmp.path }}"
+  become: true
+
+- name: Create a temporary directory for hypridle
+  tempfile:
+    state: directory
+  register: hypridle_tmp
+
+- name: Get the latest version of hypridle
+  uri:
+    url: https://api.github.com/repos/hyprwm/hypridle/releases/latest
+    return_content: yes
+  register: hypridle_version
+
+- name: Download and unarchive hypridle
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ hypridle_version.json.name }}/.tar.gz
+    dest: "{{ hypridle_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hypridle (1/2)
+  ansible.builtin.shell:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -S . -B ./build
+    chdir: "{{ hypridle_tmp.path }}"
+
+- name: Build hypridle (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build ./build --config Release --target hypridle -j`nproc 2>/dev/null || getconf _NPROCESSORS_CONF`
+    chdir: "{{ hypridle_tmp.path }}"
+
+- name: Install hypridle
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hypridle_tmp.path }}"
+  become: true
+
+- name: Create a temporary directory for hyprlock
+  tempfile:
+    state: directory
+  register: hyprlock_tmp
+
+- name: Get the latest version of hyprlock
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprlock/releases/latest
+    return_content: yes
+  register: hyprlock_version
+
+- name: Set hyprlock_version
+  set_fact:
+    hyprlock_version_name: "{{ niri_hyprlock_version | default(hyprlock_version.json.name) }}"
+
+- name: Download and unarchive hyprlock {{ hyprlock_version_name }}
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ hyprlock_version_name }}.tar.gz
+    dest: "{{ hyprlock_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprlock (1/2)
+  ansible.builtin.shell:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
+    chdir: "{{ hyprlock_tmp.path }}"
+
+- name: Build hyprlock (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build ./build --config Release --target all -j`nproc 2>/dev/null || getconf NPROCESSORS_CONF`
+    chdir: "{{ hyprlock_tmp.path }}"
+
+- name: Install hyprlock
+  command:
+    cmd: cmake --install build
+    chdir: "{{ hyprlock_tmp.path }}"
+  become: true
+
+- name: Enable hypridle.service
+  systemd_service:
+    name: hypridle.service
+    daemon_reload: true
+    enabled: true
+    scope: user
+  become: true
+  become_user: "{{ niri_systemd_username }}"
+  when: niri_systemd_username is truthy

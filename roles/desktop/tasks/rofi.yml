@@ -1,0 +1,50 @@
+---
+- name: Install system packages
+  apt:
+    install_recommends: false
+    name:
+      - libstartup-notification0-dev
+      - libxkbcommon-x11-dev
+      - meson-1.5
+      - ninja-build
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Create a temporary directory
+  tempfile:
+    state: directory
+  register: rofi_tmp
+
+# Fork of rofi that supports Wayland:
+# https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
+- name: Get the latest version of rofi
+  uri:
+    url: https://api.github.com/repos/lbonn/rofi/releases/latest
+    return_content: yes
+  register: rofi_version
+
+- name: Download and unarchive rofi
+  ansible.builtin.unarchive:
+    src: https://github.com/lbonn/rofi/releases/download/{{ rofi_version.json.name }}/rofi-{{ rofi_version.json.name }}.tar.xz
+    dest: "{{ rofi_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Configure rofi build
+  command:
+    cmd: meson setup build
+    chdir: "{{ rofi_tmp.path }}"
+
+- name: Build rofi
+  command:
+    cmd: ninja -C build
+    chdir: "{{ rofi_tmp.path }}"
+
+- name: Install rofi
+  command:
+    cmd: ninja -C build install
+    chdir: "{{ rofi_tmp.path }}"
+  become: true

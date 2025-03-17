@@ -10,6 +10,9 @@
     - name: run_bspwm
       prompt: bspwm
       default: n
+    - name: run_niri
+      prompt: niri
+      default: n
     - name: run_dev
       prompt: dev
       default: n
@@ -29,6 +32,8 @@
       when: run_desktop == "y"
     - role: bspwm
       when: run_bspwm == "y"
+    - role: niri
+      when: run_niri == "y"
     - role: dev
       when: run_dev == "y"
     - role: docker

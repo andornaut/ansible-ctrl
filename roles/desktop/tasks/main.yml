@@ -34,7 +34,6 @@
       - pcmanfm
       - pkg-config
       #- redshift-gtk
-      - rofi
       - scrot
       - shared-mime-info
       - software-properties-gtk
@@ -98,5 +97,7 @@
   when: desktop_install_ly_instead_of_lightdm
 
 - import_tasks: pavolume.yml
+
+- import_tasks: rofi.yml
 
 - import_tasks: themes.yml
