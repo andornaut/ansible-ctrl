@@ -16,3 +16,10 @@
 - name: "Install google-chrome package (Workaround 2/2)"
   command: apt install -qq /tmp/google-chrome-stable.deb
   become: true
+
+- name: "Workaround: Make google-chrome work in Wayland"
+  ansible.builtin.replace:
+    path: /usr/share/applications/google-chrome.desktop
+    regexp: "^Exec\\S*=([\/\\w-]*)\\S*(.*)$"
+    replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
+  become: true

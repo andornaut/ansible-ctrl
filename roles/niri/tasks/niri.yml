@@ -1,0 +1,78 @@
+---
+- name: Install niri
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: niri_tmp
+
+    - name: Get the latest version of niri
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/YaLTeR/niri/releases/latest
+        return_content: yes
+      register: niri_version
+
+    - name: Download and unarchive niri {{ niri_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/YaLTeR/niri/archive/refs/tags/{{ niri_version.json.name }}.tar.gz
+        dest: "{{ niri_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build niri
+      ansible.builtin.command:
+        cmd: cargo build --release
+        chdir: "{{ niri_tmp.path }}"
+
+    - name: Fix path to niri in niri.service
+      community.general.ini_file:
+        no_extra_spaces: true
+        option: ExecStart
+        path: "{{ niri_tmp.path }}/resources/niri.service"
+        section: Service
+        value: /usr/local/bin/niri --session
+
+    - name: Create /usr/share/wayland-sessions directory
+      ansible.builtin.file:
+        path: /usr/share/wayland-sessions
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Copy niri files
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - src: "{{ niri_tmp.path }}/target/release/niri"
+          dest: /usr/local/bin/
+        - src: "{{ niri_tmp.path }}/resources/niri.desktop"
+          dest: /usr/share/wayland-sessions/
+        - src: "{{ niri_tmp.path }}/resources/niri-session"
+          dest: /usr/local/bin/
+        - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
+          dest: /usr/share/xdg-desktop-portal/
+        - src: "{{ niri_tmp.path }}/resources/niri.service"
+          dest: /etc/systemd/user/
+        - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
+          dest: /etc/systemd/user/
+      become: true
+
+    - name: Configure electron flags for Wayland
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.config/electron-flags.conf"
+        line: "--ozone-platform-hint=auto"
+        create: yes
+        mode: "0644"
+
+    - name: Enable niri.service
+      ansible.builtin.systemd_service:
+        name: niri.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+      when: ansible_service_mgr == 'systemd'
+  tags: [niri]

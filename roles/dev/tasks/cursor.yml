@@ -35,7 +35,7 @@
     block: |
       [Desktop Entry]
       Name=Cursor
-      Exec=/usr/local/bin/cursor
+      Exec=/usr/local/bin/cursor --ozone-platform-hint=auto
       Terminal=false
       Type=Application
       Icon=/usr/share/icons/cursor.svg

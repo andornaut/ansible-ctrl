@@ -1,0 +1,60 @@
+---
+- name: Install xwayland-satellite
+  block:
+    - name: Create a temporary directory for xwayland-satellite
+      ansible.builtin.tempfile:
+        state: directory
+      register: xwayland_tmp
+
+    - name: Get the latest version of xwayland-satellite
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases/latest
+        return_content: yes
+      register: xwayland_version
+
+    - name: Download and unarchive xwayland-satellite {{ xwayland_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version.json.name }}.tar.gz
+        dest: "{{ xwayland_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build xwayland-satellite
+      ansible.builtin.command:
+        cmd: cargo build --release -F systemd
+        chdir: "{{ xwayland_tmp.path }}"
+
+    - name: Configure xwayland-satellite.service
+      community.general.ini_file:
+        no_extra_spaces: true
+        path: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
+        section: Service
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+      loop:
+        - option: ExecStart
+          value: /usr/local/bin/xwayland-satellite
+        - option: Environment
+          value: DISPLAY=:0
+
+    - name: Copy xwayland-satellite files
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - src: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
+          dest: /etc/systemd/user/
+        - src: "{{ xwayland_tmp.path }}/target/release/xwayland-satellite"
+          dest: /usr/local/bin/
+      become: true
+
+    - name: Enable xwayland-satellite.service
+      ansible.builtin.systemd_service:
+        name: xwayland-satellite.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+  tags: [xwayland]

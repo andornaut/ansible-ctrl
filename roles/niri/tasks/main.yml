@@ -1,0 +1,18 @@
+---
+# Install and configure Niri Wayland compositor and related tools
+
+- name: Install system dependencies
+  import_tasks: dependencies.yml
+  tags: [dependencies]
+
+- name: Install Hyprland ecosystem tools
+  import_tasks: hypr.yml
+  tags: [hypr]
+
+- name: Install and configure Niri compositor
+  import_tasks: niri.yml
+  tags: [niri]
+
+- name: Configure XWayland support
+  import_tasks: xwayland.yml
+  tags: [xwayland]
