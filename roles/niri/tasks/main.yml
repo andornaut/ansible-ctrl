@@ -17,28 +17,26 @@
       - libsystemd-dev
       - libudev-dev
       - libwayland-dev
+      - libxcb-cursor-dev
       - libxkbcommon-dev
+      - wayland-protocols
+      - wayland-protocols-amdgpu
+      - wayland-scanner++
+      - wl-clipboard
       - xdg-desktop-portal
       - xdg-desktop-portal-gnome
       - xdg-desktop-portal-gtk
       - xwayland
-      - wayland-protocols
-      - wayland-protocols-amdgpu
-      - wayland-scanner
+      - xwayland-run
 
       # hypr dependencies
-      - gcc-14
       - g++-14
+      - gcc-14
       - libmagic-dev
       - libpugixml-dev
       # Must not be installed, b/c it conflicts with v2.1.0 which is installed from source
       #- libsdbus-c++-dev
       - libspng-dev
-
-      #- mako-notifier
-      - swaybg
-      #- swayidle
-      #- swaylock
     state: latest
     update_cache: true
   become: true
@@ -63,3 +61,5 @@
 - import_tasks: hypr.yml
 
 - import_tasks: niri.yml
+
+- import_tasks: xwayland.yml

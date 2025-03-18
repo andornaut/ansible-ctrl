@@ -12,7 +12,7 @@
 
 - name: Download and unarchive niri
   ansible.builtin.unarchive:
-    src: https://github.com/YaLTeR/niri/releases/download/{{ niri_version.json.name }}/{{ niri_version.json.name }}.zip
+    src: https://github.com/YaLTeR/niri/archive/refs/tags/{{ niri_version.json.name }}.tar.gz
     dest: "{{ niri_tmp.path }}"
     remote_src: true
     extra_opts:
@@ -45,16 +45,9 @@
 
 - name: Fix path to niri in niri.service
   ansible.builtin.lineinfile:
-    chdir: "{{ niri_tmp.path }}/resources/niri.service"
+    path: "{{ niri_tmp.path }}/resources/niri.service"
     regexp: "^ExecStart"
     line: ExecStart=/usr/local/bin/niri --session
-
-- name: Create /usr/share/wayland-sessions directory
-  ansible.builtin.file:
-    path: /usr/share/wayland-sessions
-    state: directory
-    mode: "0755"
-  become: true
 
 - name: Create /usr/share/wayland-sessions directory
   ansible.builtin.file:

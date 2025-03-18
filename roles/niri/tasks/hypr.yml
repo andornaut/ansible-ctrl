@@ -1,4 +1,78 @@
 ---
+- name: Create a temporary directory for hyprpaper
+  tempfile:
+    state: directory
+  register: hyprpaper_tmp
+
+- name: Get the latest version of hyprpaper
+  uri:
+    url: https://api.github.com/repos/hyprwm/hyprpaper/releases/latest
+    return_content: yes
+  register: hyprpaper_version
+
+- name: Set hyprlock_version
+  set_fact:
+    hyprpaper_version_name: "{{ niri_hyprpaper_version | default(hyprpaper_version.json.name) }}"
+
+- name: Download and unarchive hyprpaper
+  ansible.builtin.unarchive:
+    src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ hyprpaper_version_name }}.tar.gz
+    dest: "{{ hyprpaper_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Build hyprpaper (1/2)
+  command:
+    cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
+    chdir: "{{ hyprpaper_tmp.path }}"
+
+- name: Build hyprpaper (2/2)
+  ansible.builtin.shell:
+    cmd: "cmake --build ./build --config Release --target hyprpaper -j`nproc 2>/dev/null || getconf _NPROCESSORS_CONF`"
+    chdir: "{{ hyprpaper_tmp.path }}"
+
+- name: Install hyprpaper
+  command:
+    cmd: cmake --install ./build
+    chdir: "{{ hyprpaper_tmp.path }}"
+  become: true
+
+# Workaround: Versions <v0.7.2 do not ship with hyprpaper.service
+- name: Install hyprpaper.service
+  copy:
+    dest: /etc/systemd/user/hyprpaper.service
+    content: |
+      [Unit]
+      Description=Fast, IPC-controlled wallpaper utility for Hyprland.
+      Documentation=https://wiki.hyprland.org/Hypr-Ecosystem/hyprpaper/
+      PartOf=graphical-session.target
+      Requires=graphical-session.target
+      After=graphical-session.target
+      ConditionEnvironment=WAYLAND_DISPLAY
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/hyprpaper
+      Slice=session.slice
+      Restart=on-failure
+
+      [Install]
+      WantedBy=graphical-session.target
+  become: true
+
+- name: Enable hyprpaper.service
+  systemd_service:
+    name: hyprpaper.service
+    daemon_reload: true
+    enabled: true
+    scope: user
+    state: started
+  become: true
+  become_user: "{{ niri_systemd_username }}"
+  when: niri_systemd_username is truthy
+
 - name: Create a temporary directory for libsdbus
   tempfile:
     state: directory
@@ -12,7 +86,7 @@
 
 - name: Download and unarchive libsdbus
   ansible.builtin.unarchive:
-    src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}/.tar.gz
+    src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}.tar.gz
     dest: "{{ libsdbus_tmp.path }}"
     remote_src: true
     extra_opts:
@@ -223,6 +297,17 @@
     chdir: "{{ hypridle_tmp.path }}"
   become: true
 
+- name: Enable hypridle.service
+  systemd_service:
+    name: hypridle.service
+    daemon_reload: true
+    enabled: true
+    scope: user
+    state: started
+  become: true
+  become_user: "{{ niri_systemd_username }}"
+  when: niri_systemd_username is truthy
+
 - name: Create a temporary directory for hyprlock
   tempfile:
     state: directory
@@ -252,6 +337,8 @@
     cmd: cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -S . -B ./build
     chdir: "{{ hyprlock_tmp.path }}"
 
+# This fails on versions >=0.6.1
+# https://github.com/hyprwm/hyprlock/issues/710
 - name: Build hyprlock (2/2)
   ansible.builtin.shell:
     cmd: cmake --build ./build --config Release --target all -j`nproc 2>/dev/null || getconf NPROCESSORS_CONF`
@@ -262,13 +349,3 @@
     cmd: cmake --install build
     chdir: "{{ hyprlock_tmp.path }}"
   become: true
-
-- name: Enable hypridle.service
-  systemd_service:
-    name: hypridle.service
-    daemon_reload: true
-    enabled: true
-    scope: user
-  become: true
-  become_user: "{{ niri_systemd_username }}"
-  when: niri_systemd_username is truthy

@@ -1,23 +1,12 @@
 # niri
 
+* [Wayland ArchWiki](https://wiki.archlinux.org/title/Wayland#Configuration_file)
+
 ## Applications
 
+* [brightnessctl](https://github.com/Hummer12007/brightnessctl) - A program to read and control device brightness
 * [nwg-look](https://github.com/nwg-piotr/nwg-look) - GTK3 settings editor
-
-## TODO
-
-* [Hyprland on Ubuntu](https://github.com/JaKooLit/Ubuntu-Hyprland)
-* [Example Systemd setup](https://github.com/YaLTeR/niri/wiki/Example-systemd-Setup)
-* [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite)
-* [Steam on wayland](https://github.com/ValveSoftware/steam-for-linux/issues/10554)
-
-```bash
-apt install libxcb-cursor-dev
-cp resources/*service ~/.config/systemd/user/
-systemctl --user daemon-reload
-```
-
-Run vscode with: code --ozone-platform-hint=auto
+* [wl-clip-persist](https://github.com/Linus789/wl-clip-persist)
 
 ### Greeter / Login Manager / Session Manager
 

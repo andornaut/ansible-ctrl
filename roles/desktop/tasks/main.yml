@@ -9,6 +9,7 @@
       - gnome-disk-utility
       - gnome-keyring
       - gnome-screensaver
+      - hplip-gui # HP printer/scanner
       - hsetroot
       - intltool
       - libc6
