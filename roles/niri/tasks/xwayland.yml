@@ -25,10 +25,21 @@
     chdir: "{{ xwayland_tmp.path }}"
 
 - name: Edit xwayland-satellite.service
-  ansible.builtin.lineinfile:
+  community.general.ini_file:
+    no_extra_spaces: true
+    option: ExecStart
     path: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
-    regexp: "^ExecStart"
-    line: ExecStart=/usr/local/bin/xwayland-satellite
+    section: Service
+    value: /usr/local/bin/xwayland-satellite
+
+# https://github.com/YaLTeR/niri/wiki/Xwayland#using-xwayland-satellite
+- name: Add DISPLAY env var to xwayland-satellite.service
+  community.general.ini_file:
+    no_extra_spaces: true
+    option: Environment
+    path: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
+    section: Service
+    value: DISPLAY=:0
 
 - name: Install xwayland-satellite files
   copy:

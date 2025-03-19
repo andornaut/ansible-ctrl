@@ -44,10 +44,12 @@
     chdir: "{{ niri_tmp.path }}"
 
 - name: Fix path to niri in niri.service
-  ansible.builtin.lineinfile:
+  community.general.ini_file:
+    no_extra_spaces: true
+    option: ExecStart
     path: "{{ niri_tmp.path }}/resources/niri.service"
-    regexp: "^ExecStart"
-    line: ExecStart=/usr/local/bin/niri --session
+    section: Service
+    value: /usr/local/bin/niri --session
 
 - name: Create /usr/share/wayland-sessions directory
   ansible.builtin.file:
