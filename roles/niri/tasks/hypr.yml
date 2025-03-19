@@ -1,4 +1,47 @@
 ---
+- name: Create a temporary directory for libsdbus
+  tempfile:
+    state: directory
+  register: libsdbus_tmp
+
+- name: Get the latest version of libsdbus
+  uri:
+    url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
+    return_content: yes
+  register: libsdbus_version
+
+- name: Download and unarchive libsdbus
+  ansible.builtin.unarchive:
+    src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}.tar.gz
+    dest: "{{ libsdbus_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: Create .build directory for libsdbus
+  ansible.builtin.file:
+    path: "{{ libsdbus_tmp.path }}/build"
+    state: directory
+    mode: "0755"
+
+# Workaround: Install into /usr instead of the default of /usr/local
+# https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
+- name: Build libsdbus (1/2)
+  ansible.builtin.shell:
+    cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr ${OTHER_CONFIG_FLAGS}
+    chdir: "{{ libsdbus_tmp.path }}/build"
+
+- name: Build libsdbus (2/2)
+  ansible.builtin.shell:
+    cmd: cmake --build .
+    chdir: "{{ libsdbus_tmp.path }}/build"
+
+- name: Install libsdbus
+  command:
+    cmd: cmake --build . --target install
+    chdir: "{{ libsdbus_tmp.path }}/build"
+  become: true
 - name: Create a temporary directory for hyprpaper
   tempfile:
     state: directory
@@ -56,7 +99,7 @@
       Type=simple
       ExecStart=/usr/bin/hyprpaper
       Slice=session.slice
-      Restart=on-failure
+      #Restart=on-failure
 
       [Install]
       WantedBy=graphical-session.target
@@ -72,50 +115,6 @@
   become: true
   become_user: "{{ niri_systemd_username }}"
   when: niri_systemd_username is truthy
-
-- name: Create a temporary directory for libsdbus
-  tempfile:
-    state: directory
-  register: libsdbus_tmp
-
-- name: Get the latest version of libsdbus
-  uri:
-    url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
-    return_content: yes
-  register: libsdbus_version
-
-- name: Download and unarchive libsdbus
-  ansible.builtin.unarchive:
-    src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}.tar.gz
-    dest: "{{ libsdbus_tmp.path }}"
-    remote_src: true
-    extra_opts:
-      - --strip-components
-      - 1
-
-- name: Create .build directory for libsdbus
-  ansible.builtin.file:
-    path: "{{ libsdbus_tmp.path }}/build"
-    state: directory
-    mode: "0755"
-
-# Workaround: Install into /usr instead of the default of /usr/local
-# https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
-- name: Build libsdbus (1/2)
-  ansible.builtin.shell:
-    cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr ${OTHER_CONFIG_FLAGS}
-    chdir: "{{ libsdbus_tmp.path }}/build"
-
-- name: Build libsdbus (2/2)
-  ansible.builtin.shell:
-    cmd: cmake --build .
-    chdir: "{{ libsdbus_tmp.path }}/build"
-
-- name: Install libsdbus
-  command:
-    cmd: cmake --build . --target install
-    chdir: "{{ libsdbus_tmp.path }}/build"
-  become: true
 
 - name: Create a temporary directory for hyprwayland-scanner
   tempfile:

@@ -80,6 +80,7 @@
     path: /etc/pam.d/ly
     line: "password   optional     pam_gnome_keyring.so"
   become: true
+
 # Disabled, because this causes the desktop session to exit.
 # > If you need to switch between ttys after Ly's start you also have to
 # > disable getty on Ly's tty to prevent "login" from spawning on top of it.
