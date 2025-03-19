@@ -8,7 +8,9 @@
 * [nwg-look](https://github.com/nwg-piotr/nwg-look) - GTK3 settings editor
 * [wl-clip-persist](https://github.com/Linus789/wl-clip-persist)
 
-## How to run X11 applications
+## How-tos
+
+### How to run X11 applications
 
 e.g. `xwayland-run -- flatpak run com.valvesoftware.Steam`
 
@@ -21,40 +23,16 @@ Name=Steam
 Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.
 ```
 
-### Greeter / Login Manager / Session Manager
-
-* <https://git.sr.ht/%7Ekennylevinsen/greetd>
-* <https://github.com/apognu/tuigreet>
-* <https://github.com/Vladimir-csp/uwsm>
-
-## TODO
-
-### ibus warning session start
+### ibus warning notification at session start
 
 > ibus should be called from the desktop session in wayland
 
-* [Reddit: disable panel](https://www.reddit.com/r/archlinux/comments/18trdk1/ibuswayland_error_no_input_method_global/ki2nf22/)
+Option 1: [Disable GTK panel](https://www.reddit.com/r/archlinux/comments/18trdk1/ibuswayland_error_no_input_method_global/ki2nf22/)
 
 ```bash
 ibus-daemon -d --panel disable
 ```
 
-### Steam doesn't start
+Option 2: [Do not activate any IM](https://discuss.kde.org/t/ibus-issue-with-wayland/3680/12)
 
-```text
-steam.sh[2]: Error: The unofficial Steam Flatpak app requires a correctly-configured desktop
-session, which must provide the DISPLAY environment variable to the
-D-Bus session bus activation environment.
-
-On systems that use systemd --user, the DISPLAY environment variable must
-also be present in the systemd --user activation environment.
-
-This is usually achieved by running:
-
-    dbus-update-activation-environment DISPLAY
-
-during desktop environment startup.
-
-For more details, please see:
-https://github.com/ValveSoftware/steam-for-linux/issues/10554
-```
+> Another solution is to run im-config → OK → Yes → do not activate any IM from im-config and use desktop default → OK and then reboot.
