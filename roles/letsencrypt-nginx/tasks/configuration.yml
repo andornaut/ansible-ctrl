@@ -37,12 +37,12 @@
     owner: root
     group: root
   loop:
+    - common_proxy_configuration
     - common_site_configuration
-    - proxy_params
     - selfsigned_certificate
   become: true
 
-- name: Copy default site config
+- name: Copy default site configuration
   copy:
     src: 00-default.conf
     dest: "{{ letsencryptnginx_docker_required_volumes.config }}/00-default.conf"

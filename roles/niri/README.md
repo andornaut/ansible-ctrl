@@ -1,38 +1,49 @@
-# niri
+# ansible-role-niri
 
-* [Wayland ArchWiki](https://wiki.archlinux.org/title/Wayland#Configuration_file)
+An [Ansible](https://www.ansible.com/) role that installs and configures [niri](https://github.com/YaLTeR/niri), a Wayland compositor, on Ubuntu.
 
-## Applications
+## Overview
 
-* [brightnessctl](https://github.com/Hummer12007/brightnessctl) - A program to read and control device brightness
-* [nwg-look](https://github.com/nwg-piotr/nwg-look) - GTK3 settings editor
-* [wl-clip-persist](https://github.com/Linus789/wl-clip-persist)
+This role automates the installation and configuration of niri, a Wayland compositor focused on providing a simple and efficient desktop environment.
 
-## How-tos
+## Features
 
-### How to run X11 applications
+- Niri Wayland compositor installation
+- X11 application compatibility via XWayland
+- IBus input method configuration
+- System-wide and per-user configuration
 
-e.g. `xwayland-run -- flatpak run com.valvesoftware.Steam`
+## Requirements
 
-Edit `.local/share/flatpak/exports/share/applications/com.valvesoftware.Steam.desktop`:
+- Ansible 2.9 or higher
+- Ubuntu operating system
+
+## Role Variables
+
+See [default values](./defaults/main.yml).
+
+## Usage
+
+1. Include this role in your playbook
+2. Configure the required variables
+3. Run your playbook
+
+```yaml
+- hosts: workstations
+  roles:
+    - role: niri
+```
+
+### Running X11 Applications
+
+For X11 applications like Steam, modify the desktop entry:
 
 ```ini
 [Desktop Entry]
 Name=Steam
-# ...
-Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.
+Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.valvesoftware.Steam
 ```
 
-### ibus warning notification at session start
+## License
 
-> ibus should be called from the desktop session in wayland
-
-Option 1: [Disable GTK panel](https://www.reddit.com/r/archlinux/comments/18trdk1/ibuswayland_error_no_input_method_global/ki2nf22/)
-
-```bash
-ibus-daemon -d --panel disable
-```
-
-Option 2: [Do not activate any IM](https://discuss.kde.org/t/ibus-issue-with-wayland/3680/12)
-
-> Another solution is to run im-config → OK → Yes → do not activate any IM from im-config and use desktop default → OK and then reboot.
+MIT License. See [LICENSE](../../LICENSE) for full details.
