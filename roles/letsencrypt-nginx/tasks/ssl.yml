@@ -1,41 +1,55 @@
 ---
-- name: Create SSL directories
-  file:
-    path: "{{ item }}"
-    state: directory
-  loop:
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt"
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key"
+- name: Set up SSL directories and keys
+  block:
+    - name: Create SSL directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+      loop:
+        - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt"
+        - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+        - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key"
+
+    - name: Create keys
+      openssl_privatekey:
+        path: "{{ item }}"
+        mode: "0640"
+        owner: root
+        group: root
+      loop:
+        - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
+        - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/public.pem"
+      register: create_keys
   become: true
 
-- name: Create keys
-  openssl_privatekey:
-    path: "{{ item }}"
-  loop:
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/public.pem"
-  register: create_keys
-  become: true
+- name: Manage CSR directory
+  block:
+    - name: Delete CSR directory if keys have changed
+      file:
+        path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+        state: absent
+      when: create_keys is changed
 
-- name: Delete CSR directory if keys have changed
-  file:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
-    state: absent
-  when: create_keys is changed
-  become: true
-
-- name: Create CSR directory if keys have changed
-  file:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
-    state: directory
-  when: create_keys is changed
+    - name: Create CSR directory if keys have changed
+      file:
+        path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+      when: create_keys is changed
   become: true
 
 - name: Create CSRs
   openssl_csr:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.csr"
     privatekey_path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
+    mode: "0640"
+    owner: root
+    group: root
     countryName: "{{ letsencryptnginx_csr_country }}"
     commonName: "{{ item.csr_common_name|default(item.domain) }}"
   loop: "{{ letsencryptnginx_websites }}"
@@ -47,4 +61,7 @@
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/selfsigned.pem"
     privatekey_path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/private.pem"
     provider: selfsigned
+    mode: "0640"
+    owner: root
+    group: root
   become: true

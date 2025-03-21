@@ -2,16 +2,33 @@
 #- ansible.builtin.debug:
 #      var: letsencryptnginx_websites
 
-- import_tasks: apt.yml
-- import_tasks: www.yml
-- import_tasks: basicauth.yml
-- import_tasks: ssl.yml
-- import_tasks: configuration.yml
+- name: Initial setup
+  block:
+    - name: Install required packages
+      import_tasks: apt.yml
 
-#  Run Nginx, so that Let's Encrypt HTTP certificate validation can occur
-- import_tasks: docker.yml
-- import_tasks: letsencrypt.yml
+    - name: Setup web root directories
+      import_tasks: www.yml
 
-# Restart Nginx with new certificates
-- import_tasks: configuration.yml
-- import_tasks: docker.yml
+    - name: Configure basic authentication
+      import_tasks: basicauth.yml
+
+- name: SSL/TLS Certificate setup
+  block:
+    - name: Configure SSL certificates
+      import_tasks: ssl.yml
+
+    - name: Generate initial Nginx configuration
+      import_tasks: configuration.yml
+
+- name: Let's Encrypt certificate acquisition
+  block:
+    - name: Start Nginx for Let's Encrypt validation
+      import_tasks: docker.yml
+
+    - name: Obtain Let's Encrypt certificates
+      import_tasks: letsencrypt.yml
+
+- name: Update Nginx configuration with new certificates
+  import_tasks: configuration.yml
+  notify: Restart Nginx
