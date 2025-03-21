@@ -1,0 +1,22 @@
+---
+- name: Setup backup directory and scripts
+  file:
+    path: "{{ rsnapshot_directory }}"
+    state: directory
+    mode: 0700
+    owner: root
+    group: root
+  become: true
+
+- name: Configure rsnapshot and scheduling
+  template:
+    src: rsnapshot.conf.j2
+    dest: /etc/rsnapshot.conf
+  register: rsnapshot_conf
+  become: true
+
+- name: Validate rsnapshot configuration
+  command: rsnapshot configtest
+  when: rsnapshot_conf.changed
+  changed_when: false
+  become: true
