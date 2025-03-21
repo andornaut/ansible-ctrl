@@ -1,30 +1,32 @@
 ---
-- name: Install Insync apt key
-  apt_key:
-    keyserver: keyserver.ubuntu.com
-    id: ACCAF35C
-  become: true
+- name: Configure Insync repository
+  block:
+    - name: Add Insync apt key
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: ACCAF35C
+      become: true
 
-- name: Install Insync apt respository
-  apt_repository:
-    repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
-    update_cache: yes
-  become: true
+    - name: Add Insync apt repository
+      apt_repository:
+        repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
+        update_cache: yes
+      become: true
 
-- name: Install Insync system package
-  apt:
-    name: insync
-    state: latest
-  become: true
+- name: Install and configure Insync
+  block:
+    - name: Install Insync package
+      apt:
+        name: insync
+        state: latest
+      become: true
 
-# Workaround error when starting insync in Wayland (niri window manager):
-# $ insync start  --no-daemon
-#   QSocketNotifier: Can only be used with threads started with QThread
-#   /usr/lib/insync/insync: symbol lookup error: /opt/amdgpu/lib/x86_64-linux-gnu/libEGL_mesa.so.0:
-#   undefined symbol: wl_display_create_queue_with_name
-# https://forums.insynchq.com/t/insync-doesnt-start-after-ubuntu-update/19103
-- name: "Workaround: error when starting insync in Wayland"
-  ansible.builtin.file:
-    path: /usr/lib/insync/libwayland-client.so.0
-    state: absent
-  become: true
+    - name: Fix Wayland compatibility
+      # Workaround error when starting insync in Wayland (niri window manager):
+      # QSocketNotifier: Can only be used with threads started with QThread
+      # /usr/lib/insync/insync: symbol lookup error: /opt/amdgpu/lib/x86_64-linux-gnu/libEGL_mesa.so.0:
+      # undefined symbol: wl_display_create_queue_with_name
+      ansible.builtin.file:
+        path: /usr/lib/insync/libwayland-client.so.0
+        state: absent
+      become: true

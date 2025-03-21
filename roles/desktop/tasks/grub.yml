@@ -1,28 +1,25 @@
 ---
-- name: grub - show menu
-  lineinfile:
-    path: /etc/default/grub
-    regexp: '^#?GRUB_TIMEOUT_STYLE\s*='
-    line: 'GRUB_TIMEOUT_STYLE=menu'
-  become: true
+- name: Configure GRUB settings
+  block:
+    - name: Show GRUB menu
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^#?GRUB_TIMEOUT_STYLE\s*='
+        line: "GRUB_TIMEOUT_STYLE=menu"
+      become: true
 
-- name: grub - set timeout
-  lineinfile:
-    path: /etc/default/grub
-    regexp: '^#?GRUB_TIMEOUT\s*='
-    line: 'GRUB_TIMEOUT=3'
-  become: true
+    - name: Set GRUB timeout to 3 seconds
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^#?GRUB_TIMEOUT\s*='
+        line: "GRUB_TIMEOUT=3"
+      become: true
 
-# Suport 2-finger scroll on thinkpads;
-# https://askubuntu.com/a/971893
-- name: grub - disable splash screen
-  lineinfile:
-    path: /etc/default/grub
-    line: 'GRUB_CMDLINE_LINUX_DEFAULT="psmouse.synaptics_intertouch=0"'
-    regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
-  become: true
+    - name: Enable Thinkpad touchpad scrolling
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="psmouse.synaptics_intertouch=0"'
+      become: true
 
-- name: grub - run update-grub
-  command: update-grub
-  become: true
-
+  notify: Update GRUB
