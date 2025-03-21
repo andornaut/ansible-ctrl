@@ -1,126 +1,129 @@
 ---
-- name: Apt uninstall snap and applications that will be replaced by flatpak
-  apt:
-    name:
-      - audacity
-      - blender
-      - filezilla*
-      - gimp
-      - gnome-software-plugin-snap
-      - inkscape
-      - libreoffice
-      - snapd
-      - vlc
-      - wireshark
-    purge: yes
-    state: absent
-  become: true
+- name: Remove system packages replaced by flatpak
+  block:
+    - name: Remove snap and applications
+      apt:
+        name:
+          - audacity
+          - blender
+          - filezilla*
+          - gimp
+          - gnome-software-plugin-snap
+          - inkscape
+          - libreoffice
+          - snapd
+          - vlc
+          - wireshark
+        purge: yes
+        state: absent
+      become: true
 
-- name: Apt autoclean
-  apt:
-    autoclean: yes
-  become: true
+    - name: Clean apt cache
+      apt:
+        clean: yes
+      become: true
 
-- name: Apt autoremove
-  apt:
-    autoremove: yes
-    purge: yes
-  become: true
+    - name: Autoremove unused packages
+      apt:
+        autoremove: yes
+        purge: yes
+      become: true
 
-- name: Apt hold snap and applications that will be replaced by flatpak
-  dpkg_selections:
-    name: "{{ item }}"
-    selection: hold
-  loop:
-    - audacity
-    - blender
-    - filezila
-    - gimp
-    - gnome-software-plugin-snap
-    - inkscape
-    - libreoffice
-    - snapd
-    - vlc
-    - wireshark
-  ignore_errors: true # This can produce errors if the package doesn't exist, which we don't care about
-  become: true
+    - name: Hold packages replaced by flatpak
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - audacity
+        - blender
+        - filezila
+        - gimp
+        - gnome-software-plugin-snap
+        - inkscape
+        - libreoffice
+        - snapd
+        - vlc
+        - wireshark
+      ignore_errors: true # Ignore errors if package doesn't exist
+      become: true
 
-- name: Find user snap directories
-  find:
-    paths: /home
-    patterns: snap
-    depth: 2
-    file_type: directory
-    recurse: yes
-  register: snap_directories_result
-  become: true
+- name: Remove snap directories
+  block:
+    - name: Find user snap directories
+      find:
+        paths: /home
+        patterns: snap
+        depth: 2
+        file_type: directory
+        recurse: yes
+      register: snap_directories_result
+      become: true
 
-- name: Remove user snap directories
-  file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ snap_directories_result.files }}"
-  become: true
+    - name: Remove user snap directories
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ snap_directories_result.files }}"
+      become: true
 
-- name: Remove root snap directories
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /root/snap
-    - /var/cache/snapd
-  become: true
+    - name: Remove root snap directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /root/snap
+        - /var/cache/snapd
+      become: true
 
-- name: Apt install flatpak
-  apt:
-    name:
-      - flatpak
-      - flatpak-builder
-    state: latest
-  become: true
+- name: Configure flatpak
+  block:
+    - name: Install flatpak packages
+      apt:
+        name:
+          - flatpak
+          - flatpak-builder
+        state: latest
+      become: true
 
-- name: Add the flathub flatpak repository remote to the user installation
-  community.general.flatpak_remote:
-    name: flathub
-    flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
-    method: user
+    - name: Add flathub repository
+      community.general.flatpak_remote:
+        name: flathub
+        flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+        method: user
 
-- name: Install flatpak packages
-  community.general.flatpak:
-    name:
-      - org.gtk.Gtk3theme.Adwaita-dark
+    - name: Install flatpak applications
+      community.general.flatpak:
+        name:
+          - org.gtk.Gtk3theme.Adwaita-dark
+          - com.obsproject.Studio
+          - fr.handbrake.ghb
+          - io.missioncenter.MissionCenter
+          - org.audacityteam.Audacity
+          - org.blender.Blender
+          - org.filezillaproject.Filezilla
+          - org.flameshot.Flameshot
+          - org.gimp.GIMP
+          - org.inkscape.Inkscape
+          - org.libreoffice.LibreOffice
+          - org.videolan.VLC
+          - org.wireshark.Wireshark
+        method: user
 
-      - com.obsproject.Studio
-      - fr.handbrake.ghb
-      - io.missioncenter.MissionCenter
-      - org.audacityteam.Audacity
-      - org.blender.Blender
-      - org.filezillaproject.Filezilla
-      - org.flameshot.Flameshot
-      - org.gimp.GIMP
-      - org.inkscape.Inkscape
-      - org.libreoffice.LibreOffice
-      - org.videolan.VLC
-      - org.wireshark.Wireshark
-    method: user
+    - name: Configure cursor theme for flatpak applications
+      command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+      loop:
+        - com.obsproject.Studio
+        - fr.handbrake.ghb
+        - io.missioncenter.MissionCenter
+        - org.audacityteam.Audacity
+        - org.blender.Blender
+        - org.filezillaproject.Filezilla
+        - org.flameshot.Flameshot
+        - org.gimp.GIMP
+        - org.inkscape.Inkscape
+        - org.libreoffice.LibreOffice
+        - org.videolan.VLC
+        - org.wireshark.Wireshark
 
-- name: Override cursor theme for flatpak GUI applications
-  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
-  loop:
-    - com.obsproject.Studio
-    - fr.handbrake.ghb
-    - io.missioncenter.MissionCenter
-    - org.audacityteam.Audacity
-    - org.blender.Blender
-    - org.filezillaproject.Filezilla
-    - org.flameshot.Flameshot
-    - org.gimp.GIMP
-    - org.inkscape.Inkscape
-    - org.libreoffice.LibreOffice
-    - org.videolan.VLC
-    - org.wireshark.Wireshark
-
-- name: Override share=ipc to fix FileZilla
-  # https://forum-francophone-linuxmint.fr/viewtopic.php?t=18119
-  command: flatpak override --user --share=ipc org.filezillaproject.Filezilla
+    - name: Configure FileZilla IPC
+      command: flatpak override --user --share=ipc org.filezillaproject.Filezilla

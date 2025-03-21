@@ -1,0 +1,47 @@
+---
+- name: Install common system packages
+  apt:
+    name:
+      - blueman
+      - desktop-file-utils
+      - evince # PDF reader
+      - feh
+      - gnome-keyring
+      - gnome-themes-extra
+      - gnome-themes-standard
+      - gvfs-backends
+      - imagemagick
+      - jq
+      - libnotify-bin
+      - lxappearance
+      - network-manager
+      - network-manager-gnome
+      - pavucontrol
+      - playerctl
+      - policykit-1-gnome
+      - python3-pip
+      - python3-setuptools
+      - redshift
+      - scrot
+      - suckless-tools
+      - thunar
+      - thunar-archive-plugin
+      - thunar-media-tags-plugin
+      - thunar-volman
+      - tumbler
+      - tumbler-plugins-extra
+      - unzip
+      - wmctrl
+      - xarchiver
+      - xautolock
+      - xbacklight
+      - xclip
+      - xdg-user-dirs
+      - xdg-utils
+      - xdotool
+      - xinput
+      - xsel
+      - zenity
+    state: latest
+    update_cache: yes
+  become: true

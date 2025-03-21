@@ -1,4 +1,8 @@
 ---
-- name: update font cache
+- name: Update font cache
   command: fc-cache --force
+  become: true
+
+- name: Update GRUB
+  command: update-grub
   become: true

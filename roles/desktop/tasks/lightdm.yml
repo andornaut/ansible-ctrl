@@ -1,41 +1,45 @@
 ---
-- name: Disable other display manager services
-  systemd_service:
-    name: "{{ item }}"
-    daemon_reload: yes
-    enabled: no
-  ignore_errors: true
-  with_items:
-    - gdm3
-    - ly
-    - display-manager
-  become: true
+- name: Remove other display managers
+  block:
+    - name: Disable other display manager services
+      systemd_service:
+        name: "{{ item }}"
+        daemon_reload: yes
+        enabled: no
+      ignore_errors: true
+      with_items:
+        - gdm3
+        - ly
+        - display-manager
+      become: true
 
-- name: Uninstall other display managers
-  apt:
-    name:
-      - gdm3
-      - ly
-    state: absent
-  become: true
+    - name: Remove other display manager packages
+      apt:
+        name:
+          - gdm3
+          - ly
+        state: absent
+      become: true
 
-- name: Install lightdm
-  apt:
-    name: lightdm
-    state: latest
-  become: true
+- name: Configure lightdm
+  block:
+    - name: Install lightdm package
+      apt:
+        name: lightdm
+        state: latest
+      become: true
 
-# lightdm uses a sysvinit init script, so cannot be enabled directly.
-# The ubuntu package creates a symlink to /etc/systemd/system/display-manager.service,
-# which may need to be recreated if its been deleted by the ly.yml task (when switching DMs).
-- name: Enable lightdm.service
-  command: dpkg-reconfigure lightdm
-  become: true
+    - name: Enable lightdm service
+      command: dpkg-reconfigure lightdm
+      become: true
+      # lightdm uses a sysvinit init script, so cannot be enabled directly.
+      # The ubuntu package creates a symlink to /etc/systemd/system/display-manager.service,
+      # which may need to be recreated if its been deleted by the ly.yml task (when switching DMs).
 
-# Re-enable getty in case it was disabled by the ly.yml tasks
-- name: Enable getty on tty2.service
-  systemd_service:
-    name: getty@tty2.service
-    daemon_reload: yes
-    enabled: yes
-  become: true
+    - name: Enable getty on tty2
+      systemd_service:
+        name: getty@tty2.service
+        daemon_reload: yes
+        enabled: yes
+      become: true
+      # Re-enable getty in case it was disabled by the ly.yml tasks
