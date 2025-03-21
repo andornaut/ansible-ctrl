@@ -1,0 +1,20 @@
+---
+- name: Install rsnapshot and cron packages
+  apt:
+    name:
+      - cron
+      - rsnapshot
+    update_cache: yes
+  become: true
+
+- name: Download MySQL and PostgreSQL backup scripts
+  get_url:
+    url: "{{ item }}"
+    dest: /usr/local/bin/
+    owner: root
+    group: root
+    mode: 0755
+  loop:
+    - https://raw.githubusercontent.com/andornaut/backup-mysql/master/backupmysql
+    - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/master/backupdockerpostgresql
+  become: true
