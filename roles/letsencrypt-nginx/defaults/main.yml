@@ -10,3 +10,7 @@ letsencryptnginx_docker_required_volumes:
   www: /var/docker-volumes/nginx/www
 letsencryptnginx_remaining_days: 30
 letsencryptnginx_websites: []
+letsencryptnginx_maintainer: "Ansible managed"
+letsencryptnginx_key_type: RSA
+letsencryptnginx_key_size: 4096
+letsencryptnginx_selfsigned_days: 365

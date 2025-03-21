@@ -2,13 +2,27 @@
 
 Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
+## Overview
+
+This repository contains Ansible playbooks for automating the setup and configuration of:
+
+- Workstation and desktop environment: applications, games, tools, etc
+- Home Assistant with Frigate
+- Network Attached Storage (NAS)
+- Email forwarding
+- Rsnapshot backup system
+- System upgrades
+- Web servers
+
 ## Requirements
 
-* [Ansible](https://www.ansible.com/) >= 2.14.6
-* [Make](https://www.gnu.org/software/make/)
-* Ubuntu >= 22.04
+- [Ansible](https://www.ansible.com/) >= 2.14.6
+- [Make](https://www.gnu.org/software/make/)
+- Ubuntu >= 22.04
 
-Create a file in the project root named "hosts":
+### Initial Setup
+
+Create a file named `hosts` in the project root:
 
 ```ini
 example ansible_connection=local ansible_host=example.com ansible_user=andornaut ansible_python_interpreter=/usr/bin/python3
@@ -17,7 +31,7 @@ example ansible_connection=local ansible_host=example.com ansible_user=andornaut
 example
 ```
 
-### Installing or upgrading Ansible on Ubuntu
+Install or upgrade Ansible on Ubuntu:
 
 ```bash
 sudo apt remove ansible --purge
@@ -25,47 +39,43 @@ sudo apt-add-repository ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-## Usage
+## Available Commands
+
+Run any of the following make commands to execute the corresponding playbook:
 
 ```bash
-make homeassistant-frigate
-make rsnapshot
-make upgrade
-make webservers
-make workstation
+make homeassistant-frigate # Set up Home Assistant with Frigate NVR
+make rsnapshot             # Configure Rsnapshot backup system
+make upgrade               # Run system upgrades
+make webservers            # Configure web servers
+make workstation           # Set up workstation/desktop environment
 ```
 
-The `make workstation` target will run the [workstation](./workstation.yml) playbook.
-This playbook will prompt you to choose which of its roles to include.
+### Workstation Setup
 
-## Roles
+The `make workstation` command runs the [workstation](./workstation.yml) playbook, which:
 
-Each role defines default Ansible variables that can be overidden in `./host_vars`.
+- Prompts you to choose which roles to include
+- Configures your development environment
+- Sets up common tools and applications
 
-* [ansible-role-base](https://github.com/andornaut/ansible-role-base/)
-([variables](https://github.com/andornaut/ansible-role-base/blob/master/defaults/main.yml))
-* [ansible-role-bspwm](https://github.com/andornaut/ansible-role-bspwm/)
-([variables](https://github.com/andornaut/ansible-role-bspwm/blob/master/defaults/main.yml))
-* [ansible-role-desktop](./roles/desktop/)
-([variables](./roles/desktop/defaults/main.yml))
-* [ansible-role-dev](./roles/dev/)
-([variables](./roles/dev/defaults/main.yml))
-* [ansible-role-docker](https://github.com/andornaut/ansible-role-docker/)
-([variables](https://github.com/andornaut/ansible-role-docker/blob/master/defaults/main.yml))
-* [ansible-role-homeassistant-frigate](https://github.com/andornaut/ansible-role-homeassistant-frigate/)
-([variables](https://github.com/andornaut/ansible-role-homeassistant-frigate/blob/main/defaults/main.yml))
-* [ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx/)
-([variables](https://github.com/andornaut/ansible-role-letsencrypt-nginx/blob/master/defaults/main.yml))
-* [ansible-role-msmtp](./roles/msmtp/)
-([variables](./roles/msmtp/defaults/main.yml))
-* [ansible-role-nas](./roles/nas/)
-([variables](./roles/nas/defaults/main.yml))
-* [ansible-role-rsnapshot](https://github.com/andornaut/ansible-role-rsnapshot/)
-([variables](https://github.com/andornaut/ansible-role-rsnapshot/blob/master/defaults/main.yml))
+## Development
+
+### Directory Structure
+
+```text
+.
+├── hosts                # Inventory file (create this)
+├── workstation.yml      # Workstation configuration playbook
+├── roles/               # Ansible roles
+└── Makefile             # Command definitions
+```
 
 ## Troubleshooting
 
-If there's a bug in a community module, then try `--force` upgrading:
+### Common Issues
+
+1. **Module Bugs**: If you encounter issues with community modules, try forcing an upgrade:
 
 ```bash
 ansible-galaxy collection install --force community.general
