@@ -2,11 +2,16 @@
 galaxy_info:
   author: andornaut
   description: Dockerized Home Assistant, Frigate, and Mosquitto MQTT on Ubuntu
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
   galaxy_tags:
     - docker
-    - home assistant
+    - homeassistant
     - frigate
-    - mosquitto mqtt broker
+    - mqtt
+    - mosquitto
     - ubuntu
-  license: MIT
-  min_ansible_version: 2.9
