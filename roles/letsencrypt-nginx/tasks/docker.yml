@@ -10,8 +10,6 @@
   loop:
     - "{{ letsencryptnginx_docker_required_volumes.config }}"
     - "{{ letsencryptnginx_docker_required_volumes.www }}"
-    - /var/cache/nginx
-    - /var/run
   become: true
 
 - name: Start Nginx Docker container
