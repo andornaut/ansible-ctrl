@@ -1,48 +1,54 @@
 ---
-- name: Install fonts system packages
-  apt:
-    name:
-      - fonts-dejavu
-      - fonts-hack
-      - fonts-ubuntu-console
-      - ttf-mscorefonts-installer
-      - xfonts-terminus
-    state: latest
-    update_cache: yes
-  become: true
+- name: Install system fonts
+  block:
+    - name: Install font packages
+      apt:
+        name:
+          - fonts-dejavu
+          - fonts-hack
+          - fonts-ubuntu-console
+          - ttf-mscorefonts-installer
+          - xfonts-terminus
+        state: latest
+        update_cache: yes
+      become: true
 
-- name: Accept mscorefonts EULA
-  debconf:
-    name: ttf-mscorefonts-installer
-    question: msttcorefonts/accepted-mscorefonts-eula
-    vtype: select
-    value: "true"
-  become: true
+    - name: Configure Microsoft fonts
+      block:
+        - name: Accept mscorefonts EULA
+          debconf:
+            name: ttf-mscorefonts-installer
+            question: msttcorefonts/accepted-mscorefonts-eula
+            vtype: select
+            value: "true"
+          become: true
 
-- name: Install mscorefonts
-  apt:
-    name: ttf-mscorefonts-installer
-    state: latest
-  notify: update font cache
-  become: true
+        - name: Install mscorefonts
+          apt:
+            name: ttf-mscorefonts-installer
+            state: latest
+          notify: update font cache
+          become: true
 
-- name: Create a temp directory
-  ansible.builtin.file:
-    path: /tmp/source-code-pro
-    state: directory
+- name: Install Source Code Pro font
+  block:
+    - name: Create temporary directory
+      ansible.builtin.file:
+        path: /tmp/source-code-pro
+        state: directory
 
-- name: Download and extract soure-code-pro package
-  unarchive:
-    src: "{{ desktop_source_code_pro_url }}"
-    dest: /tmp/source-code-pro/
-    remote_src: yes
-    creates: /tmp/source-code-pro/LICENSE.md
+    - name: Download and extract Source Code Pro package
+      unarchive:
+        src: "{{ desktop_source_code_pro_url }}"
+        dest: /tmp/source-code-pro/
+        remote_src: yes
+        creates: /tmp/source-code-pro/LICENSE.md
 
-- name: Copy source-code-pro TTF files
-  copy:
-    src: /tmp/source-code-pro/
-    dest: /usr/share/fonts/truetype/source-code-pro
-    remote_src: yes
-  delegate_to: "{{ inventory_hostname }}"
-  notify: update font cache
-  become: true
+    - name: Install Source Code Pro font files
+      copy:
+        src: /tmp/source-code-pro/
+        dest: /usr/share/fonts/truetype/source-code-pro
+        remote_src: yes
+      delegate_to: "{{ inventory_hostname }}"
+      notify: update font cache
+      become: true
