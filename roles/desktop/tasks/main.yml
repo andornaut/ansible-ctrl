@@ -1,104 +1,58 @@
 ---
-- name: Install system packages
-  apt:
-    name:
-      - blueman
-      - desktop-file-utils
-      - evince # PDF reader
-      - feh
-      - gnome-disk-utility
-      - gnome-keyring
-      - gnome-screensaver
-      - hplip-gui # HP printer/scanner
-      - hsetroot
-      - intltool
-      - libc6
-      - libcairo2
-      # Fails in Ubuntu noble; workaround: use t64 version
-      - libglib2.0-0t64 # >=Ubunbu v24.04 only
-      - libglib2.0-dev
-      # Fails in Ubuntu noble; workaround: use t64 version
-      #- libgtk2.0-0
-      - libgtk2.0-0t64 # >=Ubunbu v24.04 only
-      - libgtk2.0-bin
-      - libgtk2.0-dev
-      - libpango-1.0-0
-      - libsecret-1-0
-      - libsecret-tools
-      - libudev-dev
-      - libudev1
-      - libx11-6
-      - lxappearance
-      # Fails in Ubuntu noble
-      #- network-manager-gnome
-      - pavucontrol
-      - pcmanfm
-      - pkg-config
-      #- redshift-gtk
-      - scrot
-      - shared-mime-info
-      - software-properties-gtk
-      # Solaar is used to manage logitech receivers
-      #- solaar
-      - stalonetray
-      - suckless-tools
-      - ubuntu-drivers-common
-      - udevil
-      - usb-creator-gtk
-      - x11-xserver-utils
-      - xautolock
-      - xclip
-      - xcompmgr
-      - xdotool
-      - xorg
-      - xsel
-      - xss-lock
-      - xul-ext-calendar-timezones
-      - xul-ext-lightning
-    install_recommends: no
-    state: latest
-    update_cache: yes
-  become: true
+- import_tasks: dependencies.yml
+  tags: [packages]
 
-- name: Install binary drivers
-  command: ubuntu-drivers autoinstall
-  become: true
+- name: Configure display manager
+  block:
+    - import_tasks: lightdm.yml
+      when: not desktop_install_ly_instead_of_lightdm
+      tags: [display-manager]
 
-- name: Set default printer paper size
-  command: paperconfig -p letter
-  become: true
+    - import_tasks: ly.yml
+      when: desktop_install_ly_instead_of_lightdm
+      tags: [display-manager]
 
-- import_tasks: alacritty.yml
+- name: Configure system applications
+  block:
+    - import_tasks: alacritty.yml
+      tags: [terminal]
 
-- import_tasks: chrome.yml
+    - import_tasks: chrome.yml
+      tags: [browsers]
 
-- import_tasks: dconf.yml
+    - import_tasks: dconf.yml
+      tags: [settings]
 
-- import_tasks: dunst.yml
+    - import_tasks: dunst.yml
+      tags: [notifications]
 
-- import_tasks: eww.yml
+    - import_tasks: eww.yml
+      tags: [widgets]
 
-- import_tasks: flatpak.yml
+    - import_tasks: firefox.yml
+      tags: [browsers]
 
-- import_tasks: firefox.yml # May depend on flatpak being installed
+    - import_tasks: flatpak.yml
+      tags: [packages]
 
-- import_tasks: fonts.yml
+    - import_tasks: fonts.yml
+      tags: [theming]
 
-- import_tasks: grub.yml
+    - import_tasks: grub.yml
+      tags: [boot]
 
-- include_tasks: insync.yml
-  when: desktop_install_insync
+    - import_tasks: insync.yml
+      when: desktop_install_insync
+      tags: [sync]
 
-- import_tasks: lact.yml
+    - import_tasks: lact.yml
+      tags: [amd]
 
-- import_tasks: lightdm.yml
-  when: not desktop_install_ly_instead_of_lightdm
+    - import_tasks: pavolume.yml
+      tags: [audio]
 
-- import_tasks: ly.yml
-  when: desktop_install_ly_instead_of_lightdm
+    - import_tasks: rofi.yml
+      tags: [launcher]
 
-- import_tasks: pavolume.yml
-
-- import_tasks: rofi.yml
-
-- import_tasks: themes.yml
+    - import_tasks: themes.yml
+      tags: [theming]

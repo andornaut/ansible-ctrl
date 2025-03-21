@@ -1,67 +1,69 @@
 # Apt
-- name: Uninstall Firefox (flatpak), because it will be installed by apt
-  community.general.flatpak:
-    name: org.mozilla.firefox
-    method: user
-    state: absent
-  when: not desktop_install_firefox_flatpak
+- name: Configure Firefox Apt installation method
+  block:
+    - name: Remove Firefox flatpak if using apt
+      community.general.flatpak:
+        name: org.mozilla.firefox
+        method: user
+        state: absent
 
-- name: Install Firefox Next apt respository
-  apt_repository:
-    repo: ppa:mozillateam/firefox-next
-    update_cache: true
-  become: true
+    - name: Configure Firefox apt packages
+      block:
+        - name: Add Firefox Next PPA
+          apt_repository:
+            repo: ppa:mozillateam/firefox-next
+            update_cache: true
+          become: true
 
-- name: Prioritize mozilla's ppa for Firefox
-  ansible.builtin.copy:
-    src: firefox/firefox-no-snap
-    dest: /etc/apt/preferences.d/
-  become: true
+        - name: Configure mozilla PPA priority
+          ansible.builtin.copy:
+            content: |
+              Package: firefox*
+              Pin: release o=Ubuntu*
+              Pin-Priority: -1
+            dest: /etc/apt/preferences.d/firefox-no-snap
+          become: true
 
-- name: Install Firefox (apt)
-  apt:
-    name:
-      - firefox
-      # https://support.mozilla.org/en-US/kb/speechd-setup
-      - speech-dispatcher
-    state: latest
-  become: true
-  when: not desktop_install_firefox_flatpak
+        - name: Install Firefox and dependencies
+          apt:
+            name:
+              - firefox
+              - speech-dispatcher # Required for text-to-speech
+            state: latest
+          become: true
 
-- name: Make Firefox the default web browser (apt)
-  command: xdg-settings set default-web-browser firefox.desktop
+    - name: Set Firefox as default browser
+      command: xdg-settings set default-web-browser firefox.desktop
   when: not desktop_install_firefox_flatpak
 
 # Flatpak
-- name: Uninstall Firefox (apt), because it will be installed using flatpak
-  apt:
-    name:
-      - firefox
-    purge: yes
-    state: absent
-  become: true
-  when: desktop_install_firefox_flatpak
+- name: Configure Firefox flatpak installation method
+  block:
+    - name: Remove and hold Firefox apt package
+      block:
+        - name: Remove Firefox apt package
+          apt:
+            name: firefox
+            purge: yes
+            state: absent
+          become: true
 
-- name: Apt hold Firefox, because it will be installed using flatpak
-  dpkg_selections:
-    name: firefox
-    selection: hold
-  become: true
-  when: desktop_install_firefox_flatpak
+        - name: Hold Firefox apt package
+          dpkg_selections:
+            name: firefox
+            selection: hold
+          become: true
 
-- name: Install Firefox (flatpak)
-  community.general.flatpak:
-    name: org.mozilla.firefox
-    method: user
-  when: desktop_install_firefox_flatpak
+    - name: Install and configure Firefox flatpak
+      block:
+        - name: Install Firefox flatpak
+          community.general.flatpak:
+            name: org.mozilla.firefox
+            method: user
 
-- name: Override cursor theme for Firefox (flatpak)
-  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
-  loop:
-    - org.mozilla.firefox
-  when: desktop_install_firefox_flatpak
+        - name: Configure Firefox cursor theme
+          command: flatpak override --user --env=XCURSOR_THEME=Adwaita org.mozilla.firefox
 
-- name: Make Firefox the default web browser (flatpak)
-  command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
+    - name: Set Firefox as default browser
+      command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
   when: desktop_install_firefox_flatpak

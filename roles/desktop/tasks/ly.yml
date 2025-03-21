@@ -1,123 +1,134 @@
 ---
-- name: Install ly's build dependencies
-  apt:
-    name:
-      - build-essential
-      - clang
-      - libclang-dev
-      - liblldb-dev
-      - libpam0g-dev
-      - libxcb-xkb-dev
-      - lld
-      - llvm
-      - llvm-dev
-    state: latest
-  become: true
+- name: Install and configure ly display manager
+  block:
+    - name: Prepare build environment
+      block:
+        - name: Install ly's build dependencies
+          apt:
+            name:
+              - build-essential
+              - clang
+              - libclang-dev
+              - liblldb-dev
+              - libpam0g-dev
+              - libxcb-xkb-dev
+              - lld
+              - llvm
+              - llvm-dev
+            state: latest
+          become: true
 
-- name: Download zig
-  get_url:
-    url: "https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz"
-    dest: /tmp/zig.tar.xz
+        - name: Set up zig compiler
+          block:
+            - name: Download zig compiler archive
+              get_url:
+                url: "https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz"
+                dest: /tmp/zig.tar.xz
 
-- name: Create /opt/zig directory
-  ansible.builtin.file:
-    path: /opt/zig
-    state: directory
-    mode: "0755"
-  become: true
+            - name: Create zig installation directory
+              ansible.builtin.file:
+                path: /opt/zig
+                state: directory
+                mode: "0755"
+              become: true
 
-- name: Extract zig.tar.gz into /opt/zig
-  ansible.builtin.unarchive:
-    src: /tmp/zig.tar.xz
-    dest: /opt/zig
-    extra_opts:
-      - --strip-components
-      - 1
-  become: true
+            - name: Install zig compiler
+              ansible.builtin.unarchive:
+                src: /tmp/zig.tar.xz
+                dest: /opt/zig
+                extra_opts:
+                  - --strip-components
+                  - 1
+              become: true
 
-- name: Clone ly git repository
-  git:
-    repo: "https://codeberg.org/AnErrupTion/ly.git"
-    dest: /tmp/ly.git
-    depth: 1
-    force: yes
+    - name: Install ly display manager
+      block:
+        - name: Clone ly source code
+          git:
+            repo: "https://codeberg.org/AnErrupTion/ly.git"
+            dest: /tmp/ly.git
+            depth: 1
+            force: yes
 
-- name: Build and install ly
-  command:
-    cmd: /opt/zig/zig build installexe
-    chdir: /tmp/ly.git
-  become: true
+        - name: Compile and install ly
+          command:
+            cmd: /opt/zig/zig build installexe
+            chdir: /tmp/ly.git
+          become: true
 
-- name: Clear failed password
-  lineinfile:
-    line: "clear_password = true"
-    path: /etc/ly/config.ini
-    regexp: '^#?\s*clear_password\s*='
-  become: true
+    - name: Configure ly appearance
+      block:
+        - name: Enable password field clearing
+          lineinfile:
+            line: "clear_password = true"
+            path: /etc/ly/config.ini
+            regexp: '^#?\s*clear_password\s*='
+          become: true
 
-- name: Hide borders
-  lineinfile:
-    path: /etc/ly/config.ini
-    regexp: '^#?\s*hide_borders\s*='
-    line: "hide_borders = true"
-  become: true
+        - name: Enable borderless mode
+          lineinfile:
+            path: /etc/ly/config.ini
+            regexp: '^#?\s*hide_borders\s*='
+            line: "hide_borders = true"
+          become: true
 
-# https://github.com/nullgemm/ly/issues/228
-- name: Unlock Gnome keyring on login (1of3)
-  lineinfile:
-    path: /etc/pam.d/login
-    line: "auth       optional     pam_gnome_keyring.so"
-  become: true
+    - name: Configure authentication integration
+      block:
+        - name: Enable Gnome keyring authentication
+          lineinfile:
+            path: /etc/pam.d/login
+            line: "auth       optional     pam_gnome_keyring.so"
+          become: true
 
-- name: Unlock Gnome keyring on login (2of3)
-  lineinfile:
-    path: /etc/pam.d/login
-    line: "session    optional     pam_gnome_keyring.so auto_start"
-  become: true
+        - name: Enable Gnome keyring session management
+          lineinfile:
+            path: /etc/pam.d/login
+            line: "session    optional     pam_gnome_keyring.so auto_start"
+          become: true
 
-- name: Unlock Gnome keyring on login (3of3)
-  lineinfile:
-    path: /etc/pam.d/ly
-    line: "password   optional     pam_gnome_keyring.so"
-  become: true
+        - name: Enable Gnome keyring password integration
+          lineinfile:
+            path: /etc/pam.d/ly
+            line: "password   optional     pam_gnome_keyring.so"
+          become: true
 
-# Disabled, because this causes the desktop session to exit.
-# > If you need to switch between ttys after Ly's start you also have to
-# > disable getty on Ly's tty to prevent "login" from spawning on top of it.
-# https://github.com/cylgom/ly#cloning-and-compiling
-- name: Disable getty on tty2
-  systemd_service:
-    name: getty@tty2.service
-    daemon_reload: yes
-    state: stopped
-    enabled: no
-  become: true
+    - name: Configure system integration
+      block:
+        - name: Prevent TTY conflicts
+          systemd_service:
+            name: getty@tty2.service
+            daemon_reload: yes
+            state: stopped
+            enabled: no
+          become: true
 
-- name: Disable other display manager services
-  systemd_service:
-    name: "{{ item }}"
-    daemon_reload: true
-    enabled: false
-    masked: true
-  ignore_errors: true
-  loop:
-    - display-manager
-    - gdm3
-    - lightdm
-  become: true
+        - name: Remove existing display managers
+          block:
+            - name: Disable display manager services
+              systemd_service:
+                name: "{{ item }}"
+                daemon_reload: true
+                enabled: false
+                masked: true
+              ignore_errors: true
+              loop:
+                - display-manager
+                - gdm3
+                - lightdm
+              become: true
 
-- name: Enable ly.service
-  systemd_service:
-    name: ly.service
-    daemon_reload: true
-    enabled: true
-    masked: false
-  become: true
+            - name: Remove display manager packages
+              apt:
+                name:
+                  - gdm3
+                  - lightdm
+                state: absent
+              become: true
 
-- name: Uninstall other display managers
-  apt:
-    name:
-      - gdm3
-      - lightdm
-    state: absent
-  become: true
+        - name: Enable ly display manager
+          systemd_service:
+            name: ly.service
+            daemon_reload: true
+            enabled: true
+            masked: false
+          become: true

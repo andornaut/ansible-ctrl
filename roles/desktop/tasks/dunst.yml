@@ -1,5 +1,5 @@
 ---
-- name: Install dunst dependencies
+- name: Install dunst build dependencies
   apt:
     name:
       - libdbus-1-dev
@@ -15,24 +15,29 @@
     state: latest
   become: true
 
-- name: Clone dunst git repository
-  git:
-    repo: "https://github.com/dunst-project/dunst.git"
-    dest: /tmp/dunst.git
-    force: yes
-    # Cannot set `depth: 1` or this error is produced:
-    # fatal: No names found, cannot describe anything
-    #depth: 1
-  # Become "root" to avoid a git error: ... is owned by someone else
-  become: true
+- name: Check if dunst is already installed
+  command: which dunst
+  register: dunst_check
+  changed_when: false
+  failed_when: false
 
-- name: Make dunst
-  make:
-    chdir: /tmp/dunst.git
-  become: true
+- name: Build and install dunst
+  block:
+    - name: Clone dunst repository
+      git:
+        repo: "https://github.com/dunst-project/dunst.git"
+        dest: /tmp/dunst.git
+        force: yes
+      become: true
 
-- name: Make install dunst
-  make:
-    chdir: /tmp/dunst.git
-    target: install
-  become: true
+    - name: Build dunst
+      make:
+        chdir: /tmp/dunst.git
+      become: true
+
+    - name: Install dunst
+      make:
+        chdir: /tmp/dunst.git
+        target: install
+      become: true
+  when: dunst_check.rc != 0

@@ -1,5 +1,5 @@
 ---
-- name: Install system packages
+- name: Install dconf dependencies
   apt:
     name:
       - dconf-cli
@@ -8,20 +8,23 @@
     update_cache: yes
   become: true
 
-- name: Disable language switcher keyboard shortcut
-  dconf:
-    key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
-    value: "@au []"
-    state: present
+- name: Configure keyboard settings
+  block:
+    - name: Prevent Super+Space from switching input sources
+      dconf:
+        key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
+        value: "@au []"
+        state: present
 
-- name: Configure US keyboard layouts
-  dconf:
-    key: "/org/gnome/desktop/input-sources/sources"
-    value: "[('xkb', 'us')]"
-    state: present
+    - name: Set US keyboard layout as the only available layout
+      dconf:
+        key: "/org/gnome/desktop/input-sources/sources"
+        value: "[('xkb', 'us')]"
+        state: present
 
-- name: Disable ibus-daemon keyboard shortcuts
-  dconf:
-    key: "/org/gnome/settings-daemon/plugins/keyboard/active"
-    value: "false"
-    state: present
+    - name: Prevent ibus-daemon from interfering with keyboard shortcuts
+      dconf:
+        key: "/org/gnome/settings-daemon/plugins/keyboard/active"
+        value: "false"
+        state: present
+  notify: reload dconf

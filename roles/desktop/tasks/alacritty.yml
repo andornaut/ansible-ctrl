@@ -18,5 +18,7 @@
   become: true
 
 - name: Set Alacritty as default x-terminal-emulator
-  command: update-alternatives --set x-terminal-emulator /usr/bin/alacritty
+  alternatives:
+    name: x-terminal-emulator
+    path: /usr/bin/alacritty
   become: true
