@@ -1,0 +1,18 @@
+---
+- name: Install system packages
+  apt:
+    name:
+      - git
+      - golang
+      - jq
+      - libmysqlclient-dev
+      - libxml2-dev
+      - libxslt-dev
+      - meld
+      - mercurial
+      - mysql-client
+      - postgresql-client
+      - xserver-xephyr
+    state: latest
+    update_cache: yes
+  become: true

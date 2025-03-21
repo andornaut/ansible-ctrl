@@ -25,23 +25,30 @@
     extra_args: "--break-system-packages"
   become: true
 
-- name: Get the latest version of OrcaSlicer
-  uri:
-    url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
-    return_content: yes
-  register: orcaslicer_version
+- name: Install OrcaSlicer
+  block:
+    - name: Get the latest version of OrcaSlicer
+      uri:
+        url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
+        return_content: yes
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: yes
+      register: orcaslicer_version
 
-- name: Download OrcaSlicer
-  get_url:
-    url: "https://github.com/SoftFever/OrcaSlicer/releases/download/{{ orcaslicer_version.json.tag_name }}/OrcaSlicer_Linux_{{ orcaslicer_version.json.tag_name }}.AppImage"
-    dest: "/usr/local/bin/OrcaSlicer"
-    force: true # TODO: This will force the upgrade, but we should check if the latest is already installed
-  become: true
+    - name: Set OrcaSlicer download facts
+      set_fact:
+        orcaslicer_tag: "{{ orcaslicer_version.json.tag_name }}"
+        orcaslicer_assets: "{{ orcaslicer_version.json.assets }}"
 
-- name: Change file ownership, group and permissions of OrcaSlicer
-  ansible.builtin.file:
-    path: "/usr/local/bin/OrcaSlicer"
-    owner: root
-    group: root
-    mode: "0755"
-  become: true
+    - name: Find Linux AppImage asset
+      set_fact:
+        orcaslicer_download_url: "{{ (orcaslicer_assets | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$') | list | first).browser_download_url }}"
+
+    - name: Download OrcaSlicer
+      get_url:
+        url: "{{ orcaslicer_download_url }}"
+        dest: "/usr/local/bin/OrcaSlicer"
+        force: true
+        mode: "0755"
+      become: true

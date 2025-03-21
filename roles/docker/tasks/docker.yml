@@ -1,63 +1,71 @@
 ---
-- name: Uninstall incompatible packages
-  apt:
-    name:
-      # Old versions: https://docs.docker.com/engine/install/ubuntu/
-      - containerd
-      - docker-compose
-      - docker-compose-v2
-      - docker-doc
-      - docker.io
-      - podman-docker
-      - runc
-    state: absent
+- name: Configure Docker Repository
+  block:
+    - name: Uninstall incompatible packages
+      apt:
+        name:
+          # Old versions: https://docs.docker.com/engine/install/ubuntu/
+          - containerd
+          - docker-compose
+          - docker-compose-v2
+          - docker-doc
+          - docker.io
+          - podman-docker
+          - runc
+        state: absent
+        purge: yes
+        autoremove: yes
+
+    - name: Install Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        update_cache: yes
   become: true
 
-- name: Install docker-py
-  pip:
-    name:
-      - docker
-    extra_args: "--break-system-packages"
+- name: Install Docker Packages
+  block:
+    - name: Install docker-py Python package
+      pip:
+        name:
+          - docker
+        extra_args: "--break-system-packages"
+        state: latest
+
+    - name: Install Docker system packages
+      apt:
+        name:
+          - docker-registry
+          - python3-docker
+          # New versions: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-ce
+          - docker-ce-cli
+          - docker-compose-plugin
+        state: latest
+        update_cache: yes
   become: true
 
-- name: Install Docker gpg key
-  ansible.builtin.get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    dest: /etc/apt/keyrings/docker.asc
-  become: true
+- name: Configure Docker Services
+  block:
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        daemon_reload: yes
+        state: started
+        enabled: yes
 
-- name: Add Docker ppa
-  ansible.builtin.apt_repository:
-    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable
-    state: present
-  become: true
-
-- name: Install Docker system packages
-  apt:
-    name:
-      - docker-registry
-      - python3-docker
-      # New versions: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-ce
-      - docker-ce-cli
-      - docker-compose-plugin
-    state: latest
-  become: true
-
-- name: Start Docker on boot
-  systemd:
-    name: docker
-    daemon_reload: yes
-    state: started
-    enabled: yes
-  become: true
-
-- name: Start Docker Registry on boot
-  systemd:
-    name: docker-registry
-    daemon_reload: yes
-    state: started
-    enabled: yes
+    - name: Start and enable Docker Registry service
+      systemd:
+        name: docker-registry
+        daemon_reload: yes
+        state: started
+        enabled: yes
   become: true
