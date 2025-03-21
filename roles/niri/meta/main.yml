@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: andornaut
-  description: Install and configure BSPWM window manager on Ubuntu
+  description: Install and configure Niri Wayland compositor on Ubuntu
   license: MIT
   min_ansible_version: "2.9"
   platforms:
@@ -9,7 +9,8 @@ galaxy_info:
       versions:
         - noble
   galaxy_tags:
-    - bspwm
+    - niri
+    - wayland
+    - compositor
     - desktop
-    - window-manager
     - ubuntu

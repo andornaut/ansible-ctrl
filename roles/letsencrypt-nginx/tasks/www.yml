@@ -5,7 +5,7 @@
       file:
         path: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
         state: directory
-        mode: "2755" # Allow read/execute for web server
+        mode: "2755" # Set "sticky" bit
         owner: root
         group: root
       loop: "{{ letsencryptnginx_websites }}"
@@ -20,6 +20,11 @@
         update: yes # Always update to latest
       loop: "{{ letsencryptnginx_websites }}"
       register: git_clone
+      when: item.repo is defined
+
+    - name: Fix file and directory permissions
+      command: chmod -R u=rwX,g=rX,o=rX "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+      loop: "{{ letsencryptnginx_websites }}"
       when: item.repo is defined
 
     - name: Run website commands
