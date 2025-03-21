@@ -1,143 +1,104 @@
 # ansible-role-letsencrypt-nginx
 
-An [Ansible](https://www.ansible.com/) role to provision an [NGINX HTTP server](https://www.nginx.com) as a
-[Docker container](https://hub.docker.com/_/nginx) on Ubuntu and manage auto-renewal of HTTPS certificates using
-[Let's Encrypt](https://letsencrypt.org/).
+An [Ansible](https://www.ansible.com/) role that provisions NGINX as a Docker container on Ubuntu with automated HTTPS certificate management via Let's Encrypt.
 
-## Requirements
+## Overview
 
-* [Ansible](https://www.ansible.com/) >= 2.9.0
-* Docker installed on the target host
-* Ubuntu operating system
+This role automates the deployment and configuration of NGINX in a Docker container, with integrated Let's Encrypt certificate management. It supports multiple websites, authentication options, and proxy configurations.
 
 ## Features
 
-* Automatic HTTPS certificate provisioning and renewal via Let's Encrypt
-* Support for multiple websites/domains
-* Basic authentication support
-* Proxy configuration with WebSocket support
-* Self-signed certificate option
-* Cloudflare DNS integration
-* Network access control
+- Automated HTTPS certificate provisioning and renewal
+- Multiple website/domain support
+- Basic authentication configuration
+- Proxy setup with WebSocket support
+- Self-signed certificate option
+- Cloudflare DNS integration
+- Network access control
 
-## Variables
+## Requirements
+
+- Ansible 2.9 or higher
+- Ubuntu operating system
+- Docker installed on target host
+
+## Role Variables
+
+See [default values](./defaults/main.yml).
 
 ### Required Variables
 
-* `letsencryptnginx_account_email`: Email address for Let's Encrypt account registration
-* `letsencryptnginx_acme_directory_url`: Let's Encrypt API endpoint URL
-  * Testing: `https://acme-staging-v02.api.letsencrypt.org/directory`
-  * Production: `https://acme-v02.api.letsencrypt.org/directory`
+- `letsencryptnginx_account_email`: Email for Let's Encrypt registration
+- `letsencryptnginx_acme_directory_url`: Let's Encrypt API endpoint
 
-### Optional Variables
+### Website Configuration
 
-See [default values](./defaults/main.yml) for complete list of configuration options.
-
-## Website Configuration Options
-
-Each website in `letsencryptnginx_websites` supports the following options:
-
-* `domain`: (Required) Domain name for the website
-* `permit_untrusted_networks`: (Optional) Allow access from untrusted networks (default: false)
-* `trusted_networks`: (Optional) List of CIDR ranges for trusted networks
-* `use_selfsigned_certificate`: (Optional) Use self-signed certificate instead of Let's Encrypt
-* `repo`: (Optional) Git repository containing website content
-* `credentials`: (Optional) Basic authentication configuration
-* `locations`: (Optional) Custom location configurations
-* `cloudflare_api_token`: (Optional) Cloudflare API token for DNS verification
-* `cloudflare_api_zone`: (Optional) Cloudflare zone name
-* `proxy_port`: (Optional) Port number for proxy configuration
-* `websocket_path`: (Optional) Path for WebSocket support
-
-## Example Configuration
+Each website in `letsencryptnginx_websites` supports:
 
 ```yaml
-letsencryptnginx_account_email: info@example.com
-letsencryptnginx_acme_directory_url: https://acme-v02.api.letsencrypt.org/directory
-
 letsencryptnginx_websites:
-  # Basic public website
-  - domain: public.example.com
-    permit_untrusted_networks: true
-    repo: https://github.com/andornaut/public.example.com.git
-
-  # Self-signed certificate example
-  - domain: public404selfsigned.example.com
-    permit_untrusted_networks: true
+  # Returns HTTP response code 404
+  - domain: subdomain.example.com
     use_selfsigned_certificate: true
 
-  # Basic authentication example
-  - domain: basicauth.example.com
-    credentials:
-      - username: hello
-        password: world
-    locations:
-      - src: /inherit-credentials
-        dest: /var/www/inherit-credentials
-      - src: /custom-credentials
-        dest: /var/www/custom-credentials
-        credentials:
-          - username: foo
-            password: bar
-            file_basename: basicauth.example.com.nas
-    permit_untrusted_networks: true
-    trusted_networks:
-      - 192.168.0.0/16
+  - domain: example.com
+    repo: https://github.com/andornaut/example.com.git
 
-  # Proxy configuration with Cloudflare DNS
-  - domain: privateproxy.example.com
+  - domain: httpbasic.example.com
+    http_basic_authentication:
+      allowed_networks:
+        - 192.168.0.0/16
+      credentials:
+        - username: hello
+          password: world
+    locations:
+      - src: /nas
+        dest: /media/nas
+
+  - domain: proxy.example.com
     cloudflare_api_token: token
     cloudflare_api_zone: example.com
     csr_commonName: *.example.com
-    permit_untrusted_networks: false
     proxy_port: 8123
     proxy_redirect_http: False
     proxy_remove_authorization_header: False
     websocket_path: /api/websocket
 ```
 
-## Troubleshooting
+## Usage
 
-### Restart Nginx after a folder is mounted
+1. Configure required variables
+2. Define website configurations
+3. Run the playbook
 
-If you need Nginx to restart after a specific mount point is available:
+### Systemd Integration
 
-1. Create a Systemd unit file:
+For special mount dependencies, create a service:
 
-   ```bash
-   sudo systemctl edit --force --full restart-nginx-after-nas.service
-   ```
+```ini
+[Unit]
+Description=Restart Nginx after mount
+Requires=media-nas.mount
+After=media-nas.mount
 
-2. Add the following configuration:
+[Service]
+Type=oneshot
+ExecStartPre=sleep 30
+ExecStart=docker restart nginx
+RemainAfterExit=true
 
-   ```ini
-   [Unit]
-   Description=Restart the Nginx Docker container after /media/nas has been mounted
-   Requires=media-nas.mount
-   After=media-nas.mount
+[Install]
+WantedBy=media-nas.mount
+```
 
-   [Service]
-   Type=oneshot
-   ExecStartPre=sleep 30
-   ExecStart=docker restart nginx
-   RemainAfterExit=true
+Then, enable and start the service:
 
-   [Install]
-   WantedBy=media-nas.mount
-   ```
-
-3. Enable and start the service:
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable restart-nginx-after-nas.service
-   sudo systemctl restart restart-nginx-after-nas.service
-   ```
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable restart-nginx-after-nas.service
+sudo systemctl restart restart-nginx-after-nas.service
+```
 
 ## License
 
-MIT
-
-## Author
-
-[andornaut](https://github.com/andornaut)
+MIT License. See [LICENSE](../../LICENSE) for full details.
