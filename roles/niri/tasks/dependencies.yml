@@ -1,0 +1,141 @@
+---
+- name: Install system dependencies
+  block:
+    - name: Install system packages
+      ansible.builtin.apt:
+        install_recommends: false
+        name:
+          - clang
+          - gcc-14
+          - g++-14
+          #- libdbus-1-dev  # A newer version is installed in hypr.yml
+          - libdisplay-info-dev
+          - libegl1-mesa-dev
+          - libgbm-dev
+          - libinput-dev
+          - libpango1.0-dev
+          - libpipewire-0.3-dev
+          - libseat-dev
+          - libsystemd-dev
+          - libudev-dev
+          - libwayland-dev
+          - libxcb-cursor-dev
+          - libxkbcommon-dev
+          - wayland-protocols
+          - wayland-protocols-amdgpu
+          - wayland-scanner++
+          - wl-clipboard
+          - xdg-desktop-portal
+          - xdg-desktop-portal-gnome
+          - xdg-desktop-portal-gtk
+          - xwayland
+          - xwayland-run
+
+          # hypr dependencies
+          - g++-14
+          - gcc-14
+          - libmagic-dev
+          - libpugixml-dev
+          # Must not be installed, b/c it conflicts with v2.1.0 which is installed from source
+          #- libsdbus-c++-dev
+          - libspng-dev
+        state: latest
+        update_cache: true
+      become: true
+
+    - name: Configure GCC alternatives
+      community.general.alternatives:
+        name: "{{ item }}"
+        path: "/usr/bin/{{ item }}-14"
+        link: "/usr/bin/{{ item }}"
+        state: selected
+      loop:
+        - gcc
+        - g++
+      become: true
+  tags: [packages]
+
+- name: Install libsdbus
+  block:
+    - name: Create a temporary directory for libsdbus
+      ansible.builtin.tempfile:
+        state: directory
+      register: libsdbus_tmp
+
+    - name: Get the latest version of libsdbus
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
+        return_content: yes
+      register: libsdbus_version
+
+    - name: Download and unarchive libsdbus {{ libsdbus_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}.tar.gz
+        dest: "{{ libsdbus_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Create build directory for libsdbus
+      ansible.builtin.file:
+        path: "{{ libsdbus_tmp.path }}/build"
+        state: directory
+        mode: "0755"
+
+    # Workaround: Install into /usr instead of the default of /usr/local
+    # https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
+    - name: Build libsdbus (1/2)
+      ansible.builtin.shell:
+        cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr ${OTHER_CONFIG_FLAGS}
+        chdir: "{{ libsdbus_tmp.path }}/build"
+
+    - name: Build libsdbus (2/2)
+      ansible.builtin.shell:
+        cmd: cmake --build .
+        chdir: "{{ libsdbus_tmp.path }}/build"
+
+    - name: Install libsdbus
+      ansible.builtin.command:
+        cmd: cmake --build . --target install
+        chdir: "{{ libsdbus_tmp.path }}/build"
+      become: true
+  tags: [libsdbus]
+
+- name: Install wayland-protocols
+  block:
+    - name: Get latest release info from GitLab API
+      ansible.builtin.uri:
+        url: "https://gitlab.freedesktop.org/api/v4/projects/2891/releases"
+        method: GET
+        return_content: yes
+      register: wayland_protocols_info
+
+    - name: Set wayland-protocols variables
+      ansible.builtin.set_fact:
+        wayland_protocols_version: "{{ wayland_protocols_info.json[0].tag_name }}"
+        wayland_protocols_download_url: "{{ wayland_protocols_info.json[0].assets.sources | selectattr('format', 'equalto', 'tar.gz') | map(attribute='url') | first }}"
+
+    - name: Delete old wayland-protocols directory
+      ansible.builtin.file:
+        path: "/usr/share/wayland-protocols"
+        state: absent
+      become: true
+
+    - name: Create fresh wayland-protocols directory
+      ansible.builtin.file:
+        path: "/usr/share/wayland-protocols"
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Download and unarchive Wayland Protocols {{ wayland_protocols_version }}
+      ansible.builtin.unarchive:
+        src: "{{ wayland_protocols_download_url }}"
+        dest: /usr/share/wayland-protocols
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+      become: true
+  tags: [wayland]

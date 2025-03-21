@@ -1,0 +1,13 @@
+---
+hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
+
+hypr_cmake_configure: >-
+  cmake
+  --no-warn-unused-cli
+  -DCMAKE_BUILD_TYPE:STRING=Release
+  -DCMAKE_PREFIX_PATH:PATH={{ ansible_env.HOME }}/.local
+  -DCMAKE_INSTALL_PREFIX:PATH={{ ansible_env.HOME }}/.local
+  -S .
+  -B build
+
+hypr_cmake_install: "cmake --install build"
