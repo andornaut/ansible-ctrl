@@ -7,31 +7,66 @@ An [Ansible](https://www.ansible.com/) role to provision an [NGINX HTTP server](
 ## Requirements
 
 * [Ansible](https://www.ansible.com/) >= 2.9.0
+* Docker installed on the target host
+* Ubuntu operating system
+
+## Features
+
+* Automatic HTTPS certificate provisioning and renewal via Let's Encrypt
+* Support for multiple websites/domains
+* Basic authentication support
+* Proxy configuration with WebSocket support
+* Self-signed certificate option
+* Cloudflare DNS integration
+* Network access control
 
 ## Variables
 
-See [default values](./defaults/main.yml).
+### Required Variables
 
-## Example configuration
+* `letsencryptnginx_account_email`: Email address for Let's Encrypt account registration
+* `letsencryptnginx_acme_directory_url`: Let's Encrypt API endpoint URL
+  * Testing: `https://acme-staging-v02.api.letsencrypt.org/directory`
+  * Production: `https://acme-v02.api.letsencrypt.org/directory`
 
-Be sure to set `letsencryptnginx_acme_directory_url` for production use.
+### Optional Variables
+
+See [default values](./defaults/main.yml) for complete list of configuration options.
+
+## Website Configuration Options
+
+Each website in `letsencryptnginx_websites` supports the following options:
+
+* `domain`: (Required) Domain name for the website
+* `permit_untrusted_networks`: (Optional) Allow access from untrusted networks (default: false)
+* `trusted_networks`: (Optional) List of CIDR ranges for trusted networks
+* `use_selfsigned_certificate`: (Optional) Use self-signed certificate instead of Let's Encrypt
+* `repo`: (Optional) Git repository containing website content
+* `credentials`: (Optional) Basic authentication configuration
+* `locations`: (Optional) Custom location configurations
+* `cloudflare_api_token`: (Optional) Cloudflare API token for DNS verification
+* `cloudflare_api_zone`: (Optional) Cloudflare zone name
+* `proxy_port`: (Optional) Port number for proxy configuration
+* `websocket_path`: (Optional) Path for WebSocket support
+
+## Example Configuration
 
 ```yaml
 letsencryptnginx_account_email: info@example.com
-
-# Production URL
 letsencryptnginx_acme_directory_url: https://acme-v02.api.letsencrypt.org/directory
 
 letsencryptnginx_websites:
+  # Basic public website
   - domain: public.example.com
     permit_untrusted_networks: true
     repo: https://github.com/andornaut/public.example.com.git
 
-  # Returns HTTP status code 404, because no destinations are configured
+  # Self-signed certificate example
   - domain: public404selfsigned.example.com
     permit_untrusted_networks: true
     use_selfsigned_certificate: true
 
+  # Basic authentication example
   - domain: basicauth.example.com
     credentials:
       - username: hello
@@ -49,6 +84,7 @@ letsencryptnginx_websites:
     trusted_networks:
       - 192.168.0.0/16
 
+  # Proxy configuration with Cloudflare DNS
   - domain: privateproxy.example.com
     cloudflare_api_token: token
     cloudflare_api_zone: example.com
@@ -64,13 +100,15 @@ letsencryptnginx_websites:
 
 ### Restart Nginx after a folder is mounted
 
-1. Create a Systemd unit file
+If you need Nginx to restart after a specific mount point is available:
+
+1. Create a Systemd unit file:
 
    ```bash
    sudo systemctl edit --force --full restart-nginx-after-nas.service
    ```
 
-1. Enter the following:
+2. Add the following configuration:
 
    ```ini
    [Unit]
@@ -88,5 +126,18 @@ letsencryptnginx_websites:
    WantedBy=media-nas.mount
    ```
 
-1. Run `sudo systemctl daemon-reload`
-1. Run `sudo systemctl restart restart-nginx-after-nas.service`
+3. Enable and start the service:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable restart-nginx-after-nas.service
+   sudo systemctl restart restart-nginx-after-nas.service
+   ```
+
+## License
+
+MIT
+
+## Author
+
+[andornaut](https://github.com/andornaut)

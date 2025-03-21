@@ -6,15 +6,22 @@
     #- base
     #- docker
     - letsencrypt-nginx
+  tags:
+    - nginx
+    - letsencrypt
 
-- name: Set Let's Encrypt renewal crontab
+- name: Configure Let's Encrypt auto-renewal
   hosts: tron
   tasks:
-    - cron:
-        name: webservers
-        cron_file: /etc/cron.d/ansible-role-letsencrypt-nginx
+    - name: Setup renewal cron job
+      ansible.builtin.cron:
+        name: "Let's Encrypt certificate renewal"
+        cron_file: ansible-role-letsencrypt-nginx
         user: root
         minute: "11"
         hour: "22"
-        job: cd {{ playbook_dir }} && ansible-playbook webservers.yml > /dev/null
+        job: >-
+          cd {{ playbook_dir }} &&
+          ansible-playbook webservers.yml --tags letsencrypt
+          >> /var/log/letsencrypt-renewal.log 2>&1
       become: true

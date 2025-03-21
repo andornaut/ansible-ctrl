@@ -1,50 +1,77 @@
 ---
-- name: Create configuration directory
+- name: Create configuration directories
   file:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}"
+    path: "{{ item }}"
     state: directory
+    mode: "0750"
+    owner: root
+    group: root
+  loop:
+    - "{{ letsencryptnginx_docker_required_volumes.config }}"
+    - "{{ letsencryptnginx_docker_required_volumes.config }}/partial"
   become: true
 
-- name: Copy "partial" configurations
+- name: Find existing .conf files
+  find:
+    paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
+    patterns: "*.conf"
+    file_type: file
+    use_regex: no
+    recurse: no # Don't look in subdirectories
+  register: find_conf_files
+  become: true
+
+- name: Delete existing .conf files
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ find_conf_files.files }}"
+  become: true
+  when: find_conf_files.matched > 0
+
+- name: Copy partial configurations
   copy:
     src: "{{ item }}"
     dest: "{{ letsencryptnginx_docker_required_volumes.config }}/partial/"
+    mode: "0640"
+    owner: root
+    group: root
   loop:
     - common_site_configuration
     - proxy_params
     - selfsigned_certificate
   become: true
 
-- name: Find *.conf files
-  find:
-    paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
-    patterns: "*.conf"
-  register: find_conf_files
-
-# Will always cause changes
-- name: Delete *.conf files
-  file:
-    path: "{{ item['path'] }}"
-    state: absent
-  with_items: "{{ find_conf_files.files }}"
-  become: true
-
 - name: Copy default site config
   copy:
     src: 00-default.conf
-    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/"
+    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/00-default.conf"
+    mode: "0640"
+    owner: root
+    group: root
+    force: yes # Overwrite if exists
   become: true
 
-- name: Check if CRTs exist
+- name: Check if SSL certificates exist
   stat:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.crt"
+    path: >-
+      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{
+      item.csr_common_name | default(item.domain) | replace('*', '_')
+      }}.crt
   loop: "{{ letsencryptnginx_websites }}"
   register: check_crts
   become: true
 
-- name: Copy site configurations
+- name: Generate site configurations
   template:
     src: site.j2
-    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/{{ item.item.domain }}.conf"
+    dest: >-
+      {{ letsencryptnginx_docker_required_volumes.config }}/{{
+      item.item.domain }}.conf
+    mode: "0640"
+    owner: root
+    group: root
+    force: yes # Overwrite if exists
   loop: "{{ check_crts.results }}"
   become: true
+  notify: Restart nginx

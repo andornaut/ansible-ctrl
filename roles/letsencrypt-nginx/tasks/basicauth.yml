@@ -3,15 +3,24 @@
   file:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
     state: directory
+    mode: "0750"
+    owner: root
+    group: root
   become: true
 
-- name: Configure basicauth .htpasswd files
+- name: Configure basicauth .htpasswd files for main domains
   htpasswd:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.domain }}.htpasswd"
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
-    mode: "0644"
-  when: item.1 is defined
+    mode: "0640"
+    owner: root
+    group: root
+    create: yes
+  when:
+    - item.1 is defined
+    - item.1.username is defined
+    - item.1.password is defined
   with_subelements:
     - "{{ letsencryptnginx_websites }}"
     - credentials
@@ -23,10 +32,38 @@
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.file_basename }}.htpasswd"
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
-    mode: "0644"
-  when: item.1 is defined
+    mode: "0640"
+    owner: root
+    group: root
+    create: yes
+  when:
+    - item.1 is defined
+    - item.1.username is defined
+    - item.1.password is defined
+    - item.0.file_basename is defined
   with_subelements:
     - "{{ letsencryptnginx_websites | selectattr('aliases','defined') | map(attribute='aliases') | flatten }}"
     - credentials
     - skip_missing: True
+  become: true
+
+- name: Find all .htpasswd files
+  find:
+    paths: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
+    patterns: "*.htpasswd"
+  register: existing_htpasswd_files
+  become: true
+
+- name: Get list of valid htpasswd filenames
+  set_fact:
+    valid_htpasswd_files: >-
+      {{ (letsencryptnginx_websites | map(attribute='domain') | list) +
+         (letsencryptnginx_websites | selectattr('aliases','defined') | map(attribute='aliases') | flatten | map(attribute='file_basename') | list) }}
+
+- name: Remove obsolete .htpasswd files
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  when: item.path | basename | splitext | first not in valid_htpasswd_files
+  with_items: "{{ existing_htpasswd_files.files }}"
   become: true
