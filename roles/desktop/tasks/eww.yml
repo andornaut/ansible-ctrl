@@ -58,5 +58,3 @@
     enabled: true
     scope: user
     state: started
-  become: true
-  become_user: "{{ desktop_systemd_username }}"
