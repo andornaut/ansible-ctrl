@@ -1,16 +1,18 @@
 # HTTP redirect to HTTPS
 server {
     listen 80;
+    listen [::]:80;  # Add IPv6 support
     server_name {{ item.item.domain }} www.{{ item.item.domain }};
     access_log off;
     error_log off;
     log_not_found off;
 
     # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Content-Security-Policy "default-src 'self';" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
 
     # Redirect all HTTP traffic to HTTPS
     location / {
@@ -31,6 +33,8 @@ server {
 server {
     listen 443 quic;
     listen 443 ssl http2;
+    listen [::]:443 quic;
+    listen [::]:443 ssl http2;
     server_name www.{{ item.item.domain }};
     access_log off;
     error_log off;
@@ -45,11 +49,13 @@ server {
 {% endif %}
 
     # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Content-Security-Policy "default-src 'self'; upgrade-insecure-requests;" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    # TODO: Make optional, b/c this breaks on self-signed certificates
+    #dd_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
     # Redirect www to non-www
     return 301 https://{{ item.item.domain }}$request_uri;
@@ -59,6 +65,8 @@ server {
 server {
     listen 443 quic;
     listen 443 ssl http2;
+    listen [::]:443 quic;
+    listen [::]:443 ssl http2;
     server_name {{ item.item.domain }};
 
     # Access control configuration
@@ -70,22 +78,22 @@ server {
 
     # Always allow localhost
     allow 127.0.0.1/32;
-    allow ::1/128;  # IPv6 localhost
+    allow ::1/128;
 
     # Allow trusted networks
 {% for network in item.item.trusted_networks | default([]) %}
     allow {{ network }};
 {% endfor %}
 
-    # Deny access if required conditions aren't met
 {% if not item.item.permit_untrusted_networks | default(False)
         or item.item.credentials | default(False)
         or item.item.trusted_network | default(False) %}
+    # Deny access if required conditions aren't met
     deny all;
 {% endif %}
 
-    # Basic auth configuration
 {% if item.item.credentials | default(False) %}
+    # Basic auth configuration
     auth_basic "Restricted Content";
     auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ item.item.domain }}.htpasswd;
 {% endif %}
@@ -108,16 +116,18 @@ server {
 {% endif %}
 
     # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Content-Security-Policy "default-src 'self'; upgrade-insecure-requests;" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    # TODO: Make optional, b/c this breaks on self-signed certificates
+    #add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
     # Main location configuration
     location / {
 {% if item.item.proxy_port is defined %}
-        include /etc/nginx/conf.d/partial/proxy_params;
+        include /etc/nginx/conf.d/partial/common_proxy_configuration;
 
 {% if item.item.proxy_remove_authorization_header | default(False) %}
         # Remove Authorization header for specific services (e.g., Unifi)
@@ -138,35 +148,23 @@ server {
 {% endif %}
 {% endif %}
 
-{% if item.item.websocket_enabled | default(False) %}
+{% if not item.item.websocket_path | default(False) and item.item.websocket_enabled | default(False) %}
         # WebSocket configuration
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $http_connection;
-
-        proxy_connect_timeout 5s;
-        # By default, the connection will be closed if the proxied server
-        # does not transmit any data within 60 seconds. This timeout can
-        # be increased with the proxy_read_timeout directive
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 30s;
 {% endif %}
     }
 
 {% if item.item.websocket_path | default(False) %}
     # Dedicated WebSocket location
     location {{ item.item.websocket_path }} {
+        include /etc/nginx/conf.d/partial/common_proxy_configuration;
+
         proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ item.item.websocket_path }};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $http_connection;
-
-        proxy_connect_timeout 5s;
-        # By default, the connection will be closed if the proxied server
-        # does not transmit any data within 60 seconds. This timeout can
-        # be increased with the proxy_read_timeout directive
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 30s;
     }
 {% endif %}
 
@@ -176,15 +174,18 @@ server {
         alias {{ location.dest }};
         autoindex on;
 
+        # Access control configuration
 {% if item.item.permit_untrusted_networks | default(False) %}
         satisfy any;
 {% else %}
         satisfy all;
 {% endif %}
 
+        # Always allow localhost
         allow 127.0.0.1/32;
-        allow ::1/128;  # IPv6 localhost
+        allow ::1/128;
 
+        # Allow trusted networks
 {% for network in item.item.trusted_networks | default([]) %}
         allow {{ network }};
 {% endfor %}
@@ -193,13 +194,16 @@ server {
         or location.credentials | default(False)
         or item.item.credentials | default(False)
         or item.item.trusted_network | default(False) %}
+        # Deny access if required conditions aren't met
         deny all;
 {% endif %}
 
 {% if location.credentials | default(False) %}
+        # Basic auth configuration
         auth_basic "Restricted Content";
         auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ location.credentials.file_basename }}.htpasswd;
 {% elif item.item.credentials | default(False) %}
+        # Basic auth configuration
         auth_basic "Restricted Content";
         auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ item.item.domain }}.htpasswd;
 {% endif %}

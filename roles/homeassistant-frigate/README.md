@@ -6,52 +6,129 @@ An [Ansible](https://www.ansible.com/) role that provisions
 [Mosquitto](https://mosquitto.org/)
 [Docker](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/) containers.
 
+## Overview
+
+This role automates the deployment and configuration of a complete home automation stack including:
+
+- Home Assistant for core automation
+- Frigate NVR for AI-powered camera management
+- Mosquitto MQTT broker for device communication
+- Optional local LLM capabilities
+- Optional voice assistant features
+
 [![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)
 [![frigate](./screenshots/frigate-small.png)](./screenshots/frigate.png)
 
-## LLM
+## Features
 
-* [ChatGPT](https://chatgpt.com/)
-* [Google AI studio](https://aistudio.google.com/prompts/new_chat)
-* [Home LLM](https://github.com/acon96/home-llm)
-* [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
-* [Hugging Face](https://huggingface.co/)
-* [LibreChat](https://www.librechat.ai/)
-* [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
-* [LocalAI](https://localai.io/basics/getting_started/)
-* [Ollama](https://ollama.com/)
-* [OpenWebUI](https://openwebui.com/)
-* [Speaches](https://speaches.ai/) - An OpenAI API-compatible server supporting streaming transcription, translation, and speech generation
+- Complete home automation platform with Home Assistant
+- AI-powered video processing with Frigate
+- MQTT message broker via Mosquitto
+- Optional components:
+  - Local LLM support
+  - Voice assistant capabilities
+- Hardware support for:
+  - Coral.ai USB accelerator
+  - Home Assistant SkyConnect
+  - AirGradient sensors
+  - Various smart home devices
+- Network Video Recorder (NVR) with AI object detection
+- Extensive custom card and integration support
 
-### Make `/dev/kfd` (AMD GPU compute) writable from within the container
+## Requirements
 
-* [AMD GPU driver installation](https://github.com/andornaut/til/blob/master/docs/ubuntu.md#install-amd-gpu-dkms-kernel-module-driver)
+- Ansible 2.9 or higher
+- Ubuntu operating system
+- Docker and Docker Compose
 
-Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "video",
-because the Ollama container doesn't have a "render" group,
-and therefore docker compose `group_add` can't add a valid "render" group ID.
+## Role Variables
 
+See [default values](./defaults/main.yml) for complete configuration options.
+
+Key variables include:
+
+```yaml
+# Enable optional components
+homeassistantfrigate_install_llm: false
+homeassistantfrigate_install_voice: false
+
+# Core service ports
+homeassistantfrigate_port: 8123
+homeassistantfrigate_frigate_port: 5000
 ```
-KERNEL=="kfd", GROUP="video", MODE="0660"
-```
 
-Recreate `/dev/kfd` by running:
+## Configuration
+
+### Home Assistant
+
+- [Example automation.yaml](./examples/homeassistant/automations.yaml)
+- [Example configuration.yaml](./examples/homeassistant/configuration.yaml)
+
+Test configuration:
 
 ```bash
-sudo udevadm control --reload
-sudo udevadm trigger
+docker exec homeassistant hass --config /config --script check_config
+docker exec homeassistant hass --config /config --script check_config --secrets
 ```
 
-### Models
+### Frigate
 
-* [Models library](https://ollama.com/library)
-  * [gemma2:2b](https://ollama.com/library/gemma2)
-  * [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
-* [Models that support "tools"](https://ollama.com/search?c=tools)
-  * [llama3.1:8b](https://ollama.com/library/llama3.1:8b)
-  * [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
-  * [mistral:7b](https://ollama.com/library/mistral:7b)
-  * [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b)
+- [Example config.yml](./examples/frigate/config.yml)
+- [GitHub issue #311](https://github.com/blakeblackshear/frigate/issues/311)
+
+### HACS Installation
+
+Install [HACS](https://hacs.xyz/docs/setup/download):
+
+```bash
+docker exec -ti homeassistant \
+    bash -c 'wget -O - https://get.hacs.xyz | bash -'
+```
+
+### Nginx Configuration
+
+[ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx) variables:
+
+```yaml
+# Given:
+#homeassistant_port: 8080
+#homeassistant_frigate_port: 8081
+
+letsencryptnginx_websites:
+  - domain: ha.example.com
+    proxy_port: 8080
+    websocket_path: /api/websocket
+  - domain: frigate.example.com
+    proxy_port: 8081
+    websocket_enabled: true
+```
+
+## Components
+
+### LLM
+
+- [ChatGPT](https://chatgpt.com/)
+- [Google AI studio](https://aistudio.google.com/prompts/new_chat)
+- [Home LLM](https://github.com/acon96/home-llm)
+- [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
+- [Hugging Face](https://huggingface.co/)
+- [LibreChat](https://www.librechat.ai/)
+- [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
+- [LocalAI](https://localai.io/basics/getting_started/)
+- [Ollama](https://ollama.com/)
+- [OpenWebUI](https://openwebui.com/)
+- [Speaches](https://speaches.ai/) - An OpenAI API-compatible server supporting streaming transcription, translation, and speech generation
+
+#### Models
+
+- [Models library](https://ollama.com/library)
+  - [gemma2:2b](https://ollama.com/library/gemma2)
+  - [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
+- [Models that support "tools"](https://ollama.com/search?c=tools)
+  - [llama3.1:8b](https://ollama.com/library/llama3.1:8b)
+  - [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
+  - [mistral:7b](https://ollama.com/library/mistral:7b)
+  - [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b)
 
 Install with:
 
@@ -59,51 +136,50 @@ Install with:
 docker exec ollama ollama pull mistral:7b
 ```
 
-## Voice Assistant
+### Voice Assistant
 
-* [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/)
-* [Voice Preview Edition (hardware) documentation](https://voice-pe.home-assistant.io/documentation/)
-* [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
-* [$13 voice assistant for Home Assistant](https://www.home-assistant.io/voice_control/thirteen-usd-voice-remote/) - Supports custom wake words with microWakeWord
+- [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/)
+- [Voice Preview Edition (hardware) documentation](https://voice-pe.home-assistant.io/documentation/)
+- [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
+- [$13 voice assistant for Home Assistant](https://www.home-assistant.io/voice_control/thirteen-usd-voice-remote/) - Supports custom wake words with microWakeWord
 
-### Home Assistant integrations
+#### Home Assistant integration
 
-* [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
-* [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)
-  * [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
-* [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
+- [Google Generative AI Conversation](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)
+- [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)
+  - [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
+- [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 
-#### Services
+#### Software
 
-* [microWakeWord](https://github.com/kahrendt/microWakeWord)
-  * [Docker image](https://hub.docker.com/r/rhasspy/wyoming-microwakeword)
-  * [model collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by Home Assistant Voice Preview (hardware)
-* [openWakeWord](https://github.com/dscripka/openWakeWord)
-  * [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
-  * [Docker image](https://github.com/rhasspy/wyoming-openwakeword)
-  * [ipython notebook to train wakewords](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing#scrollTo=qgaKWIY6WlJ1)
-  * [model collection](https://github.com/fwartner/home-assistant-wakewords-collection)
-* [Piper](https://github.com/rhasspy/piper)
-  * [Docker image](https://github.com/rhasspy/wyoming-piper)
-  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/piper/DOCS.md)
-  * [Voices](https://rhasspy.github.io/piper-samples/)
-* [Whisper](https://github.com/openai/whisper)
-  * [Docker image](https://github.com/rhasspy/wyoming-faster-whisper)
-  * [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/whisper/DOCS.md)
+- [microWakeWord](https://github.com/kahrendt/microWakeWord)
+  - [Docker image](https://hub.docker.com/r/rhasspy/wyoming-microwakeword)
+  - [model collection](https://github.com/esphome/micro-wake-word-models/tree/main/models/v2) - Used by Home Assistant Voice Preview (hardware)
+- [openWakeWord](https://github.com/dscripka/openWakeWord)
+  - [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
+  - [Docker image](https://github.com/rhasspy/wyoming-openwakeword)
+  - [ipython notebook to train wakewords](https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb?usp=sharing#scrollTo=qgaKWIY6WlJ1)
+  - [model collection](https://github.com/fwartner/home-assistant-wakewords-collection)
+- [Piper](https://github.com/rhasspy/piper)
+  - [Docker image](https://github.com/rhasspy/wyoming-piper)
+  - [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/piper/DOCS.md)
+  - [Voices](https://rhasspy.github.io/piper-samples/)
+- [Whisper](https://github.com/openai/whisper)
+  - [Docker image](https://github.com/rhasspy/wyoming-faster-whisper)
+  - [Home Assistant docs](https://github.com/home-assistant/addons/blob/master/whisper/DOCS.md)
 
 ## Hardware
 
-* [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
-* [Home Assistant SkyConnect USB Stick](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
+- [Coral.ai USB accelerator](https://coral.ai/products/accelerator/)
 
 ### AirGradient
 
-* [Official website](https://www.airgradient.com/)
-  * [Dashboard](https://app.airgradient.com/dashboard)
-  * [Integrations](https://www.airgradient.com/integrations/)
-  * [Online firmware flashing tool](https://www.airgradient.com/documentation/factory/)
-* [Official Home Assistant integration](https://www.home-assistant.io/integrations/airgradient)
-* [Alternative Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
+- [Official website](https://www.airgradient.com/)
+  - [Dashboard](https://app.airgradient.com/dashboard)
+  - [Integrations](https://www.airgradient.com/integrations/)
+  - [Online firmware flashing tool](https://www.airgradient.com/documentation/factory/)
+- [Official Home Assistant integration](https://www.home-assistant.io/integrations/airgradient)
+- [Alternative Home Assistant integration](https://github.com/MallocArray/airgradient_esphome)
 
 #### Configuring AirGradient for Home Assistant
 
@@ -129,12 +205,33 @@ docker exec ollama ollama pull mistral:7b
 1. Navigate to the ESPHome integration on your Home Assistant installation
 1. Click "Add Device" and follow the prompts to setup your new airgradient device
 
+### AMD GPU
+
+Make `/dev/kfd` (AMD GPU compute) writable from within the container:
+
+- [AMD GPU driver installation](https://github.com/andornaut/til/blob/master/docs/ubuntu.md#install-amd-gpu-dkms-kernel-module-driver)
+
+Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "video",
+because the Ollama container doesn't have a "render" group,
+and therefore docker compose `group_add` can't add a valid "render" group ID.
+
+```
+KERNEL=="kfd", GROUP="video", MODE="0660"
+```
+
+Recreate `/dev/kfd` by running:
+
+```bash
+sudo udevadm control --reload
+sudo udevadm trigger
+```
+
 ### Bluetooth
 
 #### CSR8510 adapter
 
-* [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
-* [Home Assistant/bluetooth](https://www.home-assistant.io/integrations/bluetooth)
+- [dbus-broker](https://github.com/bus1/dbus-broker/wiki)
+- [Home Assistant/bluetooth](https://www.home-assistant.io/integrations/bluetooth)
 
 #### M5Stack bluetooth proxy
 
@@ -151,19 +248,20 @@ Installation
 
 ### Home Assistant Connect ZBT-1 (Zigbee and Thread hub)
 
-* [Official documentation](https://connectzbt1.home-assistant.io/)
+- [Hardware](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
+- [Official documentation](https://connectzbt1.home-assistant.io/)
 
 ### ratgdo - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
-* [ratgdo](https://paulwieland.github.io/ratgdo/)
-* [ratgdo-compatible alternative hardware](https://www.gelidus.ca/product/gelidus-research-ratgdo-alternative-board-v2-usb-c/)
+- [ratgdo](https://paulwieland.github.io/ratgdo/)
+- [ratgdo-compatible alternative hardware](https://www.gelidus.ca/product/gelidus-research-ratgdo-alternative-board-v2-usb-c/)
 Getting started
 
 1. Choose between:
-   * (Option A) Flash the MQTT firmware for "ratgdo v2.51, Security + 1.0, 2.0 & Dry Contact" using [this web installer](https://paulwieland.github.io/ratgdo/flash.html)
-     * [Download MQTT firmware](https://github.com/ratgdo/mqtt-ratgdo)
-     * The webapp will prompt you to configure WiFi
-   * (Option B) Flash the ESPHome firmware using [this web installer](https://ratgdo.github.io/esphome-ratgdo/)
+   - (Option A) Flash the MQTT firmware for "ratgdo v2.51, Security + 1.0, 2.0 & Dry Contact" using [this web installer](https://paulwieland.github.io/ratgdo/flash.html)
+     - [Download MQTT firmware](https://github.com/ratgdo/mqtt-ratgdo)
+     - The webapp will prompt you to configure WiFi
+   - (Option B) Flash the ESPHome firmware using [this web installer](https://ratgdo.github.io/esphome-ratgdo/)
 1. Navigate to the admin web interface
 1. Set a MQTT IP and port:1883. You must use an IP not a hostname.
 1. Leave the "Home Assistant Discovery Prefix" at its default "homeassistant"
@@ -181,10 +279,11 @@ Getting started
      action: toggle
    show_state: true
    ```
+
 ### Roborock vacuums
 
-* [Mop control](https://community.home-assistant.io/t/s7-mop-control/317393/42)
-* [Commands](https://github.com/marcelrv/XiaomiRobotVacuumProtocol?tab=readme-ov-file)
+- [Mop control](https://community.home-assistant.io/t/s7-mop-control/317393/42)
+- [Commands](https://github.com/marcelrv/XiaomiRobotVacuumProtocol?tab=readme-ov-file)
 
 [Custom mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/custom_mode.md)
 
@@ -242,15 +341,29 @@ Mop mode | Description
 302 | Custom
 303 | Deep+
 
+### Sensi Thermostat
+
+- [/r/homeassistant/ post](https://github.com/andornaut/ansible-role-homeassistant-frigate/edit/main/README.md)
+
+Setup HomeKit:
+
+1. Reset the thermostat to factory settings
+1. Begin the thermostat setup process via the Sensi app
+1. Prior to configuring WIFI, the thermostat will display a pairing code - take note of this.
+1. Continue with the setup process via the Sensi app, but switch to Home Assistant once you've connected the thermostat to WIFI
+1. Home Assistant should now detect a new HomeKit device, which you should begin configuring
+1. When prompted for a "pairing code", enter the code noted above, and then complete the setup procedure
+1. Complete the Sensi app setup procedure
+
 ### [SONOFF Zigbee 3.0 USB Dongle Plus](https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/) (CC2652P)
 
 Upgrading SONOFF Zigbee 3.0 USB Dongle Plus (ZBDongle-P) firmware:
 
-* [Firmware](https://github.com/Koenkk/Z-Stack-firmware/)
-* [Instructions for ZBDongle-P](https://sonoff.tech/wp-content/uploads/2023/02/SONOFF-Zigbee-3.0-USB-dongle-plus-firmware-flashing.pdf)
-* [How-to: Flashing the firmware via cc2538-bsl](https://www.zigbee2mqtt.io/guide/adapters/flashing/flashing_via_cc2538-bsl.html)
-* [How to Use SONOFF Dongle Plus on Home Assistant](https://sonoff.tech/product-review/how-to-use-sonoff-dongle-plus-on-home-assistant-how-to-flash-firmware/)
-* [Sonoff Zigbee 3.0 USB Dongle Plus - How to upgrade the firmware (Video)](https://www.youtube.com/watch?v=KBAGWBWBATg)
+- [Firmware](https://github.com/Koenkk/Z-Stack-firmware/)
+- [Instructions for ZBDongle-P](https://sonoff.tech/wp-content/uploads/2023/02/SONOFF-Zigbee-3.0-USB-dongle-plus-firmware-flashing.pdf)
+- [How-to: Flashing the firmware via cc2538-bsl](https://www.zigbee2mqtt.io/guide/adapters/flashing/flashing_via_cc2538-bsl.html)
+- [How to Use SONOFF Dongle Plus on Home Assistant](https://sonoff.tech/product-review/how-to-use-sonoff-dongle-plus-on-home-assistant-how-to-flash-firmware/)
+- [Sonoff Zigbee 3.0 USB Dongle Plus - How to upgrade the firmware (Video)](https://www.youtube.com/watch?v=KBAGWBWBATg)
 
 ```bash
 docker stop homeassistant
@@ -260,107 +373,18 @@ docker run --rm \
     ckware/ti-cc-tool -ewv -p /dev/ttyUSB0 --bootloader-sonoff-usb
 ```
 
-## Configuration
-
-* [Default Ansible variables](./defaults/main.yml)
-
-### Home Assistant
-
-* [Example automation.yaml](./examples/homeassistant/automations.yaml)
-* [Example configuration.yaml](./examples/homeassistant/configuration.yaml)
-
-Test configuration
-
-```bash
-docker exec homeassistant hass --config /config --script check_config
-docker exec homeassistant hass --config /config --script check_config --secrets
-```
-
-### Frigate
-
-* [Example config.yml](./examples/frigate/config.yml)
-* [GitHub issue #311](https://github.com/blakeblackshear/frigate/issues/311)
-
-#### Optimizing performance
-
-* [Optimization documentation](https://blakeblackshear.github.io/frigate/configuration/optimizing/)
-* [GitHub issue #1607](https://github.com/blakeblackshear/frigate/issues/1607)
-
-##### Gathering information
-
-```bash
-vainfo --display drm --device /dev/dri/renderD128
-ffmpeg -decoders | grep qsv
-ffmpeg -hwaccels
-```
-
-##### Ansible variables
-
-```yaml
-# AMD GPU
-homeassistant_frigate_env:
-    LIBVA_DRIVER_NAME: radeonsi
-
-# Intel CPU
-homeassistant_frigate_env:
-    LIBVA_DRIVER_NAME: i965
-```
-
-##### Monitor GPU usage
-
-```bash
-sudo apt install intel-gpu-tools radeontop
-sudo intel_gpu_top
-sudo radeontop
-```
-
-### Nginx
-
-[ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx) variables:
-
-```yaml
-# Given:
-#homeassistant_port: 8080
-#homeassistant_frigate_port: 8081
-
-letsencryptnginx_websites:
-  - domain: ha.example.com
-    proxy_port: 8080
-    websocket_path: /api/websocket
-  - domain: frigate.example.com
-    proxy_port: 8081
-    websocket_enabled: true
-```
-
-### HACS installation
-
-* [Documentation](https://hacs.xyz/docs/setup/download):
-
-```bash
-docker exec -ti homeassistant \
-    bash -c 'wget -O - https://get.hacs.xyz | bash -'
-```
-
 ## Troubleshooting
 
 ### Avahi and Google Cast
 
-* [Google Cast with Docker - No Google Cast devices found](https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24)
+- [Google Cast with Docker - No Google Cast devices found](https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24)
 
 > On the host `tcpdump port 5353 -i any`
 > On the docker container, get a shell on the container and `apk add tcpdump && tcpdump port 5353`
 
-### iRobot Roomba J7 cloud password
-
-Get the cloud password (authn/z token):
-
-```bash
-docker run -it node sh -c "npm install -g dorita980 && get-roomba-password-cloud ${websiteEmail} ${websitePassword}
-```
-
 ### Removing unwanted entities and devices
 
-* [Remove leftover-devices and -entities from integration that is uninstalled](https://community.home-assistant.io/t/remove-leftover-devices-and-entities-from-integration-that-is-uninstalled/316391)
+- [Remove leftover-devices and -entities from integration that is uninstalled](https://community.home-assistant.io/t/remove-leftover-devices-and-entities-from-integration-that-is-uninstalled/316391)
 
 Context: Some devices cannot be delete from the UI, such as old devices in the Ruckus Unleashed integration.
 
@@ -376,18 +400,6 @@ Context: Some devices cannot be delete from the UI, such as old devices in the R
 1. User `docker inspect` to get the IP address of the `mosquitto` container, then connect to it using MQTT Explorer
 1. Delete the unwanted topic, e.g. `ratgdo`
 1. Delete related sub-topics of `homeassistant`, e.g. `homeassistant/cover/ratgdo`
-
-### Sensi Thermostat HomeKit
-
-* [/r/homeassistant/ post](https://github.com/andornaut/ansible-role-homeassistant-frigate/edit/main/README.md)
-
-1. Reset the thermostat to factory settings
-1. Begin the thermostat setup process via the Sensi app
-1. Prior to configuring WIFI, the thermostat will display a pairing code - take note of this.
-1. Continue with the setup process via the Sensi app, but switch to Home Assistant once you've connected the thermostat to WIFI
-1. Home Assistant should now detect a new HomeKit device, which you should begin configuring
-1. When prompted for a "pairing code", enter the code noted above, and then complete the setup procedure
-1. Complete the Sensi app setup procedure
 
 ### Upgrade, downgrade or pin a component's dependencies
 
@@ -423,7 +435,7 @@ Or upgrade the offending dependency directly as in these Ansible tasks:
 
 ### Coral.ai doesn't work
 
-* [Failed to load delegate from libedgetpu.so.1.0](https://github.com/blakeblackshear/frigate/issues/3259)
+- [Failed to load delegate from libedgetpu.so.1.0](https://github.com/blakeblackshear/frigate/issues/3259)
 
 `docker logs frigate` shows an error:
 
@@ -449,58 +461,64 @@ Excerpt from dmesg:
 [  336.755611] usb 3-2: New USB device strings: Mfr=0, Product=0, SerialNumber=0
 ```
 
-## Documentation and resources
+## Documentation and Resources
 
-* [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)
-* [FFmpeg QuickSync](https://trac.ffmpeg.org/wiki/Hardware/QuickSync)
-* [FFmpeg VAAPI](https://trac.ffmpeg.org/wiki/Hardware/VAAPI)
-* [Frigate machine learning accelerator by Coral](https://coral.ai/products/)
-* [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
-* [Home Assistant automation trigger variables](https://www.home-assistant.io/docs/automation/templating/)
-* [Home Assistant script syntax](https://www.home-assistant.io/docs/scripts/)
-* [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
-* [Material icons](https://materialdesignicons.com/) - Customize Home Assistant icons. Prefix with "mdi:".
-* [Mosquitto](https://mosquitto.org/) - MQTT message broker
-* [SgtBatten's HA blueprints](https://github.com/SgtBatten/HA_blueprints)
+- [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)
+- [FFmpeg QuickSync](https://trac.ffmpeg.org/wiki/Hardware/QuickSync)
+- [FFmpeg VAAPI](https://trac.ffmpeg.org/wiki/Hardware/VAAPI)
+- [Frigate machine learning accelerator by Coral](https://coral.ai/products/)
+- [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
+- [Home Assistant automation trigger variables](https://www.home-assistant.io/docs/automation/templating/)
+- [Home Assistant script syntax](https://www.home-assistant.io/docs/scripts/)
+- [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
+- [Material icons](https://materialdesignicons.com/) - Customize Home Assistant icons. Prefix with "mdi:".
+- [Mosquitto](https://mosquitto.org/) - MQTT message broker
+- [SgtBatten's HA blueprints](https://github.com/SgtBatten/HA_blueprints)
 
-### Custom cards
+### Custom Cards
 
-* [Bubble card](https://github.com/Clooos/Bubble-Card)
-* [Button card](https://github.com/custom-cards/button-card/)
-* [Card mod](https://github.com/thomasloven/lovelace-card-mod)
-* [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
-* [Layout card](github.com/thomasloven/lovelace-layout-card)
-* [Mini media player](https://github.com/kalkih/mini-media-player)
-* [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
+- [Bubble card](https://github.com/Clooos/Bubble-Card)
+- [Button card](https://github.com/custom-cards/button-card/)
+- [Card mod](https://github.com/thomasloven/lovelace-card-mod)
+- [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
+- [Layout card](github.com/thomasloven/lovelace-layout-card)
+- [Mini media player](https://github.com/kalkih/mini-media-player)
+- [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
 
 ### Integrations
 
-* [Amcrest](https://www.home-assistant.io/integrations/amcrest/)
-* [Denon AVR](https://www.home-assistant.io/integrations/denonavr/)
-* [Ecobee](https://www.home-assistant.io/integrations/ecobee/)
-* [Elgato Light](https://www.home-assistant.io/integrations/elgato/)
-* [Envisalink](https://www.home-assistant.io/integrations/envisalink/)
-  * [Envisalink Refactored](https://github.com/ufodone/envisalink_new) - Independent rewrite
-  * [esphome-dsckeybus](https://github.com/Dilbert66/esphome-dsckeybus)
-* [Foscam](https://www.home-assistant.io/integrations/foscam/)
-* [Google Cast](https://www.home-assistant.io/integrations/cast/)
-* [HomeKit](https://www.home-assistant.io/integrations/homekit/)
-* [Neato](https://www.home-assistant.io/integrations/neato/)
-* [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
-* [Roborock](https://www.home-assistant.io/integrations/roborock/)
-  * [pfsense Nat 1:1 workaround](https://github.com/rytilahti/python-miio/issues/422#issuecomment-573408811)
-  * [Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor)
-* [Roomba](https://www.home-assistant.io/integrations/roomba/)
-  * [SDK](https://github.com/koalazak/dorita980)
-* [Ruckus Unleashed](https://www.home-assistant.io/integrations/denonavr/)
-* [Zigbee Home Automation](https://www.home-assistant.io/integrations/zha/)
+#### Built-in
+
+- [Amcrest](https://www.home-assistant.io/integrations/amcrest/)
+- [Denon AVR](https://www.home-assistant.io/integrations/denonavr/)
+- [Ecobee](https://www.home-assistant.io/integrations/ecobee/)
+- [Elgato Light](https://www.home-assistant.io/integrations/elgato/)
+- [Envisalink](https://www.home-assistant.io/integrations/envisalink/)
+  - [Envisalink Refactored](https://github.com/ufodone/envisalink_new) - Independent rewrite
+  - [esphome-dsckeybus](https://github.com/Dilbert66/esphome-dsckeybus)
+- [Foscam](https://www.home-assistant.io/integrations/foscam/)
+- [Google Cast](https://www.home-assistant.io/integrations/cast/)
+- [HomeKit](https://www.home-assistant.io/integrations/homekit/)
+- [Neato](https://www.home-assistant.io/integrations/neato/)
+- [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
+- [Roborock](https://www.home-assistant.io/integrations/roborock/)
+  - [pfsense Nat 1:1 workaround](https://github.com/rytilahti/python-miio/issues/422#issuecomment-573408811)
+  - [Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor)
+- [Roomba](https://www.home-assistant.io/integrations/roomba/)
+  - [SDK](https://github.com/koalazak/dorita980)
+- [Ruckus Unleashed](https://www.home-assistant.io/integrations/denonavr/)
+- [Zigbee Home Automation](https://www.home-assistant.io/integrations/zha/)
 
 #### Custom integrations
 
-* [Bambu Lab](https://github.com/greghesp/ha-bambulab)
-* [Frigate](https://github.com/blakeblackshear/frigate-hass-integration)
-* [Govee](https://github.com/LaggAt/hacs-govee) - Currently incompatible with Roborock. See [workaround](https://github.com/LaggAt/hacs-govee/pull/143)
-* [Govee LAN](https://github.com/wez/govee-lan-hass)
-* [Meross](https://github.com/albertogeniola/meross-homeassistant)
-* [Sensei Thermostat](https://github.com/iprak/sensi)
-* [Simpleicons](https://github.com/vigonotion/hass-simpleicons)
+- [Bambu Lab](https://github.com/greghesp/ha-bambulab)
+- [Frigate](https://github.com/blakeblackshear/frigate-hass-integration)
+- [Govee](https://github.com/LaggAt/hacs-govee) - Currently incompatible with Roborock. See [workaround](https://github.com/LaggAt/hacs-govee/pull/143)
+- [Govee LAN](https://github.com/wez/govee-lan-hass)
+- [Meross](https://github.com/albertogeniola/meross-homeassistant)
+- [Sensei Thermostat](https://github.com/iprak/sensi)
+- [Simpleicons](https://github.com/vigonotion/hass-simpleicons)
+
+## License
+
+MIT License. See [LICENSE](../../LICENSE) for full details.

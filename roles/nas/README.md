@@ -1,43 +1,49 @@
 # ansible-role-nas
 
-Ansible role to manage encrypted BTRFS RAID arrays - mounting, unmounting, and backup operations.
+An [Ansible](https://www.ansible.com/) role that manages encrypted BTRFS RAID arrays on Ubuntu.
 
 ## Overview
 
-This role helps manage:
+This role automates the management of LUKS-encrypted BTRFS RAID arrays, including mounting, unmounting, and backup operations. It provides a secure and reliable way to manage encrypted storage systems.
 
-- LUKS-encrypted BTRFS RAID arrays
-- Automated mounting/unmounting
-- Backup operations
-- Key file management
+## Features
+
+- LUKS encryption management
+- BTRFS RAID array configuration
+- Automated mounting and unmounting
+- Backup operations support
+- Integration with systemd
 
 ## Requirements
 
-- Linux system with BTRFS support
-- cryptsetup package
-- systemd
+- Ansible 2.9 or higher
+- Ubuntu operating system
+- BTRFS kernel support
 
-## Setup Guide
+## Role Variables
 
-### 1. Creating LUKS-Encrypted Devices
+See [default values](./defaults/main.yml).
+
+## Initial Setup
+
+1. Create LUKS-encrypted devices:
 
 ```bash
 # Create LUKS container on device
 device=/dev/disk/by-id/...
 cryptsetup luksFormat ${device}
 
-# Add a key-file (which can be used instead of the passphrase created above)
+# Add key file
 keyfile=/path/to/keyfile
 head -c 256 /dev/random > ${keyfile}
 cryptsetup luksAddKey ${device} ${keyfile}
 
 # Map the encrypted container
 cryptsetup luksOpen --key-file ${keyfile} ${device} nas0
-
 # Repeat for additional devices (e.g., nas1, nas2, etc.)
 ```
 
-### 2. Creating BTRFS RAID Array
+2. Create a BTRFS RAID Array
 
 ```bash
 # Create RAID1 array from encrypted devices
@@ -74,11 +80,7 @@ Add to `/etc/fstab`:
 /dev/mapper/nas0 /media/nas btrfs noauto,device=/dev/mapper/nas0,device=/dev/mapper/nas1 0 0
 ```
 
-## Usage
-
-### Basic Operations
-
-#### Mounting the Array
+### Mounting the Array
 
 Using systemd (recommended):
 
@@ -94,7 +96,7 @@ cryptdisks_start nas1
 mount /media/nas
 ```
 
-#### Unmounting the Array
+### Unmounting the Array
 
 Using systemd (recommended):
 
@@ -121,9 +123,7 @@ mount /media/nasbackup
 backupnas
 ```
 
-### Advanced Operations
-
-#### Mounting Degraded Array
+### Mounting Degraded Array
 
 For recovery or maintenance when a device is missing:
 
@@ -131,20 +131,12 @@ For recovery or maintenance when a device is missing:
 mount -o degraded /dev/mapper/nas0 /media/nas
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. Mount fails with device busy:
-   - Ensure all previous mounts are properly unmounted
-   - Check for active processes using the mount point
-
-2. LUKS device won't open:
-   - Verify key file permissions
-   - Check device UUID matches crypttab entry
-
 ## References
 
 - [Btrfs Multi Device Dmcrypt](http://marc.merlins.org/perso/btrfs/post_2014-04-27_Btrfs-Multi-Device-Dmcrypt.html)
 - [Cryptsetup Documentation](https://gitlab.com/cryptsetup/cryptsetup)
 - [BTRFS Wiki - Multiple Devices](https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_with_Multiple_Devices)
+
+## License
+
+MIT License. See [LICENSE](../../LICENSE) for full details.

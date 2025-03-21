@@ -1,7 +1,25 @@
 SHELL := /bin/bash
 
 .DEFAULT_GOAL := workstation
-.PHONY: clean homeassistant-frigate nas requirements rsnapshot upgrade webservers workstation
+
+# Mark targets that don't create files as .PHONY
+.PHONY: help clean homeassistant-frigate nas \
+        requirements rsnapshot upgrade \
+        webservers workstation
+
+help:
+	@echo "Available targets:"
+	@echo "  help                 - Show this help message"
+	@echo "  clean               - Remove temporary role files"
+	@echo "  requirements        - Install required Ansible roles and collections"
+	@echo ""
+	@echo "Playbook targets:"
+	@echo "  homeassistant-frigate - Configure Home Assistant and Frigate"
+	@echo "  nas                 - Configure NAS server"
+	@echo "  rsnapshot          - Configure rsnapshot backup"
+	@echo "  upgrade            - Run system upgrades"
+	@echo "  webservers         - Configure web servers"
+	@echo "  workstation        - Configure workstation"
 
 clean:
 	rm -rf .roles
