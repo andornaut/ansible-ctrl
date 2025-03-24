@@ -1,14 +1,11 @@
 ---
-- name: Create configuration directories
+- name: Create the partial directory
   file:
-    path: "{{ item }}"
+    path: "{{ letsencryptnginx_docker_required_volumes.config }}/partial"
     state: directory
     mode: "0750"
     owner: root
     group: root
-  loop:
-    - "{{ letsencryptnginx_docker_required_volumes.config }}"
-    - "{{ letsencryptnginx_docker_required_volumes.config }}/partial"
   become: true
 
 - name: Find existing .conf files
