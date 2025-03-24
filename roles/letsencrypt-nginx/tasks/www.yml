@@ -23,11 +23,14 @@
       when: item.repo is defined
 
     - name: Fix file and directory permissions
-      command: chmod -R u=rwX,g=rX,o=rX "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
-      loop: "{{ letsencryptnginx_websites }}"
+      command: "chmod -R u=rwX,g=rX,o=rX *"
+      args:
+        chdir: "{{ letsencryptnginx_docker_required_volumes.www }}"
       when: item.repo is defined
 
     - name: Run website commands
+      # If `command` lives in the website git repository, then its executable bit will
+      # have been removed above, and this will fail if `command` is not executable
       shell: "{{ item.command }}"
       args:
         chdir: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
