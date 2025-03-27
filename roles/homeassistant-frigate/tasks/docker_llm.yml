@@ -1,5 +1,6 @@
 ---
-- name: Start "LLM" Docker containers
+- name: Start LLM Docker containers
+  become: true
   vars:
     ollama_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"

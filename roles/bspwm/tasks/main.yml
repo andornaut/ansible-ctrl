@@ -50,7 +50,7 @@
 - name: Install bspwm.desktop file
   copy:
     src: bspwm.desktop
-    dest: /usr/share/xsessions/
+    dest: /usr/local/share/xsessions/
     owner: root
     group: root
     mode: 0644

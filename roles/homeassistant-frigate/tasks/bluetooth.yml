@@ -7,11 +7,12 @@
     state: latest
   become: true
 
-- name: Enable dbus-broker.service
+- name: Enable and start dbus-broker service
   ansible.builtin.systemd_service:
-    name: dbus-broker.service
+    name: dbus-broker
     enabled: true
     state: started
+    daemon_reload: true
   become: true
 
 - name: Copy docker-ble-policy

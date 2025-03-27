@@ -15,48 +15,57 @@
     name:
       - s-nail
       # msmtp build dependencies
+      - autoconf
       - automake
+      - autopoint
       # Requires gettext v0.21 from Ubuntu hirsute
       # https://github.com/marlam/msmtp-mirror/issues/55
       - gettext
+      - gettext-base
       - libgnutls28-dev
       - libidn2-dev
       - libsecret-1-dev
       - libtool
       - mailutils
+      - pkg-config
       - texinfo
     install_recommends: no
     state: latest
     update_cache: yes
   become: true
 
+- name: Create temporary build directory
+  tempfile:
+    state: directory
+    suffix: msmtp
+  register: build_dir
+
 - name: Clone msmtp git repository
   git:
-    #repo: https://git.marlam.de/git/msmtp.git
-    repo: https://github.com/marlam/msmtp-mirror.git
-    dest: /tmp/msmtp.git
+    repo: https://git.marlam.de/git/msmtp.git
+    dest: "{{ build_dir.path }}"
     depth: 1
     force: yes
 
 - name: Autoreconf msmtp
   command:
-    cmd: autoreconf -i
-    chdir: /tmp/msmtp.git
+    cmd: autoreconf -i --force
+    chdir: "{{ build_dir.path }}"
 
 - name: Configure msmtp
   command:
     cmd: ./configure --sysconfdir=/etc
-    chdir: /tmp/msmtp.git
+    chdir: "{{ build_dir.path }}"
 
 # This fails when using gettext versions <0.20,
 # which ship with Ubuntu releases prior to hirsute
 - name: Make msmtp
   make:
-    chdir: /tmp/msmtp.git
+    chdir: "{{ build_dir.path }}"
 
 - name: Make install msmtp
   make:
-    chdir: /tmp/msmtp.git
+    chdir: "{{ build_dir.path }}"
     target: install
   become: true
 
@@ -99,7 +108,7 @@
 - name: Set msmtp as sendmail MTA in s-nail
   lineinfile:
     path: /etc/s-nail.rc
-    regexp: '^set sendmail'
+    regexp: "^set sendmail"
     line: 'set sendmail="/usr/local/bin/msmtp"'
   become: true
 
@@ -112,3 +121,8 @@
     group: root
     state: link
   become: true
+
+- name: Cleanup build directory
+  file:
+    path: "{{ build_dir.path }}"
+    state: absent
