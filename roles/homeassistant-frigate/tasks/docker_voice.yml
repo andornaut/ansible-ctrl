@@ -1,5 +1,6 @@
 ---
-- name: Start "Voice" Docker containers
+- name: Start Voice Docker containers
+  become: true
   vars:
     microwakeword_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"

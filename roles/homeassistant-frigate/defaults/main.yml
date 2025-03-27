@@ -1,4 +1,5 @@
 ---
+homeassistantfrigate_install_frigate: false
 homeassistantfrigate_install_llm: false
 homeassistantfrigate_install_voice: false
 homeassistantfrigate_avahi_interfaces: ""
@@ -20,6 +21,9 @@ homeassistantfrigate_frigate_devices: []
 homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
 homeassistantfrigate_frigate_env:
   LIBVA_DRIVER_NAME: ""
+homeassistantfrigate_frigate_memory: "8g"
+# When unset, swap is disabled; when 0, this setting is ignored.
+# homeassistantfrigate_frigate_memory_swap:
 homeassistantfrigate_frigate_port: 5000
 homeassistantfrigate_frigate_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/frigate/config
