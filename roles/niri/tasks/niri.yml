@@ -26,6 +26,14 @@
         cmd: cargo build --release
         chdir: "{{ niri_tmp.path }}"
 
+    - name: Set executable permissions for niri binaries
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: "0755"
+      loop:
+        - "{{ niri_tmp.path }}/resources/niri-session"
+        - "{{ niri_tmp.path }}/target/release/niri"
+
     - name: Fix path to niri in niri.service
       community.general.ini_file:
         no_extra_spaces: true
@@ -34,11 +42,14 @@
         section: Service
         value: /usr/local/bin/niri --session
 
-    - name: Create /usr/share/wayland-sessions directory
+    - name: Create required directories
       ansible.builtin.file:
-        path: /usr/share/wayland-sessions
+        path: "{{ item }}"
         state: directory
         mode: "0755"
+      loop:
+        - /usr/local/share/wayland-sessions
+        - /usr/local/share/xdg-desktop-portal
       become: true
 
     - name: Copy niri files
@@ -49,11 +60,11 @@
         - src: "{{ niri_tmp.path }}/target/release/niri"
           dest: /usr/local/bin/
         - src: "{{ niri_tmp.path }}/resources/niri.desktop"
-          dest: /usr/share/wayland-sessions/
+          dest: /usr/local/share/wayland-sessions/
         - src: "{{ niri_tmp.path }}/resources/niri-session"
           dest: /usr/local/bin/
         - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
-          dest: /usr/share/xdg-desktop-portal/
+          dest: /usr/local/share/xdg-desktop-portal/
         - src: "{{ niri_tmp.path }}/resources/niri.service"
           dest: /etc/systemd/user/
         - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"

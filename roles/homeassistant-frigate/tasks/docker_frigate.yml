@@ -1,5 +1,6 @@
 ---
-- name: Start Home Assistant, Frigate and Mosquitto Docker containers
+- name: Start Frigate Docker container
+  become: true
   vars:
     frigate_volumes:
       - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
@@ -13,36 +14,28 @@
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
 
-    homeassistant_volumes:
-      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
-      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
-
-    mosquitto_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
-
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate
+    project_name: homeassistant-frigate-llm
     pull: always
     remove_orphans: true
     definition:
       networks:
         default:
-          driver: bridge
-          driver_opts:
-            com.docker.network.bridge.name: br-ha
+          external: true
+          name: homeassistant-frigate_default
 
       services:
         frigate:
           container_name: frigate
           image: "{{ homeassistantfrigate_frigate_docker_image }}"
           devices: "{{ homeassistantfrigate_frigate_devices }}"
+          mem_limit: "{{ homeassistantfrigate_frigate_memory }}"
+          # Docs:
+          # https://docs.docker.com/reference/compose-file/services/#memswap_limit
+          # > If memswap_limit is set to the same value as memory, and memory
+          # > is set to a positive integer, the container does not have
+          # > access to swap.
+          memswap_limit: "{{ homeassistantfrigate_frigate_memory_swap | default(homeassistantfrigate_frigate_memory) }}"
           environment: "{{ homeassistantfrigate_frigate_env }}"
           group_add:
             - "{{ getent_group.render[1] }}"
@@ -65,24 +58,3 @@
             - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
-
-        homeassistant:
-          container_name: homeassistant
-          image: "{{ homeassistantfrigate_docker_image }}"
-          devices: "{{ homeassistantfrigate_devices }}"
-          ports:
-            - "{{ homeassistantfrigate_port }}:8123"
-          restart: unless-stopped
-          # Apply this Apparmor policy (installed in `tasks/docker_prerequisites.yml`) to allow the container to access bluetooth via dbus-broker
-          # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
-          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
-          security_opt:
-            - "apparmor=docker-ble-policy"
-          volumes: "{{ homeassistant_volumes + homeassistantfrigate_extra_volumes }}"
-
-        mosquitto:
-          # http://mosquitto:1883
-          container_name: mosquitto
-          image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
-          restart: unless-stopped
-          volumes: "{{ mosquitto_volumes }}"

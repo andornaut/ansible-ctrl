@@ -1,0 +1,50 @@
+---
+- name: Start Home Assistant and Mosquitto Docker containers
+  become: true
+  vars:
+    homeassistant_volumes:
+      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
+
+    mosquitto_volumes:
+      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
+      - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate
+    pull: always
+    remove_orphans: true
+    definition:
+      networks:
+        default:
+          driver: bridge
+          driver_opts:
+            com.docker.network.bridge.name: br-ha
+
+      services:
+        homeassistant:
+          container_name: homeassistant
+          image: "{{ homeassistantfrigate_docker_image }}"
+          devices: "{{ homeassistantfrigate_devices }}"
+          ports:
+            - "{{ homeassistantfrigate_port }}:8123"
+          restart: unless-stopped
+          # Apply this Apparmor policy (installed in `tasks/docker_prerequisites.yml`) to allow the container to access bluetooth via dbus-broker
+          # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
+          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
+          security_opt:
+            - "apparmor=docker-ble-policy"
+          volumes: "{{ homeassistant_volumes + homeassistantfrigate_extra_volumes }}"
+
+        mosquitto:
+          # http://mosquitto:1883
+          container_name: mosquitto
+          image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
+          restart: unless-stopped
+          volumes: "{{ mosquitto_volumes }}"
