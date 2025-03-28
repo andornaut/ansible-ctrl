@@ -1,37 +1,26 @@
 ---
 - name: Start Voice Docker containers
-  become: true
   vars:
-    microwakeword_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      # No data directory
+    #microwakeword_volumes: "{{ common_volumes }}"
+    #
+    #openwakeword_service_volumes:
+    #  - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
+    #openwakeword_volumes: "{{ common_volumes + openwakeword_service_volumes }}"
 
-    openwakeword_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
-      - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
-
-    piper_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+    piper_service_volumes:
       - "{{ homeassistantfrigate_piper_required_volumes.data }}:/data"
+    piper_volumes: "{{ common_volumes + piper_service_volumes }}"
 
-    whisper_volumes:
-      - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-      - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+    whisper_service_volumes:
       - "{{ homeassistantfrigate_whisper_required_volumes.data }}:/data"
+    whisper_volumes: "{{ common_volumes + whisper_service_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate-voice
     pull: always
     remove_orphans: true
     definition:
-      networks:
-        default:
-          external: true
-          name: homeassistant-frigate_default
-
+      networks: "{{ external_network }}"
       services:
         # Voice Preview (hardware) uses microWakeWord, not openWakeWord
         #openwakeword:
@@ -39,6 +28,7 @@
         #  container_name: openwakeword
         #  image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
         #  command: --custom-model-dir /custom --preload-model 'ok_nabu'
+        #  logging: "{{ default_logging }}"
         #  restart: unless-stopped
         #  volumes: "{{ openwakeword_volumes }}"
 
@@ -47,21 +37,24 @@
         #  http://microwakeword:11434
         #  container_name: microwakeword
         #  image: "{{ homeassistantfrigate_microwakeword_docker_image }}"
+        #  logging: "{{ default_logging }}"
         #  restart: unless-stopped
         #  volumes: "{{ microwakeword_volumes }}"
 
         piper:
           # http://piper:10200
           container_name: piper
-          image: rhasspy/wyoming-piper
+          image: "{{ homeassistantfrigate_piper_docker_image }}"
           command: "{{ homeassistantfrigate_piper_command }}"
           restart: unless-stopped
+          logging: "{{ default_logging }}"
           volumes: "{{ piper_volumes }}"
 
         whisper:
           # http://whisper:10300
           container_name: whisper
-          image: rhasspy/wyoming-whisper
+          image: "{{ homeassistantfrigate_whisper_docker_image }}"
           command: "{{ homeassistantfrigate_whisper_command }}"
           restart: unless-stopped
+          logging: "{{ default_logging }}"
           volumes: "{{ whisper_volumes }}"
