@@ -14,6 +14,8 @@
 
     - name: Configure basic authentication
       import_tasks: basicauth.yml
+      tags:
+        - nginx
   tags:
     - setup
 
@@ -25,6 +27,7 @@
     - name: Generate initial Nginx configuration
       import_tasks: configuration.yml
   tags:
+    - letsencrypt
     - ssl
 
 - name: Let's Encrypt certificate acquisition
@@ -43,4 +46,5 @@
   import_tasks: configuration.yml
   notify: Restart nginx
   tags:
-    - restart
+    - letsencrypt
+    - nginx

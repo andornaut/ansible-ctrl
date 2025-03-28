@@ -2,6 +2,17 @@
 
 An [Ansible](https://www.ansible.com/) role that provisions NGINX as a Docker container on Ubuntu with automated HTTPS certificate management via Let's Encrypt.
 
+## Usage
+
+```bash
+make webservers
+
+# Docker only
+ansible-playbook --ask-become-pass webservers.yml --tags docker
+ansible-playbook --ask-become-pass webservers.yml --tags letsencrypt
+ansible-playbook --ask-become-pass webservers.yml --tags nginx
+```
+
 ## Overview
 
 This role automates the deployment and configuration of NGINX in a Docker container, with integrated Let's Encrypt certificate management. It supports multiple websites, authentication options, and proxy configurations.

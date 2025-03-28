@@ -32,6 +32,11 @@
           container_name: homeassistant
           image: "{{ homeassistantfrigate_docker_image }}"
           devices: "{{ homeassistantfrigate_devices }}"
+          logging:
+            driver: "json-file"
+            options:
+              max-size: "10m"
+              max-file: "10"
           ports:
             - "{{ homeassistantfrigate_port }}:8123"
           restart: unless-stopped
