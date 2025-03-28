@@ -1,8 +1,10 @@
 ---
+homeassistantfrigate_avahi_interfaces: ""
+homeassistantfrigate_docker_log_max_file: "10"
+homeassistantfrigate_docker_log_max_size: "10m"
 homeassistantfrigate_install_frigate: false
 homeassistantfrigate_install_llm: false
 homeassistantfrigate_install_voice: false
-homeassistantfrigate_avahi_interfaces: ""
 
 # Home Assistant
 homeassistantfrigate_devices: []
@@ -64,9 +66,11 @@ homeassistantfrigate_piper_command: "--voice en_US-amy-medium"
 homeassistantfrigate_piper_docker_image: rhasspy/wyoming-piper
 homeassistantfrigate_piper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/piper/data
+homeassistantfrigate_piper_port: 10200
 
 # Whisper
 homeassistantfrigate_whisper_command: "--model distil-small.en --language en"
 homeassistantfrigate_whisper_docker_image: rhasspy/wyoming-whisper
 homeassistantfrigate_whisper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/whisper/data
+homeassistantfrigate_whisper_port: 10300
