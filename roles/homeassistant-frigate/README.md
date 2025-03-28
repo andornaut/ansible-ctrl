@@ -6,6 +6,15 @@ An [Ansible](https://www.ansible.com/) role that provisions
 [Mosquitto](https://mosquitto.org/)
 [Docker](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/) containers.
 
+## Usage
+
+```bash
+make homeassistant-frigate
+
+# Docker only
+ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags docker
+```
+
 ## Overview
 
 This role automates the deployment and configuration of a complete home automation stack including:

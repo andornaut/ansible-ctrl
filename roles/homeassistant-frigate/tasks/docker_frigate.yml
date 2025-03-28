@@ -40,6 +40,11 @@
           group_add:
             - "{{ getent_group.render[1] }}"
             - "{{ getent_group.video[1] }}"
+          logging:
+            driver: "json-file"
+            options:
+              max-size: "10m"
+              max-file: "10"
           ports:
             - "{{ homeassistantfrigate_frigate_port }}:5000"
             - "{{ homeassistantfrigate_frigate_rtsp_port }}:1935"

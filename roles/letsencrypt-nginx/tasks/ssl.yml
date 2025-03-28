@@ -26,23 +26,23 @@
       register: create_keys
   become: true
 
-- name: Manage CSR directory
-  block:
-    - name: Delete CSR directory if keys have changed
-      file:
-        path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
-        state: absent
-      when: create_keys is changed
+# - name: Manage CSR directory
+#   block:
+#     - name: Delete CSR directory if keys have changed
+#       file:
+#         path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+#         state: absent
+#       when: create_keys is changed
 
-    - name: Create CSR directory if keys have changed
-      file:
-        path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
-        state: directory
-        mode: "0750"
-        owner: root
-        group: root
-      when: create_keys is changed
-  become: true
+#     - name: Create CSR directory if keys have changed
+#       file:
+#         path: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr"
+#         state: directory
+#         mode: "0750"
+#         owner: root
+#         group: root
+#       when: create_keys is changed
+#   become: true
 
 - name: Create CSRs
   openssl_csr:
