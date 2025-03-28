@@ -52,21 +52,22 @@ This role automates the deployment and configuration of a complete home automati
 
 ## Role Variables
 
-See [default values](./defaults/main.yml) for complete configuration options.
+See the default variables for each of the [./roles](./roles), for e.g. [letsencrypt-nginx variables](h[ttps://github.com/andornaut/ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-ctrl/blob/master/roles/homeassistant-frigate/defaults/main.yml)).
 
 Key variables include:
 
 ```yaml
-# Enable optional components
-homeassistantfrigate_install_llm: false
-homeassistantfrigate_install_voice: false
+# Enable optional components:
+homeassistantfrigate_install_llm: true
+homeassistantfrigate_install_voice: true
 
-# Core service ports
-homeassistantfrigate_port: 8123
+# Core service ports:
+homeassistantfrigate_homeassistant_port: 8123
 homeassistantfrigate_frigate_port: 5000
+homeassistantfrigate_openwebui_port: 3000
 ```
 
-## Configuration
+## Services
 
 ### Home Assistant
 
@@ -85,61 +86,56 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 - [Example config.yml](./examples/frigate/config.yml)
 - [GitHub issue #311](https://github.com/blakeblackshear/frigate/issues/311)
 
-### HACS Installation
 
-Install [HACS](https://hacs.xyz/docs/setup/download):
+### Nginx
 
-```bash
-docker exec -ti homeassistant \
-    bash -c 'wget -O - https://get.hacs.xyz | bash -'
-```
-
-### Nginx Configuration
-
-[ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-role-letsencrypt-nginx) variables:
+[letsencrypt-nginx variables](https://github.com/andornaut/ansible-ctrl/blob/master/roles/letsencrypt-nginx/defaults/main.yml):
 
 ```yaml
 # Given:
-#homeassistant_port: 8080
-#homeassistant_frigate_port: 8081
+homeassistantfrigate_homeassistant_port: 8123
+homeassistantfrigate_frigate_port: 5000
+homeassistantfrigate_openwebui_port: 3000
 
+# Nginx configuration:
 letsencryptnginx_websites:
-  - domain: ha.example.com
-    proxy_port: 8080
-    websocket_path: /api/websocket
   - domain: frigate.example.com
-    proxy_port: 8081
+    cloudflare_api_token: REDACTED
+    cloudflare_api_zone: frigate.example.com
+    csr_common_name: frigate.example.com
+    permit_untrusted_networks: true
+    proxy_port: 5000
     websocket_enabled: true
+  - domain: ai.example.com
+    cloudflare_api_token: REDACTED
+    cloudflare_api_zone: ai.example.com
+    csr_common_name: ai.example.com
+    proxy_port: 3000
+    websocket_path: /ws/socket.io
+  - domain: ha.example.com
+    cloudflare_api_token: REDACTED
+    cloudflare_api_zone: ha.example.com
+    csr_common_name: ha.example.com
+    proxy_port: 8123
+    websocket_path: /api/websocket
 ```
-
-## Components
 
 ### LLM
 
-- [ChatGPT](https://chatgpt.com/)
-- [Google AI studio](https://aistudio.google.com/prompts/new_chat)
+- [@andornaut/til#artificial_intelligence](https://github.com/andornaut/til/master/docs/artificial_intelligence.md)
 - [Home LLM](https://github.com/acon96/home-llm)
 - [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
-- [Hugging Face](https://huggingface.co/)
-- [LibreChat](https://www.librechat.ai/)
-- [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 - [LocalAI](https://localai.io/basics/getting_started/)
-- [Ollama](https://ollama.com/)
-- [OpenWebUI](https://openwebui.com/)
-- [Speaches](https://speaches.ai/) - An OpenAI API-compatible server supporting streaming transcription, translation, and speech generation
-
-#### Models
-
-- [Models library](https://ollama.com/library)
-  - [gemma2:2b](https://ollama.com/library/gemma2)
-  - [phi3.5:3.8b](https://ollama.com/library/phi3.5:3.8b)
+- [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 - [Models that support "tools"](https://ollama.com/search?c=tools)
   - [llama3.1:8b](https://ollama.com/library/llama3.1:8b)
   - [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
   - [mistral:7b](https://ollama.com/library/mistral:7b)
   - [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b)
+- [Ollama](https://ollama.com/)
+- [Open WebUI](https://openwebui.com/)
 
-Install with:
+Install models with:
 
 ```bash
 docker exec ollama ollama pull mistral:7b
