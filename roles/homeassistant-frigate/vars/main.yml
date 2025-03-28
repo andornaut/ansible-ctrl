@@ -1,0 +1,14 @@
+common_volumes:
+  - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
+  - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+
+default_logging:
+  driver: "json-file"
+  options:
+    max-size: "{{ homeassistantfrigate_docker_log_max_size }}"
+    max-file: "{{ homeassistantfrigate_docker_log_max_file }}"
+
+external_network:
+  default:
+    external: true
+    name: homeassistant-frigate_default
