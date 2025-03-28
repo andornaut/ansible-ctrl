@@ -11,6 +11,7 @@ make webservers
 ansible-playbook --ask-become-pass webservers.yml --tags docker
 ansible-playbook --ask-become-pass webservers.yml --tags letsencrypt
 ansible-playbook --ask-become-pass webservers.yml --tags nginx
+ansible-playbook --ask-become-pass webservers.yml --tags www
 ```
 
 ## Overview

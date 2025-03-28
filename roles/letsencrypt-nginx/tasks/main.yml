@@ -19,19 +19,14 @@
   tags:
     - setup
 
-- name: SSL/TLS Certificate setup
+- name: Let's Encrypt Certificate setup
   block:
     - name: Configure SSL certificates
       import_tasks: ssl.yml
 
     - name: Generate initial Nginx configuration
       import_tasks: configuration.yml
-  tags:
-    - letsencrypt
-    - ssl
 
-- name: Let's Encrypt certificate acquisition
-  block:
     - name: Start Nginx for Let's Encrypt validation
       import_tasks: docker.yml
       tags:
