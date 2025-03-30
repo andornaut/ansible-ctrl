@@ -11,7 +11,8 @@
           # https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
           #- libblockdev-mdraid2
         state: latest
-        update_cache: yes
+        install_recommends: false
+        update_cache: true
       become: true
 
 - name: USB configuration
@@ -105,8 +106,8 @@
     - name: Enable nas-luks-key.path
       ansible.builtin.systemd:
         name: nas-luks-key.path
-        enabled: yes
-        masked: no
+        enabled: true
+        masked: false
         state: started
       notify: Reload systemd
   become: true

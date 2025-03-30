@@ -13,8 +13,8 @@
     paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
     patterns: "*.conf"
     file_type: file
-    use_regex: no
-    recurse: no # Don't look in subdirectories
+    use_regex: false
+    recurse: false # Don't look in subdirectories
   register: find_conf_files
   become: true
 
@@ -46,7 +46,7 @@
     mode: "0640"
     owner: root
     group: root
-    force: yes # Overwrite if exists
+    force: true # Overwrite if exists
   become: true
 
 - name: Check if SSL certificates exist
@@ -68,7 +68,7 @@
     mode: "0640"
     owner: root
     group: root
-    force: yes # Overwrite if exists
+    force: true # Overwrite if exists
   loop: "{{ check_crts.results }}"
   become: true
   notify: Restart nginx

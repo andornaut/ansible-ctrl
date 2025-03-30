@@ -5,7 +5,8 @@
       - dconf-cli
       - python3-psutil
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Configure keyboard settings

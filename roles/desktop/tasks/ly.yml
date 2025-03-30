@@ -16,6 +16,8 @@
               - llvm
               - llvm-dev
             state: latest
+            install_recommends: false
+            update_cache: true
           become: true
 
         - name: Set up zig compiler
@@ -36,6 +38,7 @@
               ansible.builtin.unarchive:
                 src: /tmp/zig.tar.xz
                 dest: /opt/zig
+                remote_src: true
                 extra_opts:
                   - --strip-components
                   - 1
@@ -48,7 +51,7 @@
             repo: "https://codeberg.org/AnErrupTion/ly.git"
             dest: /tmp/ly.git
             depth: 1
-            force: yes
+            force: true
 
         - name: Compile and install ly
           command:
@@ -97,9 +100,9 @@
         - name: Prevent TTY conflicts
           systemd_service:
             name: getty@tty2.service
-            daemon_reload: yes
+            daemon_reload: true
             state: stopped
-            enabled: no
+            enabled: false
           become: true
 
         - name: Remove existing display managers
@@ -123,6 +126,7 @@
                   - gdm3
                   - lightdm
                 state: absent
+                install_recommends: false
               become: true
 
         - name: Enable ly display manager

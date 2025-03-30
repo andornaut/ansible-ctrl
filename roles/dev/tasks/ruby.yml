@@ -5,7 +5,8 @@
       - ruby
       - ruby-dev
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Create a temporary directory
@@ -20,7 +21,7 @@
         - name: Get the latest version of chruby
           uri:
             url: https://api.github.com/repos/postmodern/chruby/releases/latest
-            return_content: yes
+            return_content: true
           register: chruby_version
 
         - name: Download chruby package
@@ -46,7 +47,7 @@
         - name: Get the latest version of ruby-install
           uri:
             url: https://api.github.com/repos/postmodern/ruby-install/releases/latest
-            return_content: yes
+            return_content: true
           register: ruby_install_version
 
         - name: Download ruby-install package

@@ -30,6 +30,7 @@
               - firefox
               - speech-dispatcher # Required for text-to-speech
             state: latest
+            install_recommends: false
           become: true
 
     - name: Set Firefox as default browser
@@ -44,7 +45,7 @@
         - name: Remove Firefox apt package
           apt:
             name: firefox
-            purge: yes
+            purge: true
             state: absent
           become: true
 

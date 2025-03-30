@@ -1,13 +1,15 @@
 ---
 - name: Install system packages
   apt:
-    install_recommends: false
     name:
+      - flex
+      - libxcb-cursor-dev
       - libstartup-notification0-dev
       - libxkbcommon-x11-dev
       - meson-1.5
       - ninja-build
     state: latest
+    install_recommends: false
     update_cache: true
   become: true
 
@@ -21,7 +23,7 @@
 - name: Get the latest version of rofi
   uri:
     url: https://api.github.com/repos/lbonn/rofi/releases/latest
-    return_content: yes
+    return_content: true
   register: rofi_version
 
 - name: Download and unarchive rofi

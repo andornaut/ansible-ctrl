@@ -9,13 +9,14 @@
       # https://github.com/andornaut/splinter-keyboard/?tab=readme-ov-file#fix-error-when-running-npm-run-build
       - libocct-modeling-algorithms-7.6t64
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Install Kicad apt respository
   apt_repository:
     repo: ppa:kicad/kicad-8.0-releases
-    update_cache: yes
+    update_cache: true
   become: true
 
 - name: Install kikit from PyPI
@@ -30,10 +31,10 @@
     - name: Get the latest version of OrcaSlicer
       uri:
         url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
-        return_content: yes
+        return_content: true
         headers:
           Accept: "application/vnd.github.v3+json"
-        validate_certs: yes
+        validate_certs: true
       register: orcaslicer_version
 
     - name: Set OrcaSlicer download facts

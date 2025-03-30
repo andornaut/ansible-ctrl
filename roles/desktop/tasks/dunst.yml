@@ -13,6 +13,8 @@
       - libxrandr-dev
       - libxss-dev
     state: latest
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Check if dunst is already installed
@@ -27,7 +29,7 @@
       git:
         repo: "https://github.com/dunst-project/dunst.git"
         dest: /tmp/dunst.git
-        force: yes
+        force: true
       become: true
 
     - name: Build dunst
