@@ -15,5 +15,6 @@
       - paper-icon-theme
       - papirus-icon-theme
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true

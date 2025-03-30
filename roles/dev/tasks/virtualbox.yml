@@ -25,5 +25,6 @@
       - virtualbox-ext-pack
       - virtualbox-guest-additions-iso
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true

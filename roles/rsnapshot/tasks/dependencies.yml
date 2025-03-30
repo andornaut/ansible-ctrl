@@ -4,7 +4,9 @@
     name:
       - cron
       - rsnapshot
-    update_cache: yes
+    state: latest
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Download MySQL and PostgreSQL backup scripts

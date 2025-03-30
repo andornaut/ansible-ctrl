@@ -9,7 +9,7 @@
     - name: Get latest LACT version
       uri:
         url: https://api.github.com/repos/ilya-zlobintsev/LACT/releases/latest
-        return_content: yes
+        return_content: true
       register: lact_version
 
     - name: Download LACT package
@@ -20,4 +20,6 @@
     - name: Install LACT package
       apt:
         deb: "{{ lact_tmp.path }}/lact.deb"
+        install_recommends: false
+        update_cache: true
       become: true

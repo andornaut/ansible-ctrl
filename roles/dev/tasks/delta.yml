@@ -7,7 +7,7 @@
 - name: Get the latest version of Delta
   uri:
     url: https://api.github.com/repos/dandavison/delta/releases/latest
-    return_content: yes
+    return_content: true
   register: delta_version
 
 - name: Download Delta package
@@ -18,4 +18,5 @@
 - name: Install Delta package
   apt:
     deb: "{{ delta_tmp.path }}/delta.deb"
+    install_recommends: false
   become: true

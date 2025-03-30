@@ -6,6 +6,7 @@
       - libdbusmenu-gtk3-dev
       - libgtk-layer-shell-dev
     state: latest
+    install_recommends: false
     update_cache: true
   become: true
 
@@ -16,7 +17,7 @@
         repo: "https://github.com/elkowar/eww.git"
         dest: /tmp/eww.git
         depth: 1
-        force: yes
+        force: true
 
     - name: Build eww
       command:
@@ -27,6 +28,7 @@
       ansible.builtin.copy:
         src: /tmp/eww.git/target/release/eww
         dest: /usr/local/bin/
+        remote_src: true
         owner: root
         group: root
         mode: "0755"

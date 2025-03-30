@@ -14,19 +14,19 @@
           - snapd
           - vlc
           - wireshark
-        purge: yes
+        purge: true
         state: absent
       become: true
 
     - name: Clean apt cache
       apt:
-        clean: yes
+        clean: true
       become: true
 
     - name: Autoremove unused packages
       apt:
-        autoremove: yes
-        purge: yes
+        autoremove: true
+        purge: true
       become: true
 
     - name: Hold packages replaced by flatpak
@@ -55,7 +55,7 @@
         patterns: snap
         depth: 2
         file_type: directory
-        recurse: yes
+        recurse: true
       register: snap_directories_result
       become: true
 
@@ -83,6 +83,7 @@
           - flatpak
           - flatpak-builder
         state: latest
+        install_recommends: false
       become: true
 
     - name: Add flathub repository

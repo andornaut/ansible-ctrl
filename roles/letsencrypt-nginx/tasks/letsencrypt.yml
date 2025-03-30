@@ -7,8 +7,8 @@
     acme_version: "{{ letsencryptnginx_acme_version }}"
     challenge: "{% if item.cloudflare_api_token|default(False) %}dns-01{% else %}http-01{% endif %}"
     csr: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.csr"
-    # Set to `force: yes` when switching between staging and production
-    #force: yes
+    # Set to `force: true` when switching between staging and production
+    #force: true
     fullchain_dest: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{ item.csr_common_name|default(item.domain)|replace('*', '_') }}.crt"
     remaining_days: "{{ letsencryptnginx_remaining_days }}"
     terms_agreed: yes
@@ -89,8 +89,8 @@
     challenge: "{% if item.item.cloudflare_api_token|default(False) %}dns-01{% else %}http-01{% endif %}"
     csr: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.csr"
     data: "{{ item }}"
-    # Set to `force: yes` when switching between staging and production
-    #force: yes
+    # Set to `force: true` when switching between staging and production
+    #force: true
     fullchain_dest: "{{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.crt"
     remaining_days: "{{ letsencryptnginx_remaining_days }}"
     terms_agreed: yes

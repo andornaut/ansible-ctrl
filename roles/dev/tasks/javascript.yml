@@ -2,11 +2,12 @@
 - name: Get the latest version of nvm
   uri:
     url: https://api.github.com/repos/nvm-sh/nvm/releases/latest
-    return_content: yes
+    return_content: true
   register: nvm_version
 
 - name: Install nvm
   ansible.builtin.shell: >
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version.json.name }}/install.sh | bash
+
 #  args:
 #    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"

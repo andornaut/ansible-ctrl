@@ -7,9 +7,9 @@
 
       # For `chdman` to create .chd archives
       - mame-tools
-    install_recommends: no
+    install_recommends: false
     state: latest
-    update_cache: yes
+    update_cache: true
   become: true
 
 - import_tasks: flatpak.yml
