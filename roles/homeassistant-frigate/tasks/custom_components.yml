@@ -1,7 +1,7 @@
 ---
 - name: Create custom_components/ directory
   file:
-    path: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    path: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
     state: directory
     owner: root
     group: root
@@ -18,7 +18,7 @@
 - name: Install BambuLab custom component
   copy:
     src: /tmp/ansible-role-homeassistant-frigate/bambu_lab/custom_components/bambu_lab
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
 - name: Download Frigate custom component
@@ -32,7 +32,7 @@
 - name: Install Frigate custom component
   copy:
     src: /tmp/ansible-role-homeassistant-frigate/frigate/custom_components/frigate
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
 - name: Download Govee LAN custom component
@@ -46,7 +46,7 @@
 - name: Install Govee LAN custom component
   copy:
     src: /tmp/ansible-role-homeassistant-frigate/govee_lan/custom_components/govee_lan
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
 - name: Download Meross custom component
@@ -60,7 +60,7 @@
 - name: Install Meross custom component
   copy:
     src: /tmp/ansible-role-homeassistant-frigate/meross/custom_components/meross_cloud
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
 - name: Download Simple Icons custom component
@@ -74,11 +74,11 @@
 - name: Install Simple Icons custom component
   copy:
     src: /tmp/ansible-role-homeassistant-frigate/simpleicons/custom_components/simpleicons
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/custom_components/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
 - name: Copy python_scripts/ directory
   copy:
     src: homeassistant/python_scripts/
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/python_scripts/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/python_scripts/"
   become: true
