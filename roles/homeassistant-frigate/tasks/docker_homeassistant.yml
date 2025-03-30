@@ -2,10 +2,10 @@
 - name: Start Home Assistant and Mosquitto Docker containers
   vars:
     homeassistant_service_volumes:
-      - "{{ homeassistantfrigate_required_volumes.config }}:/config"
-      - "{{ homeassistantfrigate_required_volumes.dbus }}:/run/dbus:ro"
-      - "{{ homeassistantfrigate_required_volumes.udev }}:/run/udev:ro"
-    homeassistant_volumes: "{{ common_volumes + homeassistant_service_volumes + homeassistantfrigate_extra_volumes }}"
+      - "{{ homeassistantfrigate_homeassistant_required_volumes.config }}:/config"
+      - "{{ homeassistantfrigate_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
+      - "{{ homeassistantfrigate_homeassistant_required_volumes.udev }}:/run/udev:ro"
+    homeassistant_volumes: "{{ common_volumes + homeassistant_service_volumes + homeassistantfrigate_homeassistant_extra_volumes }}"
 
     mosquitto_service_volumes:
       - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
@@ -27,11 +27,11 @@
       services:
         homeassistant:
           container_name: homeassistant
-          image: "{{ homeassistantfrigate_docker_image }}"
-          devices: "{{ homeassistantfrigate_devices }}"
+          image: "{{ homeassistantfrigate_homeassistant_docker_image }}"
+          devices: "{{ homeassistantfrigate_homeassistant_devices }}"
           logging: "{{ default_logging }}"
           ports:
-            - "{{ homeassistantfrigate_port }}:8123"
+            - "{{ homeassistantfrigate_homeassistant_port }}:8123"
           restart: unless-stopped
           # Apply this Apparmor policy (installed in `tasks/docker_prerequisites.yml`) to allow the container to access bluetooth via dbus-broker
           # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
