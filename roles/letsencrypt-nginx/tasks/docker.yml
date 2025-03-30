@@ -6,7 +6,7 @@
     mode: "{{ item.mode }}"
     owner: root
     group: root
-    recurse: yes
+    recurse: true
   loop:
     - path: "{{ letsencryptnginx_docker_required_volumes.config }}"
       mode: "0755"

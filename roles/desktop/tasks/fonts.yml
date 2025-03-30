@@ -10,7 +10,8 @@
           - ttf-mscorefonts-installer
           - xfonts-terminus
         state: latest
-        update_cache: yes
+        install_recommends: false
+        update_cache: true
       become: true
 
     - name: Configure Microsoft fonts
@@ -27,6 +28,7 @@
           apt:
             name: ttf-mscorefonts-installer
             state: latest
+            install_recommends: false
           notify: update font cache
           become: true
 
@@ -41,14 +43,14 @@
       unarchive:
         src: "{{ desktop_source_code_pro_url }}"
         dest: /tmp/source-code-pro/
-        remote_src: yes
+        remote_src: true
         creates: /tmp/source-code-pro/LICENSE.md
 
     - name: Install Source Code Pro font files
       copy:
         src: /tmp/source-code-pro/
         dest: /usr/share/fonts/truetype/source-code-pro
-        remote_src: yes
+        remote_src: true
       delegate_to: "{{ inventory_hostname }}"
       notify: update font cache
       become: true

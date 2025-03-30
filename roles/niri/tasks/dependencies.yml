@@ -3,7 +3,6 @@
   block:
     - name: Install system packages
       ansible.builtin.apt:
-        install_recommends: false
         name:
           - clang
           - gcc-14
@@ -40,6 +39,7 @@
           #- libsdbus-c++-dev
           - libspng-dev
         state: latest
+        install_recommends: false
         update_cache: true
       become: true
 
@@ -65,7 +65,7 @@
     - name: Get the latest version of libsdbus
       ansible.builtin.uri:
         url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
-        return_content: yes
+        return_content: true
       register: libsdbus_version
 
     - name: Download and unarchive libsdbus {{ libsdbus_version.json.name }}
@@ -108,7 +108,7 @@
       ansible.builtin.uri:
         url: "https://gitlab.freedesktop.org/api/v4/projects/2891/releases"
         method: GET
-        return_content: yes
+        return_content: true
       register: wayland_protocols_info
 
     - name: Set wayland-protocols variables

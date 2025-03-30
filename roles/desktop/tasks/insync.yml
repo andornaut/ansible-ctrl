@@ -10,7 +10,7 @@
     - name: Add Insync apt repository
       apt_repository:
         repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
-        update_cache: yes
+        update_cache: true
       become: true
 
 - name: Install and configure Insync
@@ -19,6 +19,7 @@
       apt:
         name: insync
         state: latest
+        install_recommends: false
       become: true
 
     - name: Fix Wayland compatibility
