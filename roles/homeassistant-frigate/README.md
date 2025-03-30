@@ -122,7 +122,7 @@ letsencryptnginx_websites:
 
 ### LLM
 
-- [@andornaut/til#artificial_intelligence](https://github.com/andornaut/til/master/docs/artificial_intelligence.md)
+- [@andornaut/til#artificial_intelligence](https://github.com/andornaut/til/blob/master/docs/artificial_intelligence.md#artificial-intelligence-ai)
 - [Home LLM](https://github.com/acon96/home-llm)
 - [How to control Home Assistant with a local LLM instead of ChatGPT](https://theawesomegarage.com/blog/configure-a-local-llm-to-control-home-assistant-instead-of-chatgpt)
 - [LocalAI](https://localai.io/basics/getting_started/)
