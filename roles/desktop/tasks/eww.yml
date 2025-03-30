@@ -4,6 +4,7 @@
     name:
       - libdbusmenu-glib-dev
       - libdbusmenu-gtk3-dev
+      - libgtk-layer-shell-dev
     state: latest
     update_cache: true
   become: true

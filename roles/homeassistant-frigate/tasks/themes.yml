@@ -1,7 +1,7 @@
 ---
 - name: Create themes/ directory
   file:
-    path: "{{ homeassistantfrigate_required_volumes.config }}/themes/"
+    path: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/themes/"
     state: directory
     owner: root
     group: root
@@ -10,5 +10,5 @@
 - name: Install IBM1970 theme
   get_url:
     url: https://raw.githubusercontent.com/andornaut/homeassistant-ibm1970-theme/main/themes/ibm1970.yaml
-    dest: "{{ homeassistantfrigate_required_volumes.config }}/themes/"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/themes/"
   become: true

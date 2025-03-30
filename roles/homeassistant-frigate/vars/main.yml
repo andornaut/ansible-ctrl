@@ -1,6 +1,6 @@
 common_volumes:
-  - "{{ homeassistantfrigate_required_volumes.localtime }}:/etc/localtime:ro"
-  - "{{ homeassistantfrigate_required_volumes.timezone }}:/etc/timezone:ro"
+  - "{{ homeassistantfrigate_homeassistant_required_volumes.localtime }}:/etc/localtime:ro"
+  - "{{ homeassistantfrigate_homeassistant_required_volumes.timezone }}:/etc/timezone:ro"
 
 default_logging:
   driver: "json-file"
