@@ -7,11 +7,11 @@ homeassistantfrigate_install_llm: false
 homeassistantfrigate_install_voice: false
 
 # Home Assistant
-homeassistantfrigate_devices: []
-homeassistantfrigate_docker_image: "homeassistant/home-assistant:latest"
-homeassistantfrigate_extra_volumes: []
-homeassistantfrigate_port: 8123
-homeassistantfrigate_required_volumes:
+homeassistantfrigate_homeassistant_devices: []
+homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant:latest"
+homeassistantfrigate_homeassistant_extra_volumes: []
+homeassistantfrigate_homeassistant_port: 8123
+homeassistantfrigate_homeassistant_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
   dbus: /run/dbus
   localtime: /etc/localtime
