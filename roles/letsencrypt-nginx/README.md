@@ -77,12 +77,6 @@ letsencryptnginx_websites:
     websocket_path: /api/websocket
 ```
 
-## Usage
-
-1. Configure required variables
-2. Define website configurations
-3. Run the playbook
-
 ### Systemd Integration
 
 For special mount dependencies, create a service:
