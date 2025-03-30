@@ -8,6 +8,8 @@
       - postfix
       - sendmail
     state: absent
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Install system packages
@@ -29,9 +31,9 @@
       - mailutils
       - pkg-config
       - texinfo
-    install_recommends: no
+    install_recommends: false
     state: latest
-    update_cache: yes
+    update_cache: true
   become: true
 
 - name: Create temporary build directory
@@ -45,7 +47,7 @@
     repo: https://git.marlam.de/git/msmtp.git
     dest: "{{ build_dir.path }}"
     depth: 1
-    force: yes
+    force: true
 
 - name: Autoreconf msmtp
   command:
@@ -116,7 +118,7 @@
   file:
     src: /usr/local/bin/msmtp
     dest: /usr/sbin/sendmail
-    force: yes
+    force: true
     owner: root
     group: root
     state: link

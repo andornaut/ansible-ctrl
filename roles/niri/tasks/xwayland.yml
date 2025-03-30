@@ -9,7 +9,7 @@
     - name: Get the latest version of xwayland-satellite
       ansible.builtin.uri:
         url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases/latest
-        return_content: yes
+        return_content: true
       register: xwayland_version
 
     - name: Download and unarchive xwayland-satellite {{ xwayland_version.json.name }}

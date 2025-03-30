@@ -9,7 +9,7 @@
     - name: Get the latest version of niri
       ansible.builtin.uri:
         url: https://api.github.com/repos/YaLTeR/niri/releases/latest
-        return_content: yes
+        return_content: true
       register: niri_version
 
     - name: Download and unarchive niri {{ niri_version.json.name }}
@@ -56,6 +56,7 @@
       ansible.builtin.copy:
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
+        remote_src: true
       loop:
         - src: "{{ niri_tmp.path }}/target/release/niri"
           dest: /usr/local/bin/
@@ -75,7 +76,7 @@
       ansible.builtin.lineinfile:
         path: "{{ ansible_env.HOME }}/.config/electron-flags.conf"
         line: "--ozone-platform-hint=auto"
-        create: yes
+        create: true
         mode: "0644"
 
     - name: Enable niri.service

@@ -1,6 +1,5 @@
 ---
 - import_tasks: dependencies.yml
-  tags: [packages]
 
 - name: Configure display manager
   block:
@@ -15,44 +14,28 @@
 - name: Configure system applications
   block:
     - import_tasks: alacritty.yml
-      tags: [terminal]
 
     - import_tasks: chrome.yml
-      tags: [browsers]
 
     - import_tasks: dconf.yml
-      tags: [settings]
 
     - import_tasks: dunst.yml
-      tags: [notifications]
 
     - import_tasks: eww.yml
-      tags: [widgets]
 
     - import_tasks: firefox.yml
-      tags: [browsers]
 
     - import_tasks: flatpak.yml
-      tags: [packages]
 
     - import_tasks: fonts.yml
-      tags: [theming]
 
     - import_tasks: grub.yml
-      tags: [boot]
 
     - import_tasks: insync.yml
       when: desktop_install_insync
-      tags: [sync]
 
     - import_tasks: lact.yml
-      tags: [amd]
 
     - import_tasks: pavolume.yml
-      tags: [audio]
 
     - import_tasks: rofi.yml
-      tags: [launcher]
-
-    - import_tasks: themes.yml
-      tags: [theming]

@@ -6,7 +6,8 @@
     name:
       - avahi-daemon
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
   when: homeassistantfrigate_avahi_interfaces | length > 0
 
@@ -27,7 +28,7 @@
     option: enable-reflector
     path: /etc/avahi/avahi-daemon.conf
     section: reflector
-    value: "yes"
+    value: yes
   become: true
   register: avahi_enable_reflector
   when: homeassistantfrigate_avahi_interfaces | length > 0
@@ -35,8 +36,8 @@
 - name: Restart Avahi service
   systemd:
     name: avahi-daemon
-    daemon_reload: yes
+    daemon_reload: true
     state: started
-    enabled: yes
+    enabled: true
   become: true
   when: avahi_allow_interfaces.changed or avahi_enable_reflector.changed

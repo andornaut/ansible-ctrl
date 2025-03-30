@@ -5,6 +5,8 @@
       - bluez
       - dbus-broker
     state: latest
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Enable and start dbus-broker service

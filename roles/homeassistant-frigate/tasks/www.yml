@@ -23,6 +23,7 @@
   ansible.builtin.unarchive:
     src: /tmp/advanced-camera-card.zip
     dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/advanced-camera-card"
+    remote_src: true
     # Drop the ./dist directory
     # -j junk  paths. The  archive's directory structure is not recreated;
     # all files are deposited in the extraction directory (by default, the current one).

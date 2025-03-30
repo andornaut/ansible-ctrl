@@ -4,7 +4,7 @@
     repo: "https://github.com/andornaut/pavolume.git"
     dest: /tmp/pavolume.git
     depth: 1
-    force: yes
+    force: true
 
 - name: Make pavolume
   make:

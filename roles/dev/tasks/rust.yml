@@ -4,6 +4,8 @@
     name:
       - cargo
       - rustc
+      - rustup
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true

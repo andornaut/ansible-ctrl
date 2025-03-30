@@ -2,7 +2,7 @@
 - name: Install Alacritty apt respository
   apt_repository:
     repo: ppa:aslatter/ppa
-    update_cache: yes
+    update_cache: true
   become: true
 
 - name: Install system packages
@@ -10,7 +10,8 @@
     name:
       - alacritty
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Register Alacritty alternative

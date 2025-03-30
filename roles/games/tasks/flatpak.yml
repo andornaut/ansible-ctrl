@@ -5,7 +5,8 @@
       # Configures udev rules to support gamepads, etc.
       - steam-devices
     state: latest
-    update_cache: yes
+    install_recommends: false
+    update_cache: true
   become: true
 
 - name: Install flatpak packages

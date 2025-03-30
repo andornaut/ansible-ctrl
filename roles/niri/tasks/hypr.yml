@@ -19,7 +19,7 @@
     - name: Get the latest version of hyprlang
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
-        return_content: yes
+        return_content: true
       register: hyprlang_version
 
     - name: Download and unarchive hyprlang {{ hyprlang_version.json.name }}
@@ -63,7 +63,7 @@
     - name: Get the latest version of hyprutils
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprutils/releases/latest
-        return_content: yes
+        return_content: true
       register: hyprutils_version
 
     - name: Download and unarchive hyprutils {{ hyprutils_version.json.name }}
@@ -107,7 +107,7 @@
     - name: Get the latest version of hyprgraphics
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprgraphics/releases/latest
-        return_content: yes
+        return_content: true
       register: hyprgraphics_version
 
     - name: Download and unarchive hyprgraphics {{ hyprgraphics_version.json.name }}
@@ -146,7 +146,7 @@
     - name: Get the latest version of hyprwayland-scanner
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases/latest
-        return_content: yes
+        return_content: true
       register: hypr_scanner_version
 
     - name: Download and unarchive hyprwayland-scanner {{ hypr_scanner_version.json.name }}
@@ -180,7 +180,7 @@
     - name: Get the latest version of hypridle
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hypridle/releases/latest
-        return_content: yes
+        return_content: true
       register: hypridle_version
 
     - name: Download and unarchive hypridle {{ hypridle_version.json.name }}
@@ -227,7 +227,7 @@
     - name: Get the latest version of hyprlock
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprlock/releases/latest
-        return_content: yes
+        return_content: true
       register: hyprlock_version
 
     - name: Download and unarchive hyprlock {{ hyprlock_version.json.name }}
@@ -268,7 +268,7 @@
     - name: Get the latest version of hyprpaper
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprpaper/releases/latest
-        return_content: yes
+        return_content: true
       register: hyprpaper_version
 
     - name: Download and unarchive hyprpaper {{ hyprpaper_version.json.name }}
