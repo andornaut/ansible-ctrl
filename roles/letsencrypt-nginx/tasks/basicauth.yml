@@ -3,7 +3,7 @@
   file:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
     state: directory
-    mode: "0750"
+    mode: "0755"
     owner: root
     group: root
   become: true
@@ -13,7 +13,7 @@
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.domain }}.htpasswd"
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
-    mode: "0640"
+    mode: "0644"
     owner: root
     group: root
     create: yes
