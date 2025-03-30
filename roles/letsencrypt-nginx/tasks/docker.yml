@@ -9,7 +9,7 @@
     recurse: yes
   loop:
     - path: "{{ letsencryptnginx_docker_required_volumes.config }}"
-      mode: "0750"
+      mode: "0755"
     - path: "{{ letsencryptnginx_docker_required_volumes.www }}"
       mode: "2755"
   become: true
