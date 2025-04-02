@@ -20,8 +20,6 @@
           - libwayland-dev
           - libxcb-cursor-dev
           - libxkbcommon-dev
-          - wayland-protocols
-          - wayland-protocols-amdgpu
           - wayland-scanner++
           - wl-clipboard
           - xdg-desktop-portal
@@ -29,6 +27,12 @@
           - xdg-desktop-portal-gtk
           - xwayland
           - xwayland-run
+
+          # wayland dependencies
+          - doxygen
+          - graphviz
+          - xmlto
+          - xsltproc
 
           # hypr dependencies
           - g++-14
@@ -102,6 +106,57 @@
       become: true
   tags: [libsdbus]
 
+- name: Install Wayland (for wayland-scanner)
+  block:
+    - name: Get latest release info from GitLab API
+      ansible.builtin.uri:
+        url: "https://gitlab.freedesktop.org/api/v4/projects/121/releases"
+        method: GET
+        return_content: true
+      register: wayland_scanner_info
+
+    - name: Set Wayland variables
+      ansible.builtin.set_fact:
+        wayland_scanner_version: "{{ wayland_scanner_info.json[0].tag_name }}"
+        wayland_scanner_download_url: "{{ wayland_scanner_info.json[0].assets.sources | selectattr('format', 'equalto', 'tar.gz') | map(attribute='url') | first }}"
+
+    - name: Create a temporary directory for Wayland
+      ansible.builtin.tempfile:
+        state: directory
+      register: wayland_scanner_tmp
+
+    - name: Download and unarchive Wayland {{ wayland_scanner_version }}
+      ansible.builtin.unarchive:
+        src: "{{ wayland_scanner_download_url }}"
+        dest: "{{ wayland_scanner_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Create build directory for Wayland
+      ansible.builtin.file:
+        path: "{{ wayland_scanner_tmp.path }}/build"
+        state: directory
+        mode: "0755"
+
+    - name: Configure Wayland
+      ansible.builtin.command:
+        cmd: meson build/ --prefix=/usr/local --buildtype=release
+        chdir: "{{ wayland_scanner_tmp.path }}"
+
+    - name: Build Wayland
+      ansible.builtin.command:
+        cmd: ninja
+        chdir: "{{ wayland_scanner_tmp.path }}/build"
+
+    - name: Install Wayland
+      ansible.builtin.command:
+        cmd: ninja install
+        chdir: "{{ wayland_scanner_tmp.path }}/build"
+      become: true
+  tags: [wayland]
+
 - name: Install wayland-protocols
   block:
     - name: Get latest release info from GitLab API
@@ -116,26 +171,84 @@
         wayland_protocols_version: "{{ wayland_protocols_info.json[0].tag_name }}"
         wayland_protocols_download_url: "{{ wayland_protocols_info.json[0].assets.sources | selectattr('format', 'equalto', 'tar.gz') | map(attribute='url') | first }}"
 
-    - name: Delete old wayland-protocols directory
-      ansible.builtin.file:
-        path: "/usr/share/wayland-protocols"
-        state: absent
-      become: true
-
-    - name: Create fresh wayland-protocols directory
-      ansible.builtin.file:
-        path: "/usr/share/wayland-protocols"
+    - name: Create a temporary directory for wayland-protocols
+      ansible.builtin.tempfile:
         state: directory
-        mode: "0755"
-      become: true
+      register: wayland_protocols_tmp
 
-    - name: Download and unarchive Wayland Protocols {{ wayland_protocols_version }}
+    - name: Download and unarchive wayland-protocols {{ wayland_protocols_version }}
       ansible.builtin.unarchive:
         src: "{{ wayland_protocols_download_url }}"
-        dest: /usr/share/wayland-protocols
+        dest: "{{ wayland_protocols_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
+
+    - name: Create build directory for wayland-protocols
+      ansible.builtin.file:
+        path: "{{ wayland_protocols_tmp.path }}/build"
+        state: directory
+        mode: "0755"
+
+    - name: Configure wayland-protocols
+      ansible.builtin.command:
+        cmd: meson build/ --prefix=/usr/local --buildtype=release
+        chdir: "{{ wayland_protocols_tmp.path }}"
+
+    - name: Build wayland-protocols
+      ansible.builtin.command:
+        cmd: ninja
+        chdir: "{{ wayland_protocols_tmp.path }}/build"
+
+    - name: Install wayland-protocols
+      ansible.builtin.command:
+        cmd: ninja install
+        chdir: "{{ wayland_protocols_tmp.path }}/build"
       become: true
   tags: [wayland]
+
+- name: Install hyprland-protocols
+  block:
+    - name: Get latest release info from GitHub API
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/hyprwm/hyprland-protocols/releases/latest"
+        method: GET
+        return_content: true
+      register: hyprland_protocols_info
+
+    - name: Set hyprland-protocols variables
+      ansible.builtin.set_fact:
+        hyprland_protocols_version: "{{ hyprland_protocols_info.json.tag_name }}"
+        hyprland_protocols_download_url: "{{ hyprland_protocols_info.json.tarball_url }}"
+
+    - name: Create a temporary directory for hyprland-protocols
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprland_protocols_tmp
+
+    - name: Download and unarchive hyprland-protocols {{ hyprland_protocols_version }}
+      ansible.builtin.unarchive:
+        src: "{{ hyprland_protocols_download_url }}"
+        dest: "{{ hyprland_protocols_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Configure hyprland-protocols
+      ansible.builtin.command:
+        cmd: meson build/ --prefix=/usr/local --buildtype=release
+        chdir: "{{ hyprland_protocols_tmp.path }}"
+
+    - name: Build hyprland-protocols
+      ansible.builtin.command:
+        cmd: ninja
+        chdir: "{{ hyprland_protocols_tmp.path }}/build"
+
+    - name: Install hyprland-protocols
+      ansible.builtin.command:
+        cmd: ninja install
+        chdir: "{{ hyprland_protocols_tmp.path }}/build"
+      become: true
+  tags: [hypr]
