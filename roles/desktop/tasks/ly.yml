@@ -59,8 +59,22 @@
             chdir: /tmp/ly.git
           become: true
 
-    - name: Configure ly appearance
+    - name: Configure ly
       block:
+        - name: Look in /usr/share and /usr/local/share for wayland-sessions
+          lineinfile:
+            line: "waylandsessions = /usr/share/wayland-sessions:/usr/local/share/wayland-sessions"
+            path: /etc/ly/config.ini
+            regexp: "^waylandsessions *="
+          become: true
+
+        - name: Look in /usr/share and /usr/local/share for xsessions
+          lineinfile:
+            line: "xsessions = /usr/share/xsessions:/usr/local/share/xsessions"
+            path: /etc/ly/config.ini
+            regexp: "^xsessions *="
+          become: true
+
         - name: Enable password field clearing
           lineinfile:
             line: "clear_password = true"
@@ -75,24 +89,25 @@
             line: "hide_borders = true"
           become: true
 
-    - name: Configure authentication integration
-      block:
         - name: Enable Gnome keyring authentication
           lineinfile:
             path: /etc/pam.d/login
             line: "auth       optional     pam_gnome_keyring.so"
-          become: true
-
-        - name: Enable Gnome keyring session management
-          lineinfile:
-            path: /etc/pam.d/login
-            line: "session    optional     pam_gnome_keyring.so auto_start"
+            insertafter: "^auth.*pam_unix.so"
           become: true
 
         - name: Enable Gnome keyring password integration
           lineinfile:
             path: /etc/pam.d/ly
             line: "password   optional     pam_gnome_keyring.so"
+            insertafter: "^password.*pam_unix.so"
+          become: true
+
+        - name: Enable Gnome keyring session management
+          lineinfile:
+            path: /etc/pam.d/login
+            line: "session    optional     pam_gnome_keyring.so auto_start"
+            insertafter: "^session.*pam_unix.so"
           become: true
 
     - name: Configure system integration
