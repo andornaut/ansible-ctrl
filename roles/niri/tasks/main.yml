@@ -15,4 +15,4 @@
 
 - name: Configure XWayland support
   import_tasks: xwayland.yml
-  tags: [xwayland]
+  tags: [wayland]

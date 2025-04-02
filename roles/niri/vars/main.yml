@@ -5,8 +5,8 @@ hypr_cmake_configure: >-
   cmake
   --no-warn-unused-cli
   -DCMAKE_BUILD_TYPE:STRING=Release
-  -DCMAKE_PREFIX_PATH:PATH={{ ansible_env.HOME }}/.local
-  -DCMAKE_INSTALL_PREFIX:PATH={{ ansible_env.HOME }}/.local
+  -DCMAKE_PREFIX_PATH:PATH=/usr/local
+  -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
   -S .
   -B build
 

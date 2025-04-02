@@ -131,7 +131,7 @@
 
     - name: Install hyprgraphics
       ansible.builtin.command:
-        cmd: cmake --install build
+        cmd: "{{ hypr_cmake_install }}"
         chdir: "{{ hyprgraphics_tmp.path }}"
       become: true
   tags: [hyprgraphics]
@@ -166,6 +166,12 @@
     - name: Build hyprwayland-scanner (2/2)
       ansible.builtin.shell:
         cmd: "{{ hypr_cmake_build }}"
+        chdir: "{{ hypr_scanner_tmp.path }}"
+      become: true
+
+    - name: Install hyprwayland-scanner
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_install }}"
         chdir: "{{ hypr_scanner_tmp.path }}"
       become: true
   tags: [hyprscanner]
@@ -204,7 +210,7 @@
 
     - name: Install hypridle
       ansible.builtin.command:
-        cmd: cmake --install build
+        cmd: "{{ hypr_cmake_install }}"
         chdir: "{{ hypridle_tmp.path }}"
       become: true
 
@@ -253,7 +259,7 @@
 
     - name: Install hyprlock
       ansible.builtin.command:
-        cmd: cmake --install build
+        cmd: "{{ hypr_cmake_install }}"
         chdir: "{{ hyprlock_tmp.path }}"
       become: true
   tags: [hyprlock]
@@ -292,7 +298,7 @@
 
     - name: Install hyprpaper
       ansible.builtin.command:
-        cmd: cmake --install build
+        cmd: "{{ hypr_cmake_install }}"
         chdir: "{{ hyprpaper_tmp.path }}"
       become: true
 
