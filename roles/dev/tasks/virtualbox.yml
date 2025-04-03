@@ -1,5 +1,4 @@
 ---
-# TODO: These license questions have changed, and need to be updated
 # https://www.reddit.com/r/ansible/comments/l1wof8/install_virtualboxextpack_accepting_the_eula/
 - name: Accept virtualbox-ext-pack seen license
   debconf:
