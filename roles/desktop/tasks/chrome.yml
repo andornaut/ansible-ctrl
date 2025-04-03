@@ -1,32 +1,17 @@
 ---
-# TODO: This fails b/c `apt` actually uses dpkg, which fails with:
-# Dependency is not satisfiable: libglib2.0-0 (>= 2.39.4)
-# https://github.com/ansible/ansible/issues/77150
-#- name: Install Google Chrome
-#  apt:
-#    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-#    dpkg_options: "auto-deconfigure"
-#  become: true
-
-# Add a check if Chrome is already installed to avoid unnecessary downloads
-- name: Check if Chrome is already installed
+- name: Check if Google Chrome is already installed
   command: dpkg-query -W google-chrome-stable
   register: chrome_check
   failed_when: false
   changed_when: false
 
-- name: "Download google-chrome package"
-  get_url:
-    url: "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
-    dest: "/tmp/google-chrome-stable.deb"
-  when: chrome_check.rc != 0
-
-- name: "Install google-chrome package"
-  command: apt install -qq /tmp/google-chrome-stable.deb
+- name: Install Google Chrome
+  package:
+    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
   when: chrome_check.rc != 0
 
-- name: "Configure google-chrome for Wayland"
+- name: Configure Google Chrome for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/google-chrome.desktop
     regexp: "^Exec\\S*=([\/\\w-]*)\\S*(.*)$"

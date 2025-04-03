@@ -79,6 +79,6 @@
 
 - name: Copy python_scripts/ directory
   copy:
-    src: homeassistant/python_scripts/
+    src: files/homeassistant/python_scripts/
     dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/python_scripts/"
   become: true
