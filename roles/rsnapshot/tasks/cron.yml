@@ -1,6 +1,5 @@
 ---
 - name: Configure rsnapshot hourly backup cron job
-  # TODO: Switch to systemd timers: https://wiki.archlinux.org/index.php/Rsnapshot#Automation
   cron:
     name: rsnapshot hourly
     cron_file: /etc/cron.d/rsnapshot

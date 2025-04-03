@@ -5,11 +5,7 @@
       apt:
         name:
           - btrfsmaintenance
-          # TODO: Confirm as this was possibly fixed.
-          # Workaround error in boot log:
-          # libbd_mdraid.so.2: cannot open shared object file
-          # https://bugs.launchpad.net/ubuntu/+source/udisks2/+bug/1811724
-          #- libblockdev-mdraid2
+          - libblockdev-mdraid2
         state: latest
         install_recommends: false
         update_cache: true
@@ -22,9 +18,6 @@
         path: /etc/usb_modeswitch.conf
       register: stat_usb_modeswitch
 
-    # See:
-    # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
-    # https://ubuntuforums.org/archive/index.php/t-1551985.html
     - name: Workaround usb modeswitching bug
       lineinfile:
         path: /etc/usb_modeswitch.conf
@@ -32,6 +25,11 @@
         regex: "^#?\\s*DisableSwitching\\s*"
       when: stat_usb_modeswitch.stat.exists
       become: true
+  # TODO: This is disabled, b/c the workaround may no longer be necessary
+  # See:
+  # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
+  # https://ubuntuforums.org/archive/index.php/t-1551985.html
+  when: false
 
 - name: Storage setup
   block:
