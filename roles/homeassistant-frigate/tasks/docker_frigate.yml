@@ -1,4 +1,9 @@
 ---
+- name: Read system timezone
+  ansible.builtin.shell: cat /etc/timezone
+  register: system_timezone
+  changed_when: false
+
 - name: Start Frigate Docker container
   vars:
     frigate_service_volumes:
@@ -11,6 +16,7 @@
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
+    frigate_env: "{{ homeassistantfrigate_frigate_env | default({}) | combine({'TZ': system_timezone.stdout.strip()}) }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate-llm
@@ -23,7 +29,7 @@
           container_name: frigate
           image: "{{ homeassistantfrigate_frigate_docker_image }}"
           devices: "{{ homeassistantfrigate_frigate_devices }}"
-          environment: "{{ homeassistantfrigate_frigate_env }}"
+          environment: "{{ frigate_env }}"
           group_add:
             - "{{ getent_group.render[1] }}"
             - "{{ getent_group.video[1] }}"
