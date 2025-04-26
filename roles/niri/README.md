@@ -2,6 +2,8 @@
 
 An [Ansible](https://www.ansible.com/) role that installs and configures [niri](https://github.com/YaLTeR/niri), a Wayland compositor, on Ubuntu.
 
+* [sway-services](https://github.com/xdbob/sway-services)
+
 ## Overview
 
 This role automates the installation and configuration of niri, a Wayland compositor focused on providing a simple and efficient desktop environment.
