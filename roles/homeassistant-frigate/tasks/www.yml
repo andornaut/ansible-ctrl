@@ -56,7 +56,7 @@
 
 - name: Install Custom Features Tile Card
   get_url:
-    url: https://raw.githubusercontent.com/Nerwyn/service-call-tile-feature/main/dist/custom-features-row.min.js
+    url: https://raw.githubusercontent.com/Nerwyn/custom-card-features/refs/heads/main/dist/custom-card-features.min.js
     dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
   become: true
 

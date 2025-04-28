@@ -29,7 +29,7 @@
             name: ttf-mscorefonts-installer
             state: latest
             install_recommends: false
-          notify: update font cache
+          notify: Update font cache
           become: true
 
 - name: Install Source Code Pro font
@@ -52,5 +52,5 @@
         dest: /usr/share/fonts/truetype/source-code-pro
         remote_src: true
       delegate_to: "{{ inventory_hostname }}"
-      notify: update font cache
+      notify: Update font cache
       become: true
