@@ -120,30 +120,6 @@
             enabled: false
           become: true
 
-        - name: Remove existing display managers
-          block:
-            - name: Disable display manager services
-              systemd_service:
-                name: "{{ item }}"
-                daemon_reload: true
-                enabled: false
-                masked: true
-              ignore_errors: true
-              loop:
-                - display-manager
-                - gdm3
-                - lightdm
-              become: true
-
-            - name: Remove display manager packages
-              apt:
-                name:
-                  - gdm3
-                  - lightdm
-                state: absent
-                install_recommends: false
-              become: true
-
         - name: Enable ly display manager
           systemd_service:
             name: ly.service
