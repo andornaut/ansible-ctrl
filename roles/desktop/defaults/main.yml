@@ -2,5 +2,8 @@
 desktop_eww_bar: bar
 desktop_install_firefox_flatpak: false
 desktop_install_insync: false
-desktop_install_ly_instead_of_lightdm: false
-desktop_source_code_pro_url: "https://github.com/adobe-fonts/source-code-pro/releases/download/2.038R-ro%2F1.058R-it%2F1.018R-VAR/TTF-source-code-pro-2.038R-ro-1.058R-it.zip"
+# Display manager settings
+desktop_install_lightdm: false
+desktop_install_ly: false
+desktop_install_lemurs: false
+desktop_source_code_pro_url: "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/TTF-source-code-pro-2.042R-u_1.062R-i.zip"
