@@ -3,13 +3,40 @@
 
 - name: Configure display manager
   block:
+    - name: Validate display manager configuration
+      assert:
+        that:
+          - (desktop_install_lightdm | int) + (desktop_install_ly | int) + (desktop_install_lemurs | int) <= 1
+        fail_msg: "Only one display manager can be installed at a time. Please enable only one of: desktop_install_lightdm, desktop_install_ly, desktop_install_lemurs"
+        success_msg: Display manager configuration is valid
+
+    - name: Set display manager services to disable
+      set_fact:
+        display_managers_to_disable:
+          - gdm3
+          - "{{ 'lemurs' if not desktop_install_lemurs else '' }}"
+          - "{{ 'lightdm' if not desktop_install_lightdm else '' }}"
+          - "{{ 'ly' if not desktop_install_ly else '' }}"
+
+    - name: Disable other display manager services
+      systemd_service:
+        name: "{{ item }}"
+        daemon_reload: true
+        enabled: false
+        masked: true
+      ignore_errors: true
+      loop: "{{ display_managers_to_disable | reject('equalto', '') | list }}"
+      become: true
+
+    - import_tasks: lemurs.yml
+      when: desktop_install_lemurs
+
     - import_tasks: lightdm.yml
-      when: not desktop_install_ly_instead_of_lightdm
-      tags: [display-manager]
+      when: desktop_install_lightdm
 
     - import_tasks: ly.yml
-      when: desktop_install_ly_instead_of_lightdm
-      tags: [display-manager]
+      when: desktop_install_ly
+  tags: [display-manager]
 
 - name: Configure system applications
   block:
