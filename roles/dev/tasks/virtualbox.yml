@@ -16,6 +16,8 @@
     vtype: select
   become: true
 
+# If seeing an error: "Kernel driver not installed (rc=-1908)" or "VirtualBox kernel modules not loaded"
+# Run: `sudo apt install --reinstall virtualbox-dkms virtualbox`
 - name: Install Virtualbox system packages
   apt:
     name:

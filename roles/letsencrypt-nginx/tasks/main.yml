@@ -9,15 +9,12 @@
 
     - name: Setup web root directories
       import_tasks: www.yml
-      tags:
-        - www
+      tags: www
 
     - name: Configure basic authentication
       import_tasks: basicauth.yml
-      tags:
-        - nginx
-  tags:
-    - setup
+      tags: nginx
+  tags: letsencrypt-nginx-setup
 
 - name: Let's Encrypt Certificate setup
   block:
@@ -29,13 +26,11 @@
 
     - name: Start Nginx for Let's Encrypt validation
       import_tasks: docker.yml
-      tags:
-        - docker
+      tags: docker
 
     - name: Obtain Let's Encrypt certificates
       import_tasks: letsencrypt.yml
-  tags:
-    - letsencrypt
+  tags: letsencrypt
 
 - name: Update Nginx configuration with new certificates
   import_tasks: configuration.yml

@@ -1,44 +1,11 @@
 ---
 - hosts: workstations
-  vars_prompt:
-    - name: run_base
-      prompt: base
-      default: n
-    - name: run_desktop
-      prompt: desktop
-      default: n
-    - name: run_bspwm
-      prompt: bspwm
-      default: n
-    - name: run_niri
-      prompt: niri
-      default: n
-    - name: run_dev
-      prompt: dev
-      default: n
-    - name: run_docker
-      prompt: docker
-      default: n
-    - name: run_games
-      prompt: games
-      default: n
-    - name: run_msmtp
-      prompt: msmtp
-      default: n
   roles:
-    - role: base
-      when: run_base == "y"
-    - role: desktop
-      when: run_desktop == "y"
-    - role: bspwm
-      when: run_bspwm == "y"
-    - role: niri
-      when: run_niri == "y"
-    - role: dev
-      when: run_dev == "y"
-    - role: docker
-      when: run_docker == "y"
-    - role: games
-      when: run_games == "y"
-    - role: msmtp
-      when: run_msmtp == "y"
+    - base
+    - desktop
+    - bspwm
+    - niri
+    - dev
+    - docker
+    - games
+    - msmtp
