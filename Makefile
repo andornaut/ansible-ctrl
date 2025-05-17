@@ -44,4 +44,4 @@ webservers: requirements
 	ansible-playbook --ask-become-pass webservers.yml
 
 workstation: requirements
-	ansible-playbook --ask-become-pass workstation.yml
+	ansible-playbook --ask-become-pass workstation_prompt.yml

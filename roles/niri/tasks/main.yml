@@ -3,16 +3,19 @@
 
 - name: Install system dependencies
   import_tasks: dependencies.yml
-  tags: [dependencies]
+  tags:
+    - hypr
+    - niri
+    - wayland
 
 - name: Install Hyprland ecosystem tools
   import_tasks: hypr.yml
-  tags: [hypr]
+  tags: hypr
 
 - name: Install and configure Niri compositor
   import_tasks: niri.yml
-  tags: [niri]
+  tags: niri
 
 - name: Configure XWayland support
   import_tasks: xwayland.yml
-  tags: [wayland]
+  tags: wayland
