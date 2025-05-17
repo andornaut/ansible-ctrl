@@ -49,6 +49,12 @@ make rsnapshot             # Configure Rsnapshot backup system
 make upgrade               # Run system upgrades
 make webservers            # Configure web servers
 make workstation           # Set up workstation/desktop environment
+
+# Run workstation tasks by tag ...
+# from desktop:
+ansible-playbook --ask-become-pass workstation.yml --tags alacritty
+# from dev:
+ansible-playbook --ask-become-pass workstation.yml --tags hobbies
 ```
 
 ### Workstation Setup
