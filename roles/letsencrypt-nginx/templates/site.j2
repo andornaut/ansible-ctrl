@@ -149,24 +149,30 @@ server {
 {% endif %}
 {% endif %}
 
-{% if not item.item.websocket_path | default(False) and item.item.websocket_enabled | default(False) %}
-        # WebSocket configuration
+{% if '/' in item.item.websocket_paths | default([]) %}
+        # WebSocket configuration for root path
+        # e.g. https://docs.frigate.video/guides/reverse_proxy/#setup-reverse-proxy-settings
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $http_connection;
 {% endif %}
     }
 
-{% if item.item.websocket_path | default(False) %}
-    # Dedicated WebSocket location
-    location {{ item.item.websocket_path }} {
+{% if item.item.websocket_paths | default(False) %}
+    # Dedicated WebSocket locations
+{% for websocket_path in item.item.websocket_paths %}
+{% if websocket_path != '/' %}
+    # We skip '/' because a WebSocket configuration for the root path is already added above
+    location {{ websocket_path }} {
         include /etc/nginx/conf.d/partial/common_proxy_configuration;
 
-        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ item.item.websocket_path }};
+        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ websocket_path }};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $http_connection;
     }
+{% endif %}
+{% endfor %}
 {% endif %}
 
 {% for location in item.item.locations | default([]) %}
