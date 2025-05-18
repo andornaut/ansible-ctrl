@@ -1,0 +1,27 @@
+---
+- name: Start ESPHome Docker container
+  vars:
+    esphome_service_volumes:
+      - "{{ homeassistantfrigate_esphome_required_volumes.config }}:/config"
+    esphome_volumes: "{{ common_volumes + esphome_service_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate-esphome
+    pull: always
+    remove_orphans: true
+    definition:
+      networks:
+        default:
+          external: true
+          name: homeassistant-frigate_default
+      services:
+        esphome:
+          container_name: esphome
+          environment:
+            - ESPHOME_DASHBOARD_USE_PING=true
+          image: "{{ homeassistantfrigate_esphome_docker_image }}"
+          logging: "{{ default_logging }}"
+          ports:
+            - "{{ homeassistantfrigate_esphome_port }}:6052"
+          restart: unless-stopped
+          volumes: "{{ esphome_volumes }}"

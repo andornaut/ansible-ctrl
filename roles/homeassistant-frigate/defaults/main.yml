@@ -2,21 +2,16 @@
 homeassistantfrigate_avahi_interfaces: ""
 homeassistantfrigate_docker_log_max_file: "10"
 homeassistantfrigate_docker_log_max_size: "10m"
+homeassistantfrigate_install_esphome: false
 homeassistantfrigate_install_frigate: false
 homeassistantfrigate_install_llm: false
 homeassistantfrigate_install_voice: false
 
-# Home Assistant
-homeassistantfrigate_homeassistant_devices: []
-homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant:latest"
-homeassistantfrigate_homeassistant_extra_volumes: []
-homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_homeassistant_required_volumes:
-  config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
-  dbus: /run/dbus
-  localtime: /etc/localtime
-  timezone: /etc/timezone
-  udev: /run/udev
+# ESPHome
+homeassistantfrigate_esphome_docker_image: ghcr.io/esphome/esphome:latest
+homeassistantfrigate_esphome_required_volumes:
+  config: /var/docker-volumes/homeassistant-frigate/esphome/config
+homeassistantfrigate_esphome_port: 6052
 
 # Frigate
 homeassistantfrigate_frigate_devices: []
@@ -33,6 +28,18 @@ homeassistantfrigate_frigate_required_volumes:
 homeassistantfrigate_frigate_rtsp_port: 1935
 homeassistantfrigate_frigate_shm_size: "64mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
+
+# Home Assistant
+homeassistantfrigate_homeassistant_devices: []
+homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant:latest"
+homeassistantfrigate_homeassistant_extra_volumes: []
+homeassistantfrigate_homeassistant_port: 8123
+homeassistantfrigate_homeassistant_required_volumes:
+  config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
+  dbus: /run/dbus
+  localtime: /etc/localtime
+  timezone: /etc/timezone
+  udev: /run/udev
 
 # microWakeWord
 homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
