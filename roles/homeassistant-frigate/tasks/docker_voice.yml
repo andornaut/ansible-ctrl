@@ -46,8 +46,8 @@
           container_name: piper
           image: "{{ homeassistantfrigate_piper_docker_image }}"
           command: "{{ homeassistantfrigate_piper_command }}"
-          restart: unless-stopped
           logging: "{{ default_logging }}"
+          restart: unless-stopped
           volumes: "{{ piper_volumes }}"
 
         whisper:
@@ -55,6 +55,6 @@
           container_name: whisper
           image: "{{ homeassistantfrigate_whisper_docker_image }}"
           command: "{{ homeassistantfrigate_whisper_command }}"
-          restart: unless-stopped
           logging: "{{ default_logging }}"
+          restart: unless-stopped
           volumes: "{{ whisper_volumes }}"

@@ -20,4 +20,6 @@
       when: homeassistantfrigate_install_llm
     - import_tasks: docker_voice.yml
       when: homeassistantfrigate_install_voice
+    - import_tasks: docker_esphome.yml
+      when: homeassistantfrigate_install_esphome
   tags: homeassistant-frigate-docker
