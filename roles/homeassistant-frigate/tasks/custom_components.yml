@@ -35,20 +35,6 @@
     dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
-- name: Download Govee LAN custom component
-  git:
-    repo: "https://github.com/wez/govee-lan-hass"
-    dest: /tmp/ansible-role-homeassistant-frigate/govee_lan
-    depth: 1
-    force: true
-    single_branch: true
-
-- name: Install Govee LAN custom component
-  copy:
-    src: /tmp/ansible-role-homeassistant-frigate/govee_lan/custom_components/govee_lan
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-  become: true
-
 - name: Download Meross custom component
   git:
     repo: "https://github.com/albertogeniola/meross-homeassistant"

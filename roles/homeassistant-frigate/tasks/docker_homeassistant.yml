@@ -1,17 +1,17 @@
 ---
-- name: Start Home Assistant and Mosquitto Docker containers
+- name: Start Mosquitto Docker container
   vars:
-    homeassistant_service_volumes:
+    homeassistant_base_volumes:
       - "{{ homeassistantfrigate_homeassistant_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
       - "{{ homeassistantfrigate_homeassistant_required_volumes.udev }}:/run/udev:ro"
-    homeassistant_volumes: "{{ common_volumes + homeassistant_service_volumes + homeassistantfrigate_homeassistant_extra_volumes }}"
+    homeassistant_volumes: "{{ common_volumes + homeassistant_base_volumes + homeassistantfrigate_homeassistant_extra_volumes }}"
 
-    mosquitto_service_volumes:
+    mosquitto_base_volumes:
       - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
-    mosquitto_volumes: "{{ common_volumes + mosquitto_service_volumes }}"
+    mosquitto_volumes: "{{ common_volumes + mosquitto_base_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate
@@ -41,9 +41,39 @@
           volumes: "{{ homeassistant_volumes }}"
 
         mosquitto:
-          # http://mosquitto:1883
           container_name: mosquitto
           image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
           logging: "{{ default_logging }}"
           restart: unless-stopped
           volumes: "{{ mosquitto_volumes }}"
+
+- name: Get Mosquitto container IP address
+  community.docker.docker_container_info:
+    name: mosquitto
+  register: mosquitto_info
+
+- name: Start Home Assistant and Govee2MQTT Docker containers
+  vars:
+    govee2mqtt_base_env:
+      GOVEE_MQTT_HOST: "{{ mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }}"
+      GOVEE_MQTT_PORT: 1883
+      GOVEE_TEMPERATURE_SCALE: C
+      RUST_LOG_STYLE: always
+      TZ: "{{ system_timezone.stdout.strip() }}"
+    govee2mqtt_env: "{{ govee2mqtt_base_env | combine(homeassistantfrigate_govee2mqtt_env | default({})) }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate-govee2mqtt
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ external_network }}"
+      services:
+        govee2mqtt:
+          image: ghcr.io/wez/govee2mqtt:latest
+          container_name: govee2mqtt
+          environment: "{{ govee2mqtt_env }}"
+          logging: "{{ default_logging }}"
+          restart: unless-stopped
+          # Required for LAN control
+          network_mode: host

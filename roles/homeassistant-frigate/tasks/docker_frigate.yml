@@ -1,15 +1,10 @@
 ---
-- name: Read system timezone
-  ansible.builtin.shell: cat /etc/timezone
-  register: system_timezone
-  changed_when: false
-
 - name: Start Frigate Docker container
   vars:
-    frigate_service_volumes:
+    frigate_base_volumes:
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_frigate_required_volumes.media }}:/media/frigate"
-    frigate_volumes: "{{ common_volumes + frigate_service_volumes }}"
+    frigate_volumes: "{{ common_volumes + frigate_base_volumes }}"
 
     frigate_tmpfs_volume:
       type: tmpfs # Optional ram-drive to reduce storage wear

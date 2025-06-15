@@ -1,13 +1,13 @@
 ---
 - name: Start LLM Docker containers
   vars:
-    ollama_service_volumes:
+    ollama_base_volumes:
       - "{{ homeassistantfrigate_ollama_required_volumes.data }}:/root/.ollama"
-    ollama_volumes: "{{ common_volumes + ollama_service_volumes }}"
+    ollama_volumes: "{{ common_volumes + ollama_base_volumes }}"
 
-    openwebui_service_volumes:
+    openwebui_base_volumes:
       - "{{ homeassistantfrigate_openwebui_required_volumes.data }}:/app/backend/data"
-    openwebui_volumes: "{{ common_volumes + openwebui_service_volumes }}"
+    openwebui_volumes: "{{ common_volumes + openwebui_base_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate-llm
