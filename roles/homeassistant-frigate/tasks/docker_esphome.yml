@@ -1,9 +1,9 @@
 ---
 - name: Start ESPHome Docker container
   vars:
-    esphome_service_volumes:
+    esphome_base_volumes:
       - "{{ homeassistantfrigate_esphome_required_volumes.config }}:/config"
-    esphome_volumes: "{{ common_volumes + esphome_service_volumes }}"
+    esphome_volumes: "{{ common_volumes + esphome_base_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistant-frigate-esphome
