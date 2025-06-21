@@ -1,15 +1,16 @@
 ---
-# Home Assistant
 - import_tasks: avahi.yml
 - import_tasks: bluetooth.yml
-- import_tasks: custom_components.yml
-- import_tasks: themes.yml
-- import_tasks: www.yml
 
-# Mosquitto
+- name: Install customizations
+  block:
+    - import_tasks: custom_components.yml
+    - import_tasks: themes.yml
+    - import_tasks: www.yml
+  tags: customizations
+
 - import_tasks: mosquitto.yml
 
-# Docker containers
 - name: Configure Docker containers
   block:
     - import_tasks: docker_prerequisites.yml
