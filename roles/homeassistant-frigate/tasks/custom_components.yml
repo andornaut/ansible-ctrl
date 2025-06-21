@@ -21,6 +21,34 @@
     dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
   become: true
 
+- name: Create a temporary directory for dreo
+  ansible.builtin.tempfile:
+    state: directory
+  register: dreo_tmp
+
+- name: Download Dreo custom component
+  get_url:
+    url: "{{ lookup('url', 'https://api.github.com/repos/JeffSteinbok/hass-dreo/releases/latest', split_lines=False) | from_json | json_query('tarball_url') }}"
+    dest: "{{ dreo_tmp.path }}/dreo.tar.gz"
+    mode: '0644'
+
+- name: Extract Dreo custom component
+  unarchive:
+    src: "{{ dreo_tmp.path }}/dreo.tar.gz"
+    dest: "{{ dreo_tmp.path }}/"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+    creates: "{{ dreo_tmp.path }}/custom_components"
+
+- name: Install Dreo custom component
+  copy:
+    src: "{{ dreo_tmp.path }}/custom_components/dreo"
+    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+    remote_src: true
+  become: true
+
 - name: Download Frigate custom component
   git:
     repo: "https://github.com/blakeblackshear/frigate-hass-integration"
