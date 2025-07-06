@@ -64,7 +64,7 @@ homeassistantfrigate_install_voice: true
 
 # Core service ports:
 homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_frigate_port: 5000
+homeassistantfrigate_frigate_http_port: 5000
 homeassistantfrigate_openwebui_port: 3000
 ```
 
@@ -95,7 +95,7 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 ```yaml
 # Given:
 homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_frigate_port: 5000
+homeassistantfrigate_frigate_http_port: 5000
 homeassistantfrigate_openwebui_port: 3000
 
 # Nginx configuration:
