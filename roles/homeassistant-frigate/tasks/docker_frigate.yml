@@ -37,12 +37,12 @@
           # > access to swap.
           memswap_limit: "{{ homeassistantfrigate_frigate_memory_swap | default(homeassistantfrigate_frigate_memory) }}"
           ports:
-            - "{{ homeassistantfrigate_frigate_port }}:5000"
-            - "{{ homeassistantfrigate_frigate_rtsp_port }}:1935"
+            - "{{ homeassistantfrigate_frigate_http_port }}:5000"
             # RTSP restream https://docs.frigate.video/configuration/restream/
-            - "8554:8554/tcp"
-            - "8555:8555/tcp" # WebRTC over TCP
-            - "8555:8555/udp" # WebRTC over UDP
+            - "{{ homeassistantfrigate_frigate_rtsp_port }}:8554"
+            # WebRTC
+            - "{{ homeassistantfrigate_frigate_webrtc_port }}:8555/tcp"
+            - "{{ homeassistantfrigate_frigate_webrtc_port }}:8555/udp"
           restart: unless-stopped
           # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
           # https://docs.docker.com/engine/security/seccomp/#run-without-the-default-seccomp-profile
@@ -50,30 +50,3 @@
             - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
-
-- name: Get Frigate container IP address
-  community.docker.docker_container_info:
-    name: frigate
-  register: frigate_info
-
-- name: Read Frigate configuration
-  slurp:
-    src: "{{ homeassistantfrigate_frigate_required_volumes.config }}/config.yml"
-  register: frigate_config_raw
-
-- name: Parse Frigate configuration YAML
-  set_fact:
-    frigate_config: "{{ frigate_config_raw.content | b64decode | from_yaml }}"
-
-- name: Set go2rtc.webrtc.candidates to container IP:8555
-  set_fact:
-    frigate_config: "{{ frigate_config | combine({'go2rtc': {'webrtc': {'candidates': [ frigate_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress ~ ':8555' ]}}}, recursive=True) }}"
-
-- name: Write updated Frigate configuration
-  copy:
-    dest: "{{ homeassistantfrigate_frigate_required_volumes.config }}/config.yml"
-    content: "{{ frigate_config | to_nice_yaml(indent=2, sort_keys=False) }}"
-    owner: root
-    group: root
-    mode: '0644'
-  become: true
