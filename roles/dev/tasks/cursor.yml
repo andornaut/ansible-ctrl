@@ -1,7 +1,13 @@
 ---
+- name: Get latest Cursor AppImage download URL
+  ansible.builtin.uri:
+    url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
+    return_content: yes
+  register: api_response
+
 - name: Download Cursor
   get_url:
-    url: "https://downloader.cursor.sh/linux/appImage/x64"
+    url: "{{ api_response.json.downloadUrl }}"
     dest: /usr/local/bin/cursor
   become: true
 

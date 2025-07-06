@@ -11,7 +11,7 @@ An [Ansible](https://www.ansible.com/) role that provisions
 ```bash
 make homeassistant-frigate
 
-# Docker only
+# Specific tags only:
 ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags customizations
 ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags docker
 ```
@@ -519,6 +519,7 @@ Excerpt from dmesg:
 
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration)
+  - [Frigate camera notifications automation blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee](https://github.com/LaggAt/hacs-govee) - Currently incompatible with Roborock. See [workaround](https://github.com/LaggAt/hacs-govee/pull/143)
 - [Govee LAN](https://github.com/wez/govee-lan-hass)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)

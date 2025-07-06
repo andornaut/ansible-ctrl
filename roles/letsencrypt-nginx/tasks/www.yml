@@ -14,7 +14,6 @@
       git:
         repo: "{{ item.repo }}"
         dest: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
-        depth: 1
         force: true
         version: "{{ item.version|default('HEAD') }}"
         update: true # Always update to latest

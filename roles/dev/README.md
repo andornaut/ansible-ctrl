@@ -2,6 +2,16 @@
 
 An [Ansible](https://www.ansible.com/) role that installs and configures development tools and programming languages on Ubuntu.
 
+## Usage
+
+```bash
+make workstation
+# Select "dev" from among the prompts
+
+# Specific tags only:
+ansible-playbook --ask-become-pass workstation.yml --tags cursor
+```
+
 ## Overview
 
 This role automates the installation and configuration of various development tools, programming languages, and IDEs. It provides a comprehensive development environment setup with support for multiple languages and tools.
