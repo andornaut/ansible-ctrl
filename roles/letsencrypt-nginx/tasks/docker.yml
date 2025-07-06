@@ -25,6 +25,7 @@
   community.docker.docker_compose_v2:
     project_name: nginx
     pull: always
+    remove_orphans: true
     definition:
       services:
         nginx:

@@ -50,3 +50,30 @@
             - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
+
+- name: Get Frigate container IP address
+  community.docker.docker_container_info:
+    name: frigate
+  register: frigate_info
+
+- name: Read Frigate configuration
+  slurp:
+    src: "{{ homeassistantfrigate_frigate_required_volumes.config }}/config.yml"
+  register: frigate_config_raw
+
+- name: Parse Frigate configuration YAML
+  set_fact:
+    frigate_config: "{{ frigate_config_raw.content | b64decode | from_yaml }}"
+
+- name: Set go2rtc.webrtc.candidates to container IP:8555
+  set_fact:
+    frigate_config: "{{ frigate_config | combine({'go2rtc': {'webrtc': {'candidates': [ frigate_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress ~ ':8555' ]}}}, recursive=True) }}"
+
+- name: Write updated Frigate configuration
+  copy:
+    dest: "{{ homeassistantfrigate_frigate_required_volumes.config }}/config.yml"
+    content: "{{ frigate_config | to_nice_yaml(indent=2, sort_keys=False) }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
