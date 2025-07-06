@@ -26,6 +26,7 @@
 
     - name: Start Nginx for Let's Encrypt validation
       import_tasks: docker.yml
+      tags: docker
 
     - name: Obtain Let's Encrypt certificates
       import_tasks: letsencrypt.yml
