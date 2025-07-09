@@ -14,7 +14,7 @@
     frigate_env: "{{ homeassistantfrigate_frigate_env | default({}) | combine({'TZ': system_timezone.stdout.strip()}) }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate-llm
+    project_name: homeassistant-frigate-frigate
     pull: always
     remove_orphans: true
     definition:
