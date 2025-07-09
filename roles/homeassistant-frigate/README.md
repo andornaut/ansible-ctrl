@@ -256,6 +256,8 @@ Installation
 
 - [Hardware](https://www.seeedstudio.com/Home-Assistant-SkyConnect-p-5479.html)
 - [Official documentation](https://connectzbt1.home-assistant.io/)
+- [Thread](https://www.home-assistant.io/integrations/thread/#list-of-thread-border-router-devices)
+  - [Enabling thread support](https://support.nabucasa.com/hc/en-us/articles/26124710072861-Enabling-Thread-support)
 
 ### ratgdo - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
@@ -522,6 +524,7 @@ Excerpt from dmesg:
   - [Frigate camera notifications automation blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee](https://github.com/LaggAt/hacs-govee) - Currently incompatible with Roborock. See [workaround](https://github.com/LaggAt/hacs-govee/pull/143)
 - [Govee LAN](https://github.com/wez/govee-lan-hass)
+- [Keymaster](https://github.com/FutureTense/keymaster)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
 - [Sensei Thermostat](https://github.com/iprak/sensi)
 - [Simpleicons](https://github.com/vigonotion/hass-simpleicons)
