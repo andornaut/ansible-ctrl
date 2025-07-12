@@ -2,6 +2,7 @@
 - name: Install system packages
   apt:
     name:
+      - bison
       - flex
       - libxcb-cursor-dev
       - libstartup-notification0-dev

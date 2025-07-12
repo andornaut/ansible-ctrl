@@ -1,4 +1,13 @@
 ---
+- name: Remove Piper and Whisper containers if they exist
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - piper
+    - whisper
+  ignore_errors: true
+
 - name: Start Voice Docker containers
   vars:
     #microwakeword_volumes: "{{ common_volumes }}"

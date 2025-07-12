@@ -28,4 +28,4 @@
         key: "/org/gnome/settings-daemon/plugins/keyboard/active"
         value: "false"
         state: present
-  notify: reload dconf
+  notify: Reload dconf
