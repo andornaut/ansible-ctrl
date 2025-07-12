@@ -7,11 +7,9 @@ An [Ansible](https://www.ansible.com/) role that provisions NGINX as a Docker co
 ```bash
 make webservers
 
-# Docker only
-ansible-playbook --ask-become-pass webservers.yml --tags docker
+ansible-playbook --ask-become-pass webservers.yml --tags configuration
 ansible-playbook --ask-become-pass webservers.yml --tags letsencrypt
 ansible-playbook --ask-become-pass webservers.yml --tags nginx
-ansible-playbook --ask-become-pass webservers.yml --tags www
 
 ansible-playbook --ask-become-pass webservers.yml --tags nginx --limit webserverhostname1
 ```
@@ -74,7 +72,7 @@ letsencryptnginx_websites:
     cloudflare_api_zone: example.com
     csr_commonName: *.example.com
     proxy_port: 8123
-    proxy_redirect_http: False
+    proxy_https: False
     proxy_remove_authorization_header: False
     websocket_path: /api/websocket
 ```
