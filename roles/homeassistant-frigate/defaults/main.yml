@@ -4,6 +4,7 @@ homeassistantfrigate_docker_log_max_file: "10"
 homeassistantfrigate_docker_log_max_size: "10m"
 homeassistantfrigate_install_esphome: false
 homeassistantfrigate_install_frigate: false
+homeassistantfrigate_install_govee2mqtt: false
 homeassistantfrigate_install_llm: false
 homeassistantfrigate_install_voice: false
 
@@ -18,17 +19,18 @@ homeassistantfrigate_frigate_devices: []
 homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
 homeassistantfrigate_frigate_env:
   LIBVA_DRIVER_NAME: ""
-homeassistantfrigate_frigate_http_port: 5000
 homeassistantfrigate_frigate_memory: "8g"
 # When unset, swap is disabled; when 0, this setting is ignored.
 # homeassistantfrigate_frigate_memory_swap:
 homeassistantfrigate_frigate_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/frigate/config
   media: /var/docker-volumes/homeassistant-frigate/frigate/media
-homeassistantfrigate_frigate_rtsp_port: 8554
+homeassistantfrigate_frigate_port_http_authenticated: 8971
+homeassistantfrigate_frigate_port_http_unauthenticated: 5000
+homeassistantfrigate_frigate_port_rtsp: 8554
+homeassistantfrigate_frigate_port_webrtc: 8555
 homeassistantfrigate_frigate_shm_size: "64mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
-homeassistantfrigate_frigate_webrtc_port: 8555
 
 # Home Assistant
 homeassistantfrigate_homeassistant_devices: []

@@ -9,7 +9,7 @@
     - mosquitto
   ignore_errors: true
 
-- name: Start Mosquitto Docker container
+- name: Start Home Assistant and Mosquitto Docker containers
   vars:
     homeassistant_base_volumes:
       - "{{ homeassistantfrigate_homeassistant_required_volumes.config }}:/config"
@@ -61,12 +61,14 @@
   community.docker.docker_container_info:
     name: mosquitto
   register: mosquitto_info
+  when: homeassistantfrigate_install_govee2mqtt
 
 - name: Print Mosquitto container IP address
   debug:
     var: mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress
+  when: homeassistantfrigate_install_govee2mqtt
 
-- name: Start Home Assistant and Govee2MQTT Docker containers
+- name: Start Govee2MQTT Docker container
   vars:
     govee2mqtt_base_env:
       GOVEE_MQTT_HOST: "{{ mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }}"
@@ -91,3 +93,4 @@
           restart: unless-stopped
           # Required for LAN control
           network_mode: host
+  when: homeassistantfrigate_install_govee2mqtt

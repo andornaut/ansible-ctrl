@@ -36,5 +36,6 @@
   import_tasks: configuration.yml
   notify: Restart nginx
   tags:
+    - configuration
     - letsencrypt
     - nginx

@@ -61,7 +61,7 @@
 
 - name: Generate site configurations
   template:
-    src: site.j2
+    src: configuration.j2
     dest: >-
       {{ letsencryptnginx_docker_required_volumes.config }}/{{
       item.item.domain }}.conf

@@ -53,7 +53,7 @@ This role automates the deployment and configuration of a complete home automati
 
 ## Role Variables
 
-See the default variables for each of the [./roles](./roles), for e.g. [letsencrypt-nginx variables](h[ttps://github.com/andornaut/ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-ctrl/blob/master/roles/homeassistant-frigate/defaults/main.yml)).
+See the default variables for each of the [./roles](./roles), for e.g. [letsencrypt-nginx variables](<h[ttps://github.com/andornaut/ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-ctrl/blob/master/roles/homeassistant-frigate/defaults/main.yml)>).
 
 Key variables include:
 
@@ -62,9 +62,8 @@ Key variables include:
 homeassistantfrigate_install_llm: true
 homeassistantfrigate_install_voice: true
 
-# Core service ports:
-homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_frigate_http_port: 5000
+homeassistantfrigate_frigate_port_http_authenticated: 8971
+homeassistantfrigate_frigate_port_http_unauthenticated: 5000
 homeassistantfrigate_openwebui_port: 3000
 ```
 
@@ -87,7 +86,6 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 - [Example config.yml](./examples/frigate/config.yml)
 - [GitHub issue #311](https://github.com/blakeblackshear/frigate/issues/311)
 
-
 ### Nginx
 
 [letsencrypt-nginx variables](https://github.com/andornaut/ansible-ctrl/blob/master/roles/letsencrypt-nginx/defaults/main.yml):
@@ -95,7 +93,7 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 ```yaml
 # Given:
 homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_frigate_http_port: 5000
+homeassistantfrigate_frigate_port_http_unauthenticated: 5000
 homeassistantfrigate_openwebui_port: 3000
 
 # Nginx configuration:
@@ -263,7 +261,7 @@ Installation
 
 - [ratgdo](https://paulwieland.github.io/ratgdo/)
 - [ratgdo-compatible alternative hardware](https://www.gelidus.ca/product/gelidus-research-ratgdo-alternative-board-v2-usb-c/)
-Getting started
+  Getting started
 
 1. Choose between:
    - (Option A) Flash the MQTT firmware for "ratgdo v2.51, Security + 1.0, 2.0 & Dry Contact" using [this web installer](https://paulwieland.github.io/ratgdo/flash.html)
@@ -301,17 +299,17 @@ target:
   entity_id: vacuum.roborock_q_revo_s
 data:
   command: set_custom_mode
-  params: [{{ custom_mode }}]
+  params: [{ { custom_mode } }]
 ```
 
-Vacuum mode | Description
---- | ---
-101 | Silent
-102 | Balanced
-103 | Turbo
-104 | Max
-105 | Off (mop only)
-106 | Custom (Auto)
+| Vacuum mode | Description    |
+| ----------- | -------------- |
+| 101         | Silent         |
+| 102         | Balanced       |
+| 103         | Turbo          |
+| 104         | Max            |
+| 105         | Off (mop only) |
+| 106         | Custom (Auto)  |
 
 [Water Box Custom Mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/water_box_custom_mode.md#set-water-box-custom-mode)
 
@@ -321,17 +319,17 @@ target:
   entity_id: vacuum.roborock_q_revo_s
 data:
   command: set_water_box_custom_mode
-  params: [{{ water_box_custom_mode }}]
+  params: [{ { water_box_custom_mode } }]
 ```
 
-Water box custom mode | Flow level
---- | ---
-200 | Off
-201 | Low
-202 | Medium
-203 | High
-204 | Custom (Auto)
-207 | Custom (Levels)
+| Water box custom mode | Flow level      |
+| --------------------- | --------------- |
+| 200                   | Off             |
+| 201                   | Low             |
+| 202                   | Medium          |
+| 203                   | High            |
+| 204                   | Custom (Auto)   |
+| 207                   | Custom (Levels) |
 
 ```yaml
 service: vacuum.send_command
@@ -339,15 +337,15 @@ target:
   entity_id: vacuum.roborock_q_revo_s
 data:
   command: set_mop_mode
-  params: [{{ mop_mode }}]
+  params: [{ { mop_mode } }]
 ```
 
-Mop mode | Description
---- | ---
-300 | Standard
-301 | Deep
-302 | Custom
-303 | Deep+
+| Mop mode | Description |
+| -------- | ----------- |
+| 300      | Standard    |
+| 301      | Deep        |
+| 302      | Custom      |
+| 303      | Deep+       |
 
 ### Sensi Thermostat
 
@@ -396,11 +394,11 @@ docker run --rm \
 
 Context: Some devices cannot be delete from the UI, such as old devices in the Ruckus Unleashed integration.
 
-1. Rename the unwanted device names and entity IDs to contain the word "_deprecated"
+1. Rename the unwanted device names and entity IDs to contain the word "\_deprecated"
 1. Run `docker stop homeassistant`
-1. Delete all entries with the word "_deprecated" from `./.storage/core.entity_registry` `core.device_registry`
+1. Delete all entries with the word "\_deprecated" from `./.storage/core.entity_registry` `core.device_registry`
 1. Run `docker start homeassistant`
-1. Run [`recorder.purge_entities`](https://www.home-assistant.io/integrations/recorder/#action-purge_entities) service with the "entity_globs" field set to e.g. "device_tracker.*_deprecated"
+1. Run [`recorder.purge_entities`](https://www.home-assistant.io/integrations/recorder/#action-purge_entities) service with the "entity_globs" field set to e.g. "device_tracker.\*\_deprecated"
 
 #### Removing unwanted MQTT entities
 
