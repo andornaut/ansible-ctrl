@@ -8,7 +8,7 @@
       - feh
       - gnome-keyring
       - gnome-themes-extra
-      - gnome-themes-standard
+      #- gnome-themes-standard
       - gvfs-backends
       - imagemagick
       - jq

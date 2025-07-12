@@ -22,6 +22,6 @@
         hour: "22"
         job: >-
           cd {{ playbook_dir }} &&
-          ansible-playbook webservers.yml --tags letsencrypt
-          >> /var/log/letsencrypt-renewal.log 2>&1
+          ansible-playbook webservers.yml
+          >> /var/log/ansible-role-letsencrypt-nginx.log 2>&1
       become: true

@@ -1,4 +1,13 @@
 ---
+- name: Remove Ollama and OpenWebUI containers if they exist
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - ollama
+    - openwebui
+  ignore_errors: true
+
 - name: Start LLM Docker containers
   vars:
     ollama_base_volumes:
