@@ -6,9 +6,27 @@
         name: org.mozilla.firefox
         method: user
         state: absent
+      register: firefox_flatpak_removal
+      failed_when:
+        - firefox_flatpak_removal is failed
+        - "'Executable \\'flatpak\\' was not found' not in firefox_flatpak_removal.msg"
 
     - name: Configure Firefox apt packages
       block:
+        - name: Check if Firefox is installed from non-PPA source
+          shell: dpkg -l firefox | grep -E "ii.*firefox.*ubuntu"
+          register: firefox_installed_from_ubuntu
+          failed_when: false
+          become: true
+
+        - name: Remove Firefox if installed from Ubuntu repositories
+          apt:
+            name: firefox
+            purge: true
+            state: absent
+          become: true
+          when: firefox_installed_from_ubuntu.rc == 0
+
         - name: Add Firefox Next PPA
           apt_repository:
             repo: ppa:mozillateam/firefox-next

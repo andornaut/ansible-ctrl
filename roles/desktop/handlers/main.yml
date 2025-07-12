@@ -6,3 +6,7 @@
 - name: Update GRUB
   command: update-grub
   become: true
+
+- name: Reload dconf
+  command: dconf reset -f /
+  become: true

@@ -1,4 +1,10 @@
 ---
+- name: Remove Frigate container if it exists
+  community.docker.docker_container:
+    name: frigate
+    state: absent
+  ignore_errors: true
+
 - name: Start Frigate Docker container
   vars:
     frigate_base_volumes:

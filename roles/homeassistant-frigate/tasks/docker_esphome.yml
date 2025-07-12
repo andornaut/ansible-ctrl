@@ -1,4 +1,10 @@
 ---
+- name: Remove ESPHome container if it exists
+  community.docker.docker_container:
+    name: esphome
+    state: absent
+  ignore_errors: true
+
 - name: Start ESPHome Docker container
   vars:
     esphome_base_volumes:
