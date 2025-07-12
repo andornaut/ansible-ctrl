@@ -1,3 +1,7 @@
+{% if item.item.content is defined %}
+    {{ item.item.content }}
+{% endif %}
+
 # HTTP redirect to HTTPS
 server {
     listen 80;
@@ -125,38 +129,6 @@ server {
     # TODO: Make optional, b/c this breaks on self-signed certificates
     #add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
-    # Main location configuration
-    location / {
-{% if item.item.proxy_port is defined %}
-        include /etc/nginx/conf.d/partial/common_proxy_configuration;
-
-{% if item.item.proxy_remove_authorization_header | default(False) %}
-        # Remove Authorization header for specific services (e.g., Unifi)
-        proxy_set_header Authorization "";
-{% endif %}
-
-{% if item.item.proxy_redirect_http | default(False) %}
-        # Redirect HTTP to HTTPS in proxy responses
-        proxy_redirect ~*^http([^s].*)$ https$1;
-        proxy_pass https://127.0.0.1:{{ item.item.proxy_port }};
-{% else %}
-        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }};
-{% endif %}
-{% else %}
-        root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
-{% if item.item.default_path | default(False)%}
-        try_files $uri $uri/ {{ item.item.default_path }};
-{% endif %}
-{% endif %}
-
-{% if '/' in item.item.websocket_paths | default([]) %}
-        # WebSocket configuration for root path
-        # e.g. https://docs.frigate.video/guides/reverse_proxy/#setup-reverse-proxy-settings
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
-{% endif %}
-    }
 
 {% if item.item.websocket_paths | default(False) %}
     # Dedicated WebSocket locations
@@ -166,7 +138,13 @@ server {
     location {{ websocket_path }} {
         include /etc/nginx/conf.d/partial/common_proxy_configuration;
 
-        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ websocket_path }};
+        {% if item.item.proxy_https | default(False) %}
+            proxy_pass https://127.0.0.1:{{ item.item.proxy_port }}{{ websocket_path }};
+            # Redirect HTTP to HTTPS in proxy responses
+            proxy_redirect ~*^http([^s].*)$ https$1;
+        {% else %}
+            proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ websocket_path }};
+        {% endif %}
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $http_connection;
@@ -216,6 +194,43 @@ server {
 {% endif %}
     }
 {% endfor %}
+
+    # Main location configuration
+    location / {
+{% if item.item.proxy_port is defined %}
+        include /etc/nginx/conf.d/partial/common_proxy_configuration;
+
+{% if item.item.proxy_remove_authorization_header | default(False) %}
+        # Remove Authorization header for specific services (e.g., Unifi)
+        proxy_set_header Authorization "";
+{% endif %}
+
+{% if item.item.proxy_https | default(False) %}
+        proxy_pass https://127.0.0.1:{{ item.item.proxy_port }};
+        # Redirect HTTP to HTTPS in proxy responses
+        proxy_redirect ~*^http([^s].*)$ https$1;
+{% else %}
+        proxy_pass http://127.0.0.1:{{ item.item.proxy_port }};
+{% endif %}
+{% else %}
+        root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
+{% if item.item.default_path | default(False)%}
+        try_files $uri $uri/ {{ item.item.default_path }};
+{% endif %}
+{% endif %}
+
+{% if item.item.proxy_content is defined %}
+        {{ item.item.proxy_content }}
+{% endif %}
+
+{% if '/' in item.item.websocket_paths | default([]) %}
+        # WebSocket configuration for root path
+        # e.g. https://docs.frigate.video/guides/reverse_proxy/#setup-reverse-proxy-settings
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+{% endif %}
+    }
 
     include /etc/nginx/conf.d/partial/common_site_configuration;
 }
