@@ -1,14 +1,5 @@
 ---
-# https://www.reddit.com/r/ansible/comments/l1wof8/install_virtualboxextpack_accepting_the_eula/
-- name: Accept virtualbox-ext-pack seen license
-  debconf:
-    name: virtualbox-ext-pack
-    question: virtualbox-ext-pack/license
-    value: "true"
-    vtype: seen
-  become: true
-
-- name: Accept virtualbox-ext-pack select license
+- name: Accept virtualbox-ext-pack license
   debconf:
     name: virtualbox-ext-pack
     question: virtualbox-ext-pack/license
@@ -16,9 +7,15 @@
     vtype: select
   become: true
 
-# If seeing an error: "Kernel driver not installed (rc=-1908)" or "VirtualBox kernel modules not loaded"
-# Run: `sudo apt install --reinstall virtualbox-dkms virtualbox`
-- name: Install Virtualbox system packages
+- name: Accept virtualbox-ext-pack license seen
+  debconf:
+    name: virtualbox-ext-pack
+    question: virtualbox-ext-pack/license
+    value: "true"
+    vtype: seen
+  become: true
+
+- name: Install Virtualbox packages
   apt:
     name:
       - virtualbox
@@ -28,4 +25,9 @@
     state: latest
     install_recommends: false
     update_cache: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
   become: true
+
+# If seeing an error: "Kernel driver not installed (rc=-1908)" or "VirtualBox kernel modules not loaded"
+# Run: `sudo apt install --reinstall virtualbox-dkms virtualbox`

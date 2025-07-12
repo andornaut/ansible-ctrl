@@ -1,4 +1,14 @@
 ---
+- name: Remove Home Assistant and Mosquitto containers if they exist
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - govee2mqtt
+    - homeassistant
+    - mosquitto
+  ignore_errors: true
+
 - name: Start Mosquitto Docker container
   vars:
     homeassistant_base_volumes:
@@ -51,6 +61,10 @@
   community.docker.docker_container_info:
     name: mosquitto
   register: mosquitto_info
+
+- name: Print Mosquitto container IP address
+  debug:
+    var: mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress
 
 - name: Start Home Assistant and Govee2MQTT Docker containers
   vars:

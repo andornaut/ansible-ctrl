@@ -28,6 +28,12 @@
       loop: "{{ display_managers_to_disable | reject('equalto', '') | list }}"
       become: true
 
+    - name: Remove display-manager.service symlink
+      file:
+        path: /etc/systemd/system/display-manager.service
+        state: absent
+      become: true
+
     - import_tasks: lemurs.yml
       when: desktop_install_lemurs
 
