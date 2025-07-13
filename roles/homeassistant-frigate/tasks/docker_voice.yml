@@ -67,3 +67,27 @@
           logging: "{{ default_logging }}"
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
+
+- name: Get Piper container info
+  community.docker.docker_container_info:
+    name: piper
+  register: piper_info
+
+- name: Update /etc/hosts with Piper container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+piper'
+    line: "{{ piper_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} piper"
+  become: true
+
+- name: Get Whisper container info
+  community.docker.docker_container_info:
+    name: whisper
+  register: whisper_info
+
+- name: Update /etc/hosts with Whisper container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+whisper'
+    line: "{{ whisper_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} whisper"
+  become: true

@@ -57,3 +57,15 @@
             - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
+
+- name: Get Frigate container info
+  community.docker.docker_container_info:
+    name: frigate
+  register: frigate_info
+
+- name: Update /etc/hosts with Frigate container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+frigate'
+    line: "{{ frigate_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} frigate"
+  become: true
