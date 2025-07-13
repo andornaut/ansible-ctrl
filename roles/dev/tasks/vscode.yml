@@ -8,6 +8,6 @@
 - name: "Workaround: Make Visual Studio Code run in Wayland"
   ansible.builtin.replace:
     path: /usr/share/applications/code.desktop
-    regexp: "^Exec\\S*=([\/\\w-]*)\\S*(.*)$"
+    regexp: '^Exec\S*=([/\w-]*)\S*(.*)$'
     replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
   become: true

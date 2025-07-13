@@ -57,16 +57,29 @@
           restart: unless-stopped
           volumes: "{{ mosquitto_volumes }}"
 
-- name: Get Mosquitto container IP address
+- name: Get Home Assistant container info
+  community.docker.docker_container_info:
+    name: homeassistant
+  register: homeassistant_info
+
+- name: Update /etc/hosts with Home Assistant container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+homeassistant'
+    line: "{{ homeassistant_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} homeassistant"
+  become: true
+
+- name: Get Mosquitto container info
   community.docker.docker_container_info:
     name: mosquitto
   register: mosquitto_info
-  when: homeassistantfrigate_install_govee2mqtt
 
-- name: Print Mosquitto container IP address
-  debug:
-    var: mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress
-  when: homeassistantfrigate_install_govee2mqtt
+- name: Update /etc/hosts with Mosquitto container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+mosquitto'
+    line: "{{ mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} mosquitto"
+  become: true
 
 - name: Start Govee2MQTT Docker container
   vars:
