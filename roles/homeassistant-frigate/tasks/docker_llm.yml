@@ -49,3 +49,27 @@
             - "{{ homeassistantfrigate_openwebui_port }}:8080"
           restart: unless-stopped
           volumes: "{{ openwebui_volumes }}"
+
+- name: Get Ollama container info
+  community.docker.docker_container_info:
+    name: ollama
+  register: ollama_info
+
+- name: Update /etc/hosts with Ollama container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+ollama'
+    line: "{{ ollama_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} ollama"
+  become: true
+
+- name: Get OpenWebUI container info
+  community.docker.docker_container_info:
+    name: openwebui
+  register: openwebui_info
+
+- name: Update /etc/hosts with OpenWebUI container IP
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+openwebui'
+    line: "{{ openwebui_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} openwebui"
+  become: true

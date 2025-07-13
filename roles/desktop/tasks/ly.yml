@@ -65,14 +65,14 @@
           lineinfile:
             line: "waylandsessions = /usr/share/wayland-sessions:/usr/local/share/wayland-sessions"
             path: /etc/ly/config.ini
-            regexp: "^waylandsessions *="
+            regexp: '^waylandsessions *='
           become: true
 
         - name: Look in /usr/share and /usr/local/share for xsessions
           lineinfile:
             line: "xsessions = /usr/share/xsessions:/usr/local/share/xsessions"
             path: /etc/ly/config.ini
-            regexp: "^xsessions *="
+            regexp: '^xsessions *='
           become: true
 
         - name: Enable password field clearing
