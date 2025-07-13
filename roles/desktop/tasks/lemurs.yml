@@ -70,15 +70,15 @@
             line: "{{ item.line }}"
           loop:
             - {
-                regexp: "^xsessions_path\\s*=.*",
+                regexp: '^xsessions_path\s*=.*',
                 line: 'xsessions_path = "/usr/local/share/xsessions"',
               }
             - {
-                regexp: "^wayland_sessions_path\\s*=.*",
+                regexp: '^wayland_sessions_path\s*=.*',
                 line: 'wayland_sessions_path = "/usr/local/share/wayland-sessions"',
               }
             - {
-                regexp: "^system_shell\\s*=.*",
+                regexp: '^system_shell\s*=.*',
                 line: 'system_shell = "/bin/bash"',
               }
           become: true
@@ -93,7 +93,7 @@
         - name: Update ExecStart path in service file
           lineinfile:
             path: /usr/lib/systemd/system/lemurs.service
-            regexp: "^ExecStart\\s*=.*"
+            regexp: '^ExecStart\s*=.*'
             line: "ExecStart=/usr/local/bin/lemurs"
           become: true
 
