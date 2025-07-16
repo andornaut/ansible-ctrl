@@ -40,3 +40,4 @@
     regexp: '^\S+\s+esphome'
     line: "{{ esphome_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} esphome"
   become: true
+  no_log: true # The CLI output would be too verbose without no_log

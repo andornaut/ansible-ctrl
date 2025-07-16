@@ -1,0 +1,45 @@
+---
+- name: Remove OTBR container if it exists
+  community.docker.docker_container:
+    name: otbr
+    state: absent
+  ignore_errors: true
+
+- name: Start OTBR Docker container
+  vars:
+    otbr_base_volumes:
+      - "{{ homeassistantfrigate_otbr_required_volumes.data }}:/var/lib/thread"
+    otbr_volumes: "{{ common_volumes + otbr_base_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate-otbr
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ external_network }}"
+      services:
+        otbr:
+          container_name: otbr
+          image: "{{ homeassistantfrigate_otbr_docker_image }}"
+          cap_add:
+            - NET_ADMIN
+            - SYS_ADMIN
+          devices:
+            - /dev/net/tun
+            - /dev/ttyUSB1
+          environment:
+            - AUTOFLASH_FIRMWARE=x0
+            - BACKBONE_IF=enp9s0
+            - BAUDRATE=460800
+            - DEVICE=/dev/ttyUSB1
+            - FIREWALL=1
+            - FLOW_CONTROL=1
+            - NAT64=1
+            - OTBR_REST_PORT=8081
+            - OTBR_WEB_PORT=8080
+          logging: "{{ default_logging }}"
+          network_mode: host
+          # https://github.com/ownbee/hass-otbr-docker/blob/main/docker-compose.yml#L6
+          # privileged: true
+          restart: unless-stopped
+          volumes: "{{ otbr_volumes }}"

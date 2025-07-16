@@ -12,3 +12,5 @@ external_network:
   default:
     external: true
     name: homeassistant-frigate_default
+
+TZ: "{{ system_timezone.stdout.strip() }}"

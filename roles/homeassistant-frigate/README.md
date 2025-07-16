@@ -474,6 +474,7 @@ Excerpt from dmesg:
 - [FFmpeg VAAPI](https://trac.ffmpeg.org/wiki/Hardware/VAAPI)
 - [Frigate machine learning accelerator by Coral](https://coral.ai/products/)
 - [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
+- [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
 - [Home Assistant automation trigger variables](https://www.home-assistant.io/docs/automation/templating/)
 - [Home Assistant script syntax](https://www.home-assistant.io/docs/scripts/)
 - [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
@@ -483,10 +484,10 @@ Excerpt from dmesg:
 
 ### Custom Cards
 
+- [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
 - [Bubble card](https://github.com/Clooos/Bubble-Card)
 - [Button card](https://github.com/custom-cards/button-card/)
 - [Card mod](https://github.com/thomasloven/lovelace-card-mod)
-- [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
 - [Layout card](github.com/thomasloven/lovelace-layout-card)
 - [Mini media player](https://github.com/kalkih/mini-media-player)
 - [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
@@ -502,17 +503,16 @@ Excerpt from dmesg:
 - [Envisalink](https://www.home-assistant.io/integrations/envisalink/)
   - [Envisalink Refactored](https://github.com/ufodone/envisalink_new) - Independent rewrite
   - [esphome-dsckeybus](https://github.com/Dilbert66/esphome-dsckeybus)
-- [Foscam](https://www.home-assistant.io/integrations/foscam/)
 - [Google Cast](https://www.home-assistant.io/integrations/cast/)
 - [HomeKit](https://www.home-assistant.io/integrations/homekit/)
-- [Neato](https://www.home-assistant.io/integrations/neato/)
 - [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
+- [Open Thread Border Router (OTBR)](https://www.home-assistant.io/integrations/otbr/)
+  - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [Roborock](https://www.home-assistant.io/integrations/roborock/)
   - [pfsense Nat 1:1 workaround](https://github.com/rytilahti/python-miio/issues/422#issuecomment-573408811)
   - [Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor)
-- [Roomba](https://www.home-assistant.io/integrations/roomba/)
-  - [SDK](https://github.com/koalazak/dorita980)
 - [Ruckus Unleashed](https://www.home-assistant.io/integrations/denonavr/)
+- [Thread](https://www.home-assistant.io/integrations/thread/)
 - [Zigbee Home Automation](https://www.home-assistant.io/integrations/zha/)
 
 #### Custom integrations
@@ -520,8 +520,7 @@ Excerpt from dmesg:
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration)
   - [Frigate camera notifications automation blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
-- [Govee](https://github.com/LaggAt/hacs-govee) - Currently incompatible with Roborock. See [workaround](https://github.com/LaggAt/hacs-govee/pull/143)
-- [Govee LAN](https://github.com/wez/govee-lan-hass)
+- [Govee2MQTT](https://github.com/wez/govee2mqtt)
 - [Keymaster](https://github.com/FutureTense/keymaster)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
 - [Sensei Thermostat](https://github.com/iprak/sensi)

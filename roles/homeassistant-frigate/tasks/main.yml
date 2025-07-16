@@ -10,17 +10,35 @@
   tags: customizations
 
 - import_tasks: mosquitto.yml
+- import_tasks: otbr.yml
 
 - name: Configure Docker containers
   block:
     - import_tasks: docker_prerequisites.yml
+
     - import_tasks: docker_homeassistant.yml
+      tags:
+        - homeassistant
+        - mosquitto
+        - govee2mqtt
+
     - import_tasks: docker_frigate.yml
+      tags: frigate
       when: homeassistantfrigate_install_frigate
+
     - import_tasks: docker_llm.yml
+      tags: llm
       when: homeassistantfrigate_install_llm
+
     - import_tasks: docker_voice.yml
+      tags: voice
       when: homeassistantfrigate_install_voice
+
     - import_tasks: docker_esphome.yml
+      tags: esphome
       when: homeassistantfrigate_install_esphome
+
+    - import_tasks: docker_otbr.yml
+      tags: otbr
+      when: homeassistantfrigate_install_otbr
   tags: docker
