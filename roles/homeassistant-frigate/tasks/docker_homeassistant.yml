@@ -1,4 +1,10 @@
 ---
+- name: Resolve Home Assistant device paths
+  include_tasks: resolve_device.yml
+  vars:
+    device_paths: "{{ homeassistantfrigate_homeassistant_devices }}"
+    resolved_var_name: homeassistant_devices_resolved
+
 - name: Remove Home Assistant and Mosquitto containers if they exist
   community.docker.docker_container:
     name: "{{ item }}"
@@ -23,87 +29,80 @@
       - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
     mosquitto_volumes: "{{ common_volumes + mosquitto_base_volumes }}"
 
+    govee2mqtt_base_environment:
+      GOVEE_MQTT_HOST: 127.0.0.1
+      GOVEE_MQTT_PORT: "{{ homeassistantfrigate_mosquitto_port }}"
+      GOVEE_TEMPERATURE_SCALE: C
+      RUST_LOG_STYLE: always
+      TZ: "{{ TZ }}"
+    govee2mqtt_environment: "{{ govee2mqtt_base_environment | combine(homeassistantfrigate_govee2mqtt_env | default({})) }}"
+
+    govee2mqtt_service:
+      govee2mqtt:
+        container_name: govee2mqtt
+        hostname: govee2mqtt-{{ ansible_hostname }}
+        image: "{{ homeassistantfrigate_govee2mqtt_docker_image }}"
+        depends_on:
+          - homeassistant
+          - mosquitto
+        environment: "{{ govee2mqtt_environment }}"
+        logging: "{{ default_logging }}"
+        network_mode: host
+        restart: unless-stopped
+
+    required_services:
+      homeassistant:
+        container_name: homeassistant
+        image: "{{ homeassistantfrigate_homeassistant_docker_image }}"
+        depends_on:
+          - mosquitto
+        devices: "{{ homeassistant_devices_resolved }}"
+        logging: "{{ default_logging }}"
+        ports:
+          - "{{ homeassistantfrigate_homeassistant_port }}:8123"
+        restart: unless-stopped
+        security_opt:
+          - "apparmor=docker-ble-policy"
+        volumes: "{{ homeassistant_volumes }}"
+
+      mosquitto:
+        container_name: mosquitto
+        image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
+        logging: "{{ default_logging }}"
+        ports:
+          - "{{ homeassistantfrigate_mosquitto_port }}:1883"
+        restart: unless-stopped
+        volumes: "{{ mosquitto_volumes }}"
+
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate
+    project_name: homeassistantfrigate
     pull: always
     remove_orphans: true
     definition:
       networks:
         default:
           driver: bridge
+          enable_ipv6: "{{ homeassistantfrigate_ipv6_enabled }}"
           driver_opts:
             com.docker.network.bridge.name: br-ha
+      services: >-
+        {{
+          required_services | combine(govee2mqtt_service if homeassistantfrigate_install_govee2mqtt else {})
+        }}
 
-      services:
-        homeassistant:
-          container_name: homeassistant
-          image: "{{ homeassistantfrigate_homeassistant_docker_image }}"
-          devices: "{{ homeassistantfrigate_homeassistant_devices }}"
-          logging: "{{ default_logging }}"
-          ports:
-            - "{{ homeassistantfrigate_homeassistant_port }}:8123"
-          restart: unless-stopped
-          # Apply this Apparmor policy (installed in `tasks/docker_prerequisites.yml`) to allow the container to access bluetooth via dbus-broker
-          # Run the following from the host to test: `sudo aa-status|grep docker-ble-policy`
-          # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
-          security_opt:
-            - "apparmor=docker-ble-policy"
-          volumes: "{{ homeassistant_volumes }}"
-
-        mosquitto:
-          container_name: mosquitto
-          image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
-          logging: "{{ default_logging }}"
-          restart: unless-stopped
-          volumes: "{{ mosquitto_volumes }}"
-
-- name: Get Home Assistant container info
+- name: Get container info for mosquitto
   community.docker.docker_container_info:
-    name: homeassistant
-  register: homeassistant_info
+    name: "{{ item }}"
+  loop:
+    - mosquitto
+    # Exclude homeassistant and govee2mqtt, because they're configured with network_mode:host
+  register: container_infos
 
-- name: Update /etc/hosts with Home Assistant container IP
+- name: Update /etc/hosts with container IPs
   lineinfile:
     path: /etc/hosts
-    regexp: '^\S+\s+homeassistant'
-    line: "{{ homeassistant_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} homeassistant"
+    regexp: '^\S+\s+{{ item.item }}'
+    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
   become: true
-
-- name: Get Mosquitto container info
-  community.docker.docker_container_info:
-    name: mosquitto
-  register: mosquitto_info
-
-- name: Update /etc/hosts with Mosquitto container IP
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+mosquitto'
-    line: "{{ mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} mosquitto"
-  become: true
-
-- name: Start Govee2MQTT Docker container
-  vars:
-    govee2mqtt_base_env:
-      GOVEE_MQTT_HOST: "{{ mosquitto_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }}"
-      GOVEE_MQTT_PORT: 1883
-      GOVEE_TEMPERATURE_SCALE: C
-      RUST_LOG_STYLE: always
-      TZ: "{{ system_timezone.stdout.strip() }}"
-    govee2mqtt_env: "{{ govee2mqtt_base_env | combine(homeassistantfrigate_govee2mqtt_env | default({})) }}"
-
-  community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate-govee2mqtt
-    pull: always
-    remove_orphans: true
-    definition:
-      networks: "{{ external_network }}"
-      services:
-        govee2mqtt:
-          image: ghcr.io/wez/govee2mqtt:latest
-          container_name: govee2mqtt
-          environment: "{{ govee2mqtt_env }}"
-          logging: "{{ default_logging }}"
-          restart: unless-stopped
-          # Required for LAN control
-          network_mode: host
-  when: homeassistantfrigate_install_govee2mqtt
+  loop: "{{ container_infos.results }}"
+  no_log: true # The CLI output would be too verbose without no_log

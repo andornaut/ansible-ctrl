@@ -1,4 +1,8 @@
 ---
+- name: Update dynamic linker cache
+  ansible.builtin.command: ldconfig
+  become: true
+
 - name: Install system dependencies
   block:
     - name: Install system packages
@@ -91,7 +95,7 @@
     # https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
     - name: Build libsdbus (1/2)
       ansible.builtin.shell:
-        cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr ${OTHER_CONFIG_FLAGS}
+        cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
         chdir: "{{ libsdbus_tmp.path }}/build"
 
     - name: Build libsdbus (2/2)

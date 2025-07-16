@@ -1,0 +1,14 @@
+---
+- name: Set sysctl values for OTBR
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: "net.ipv4.conf.all.forwarding", value: "1" }
+    - { name: "net.ipv6.conf.all.accept_ra", value: "2" }
+    - { name: "net.ipv6.conf.all.accept_ra_rt_info_max_plen", value: "64" }
+    - { name: "net.ipv6.conf.all.disable_ipv6", value: "0" }
+    - { name: "net.ipv6.conf.all.forwarding", value: "1" }
+  become: true

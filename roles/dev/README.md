@@ -10,6 +10,7 @@ make workstation
 
 # Specific tags only:
 ansible-playbook --ask-become-pass workstation.yml --tags cursor
+ansible-playbook --ask-become-pass workstation.yml --tags hobbies
 ```
 
 ## Overview
@@ -54,18 +55,6 @@ This role automates the installation and configuration of various development to
 ## Role Variables
 
 See [default values](./defaults/main.yml).
-
-## Usage
-
-1. Include this role in your playbook
-2. Configure the required variables
-3. Run your playbook
-
-```yaml
-- hosts: workstations
-  roles:
-    - role: dev
-```
 
 ## License
 

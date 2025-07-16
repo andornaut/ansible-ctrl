@@ -1,6 +1,9 @@
 ---
 - import_tasks: apt.yml
 
+- import_tasks: claude.yml
+  tags: claude
+
 - import_tasks: cursor.yml
   tags: cursor
 
