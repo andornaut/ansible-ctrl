@@ -1,4 +1,15 @@
 ---
+# Install system-wide nodejs/npm for use by all users or for Ansible tasks, where nvm may not be sourced.
+- name: Install system nodejs and npm
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: latest
+    update_cache: true
+  become: true
+
+# Install nvm for user-specific nodejs/npm management
 - name: Get the latest version of nvm
   uri:
     url: https://api.github.com/repos/nvm-sh/nvm/releases/latest
@@ -8,6 +19,3 @@
 - name: Install nvm
   ansible.builtin.shell: >
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version.json.name }}/install.sh | bash
-
-#  args:
-#    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"

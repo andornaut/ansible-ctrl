@@ -1,6 +1,46 @@
 ---
-- import_tasks: avahi.yml
+- name: Validate mDNS configuration
+  block:
+    - name: Check for mDNS service conflicts
+      assert:
+        that:
+          - not (homeassistantfrigate_install_avahi and homeassistantfrigate_install_otbr)
+        fail_msg: |
+          ERROR: Cannot install both Avahi (homeassistantfrigate_install_avahi) and OTBR (homeassistantfrigate_install_otbr)
+          as they both provide mDNS services and will conflict when using network_mode: host.
+        success_msg: "mDNS configuration validated successfully"
+
+    - name: mDNS advisory message
+      debug:
+        msg: |
+          {% if homeassistantfrigate_install_otbr %}
+          Provisioning OTBR, so Avahi will be disabled
+          {% elif homeassistantfrigate_install_avahi %}
+          Provisioning Avahi, so OTBR will not be provisioned
+          {% endif %}
+      when: homeassistantfrigate_install_otbr or homeassistantfrigate_install_avahi
+
+    - import_tasks: avahi.yml
+      when: homeassistantfrigate_install_avahi
+
+    - name: Disable host Avahi daemon when not needed
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      become: true
+      loop:
+        - avahi-daemon.socket
+        - avahi-daemon.service
+      ignore_errors: true
+      when: not homeassistantfrigate_install_avahi
+  tags:
+    - avahi
+    - docker
+
 - import_tasks: bluetooth.yml
+- import_tasks: mosquitto.yml
+- import_tasks: otbr.yml
 
 - name: Install customizations
   block:
@@ -9,18 +49,34 @@
     - import_tasks: www.yml
   tags: customizations
 
-- import_tasks: mosquitto.yml
-
 - name: Configure Docker containers
   block:
     - import_tasks: docker_prerequisites.yml
+
+    # Must come first, because it creates the shared bridge network
     - import_tasks: docker_homeassistant.yml
-    - import_tasks: docker_frigate.yml
-      when: homeassistantfrigate_install_frigate
-    - import_tasks: docker_llm.yml
-      when: homeassistantfrigate_install_llm
-    - import_tasks: docker_voice.yml
-      when: homeassistantfrigate_install_voice
+      tags:
+        - govee2mqtt
+        - homeassistant
+        - mosquitto
+
     - import_tasks: docker_esphome.yml
+      tags: esphome
       when: homeassistantfrigate_install_esphome
+
+    - import_tasks: docker_frigate.yml
+      tags: frigate
+      when: homeassistantfrigate_install_frigate
+
+    - import_tasks: docker_llm.yml
+      tags: llm
+      when: homeassistantfrigate_install_llm
+
+    - import_tasks: docker_matter.yml
+      tags: matter
+      when: homeassistantfrigate_install_matter
+
+    - import_tasks: docker_voice.yml
+      tags: voice
+      when: homeassistantfrigate_install_voice
   tags: docker
