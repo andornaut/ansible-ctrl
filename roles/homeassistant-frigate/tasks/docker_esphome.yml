@@ -12,7 +12,7 @@
     esphome_volumes: "{{ common_volumes + esphome_base_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate-esphome
+    project_name: homeassistantfrigate-esphome
     pull: always
     remove_orphans: true
     definition:
@@ -38,5 +38,6 @@
   lineinfile:
     path: /etc/hosts
     regexp: '^\S+\s+esphome'
-    line: "{{ esphome_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} esphome"
+    line: "{{ esphome_info.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} esphome"
   become: true
+  no_log: true # The CLI output would be too verbose without no_log

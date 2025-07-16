@@ -7,6 +7,7 @@ hypr_cmake_configure: >-
   -DCMAKE_BUILD_TYPE:STRING=Release
   -DCMAKE_PREFIX_PATH:PATH=/usr/local
   -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
+  -DCMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu
   -S .
   -B build
 

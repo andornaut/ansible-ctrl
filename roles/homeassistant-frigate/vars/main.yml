@@ -11,4 +11,6 @@ default_logging:
 external_network:
   default:
     external: true
-    name: homeassistant-frigate_default
+    name: "{{ homeassistantfrigate_docker_network_name }}"
+
+TZ: "{{ system_timezone.stdout.strip() }}"

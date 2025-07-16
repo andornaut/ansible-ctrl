@@ -7,51 +7,7 @@
 # - hyprwayland-scanner: Wayland protocol scanner
 # - hypridle: Idle daemon
 # - hyprlock: Screen locker
-# - hyprpaper: Wallpaper utility
-
-- name: Install hyprlang
-  block:
-    - name: Create a temporary directory for hyprlang
-      ansible.builtin.tempfile:
-        state: directory
-      register: hyprlang_tmp
-
-    - name: Get the latest version of hyprlang
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
-        return_content: true
-      register: hyprlang_version
-
-    - name: Download and unarchive hyprlang {{ hyprlang_version.json.name }}
-      ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version.json.name }}/.tar.gz
-        dest: "{{ hyprlang_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
-
-    - name: Build hyprlang (1/2)
-      ansible.builtin.command:
-        cmd: "{{ hypr_cmake_configure }}"
-        chdir: "{{ hyprlang_tmp.path }}"
-
-    - name: Build hyprlang (2/2)
-      ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target hyprlang"
-        chdir: "{{ hyprlang_tmp.path }}"
-
-    - name: Install hyprlang
-      ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
-        chdir: "{{ hyprlang_tmp.path }}"
-      become: true
-
-    - name: Cleanup temporary directory
-      ansible.builtin.file:
-        path: "{{ hyprlang_tmp.path }}"
-        state: absent
-  tags: [hyprlang]
+# - hyprpaper: Wallpaper utilihyprpaperty
 
 - name: Install hyprutils
   block:
@@ -96,6 +52,50 @@
         path: "{{ hyprutils_tmp.path }}"
         state: absent
   tags: [hyprutils]
+
+- name: Install hyprlang
+  block:
+    - name: Create a temporary directory for hyprlang
+      ansible.builtin.tempfile:
+        state: directory
+      register: hyprlang_tmp
+
+    - name: Get the latest version of hyprlang
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
+        return_content: true
+      register: hyprlang_version
+
+    - name: Download and unarchive hyprlang {{ hyprlang_version.json.name }}
+      ansible.builtin.unarchive:
+        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version.json.name }}/.tar.gz
+        dest: "{{ hyprlang_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Build hyprlang (1/2)
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_configure }}"
+        chdir: "{{ hyprlang_tmp.path }}"
+
+    - name: Build hyprlang (2/2)
+      ansible.builtin.shell:
+        cmd: "{{ hypr_cmake_build }} --target hyprlang"
+        chdir: "{{ hyprlang_tmp.path }}"
+
+    - name: Install hyprlang
+      ansible.builtin.command:
+        cmd: "{{ hypr_cmake_install }}"
+        chdir: "{{ hyprlang_tmp.path }}"
+      become: true
+
+    - name: Cleanup temporary directory
+      ansible.builtin.file:
+        path: "{{ hyprlang_tmp.path }}"
+        state: absent
+  tags: [hyprlang]
 
 - name: Install hyprgraphics
   block:

@@ -1,18 +1,24 @@
 ---
-homeassistantfrigate_avahi_interfaces: ""
 homeassistantfrigate_docker_log_max_file: "10"
 homeassistantfrigate_docker_log_max_size: "10m"
+homeassistantfrigate_docker_network_name: homeassistantfrigate_default
+homeassistantfrigate_install_avahi: false
 homeassistantfrigate_install_esphome: false
 homeassistantfrigate_install_frigate: false
 homeassistantfrigate_install_govee2mqtt: false
 homeassistantfrigate_install_llm: false
+homeassistantfrigate_install_matter: false
 homeassistantfrigate_install_voice: false
+homeassistantfrigate_ipv6_enabled: true
+
+# Avahi
+homeassistantfrigate_avahi_interfaces: ""
 
 # ESPHome
-homeassistantfrigate_esphome_docker_image: ghcr.io/esphome/esphome:latest
+homeassistantfrigate_esphome_docker_image: ghcr.io/esphome/esphome
+homeassistantfrigate_esphome_port: 6052
 homeassistantfrigate_esphome_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/esphome/config
-homeassistantfrigate_esphome_port: 6052
 
 # Frigate
 homeassistantfrigate_frigate_devices: []
@@ -32,9 +38,13 @@ homeassistantfrigate_frigate_port_webrtc: 8555
 homeassistantfrigate_frigate_shm_size: "64mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
+# Govee2mqtt
+homeassistantfrigate_govee2mqtt_env: {}
+homeassistantfrigate_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt
+
 # Home Assistant
 homeassistantfrigate_homeassistant_devices: []
-homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant:latest"
+homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant"
 homeassistantfrigate_homeassistant_extra_volumes: []
 homeassistantfrigate_homeassistant_port: 8123
 homeassistantfrigate_homeassistant_required_volumes:
@@ -44,11 +54,18 @@ homeassistantfrigate_homeassistant_required_volumes:
   timezone: /etc/timezone
   udev: /run/udev
 
+# Matter
+homeassistantfrigate_matter_docker_image: ghcr.io/home-assistant-libs/python-matter-server:stable
+homeassistantfrigate_matter_port: 5580
+homeassistantfrigate_matter_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/matter/data
+
 # microWakeWord
 homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
 # Mosquitto
 homeassistantfrigate_mosquitto_docker_image: eclipse-mosquitto
+homeassistantfrigate_mosquitto_port: 1883
 homeassistantfrigate_mosquitto_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/mosquitto/config
   data: /var/docker-volumes/homeassistant-frigate/mosquitto/data
@@ -59,6 +76,13 @@ homeassistantfrigate_ollama_devices: []
 homeassistantfrigate_ollama_docker_image: ollama/ollama:rocm
 homeassistantfrigate_ollama_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/ollama/data
+
+# OpenThread Border Router (OTBR)
+homeassistantfrigate_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
+homeassistantfrigate_otbr_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/otbr/data
+homeassistantfrigate_otbr_rest_port: 8081
+homeassistantfrigate_otbr_web_port: 8080
 
 # openWakeWord
 homeassistantfrigate_openwakeword_docker_image: rhasspy/wyoming-openwakeword

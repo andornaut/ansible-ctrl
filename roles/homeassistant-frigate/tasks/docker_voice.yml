@@ -12,20 +12,20 @@
   vars:
     #microwakeword_volumes: "{{ common_volumes }}"
     #
-    #openwakeword_service_volumes:
+    #openwakeword_base_volumes:
     #  - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
-    #openwakeword_volumes: "{{ common_volumes + openwakeword_service_volumes }}"
+    #openwakeword_volumes: "{{ common_volumes + openwakeword_base_volumes }}"
 
-    piper_service_volumes:
+    piper_base_volumes:
       - "{{ homeassistantfrigate_piper_required_volumes.data }}:/data"
-    piper_volumes: "{{ common_volumes + piper_service_volumes }}"
+    piper_volumes: "{{ common_volumes + piper_base_volumes }}"
 
-    whisper_service_volumes:
+    whisper_base_volumes:
       - "{{ homeassistantfrigate_whisper_required_volumes.data }}:/data"
-    whisper_volumes: "{{ common_volumes + whisper_service_volumes }}"
+    whisper_volumes: "{{ common_volumes + whisper_base_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate-voice
+    project_name: homeassistantfrigate-voice
     pull: always
     remove_orphans: true
     definition:
@@ -68,26 +68,19 @@
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
 
-- name: Get Piper container info
+- name: Get container info for piper and whisper
   community.docker.docker_container_info:
-    name: piper
-  register: piper_info
+    name: "{{ item }}"
+  loop:
+    - piper
+    - whisper
+  register: container_infos
 
-- name: Update /etc/hosts with Piper container IP
+- name: Update /etc/hosts with container IPs
   lineinfile:
     path: /etc/hosts
-    regexp: '^\S+\s+piper'
-    line: "{{ piper_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} piper"
+    regexp: '^\S+\s+{{ item.item }}'
+    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
   become: true
-
-- name: Get Whisper container info
-  community.docker.docker_container_info:
-    name: whisper
-  register: whisper_info
-
-- name: Update /etc/hosts with Whisper container IP
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+whisper'
-    line: "{{ whisper_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} whisper"
-  become: true
+  loop: "{{ container_infos.results }}"
+  no_log: true # The CLI output would be too verbose without no_log

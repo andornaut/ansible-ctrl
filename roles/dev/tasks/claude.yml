@@ -1,0 +1,7 @@
+---
+- name: Install Claude Code
+  ansible.builtin.npm:
+    name: '@anthropic-ai/claude-code'
+    global: true
+    state: latest
+  become: true

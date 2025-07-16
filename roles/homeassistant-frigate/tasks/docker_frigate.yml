@@ -17,10 +17,10 @@
       target: /tmp/cache
       tmpfs:
         size: "{{ homeassistantfrigate_frigate_tmpfs_size_mb * 1024 * 1024 }}"
-    frigate_env: "{{ homeassistantfrigate_frigate_env | default({}) | combine({'TZ': system_timezone.stdout.strip()}) }}"
+    frigate_env: "{{ homeassistantfrigate_frigate_env | default({}) | combine({'TZ': TZ}) }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistant-frigate-frigate
+    project_name: homeassistantfrigate-frigate
     pull: always
     remove_orphans: true
     definition:
@@ -67,5 +67,6 @@
   lineinfile:
     path: /etc/hosts
     regexp: '^\S+\s+frigate'
-    line: "{{ frigate_info.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} frigate"
+    line: "{{ frigate_info.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} frigate"
   become: true
+  no_log: true # The CLI output would be too verbose without no_log
