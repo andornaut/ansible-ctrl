@@ -1,0 +1,100 @@
+---
+- name: Resolve Matter device path
+  include_tasks: resolve_device.yml
+  vars:
+    device_paths: ["{{ homeassistantfrigate_matter_device }}"]
+    resolved_var_name: matter_devices_resolved
+
+- name: Resolve OTBR device path
+  include_tasks: resolve_device.yml
+  vars:
+    device_paths: ["{{ homeassistantfrigate_otbr_device }}"]
+    resolved_var_name: otbr_devices_resolved
+
+- name: Remove Matter and OTBR containers if they exist
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - matter
+    - otbr
+  ignore_errors: true
+
+- name: Start Matter and Open Thread Border Router (OTBR) Docker containers
+  vars:
+    matter_base_volumes:
+      - "/run/dbus:/run/dbus:ro"
+      - "{{ homeassistantfrigate_matter_required_volumes.data }}:/data"
+    matter_volumes: "{{ common_volumes + matter_base_volumes }}"
+
+    otbr_base_volumes:
+      - "{{ homeassistantfrigate_otbr_required_volumes.data }}:/var/lib/thread"
+    otbr_volumes: "{{ common_volumes + otbr_base_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistantfrigate-matter
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ external_network }}"
+      services:
+        matter:
+          container_name: matter
+          hostname: matter-{{ ansible_hostname }}
+          image: "{{ homeassistantfrigate_matter_docker_image }}"
+          cap_add:
+            - NET_ADMIN
+            - NET_RAW
+          devices:
+            - "{{ matter_devices_resolved[0] }}"
+          logging: "{{ default_logging }}"
+          ports:
+            - "{{ homeassistantfrigate_matter_port }}:5580"
+          restart: unless-stopped
+          security_opt:
+            - apparmor=unconfined # Needed for Bluetooth via dbus
+          volumes: "{{ matter_volumes }}"
+        otbr:
+          container_name: otbr
+          hostname: otbr-{{ ansible_hostname }}
+          image: "{{ homeassistantfrigate_otbr_docker_image }}"
+          cap_add:
+            - NET_ADMIN
+            - NET_RAW
+          devices:
+            - /dev/net/tun
+            - "{{ otbr_devices_resolved[0] }}"
+          environment:
+            # Automatically install/update firmware (Home Assistant SkyConnect/Yellow)
+            - AUTOFLASH_FIRMWARE=0
+            - BACKBONE_IF={{ homeassistantfrigate_otbr_backbone_if }}
+            - BAUDRATE=460800
+            # Serial port where the OpenThread RCP Radio is attached
+            - DEVICE={{ otbr_devices_resolved[0] }}
+            - FIREWALL=1
+            - FLOW_CONTROL=1
+            # Enable NAT64 to allow Thread devices accessing IPv4 addresses
+            - NAT64=1
+            - OTBR_REST_PORT={{ homeassistantfrigate_otbr_rest_port }}
+            - OTBR_WEB_PORT={{ homeassistantfrigate_otbr_web_port }}
+          logging: "{{ default_logging }}"
+          # Required for mDNS and physical interface access to work correctly
+          network_mode: host
+          restart: unless-stopped
+          volumes: "{{ otbr_volumes }}"
+
+- name: Get container info for matter
+  community.docker.docker_container_info:
+    name: "{{ item }}"
+  loop:
+    - matter
+  register: container_infos
+
+- name: Update /etc/hosts with container IPs
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^\S+\s+{{ item.item }}'
+    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
+  become: true
+  loop: "{{ container_infos.results }}"
+  no_log: true # The CLI output would be too verbose without no_log

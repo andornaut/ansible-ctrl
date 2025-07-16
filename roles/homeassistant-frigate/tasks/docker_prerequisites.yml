@@ -7,3 +7,6 @@
   ansible.builtin.shell: cat /etc/timezone
   register: system_timezone
   changed_when: false
+  tags:
+    - frigate
+    - homeassistant
