@@ -10,6 +10,7 @@ make workstation
 
 # Specific tags only:
 ansible-playbook --ask-become-pass workstation.yml --tags cursor
+ansible-playbook --ask-become-pass workstation.yml --tags hobbies
 ```
 
 ## Overview

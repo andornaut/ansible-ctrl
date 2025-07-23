@@ -41,4 +41,8 @@
     - import_tasks: docker_otbr.yml
       tags: otbr
       when: homeassistantfrigate_install_otbr
+
+    - import_tasks: docker_matter.yml
+      tags: matter
+      when: homeassistantfrigate_install_matter
   tags: docker

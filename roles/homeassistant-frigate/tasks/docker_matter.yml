@@ -1,0 +1,51 @@
+---
+- name: Remove Matter container if it exists
+  community.docker.docker_container:
+    name: matter
+    state: absent
+  ignore_errors: true
+
+- name: Start Matter Docker container
+  vars:
+    matter_base_volumes:
+      - "{{ homeassistantfrigate_matter_required_volumes.data }}:/data"
+    matter_volumes: "{{ common_volumes + matter_base_volumes + homeassistantfrigate_matter_extra_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeassistant-frigate-matter
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ external_network }}"
+      services:
+        matter:
+          container_name: matter
+          image: "{{ homeassistantfrigate_matter_docker_image }}"
+          logging: "{{ default_logging }}"
+          # Required for mDNS to work correctly
+          network_mode: host
+          #ports:
+          #  - "{{ homeassistantfrigate_matter_port }}:5580"
+          #privileged: true
+          restart: unless-stopped
+          security_opt:
+            - apparmor=unconfined # Needed for Bluetooth via dbus
+          # Necessary for the container to receive the routes from the remote Thread network managed by my Google Nest Hub.
+          # https://community.home-assistant.io/t/solved-ipv6-docker-proxmox/828006/19?u=andornaut
+          volumes: "{{ matter_volumes }}"
+
+# - name: Get container info for matter
+#   community.docker.docker_container_info:
+#     name: "{{ item }}"
+#   loop:
+#     - matter
+#   register: container_infos
+
+# - name: Update /etc/hosts with container IPs
+#   lineinfile:
+#     path: /etc/hosts
+#     regexp: '^\S+\s+{{ item.item }}'
+#     line: "{{ item.container.NetworkSettings.Networks['homeassistant-frigate_default'].IPAddress }} {{ item.item }}"
+#   become: true
+#   loop: "{{ container_infos.results }}"
+#   no_log: true # The CLI output would be too verbose without no_log

@@ -505,6 +505,7 @@ Excerpt from dmesg:
   - [esphome-dsckeybus](https://github.com/Dilbert66/esphome-dsckeybus)
 - [Google Cast](https://www.home-assistant.io/integrations/cast/)
 - [HomeKit](https://www.home-assistant.io/integrations/homekit/)
+- [Matter](https://www.home-assistant.io/integrations/matter/)
 - [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
 - [Open Thread Border Router (OTBR)](https://www.home-assistant.io/integrations/otbr/)
   - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)

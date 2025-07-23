@@ -38,8 +38,9 @@
             - OTBR_REST_PORT=8081
             - OTBR_WEB_PORT=8080
           logging: "{{ default_logging }}"
+          # Required for mDNS to work correctly
           network_mode: host
           # https://github.com/ownbee/hass-otbr-docker/blob/main/docker-compose.yml#L6
-          # privileged: true
+          #privileged: true
           restart: unless-stopped
           volumes: "{{ otbr_volumes }}"
