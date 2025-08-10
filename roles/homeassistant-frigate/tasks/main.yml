@@ -4,21 +4,21 @@
     - name: Check for mDNS service conflicts
       assert:
         that:
-          - not (homeassistantfrigate_install_avahi and homeassistantfrigate_install_otbr)
+          - not (homeassistantfrigate_install_avahi and homeassistantfrigate_install_matter)
         fail_msg: |
-          ERROR: Cannot install both Avahi (homeassistantfrigate_install_avahi) and OTBR (homeassistantfrigate_install_otbr)
+          ERROR: Cannot install both Avahi (homeassistantfrigate_install_avahi) and Matter/Thread (homeassistantfrigate_install_matter)
           as they both provide mDNS services and will conflict when using network_mode: host.
         success_msg: "mDNS configuration validated successfully"
 
     - name: mDNS advisory message
       debug:
         msg: |
-          {% if homeassistantfrigate_install_otbr %}
-          Provisioning OTBR, so Avahi will be disabled
+          {% if homeassistantfrigate_install_matter %}
+          Provisioning Matter/Thread, so Avahi will be disabled
           {% elif homeassistantfrigate_install_avahi %}
-          Provisioning Avahi, so OTBR will not be provisioned
+          Provisioning Avahi, so Matter/Thread will not be provisioned
           {% endif %}
-      when: homeassistantfrigate_install_otbr or homeassistantfrigate_install_avahi
+      when: homeassistantfrigate_install_matter or homeassistantfrigate_install_avahi
 
     - import_tasks: avahi.yml
       when: homeassistantfrigate_install_avahi
