@@ -58,8 +58,9 @@
           - mosquitto
         devices: "{{ homeassistant_devices_resolved }}"
         logging: "{{ default_logging }}"
-        ports:
-          - "{{ homeassistantfrigate_homeassistant_port }}:8123"
+        # Required to support Google Cast if Avahi is disabled
+        # n.b. Can only run one of Avahi or otbr/thread on the host
+        network_mode: host
         restart: unless-stopped
         security_opt:
           - "apparmor=docker-ble-policy"
