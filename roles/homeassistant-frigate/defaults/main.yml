@@ -41,12 +41,14 @@ homeassistantfrigate_frigate_tmpfs_size_mb: 128
 # Govee2mqtt
 homeassistantfrigate_govee2mqtt_env: {}
 homeassistantfrigate_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt
+homeassistantfrigate_govee2mqtt_required_volumes:
+  data: /var/docker-volumes/homeassistant-frigate/govee2mqtt/data
 
 # Home Assistant
 homeassistantfrigate_homeassistant_devices: []
 homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant"
 homeassistantfrigate_homeassistant_extra_volumes: []
-homeassistantfrigate_homeassistant_port: 8123
+#homeassistantfrigate_homeassistant_port: 8123 # Unused b/c hass is run in host mode
 homeassistantfrigate_homeassistant_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/homeassistant/config
   dbus: /run/dbus
