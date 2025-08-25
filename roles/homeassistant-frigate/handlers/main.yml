@@ -1,0 +1,5 @@
+---
+- name: restart homeassistant
+  community.docker.docker_container:
+    name: homeassistant
+    restart: true

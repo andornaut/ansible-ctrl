@@ -9,6 +9,7 @@
   ignore_errors: true
 
 - name: Start LLM Docker containers
+  notify: restart homeassistant
   vars:
     ollama_base_volumes:
       - "{{ homeassistantfrigate_ollama_required_volumes.data }}:/root/.ollama"
@@ -42,6 +43,7 @@
           volumes: "{{ ollama_volumes }}"
 
         openwebui:
+          # http://openwebui:8080
           container_name: openwebui
           image: "{{ homeassistantfrigate_openwebui_docker_image }}"
           logging: "{{ default_logging }}"
