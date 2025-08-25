@@ -18,6 +18,7 @@
 - name: Start Home Assistant and Mosquitto Docker containers
   vars:
     homeassistant_base_volumes:
+      - /etc/hosts:/etc/hosts:ro
       - "{{ homeassistantfrigate_homeassistant_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
       - "{{ homeassistantfrigate_homeassistant_required_volumes.udev }}:/run/udev:ro"
@@ -28,6 +29,10 @@
       - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
       - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
     mosquitto_volumes: "{{ common_volumes + mosquitto_base_volumes }}"
+
+    govee2mqtt_base_volumes:
+      - "{{ homeassistantfrigate_govee2mqtt_required_volumes.data }}:/data"
+    govee2mqtt_volumes: "{{ common_volumes + govee2mqtt_base_volumes }}"
 
     govee2mqtt_base_environment:
       GOVEE_MQTT_HOST: 127.0.0.1
@@ -49,6 +54,7 @@
         logging: "{{ default_logging }}"
         network_mode: host
         restart: unless-stopped
+        volumes: "{{ govee2mqtt_volumes }}"
 
     required_services:
       homeassistant:

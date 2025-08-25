@@ -56,6 +56,8 @@
           image: "{{ homeassistantfrigate_piper_docker_image }}"
           command: "{{ homeassistantfrigate_piper_command }}"
           logging: "{{ default_logging }}"
+          ports:
+            - "{{ homeassistantfrigate_piper_port }}:10200"
           restart: unless-stopped
           volumes: "{{ piper_volumes }}"
 
@@ -65,6 +67,8 @@
           image: "{{ homeassistantfrigate_whisper_docker_image }}"
           command: "{{ homeassistantfrigate_whisper_command }}"
           logging: "{{ default_logging }}"
+          ports:
+            - "{{ homeassistantfrigate_whisper_port }}:10300"
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
 
