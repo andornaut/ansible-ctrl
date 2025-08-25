@@ -6,6 +6,7 @@
   ignore_errors: true
 
 - name: Start ESPHome Docker container
+  notify: restart homeassistant
   vars:
     esphome_base_volumes:
       - "{{ homeassistantfrigate_esphome_required_volumes.config }}:/config"
@@ -19,6 +20,7 @@
       networks: "{{ external_network }}"
       services:
         esphome:
+          # http://esphome:6052
           container_name: esphome
           environment:
             - ESPHOME_DASHBOARD_USE_PING=true

@@ -44,6 +44,7 @@
 
     govee2mqtt_service:
       govee2mqtt:
+        # http://localhost:8056
         container_name: govee2mqtt
         hostname: govee2mqtt-{{ ansible_hostname }}
         image: "{{ homeassistantfrigate_govee2mqtt_docker_image }}"
@@ -58,6 +59,7 @@
 
     required_services:
       homeassistant:
+        # http://localhost:8123
         container_name: homeassistant
         image: "{{ homeassistantfrigate_homeassistant_docker_image }}"
         depends_on:
