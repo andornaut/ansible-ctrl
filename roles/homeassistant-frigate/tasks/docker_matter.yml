@@ -23,7 +23,8 @@
 - name: Start Matter and Open Thread Border Router (OTBR) Docker containers
   vars:
     matter_base_volumes:
-      - "/run/dbus:/run/dbus:ro"
+      - /etc/hosts:/etc/hosts:ro
+      - /run/dbus:/run/dbus:ro
       - "{{ homeassistantfrigate_matter_required_volumes.data }}:/data"
     matter_volumes: "{{ common_volumes + matter_base_volumes }}"
 
