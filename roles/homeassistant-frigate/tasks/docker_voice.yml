@@ -9,6 +9,7 @@
   ignore_errors: true
 
 - name: Start Voice Docker containers
+  notify: restart homeassistant
   vars:
     #microwakeword_volumes: "{{ common_volumes }}"
     #

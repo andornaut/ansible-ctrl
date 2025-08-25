@@ -40,6 +40,7 @@
       networks: "{{ external_network }}"
       services:
         matter:
+          # http://matter:5580
           container_name: matter
           hostname: matter-{{ ansible_hostname }}
           image: "{{ homeassistantfrigate_matter_docker_image }}"
@@ -56,6 +57,7 @@
             - apparmor=unconfined # Needed for Bluetooth via dbus
           volumes: "{{ matter_volumes }}"
         otbr:
+          # http://localhost:8080
           container_name: otbr
           hostname: otbr-{{ ansible_hostname }}
           image: "{{ homeassistantfrigate_otbr_docker_image }}"

@@ -6,6 +6,7 @@
   ignore_errors: true
 
 - name: Start Frigate Docker container
+  notify: restart homeassistant
   vars:
     frigate_base_volumes:
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
@@ -27,6 +28,7 @@
       networks: "{{ external_network }}"
       services:
         frigate:
+          # http://frigate:5000
           container_name: frigate
           image: "{{ homeassistantfrigate_frigate_docker_image }}"
           devices: "{{ homeassistantfrigate_frigate_devices }}"

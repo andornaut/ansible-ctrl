@@ -40,7 +40,9 @@
 
 - import_tasks: bluetooth.yml
 - import_tasks: mosquitto.yml
+
 - import_tasks: otbr.yml
+  when: homeassistantfrigate_install_matter
 
 - name: Install customizations
   block:
