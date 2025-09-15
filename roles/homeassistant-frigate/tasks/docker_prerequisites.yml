@@ -10,3 +10,26 @@
   tags:
     - frigate
     - homeassistant
+
+- name: Install docker_etc_hosts script
+  get_url:
+    url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker_etc_hosts
+    dest: /usr/local/bin/docker_etc_hosts
+    mode: "0755"
+  become: true
+
+- name: Install docker-etc-hosts systemd service
+  get_url:
+    url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker-etc-hosts.service
+    dest: /etc/systemd/system/docker-etc-hosts.service
+    mode: "0644"
+  become: true
+  notify: reload systemd
+
+- name: Enable and start docker-etc-hosts service
+  systemd:
+    name: docker-etc-hosts.service
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

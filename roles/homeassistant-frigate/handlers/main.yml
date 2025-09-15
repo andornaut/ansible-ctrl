@@ -1,5 +1,15 @@
 ---
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+  become: true
+
 - name: restart homeassistant
   community.docker.docker_container:
     name: homeassistant
     restart: true
+
+- name: update /etc/hosts
+  # https://github.com/andornaut/docker_etc_hosts
+  command: /usr/local/bin/docker_etc_hosts
+  become: true

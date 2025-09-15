@@ -6,7 +6,6 @@
   ignore_errors: true
 
 - name: Start Frigate Docker container
-  notify: restart homeassistant
   vars:
     frigate_base_volumes:
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
@@ -59,16 +58,6 @@
             - seccomp=unconfined
           shm_size: "{{ homeassistantfrigate_frigate_shm_size }}"
           volumes: "{{ frigate_volumes + ([frigate_tmpfs_volume] if homeassistantfrigate_frigate_tmpfs_size_mb > 0 else []) }}"
-
-- name: Get Frigate container info
-  community.docker.docker_container_info:
-    name: frigate
-  register: frigate_info
-
-- name: Update /etc/hosts with Frigate container IP
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+frigate'
-    line: "{{ frigate_info.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} frigate"
-  become: true
-  no_log: true # The CLI output would be too verbose without no_log
+  notify:
+    - restart homeassistant
+    - update /etc/hosts
