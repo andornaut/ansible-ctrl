@@ -9,7 +9,6 @@
   ignore_errors: true
 
 - name: Start Voice Docker containers
-  notify: restart homeassistant
   vars:
     #microwakeword_volumes: "{{ common_volumes }}"
     #
@@ -34,7 +33,7 @@
       services:
         # Voice Preview (hardware) uses microWakeWord, not openWakeWord
         #openwakeword:
-        #  http://openwakeword:11434
+        #  http://openwakeword.internal:11434
         #  container_name: openwakeword
         #  image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
         #  command: --custom-model-dir /custom --preload-model 'ok_nabu'
@@ -44,7 +43,7 @@
 
         # Used by Voice Preview (hardware)
         #microwakeword:
-        #  http://microwakeword:11434
+        #  http://microwakeword.internal:11434
         #  container_name: microwakeword
         #  image: "{{ homeassistantfrigate_microwakeword_docker_image }}"
         #  logging: "{{ default_logging }}"
@@ -52,7 +51,7 @@
         #  volumes: "{{ microwakeword_volumes }}"
 
         piper:
-          # http://piper:10200
+          # http://piper.internal:10200
           container_name: piper
           image: "{{ homeassistantfrigate_piper_docker_image }}"
           command: "{{ homeassistantfrigate_piper_command }}"
@@ -63,7 +62,7 @@
           volumes: "{{ piper_volumes }}"
 
         whisper:
-          # http://whisper:10300
+          # http://whisper.internal:10300
           container_name: whisper
           image: "{{ homeassistantfrigate_whisper_docker_image }}"
           command: "{{ homeassistantfrigate_whisper_command }}"
@@ -72,20 +71,6 @@
             - "{{ homeassistantfrigate_whisper_port }}:10300"
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
-
-- name: Get container info for piper and whisper
-  community.docker.docker_container_info:
-    name: "{{ item }}"
-  loop:
-    - piper
-    - whisper
-  register: container_infos
-
-- name: Update /etc/hosts with container IPs
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+{{ item.item }}'
-    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
-  become: true
-  loop: "{{ container_infos.results }}"
-  no_log: true # The CLI output would be too verbose without no_log
+  notify:
+    - restart homeassistant
+    - update /etc/hosts

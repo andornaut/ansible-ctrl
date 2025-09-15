@@ -6,7 +6,6 @@
   ignore_errors: true
 
 - name: Start ESPHome Docker container
-  notify: restart homeassistant
   vars:
     esphome_base_volumes:
       - "{{ homeassistantfrigate_esphome_required_volumes.config }}:/config"
@@ -20,7 +19,7 @@
       networks: "{{ external_network }}"
       services:
         esphome:
-          # http://esphome:6052
+          # http://esphome.internal:6052
           container_name: esphome
           environment:
             - ESPHOME_DASHBOARD_USE_PING=true
@@ -30,16 +29,6 @@
             - "{{ homeassistantfrigate_esphome_port }}:6052"
           restart: unless-stopped
           volumes: "{{ esphome_volumes }}"
-
-- name: Get ESPHome container info
-  community.docker.docker_container_info:
-    name: esphome
-  register: esphome_info
-
-- name: Update /etc/hosts with ESPHome container IP
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+esphome'
-    line: "{{ esphome_info.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} esphome"
-  become: true
-  no_log: true # The CLI output would be too verbose without no_log
+  notify:
+    - restart homeassistant
+    - update /etc/hosts

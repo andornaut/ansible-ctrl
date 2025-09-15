@@ -40,7 +40,7 @@
       networks: "{{ external_network }}"
       services:
         matter:
-          # http://matter:5580
+          # http://matter.internal:5580
           container_name: matter
           hostname: matter-{{ ansible_hostname }}
           image: "{{ homeassistantfrigate_matter_docker_image }}"
@@ -83,21 +83,7 @@
           logging: "{{ default_logging }}"
           # Required for mDNS and physical interface access to work correctly
           network_mode: host
+          # TODO: Fix permissions on /dev/ttyUSB*
           restart: unless-stopped
           volumes: "{{ otbr_volumes }}"
-
-- name: Get container info for matter
-  community.docker.docker_container_info:
-    name: "{{ item }}"
-  loop:
-    - matter
-  register: container_infos
-
-- name: Update /etc/hosts with container IPs
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+{{ item.item }}'
-    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
-  become: true
-  loop: "{{ container_infos.results }}"
-  no_log: true # The CLI output would be too verbose without no_log
+  notify: update /etc/hosts
