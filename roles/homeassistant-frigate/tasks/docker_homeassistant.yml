@@ -35,7 +35,7 @@
     govee2mqtt_volumes: "{{ common_volumes + govee2mqtt_base_volumes }}"
 
     govee2mqtt_base_environment:
-      GOVEE_MQTT_HOST: 127.0.0.1
+      GOVEE_MQTT_HOST: "{{ homeassistantfrigate_mosquitto_host }}"
       GOVEE_MQTT_PORT: "{{ homeassistantfrigate_mosquitto_port }}"
       GOVEE_TEMPERATURE_SCALE: C
       RUST_LOG_STYLE: always
