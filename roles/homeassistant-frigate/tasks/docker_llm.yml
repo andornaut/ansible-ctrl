@@ -9,7 +9,6 @@
   ignore_errors: true
 
 - name: Start LLM Docker containers
-  notify: restart homeassistant
   vars:
     ollama_base_volumes:
       - "{{ homeassistantfrigate_ollama_required_volumes.data }}:/root/.ollama"
@@ -27,7 +26,7 @@
       networks: "{{ external_network }}"
       services:
         ollama:
-          # http://ollama:11434
+          # http://ollama.internal:11434
           container_name: ollama
           image: "{{ homeassistantfrigate_ollama_docker_image }}"
           devices: "{{ homeassistantfrigate_ollama_devices }}"
@@ -43,7 +42,7 @@
           volumes: "{{ ollama_volumes }}"
 
         openwebui:
-          # http://openwebui:8080
+          # http://openwebui.internal:8080
           container_name: openwebui
           image: "{{ homeassistantfrigate_openwebui_docker_image }}"
           logging: "{{ default_logging }}"
@@ -53,20 +52,6 @@
           volumes: "{{ openwebui_volumes }}"
           depends_on:
             - ollama
-
-- name: Get container info for ollama and openwebui
-  community.docker.docker_container_info:
-    name: "{{ item }}"
-  loop:
-    - ollama
-    - openwebui
-  register: container_infos
-
-- name: Update /etc/hosts with container IPs
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+{{ item.item }}'
-    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
-  become: true
-  loop: "{{ container_infos.results }}"
-  no_log: true # The CLI output would be too verbose without no_log
+  notify:
+    - restart homeassistant
+    - update /etc/hosts
