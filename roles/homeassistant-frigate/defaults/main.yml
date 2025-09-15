@@ -67,6 +67,7 @@ homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
 # Mosquitto
 homeassistantfrigate_mosquitto_docker_image: eclipse-mosquitto
+homeassistantfrigate_mosquitto_host: localhost
 homeassistantfrigate_mosquitto_port: 1883
 homeassistantfrigate_mosquitto_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/mosquitto/config
