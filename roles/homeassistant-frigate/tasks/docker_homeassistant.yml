@@ -75,6 +75,7 @@
         volumes: "{{ homeassistant_volumes }}"
 
       mosquitto:
+        # http://mosquitto.internal:1883
         container_name: mosquitto
         image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
         logging: "{{ default_logging }}"
@@ -98,20 +99,4 @@
         {{
           required_services | combine(govee2mqtt_service if homeassistantfrigate_install_govee2mqtt else {})
         }}
-
-- name: Get container info for mosquitto
-  community.docker.docker_container_info:
-    name: "{{ item }}"
-  loop:
-    - mosquitto
-    # Exclude homeassistant and govee2mqtt, because they're configured with network_mode:host
-  register: container_infos
-
-- name: Update /etc/hosts with container IPs
-  lineinfile:
-    path: /etc/hosts
-    regexp: '^\S+\s+{{ item.item }}'
-    line: "{{ item.container.NetworkSettings.Networks[homeassistantfrigate_docker_network_name].IPAddress }} {{ item.item }}"
-  become: true
-  loop: "{{ container_infos.results }}"
-  no_log: true # The CLI output would be too verbose without no_log
+  notify: update /etc/hosts
