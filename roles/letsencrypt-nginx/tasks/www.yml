@@ -14,9 +14,9 @@
       git:
         repo: "{{ item.repo }}"
         dest: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
-        force: true
         version: "{{ item.version|default('HEAD') }}"
         update: true # Always update to latest
+        depth: 1
       loop: "{{ letsencryptnginx_websites }}"
       register: git_clone
       when: item.repo is defined
