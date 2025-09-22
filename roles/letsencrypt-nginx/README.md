@@ -14,6 +14,23 @@ ansible-playbook --ask-become-pass webservers.yml --tags nginx
 ansible-playbook --ask-become-pass webservers.yml --tags nginx --limit webserverhostname1
 ```
 
+### Private GitHub Repository Access
+
+If your websites use private GitHub repositories, then configure Git credential helper on the target host:
+
+1. Visit <https://github.com/settings/tokens>
+2. Generate a new token (classic)
+3. Select only the "repo" scope
+4. Add the token to ~/.git-credentials
+
+```bash
+# These `git` operations are executed with `become: true`,
+# so you should execute the following as root
+git config --global credential.helper store
+echo "https://<username>:<token>@github.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+```
+
 ## Overview
 
 This role automates the deployment and configuration of NGINX in a Docker container, with integrated Let's Encrypt certificate management. It supports multiple websites, authentication options, and proxy configurations.
