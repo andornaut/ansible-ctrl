@@ -9,6 +9,7 @@
 
     - name: Setup web root directories
       import_tasks: www.yml
+      tags: www
 
     - name: Configure basic authentication
       import_tasks: basicauth.yml
