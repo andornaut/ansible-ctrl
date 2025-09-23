@@ -1,17 +1,14 @@
 ---
 - name: Ensure Docker volume directories exist
   file:
-    path: "{{ item.path }}"
+    path: "{{ item}}"
     state: directory
-    mode: "{{ item.mode }}"
+    mode: "0755"
     owner: root
     group: root
-    recurse: true
   loop:
-    - path: "{{ letsencryptnginx_docker_required_volumes.config }}"
-      mode: "0755"
-    - path: "{{ letsencryptnginx_docker_required_volumes.www }}"
-      mode: "2755"
+    - "{{ letsencryptnginx_docker_required_volumes.config }}"
+    - "{{ letsencryptnginx_docker_required_volumes.www }}"
   become: true
 
 - name: Start Nginx Docker container

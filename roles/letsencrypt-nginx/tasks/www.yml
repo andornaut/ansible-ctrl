@@ -1,11 +1,23 @@
 ---
 - name: Set up website directories
   block:
+    - name: Ensure .config/git directory exists
+      file:
+        path: "~/.config/git"
+        state: directory
+        mode: "0755"
+
+    - name: Add .well-known to global gitignore
+      lineinfile:
+        path: "~/.config/git/ignore"
+        line: ".well-known/"
+        create: yes
+
     - name: Create www directories
       file:
         path: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
         state: directory
-        mode: "2755" # Set "sticky" bit
+        mode: u=rwX,g=rX,o=rX # Directories: 755, Files: 644
         owner: root
         group: root
       loop: "{{ letsencryptnginx_websites }}"
@@ -20,23 +32,4 @@
       loop: "{{ letsencryptnginx_websites }}"
       register: git_clone
       when: item.repo is defined
-
-    - name: Fix file and directory permissions
-      command: "chmod -R u=rwX,g=rX,o=rX *"
-      args:
-        chdir: "{{ letsencryptnginx_docker_required_volumes.www }}"
-      when: item.repo is defined
-
-    - name: Run website commands
-      # If `command` lives in the website git repository, then its executable bit will
-      # have been removed above, and this will fail if `command` is not executable
-      shell: "{{ item.command }}"
-      args:
-        chdir: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
-        executable: /bin/bash
-      loop: "{{ git_clone.results }}"
-      when:
-        - item is not skipped
-        - item.changed
-        - item.command is defined
   become: true
