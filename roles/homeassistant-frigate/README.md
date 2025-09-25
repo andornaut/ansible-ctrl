@@ -224,7 +224,7 @@ Edit `/etc/udev/rules.d/70-amdgpu.rules` to change the group from "render" to "v
 because the Ollama container doesn't have a "render" group,
 and therefore docker compose `group_add` can't add a valid "render" group ID.
 
-```
+```text
 KERNEL=="kfd", GROUP="video", MODE="0660"
 ```
 
@@ -482,6 +482,7 @@ Excerpt from dmesg:
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
 - [Home Assistant automation trigger variables](https://www.home-assistant.io/docs/automation/templating/)
 - [Home Assistant script syntax](https://www.home-assistant.io/docs/scripts/)
+- [How to Pair Reolink Doorbell with Chime V1](https://support.reolink.com/hc/en-us/articles/32888306699673-How-to-Pair-Reolink-Doorbell-with-Chime-Doorbell-PoE-WiFi/#h_01J0A0VKTD7TXF1WAXX7JBY456)
 - [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
 - [Material icons](https://materialdesignicons.com/) - Customize Home Assistant icons. Prefix with "mdi:".
 - [Mosquitto](https://mosquitto.org/) - MQTT message broker
@@ -524,6 +525,8 @@ Excerpt from dmesg:
 #### Custom integrations
 
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
+- [Dreo (unofficial)](https://github.com/JeffSteinbok/hass-dreo) - Supports more devices than the official integration
+  - [Dreo (official)](https://github.com/dreo-team/hass-dreoverse)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration)
   - [Frigate camera notifications automation blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee2MQTT](https://github.com/wez/govee2mqtt)
