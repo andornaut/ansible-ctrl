@@ -7,6 +7,9 @@
 - import_tasks: cursor.yml
   tags: cursor
 
+- import_tasks: codex.yml
+  tags: codex
+
 - import_tasks: delta.yml
   tags: delta
 
