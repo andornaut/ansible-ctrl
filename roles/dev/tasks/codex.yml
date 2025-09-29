@@ -1,0 +1,6 @@
+- name: Ensure codex is installed
+  become: true
+  community.general.npm:
+    name: "@openai/codex"
+    global: true
+    state: present
