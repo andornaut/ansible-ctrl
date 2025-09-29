@@ -6,4 +6,3 @@ desktop_install_insync: false
 desktop_install_lightdm: false
 desktop_install_ly: false
 desktop_install_lemurs: false
-desktop_source_code_pro_url: "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/TTF-source-code-pro-2.042R-u_1.062R-i.zip"
