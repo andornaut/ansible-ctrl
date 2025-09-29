@@ -22,9 +22,19 @@
 
         - name: Set up zig compiler
           block:
+            - name: Get latest zig version
+              uri:
+                url: https://ziglang.org/download/index.json
+                return_content: true
+              register: zig_versions
+
+            - name: Set zig version fact
+              set_fact:
+                zig_version: "{{ zig_versions.json.keys() | difference(['master']) | community.general.version_sort | last }}"
+
             - name: Download zig compiler archive
               get_url:
-                url: "https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz"
+                url: "{{ zig_versions.json[zig_version]['x86_64-linux'].tarball }}"
                 dest: /tmp/zig.tar.xz
 
             - name: Create zig installation directory
@@ -42,6 +52,7 @@
                 extra_opts:
                   - --strip-components
                   - 1
+                  - --overwrite
               become: true
 
     - name: Install ly display manager
