@@ -2,6 +2,17 @@
 
 An [Ansible](https://www.ansible.com/) role that configures a Linux desktop environment with common applications and settings on Ubuntu.
 
+## Usage
+
+```bash
+make workstation
+# Select "desktop" from among the prompts
+
+# Specific tags only:
+ansible-playbook --ask-become-pass workstation.yml --tags display-manager
+ansible-playbook --ask-become-pass workstation.yml --tags firefox
+```
+
 ## Overview
 
 This role automates the setup and configuration of a complete desktop environment, including common applications, system settings, and user preferences.
