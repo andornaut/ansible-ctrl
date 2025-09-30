@@ -28,14 +28,20 @@
                 return_content: true
               register: zig_versions
 
+            # ly v1.1.2 requires zig v0.14.0. The latest version of zig is not compatible.
             - name: Set zig version fact
               set_fact:
-                zig_version: "{{ zig_versions.json.keys() | difference(['master']) | community.general.version_sort | last }}"
+                zig_version: "0.14.0"
+
+            - name: Create a temporary directory for zig
+              ansible.builtin.tempfile:
+                state: directory
+              register: zig_tmp
 
             - name: Download zig compiler archive
               get_url:
                 url: "{{ zig_versions.json[zig_version]['x86_64-linux'].tarball }}"
-                dest: /tmp/zig.tar.xz
+                dest: "{{ zig_tmp.path }}/zig.tar.xz"
 
             - name: Create zig installation directory
               ansible.builtin.file:
@@ -46,7 +52,7 @@
 
             - name: Install zig compiler
               ansible.builtin.unarchive:
-                src: /tmp/zig.tar.xz
+                src: "{{ zig_tmp.path }}/zig.tar.xz"
                 dest: /opt/zig
                 remote_src: true
                 extra_opts:
@@ -57,17 +63,30 @@
 
     - name: Install ly display manager
       block:
-        - name: Clone ly source code
-          git:
-            repo: "https://codeberg.org/AnErrupTion/ly.git"
-            dest: /tmp/ly.git
-            depth: 1
-            force: true
+        - name: Create a temporary directory
+          ansible.builtin.tempfile:
+            state: directory
+          register: ly_tmp
+
+        - name: Get the latest version of ly
+          ansible.builtin.uri:
+            url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases/latest
+            return_content: true
+          register: ly_version
+
+        - name: Download and unarchive ly {{ ly_version.json.tag_name }}
+          ansible.builtin.unarchive:
+            src: "{{ ly_version.json.tarball_url }}"
+            dest: "{{ ly_tmp.path }}"
+            remote_src: true
+            extra_opts:
+              - --strip-components
+              - 1
 
         - name: Compile and install ly
           command:
             cmd: /opt/zig/zig build installexe
-            chdir: /tmp/ly.git
+            chdir: "{{ ly_tmp.path }}"
           become: true
 
     - name: Configure ly

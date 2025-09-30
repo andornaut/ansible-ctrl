@@ -12,21 +12,34 @@
 
 - name: Build and install eww
   block:
-    - name: Clone eww repository
-      git:
-        repo: "https://github.com/elkowar/eww.git"
-        dest: /tmp/eww.git
-        depth: 1
-        force: true
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: eww_tmp
+
+    - name: Get the latest version of eww
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/elkowar/eww/releases/latest
+        return_content: true
+      register: eww_version
+
+    - name: Download and unarchive eww {{ eww_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ eww_version.json.tag_name }}.tar.gz"
+        dest: "{{ eww_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
 
     - name: Build eww
       command:
         cmd: cargo build --release --no-default-features --features x11 --features=wayland
-        chdir: /tmp/eww.git
+        chdir: "{{ eww_tmp.path }}"
 
     - name: Install eww binary
       ansible.builtin.copy:
-        src: /tmp/eww.git/target/release/eww
+        src: "{{ eww_tmp.path }}/target/release/eww"
         dest: /usr/local/bin/
         remote_src: true
         owner: root
