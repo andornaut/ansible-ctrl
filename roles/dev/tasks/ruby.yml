@@ -24,9 +24,13 @@
             return_content: true
           register: chruby_version
 
+        - name: Set chruby download URL fact
+          set_fact:
+            chruby_download_url: "{{ (.json.assets | selectattr('name', 'match', 'chruby-.*.tar.gz') | first).browser_download_url }}"
+
         - name: Download chruby package
           get_url:
-            url: "{{ chruby_version.json.assets[0].browser_download_url }}"
+            url: "{{ chruby_download_url }}"
             dest: "{{ tmp_ruby.path }}/chruby.tar.gz"
             mode: 0644
 
@@ -38,7 +42,7 @@
 
         - name: Make install chruby
           make:
-            chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_version.json.name }}"
+            chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_version.json.tag_name | replace('v', '') }}"
             target: install
           become: true
 
@@ -50,9 +54,13 @@
             return_content: true
           register: ruby_install_version
 
+        - name: Set ruby-install download URL fact
+          set_fact:
+            ruby_install_download_url: "{{ (ruby_install_version.json.assets | selectattr('name', 'match', 'ruby-install-.*.tar.gz') | first).browser_download_url }}"
+
         - name: Download ruby-install package
           get_url:
-            url: "{{ ruby_install_version.json.assets[0].browser_download_url }}"
+            url: "{{ ruby_install_download_url }}"
             dest: "{{ tmp_ruby.path }}/ruby-install.tar.gz"
             mode: 0644
 
@@ -64,6 +72,6 @@
 
         - name: Make install ruby-install
           make:
-            chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_version.json.name }}"
+            chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_version.json.tag_name | replace('v', '') }}"
             target: install
           become: true
