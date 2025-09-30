@@ -7,19 +7,34 @@
     group: root
   become: true
 
-- name: Download BambuLab custom component
-  git:
-    repo: "https://github.com/greghesp/ha-bambulab"
-    dest: /tmp/ansible-role-homeassistant-frigate/bambu_lab
-    depth: 1
-    force: true
-    single_branch: true
-
 - name: Install BambuLab custom component
-  copy:
-    src: /tmp/ansible-role-homeassistant-frigate/bambu_lab/custom_components/bambu_lab
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-  become: true
+  block:
+    - name: Create a temporary directory for BambuLab
+      ansible.builtin.tempfile:
+        state: directory
+      register: bambulab_tmp
+
+    - name: Get the latest version of BambuLab
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/greghesp/ha-bambulab/releases/latest
+        return_content: true
+      register: bambulab_version
+
+    - name: Download and unarchive BambuLab {{ bambulab_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/greghesp/ha-bambulab/archive/refs/tags/{{ bambulab_version.json.tag_name }}.tar.gz"
+        dest: "{{ bambulab_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install BambuLab custom component
+      copy:
+        src: "{{ bambulab_tmp.path }}/custom_components/bambu_lab"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+      become: true
 
 - name: Create a temporary directory for dreo
   ansible.builtin.tempfile:
@@ -49,47 +64,92 @@
     remote_src: true
   become: true
 
-- name: Download Frigate custom component
-  git:
-    repo: "https://github.com/blakeblackshear/frigate-hass-integration"
-    dest: /tmp/ansible-role-homeassistant-frigate/frigate
-    depth: 1
-    force: true
-    single_branch: true
-
 - name: Install Frigate custom component
-  copy:
-    src: /tmp/ansible-role-homeassistant-frigate/frigate/custom_components/frigate
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-  become: true
+  block:
+    - name: Create a temporary directory for Frigate
+      ansible.builtin.tempfile:
+        state: directory
+      register: frigate_tmp
 
-- name: Download Meross custom component
-  git:
-    repo: "https://github.com/albertogeniola/meross-homeassistant"
-    dest: /tmp/ansible-role-homeassistant-frigate/meross
-    depth: 1
-    force: true
-    single_branch: true
+    - name: Get the latest version of Frigate
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/blakeblackshear/frigate-hass-integration/releases/latest
+        return_content: true
+      register: frigate_version
+
+    - name: Download and unarchive Frigate {{ frigate_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/blakeblackshear/frigate-hass-integration/archive/refs/tags/{{ frigate_version.json.tag_name }}.tar.gz"
+        dest: "{{ frigate_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Frigate custom component
+      copy:
+        src: "{{ frigate_tmp.path }}/custom_components/frigate"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+      become: true
 
 - name: Install Meross custom component
-  copy:
-    src: /tmp/ansible-role-homeassistant-frigate/meross/custom_components/meross_cloud
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-  become: true
+  block:
+    - name: Create a temporary directory for Meross
+      ansible.builtin.tempfile:
+        state: directory
+      register: meross_tmp
 
-- name: Download Simple Icons custom component
-  git:
-    repo: "https://github.com/vigonotion/hass-simpleicons"
-    dest: /tmp/ansible-role-homeassistant-frigate/simpleicons
-    depth: 1
-    force: true
-    single_branch: true
+    - name: Get the latest version of Meross
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/albertogeniola/meross-homeassistant/releases/latest
+        return_content: true
+      register: meross_version
+
+    - name: Download and unarchive Meross {{ meross_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/albertogeniola/meross-homeassistant/archive/refs/tags/{{ meross_version.json.tag_name }}.tar.gz"
+        dest: "{{ meross_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Meross custom component
+      copy:
+        src: "{{ meross_tmp.path }}/custom_components/meross_cloud"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+      become: true
 
 - name: Install Simple Icons custom component
-  copy:
-    src: /tmp/ansible-role-homeassistant-frigate/simpleicons/custom_components/simpleicons
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-  become: true
+  block:
+    - name: Create a temporary directory for Simple Icons
+      ansible.builtin.tempfile:
+        state: directory
+      register: simpleicons_tmp
+
+    - name: Get the latest version of Simple Icons
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/vigonotion/hass-simpleicons/releases/latest
+        return_content: true
+      register: simpleicons_version
+
+    - name: Download and unarchive Simple Icons {{ simpleicons_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/vigonotion/hass-simpleicons/archive/refs/tags/{{ simpleicons_version.json.tag_name }}.tar.gz"
+        dest: "{{ simpleicons_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Simple Icons custom component
+      copy:
+        src: "{{ simpleicons_tmp.path }}/custom_components/simpleicons"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+      become: true
 
 - name: Copy python_scripts/ directory
   copy:

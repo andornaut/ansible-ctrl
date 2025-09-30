@@ -12,9 +12,13 @@
         return_content: true
       register: lact_version
 
+    - name: Set LACT download URL fact
+      set_fact:
+        lact_download_url: "{{ (lact_version.json.assets | selectattr('name', 'match', 'lact-.*.amd64.ubuntu-' + (ansible_distribution_version | replace('.', '')) + '.deb') | first).browser_download_url }}"
+
     - name: Download LACT package
       get_url:
-        url: "https://github.com/ilya-zlobintsev/LACT/releases/download/{{ lact_version.json.name }}/lact-{{ lact_version.json.name | replace('v', '') }}-0.amd64.ubuntu-2404.deb"
+        url: "{{ lact_download_url }}"
         dest: "{{ lact_tmp.path }}/lact.deb"
 
     - name: Install LACT package

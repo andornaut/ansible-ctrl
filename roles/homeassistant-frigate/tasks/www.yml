@@ -30,17 +30,41 @@
     extra_opts: "-j"
   become: true
 
-- name: Install Bubble Card bubble-card.js
-  get_url:
-    url: https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+- name: Install Bubble Card
+  block:
+    - name: Create a temporary directory for Bubble Card
+      ansible.builtin.tempfile:
+        state: directory
+      register: bubble_card_tmp
 
-- name: Install Bubble Card bubble-pop-up-fix.js
-  get_url:
-    url: https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-pop-up-fix.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+    - name: Get the latest version of Bubble Card
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Clooos/Bubble-Card/releases/latest
+        return_content: true
+      register: bubble_card_version
+
+    - name: Download and unarchive Bubble Card {{ bubble_card_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/Clooos/Bubble-Card/archive/refs/tags/{{ bubble_card_version.json.tag_name }}.tar.gz"
+        dest: "{{ bubble_card_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Bubble Card bubble-card.js
+      copy:
+        src: "{{ bubble_card_tmp.path }}/dist/bubble-card.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true
+
+    - name: Install Bubble Card bubble-pop-up-fix.js
+      copy:
+        src: "{{ bubble_card_tmp.path }}/dist/bubble-pop-up-fix.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true
 
 - name: Install Button Card
   get_url:
@@ -49,16 +73,62 @@
   become: true
 
 - name: Install Card Mod
-  get_url:
-    url: https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/refs/heads/master/card-mod.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+  block:
+    - name: Create a temporary directory for Card Mod
+      ansible.builtin.tempfile:
+        state: directory
+      register: card_mod_tmp
+
+    - name: Get the latest version of Card Mod
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/thomasloven/lovelace-card-mod/releases/latest
+        return_content: true
+      register: card_mod_version
+
+    - name: Download and unarchive Card Mod {{ card_mod_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/thomasloven/lovelace-card-mod/archive/refs/tags/{{ card_mod_version.json.tag_name }}.tar.gz"
+        dest: "{{ card_mod_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Card Mod
+      copy:
+        src: "{{ card_mod_tmp.path }}/card-mod.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true
 
 - name: Install Custom Features Tile Card
-  get_url:
-    url: https://raw.githubusercontent.com/Nerwyn/custom-card-features/refs/heads/main/dist/custom-card-features.min.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+  block:
+    - name: Create a temporary directory for Custom Features Tile Card
+      ansible.builtin.tempfile:
+        state: directory
+      register: custom_features_tmp
+
+    - name: Get the latest version of Custom Features Tile Card
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Nerwyn/custom-card-features/releases/latest
+        return_content: true
+      register: custom_features_version
+
+    - name: Download and unarchive Custom Features Tile Card {{ custom_features_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/Nerwyn/custom-card-features/archive/refs/tags/{{ custom_features_version.json.tag_name }}.tar.gz"
+        dest: "{{ custom_features_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Custom Features Tile Card
+      copy:
+        src: "{{ custom_features_tmp.path }}/dist/custom-card-features.min.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true
 
 - name: Install Decluttering Card
   get_url:
@@ -67,10 +137,33 @@
   become: true
 
 - name: Install Layout Card
-  get_url:
-    url: https://raw.githubusercontent.com/thomasloven/lovelace-layout-card/master/layout-card.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+  block:
+    - name: Create a temporary directory for Layout Card
+      ansible.builtin.tempfile:
+        state: directory
+      register: layout_card_tmp
+
+    - name: Get the latest version of Layout Card
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/thomasloven/lovelace-layout-card/releases/latest
+        return_content: true
+      register: layout_card_version
+
+    - name: Download and unarchive Layout Card {{ layout_card_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/thomasloven/lovelace-layout-card/archive/refs/tags/{{ layout_card_version.json.tag_name }}.tar.gz"
+        dest: "{{ layout_card_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Layout Card
+      copy:
+        src: "{{ layout_card_tmp.path }}/layout-card.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true
 
 - name: Install Mini Media Player Card
   get_url:
@@ -79,7 +172,30 @@
   become: true
 
 - name: Install Slider Entry Row Card
-  get_url:
-    url: https://raw.githubusercontent.com/thomasloven/lovelace-slider-entity-row/master/slider-entity-row.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
-  become: true
+  block:
+    - name: Create a temporary directory for Slider Entry Row Card
+      ansible.builtin.tempfile:
+        state: directory
+      register: slider_entity_row_tmp
+
+    - name: Get the latest version of Slider Entry Row Card
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/thomasloven/lovelace-slider-entity-row/releases/latest
+        return_content: true
+      register: slider_entity_row_version
+
+    - name: Download and unarchive Slider Entry Row Card {{ slider_entity_row_version.json.tag_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/thomasloven/lovelace-slider-entity-row/archive/refs/tags/{{ slider_entity_row_version.json.tag_name }}.tar.gz"
+        dest: "{{ slider_entity_row_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Slider Entry Row Card
+      copy:
+        src: "{{ slider_entity_row_tmp.path }}/slider-entity-row.js"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        remote_src: true
+      become: true

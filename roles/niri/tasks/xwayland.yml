@@ -12,9 +12,9 @@
         return_content: true
       register: xwayland_version
 
-    - name: Download and unarchive xwayland-satellite {{ xwayland_version.json.name }}
+    - name: Download and unarchive xwayland-satellite {{ xwayland_version.json.tag_name }}
       ansible.builtin.unarchive:
-        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version.json.name }}.tar.gz
+        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version.json.tag_name }}.tar.gz
         dest: "{{ xwayland_tmp.path }}"
         remote_src: true
         extra_opts:

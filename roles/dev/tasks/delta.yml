@@ -10,9 +10,13 @@
     return_content: true
   register: delta_version
 
+- name: Set delta download URL fact
+  set_fact:
+    delta_download_url: "{{ (delta_version.json.assets | selectattr('name', 'match', 'git-delta_.*_amd64.deb') | first).browser_download_url }}"
+
 - name: Download Delta package
   get_url:
-    url: "https://github.com/dandavison/delta/releases/download/{{ delta_version.json.name }}/git-delta_{{ delta_version.json.name }}_amd64.deb"
+    url: "{{ delta_download_url }}"
     dest: "{{ delta_tmp.path }}/delta.deb"
 
 - name: Install Delta package

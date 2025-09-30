@@ -29,7 +29,7 @@
 
 - name: Download and unarchive rofi
   ansible.builtin.unarchive:
-    src: https://github.com/lbonn/rofi/releases/download/{{ rofi_version.json.name }}/rofi-{{ rofi_version.json.name }}.tar.xz
+    src: https://github.com/lbonn/rofi/releases/download/{{ rofi_version.json.tag_name }}/rofi-{{ rofi_version.json.tag_name }}.tar.xz
     dest: "{{ rofi_tmp.path }}"
     remote_src: true
     extra_opts:
