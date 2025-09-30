@@ -1,21 +1,20 @@
 ---
+- name: Install Kicad 9.0 apt repository
+  apt_repository:
+    repo: ppa:kicad/kicad-9.0-releases
+    update_cache: true
+  become: true
+
 - name: Install system packages
   apt:
     name:
       # Video playback dependencies of OrcaSlicer
       - gstreamer1.0-libav
       - gstreamer1.0-plugins-bad
+
       - kicad
-      # https://github.com/andornaut/splinter-keyboard/?tab=readme-ov-file#fix-error-when-running-npm-run-build
-      - libocct-modeling-algorithms-7.6t64
     state: latest
     install_recommends: false
-    update_cache: true
-  become: true
-
-- name: Install Kicad apt respository
-  apt_repository:
-    repo: ppa:kicad/kicad-8.0-releases
     update_cache: true
   become: true
 
