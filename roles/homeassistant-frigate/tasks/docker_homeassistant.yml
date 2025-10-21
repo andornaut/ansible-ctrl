@@ -69,6 +69,11 @@
         # Required to support Google Cast if Avahi is disabled
         # n.b. Can only run one of Avahi or otbr/thread on the host
         network_mode: host
+        # Enable privileged mode in order to use bluetooth
+        # e.g. to pair a HomeKit device
+        # TODO Avoid need for privileged:
+        # https://www.home-assistant.io/integrations/bluetooth/#additional-details-for-container
+        #privileged: true
         restart: unless-stopped
         security_opt:
           - "apparmor=docker-ble-policy"
