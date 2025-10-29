@@ -10,7 +10,7 @@
     frigate_base_volumes:
       - "{{ homeassistantfrigate_frigate_required_volumes.config }}:/config"
       - "{{ homeassistantfrigate_frigate_required_volumes.media }}:/media/frigate"
-    frigate_volumes: "{{ common_volumes + frigate_base_volumes }}"
+    frigate_volumes: "{{ common_volumes + frigate_base_volumes + homeassistantfrigate_frigate_extra_volumes }}"
 
     frigate_tmpfs_volume:
       type: tmpfs # Optional ram-drive to reduce storage wear
@@ -51,6 +51,8 @@
             # WebRTC
             - "{{ homeassistantfrigate_frigate_port_webrtc }}:8555/tcp"
             - "{{ homeassistantfrigate_frigate_port_webrtc }}:8555/udp"
+          # TODO Required for memryx: https://deploy-preview-19787--frigate-docs.netlify.app/frigate/installation/#memryx-mx3
+          privileged: true
           restart: unless-stopped
           # https://docs.docker.com/reference/cli/docker/container/run/#security-opt
           # https://docs.docker.com/engine/security/seccomp/#run-without-the-default-seccomp-profile
