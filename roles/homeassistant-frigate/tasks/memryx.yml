@@ -1,0 +1,43 @@
+---
+# See:
+# https://developer.memryx.com/get_started/install_driver.html
+- name: Install linux headers
+  apt:
+    name: "linux-headers-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+  become: true
+
+- name: Add MemryX GPG key
+  ansible.builtin.get_url:
+    url: https://developer.memryx.com/deb/memryx.asc
+    dest: /etc/apt/trusted.gpg.d/memryx.asc
+    mode: "0644"
+  become: true
+
+- name: Add MemryX repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://developer.memryx.com/deb stable main"
+    filename: memryx
+    state: present
+  become: true
+
+- name: Install MemryX drivers and accelerator
+  apt:
+    name:
+      - memx-accl
+      - memx-drivers
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Install MemryX Python package
+  pip:
+    name: memryx
+    extra_args: --extra-index-url https://developer.memryx.com/pip --break-system-packages
+    executable: pip3
+  become: true
+
+- name: Notify user to restart system
+  debug:
+    msg: "MemryX drivers installed. A system restart is recommended to complete the installation."
