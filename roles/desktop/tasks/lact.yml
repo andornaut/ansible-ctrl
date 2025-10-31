@@ -1,11 +1,6 @@
 ---
 - name: Install LACT
   block:
-    - name: Create temporary directory
-      tempfile:
-        state: directory
-      register: lact_tmp
-
     - name: Get latest LACT version
       uri:
         url: https://api.github.com/repos/ilya-zlobintsev/LACT/releases/latest
@@ -16,14 +11,9 @@
       set_fact:
         lact_download_url: "{{ (lact_version.json.assets | selectattr('name', 'match', 'lact-.*.amd64.ubuntu-' + (ansible_distribution_version | replace('.', '')) + '.deb') | first).browser_download_url }}"
 
-    - name: Download LACT package
-      get_url:
-        url: "{{ lact_download_url }}"
-        dest: "{{ lact_tmp.path }}/lact.deb"
-
     - name: Install LACT package
       apt:
-        deb: "{{ lact_tmp.path }}/lact.deb"
+        deb: "{{ lact_download_url }}"
         install_recommends: false
         update_cache: true
       become: true
