@@ -108,7 +108,7 @@ homeassistantfrigate_piper_required_volumes:
 homeassistantfrigate_piper_port: 10200
 
 # Whisper
-homeassistantfrigate_whisper_command: "--model distil-small.en --language en"
+homeassistantfrigate_whisper_command: "--data-dir /data --language en --model tiny-int8"
 homeassistantfrigate_whisper_docker_image: rhasspy/wyoming-whisper
 homeassistantfrigate_whisper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/whisper/data
