@@ -128,10 +128,9 @@ letsencryptnginx_websites:
 - [LocalAI](https://localai.io/basics/getting_started/)
 - [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 - [Models that support "tools"](https://ollama.com/search?c=tools)
-  - [llama3.1:8b](https://ollama.com/library/llama3.1:8b)
   - [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
   - [mistral:7b](https://ollama.com/library/mistral:7b)
-  - [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b)
+  - [qwen3-vl:2b](https://ollama.com/library/qwen3-vl:2b) - Can also be used by Frigate
 - [Ollama](https://ollama.com/)
 - [Open WebUI](https://openwebui.com/)
 
@@ -392,6 +391,66 @@ docker run --rm \
 
 > On the host `tcpdump port 5353 -i any`
 > On the docker container, get a shell on the container and `apk add tcpdump && tcpdump port 5353`
+
+### Converting ONNX model to DFP for memryx
+
+1. Add the Frigate+ model to Frigate's `config.yml`:
+
+   ```yaml
+   model:
+    path: plus://<Model ID> # yolov9s 320x320 3472  onnx,rocm,openvino,rknn,zmq 2025-11-03  2025.3
+   ```
+
+2. Start Frigate, which will download the model to `/var/docker-volumes/homeassistant-frigate/frigate/config/model_cache/`. Once Frigate has downloaded the model, stop its container.
+
+3. Rename the model file to include an ".onnx" filename extension:
+
+   ```bash
+   mv <Model ID> 2025-11-04-yolov9.onnx
+   mv <Model ID>.json 2025-11-04-yolov9.json
+   ```
+
+4. Get the model's width and height (you'll use these values in subsequent steps):
+
+   ```bash
+   cat 2025-11-04-yolov9.json | jq -r '"\(.width),\(.height)"'
+   ```
+
+5. Convert the model to DFP format:
+
+   ```bash
+   # Set `--input_shapes` to  `1,3,${width},${height}`
+   mx_nc --models 2025-11-04-yolov9.onnx --dfp_fname 2025-11-04-yolov9.dfp --input_shapes "1,3,320,320" --autocrop --effort hard --num_processes 8 --verbose
+
+   # Monitor memryx for thermal throttling with:
+   watch 'cat /sys/memx0/temperature'
+
+   # n.b. Inclue the newly created "*_post.onnx" file
+   zip 2025-11-04-yolov9.zip 2025-11-04-yolov9.dfp 2025-11-04-yolov9_post.onnx
+
+   sudo cp 2025-11-04-yolov9.zip /var/docker-volumes/homeassistant-frigate/frigate/config/
+   ```
+
+6. Create a label map file:
+
+   ```bash
+   cat 2025-11-04-yolov9.json |jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' > 2025-11-04-yolov9.txt
+   sudo cp 2025-11-04-yolov9.txt /var/docker-volumes/homeassistant-frigate/frigate/config/
+   ```
+
+7. Update Frigate's `config.yml`, and then restart Frigate:
+
+   ```yaml
+   model:
+     # https://deploy-preview-20786--frigate-docs.netlify.app/configuration/object_detectors#yolov9
+     path: /config/2025-11-04-yolov9.zip
+     labelmap_path: /config/2025-11-04-yolov9.txt
+     width: 320
+     height: 320
+     input_dtype: float
+     input_tensor: nchw
+     model_type: yolo-generic
+   ```
 
 ### Removing unwanted entities and devices
 
