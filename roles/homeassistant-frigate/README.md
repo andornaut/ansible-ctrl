@@ -394,6 +394,8 @@ docker run --rm \
 
 ### Converting ONNX model to DFP for memryx
 
+- [Memryx driver installation](https://github.com/blakeblackshear/frigate/blob/dev/docker/memryx/user_installation.sh) - n.b. These packages are "held" and won't be upgraded without manual intervention
+
 1. Add the Frigate+ model to Frigate's `config.yml`:
 
    ```yaml
