@@ -147,7 +147,7 @@ server {
         {% endif %}
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
+        proxy_set_header Connection "upgrade";
     }
 {% endif %}
 {% endfor %}
@@ -228,7 +228,7 @@ server {
         # e.g. https://docs.frigate.video/guides/reverse_proxy/#setup-reverse-proxy-settings
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
+        proxy_set_header Connection "upgrade";
 {% endif %}
     }
 
