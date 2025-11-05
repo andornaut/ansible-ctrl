@@ -51,6 +51,7 @@
             # WebRTC
             - "{{ homeassistantfrigate_frigate_port_webrtc }}:8555/tcp"
             - "{{ homeassistantfrigate_frigate_port_webrtc }}:8555/udp"
+
           # Required for memryx: https://deploy-preview-19787--frigate-docs.netlify.app/frigate/installation/#memryx-mx3
           privileged: "{{ homeassistantfrigate_install_memryx }}"
           restart: unless-stopped
