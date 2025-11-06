@@ -30,7 +30,7 @@
         enabled: false
       become: true
       loop:
-        - avahi-daemon.socket
+        - avahi-daemon.socket # Stop the socket first, b/c it can spawn the service
         - avahi-daemon.service
       ignore_errors: true
       when: not homeassistantfrigate_install_avahi
