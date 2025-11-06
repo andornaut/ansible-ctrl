@@ -101,7 +101,7 @@ homeassistantfrigate_openwebui_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/openwebui/data
 
 # Piper
-homeassistantfrigate_piper_command: "--voice en_US-amy-medium"
+homeassistantfrigate_piper_command: "--data-dir /data --voice en_US-amy-medium"
 homeassistantfrigate_piper_docker_image: rhasspy/wyoming-piper
 homeassistantfrigate_piper_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/piper/data
