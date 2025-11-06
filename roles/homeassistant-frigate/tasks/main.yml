@@ -66,17 +66,18 @@
         - homeassistant
         - mosquitto
 
-    - import_tasks: docker_esphome.yml
-      tags: esphome
-      when: homeassistantfrigate_install_esphome
+    # Must come before docker_frigate, b/c Frigate may depend on Ollama
+    - import_tasks: docker_llm.yml
+      tags: llm
+      when: homeassistantfrigate_install_llm
 
     - import_tasks: docker_frigate.yml
       tags: frigate
       when: homeassistantfrigate_install_frigate
 
-    - import_tasks: docker_llm.yml
-      tags: llm
-      when: homeassistantfrigate_install_llm
+    - import_tasks: docker_esphome.yml
+      tags: esphome
+      when: homeassistantfrigate_install_esphome
 
     - import_tasks: docker_matter.yml
       tags: matter
@@ -85,4 +86,5 @@
     - import_tasks: docker_voice.yml
       tags: voice
       when: homeassistantfrigate_install_voice
+
   tags: docker
