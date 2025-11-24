@@ -261,6 +261,11 @@ Installation
 - [Thread](https://www.home-assistant.io/integrations/thread/#list-of-thread-border-router-devices)
   - [Enabling thread support](https://support.nabucasa.com/hc/en-us/articles/26124710072861-Enabling-Thread-support)
 
+### SMLight SLZB-MR1
+
+- [AliExpress SMLight store](https://www.aliexpress.com/item/1005008814854495.html)
+- [SMLight SLZB-MR1 Multi-Radio Coordinator Setup and Review](https://smarthomescene.com/reviews/smlight-slzb-mr1-multi-radio-coordinator-setup-and-review/)
+
 ### ratgdo - Local MQTT & dry contact control of Chamberlain/LiftMaster Security+ 2.0 garage door openers
 
 - [ratgdo](https://paulwieland.github.io/ratgdo/)
