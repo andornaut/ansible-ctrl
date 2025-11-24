@@ -68,3 +68,24 @@
         deb: "{{ betaflight_download_url }}"
         state: present
       become: true
+
+- name: Install ExpressLRS Configurator
+  block:
+    - name: Get the latest version of ExpressLRS Configurator
+      uri:
+        url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases/latest
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: expresslrs_version
+
+    - name: Find Linux deb asset
+      set_fact:
+        expresslrs_download_url: "{{ (expresslrs_version.json.assets | selectattr('name', 'match', '.*_amd64\\.deb$') | list | first).browser_download_url }}"
+
+    - name: Install ExpressLRS Configurator
+      apt:
+        deb: "{{ expresslrs_download_url }}"
+        state: present
+      become: true
