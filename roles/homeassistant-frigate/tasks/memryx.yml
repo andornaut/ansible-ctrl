@@ -1,9 +1,43 @@
 ---
 # See:
+# https://github.com/blakeblackshear/frigate/blob/dev/docker/memryx/user_installation.sh
 # https://developer.memryx.com/get_started/install_driver.html
-- name: Install linux headers
+
+- name: Unhold MemryX packages before removal
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  loop:
+    - memx-accl
+    - memx-drivers
+    - mxa-manager
+  become: true
+  ignore_errors: true
+
+- name: Remove existing MemryX packages
   apt:
-    name: "linux-headers-{{ ansible_kernel }}"
+    name:
+      - memx-*
+      - mxa-manager
+    state: absent
+    purge: true
+  become: true
+  ignore_errors: true
+
+- name: Remove existing MemryX repository files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/memryx.list
+    - /etc/apt/trusted.gpg.d/memryx.asc
+  become: true
+
+- name: Install DKMS and kernel headers
+  apt:
+    name:
+      - dkms
+      - "linux-headers-{{ ansible_kernel }}"
     state: present
     update_cache: true
   become: true
@@ -22,22 +56,32 @@
     state: present
   become: true
 
-- name: Install MemryX drivers and accelerator
+- name: Install MemryX SDK 2.1 packages
   apt:
     name:
-      - memx-accl
-      - memx-drivers
-    state: latest
+      - memx-drivers=2.1.*
+      - memx-accl=2.1.*
+      - mxa-manager=2.1.*
+    state: present
     update_cache: true
   become: true
 
-- name: Install MemryX Python package
-  pip:
-    name: memryx
-    extra_args: --extra-index-url https://developer.memryx.com/pip --break-system-packages
-    executable: pip3
+- name: Hold MemryX packages to prevent automatic upgrades
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - memx-accl
+    - memx-drivers
+    - mxa-manager
   become: true
+
+- name: Run ARM setup if on ARM architecture
+  command: mx_arm_setup
+  when: ansible_architecture in ['aarch64', 'arm64']
+  become: true
+  ignore_errors: true
 
 - name: Notify user to restart system
   debug:
-    msg: "MemryX drivers installed. A system restart is recommended to complete the installation."
+    msg: "MemryX drivers installed. A system restart is required to complete the installation."
