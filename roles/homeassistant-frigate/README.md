@@ -143,9 +143,8 @@ docker exec ollama ollama pull mistral:7b
 ### Voice Assistant
 
 - [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/)
-- [Voice Preview Edition (hardware) documentation](https://voice-pe.home-assistant.io/documentation/)
+  - [Documentation](https://voice-pe.home-assistant.io/documentation/)
 - [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
-- [$13 voice assistant for Home Assistant](https://www.home-assistant.io/voice_control/thirteen-usd-voice-remote/) - Supports custom wake words with microWakeWord
 
 #### Home Assistant integration
 
@@ -413,36 +412,36 @@ docker run --rm \
 3. Rename the model file to include an ".onnx" filename extension:
 
    ```bash
-   mv <Model ID> 2025-11-04-yolov9.onnx
-   mv <Model ID>.json 2025-11-04-yolov9.json
+   mv <Model ID> 2025-11-04-yolov9s.onnx
+   mv <Model ID>.json 2025-11-04-yolov9s.json
    ```
 
 4. Get the model's width and height (you'll use these values in subsequent steps):
 
    ```bash
-   cat 2025-11-04-yolov9.json | jq -r '"\(.width),\(.height)"'
+   cat 2025-11-04-yolov9s.json | jq -r '"\(.width),\(.height)"'
    ```
 
 5. Convert the model to DFP format:
 
    ```bash
    # Set `--input_shapes` to  `1,3,${width},${height}`
-   mx_nc --models 2025-11-04-yolov9.onnx --dfp_fname 2025-11-04-yolov9.dfp --input_shapes "1,3,320,320" --autocrop --effort hard --num_processes 8 --verbose
+   mx_nc --models 2025-11-04-yolov9s.onnx --dfp_fname 2025-11-04-yolov9s.dfp --input_shapes "1,3,320,320" --autocrop --effort hard --num_processes 8 --verbose
 
    # Monitor memryx for thermal throttling with:
    watch 'cat /sys/memx0/temperature'
 
    # n.b. Inclue the newly created "*_post.onnx" file
-   zip 2025-11-04-yolov9.zip 2025-11-04-yolov9.dfp 2025-11-04-yolov9_post.onnx
+   zip 2025-11-04-yolov9s.zip 2025-11-04-yolov9s.dfp 2025-11-04-yolov9s_post.onnx
 
-   sudo cp 2025-11-04-yolov9.zip /var/docker-volumes/homeassistant-frigate/frigate/config/
+   sudo cp 2025-11-04-yolov9s.zip /var/docker-volumes/homeassistant-frigate/frigate/config/
    ```
 
 6. Create a label map file:
 
    ```bash
-   cat 2025-11-04-yolov9.json |jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' > 2025-11-04-yolov9.txt
-   sudo cp 2025-11-04-yolov9.txt /var/docker-volumes/homeassistant-frigate/frigate/config/
+   cat 2025-11-04-yolov9s.json |jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' > 2025-11-04-yolov9s.txt
+   sudo cp 2025-11-04-yolov9s.txt /var/docker-volumes/homeassistant-frigate/frigate/config/
    ```
 
 7. Update Frigate's `config.yml`, and then restart Frigate:
@@ -450,8 +449,8 @@ docker run --rm \
    ```yaml
    model:
      # https://deploy-preview-20786--frigate-docs.netlify.app/configuration/object_detectors#yolov9
-     path: /config/2025-11-04-yolov9.zip
-     labelmap_path: /config/2025-11-04-yolov9.txt
+     path: /config/2025-11-04-yolov9s.zip
+     labelmap_path: /config/2025-11-04-yolov9s.txt
      width: 320
      height: 320
      input_dtype: float
