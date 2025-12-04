@@ -1,14 +1,8 @@
 ---
-- name: Resolve Matter device path
-  include_tasks: resolve_device.yml
-  vars:
-    device_paths: ["{{ homeassistantfrigate_matter_device }}"]
-    resolved_var_name: matter_devices_resolved
-
 - name: Resolve OTBR device path
   include_tasks: resolve_device.yml
   vars:
-    device_paths: ["{{ homeassistantfrigate_otbr_device }}"]
+    device_paths: "{{ [homeassistantfrigate_otbr_device] if homeassistantfrigate_otbr_device.startswith('/') else [] }}"
     resolved_var_name: otbr_devices_resolved
 
 - name: Remove Matter and OTBR containers if they exist
@@ -28,8 +22,28 @@
     matter_volumes: "{{ common_volumes + matter_base_volumes }}"
 
     otbr_base_volumes:
-      - "{{ homeassistantfrigate_otbr_required_volumes.data }}:/var/lib/thread"
+      - "{{ homeassistantfrigate_otbr_required_volumes.data }}:/data"
     otbr_volumes: "{{ common_volumes + otbr_base_volumes }}"
+
+    # Build device list: always include /dev/net/tun, add physical device if present
+    otbr_devices: "{{ ['/dev/net/tun'] + otbr_devices_resolved }}"
+
+    otbr_base_env:
+      - AUTOFLASH_FIRMWARE=0
+      - BACKBONE_IF={{ homeassistantfrigate_otbr_backbone_if }}
+      - BAUDRATE=460800
+      # For network sockets: Use /tmp/ttyOTBR (pseudo-TTY created by socat service)
+      # For physical devices: Use the resolved device path (e.g., /dev/ttyUSB0)
+      - DEVICE={{ otbr_devices_resolved[0] if otbr_devices_resolved else '/tmp/ttyOTBR' }}
+      - FIREWALL=1
+      - FLOW_CONTROL=1
+      - NAT64=1
+      - OTBR_REST_PORT={{ homeassistantfrigate_otbr_rest_port }}
+      - OTBR_WEB_PORT={{ homeassistantfrigate_otbr_web_port }}
+    # Network socket configuration: NETWORK_DEVICE triggers socat to bridge TCP socket to /tmp/ttyOTBR
+    otbr_network_env:
+      - NETWORK_DEVICE={{ homeassistantfrigate_otbr_device }}
+    otbr_env: "{{ otbr_base_env + (otbr_network_env if not otbr_devices_resolved else []) }}"
 
   community.docker.docker_compose_v2:
     project_name: homeassistantfrigate-matter
@@ -46,8 +60,6 @@
           cap_add:
             - NET_ADMIN
             - NET_RAW
-          devices:
-            - "{{ matter_devices_resolved[0] }}"
           logging: "{{ default_logging }}"
           ports:
             - "{{ homeassistantfrigate_matter_port }}:5580"
@@ -63,26 +75,11 @@
           cap_add:
             - NET_ADMIN
             - NET_RAW
-          devices:
-            - /dev/net/tun
-            - "{{ otbr_devices_resolved[0] }}"
-          environment:
-            # Automatically install/update firmware (Home Assistant SkyConnect/Yellow)
-            - AUTOFLASH_FIRMWARE=0
-            - BACKBONE_IF={{ homeassistantfrigate_otbr_backbone_if }}
-            - BAUDRATE=460800
-            # Serial port where the OpenThread RCP Radio is attached
-            - DEVICE={{ otbr_devices_resolved[0] }}
-            - FIREWALL=1
-            - FLOW_CONTROL=1
-            # Enable NAT64 to allow Thread devices accessing IPv4 addresses
-            - NAT64=1
-            - OTBR_REST_PORT={{ homeassistantfrigate_otbr_rest_port }}
-            - OTBR_WEB_PORT={{ homeassistantfrigate_otbr_web_port }}
+          devices: "{{ otbr_devices }}"
+          environment: "{{ otbr_env }}"
           logging: "{{ default_logging }}"
           # Required for mDNS and physical interface access to work correctly
           network_mode: host
-          # TODO: Fix permissions on /dev/ttyUSB*
           restart: unless-stopped
           volumes: "{{ otbr_volumes }}"
   notify: update /etc/hosts
