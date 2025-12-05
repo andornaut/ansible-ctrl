@@ -1,14 +1,10 @@
 ---
-# Helper task to resolve /dev/serial/by-id/* paths to /dev/ttyUSB* paths
-# Parameters:
-#   device_paths: Array of device paths to resolve (can be single item array)
-#   resolved_var_name: The variable name to store the resolved array in
-- name: Resolve device by-id paths to actual devices
+- name: Resolve device symlink paths to actual devices
   stat:
     path: "{{ item }}"
   register: device_stats_result
-  loop: "{{ device_paths }}"
-  when: item.startswith('/dev/serial/by-id/')
+  loop: "{{ device_paths | default([]) }}"
+  when: item.startswith('/dev/')
 
 - name: "Set resolved device paths for {{ resolved_var_name }}"
   set_fact:
@@ -16,8 +12,8 @@
   vars:
     resolved_devices: >-
       {%- set devices = [] -%}
-      {%- for device in device_paths -%}
-        {%- if device.startswith('/dev/serial/by-id/') -%}
+      {%- for device in (device_paths | default([])) -%}
+        {%- if device.startswith('/dev/') -%}
           {%- set device_stat = device_stats_result.results | selectattr('item', 'equalto', device) | first | default({}) -%}
           {%- if device_stat.stat is defined and device_stat.stat.islnk -%}
             {%- set target = device_stat.stat.lnk_target -%}
@@ -37,4 +33,4 @@
 
 - name: "Resolved device path for {{ resolved_var_name }}"
   debug:
-    msg: "{{ device_paths }} -> {{ vars[resolved_var_name] }}"
+    msg: "{{ device_paths | default([]) }} -> {{ vars[resolved_var_name] }}"

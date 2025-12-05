@@ -83,6 +83,8 @@ homeassistantfrigate_ollama_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/ollama/data
 
 # OpenThread Border Router (OTBR)
+homeassistantfrigate_otbr_backbone_if: eth0
+homeassistantfrigate_otbr_device: ""
 homeassistantfrigate_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
 homeassistantfrigate_otbr_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/otbr/data
