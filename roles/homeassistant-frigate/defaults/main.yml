@@ -37,7 +37,7 @@ homeassistantfrigate_frigate_port_http_authenticated: 8971
 homeassistantfrigate_frigate_port_http_unauthenticated: 5000
 homeassistantfrigate_frigate_port_rtsp: 8554
 homeassistantfrigate_frigate_port_webrtc: 8555
-homeassistantfrigate_frigate_shm_size: "64mb"
+homeassistantfrigate_frigate_shm_size: "128mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
 # Govee2mqtt
