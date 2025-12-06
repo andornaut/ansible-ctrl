@@ -537,6 +537,50 @@ Excerpt from dmesg:
 [  336.755611] usb 3-2: New USB device strings: Mfr=0, Product=0, SerialNumber=0
 ```
 
+### Reolink doorbell stops working
+
+If the Reolink doorbell stops working (no chime, no quick reply, no siren) when integrated with Frigate:
+
+**Solution**: Switch from RTSP to HTTP streams and disable two-way audio in Frigate.
+
+References:
+
+- [Frigate discussion #13904](https://github.com/blakeblackshear/frigate/discussions/13904)
+- [Frigate issue #3235](https://github.com/blakeblackshear/frigate/issues/3235#issuecomment-1135876973)
+- [Reolink camera configuration docs](https://docs.frigate.video/configuration/camera_specific/#reolink-cameras)
+
+**Root cause**: The Reolink doorbell is designed such that when two-way audio is enabled via Frigate, the doorbell chime, quick reply messages, and siren will not work.
+
+**Solution**:
+
+1. Use HTTP-FLV streams instead of RTSP in Frigate configuration
+2. Do not enable two-way audio between the Reolink doorbell and Frigate
+3. Use Frigate's restream feature to send video to Home Assistant
+4. Enable the native Reolink integration in Home Assistant for full doorbell functionality (chime, quick reply, siren)
+
+**Camera settings** (if available):
+
+- Set to "On, fluency first" (CBR/constant bit rate)
+- Set "Interframe Space 1x" (iframe interval matching frame rate)
+- Enable HTTP in camera's advanced network settings
+
+**Example Frigate configuration** (go2rtc streams using HTTP-FLV):
+
+```yaml
+go2rtc:
+  streams:
+    doorbell:
+      - ffmpeg:https://camera-doorbell.example.com/flv?port=1935&app=bcs&stream=channel0_main.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}#audio=copy#video=copy#audio=opus
+    doorbell_sub:
+      - ffmpeg:https://camera-doorbell.example.com/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}
+```
+
+Notes:
+
+- The `#audio=copy#video=copy#audio=opus` suffix converts audio to opus codec while copying video
+- HTTP-FLV streams are more reliable than RTSP for Reolink cameras
+- For direct IP camera connections, use the hostname/IP; for NVR connections, use `channel[0..15]` in the stream URL
+
 ## Documentation and Resources
 
 - [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)

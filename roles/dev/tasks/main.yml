@@ -13,6 +13,9 @@
 - import_tasks: delta.yml
   tags: delta
 
+- import_tasks: gemini.yml
+  tags: gemini
+
 - import_tasks: hobbies.yml
   tags: hobbies
 
