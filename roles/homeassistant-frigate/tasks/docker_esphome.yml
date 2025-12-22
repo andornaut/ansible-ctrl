@@ -25,7 +25,8 @@
             - ESPHOME_DASHBOARD_USE_PING=true
           image: "{{ homeassistantfrigate_esphome_docker_image }}"
           logging: "{{ default_logging }}"
-          # Must be on network_mode:host, b/c Avahi is disabled when Matter is enabled
+          # Must be on network_mode:host, b/c the Avahi container, which provides mdns to the Docker network,
+          # is disabled when Matter is enabled
           network_mode: host
           #ports:
           #  - "{{ homeassistantfrigate_esphome_port }}:6052"
