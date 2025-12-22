@@ -60,6 +60,8 @@
           cap_add:
             - NET_ADMIN
             - NET_RAW
+          depends_on:
+            - otbr
           logging: "{{ default_logging }}"
           ports:
             - "{{ homeassistantfrigate_matter_port }}:5580"
@@ -67,6 +69,7 @@
           security_opt:
             - apparmor=unconfined # Needed for Bluetooth via dbus
           volumes: "{{ matter_volumes }}"
+
         otbr:
           # http://localhost:8080
           container_name: otbr
