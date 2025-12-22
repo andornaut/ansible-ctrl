@@ -1,12 +1,31 @@
 ---
-- name: Remove Ollama and OpenWebUI containers if they exist
+- name: Remove Ollama, OpenWebUI, and llama.cpp containers if they exist
   community.docker.docker_container:
     name: "{{ item }}"
     state: absent
   loop:
     - ollama
     - openwebui
+    - llamacpp
   ignore_errors: true
+
+- name: Check which llama.cpp models already exist
+  ansible.builtin.stat:
+    path: "{{ homeassistantfrigate_llamacpp_required_volumes.models }}/{{ item | basename }}"
+  loop: "{{ homeassistantfrigate_llamacpp_models }}"
+  register: llamacpp_model_stats
+  when: homeassistantfrigate_llamacpp_models | length > 0
+
+- name: Download llama.cpp models
+  ansible.builtin.get_url:
+    url: "{{ item.item }}"
+    dest: "{{ homeassistantfrigate_llamacpp_required_volumes.models }}/{{ item.item | basename }}"
+    mode: "0644"
+  become: true
+  loop: "{{ llamacpp_model_stats.results }}"
+  when:
+    - homeassistantfrigate_llamacpp_models | length > 0
+    - not item.stat.exists
 
 - name: Start LLM Docker containers
   vars:
@@ -18,6 +37,10 @@
       - "{{ homeassistantfrigate_openwebui_required_volumes.data }}:/app/backend/data"
     openwebui_volumes: "{{ common_volumes + openwebui_base_volumes }}"
 
+    llamacpp_base_volumes:
+      - "{{ homeassistantfrigate_llamacpp_required_volumes.models }}:/models"
+    llamacpp_volumes: "{{ common_volumes + llamacpp_base_volumes }}"
+
   community.docker.docker_compose_v2:
     project_name: homeassistantfrigate-llm
     pull: always
@@ -25,6 +48,20 @@
     definition:
       networks: "{{ external_network }}"
       services:
+        llamacpp:
+          # http://llamacpp.internal:8080
+          container_name: llamacpp
+          image: "{{ homeassistantfrigate_llamacpp_docker_image }}"
+          # Use --models-dir to enable "router mode"
+          command: "--host 0.0.0.0 --port 8080 --models-dir /models"
+          devices: "{{ homeassistantfrigate_llamacpp_devices }}"
+          group_add:
+            - "{{ getent_group.render[1] }}"
+            - "{{ getent_group.video[1] }}"
+          logging: "{{ default_logging }}"
+          restart: unless-stopped
+          volumes: "{{ llamacpp_volumes }}"
+
         ollama:
           # http://ollama.internal:11434
           container_name: ollama
@@ -51,6 +88,7 @@
           restart: unless-stopped
           volumes: "{{ openwebui_volumes }}"
           depends_on:
+            - llamacpp
             - ollama
   notify:
     - restart homeassistant

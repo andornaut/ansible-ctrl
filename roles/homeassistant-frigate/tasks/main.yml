@@ -58,13 +58,19 @@
 - name: Configure Docker containers
   block:
     - import_tasks: docker_prerequisites.yml
+      tags:
+        - esphome
+        - frigate
+        - govee2mqtt
+        - homeassistant
+        - llm
+        - matter
+        - mosquitto
+        - voice
 
     # Must come first, because it creates the shared bridge network
     - import_tasks: docker_homeassistant.yml
-      tags:
-        - govee2mqtt
-        - homeassistant
-        - mosquitto
+      tags: homeassistant
 
     # Must come before docker_frigate, b/c Frigate may depend on Ollama
     - import_tasks: docker_llm.yml
