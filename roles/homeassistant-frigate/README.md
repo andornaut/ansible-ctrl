@@ -127,18 +127,8 @@ letsencryptnginx_websites:
 - [llama.cpp](https://github.com/ggml-org/llama.cpp)
 - [LocalAI](https://localai.io/basics/getting_started/)
 - [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
-- [Models that support "tools"](https://ollama.com/search?c=tools)
-  - [llama3.2:3b](https://ollama.com/library/llama3.2:3b)
-  - [mistral:7b](https://ollama.com/library/mistral:7b)
-  - [qwen3-vl:2b](https://ollama.com/library/qwen3-vl:2b) - Can also be used by Frigate
 - [Ollama](https://ollama.com/)
 - [Open WebUI](https://openwebui.com/)
-
-Install models with:
-
-```bash
-docker exec ollama ollama pull mistral:7b
-```
 
 ### Voice Assistant
 
