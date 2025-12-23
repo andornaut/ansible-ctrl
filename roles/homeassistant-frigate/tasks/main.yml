@@ -72,7 +72,7 @@
     - import_tasks: docker_homeassistant.yml
       tags: homeassistant
 
-    # Must come before docker_frigate, b/c Frigate may depend on Ollama
+    # Must come before docker_frigate, b/c Frigate may depend on Llama.cpp
     - import_tasks: docker_llm.yml
       tags: llm
       when: homeassistantfrigate_install_llm
