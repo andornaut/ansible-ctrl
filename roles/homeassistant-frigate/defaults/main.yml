@@ -89,12 +89,6 @@ homeassistantfrigate_mosquitto_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/mosquitto/data
   log: /var/docker-volumes/homeassistant-frigate/mosquitto/log
 
-# Ollama
-homeassistantfrigate_ollama_devices: []
-homeassistantfrigate_ollama_docker_image: ollama/ollama:rocm
-homeassistantfrigate_ollama_required_volumes:
-  data: /var/docker-volumes/homeassistant-frigate/ollama/data
-
 # OpenThread Border Router (OTBR)
 homeassistantfrigate_otbr_backbone_if: eth0
 homeassistantfrigate_otbr_device: ""
