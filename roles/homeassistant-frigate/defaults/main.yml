@@ -77,6 +77,10 @@ homeassistantfrigate_matter_port: 5580
 homeassistantfrigate_matter_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/matter/data
 
+# MemryX
+# List available versions with `sudo apt update && apt-cache madison memx-drivers`
+homeassistantfrigate_memryx_version: "2.1"
+
 # microWakeWord
 homeassistantfrigate_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
