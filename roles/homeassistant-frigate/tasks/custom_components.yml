@@ -36,33 +36,35 @@
         remote_src: true
       become: true
 
-- name: Create a temporary directory for dreo
-  ansible.builtin.tempfile:
-    state: directory
-  register: dreo_tmp
-
-- name: Download Dreo custom component
-  get_url:
-    url: "{{ lookup('url', 'https://api.github.com/repos/JeffSteinbok/hass-dreo/releases/latest', split_lines=False) | from_json | json_query('tarball_url') }}"
-    dest: "{{ dreo_tmp.path }}/dreo.tar.gz"
-    mode: '0644'
-
-- name: Extract Dreo custom component
-  unarchive:
-    src: "{{ dreo_tmp.path }}/dreo.tar.gz"
-    dest: "{{ dreo_tmp.path }}/"
-    remote_src: true
-    extra_opts:
-      - --strip-components
-      - 1
-    creates: "{{ dreo_tmp.path }}/custom_components"
-
 - name: Install Dreo custom component
-  copy:
-    src: "{{ dreo_tmp.path }}/custom_components/dreo"
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
-    remote_src: true
-  become: true
+  block:
+    - name: Create a temporary directory for dreo
+      ansible.builtin.tempfile:
+        state: directory
+      register: dreo_tmp
+
+    - name: Download Dreo custom component
+      get_url:
+        url: "{{ lookup('url', 'https://api.github.com/repos/JeffSteinbok/hass-dreo/releases/latest', split_lines=False) | from_json | json_query('tarball_url') }}"
+        dest: "{{ dreo_tmp.path }}/dreo.tar.gz"
+        mode: "0644"
+
+    - name: Extract Dreo custom component
+      unarchive:
+        src: "{{ dreo_tmp.path }}/dreo.tar.gz"
+        dest: "{{ dreo_tmp.path }}/"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+        creates: "{{ dreo_tmp.path }}/custom_components"
+
+    - name: Install Dreo custom component
+      copy:
+        src: "{{ dreo_tmp.path }}/custom_components/dreo"
+        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+      become: true
 
 - name: Install Frigate custom component
   block:
@@ -151,31 +153,31 @@
         remote_src: true
       become: true
 
-- name: Install Extended OpenAI Conversation custom component
+- name: Install Custom Icons custom component
   block:
-    - name: Create a temporary directory for Extended OpenAI Conversation
+    - name: Create a temporary directory for Custom Icons
       ansible.builtin.tempfile:
         state: directory
-      register: extended_openai_conversation_tmp
+      register: custom_icons_tmp
 
-    - name: Get the latest version of Extended OpenAI Conversation
+    - name: Get the latest version of Custom Icons
       ansible.builtin.uri:
-        url: https://api.github.com/repos/jekalmin/extended_openai_conversation/releases/latest
+        url: https://api.github.com/repos/thomasloven/hass-custom_icons/releases/latest
         return_content: true
-      register: extended_openai_conversation_version
+      register: custom_icons_version
 
-    - name: Download and unarchive Extended OpenAI Conversation {{ extended_openai_conversation_version.json.tag_name }}
+    - name: Download and unarchive Custom Icons {{ custom_icons_version.json.tag_name }}
       ansible.builtin.unarchive:
-        src: "https://github.com/jekalmin/extended_openai_conversation/archive/refs/tags/{{ extended_openai_conversation_version.json.tag_name }}.tar.gz"
-        dest: "{{ extended_openai_conversation_tmp.path }}"
+        src: "https://github.com/thomasloven/hass-custom_icons/archive/refs/tags/{{ custom_icons_version.json.tag_name }}.tar.gz"
+        dest: "{{ custom_icons_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Extended OpenAI Conversation custom component
+    - name: Install Custom Icons custom component
       copy:
-        src: "{{ extended_openai_conversation_tmp.path }}/custom_components/extended_openai_conversation"
+        src: "{{ custom_icons_tmp.path }}/custom_components/custom_icons"
         dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
