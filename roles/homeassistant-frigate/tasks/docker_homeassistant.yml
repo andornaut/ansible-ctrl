@@ -5,7 +5,7 @@
     device_paths: "{{ homeassistantfrigate_homeassistant_devices }}"
     resolved_var_name: homeassistant_devices_resolved
 
-- name: Remove Home Assistant and Mosquitto containers if they exist
+- name: Remove Home Assistant, Govee2MQTT, and Mosquitto containers if they exist
   community.docker.docker_container:
     name: "{{ item }}"
     state: absent
@@ -15,7 +15,7 @@
     - mosquitto
   ignore_errors: true
 
-- name: Start Home Assistant and Mosquitto Docker containers
+- name: Start Home Assistant, Govee2MQTT, and Mosquitto Docker containers
   vars:
     homeassistant_base_volumes:
       - /etc/hosts:/etc/hosts:ro
