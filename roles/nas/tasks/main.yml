@@ -5,7 +5,7 @@
       apt:
         name:
           - btrfsmaintenance
-          - libblockdev-mdraid2
+          - libblockdev-mdraid3
         state: latest
         install_recommends: false
         update_cache: true
@@ -74,7 +74,7 @@
     - name: Update fstab for nas_backup_device
       lineinfile:
         path: /etc/fstab
-        line: "/dev/mapper/nasbackup {{ nas_backup_mount_directory }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }} 0 0"
+        line: "/dev/mapper/nasbackup {{ nas_backup_mount_directory }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0"
         regexp: '^/dev/mapper/nasbackup'
       notify: Reload systemd
 

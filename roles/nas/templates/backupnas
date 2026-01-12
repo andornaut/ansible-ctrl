@@ -6,74 +6,84 @@ set -euo nounset
 
 RETENTION_NUMBER="{{ nas_backup_directories_retention }}"
 RETRY_SECS=10
+MOUNT_ONLY=false
+UNMOUNT_ONLY=false
+DEVICE_NAME=nasbackup
+SOURCE_DIR="{{ nas_backup_directory }}"
 
-if [[ $# -eq 0 ]]; then
-    deviceName=nasbackup
-    sourceDir="{{ nas_backup_directory }}"
-elif [[ $# -eq 2 ]]; then
-    deviceName="${1}"
-    sourceDir="${2}"
-else
-    echo "Usage: $(basename "${0}") nasbackup /media/nas/backups">&2
-    exit 1
-fi
+case "${1:-}" in
+    --mount-only)
+        MOUNT_ONLY=true
+        ;;
+    --unmount)
+        UNMOUNT_ONLY=true
+        ;;
+    "")
+        ;;
+    *)
+        if [[ $# -eq 2 ]]; then
+            DEVICE_NAME="${1}"
+            SOURCE_DIR="${2}"
+        else
+            echo "Usage: $(basename "${0}") [--mount-only|--unmount] [deviceName sourceDir]">&2
+            echo "  --mount-only: Only mount the device without starting backup">&2
+            echo "  --unmount: Unmount and close the encrypted device">&2
+            echo "  Example: $(basename "${0}") nasbackup /media/nas/backups">&2
+            exit 1
+        fi
+        ;;
+esac
 
-[[ -d "${sourceDir}" ]] || { echo "\$sourceDir does not exist: ${sourceDir}">&2; exit 1; }
+[[ "${MOUNT_ONLY}" == "false" && "${UNMOUNT_ONLY}" == "false" && ! -d "${SOURCE_DIR}" ]] && { echo "\$SOURCE_DIR does not exist: ${SOURCE_DIR}">&2; exit 1; }
 
 closeLuks() {
-    mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")" || true
+    local mount_dirs
+    mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${DEVICE_NAME}")" || true
     if [[ -n "${mount_dirs}" ]]; then
         echo "Unmounting: ${mount_dirs}"
-        for mountDir in "${mount_dirs}"; do
-        if ! umount "${mountDir}"; then
-            echo "Sleeping for ${RETRY_SECS} seconds"
-            sleep ${RETRY_SECS}
-            umount "${mountDir}"
-        fi
+        for dir in ${mount_dirs}; do
+            umount "${dir}" || { sleep ${RETRY_SECS}; umount "${dir}"; }
         done
     fi
-    cryptdisks_stop ${deviceName}
+    cryptdisks_stop ${DEVICE_NAME}
 }
 
-# Derive mountpoint. This is only useful when running with non-default args, b/c the default case could just use
-# {{ nas_backup_mount_directory }}
-# This may fail when already mounted.
-mount "/dev/mapper/${deviceName}" || true
-if mountDir="$(findmnt -rno TARGET "/dev/mapper/${deviceName}")"; then
-    # It may be mounted to multiple mount points, so take the first one.
-    mountDir="$(echo -n "${mountDir}"|head -1)"
-fi
+[[ "${UNMOUNT_ONLY}" == "true" ]] && { closeLuks; echo "✓ Device unmounted and closed"; exit 0; }
 
-if [[ -z "${mountDir}" ]]; then
-	echo 'Could not derive $mountDir' >2
-	exit 1
-fi
+# Mount via systemctl (handles LUKS unlocking via crypttab)
+systemctl start "$(systemd-escape --path --suffix=mount "/dev/mapper/${DEVICE_NAME}")" || true
+MOUNT_DIR="$(findmnt -rno TARGET "/dev/mapper/${DEVICE_NAME}" | head -1)"
 
-echo \# How to mount:
-echo systemctl start ${mountDir}
-echo \# How to unmount:
-echo umount ${mountDir}
-echo cryptdisks_stop ${deviceName}
-echo ---
+[[ -z "${MOUNT_DIR}" ]] && { echo "Error: Could not derive mount directory">&2; exit 1; }
 
-# eg. /media/nasbackup/rsnapshot.2020-04-30
-destDir="${mountDir}/rsnapshot.$(date -d @$(stat --format=%Y "${sourceDir}") +%Y-%m-%d)"
-echo "Device mounted to: ${mountDir}"
-echo "Backup source: ${sourceDir}"
-echo "Backup destination: ${destDir}"
-echo ---
+echo ""
+echo "Device mounted: ${MOUNT_DIR}"
+echo ""
+echo "Manual commands:"
+echo "  Mount:   systemctl start $(systemd-escape --path --suffix=mount "${MOUNT_DIR}")"
+echo "  Unmount: umount ${MOUNT_DIR} && cryptdisks_stop ${DEVICE_NAME}"
+echo ""
 
-mkdir -p "${destDir}"
+[[ "${MOUNT_ONLY}" == "true" ]] && exit 0
 
-echo Deleting backups older than the last ${RETENTION_NUMBER}
-ls -1p "${mountDir}" | \
-    grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | \
-    head -n-${RETENTION_NUMBER} | \
-    xargs -I {} rm -rf -- "${mountDir}/{}"
+# Backup
+DEST_DIR="${MOUNT_DIR}/rsnapshot.$(date -d @$(stat --format=%Y "${SOURCE_DIR}") +%Y-%m-%d)"
+echo "Backup configuration:"
+echo "  Source:      ${SOURCE_DIR}"
+echo "  Destination: ${DEST_DIR}"
+echo "  Retention:   ${RETENTION_NUMBER} backups"
+echo ""
 
-echo "Starting backup..."
-rsync --archive --delete --human-readable --info=progress2 "${sourceDir}" "${destDir}"
-echo Done
-tree -L 2 "${mountDir}"
-echo ---
+mkdir -p "${DEST_DIR}"
+
+echo "→ Deleting backups older than the last ${RETENTION_NUMBER}..."
+ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER} | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
+
+echo "→ Starting backup..."
+rsync --archive --delete --human-readable --info=progress2 "${SOURCE_DIR}" "${DEST_DIR}"
+echo ""
+echo "✓ Backup complete"
+echo ""
+tree -L 2 "${MOUNT_DIR}"
+echo ""
 closeLuks
