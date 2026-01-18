@@ -33,16 +33,12 @@
 
 - name: Storage setup
   block:
-    - name: Create directories
+    - name: Create RAID mount directory
       file:
-        path: "{{ item }}"
+        path: "{{ nas_raid_mount_directory }}"
         owner: root
-        group: root
+        group: "{{ nas_raid_group }}"
         state: directory
-      loop:
-        - "{{ nas_raid_mount_directory }}"
-        - "{% if nas_backup_device is defined %}{{ nas_backup_mount_directory }}{% endif %}"
-      when: item != ""
 
     - name: Update crypttab for nas_raid_devices
       lineinfile:
@@ -64,6 +60,13 @@
 
 - name: Backup configuration
   block:
+    - name: Create backup mount directory
+      file:
+        path: "{{ nas_backup_mount_directory }}"
+        owner: root
+        group: root
+        state: directory
+
     - name: Update crypttab for nas_backup_device
       lineinfile:
         path: /etc/crypttab
