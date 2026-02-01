@@ -51,12 +51,20 @@ Examples:
   ${SCRIPT_NAME} --mount-only                    # Just mount with defaults
   ${SCRIPT_NAME} --unmount /dev/mapper/nasbackup # Unmount specific device
   ${SCRIPT_NAME} /dev/mapper/nasbackup {{ nas_backup_directory }} # Custom device and source
+
+Setup:
+  Add entries to /etc/crypttab and /etc/fstab for each encrypted device.
+
+  /etc/crypttab:
+    nasbackup /dev/disk/by-id/DEVICE_ID /path/to/keyfile luks,noauto
+
+  /etc/fstab:
+    /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
 EOF
             exit 0
             ;;
         -*)
             error "Unknown option: ${1}\nUse --help for usage information"
-            exit 1
             ;;
         *)
             # Positional arguments in order
@@ -68,26 +76,60 @@ EOF
                 POSITIONAL_COUNT=$((POSITIONAL_COUNT + 1))
             else
                 error "Too many arguments\nUse --help for usage information"
-                exit 1
             fi
             shift
             ;;
     esac
 done
 
-[[ ${EUID} -eq 0 ]] || { error 'Must be run as root'; exit 1; }
-[[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && ! -d "${SOURCE_DIR}" ]] && { error "\$SOURCE_DIR does not exist: ${SOURCE_DIR}"; exit 1; }
+[[ ${EUID} -eq 0 ]] || { error 'Must be run as root'; }
+[[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && ! -d "${SOURCE_DIR}" ]] && { error "\$SOURCE_DIR does not exist: ${SOURCE_DIR}"; }
 
 DEVICE_NAME=$(basename "${DEVICE_PATH}")
 
-closeLuks() {
+openLuks() {
     if [[ ! -e "${DEVICE_PATH}" ]]; then
-        error "Device ${DEVICE_PATH} does not exist"
-        exit 1
+        info "Opening encrypted device: ${DEVICE_NAME}"
+        cryptdisks_start "${DEVICE_NAME}"
+        [[ ! -e "${DEVICE_PATH}" ]] && { error "Failed to open encrypted device ${DEVICE_NAME}"; }
+        # Wait for udev to finish processing the new device
+        udevadm settle
+    fi
+}
+
+mountDevice() {
+    header "Mounting device..."
+
+    openLuks
+
+    # Check if device is already mounted
+    MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+
+    # If not mounted and NO_MOUNT is false, try to mount it
+    if [[ -z "${MOUNT_DIR}" && "${NO_MOUNT}" == false ]]; then
+        mount "${DEVICE_PATH}" || error "Failed to mount ${DEVICE_PATH}"
+        MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+        [[ -z "${MOUNT_DIR}" ]] && { error "Mount succeeded but device not found at expected mount point"; }
     fi
 
+    [[ -z "${MOUNT_DIR}" ]] && { error "Device ${DEVICE_PATH} is not mounted"; }
+
+    ok "Device mounted: ${MOUNT_DIR}"
+
+    header "Manual commands:"
+    info "Mount:   mount \"${DEVICE_PATH}\""
+    info "Unmount: umount \"${MOUNT_DIR}\" && cryptdisks_stop \"${DEVICE_NAME}\""
+}
+
+closeLuks() {
+    header "Unmounting and closing device..."
+
+    if [[ ! -e "${DEVICE_PATH}" ]]; then
+        error "Device ${DEVICE_PATH} does not exist"
+    fi
     local retry_secs=10
-    local mount_dirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
+    local mount_dirs
+    mount_dirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
     if [[ -n "${mount_dirs}" ]]; then
         info "Unmounting: ${mount_dirs}"
         for dir in ${mount_dirs}; do
@@ -95,32 +137,41 @@ closeLuks() {
         done
     fi
     cryptdisks_stop "${DEVICE_NAME}"
+    ok "Device unmounted and closed"
 }
 
-[[ "${UNMOUNT_ONLY}" == true ]] && { closeLuks; ok "Device unmounted and closed"; exit 0; }
+deleteOldBackups() {
+    header "Deleting old backups..."
+    local oldBackups=$(ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER})
+    if [[ -n "${oldBackups}" ]]; then
+        echo "${oldBackups}" | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
+        ok "Old backups deleted"
+    else
+        warn "No old backups to delete"
+    fi
+}
 
-systemdUnit=$(systemd-escape --path --suffix=mount "${DEVICE_PATH}")
+performBackup() {
+    header "Starting backup..."
+    local startTime=$(date +%s)
+    if rsync --archive --delete --human-readable --info=progress2 --stats "${SOURCE_DIR}" "${DEST_DIR}"; then
+        local endTime=$(date +%s)
+        local duration=$((endTime - startTime))
+        ok "Backup complete in ${duration} seconds"
+    else
+        error "rsync failed with exit code $?"
+    fi
+}
 
-# Mount via systemctl (handles LUKS unlocking via crypttab)
-if [[ "${NO_MOUNT}" == false ]]; then
-    systemctl start "${systemdUnit}" || true
-fi
-MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -1)"
+[[ "${UNMOUNT_ONLY}" == true ]] && { closeLuks; exit 0; }
 
-[[ -z "${MOUNT_DIR}" ]] && { error "Could not derive mount directory"; exit 1; }
-
-ok "Device mounted: ${MOUNT_DIR}"
-
-header "Manual commands:"
-info "Mount:   systemctl start \"${systemdUnit}\""
-info "Unmount: systemctl stop \"${systemdUnit}\" && cryptdisks_stop \"${DEVICE_NAME}\""
+mountDevice
 
 [[ "${MOUNT_ONLY}" == true ]] && exit 0
 
 # Safety check: ensure source is not within mount directory
 if [[ "${SOURCE_DIR}" == "${MOUNT_DIR}"* ]]; then
     error "SOURCE_DIR cannot be inside MOUNT_DIR\n  Source: ${SOURCE_DIR}\n  Mount:  ${MOUNT_DIR}"
-    exit 1
 fi
 
 # Backup
@@ -132,24 +183,8 @@ info "Retention:   ${RETENTION_NUMBER} backups"
 
 mkdir -p "${DEST_DIR}"
 
-header "Deleting old backups..."
-oldBackups=$(ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER})
-if [[ -n "${oldBackups}" ]]; then
-    echo "${oldBackups}" | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
-else
-    warn "No old backups to delete"
-fi
-
-header "Starting backup..."
-startTime=$(date +%s)
-if rsync --archive --delete --human-readable --info=progress2 --stats "${SOURCE_DIR}" "${DEST_DIR}"; then
-    endTime=$(date +%s)
-    duration=$((endTime - startTime))
-    ok "Backup complete in ${duration} seconds"
-else
-    error "rsync failed with exit code $?"
-    exit 1
-fi
+deleteOldBackups
+performBackup
 
 tree -L 2 "${MOUNT_DIR}"
 echo ""

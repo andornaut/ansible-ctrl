@@ -1,5 +1,13 @@
 # ansible-role-games
 
-## Role Variables
+Installs gaming Apt packages and Flatpaks on Ubuntu.
 
-See [default values](./defaults/main.yml).
+## Usage
+
+```bash
+make games
+```
+
+## Variables
+
+See [defaults/main.yml](./defaults/main.yml).

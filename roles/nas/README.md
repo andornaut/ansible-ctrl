@@ -1,28 +1,19 @@
 # ansible-role-nas
 
-An [Ansible](https://www.ansible.com/) role that manages encrypted BTRFS RAID arrays on Ubuntu.
+Manages encrypted BTRFS RAID arrays on Ubuntu.
 
-## Overview
+## Usage
 
-This role automates the management of LUKS-encrypted BTRFS RAID arrays, including mounting, unmounting, and backup operations. It provides a secure and reliable way to manage encrypted storage systems.
+```bash
+# Run full NAS setup
+make nas
 
-## Features
+ansible-playbook --ask-become-pass nas.yml --tags backupnas
+```
 
-- LUKS encryption management
-- BTRFS RAID array configuration
-- Automated mounting and unmounting
-- Backup operations support
-- Integration with systemd
+## Variables
 
-## Requirements
-
-- Ansible 2.9 or higher
-- Ubuntu operating system
-- BTRFS kernel support
-
-## Role Variables
-
-See [default values](./defaults/main.yml).
+See [defaults/main.yml](./defaults/main.yml).
 
 ## Initial Setup
 
@@ -43,7 +34,7 @@ cryptsetup luksOpen --key-file ${keyfile} ${device} nas0
 # Repeat for additional devices (e.g., nas1, nas2, etc.)
 ```
 
-2. Create a BTRFS RAID Array
+1. Create a BTRFS RAID Array
 
 ```bash
 # Create RAID1 array from encrypted devices
@@ -69,6 +60,7 @@ Add to `/etc/crypttab`:
 # Format: <mapper name> <UUID> <key file> <options>
 nas0 UUID-0000-1111-2222 /root/luks-key luks,noauto
 nas1 UUID-3333-4444-5555 /root/luks-key luks,noauto
+nasbackup /dev/disk/by-id/ata-XXX-YYY_ZZZZ /root/luks-key luks,noauto
 ```
 
 ### fstab Setup
@@ -77,7 +69,9 @@ Add to `/etc/fstab`:
 
 ```text
 # Format: <device> <mount point> <filesystem> <options>
-/dev/mapper/nas0 /media/nas btrfs noauto,device=/dev/mapper/nas0,device=/dev/mapper/nas1 0 0
+/dev/mapper/nas0 /media/nas btrfs defaults,noauto,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
+
+/dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
 ```
 
 ### Mounting the Array
