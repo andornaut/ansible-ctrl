@@ -4,16 +4,15 @@
 Description=Monitor the nas key file path
 
 [Path]
+## Workaround: Trigger isn't fired on boot.
+#PathExists=/run/user/1000/workaround_file-not-found
 PathExists={{ nas_key_file }}
 Unit=media-nas.mount
 
-# Workaround: Trigger isn't fired on boot.
-PathExists=/run/user/1000/workaround_file-not-found
-
-# Uncomment after upgrading to systemd v250:
+# Requires systemd v250
 # https://github.com/systemd/systemd/releases/tag/v250
-#TriggerLimitIntervalSec=60
-#TriggerLimitBurst=3
+TriggerLimitIntervalSec=60
+TriggerLimitBurst=1
 
 [Install]
 WantedBy=paths.target

@@ -60,25 +60,34 @@
 
 - name: Backup configuration
   block:
-    - name: Create backup mount directory
+    - name: Create backup mount directories
       file:
-        path: "{{ nas_backup_mount_directory }}"
+        path: "{{ nas_backup_mount_directory }}{{ '' if index == 0 else index + 1 }}"
         owner: root
         group: root
         state: directory
+      loop: "{{ nas_backup_devices }}"
+      loop_control:
+        index_var: index
 
-    - name: Update crypttab for nas_backup_device
+    - name: Update crypttab for nas_backup_devices
       lineinfile:
         path: /etc/crypttab
-        line: "nasbackup {{ nas_backup_device }} {{ nas_key_file }} luks,noauto"
-        regexp: "^nasbackup"
+        line: "{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }} {{ item }} {{ nas_key_file }} luks,noauto"
+        regexp: "^{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}\\s"
+      loop: "{{ nas_backup_devices }}"
+      loop_control:
+        index_var: index
       notify: Reload systemd
 
-    - name: Update fstab for nas_backup_device
+    - name: Update fstab for nas_backup_devices
       lineinfile:
         path: /etc/fstab
-        line: "/dev/mapper/nasbackup {{ nas_backup_mount_directory }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0"
-        regexp: "^/dev/mapper/nasbackup"
+        line: "/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }} {{ nas_backup_mount_directory }}{{ '' if index == 0 else index + 1 }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}.target,x-systemd.requires=dev-mapper-{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}.device,x-systemd.requires-mounts-for=/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }},x-systemd.device-timeout=20s 0 0"
+        regexp: "^/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}\\s"
+      loop: "{{ nas_backup_devices }}"
+      loop_control:
+        index_var: index
       notify: Reload systemd
 
     - name: Install backupnas script
@@ -87,7 +96,7 @@
         dest: /usr/local/bin/
         mode: 0755
   become: true
-  when: nas_backup_device is defined
+  when: nas_backup_devices is defined and nas_backup_devices | length > 0
   tags: backupnas
 
 - name: Security and systemd configuration
