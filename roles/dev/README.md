@@ -1,21 +1,16 @@
 # ansible-role-dev
 
-An [Ansible](https://www.ansible.com/) role that installs and configures development tools and programming languages on Ubuntu.
+Installs development tools and programming languages on Ubuntu.
 
 ## Usage
 
 ```bash
-make workstation
-# Select "dev" from among the prompts
+make dev
 
-# Specific tags only:
-ansible-playbook --ask-become-pass workstation.yml --tags cursor
-ansible-playbook --ask-become-pass workstation.yml --tags hobbies
+ansible-playbook --ask-become-pass dev.yml --tags cursor
+ansible-playbook --ask-become-pass dev.yml --tags python
+ansible-playbook --ask-become-pass dev.yml --tags rust
 ```
-
-## Overview
-
-This role automates the installation and configuration of various development tools, programming languages, and IDEs. It provides a comprehensive development environment setup with support for multiple languages and tools.
 
 ## Features
 
@@ -29,33 +24,18 @@ This role automates the installation and configuration of various development to
 
 ### Development Tools
 
-- Cursor IDE (AI-powered coding)
+- Cursor IDE
 - Database clients (MySQL, PostgreSQL)
-- Git with Delta (enhanced diff viewer)
+- Git with Delta
 - Mercurial
-- Visual Studio Code (Wayland support)
+- Visual Studio Code
 
 ### Hardware Development
 
 - KiCAD 8.0 (with kikit)
 - OrcaSlicer
-- VirtualBox (with extensions)
+- VirtualBox
 
-### Utility Tools
+## Variables
 
-- JQ (JSON processor)
-- Meld (diff viewer)
-- Xephyr (nested X server)
-
-## Requirements
-
-- Ansible 2.9 or higher
-- Ubuntu operating system
-
-## Role Variables
-
-See [default values](./defaults/main.yml).
-
-## License
-
-MIT License. See [LICENSE](../../LICENSE) for full details.
+See [defaults/main.yml](./defaults/main.yml).
