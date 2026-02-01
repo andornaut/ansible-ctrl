@@ -1,22 +1,31 @@
 #!/bin/bash
 
-set -euo nounset
+set -Eeuo pipefail
+
+DEFAULT_DEVICE_PATHS=({% for i in range(nas_backup_devices|length) %}/dev/mapper/{{ nas_backup_device_name }}{{ '' if i == 0 else i + 1 }}{% if not loop.last %} {% endif %}{% endfor %})
+RETENTION_NUMBER="{{ nas_backup_rsnapshot_retention }}"
+RSNAPSHOT_SOURCE_RELATIVE_PATH="{{ nas_backup_rsnapshot_source_relative_path }}"
+
+DEVICE_PATH=""
+SOURCE_DIR="{{ nas_backup_source_directory }}"
 
 SCRIPT_NAME=$(basename "${0}")
-RETENTION_NUMBER="{{ nas_backup_directories_retention }}"
+MOUNT_DIR=""
 MOUNT_ONLY=false
+NO_UNMOUNT=false
 UNMOUNT_ONLY=false
-NO_MOUNT=false
-DEVICE_PATH=/dev/mapper/nasbackup
-SOURCE_DIR="{{ nas_backup_directory }}"
 POSITIONAL_COUNT=0
+UNMOUNT_RETRY_SECS=30
 
 # Output helper functions
-error() { echo -e " \033[1;31m✗\033[0m  $@" >&2; }
+error() { echo -e " \033[1;31m✗\033[0m  $@" >&2; exit 1; }
 header() { echo -e "\n\033[1m$@\033[0m\n"; }
 info() { echo -e " \033[1;34m•\033[0m  $@"; }
 ok() { echo -e " \033[1;32m✔\033[0m  ${@-OK}"; }
 warn() { echo -e " \033[1;33m!\033[0m  $@" >&2; }
+
+# Report any command failure
+trap 'error "Command failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
 
 # Parse flags and positional arguments
 while [[ $# -gt 0 ]]; do
@@ -25,41 +34,53 @@ while [[ $# -gt 0 ]]; do
             MOUNT_ONLY=true
             shift
             ;;
-        --unmount)
+        --unmount-only)
             UNMOUNT_ONLY=true
             shift
             ;;
-        --no-mount)
-            NO_MOUNT=true
+        --no-unmount)
+            NO_UNMOUNT=true
             shift
             ;;
         --help|-h)
             cat >&2 <<EOF
 Usage: ${SCRIPT_NAME} [OPTIONS] [DEVICE_PATH] [SOURCE_DIR]
 
+Backup SOURCE_DIR to an encrypted LUKS device at DEVICE_PATH, with special handling for rsnapshot backups
+
 Options:
-  --mount-only  Only mount the device without starting backup
-  --unmount     Unmount and close the encrypted device
-  --no-mount    Do not mount or unmount (assumes already mounted)
+  --mount-only    Mount the device and exit (no backup)
+  --unmount-only  Unmount the device and exit (no backup)
+  --no-unmount    Keep the device mounted after backup completes
 
 Arguments:
-  DEVICE_PATH   Path to encrypted device (default: /dev/mapper/nasbackup)
-  SOURCE_DIR    Source directory to backup (default: {{ nas_backup_directory }})
+  DEVICE_PATH     Encrypted device mapper path, e.g. /dev/mapper/{{ nas_backup_device_name }} (default: auto-discover backup devices from crypttab)
+  SOURCE_DIR      Directory to backup (default: ${SOURCE_DIR})
 
 Examples:
-  ${SCRIPT_NAME}                                 # Full backup with defaults
-  ${SCRIPT_NAME} --mount-only                    # Just mount with defaults
-  ${SCRIPT_NAME} --unmount /dev/mapper/nasbackup # Unmount specific device
-  ${SCRIPT_NAME} /dev/mapper/nasbackup {{ nas_backup_directory }} # Custom device and source
+  ${SCRIPT_NAME}
+    Unlock, mount, backup, unmount, and lock the default device
 
-Setup:
-  Add entries to /etc/crypttab and /etc/fstab for each encrypted device.
+  ${SCRIPT_NAME} --mount-only
+    Only unlock and mount the default device
+
+  ${SCRIPT_NAME} --unmount-only /dev/mapper/{{ nas_backup_device_name }}
+    Only unmount and lock the specified device
+
+  ${SCRIPT_NAME} --no-unmount
+    Perform backup but leave the device mounted
+
+  ${SCRIPT_NAME} /dev/mapper/{{ nas_backup_device_name }}2 /tmp/source
+    Backup a different device and source directory
+
+Configuration:
+  This script requires entries in /etc/crypttab and /etc/fstab.
 
   /etc/crypttab:
-    nasbackup /dev/disk/by-id/DEVICE_ID /path/to/keyfile luks,noauto
+    {{ nas_backup_device_name }} /dev/disk/by-id/DEVICE_ID {{ nas_key_file }} luks,noauto
 
   /etc/fstab:
-    /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
+    /dev/mapper/{{ nas_backup_device_name }} {{ nas_backup_mount_directory }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-{{ nas_backup_device_name }}.target,x-systemd.requires=dev-mapper-{{ nas_backup_device_name }}.device,x-systemd.requires-mounts-for=/dev/mapper/{{ nas_backup_device_name }},x-systemd.device-timeout=20s 0 0
 EOF
             exit 0
             ;;
@@ -82,79 +103,49 @@ EOF
     esac
 done
 
+# Validate mutually exclusive flags
+[[ "${MOUNT_ONLY}" == true && "${UNMOUNT_ONLY}" == true ]] && { error "Cannot use --mount-only and --unmount-only together"; }
+[[ "${UNMOUNT_ONLY}" == true && "${NO_UNMOUNT}" == true ]] && { error "Cannot use --unmount-only and --no-unmount together"; }
+[[ "${MOUNT_ONLY}" == true && "${NO_UNMOUNT}" == true ]] && { error "Cannot use --mount-only and --no-unmount together"; }
+
+# Validate other predicates
 [[ ${EUID} -eq 0 ]] || { error 'Must be run as root'; }
+[[ ${RETENTION_NUMBER} -lt 1 || ${RETENTION_NUMBER} -gt 100 ]] && { error "RETENTION_NUMBER must be between 1 and 100: ${RETENTION_NUMBER}"; }
 [[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && ! -d "${SOURCE_DIR}" ]] && { error "\$SOURCE_DIR does not exist: ${SOURCE_DIR}"; }
+
+if [[ ${POSITIONAL_COUNT} -eq 0 ]]; then
+    header "Auto-discovering backup device..."
+
+    for device in "${DEFAULT_DEVICE_PATHS[@]}"; do
+        DEVICE_NAME=$(basename "${device}")
+
+        # Check if the LUKS device is already unlocked
+        if [[ -e "${device}" ]]; then
+            DEVICE_PATH="${device}"
+            ok "Found: ${DEVICE_PATH} (unlocked)"
+            break
+        fi
+
+        # Check if the source device exists by reading crypttab
+        sourceDevice=$(grep "^${DEVICE_NAME}\\s" /etc/crypttab 2>/dev/null | awk '{print $2}')
+        if [[ -n "${sourceDevice}" && -e "${sourceDevice}" ]]; then
+            DEVICE_PATH="${device}"
+            ok "Found: ${DEVICE_PATH} (locked)"
+            break
+        fi
+    done
+
+    [[ -z "${DEVICE_PATH}" ]] && { error "No backup device found. Tried: ${DEFAULT_DEVICE_PATHS[*]}"; }
+fi
+
+[[ ! "${DEVICE_PATH}" =~ ^/dev/mapper/.+ ]] && { error "DEVICE_PATH must be a /dev/mapper/ device: ${DEVICE_PATH}"; }
 
 DEVICE_NAME=$(basename "${DEVICE_PATH}")
 
-openLuks() {
-    if [[ ! -e "${DEVICE_PATH}" ]]; then
-        info "Opening encrypted device: ${DEVICE_NAME}"
-        cryptdisks_start "${DEVICE_NAME}"
-        [[ ! -e "${DEVICE_PATH}" ]] && { error "Failed to open encrypted device ${DEVICE_NAME}"; }
-        # Wait for udev to finish processing the new device
-        udevadm settle
-    fi
-}
-
-mountDevice() {
-    header "Mounting device..."
-
-    openLuks
-
-    # Check if device is already mounted
-    MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
-
-    # If not mounted and NO_MOUNT is false, try to mount it
-    if [[ -z "${MOUNT_DIR}" && "${NO_MOUNT}" == false ]]; then
-        mount "${DEVICE_PATH}" || error "Failed to mount ${DEVICE_PATH}"
-        MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
-        [[ -z "${MOUNT_DIR}" ]] && { error "Mount succeeded but device not found at expected mount point"; }
-    fi
-
-    [[ -z "${MOUNT_DIR}" ]] && { error "Device ${DEVICE_PATH} is not mounted"; }
-
-    ok "Device mounted: ${MOUNT_DIR}"
-
-    header "Manual commands:"
-    info "Mount:   mount \"${DEVICE_PATH}\""
-    info "Unmount: umount \"${MOUNT_DIR}\" && cryptdisks_stop \"${DEVICE_NAME}\""
-}
-
-closeLuks() {
-    header "Unmounting and closing device..."
-
-    if [[ ! -e "${DEVICE_PATH}" ]]; then
-        error "Device ${DEVICE_PATH} does not exist"
-    fi
-    local retry_secs=10
-    local mount_dirs
-    mount_dirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
-    if [[ -n "${mount_dirs}" ]]; then
-        info "Unmounting: ${mount_dirs}"
-        for dir in ${mount_dirs}; do
-            umount "${dir}" || { sleep ${retry_secs}; umount "${dir}"; }
-        done
-    fi
-    cryptdisks_stop "${DEVICE_NAME}"
-    ok "Device unmounted and closed"
-}
-
-deleteOldBackups() {
-    header "Deleting old backups..."
-    local oldBackups=$(ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER})
-    if [[ -n "${oldBackups}" ]]; then
-        echo "${oldBackups}" | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
-        ok "Old backups deleted"
-    else
-        warn "No old backups to delete"
-    fi
-}
-
-performBackup() {
+backup() {
     header "Starting backup..."
     local startTime=$(date +%s)
-    if rsync --archive --delete --human-readable --info=progress2 --stats "${SOURCE_DIR}" "${DEST_DIR}"; then
+    if rsync --archive --exclude='rsnapshot/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
         local endTime=$(date +%s)
         local duration=$((endTime - startTime))
         ok "Backup complete in ${duration} seconds"
@@ -163,31 +154,128 @@ performBackup() {
     fi
 }
 
-[[ "${UNMOUNT_ONLY}" == true ]] && { closeLuks; exit 0; }
+backupRsnapshot() {
+    header "Starting rsnapshot backup..."
+    local startTime=$(date +%s)
+    if rsync --archive --delete --human-readable --info=progress2 --stats "${sourceRsnapshotDir}/" "${rsnapshotDestDir}/"; then
+        local endTime=$(date +%s)
+        local duration=$((endTime - startTime))
+        ok "Rsnapshot backup complete in ${duration} seconds"
+    else
+        error "rsync failed with exit code $?"
+    fi
+}
 
+deleteOldRsnapshotBackups() {
+    header "Deleting old rsnapshot backups..."
+    local oldRsnapshotBackups=$(find "${MOUNT_DIR}" -maxdepth 1 -type d -name 'rsnapshot.????-??-??' -printf '%f\n' | sort | head -n-${RETENTION_NUMBER})
+    if [[ -n "${oldRsnapshotBackups}" ]]; then
+        echo "${oldRsnapshotBackups}" | while IFS= read -r dir; do
+            rm -rf -- "${MOUNT_DIR}/${dir}"
+        done
+        ok "Old rsnapshot backups deleted"
+    else
+        warn "No old rsnapshot backups to delete"
+    fi
+}
+
+mountDevice() {
+    header "Mounting device..."
+
+    if [[ ! -e "${DEVICE_PATH}" ]]; then
+        info "Unlocking encrypted device: ${DEVICE_NAME}"
+        cryptdisks_start "${DEVICE_NAME}"
+        # Wait for udev to finish processing the new device
+        udevadm settle --timeout=10
+        [[ ! -e "${DEVICE_PATH}" ]] && { error "Failed to unlock encrypted device ${DEVICE_NAME}"; }
+    fi
+
+    # Check if device is already mounted
+    MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+
+    # If not mounted, try to mount it
+    if [[ -z "${MOUNT_DIR}" ]]; then
+        mount "${DEVICE_PATH}" || error "Failed to mount ${DEVICE_PATH}"
+        MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+        [[ -z "${MOUNT_DIR}" ]] && { error "Mount succeeded, but device not found at expected mount point"; }
+    fi
+
+    ok "Device mounted: ${MOUNT_DIR}"
+}
+
+unmountDevice() {
+    header "Unmounting device..."
+
+    if [[ ! -e "${DEVICE_PATH}" ]]; then
+        error "Device ${DEVICE_PATH} does not exist"
+    fi
+
+    local mountDirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
+    if [[ -n "${mountDirs}" ]]; then
+        info "Unmounting: ${mountDirs}"
+        while IFS= read -r dir; do
+            if ! umount "${dir}"; then
+                warn "Unmount failed. Retrying in ${UNMOUNT_RETRY_SECS} seconds..."
+                sleep ${UNMOUNT_RETRY_SECS}
+                if ! umount "${dir}"; then
+                    warn "Retry attempt to unmount failed"
+                    return
+                fi
+            fi
+        done <<< "${mountDirs}"
+    fi
+    if cryptdisks_stop "${DEVICE_NAME}"; then
+        ok "Device unmounted and locked"
+    else
+        warn "Failed to lock encrypted device ${DEVICE_NAME}\n  Manual cleanup: cryptdisks_stop \"${DEVICE_NAME}\""
+    fi
+}
+
+[[ "${UNMOUNT_ONLY}" == true ]] && { unmountDevice; exit 0; }
+
+# mountDevice() sets the global var: ${MOUNT_DIR}
 mountDevice
 
 [[ "${MOUNT_ONLY}" == true ]] && exit 0
 
-# Safety check: ensure source is not within mount directory
+# Ensure source and mount directories are not nested
 if [[ "${SOURCE_DIR}" == "${MOUNT_DIR}"* ]]; then
-    error "SOURCE_DIR cannot be inside MOUNT_DIR\n  Source: ${SOURCE_DIR}\n  Mount:  ${MOUNT_DIR}"
+    error "SOURCE_DIR cannot be inside the mount directory\n  Source: ${SOURCE_DIR}\n  Mount:  ${MOUNT_DIR}"
+fi
+if [[ "${MOUNT_DIR}" == "${SOURCE_DIR}"* ]]; then
+    error "Mount directory cannot be inside SOURCE_DIR\n  Mount:  ${MOUNT_DIR}\n  Source: ${SOURCE_DIR}"
 fi
 
-# Backup
-DEST_DIR="${MOUNT_DIR}/rsnapshot.$(date -d @$(stat --format=%Y "${SOURCE_DIR}") +%Y-%m-%d)"
+sourceRsnapshotDir="${SOURCE_DIR}/${RSNAPSHOT_SOURCE_RELATIVE_PATH}"
+[[ ! -d "${sourceRsnapshotDir}" ]] && { error "Rsnapshot source directory does not exist: ${sourceRsnapshotDir}"; }
+rsnapshotDestDir="${MOUNT_DIR}/rsnapshot.$(date -d @$(stat --format=%Y "${sourceRsnapshotDir}") +%Y-%m-%d)"
 header "Backup configuration:"
-info "Source:      ${SOURCE_DIR}"
-info "Destination: ${DEST_DIR}"
-info "Retention:   ${RETENTION_NUMBER} backups"
+echo "Source base directory:           ${SOURCE_DIR}"
+echo "Source rsnapshot directory:      ${sourceRsnapshotDir}"
+echo "Destination base directory:      ${MOUNT_DIR}"
+echo "Destination rsnapshot directory: ${rsnapshotDestDir}"
+echo "Rsnapshot retention:             ${RETENTION_NUMBER} backups"
 
-mkdir -p "${DEST_DIR}"
+mkdir -p "${rsnapshotDestDir}"
 
-deleteOldBackups
-performBackup
+backup
+deleteOldRsnapshotBackups
+backupRsnapshot
 
-tree -L 2 "${MOUNT_DIR}"
-echo ""
-if [[ "${NO_MOUNT}" == false ]]; then
-    closeLuks
+header "Backed up:"
+if command -v tree &>/dev/null; then
+    tree -L 2 "${MOUNT_DIR}"
+else
+    warn "Install 'tree' package for a nicer directory listing"
+    ls -lh "${MOUNT_DIR}"
 fi
+echo ""
+
+if [[ "${NO_UNMOUNT}" == false ]]; then
+    unmountDevice
+fi
+
+header "Manual commands:"
+echo "Unlock:  cryptdisks_start \"${DEVICE_NAME}\""
+echo "Mount:   mount \"${DEVICE_PATH}\""
+echo "Unmount: umount \"${MOUNT_DIR}\" && cryptdisks_stop \"${DEVICE_NAME}\""
