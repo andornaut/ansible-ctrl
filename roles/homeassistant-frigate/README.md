@@ -11,7 +11,6 @@ An [Ansible](https://www.ansible.com/) role that provisions
 ```bash
 make homeassistant-frigate
 
-# Specific tags only:
 ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags customizations
 ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags docker
 ```

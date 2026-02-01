@@ -1,30 +1,16 @@
 # ansible-role-rsnapshot
 
-An [Ansible](https://www.ansible.com/) role that provisions and configures [rsnapshot](http://rsnapshot.org/) for automated incremental backups.
+Provisions and configures [rsnapshot](http://rsnapshot.org/) for automated incremental backups.
 
-## Overview
+## Usage
 
-rsnapshot is a filesystem snapshot utility that uses rsync to create fast incremental backups. This role automates the setup and configuration of rsnapshot backup systems.
+```bash
+make rsnapshot
+```
 
-## Features
+## Variables
 
-- Automated rsnapshot installation and configuration
-- Support for local and remote backups
-- MySQL and PostgreSQL database backup support
-- Custom backup script integration
-- Configurable retention policies
-- Automated backup scheduling
-
-## Requirements
-
-- Ansible 2.9 or higher
-- rsync installed on source and target systems
-- SSH access for remote backups
-- Sufficient storage space for backups
-
-## Role Variables
-
-See [default values](./defaults/main.yml) for complete configuration options.
+See [defaults/main.yml](./defaults/main.yml).
 
 ### Key Variables
 
@@ -53,24 +39,6 @@ rsnapshot_retain:
   daily: 7
   weekly: 4
   monthly: 6
-```
-
-## Usage
-
-1. Configure backup sources and destinations
-2. Set retention policies
-3. Run the playbook
-
-Example configuration:
-
-```yaml
-rsnapshot_hosts:
-  - name: example.com
-    local: true
-    user: root
-    directories:
-      - /etc/
-      - /var/docker-volumes/
 ```
 
 ## Backup Operations

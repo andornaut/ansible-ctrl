@@ -2,86 +2,60 @@
 
 Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
-## Overview
-
-This repository contains Ansible playbooks for automating the setup and configuration of:
-
-- Workstation and desktop environment: applications, games, tools, etc
-- Home Assistant with Frigate
-- Network Attached Storage (NAS)
-- Email forwarding
-- Rsnapshot backup system
-- System upgrades
-- Web servers
-
 ## Requirements
 
 - [Ansible](https://www.ansible.com/) >= 2.14.6
-- [Make](https://www.gnu.org/software/make/)
 - Ubuntu >= 22.04
 
 ### Initial Setup
 
-Create a file named `hosts` in the project root:
+Create a `hosts` file in the project root:
 
 ```ini
 example ansible_connection=local ansible_host=example.com ansible_user=andornaut ansible_python_interpreter=/usr/bin/python3
+
+[workstations]
+example
 
 [upgrade]
 example
 ```
 
-Install or upgrade Ansible on Ubuntu:
+Install Ansible on Ubuntu:
 
 ```bash
-sudo apt remove ansible --purge
 sudo apt-add-repository ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-## Available Commands
-
-Run any of the following make commands to execute the corresponding playbook:
+## Usage
 
 ```bash
-make homeassistant-frigate # Set up Home Assistant with Frigate NVR
-make rsnapshot             # Configure Rsnapshot backup system
-make upgrade               # Run system upgrades
-make webservers            # Configure web servers
-make workstation           # Set up workstation/desktop environment
+# Workstation roles
+make base                   # Base system configuration
+make bspwm                  # BSPWM window manager
+make desktop                # Desktop environment
+make dev                    # Development tools
+make docker                 # Docker and Kubernetes
+make games                  # Gaming packages
+make msmtp                  # Email forwarding
+make niri                   # Niri compositor
 
-# Run workstation tasks by tag ...
-# from desktop:
-ansible-playbook --ask-become-pass workstation.yml --tags alacritty
-# from dev:
-ansible-playbook --ask-become-pass workstation.yml --tags hobbies
-```
+# Server roles
+make homeassistant-frigate  # Home Assistant with Frigate NVR
+make nas                    # Network Attached Storage
+make rsnapshot              # Rsnapshot backup system
+make upgrade                # System upgrades
+make webservers             # Web servers with Let's Encrypt
 
-### Workstation Setup
-
-The `make workstation` command runs the [workstation](./workstation.yml) playbook, which:
-
-- Prompts you to choose which roles to include
-- Configures your development environment
-- Sets up common tools and applications
-
-## Development
-
-### Directory Structure
-
-```text
-.
-├── hosts                # Inventory file (create this)
-├── workstation.yml      # Workstation configuration playbook
-├── roles/               # Ansible roles
-└── Makefile             # Command definitions
+# Run specific tasks by tag
+ansible-playbook --ask-become-pass desktop.yml --tags alacritty
+ansible-playbook --ask-become-pass dev.yml --tags hobbies
 ```
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **Module Bugs**: If you encounter issues with community modules, try forcing an upgrade:
+Force upgrade community modules:
 
 ```bash
 ansible-galaxy collection install --force community.general
