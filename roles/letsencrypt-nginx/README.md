@@ -1,6 +1,6 @@
 # ansible-role-letsencrypt-nginx
 
-An [Ansible](https://www.ansible.com/) role that provisions NGINX as a Docker container on Ubuntu with automated HTTPS certificate management via Let's Encrypt.
+Provisions NGINX as a Docker container with Let's Encrypt HTTPS certificates.
 
 ## Usage
 
@@ -11,49 +11,13 @@ ansible-playbook --ask-become-pass webservers.yml --tags configuration
 ansible-playbook --ask-become-pass webservers.yml --tags letsencrypt
 ansible-playbook --ask-become-pass webservers.yml --tags nginx
 
-ansible-playbook --ask-become-pass webservers.yml --tags nginx --limit webserverhostname1
+# Limit to specific host:
+ansible-playbook --ask-become-pass webservers.yml --tags nginx --limit hostname
 ```
 
-### Private GitHub Repository Access
+## Variables
 
-If your websites use private GitHub repositories, then configure Git credential helper on the target host:
-
-1. Visit <https://github.com/settings/tokens>
-2. Generate a new token (classic)
-3. Select only the "repo" scope
-4. Add the token to ~/.git-credentials
-
-```bash
-# These `git` operations are executed with `become: true`,
-# so you should execute the following as root
-git config --global credential.helper store
-echo "https://<username>:<token>@github.com" > ~/.git-credentials
-chmod 600 ~/.git-credentials
-```
-
-## Overview
-
-This role automates the deployment and configuration of NGINX in a Docker container, with integrated Let's Encrypt certificate management. It supports multiple websites, authentication options, and proxy configurations.
-
-## Features
-
-- Automated HTTPS certificate provisioning and renewal
-- Multiple website/domain support
-- Basic authentication configuration
-- Proxy setup with WebSocket support
-- Self-signed certificate option
-- Cloudflare DNS integration
-- Network access control
-
-## Requirements
-
-- Ansible 2.9 or higher
-- Ubuntu operating system
-- Docker installed on target host
-
-## Role Variables
-
-See [default values](./defaults/main.yml).
+See [defaults/main.yml](./defaults/main.yml).
 
 ### Required Variables
 
@@ -62,11 +26,9 @@ See [default values](./defaults/main.yml).
 
 ### Website Configuration
 
-Each website in `letsencryptnginx_websites` supports:
-
 ```yaml
 letsencryptnginx_websites:
-  # Returns HTTP response code 404
+  # Returns HTTP 404
   - domain: subdomain.example.com
     use_selfsigned_certificate: true
 
@@ -87,16 +49,29 @@ letsencryptnginx_websites:
   - domain: proxy.example.com
     cloudflare_api_token: token
     cloudflare_api_zone: example.com
-    csr_commonName: *.example.com
+    csr_commonName: "*.example.com"
     proxy_port: 8123
-    proxy_https: False
-    proxy_remove_authorization_header: False
+    proxy_https: false
+    proxy_remove_authorization_header: false
     websocket_path: /api/websocket
 ```
 
-### Systemd Integration
+## Private GitHub Repository Access
 
-For special mount dependencies, create a service:
+Configure Git credential helper on the target host:
+
+```bash
+# Run as root (these git operations use become: true)
+git config --global credential.helper store
+echo "https://<username>:<token>@github.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+```
+
+Generate token at [github.com/settings/tokens](https://github.com/settings/tokens) (select "repo" scope only)
+
+## Systemd Integration
+
+For mount dependencies, create `/etc/systemd/system/restart-nginx-after-nas.service`:
 
 ```ini
 [Unit]
@@ -114,14 +89,9 @@ RemainAfterExit=true
 WantedBy=media-nas.mount
 ```
 
-Then, enable and start the service:
+Enable:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable restart-nginx-after-nas.service
-sudo systemctl restart restart-nginx-after-nas.service
 ```
-
-## License
-
-MIT License. See [LICENSE](../../LICENSE) for full details.
