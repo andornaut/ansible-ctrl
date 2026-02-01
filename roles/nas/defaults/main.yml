@@ -1,13 +1,15 @@
 ---
-#nas_backup_device:
-nas_backup_directories_retention: 10
-nas_backup_directory: /media/nas/backups
+nas_backup_device_name: nasbackup
+nas_backup_devices: []
 nas_backup_fs_defaults: defaults,noauto
 nas_backup_fs_type: btrfs
 nas_backup_mount_directory: /media/nasbackup
-#nas_raid_devices:
+nas_backup_rsnapshot_retention: 10
+nas_backup_rsnapshot_source_relative_path: rsnapshot/weekly.1
+nas_backup_source_directory: "{{ nas_raid_mount_directory }}/.backups"
+nas_key_file: "{{ ansible_env.HOME }}/.nas-luks-key"
+nas_raid_devices: []
 nas_raid_fs_defaults: defaults,noauto
 nas_raid_fs_type: btrfs
 nas_raid_group: root
 nas_raid_mount_directory: /media/nas
-#nas_key_file: "{{ ansible_env.HOME }}/.nas-luks-key"
