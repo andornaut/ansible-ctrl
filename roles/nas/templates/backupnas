@@ -2,88 +2,157 @@
 
 set -euo nounset
 
-[[ ${EUID} -eq 0 ]] || { echo 'Must be run as root'>&2; exit 1; }
-
+SCRIPT_NAME=$(basename "${0}")
 RETENTION_NUMBER="{{ nas_backup_directories_retention }}"
-RETRY_SECS=10
 MOUNT_ONLY=false
 UNMOUNT_ONLY=false
-DEVICE_NAME=nasbackup
+NO_MOUNT=false
+DEVICE_PATH=/dev/mapper/nasbackup
 SOURCE_DIR="{{ nas_backup_directory }}"
+POSITIONAL_COUNT=0
 
-case "${1:-}" in
-    --mount-only)
-        MOUNT_ONLY=true
-        ;;
-    --unmount)
-        UNMOUNT_ONLY=true
-        ;;
-    "")
-        ;;
-    *)
-        if [[ $# -eq 2 ]]; then
-            DEVICE_NAME="${1}"
-            SOURCE_DIR="${2}"
-        else
-            echo "Usage: $(basename "${0}") [--mount-only|--unmount] [deviceName sourceDir]">&2
-            echo "  --mount-only: Only mount the device without starting backup">&2
-            echo "  --unmount: Unmount and close the encrypted device">&2
-            echo "  Example: $(basename "${0}") nasbackup /media/nas/backups">&2
+# Output helper functions
+error() { echo -e " \033[1;31m✗\033[0m  $@" >&2; }
+header() { echo -e "\n\033[1m$@\033[0m\n"; }
+info() { echo -e " \033[1;34m•\033[0m  $@"; }
+ok() { echo -e " \033[1;32m✔\033[0m  ${@-OK}"; }
+warn() { echo -e " \033[1;33m!\033[0m  $@" >&2; }
+
+# Parse flags and positional arguments
+while [[ $# -gt 0 ]]; do
+    case "${1}" in
+        --mount-only)
+            MOUNT_ONLY=true
+            shift
+            ;;
+        --unmount)
+            UNMOUNT_ONLY=true
+            shift
+            ;;
+        --no-mount)
+            NO_MOUNT=true
+            shift
+            ;;
+        --help|-h)
+            cat >&2 <<EOF
+Usage: ${SCRIPT_NAME} [OPTIONS] [DEVICE_PATH] [SOURCE_DIR]
+
+Options:
+  --mount-only  Only mount the device without starting backup
+  --unmount     Unmount and close the encrypted device
+  --no-mount    Do not mount or unmount (assumes already mounted)
+
+Arguments:
+  DEVICE_PATH   Path to encrypted device (default: /dev/mapper/nasbackup)
+  SOURCE_DIR    Source directory to backup (default: {{ nas_backup_directory }})
+
+Examples:
+  ${SCRIPT_NAME}                                 # Full backup with defaults
+  ${SCRIPT_NAME} --mount-only                    # Just mount with defaults
+  ${SCRIPT_NAME} --unmount /dev/mapper/nasbackup # Unmount specific device
+  ${SCRIPT_NAME} /dev/mapper/nasbackup {{ nas_backup_directory }} # Custom device and source
+EOF
+            exit 0
+            ;;
+        -*)
+            error "Unknown option: ${1}\nUse --help for usage information"
             exit 1
-        fi
-        ;;
-esac
+            ;;
+        *)
+            # Positional arguments in order
+            if [[ ${POSITIONAL_COUNT} -eq 0 ]]; then
+                DEVICE_PATH="${1}"
+                POSITIONAL_COUNT=$((POSITIONAL_COUNT + 1))
+            elif [[ ${POSITIONAL_COUNT} -eq 1 ]]; then
+                SOURCE_DIR="${1}"
+                POSITIONAL_COUNT=$((POSITIONAL_COUNT + 1))
+            else
+                error "Too many arguments\nUse --help for usage information"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
 
-[[ "${MOUNT_ONLY}" == "false" && "${UNMOUNT_ONLY}" == "false" && ! -d "${SOURCE_DIR}" ]] && { echo "\$SOURCE_DIR does not exist: ${SOURCE_DIR}">&2; exit 1; }
+[[ ${EUID} -eq 0 ]] || { error 'Must be run as root'; exit 1; }
+[[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && ! -d "${SOURCE_DIR}" ]] && { error "\$SOURCE_DIR does not exist: ${SOURCE_DIR}"; exit 1; }
+
+DEVICE_NAME=$(basename "${DEVICE_PATH}")
 
 closeLuks() {
-    local mount_dirs
-    mount_dirs="$(findmnt -rno TARGET "/dev/mapper/${DEVICE_NAME}")" || true
+    if [[ ! -e "${DEVICE_PATH}" ]]; then
+        error "Device ${DEVICE_PATH} does not exist"
+        exit 1
+    fi
+
+    local retry_secs=10
+    local mount_dirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
     if [[ -n "${mount_dirs}" ]]; then
-        echo "Unmounting: ${mount_dirs}"
+        info "Unmounting: ${mount_dirs}"
         for dir in ${mount_dirs}; do
-            umount "${dir}" || { sleep ${RETRY_SECS}; umount "${dir}"; }
+            umount "${dir}" || { sleep ${retry_secs}; umount "${dir}"; }
         done
     fi
-    cryptdisks_stop ${DEVICE_NAME}
+    cryptdisks_stop "${DEVICE_NAME}"
 }
 
-[[ "${UNMOUNT_ONLY}" == "true" ]] && { closeLuks; echo "✓ Device unmounted and closed"; exit 0; }
+[[ "${UNMOUNT_ONLY}" == true ]] && { closeLuks; ok "Device unmounted and closed"; exit 0; }
+
+systemdUnit=$(systemd-escape --path --suffix=mount "${DEVICE_PATH}")
 
 # Mount via systemctl (handles LUKS unlocking via crypttab)
-systemctl start "$(systemd-escape --path --suffix=mount "/dev/mapper/${DEVICE_NAME}")" || true
-MOUNT_DIR="$(findmnt -rno TARGET "/dev/mapper/${DEVICE_NAME}" | head -1)"
+if [[ "${NO_MOUNT}" == false ]]; then
+    systemctl start "${systemdUnit}" || true
+fi
+MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -1)"
 
-[[ -z "${MOUNT_DIR}" ]] && { echo "Error: Could not derive mount directory">&2; exit 1; }
+[[ -z "${MOUNT_DIR}" ]] && { error "Could not derive mount directory"; exit 1; }
 
-echo ""
-echo "Device mounted: ${MOUNT_DIR}"
-echo ""
-echo "Manual commands:"
-echo "  Mount:   systemctl start $(systemd-escape --path --suffix=mount "${MOUNT_DIR}")"
-echo "  Unmount: umount ${MOUNT_DIR} && cryptdisks_stop ${DEVICE_NAME}"
-echo ""
+ok "Device mounted: ${MOUNT_DIR}"
 
-[[ "${MOUNT_ONLY}" == "true" ]] && exit 0
+header "Manual commands:"
+info "Mount:   systemctl start \"${systemdUnit}\""
+info "Unmount: systemctl stop \"${systemdUnit}\" && cryptdisks_stop \"${DEVICE_NAME}\""
+
+[[ "${MOUNT_ONLY}" == true ]] && exit 0
+
+# Safety check: ensure source is not within mount directory
+if [[ "${SOURCE_DIR}" == "${MOUNT_DIR}"* ]]; then
+    error "SOURCE_DIR cannot be inside MOUNT_DIR\n  Source: ${SOURCE_DIR}\n  Mount:  ${MOUNT_DIR}"
+    exit 1
+fi
 
 # Backup
 DEST_DIR="${MOUNT_DIR}/rsnapshot.$(date -d @$(stat --format=%Y "${SOURCE_DIR}") +%Y-%m-%d)"
-echo "Backup configuration:"
-echo "  Source:      ${SOURCE_DIR}"
-echo "  Destination: ${DEST_DIR}"
-echo "  Retention:   ${RETENTION_NUMBER} backups"
-echo ""
+header "Backup configuration:"
+info "Source:      ${SOURCE_DIR}"
+info "Destination: ${DEST_DIR}"
+info "Retention:   ${RETENTION_NUMBER} backups"
 
 mkdir -p "${DEST_DIR}"
 
-echo "→ Deleting backups older than the last ${RETENTION_NUMBER}..."
-ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER} | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
+header "Deleting old backups..."
+oldBackups=$(ls -1p "${MOUNT_DIR}" | grep -P '^rsnapshot\.\d{4}-\d{2}-\d{2}/$' | head -n-${RETENTION_NUMBER})
+if [[ -n "${oldBackups}" ]]; then
+    echo "${oldBackups}" | xargs -I {} rm -rf -- "${MOUNT_DIR}/{}"
+else
+    warn "No old backups to delete"
+fi
 
-echo "→ Starting backup..."
-rsync --archive --delete --human-readable --info=progress2 "${SOURCE_DIR}" "${DEST_DIR}"
-echo ""
-echo "✓ Backup complete"
-echo ""
+header "Starting backup..."
+startTime=$(date +%s)
+if rsync --archive --delete --human-readable --info=progress2 --stats "${SOURCE_DIR}" "${DEST_DIR}"; then
+    endTime=$(date +%s)
+    duration=$((endTime - startTime))
+    ok "Backup complete in ${duration} seconds"
+else
+    error "rsync failed with exit code $?"
+    exit 1
+fi
+
 tree -L 2 "${MOUNT_DIR}"
 echo ""
-closeLuks
+if [[ "${NO_MOUNT}" == false ]]; then
+    closeLuks
+fi
