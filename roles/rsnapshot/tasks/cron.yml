@@ -2,7 +2,7 @@
 - name: Configure rsnapshot hourly backup cron job
   cron:
     name: rsnapshot hourly
-    cron_file: /etc/cron.d/rsnapshot
+    cron_file: ansible-role-rsnapshot
     user: root
     minute: "1"
     job: /usr/bin/rsnapshot hourly
@@ -13,7 +13,7 @@
 - name: Configure rsnapshot daily backup cron job
   cron:
     name: rsnapshot daily
-    cron_file: /etc/cron.d/rsnapshot
+    cron_file: ansible-role-rsnapshot
     user: root
     minute: "10"
     hour: "1"
@@ -25,7 +25,7 @@
 - name: Configure rsnapshot weekly backup cron job
   cron:
     name: rsnapshot weekly
-    cron_file: /etc/cron.d/rsnapshot
+    cron_file: ansible-role-rsnapshot
     user: root
     minute: "30"
     hour: "3"
@@ -38,7 +38,7 @@
 - name: Configure rsnapshot monthly backup cron job
   cron:
     name: rsnapshot monthly
-    cron_file: /etc/cron.d/rsnapshot
+    cron_file: ansible-role-rsnapshot
     user: root
     minute: "50"
     hour: "5"
