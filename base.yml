@@ -1,4 +1,4 @@
 ---
-- hosts: workstations
+- hosts: all
   roles:
     - base
