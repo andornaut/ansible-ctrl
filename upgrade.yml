@@ -1,5 +1,5 @@
 ---
-- hosts: upgrade
+- hosts: all
   tasks:
     - name: apt autoremove, clean, and dist-upgrade
       apt:

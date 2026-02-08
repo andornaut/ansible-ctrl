@@ -1,4 +1,4 @@
 ---
-- hosts: workstations
+- hosts: webservers:workstations
   roles:
     - docker
