@@ -1,0 +1,156 @@
+---
+- name: Install Kicad
+  block:
+    - name: Install Kicad 9.0 apt repository
+      apt_repository:
+        repo: ppa:kicad/kicad-9.0-releases
+        update_cache: true
+
+    - name: Install Kicad package
+      apt:
+        name:
+          - kicad
+        state: latest
+        install_recommends: false
+        update_cache: true
+
+    - name: Install kikit from PyPI
+      pip:
+        name:
+          - kikit
+        extra_args: "--break-system-packages"
+  become: true
+  tags: kicad
+
+- name: Install OrcaSlicer
+  block:
+    - name: Install OrcaSlicer video playback dependencies
+      apt:
+        name:
+          - gstreamer1.0-libav
+          - gstreamer1.0-plugins-bad
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+
+    - name: Get the latest version of OrcaSlicer
+      uri:
+        url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: orcaslicer_version
+
+    - name: Find Linux AppImage asset
+      set_fact:
+        orcaslicer_download_url: "{{ (orcaslicer_version.json.assets | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$') | list | first).browser_download_url }}"
+
+    - name: Download OrcaSlicer
+      get_url:
+        url: "{{ orcaslicer_download_url }}"
+        dest: "/usr/local/bin/OrcaSlicer"
+        force: true
+        mode: "0755"
+      become: true
+  tags: orcaslicer
+
+# Recent Betaflight releases are PWA-only (https://app.betaflight.com).
+# This installs the latest release with a Linux portable build (10.10.0).
+# The portable zip requires a wrapper script to set LD_LIBRARY_PATH.
+- name: Install Betaflight Configurator
+  block:
+    - name: Get Betaflight Configurator releases
+      uri:
+        url: https://api.github.com/repos/betaflight/betaflight-configurator/releases
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: betaflight_releases
+
+    - name: Find latest release with Linux build
+      set_fact:
+        betaflight_release: "{{ betaflight_releases.json | selectattr('assets', 'search', 'linux64-portable') | first }}"
+
+    - name: Find Linux portable asset
+      set_fact:
+        betaflight_download_url: "{{ (betaflight_release.assets | selectattr('name', 'match', '.*linux64-portable\\.zip$') | list | first).browser_download_url }}"
+
+    - name: Create Betaflight directory
+      file:
+        path: /opt/betaflight
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: "Download and extract Betaflight Configurator {{ betaflight_release.tag_name }}"
+      unarchive:
+        src: "{{ betaflight_download_url }}"
+        dest: /opt/betaflight
+        remote_src: true
+      become: true
+
+    - name: Rename Betaflight directory to match desktop file paths
+      command: mv "/opt/betaflight/Betaflight Configurator" /opt/betaflight/betaflight-configurator
+      args:
+        creates: /opt/betaflight/betaflight-configurator
+        removes: "/opt/betaflight/Betaflight Configurator"
+      become: true
+
+    - name: Set Betaflight Configurator permissions
+      shell: |
+        find /opt/betaflight/betaflight-configurator -type d -exec chmod a+rx {} \;
+        find /opt/betaflight/betaflight-configurator -type f -exec chmod a+r {} \;
+        chmod 755 /opt/betaflight/betaflight-configurator/betaflight-configurator
+        chmod 755 /opt/betaflight/betaflight-configurator/chrome_crashpad_handler
+      become: true
+
+    - name: Create Betaflight Configurator wrapper script
+      copy:
+        dest: /opt/betaflight/betaflight-configurator/betaflight-configurator.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          cd /opt/betaflight/betaflight-configurator
+          LD_LIBRARY_PATH=/opt/betaflight/betaflight-configurator/lib exec ./betaflight-configurator "$@"
+      become: true
+
+    - name: Install Betaflight Configurator desktop file
+      copy:
+        dest: /usr/share/applications/betaflight-configurator.desktop
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Name=Betaflight Configurator
+          Comment=Crossplatform configuration tool for the Betaflight flight control system
+          Exec=/opt/betaflight/betaflight-configurator/betaflight-configurator.sh
+          Icon=/opt/betaflight/betaflight-configurator/icon/bf_icon_128.png
+          Terminal=false
+          Type=Application
+          Categories=Utility
+      become: true
+  tags: betaflight
+
+- name: Install ExpressLRS Configurator
+  block:
+    - name: Get the latest version of ExpressLRS Configurator
+      uri:
+        url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases/latest
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: expresslrs_version
+
+    - name: Find Linux deb asset
+      set_fact:
+        expresslrs_download_url: "{{ (expresslrs_version.json.assets | selectattr('name', 'match', '.*_amd64\\.deb$') | list | first).browser_download_url }}"
+
+    - name: Install ExpressLRS Configurator
+      apt:
+        deb: "{{ expresslrs_download_url }}"
+        state: present
+      become: true
+  tags: expresslrs

@@ -16,9 +16,6 @@
 - import_tasks: gemini.yml
   tags: gemini
 
-- import_tasks: hobbies.yml
-  tags: hobbies
-
 - import_tasks: javascript.yml
   tags: javascript
 
