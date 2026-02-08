@@ -1,51 +1,21 @@
 ---
 - name: Remove system packages replaced by flatpak
   block:
-    - name: Remove snap and applications
+    - name: Remove snap and applications, clean cache, and autoremove
       apt:
-        name:
-          - audacity
-          - blender
-          - filezilla*
-          - gimp
-          - gnome-software-plugin-snap
-          - inkscape
-          - libreoffice
-          - snapd
-          - vlc
-          - wireshark
+        name: "{{ desktop_flatpak_replacements.keys() | list + ['gnome-software-plugin-snap', 'snapd'] }}"
+        autoremove: true
+        clean: true
         purge: true
         state: absent
-      become: true
-
-    - name: Clean apt cache
-      apt:
-        clean: true
-      become: true
-
-    - name: Autoremove unused packages
-      apt:
-        autoremove: true
-        purge: true
-      become: true
 
     - name: Hold packages replaced by flatpak
       dpkg_selections:
         name: "{{ item }}"
         selection: hold
-      loop:
-        - audacity
-        - blender
-        - filezila
-        - gimp
-        - gnome-software-plugin-snap
-        - inkscape
-        - libreoffice
-        - snapd
-        - vlc
-        - wireshark
+      loop: "{{ desktop_flatpak_replacements.keys() | list + ['gnome-software-plugin-snap', 'snapd'] }}"
       ignore_errors: true # Ignore errors if package doesn't exist
-      become: true
+  become: true
 
 - name: Remove snap directories
   block:
@@ -57,23 +27,13 @@
         file_type: directory
         recurse: true
       register: snap_directories_result
-      become: true
 
-    - name: Remove user snap directories
+    - name: Remove snap directories
       file:
-        path: "{{ item.path }}"
+        path: "{{ item.path | default(item) }}"
         state: absent
-      loop: "{{ snap_directories_result.files }}"
-      become: true
-
-    - name: Remove root snap directories
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /root/snap
-        - /var/cache/snapd
-      become: true
+      loop: "{{ snap_directories_result.files + ['/root/snap', '/var/cache/snapd'] }}"
+  become: true
 
 - name: Configure flatpak
   block:
@@ -94,37 +54,12 @@
 
     - name: Install flatpak applications
       community.general.flatpak:
-        name:
-          - org.gtk.Gtk3theme.Adwaita-dark
-          - com.obsproject.Studio
-          - fr.handbrake.ghb
-          - io.missioncenter.MissionCenter
-          - org.audacityteam.Audacity
-          - org.blender.Blender
-          - org.filezillaproject.Filezilla
-          - org.flameshot.Flameshot
-          - org.gimp.GIMP
-          - org.inkscape.Inkscape
-          - org.libreoffice.LibreOffice
-          - org.videolan.VLC
-          - org.wireshark.Wireshark
+        name: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras + ['org.gtk.Gtk3theme.Adwaita-dark'] }}"
         method: user
 
     - name: Configure cursor theme for flatpak applications
       command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
-      loop:
-        - com.obsproject.Studio
-        - fr.handbrake.ghb
-        - io.missioncenter.MissionCenter
-        - org.audacityteam.Audacity
-        - org.blender.Blender
-        - org.filezillaproject.Filezilla
-        - org.flameshot.Flameshot
-        - org.gimp.GIMP
-        - org.inkscape.Inkscape
-        - org.libreoffice.LibreOffice
-        - org.videolan.VLC
-        - org.wireshark.Wireshark
+      loop: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
 
     - name: Configure FileZilla IPC
       command: flatpak override --user --share=ipc org.filezillaproject.Filezilla

@@ -6,3 +6,21 @@ desktop_install_insync: false
 desktop_install_lightdm: false
 desktop_install_ly: false
 desktop_install_lemurs: false
+
+# Apt packages to replace with flatpak equivalents
+desktop_flatpak_replacements:
+  audacity: org.audacityteam.Audacity
+  blender: org.blender.Blender
+  filezilla: org.filezillaproject.Filezilla
+  gimp: org.gimp.GIMP
+  inkscape: org.inkscape.Inkscape
+  libreoffice: org.libreoffice.LibreOffice
+  vlc: org.videolan.VLC
+  wireshark: org.wireshark.Wireshark
+
+# Additional flatpak applications
+desktop_flatpak_extras:
+  - com.obsproject.Studio
+  - fr.handbrake.ghb
+  - io.missioncenter.MissionCenter
+  - org.flameshot.Flameshot
