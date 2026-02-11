@@ -3,7 +3,7 @@ letsencryptnginx_acme_directory_url: https://acme-staging-v02.api.letsencrypt.or
 letsencryptnginx_acme_version: 2
 letsencryptnginx_csr_country: CA
 letsencryptnginx_docker_extra_volumes: []
-letsencryptnginx_docker_image: nginx:latest
+letsencryptnginx_docker_image: nginx:stable
 letsencryptnginx_docker_required_volumes:
   config: /var/docker-volumes/nginx/config
   localtime: /etc/localtime

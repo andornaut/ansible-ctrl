@@ -16,7 +16,7 @@ homeassistantfrigate_ipv6_enabled: true
 homeassistantfrigate_avahi_interfaces: ""
 
 # ESPHome
-homeassistantfrigate_esphome_docker_image: ghcr.io/esphome/esphome
+homeassistantfrigate_esphome_docker_image: ghcr.io/esphome/esphome:stable
 homeassistantfrigate_esphome_port: 6052
 homeassistantfrigate_esphome_required_volumes:
   config: /var/docker-volumes/homeassistant-frigate/esphome/config
@@ -48,7 +48,7 @@ homeassistantfrigate_govee2mqtt_required_volumes:
 
 # Home Assistant
 homeassistantfrigate_homeassistant_devices: []
-homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant"
+homeassistantfrigate_homeassistant_docker_image: "homeassistant/home-assistant:stable"
 homeassistantfrigate_homeassistant_extra_volumes: []
 #homeassistantfrigate_homeassistant_port: 8123 # Unused b/c hass is run in host mode
 homeassistantfrigate_homeassistant_required_volumes:
