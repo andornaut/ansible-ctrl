@@ -1,6 +1,9 @@
 ---
 - import_tasks: apt.yml
 
+- import_tasks: antigravity.yml
+  tags: antigravity
+
 - import_tasks: claude.yml
   tags: claude
 
