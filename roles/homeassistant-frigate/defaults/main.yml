@@ -41,8 +41,11 @@ homeassistantfrigate_frigate_shm_size: "128mb"
 homeassistantfrigate_frigate_tmpfs_size_mb: 128
 
 # Govee2mqtt
+# Pinned to 2025.10.26 because newer versions (2025.11.25+, 2026.01.08+) have a broken web UI
+# due to missing /app/assets folder. See: https://github.com/wez/govee2mqtt/issues/584
+# This version includes HTTP route fixes and predates the web UI regression.
 homeassistantfrigate_govee2mqtt_env: {}
-homeassistantfrigate_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt
+homeassistantfrigate_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:2025.10.26-b29dee52
 homeassistantfrigate_govee2mqtt_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/govee2mqtt/data
 

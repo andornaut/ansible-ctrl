@@ -1,7 +1,9 @@
 ---
-- name: Install Claude Code
-  ansible.builtin.npm:
-    name: '@anthropic-ai/claude-code'
-    global: true
-    state: latest
-  become: true
+- name: Install Claude Code using native installer
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://claude.ai/install.sh | bash
+    creates: ~/.local/bin/claude
+  args:
+    executable: /bin/bash
+  environment:
+    HOME: "{{ ansible_env.HOME }}"
