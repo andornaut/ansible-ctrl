@@ -16,6 +16,9 @@
 - import_tasks: delta.yml
   tags: delta
 
+- import_tasks: filectrl.yml
+  tags: filectrl
+
 - import_tasks: gemini.yml
   tags: gemini
 
