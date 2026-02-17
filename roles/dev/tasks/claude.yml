@@ -7,3 +7,9 @@
     executable: /bin/bash
   environment:
     HOME: "{{ ansible_env.HOME }}"
+
+- name: Install claude-code-router globally for current user
+  ansible.builtin.npm:
+    name: '@musistudio/claude-code-router'
+    global: true
+    state: latest

@@ -65,11 +65,13 @@ homeassistantfrigate_homeassistant_required_volumes:
 homeassistantfrigate_llamacpp_devices: []
 homeassistantfrigate_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
 homeassistantfrigate_llamacpp_models:
-  # Using unsloth version with fixed chat template for null content handling
-  - https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf
+  # Qwen2.5-Coder: Specialized coding model, outperforms general-purpose models for code tasks
+  - https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
   # The "https://huggingface.co/mistralai" org doesn't publish GGUF files, using bartowski (trusted quantizer) instead
   - https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
+  # Qwen3-VL: Vision-language model for image understanding (requires both model and mmproj files)
   - https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf
+  # mmproj (multimodal projection): Required vision adapter that processes images for the VL model above
   - https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf
 homeassistantfrigate_llamacpp_required_volumes:
   models: /var/docker-volumes/homeassistant-frigate/llamacpp/models
