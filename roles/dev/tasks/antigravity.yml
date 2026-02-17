@@ -1,11 +1,21 @@
 ---
 - name: Configure Google Antigravity Repository
   block:
-    - name: Install Google Antigravity GPG key
-      ansible.builtin.get_url:
-        url: https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg
-        dest: /etc/apt/keyrings/antigravity-repo-key.gpg
-        mode: "0644"
+    - name: Ensure keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Remove old Antigravity GPG key if exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/antigravity-repo-key.gpg
+        state: absent
+
+    - name: Download and install Google Antigravity GPG key
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg
+        creates: /etc/apt/keyrings/antigravity-repo-key.gpg
 
     - name: Add Google Antigravity repository
       ansible.builtin.apt_repository:
