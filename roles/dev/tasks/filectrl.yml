@@ -1,0 +1,18 @@
+---
+- name: Get the latest version of filectrl
+  uri:
+    url: https://api.github.com/repos/andornaut/filectrl/releases/latest
+    return_content: true
+  register: filectrl_version
+
+- name: Set filectrl download URL fact
+  set_fact:
+    filectrl_download_url: "{{ (filectrl_version.json.assets | selectattr('name', 'match', 'filectrl-linux') | first).browser_download_url }}"
+
+- name: Download filectrl binary
+  get_url:
+    url: "{{ filectrl_download_url }}"
+    dest: /usr/local/bin/filectrl
+    mode: '0755'
+    force: true
+  become: true
