@@ -1,0 +1,41 @@
+---
+- name: Get latest Go version
+  ansible.builtin.uri:
+    url: https://go.dev/dl/?mode=json
+    return_content: true
+  register: go_releases
+
+- name: Set Go version fact
+  set_fact:
+    go_version: "{{ go_releases.json[0].version }}"
+
+- name: Download Go tarball
+  get_url:
+    url: "https://go.dev/dl/{{ go_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/{{ go_version }}.linux-amd64.tar.gz"
+    mode: "0644"
+
+- name: Remove Go packages from apt
+  apt:
+    name:
+      - golang
+      - golang-go
+      - golang-doc
+      - gccgo-go
+    state: absent
+    purge: true
+    autoremove: true
+  become: true
+
+- name: Remove old Go installation
+  file:
+    path: /usr/local/go
+    state: absent
+  become: true
+
+- name: Extract Go tarball to /usr/local
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ go_version }}.linux-amd64.tar.gz"
+    dest: /usr/local
+    remote_src: true
+  become: true

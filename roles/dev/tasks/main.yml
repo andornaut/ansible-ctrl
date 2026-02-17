@@ -19,6 +19,9 @@
 - import_tasks: gemini.yml
   tags: gemini
 
+- import_tasks: go.yml
+  tags: go
+
 - import_tasks: javascript.yml
   tags: javascript
 
