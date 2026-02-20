@@ -145,7 +145,7 @@ server {
         {% else %}
             proxy_pass http://127.0.0.1:{{ item.item.proxy_port }}{{ websocket_path }};
         {% endif %}
-        proxy_http_version 1.1;
+        # Override the default keepalive Connection header for WebSocket upgrade
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
@@ -226,7 +226,7 @@ server {
 {% if '/' in item.item.websocket_paths | default([]) %}
         # WebSocket configuration for root path
         # e.g. https://docs.frigate.video/guides/reverse_proxy/#setup-reverse-proxy-settings
-        proxy_http_version 1.1;
+        # Override the default keepalive Connection header for WebSocket upgrade
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
 {% endif %}
