@@ -68,6 +68,13 @@
         depends_on:
           - mosquitto
         devices: "{{ homeassistant_devices_resolved }}"
+        # Restart the container if the web server becomes unresponsive
+        healthcheck:
+          test: ["CMD", "curl", "-sf", "http://localhost:8123/manifest.json"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 120s
         logging: "{{ default_logging }}"
         # Required to support Google Cast if Avahi is disabled
         # n.b. Can only run one of Avahi or otbr/thread on the host

@@ -1,5 +1,14 @@
 # Common proxy parameters for all proxy configurations
 
+# Use HTTP/1.1 for upstream connections to enable keepalive and WebSocket support
+proxy_http_version 1.1;
+# Clear the Connection header so keepalive connections are reused with the upstream,
+# reducing connection churn. WebSocket locations override this with "upgrade".
+proxy_set_header Connection "";
+# Disable response buffering so real-time data (Home Assistant events, Frigate video
+# streams, LLM token streaming) is forwarded to the client immediately
+proxy_buffering off;
+
 # Pass original request information
 proxy_set_header Host $http_host;
 proxy_set_header X-Real-IP $remote_addr;
