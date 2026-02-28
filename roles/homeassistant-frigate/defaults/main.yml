@@ -23,6 +23,7 @@ homeassistantfrigate_esphome_required_volumes:
 
 # Frigate
 homeassistantfrigate_frigate_devices: []
+# https://github.com/blakeblackshear/frigate/pkgs/container/frigate
 homeassistantfrigate_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
 homeassistantfrigate_frigate_env:
   LIBVA_DRIVER_NAME: ""
@@ -67,8 +68,8 @@ homeassistantfrigate_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vu
 homeassistantfrigate_llamacpp_models:
   # Qwen2.5-Coder: Specialized coding model, outperforms general-purpose models for code tasks
   - https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
-  # The "https://huggingface.co/mistralai" org doesn't publish GGUF files, using bartowski (trusted quantizer) instead
-  - https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
+  # Qwen3-14B: General-purpose model, outperforms Mistral-7B on reasoning and coding
+  - https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf
   # Qwen3-VL: Vision-language model for image understanding (requires both model and mmproj files)
   - https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf
   # mmproj (multimodal projection): Required vision adapter that processes images for the VL model above
