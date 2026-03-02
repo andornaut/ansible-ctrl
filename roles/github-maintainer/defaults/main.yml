@@ -6,11 +6,11 @@ github_maintainer_base_dir: "{{ ansible_env.HOME }}/src/github.com/{{ ansible_us
 github_maintainer_agent_command: "claude"
 github_maintainer_agent_flags: "--dangerously-skip-permissions"
 
-# Cron schedule (default: daily at 3 AM)
+# Cron schedule (default: weekly on Sunday at 3 AM)
 github_maintainer_cron_minute: "0"
 github_maintainer_cron_hour: "3"
 github_maintainer_cron_day: "*"
-github_maintainer_cron_weekday: "*"
+github_maintainer_cron_weekday: "0"
 
 # Script installation path
 github_maintainer_script_path: "{{ ansible_env.HOME }}/.local/bin/github-maintainer"
