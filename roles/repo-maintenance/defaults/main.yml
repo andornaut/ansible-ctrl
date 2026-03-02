@@ -1,7 +1,6 @@
 ---
 # Directory containing GitHub repositories
-repo_maintenance_base_dir: "{{ ansible_env.HOME }}/src/github.com"
-repo_maintenance_github_username: "{{ ansible_user_id }}"
+repo_maintenance_base_dir: "{{ ansible_env.HOME }}/src/github.com/{{ ansible_user_id }}"
 
 # AI agent configuration
 repo_maintenance_agent_command: "claude"
