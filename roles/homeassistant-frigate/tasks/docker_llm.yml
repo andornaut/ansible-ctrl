@@ -8,6 +8,17 @@
     - llamacpp
   ignore_errors: true
 
+- name: Create required directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+  loop:
+    - "{{ homeassistantfrigate_llamacpp_required_volumes.models }}"
+    - "{{ homeassistantfrigate_openwebui_required_volumes.data }}"
+  become: true
+
 - name: Check which llama.cpp models already exist
   ansible.builtin.stat:
     path: "{{ homeassistantfrigate_llamacpp_required_volumes.models }}/{{ item | basename }}"
