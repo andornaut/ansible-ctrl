@@ -21,7 +21,7 @@
     weekday: "{{ repo_maintenance_cron_weekday }}"
     job: >
       {{ repo_maintenance_script_path }}
-      --base-dir {{ repo_maintenance_base_dir }}/{{ repo_maintenance_github_username }}
+      --base-dir {{ repo_maintenance_base_dir }}
       --agent-command {{ repo_maintenance_agent_command }}
       --agent-flags "{{ repo_maintenance_agent_flags }}"
       --dependency-age-threshold {{ repo_maintenance_dependency_age_threshold }}
@@ -36,7 +36,7 @@
   ansible.builtin.debug:
     msg:
       - "Repository maintenance configured:"
-      - "  Base directory: {{ repo_maintenance_base_dir }}/{{ repo_maintenance_github_username }}"
+      - "  Base directory: {{ repo_maintenance_base_dir }}"
       - "  Agent: {{ repo_maintenance_agent_command }} {{ repo_maintenance_agent_flags }}"
       - "  Script: {{ repo_maintenance_script_path }}"
       - "  Schedule: {{ repo_maintenance_cron_hour }}:{{ repo_maintenance_cron_minute }} daily"
