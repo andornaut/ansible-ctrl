@@ -1,0 +1,5 @@
+---
+- name: Setup automated repository maintenance
+  hosts: repo_maintenance
+  roles:
+    - repo-maintenance
