@@ -1,0 +1,4 @@
+# Ansible managed - repo-maintenance
+# Automated GitHub repository maintenance with AI-powered decision making
+
+{{ repo_maintenance_cron_minute }} {{ repo_maintenance_cron_hour }} {{ repo_maintenance_cron_day }} * {{ repo_maintenance_cron_weekday }} {{ ansible_user_id }} {{ repo_maintenance_script_path }} --base-dir {{ repo_maintenance_base_dir }} --agent-command {{ repo_maintenance_agent_command }} --agent-flags "{{ repo_maintenance_agent_flags }}" --dependency-age-threshold {{ repo_maintenance_dependency_age_threshold }}{% if not repo_maintenance_auto_merge_dependabot %} --no-merge-dependabot{% endif %}{% if not repo_maintenance_auto_update_dependencies %} --no-update-dependencies{% endif %}{% if not repo_maintenance_run_tests %} --no-run-tests{% endif %}{% if not repo_maintenance_push_changes %} --no-push{% endif %}{% if repo_maintenance_dry_run %} --dry-run{% endif %}
