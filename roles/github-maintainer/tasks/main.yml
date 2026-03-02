@@ -12,11 +12,6 @@
     mode: "0755"
     force: true
 
-- name: Remove old cron entry from user crontab
-  ansible.builtin.cron:
-    name: "Automated GitHub repository maintenance"
-    state: absent
-
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
     src: cron.j2
@@ -33,7 +28,7 @@
       - "  Base directory: {{ github_maintainer_base_dir }}"
       - "  Agent: {{ github_maintainer_agent_command }} {{ github_maintainer_agent_flags }}"
       - "  Script: {{ github_maintainer_script_path }}"
-      - "  Schedule: {{ github_maintainer_cron_hour }}:{{ github_maintainer_cron_minute }} daily"
+      - "  Schedule: {{ github_maintainer_cron_hour }}:{{ github_maintainer_cron_minute }} on {{ github_maintainer_cron_weekday == '0' and 'Sunday' or 'day ' + github_maintainer_cron_weekday }}"
       - "  Dry run: {{ github_maintainer_dry_run }}"
       - ""
       - "Run manually:"
