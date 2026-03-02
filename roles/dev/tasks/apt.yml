@@ -2,6 +2,7 @@
 - name: Install system packages
   apt:
     name:
+      - gh
       - git
       - golang
       - jq
