@@ -1,0 +1,5 @@
+---
+- name: Setup automated GitHub repository maintenance
+  hosts: github_maintainer
+  roles:
+    - github-maintainer
