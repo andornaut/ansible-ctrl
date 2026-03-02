@@ -1,0 +1,27 @@
+---
+# Directory containing GitHub repositories
+repo_maintenance_base_dir: "{{ ansible_env.HOME }}/src/github.com"
+repo_maintenance_github_username: "{{ ansible_user_id }}"
+
+# AI agent configuration
+repo_maintenance_agent_command: "claude"
+repo_maintenance_agent_flags: "--dangerously-skip-permissions"
+
+# Cron schedule (default: daily at 3 AM)
+repo_maintenance_cron_minute: "0"
+repo_maintenance_cron_hour: "3"
+repo_maintenance_cron_day: "*"
+repo_maintenance_cron_weekday: "*"
+
+# Script installation path
+repo_maintenance_script_path: "{{ ansible_env.HOME }}/.local/bin/repo-maintenance"
+
+# Dependency update age threshold (days)
+repo_maintenance_dependency_age_threshold: 30
+
+# Feature toggles
+repo_maintenance_auto_merge_dependabot: true
+repo_maintenance_auto_update_dependencies: true
+repo_maintenance_run_tests: true
+repo_maintenance_push_changes: true
+repo_maintenance_dry_run: false

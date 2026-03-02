@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 .PHONY: help clean requirements \
         base bspwm desktop dev docker games hobbies msmtp niri \
-        homeassistant-frigate nas rsnapshot upgrade webservers
+        homeassistant-frigate nas repo-maintenance rsnapshot upgrade webservers
 
 help:
 	@echo "Available targets:"
@@ -24,6 +24,7 @@ help:
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
 	@echo "  niri                  - Configure Niri compositor"
+	@echo "  repo-maintenance      - Configure automated GitHub repository maintenance"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
@@ -67,6 +68,9 @@ nas: requirements
 
 niri: requirements
 	ansible-playbook --ask-become-pass niri.yml
+
+repo-maintenance: requirements
+	ansible-playbook --ask-become-pass repo-maintenance.yml
 
 rsnapshot: requirements
 	ansible-playbook --ask-become-pass rsnapshot.yml
