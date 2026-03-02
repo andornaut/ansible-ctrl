@@ -1,11 +1,11 @@
-# repo-maintenance
+# github-maintainer
 
 Automated GitHub repository maintenance with AI-powered decision making.
 
 ## Usage
 
 ```bash
-make repo-maintenance
+make github-maintainer
 ```
 
 ## Variables
@@ -25,25 +25,19 @@ For each repository in `~/src/github.com/{username}/`:
 
 ## Prerequisites
 
-This role symlinks to the standalone [github-maintainer](https://github.com/andornaut/github-maintainer) project.
-
-Clone the repository:
-
-```bash
-git clone https://github.com/andornaut/github-maintainer.git ~/src/github.com/andornaut/github-maintainer
-```
+This role downloads the standalone [github-maintainer](https://github.com/andornaut/github-maintainer) script.
 
 ## Manual Execution
 
 ```bash
 # Run with defaults
-~/.local/bin/repo-maintenance
+~/.local/bin/github-maintainer
 
 # Dry run (preview changes)
-~/.local/bin/repo-maintenance --dry-run --verbose
+~/.local/bin/github-maintainer --dry-run --verbose
 
 # Help
-~/.local/bin/repo-maintenance --help
+~/.local/bin/github-maintainer --help
 ```
 
 ## Scheduling
@@ -51,8 +45,8 @@ git clone https://github.com/andornaut/github-maintainer.git ~/src/github.com/an
 By default, runs daily at 3:00 AM via cron. Customize schedule with:
 
 ```yaml
-repo_maintenance_cron_hour: "2"
-repo_maintenance_cron_weekday: "0"  # Sunday only
+github_maintainer_cron_hour: "2"
+github_maintainer_cron_weekday: "0"  # Sunday only
 ```
 
 ## License

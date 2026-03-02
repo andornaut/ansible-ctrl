@@ -1,14 +1,14 @@
 ---
 - name: Ensure script directory exists
   ansible.builtin.file:
-    path: "{{ repo_maintenance_script_path | dirname }}"
+    path: "{{ github_maintainer_script_path | dirname }}"
     state: directory
     mode: "0755"
 
 - name: Download github-maintainer script
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/github-maintainer/main/github-maintainer
-    dest: "{{ repo_maintenance_script_path }}"
+    dest: "{{ github_maintainer_script_path }}"
     mode: "0755"
     force: true
 
@@ -20,7 +20,7 @@
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
     src: cron.j2
-    dest: /etc/cron.d/ansible-role-repo-maintenance
+    dest: /etc/cron.d/ansible-role-github-maintainer
     mode: "0644"
     owner: root
     group: root
@@ -30,12 +30,12 @@
   ansible.builtin.debug:
     msg:
       - "Repository maintenance configured:"
-      - "  Base directory: {{ repo_maintenance_base_dir }}"
-      - "  Agent: {{ repo_maintenance_agent_command }} {{ repo_maintenance_agent_flags }}"
-      - "  Script: {{ repo_maintenance_script_path }}"
-      - "  Schedule: {{ repo_maintenance_cron_hour }}:{{ repo_maintenance_cron_minute }} daily"
-      - "  Dry run: {{ repo_maintenance_dry_run }}"
+      - "  Base directory: {{ github_maintainer_base_dir }}"
+      - "  Agent: {{ github_maintainer_agent_command }} {{ github_maintainer_agent_flags }}"
+      - "  Script: {{ github_maintainer_script_path }}"
+      - "  Schedule: {{ github_maintainer_cron_hour }}:{{ github_maintainer_cron_minute }} daily"
+      - "  Dry run: {{ github_maintainer_dry_run }}"
       - ""
       - "Run manually:"
-      - "  {{ repo_maintenance_script_path }}"
-      - "  {{ repo_maintenance_script_path }} --dry-run --verbose"
+      - "  {{ github_maintainer_script_path }}"
+      - "  {{ github_maintainer_script_path }} --dry-run --verbose"
