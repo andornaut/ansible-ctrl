@@ -12,6 +12,11 @@
     mode: "0755"
     force: true
 
+- name: Remove old cron entry from user crontab
+  ansible.builtin.cron:
+    name: "Automated GitHub repository maintenance"
+    state: absent
+
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
     src: cron.j2
