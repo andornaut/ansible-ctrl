@@ -42,7 +42,7 @@ This role downloads the standalone [github-maintainer](https://github.com/andorn
 
 ## Scheduling
 
-By default, runs daily at 3:00 AM via cron. Customize schedule with:
+By default, runs weekly on Sunday at 3:00 AM via cron. Customize schedule with:
 
 ```yaml
 github_maintainer_cron_hour: "2"
