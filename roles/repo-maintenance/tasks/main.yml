@@ -21,8 +21,7 @@
     weekday: "{{ repo_maintenance_cron_weekday }}"
     job: >
       {{ repo_maintenance_script_path }}
-      --base-dir {{ repo_maintenance_base_dir }}
-      --username {{ repo_maintenance_github_username }}
+      --base-dir {{ repo_maintenance_base_dir }}/{{ repo_maintenance_github_username }}
       --agent-command {{ repo_maintenance_agent_command }}
       --agent-flags "{{ repo_maintenance_agent_flags }}"
       --dependency-age-threshold {{ repo_maintenance_dependency_age_threshold }}
