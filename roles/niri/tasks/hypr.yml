@@ -16,15 +16,19 @@
         state: directory
       register: hyprutils_tmp
 
-    - name: Get the latest version of hyprutils
+    - name: Get releases of hyprutils
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprutils/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprutils/releases
         return_content: true
-      register: hyprutils_version
+      register: hyprutils_releases
 
-    - name: Download and unarchive hyprutils {{ hyprutils_version.json.name }}
+    - name: Set hyprutils version to latest stable release
+      ansible.builtin.set_fact:
+        hyprutils_version: "{{ (hyprutils_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprutils {{ hyprutils_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ hyprutils_version.json.name }}/.tar.gz
+        src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ hyprutils_version }}/.tar.gz
         dest: "{{ hyprutils_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -60,15 +64,19 @@
         state: directory
       register: hyprlang_tmp
 
-    - name: Get the latest version of hyprlang
+    - name: Get releases of hyprlang
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprlang/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprlang/releases
         return_content: true
-      register: hyprlang_version
+      register: hyprlang_releases
 
-    - name: Download and unarchive hyprlang {{ hyprlang_version.json.name }}
+    - name: Set hyprlang version to latest stable release
+      ansible.builtin.set_fact:
+        hyprlang_version: "{{ (hyprlang_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprlang {{ hyprlang_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version.json.name }}/.tar.gz
+        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version }}/.tar.gz
         dest: "{{ hyprlang_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -104,15 +112,19 @@
         state: directory
       register: hyprgraphics_tmp
 
-    - name: Get the latest version of hyprgraphics
+    - name: Get releases of hyprgraphics
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprgraphics/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprgraphics/releases
         return_content: true
-      register: hyprgraphics_version
+      register: hyprgraphics_releases
 
-    - name: Download and unarchive hyprgraphics {{ hyprgraphics_version.json.name }}
+    - name: Set hyprgraphics version to latest stable release
+      ansible.builtin.set_fact:
+        hyprgraphics_version: "{{ (hyprgraphics_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprgraphics {{ hyprgraphics_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ hyprgraphics_version.json.name }}/.tar.gz
+        src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ hyprgraphics_version }}/.tar.gz
         dest: "{{ hyprgraphics_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -143,15 +155,19 @@
         state: directory
       register: hypr_scanner_tmp
 
-    - name: Get the latest version of hyprwayland-scanner
+    - name: Get releases of hyprwayland-scanner
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases
         return_content: true
-      register: hypr_scanner_version
+      register: hypr_scanner_releases
 
-    - name: Download and unarchive hyprwayland-scanner {{ hypr_scanner_version.json.name }}
+    - name: Set hyprwayland-scanner version to latest stable release
+      ansible.builtin.set_fact:
+        hypr_scanner_version: "{{ (hypr_scanner_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprwayland-scanner {{ hypr_scanner_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ hypr_scanner_version.json.name }}.tar.gz
+        src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ hypr_scanner_version }}.tar.gz
         dest: "{{ hypr_scanner_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -183,15 +199,19 @@
         state: directory
       register: hypridle_tmp
 
-    - name: Get the latest version of hypridle
+    - name: Get releases of hypridle
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hypridle/releases/latest
+        url: https://api.github.com/repos/hyprwm/hypridle/releases
         return_content: true
-      register: hypridle_version
+      register: hypridle_releases
 
-    - name: Download and unarchive hypridle {{ hypridle_version.json.name }}
+    - name: Set hypridle version to latest stable release
+      ansible.builtin.set_fact:
+        hypridle_version: "{{ (hypridle_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hypridle {{ hypridle_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ hypridle_version.json.name }}/.tar.gz
+        src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ hypridle_version }}/.tar.gz
         dest: "{{ hypridle_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -230,15 +250,19 @@
         state: directory
       register: hyprlock_tmp
 
-    - name: Get the latest version of hyprlock
+    - name: Get releases of hyprlock
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprlock/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprlock/releases
         return_content: true
-      register: hyprlock_version
+      register: hyprlock_releases
 
-    - name: Download and unarchive hyprlock {{ hyprlock_version.json.name }}
+    - name: Set hyprlock version to latest stable release
+      ansible.builtin.set_fact:
+        hyprlock_version: "{{ (hyprlock_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprlock {{ hyprlock_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ hyprlock_version.json.name }}.tar.gz
+        src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ hyprlock_version }}.tar.gz
         dest: "{{ hyprlock_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -271,15 +295,19 @@
         state: directory
       register: hyprpaper_tmp
 
-    - name: Get the latest version of hyprpaper
+    - name: Get releases of hyprpaper
       ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprpaper/releases/latest
+        url: https://api.github.com/repos/hyprwm/hyprpaper/releases
         return_content: true
-      register: hyprpaper_version
+      register: hyprpaper_releases
 
-    - name: Download and unarchive hyprpaper {{ hyprpaper_version.json.name }}
+    - name: Set hyprpaper version to latest stable release
+      ansible.builtin.set_fact:
+        hyprpaper_version: "{{ (hyprpaper_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive hyprpaper {{ hyprpaper_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ hyprpaper_version.json.name }}.tar.gz
+        src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ hyprpaper_version }}.tar.gz
         dest: "{{ hyprpaper_tmp.path }}"
         remote_src: true
         extra_opts:

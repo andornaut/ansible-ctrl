@@ -1,15 +1,19 @@
 ---
 - name: Install Kubernetes Tools
   block:
-    - name: Get latest version of helm
+    - name: Get releases of helm
       uri:
-        url: https://api.github.com/repos/helm/helm/releases/latest
+        url: https://api.github.com/repos/helm/helm/releases
         return_content: true
-      register: helm_version
+      register: helm_releases
+
+    - name: Set helm version to latest stable release
+      set_fact:
+        helm_version: "{{ (helm_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
 
     - name: Install helm binary
       unarchive:
-        src: https://get.helm.sh/helm-{{ helm_version.json.tag_name }}-linux-amd64.tar.gz
+        src: https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz
         dest: /usr/local/bin/
         extra_opts:
           - "--strip-components=1"
