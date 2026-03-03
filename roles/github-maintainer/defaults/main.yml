@@ -4,7 +4,7 @@ github_maintainer_base_dir: "{{ ansible_env.HOME }}/src/github.com/{{ ansible_us
 
 # AI agent configuration
 github_maintainer_agent_command: "claude"
-github_maintainer_agent_flags: "-p --dangerously-skip-permissions"
+github_maintainer_agent_flags: "--dangerously-skip-permissions"
 
 # Cron schedule (default: weekly on Sunday at 3 AM)
 github_maintainer_cron_minute: "0"
@@ -17,4 +17,3 @@ github_maintainer_dependency_min_age_days: 30
 github_maintainer_exclude_repositories: []
 github_maintainer_script_args: "--quiet"
 github_maintainer_script_path: "{{ ansible_env.HOME }}/.local/bin/github-maintainer"
-
