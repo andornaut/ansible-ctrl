@@ -6,15 +6,19 @@
         state: directory
       register: xwayland_tmp
 
-    - name: Get the latest version of xwayland-satellite
+    - name: Get releases of xwayland-satellite
       ansible.builtin.uri:
-        url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases/latest
+        url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases
         return_content: true
-      register: xwayland_version
+      register: xwayland_releases
 
-    - name: Download and unarchive xwayland-satellite {{ xwayland_version.json.tag_name }}
+    - name: Set xwayland-satellite version to latest stable release
+      ansible.builtin.set_fact:
+        xwayland_version: "{{ (xwayland_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive xwayland-satellite {{ xwayland_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version.json.tag_name }}.tar.gz
+        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version }}.tar.gz
         dest: "{{ xwayland_tmp.path }}"
         remote_src: true
         extra_opts:

@@ -14,15 +14,19 @@
         state: directory
       register: bambulab_tmp
 
-    - name: Get the latest version of BambuLab
+    - name: Get releases of BambuLab
       ansible.builtin.uri:
-        url: https://api.github.com/repos/greghesp/ha-bambulab/releases/latest
+        url: https://api.github.com/repos/greghesp/ha-bambulab/releases
         return_content: true
-      register: bambulab_version
+      register: bambulab_releases
 
-    - name: Download and unarchive BambuLab {{ bambulab_version.json.tag_name }}
+    - name: Set BambuLab version to latest stable release
+      ansible.builtin.set_fact:
+        bambulab_version: "{{ (bambulab_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive BambuLab {{ bambulab_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/greghesp/ha-bambulab/archive/refs/tags/{{ bambulab_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/greghesp/ha-bambulab/archive/refs/tags/{{ bambulab_version }}.tar.gz"
         dest: "{{ bambulab_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -38,26 +42,29 @@
 
 - name: Install Dreo custom component
   block:
-    - name: Create a temporary directory for dreo
+    - name: Create a temporary directory for Dreo
       ansible.builtin.tempfile:
         state: directory
       register: dreo_tmp
 
-    - name: Download Dreo custom component
-      get_url:
-        url: "{{ lookup('url', 'https://api.github.com/repos/JeffSteinbok/hass-dreo/releases/latest', split_lines=False) | from_json | json_query('tarball_url') }}"
-        dest: "{{ dreo_tmp.path }}/dreo.tar.gz"
-        mode: "0644"
+    - name: Get releases of Dreo
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/JeffSteinbok/hass-dreo/releases
+        return_content: true
+      register: dreo_releases
 
-    - name: Extract Dreo custom component
-      unarchive:
-        src: "{{ dreo_tmp.path }}/dreo.tar.gz"
-        dest: "{{ dreo_tmp.path }}/"
+    - name: Set Dreo version to latest stable release
+      ansible.builtin.set_fact:
+        dreo_version: "{{ (dreo_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Dreo {{ dreo_version }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/JeffSteinbok/hass-dreo/archive/refs/tags/{{ dreo_version }}.tar.gz"
+        dest: "{{ dreo_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
-        creates: "{{ dreo_tmp.path }}/custom_components"
 
     - name: Install Dreo custom component
       copy:
@@ -73,15 +80,19 @@
         state: directory
       register: frigate_tmp
 
-    - name: Get the latest version of Frigate
+    - name: Get releases of Frigate
       ansible.builtin.uri:
-        url: https://api.github.com/repos/blakeblackshear/frigate-hass-integration/releases/latest
+        url: https://api.github.com/repos/blakeblackshear/frigate-hass-integration/releases
         return_content: true
-      register: frigate_version
+      register: frigate_releases
 
-    - name: Download and unarchive Frigate {{ frigate_version.json.tag_name }}
+    - name: Set Frigate version to latest stable release
+      ansible.builtin.set_fact:
+        frigate_version: "{{ (frigate_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Frigate {{ frigate_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/blakeblackshear/frigate-hass-integration/archive/refs/tags/{{ frigate_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/blakeblackshear/frigate-hass-integration/archive/refs/tags/{{ frigate_version }}.tar.gz"
         dest: "{{ frigate_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -102,15 +113,19 @@
         state: directory
       register: meross_tmp
 
-    - name: Get the latest version of Meross
+    - name: Get releases of Meross
       ansible.builtin.uri:
-        url: https://api.github.com/repos/albertogeniola/meross-homeassistant/releases/latest
+        url: https://api.github.com/repos/albertogeniola/meross-homeassistant/releases
         return_content: true
-      register: meross_version
+      register: meross_releases
 
-    - name: Download and unarchive Meross {{ meross_version.json.tag_name }}
+    - name: Set Meross version to latest stable release
+      ansible.builtin.set_fact:
+        meross_version: "{{ (meross_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Meross {{ meross_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/albertogeniola/meross-homeassistant/archive/refs/tags/{{ meross_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/albertogeniola/meross-homeassistant/archive/refs/tags/{{ meross_version }}.tar.gz"
         dest: "{{ meross_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -131,15 +146,20 @@
         state: directory
       register: extended_openai_conversation_tmp
 
-    - name: Get the latest version of Extended OpenAI Conversation
+    # Get latest stable release (excludes pre-releases and drafts)
+    - name: Get releases of Extended OpenAI Conversation
       ansible.builtin.uri:
-        url: https://api.github.com/repos/jekalmin/extended_openai_conversation/releases/latest
+        url: https://api.github.com/repos/jekalmin/extended_openai_conversation/releases
         return_content: true
-      register: extended_openai_conversation_version
+      register: extended_openai_conversation_releases
 
-    - name: Download and unarchive Extended OpenAI Conversation {{ extended_openai_conversation_version.json.tag_name }}
+    - name: Set Extended OpenAI Conversation version to latest stable release
+      ansible.builtin.set_fact:
+        extended_openai_conversation_version: "{{ (extended_openai_conversation_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Extended OpenAI Conversation {{ extended_openai_conversation_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/jekalmin/extended_openai_conversation/archive/refs/tags/{{ extended_openai_conversation_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/jekalmin/extended_openai_conversation/archive/refs/tags/{{ extended_openai_conversation_version }}.tar.gz"
         dest: "{{ extended_openai_conversation_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -160,15 +180,19 @@
         state: directory
       register: simpleicons_tmp
 
-    - name: Get the latest version of Simple Icons
+    - name: Get releases of Simple Icons
       ansible.builtin.uri:
-        url: https://api.github.com/repos/vigonotion/hass-simpleicons/releases/latest
+        url: https://api.github.com/repos/vigonotion/hass-simpleicons/releases
         return_content: true
-      register: simpleicons_version
+      register: simpleicons_releases
 
-    - name: Download and unarchive Simple Icons {{ simpleicons_version.json.tag_name }}
+    - name: Set Simple Icons version to latest stable release
+      ansible.builtin.set_fact:
+        simpleicons_version: "{{ (simpleicons_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Simple Icons {{ simpleicons_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/vigonotion/hass-simpleicons/archive/refs/tags/{{ simpleicons_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/vigonotion/hass-simpleicons/archive/refs/tags/{{ simpleicons_version }}.tar.gz"
         dest: "{{ simpleicons_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -189,15 +213,19 @@
         state: directory
       register: custom_icons_tmp
 
-    - name: Get the latest version of Custom Icons
+    - name: Get releases of Custom Icons
       ansible.builtin.uri:
-        url: https://api.github.com/repos/thomasloven/hass-custom_icons/releases/latest
+        url: https://api.github.com/repos/thomasloven/hass-custom_icons/releases
         return_content: true
-      register: custom_icons_version
+      register: custom_icons_releases
 
-    - name: Download and unarchive Custom Icons {{ custom_icons_version.json.tag_name }}
+    - name: Set Custom Icons version to latest stable release
+      ansible.builtin.set_fact:
+        custom_icons_version: "{{ (custom_icons_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Custom Icons {{ custom_icons_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/hass-custom_icons/archive/refs/tags/{{ custom_icons_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/thomasloven/hass-custom_icons/archive/refs/tags/{{ custom_icons_version }}.tar.gz"
         dest: "{{ custom_icons_tmp.path }}"
         remote_src: true
         extra_opts:

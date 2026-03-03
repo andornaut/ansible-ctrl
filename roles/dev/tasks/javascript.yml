@@ -10,12 +10,16 @@
   become: true
 
 # Install nvm for user-specific nodejs/npm management
-- name: Get the latest version of nvm
+- name: Get releases of nvm
   uri:
-    url: https://api.github.com/repos/nvm-sh/nvm/releases/latest
+    url: https://api.github.com/repos/nvm-sh/nvm/releases
     return_content: true
-  register: nvm_version
+  register: nvm_releases
+
+- name: Set nvm version to latest stable release
+  set_fact:
+    nvm_version: "{{ (nvm_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
 
 - name: Install nvm
   ansible.builtin.shell: >
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version.json.tag_name }}/install.sh | bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version }}/install.sh | bash

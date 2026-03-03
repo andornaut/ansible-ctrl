@@ -70,15 +70,19 @@
         state: directory
       register: libsdbus_tmp
 
-    - name: Get the latest version of libsdbus
+    - name: Get releases of libsdbus
       ansible.builtin.uri:
-        url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases/latest
+        url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases
         return_content: true
-      register: libsdbus_version
+      register: libsdbus_releases
 
-    - name: Download and unarchive libsdbus {{ libsdbus_version.json.name }}
+    - name: Set libsdbus version to latest stable release
+      ansible.builtin.set_fact:
+        libsdbus_version: "{{ (libsdbus_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+
+    - name: Download and unarchive libsdbus {{ libsdbus_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version.json.name }}.tar.gz
+        src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version }}.tar.gz
         dest: "{{ libsdbus_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -214,17 +218,21 @@
 
 - name: Install hyprland-protocols
   block:
-    - name: Get latest release info from GitHub API
+    - name: Get releases of hyprland-protocols
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/hyprwm/hyprland-protocols/releases/latest"
+        url: "https://api.github.com/repos/hyprwm/hyprland-protocols/releases"
         method: GET
         return_content: true
-      register: hyprland_protocols_info
+      register: hyprland_protocols_releases
+
+    - name: Set hyprland-protocols to latest stable release
+      ansible.builtin.set_fact:
+        hyprland_protocols_release: "{{ hyprland_protocols_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
     - name: Set hyprland-protocols variables
       ansible.builtin.set_fact:
-        hyprland_protocols_version: "{{ hyprland_protocols_info.json.tag_name }}"
-        hyprland_protocols_download_url: "{{ hyprland_protocols_info.json.tarball_url }}"
+        hyprland_protocols_version: "{{ hyprland_protocols_release.tag_name }}"
+        hyprland_protocols_download_url: "{{ hyprland_protocols_release.tarball_url }}"
 
     - name: Create a temporary directory for hyprland-protocols
       ansible.builtin.tempfile:

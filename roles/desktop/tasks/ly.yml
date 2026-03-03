@@ -68,15 +68,19 @@
             state: directory
           register: ly_tmp
 
-        - name: Get the latest version of ly
+        - name: Get releases of ly
           ansible.builtin.uri:
-            url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases/latest
+            url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases
             return_content: true
-          register: ly_version
+          register: ly_releases
 
-        - name: Download and unarchive ly {{ ly_version.json.tag_name }}
+        - name: Set ly to latest stable release
+          ansible.builtin.set_fact:
+            ly_release: "{{ ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+
+        - name: Download and unarchive ly {{ ly_release.tag_name }}
           ansible.builtin.unarchive:
-            src: "{{ ly_version.json.tarball_url }}"
+            src: "{{ ly_release.tarball_url }}"
             dest: "{{ ly_tmp.path }}"
             remote_src: true
             extra_opts:

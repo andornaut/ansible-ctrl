@@ -18,15 +18,19 @@
   block:
     - name: Install chruby
       block:
-        - name: Get the latest version of chruby
+        - name: Get releases of chruby
           uri:
-            url: https://api.github.com/repos/postmodern/chruby/releases/latest
+            url: https://api.github.com/repos/postmodern/chruby/releases
             return_content: true
-          register: chruby_version
+          register: chruby_releases
+
+        - name: Set chruby to latest stable release
+          set_fact:
+            chruby_release: "{{ chruby_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
         - name: Set chruby download URL fact
           set_fact:
-            chruby_download_url: "{{ (.json.assets | selectattr('name', 'match', 'chruby-.*.tar.gz') | first).browser_download_url }}"
+            chruby_download_url: "{{ (chruby_release.assets | selectattr('name', 'match', 'chruby-.*.tar.gz') | first).browser_download_url }}"
 
         - name: Download chruby package
           get_url:
@@ -42,21 +46,25 @@
 
         - name: Make install chruby
           make:
-            chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_version.json.tag_name | replace('v', '') }}"
+            chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_release.tag_name | replace('v', '') }}"
             target: install
           become: true
 
     - name: Install ruby-install
       block:
-        - name: Get the latest version of ruby-install
+        - name: Get releases of ruby-install
           uri:
-            url: https://api.github.com/repos/postmodern/ruby-install/releases/latest
+            url: https://api.github.com/repos/postmodern/ruby-install/releases
             return_content: true
-          register: ruby_install_version
+          register: ruby_install_releases
+
+        - name: Set ruby-install to latest stable release
+          set_fact:
+            ruby_install_release: "{{ ruby_install_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
         - name: Set ruby-install download URL fact
           set_fact:
-            ruby_install_download_url: "{{ (ruby_install_version.json.assets | selectattr('name', 'match', 'ruby-install-.*.tar.gz') | first).browser_download_url }}"
+            ruby_install_download_url: "{{ (ruby_install_release.assets | selectattr('name', 'match', 'ruby-install-.*.tar.gz') | first).browser_download_url }}"
 
         - name: Download ruby-install package
           get_url:
@@ -72,6 +80,6 @@
 
         - name: Make install ruby-install
           make:
-            chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_version.json.tag_name | replace('v', '') }}"
+            chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_release.tag_name | replace('v', '') }}"
             target: install
           become: true
