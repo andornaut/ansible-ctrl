@@ -1,4 +1,12 @@
 ---
+- name: Install dependencies for Claude Code sandbox mode
+  ansible.builtin.apt:
+    name:
+      - bubblewrap
+      - socat
+    state: present
+  become: true
+
 - name: Ensure script directory exists
   ansible.builtin.file:
     path: "{{ github_maintainer_script_path | dirname }}"
