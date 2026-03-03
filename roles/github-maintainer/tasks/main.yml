@@ -37,7 +37,6 @@
       - "  Agent: {{ github_maintainer_agent_command }} {{ github_maintainer_agent_flags }}"
       - "  Script: {{ github_maintainer_script_path }}"
       - "  Schedule: {{ github_maintainer_cron_hour }}:{{ github_maintainer_cron_minute }} on {{ github_maintainer_cron_weekday == '0' and 'Sunday' or 'day ' + github_maintainer_cron_weekday }}"
-      - "  Dry run: {{ github_maintainer_dry_run }}"
       - ""
       - "Run manually:"
       - "  {{ github_maintainer_script_path }}"
