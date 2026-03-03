@@ -25,7 +25,10 @@ For each repository in `~/src/github.com/{username}/`:
 
 ## Prerequisites
 
-This role downloads the standalone [github-maintainer](https://github.com/andornaut/github-maintainer) script.
+This role:
+
+- Installs `bubblewrap` and `socat` for Claude Code sandbox mode
+- Downloads the standalone [github-maintainer](https://github.com/andornaut/github-maintainer) script
 
 ## Manual Execution
 
