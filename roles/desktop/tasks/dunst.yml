@@ -24,15 +24,19 @@
         state: directory
       register: dunst_tmp
 
-    - name: Get the latest version of dunst
+    - name: Get releases of dunst
       ansible.builtin.uri:
-        url: https://api.github.com/repos/dunst-project/dunst/releases/latest
+        url: https://api.github.com/repos/dunst-project/dunst/releases
         return_content: true
-      register: dunst_version
+      register: dunst_releases
 
-    - name: Download and unarchive dunst {{ dunst_version.json.tag_name }}
+    - name: Set dunst version to latest stable release
+      ansible.builtin.set_fact:
+        dunst_version: "{{ (dunst_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive dunst {{ dunst_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/dunst-project/dunst/archive/refs/tags/{{ dunst_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/dunst-project/dunst/archive/refs/tags/{{ dunst_version }}.tar.gz"
         dest: "{{ dunst_tmp.path }}"
         remote_src: true
         extra_opts:

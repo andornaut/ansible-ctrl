@@ -39,15 +39,19 @@
         state: directory
       register: bubble_card_tmp
 
-    - name: Get the latest version of Bubble Card
+    - name: Get releases of Bubble Card
       ansible.builtin.uri:
-        url: https://api.github.com/repos/Clooos/Bubble-Card/releases/latest
+        url: https://api.github.com/repos/Clooos/Bubble-Card/releases
         return_content: true
-      register: bubble_card_version
+      register: bubble_card_releases
 
-    - name: Download and unarchive Bubble Card {{ bubble_card_version.json.tag_name }}
+    - name: Set Bubble Card version to latest stable release
+      ansible.builtin.set_fact:
+        bubble_card_version: "{{ (bubble_card_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Bubble Card {{ bubble_card_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/Clooos/Bubble-Card/archive/refs/tags/{{ bubble_card_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/Clooos/Bubble-Card/archive/refs/tags/{{ bubble_card_version }}.tar.gz"
         dest: "{{ bubble_card_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -75,15 +79,19 @@
         state: directory
       register: card_mod_tmp
 
-    - name: Get the latest version of Card Mod
+    - name: Get releases of Card Mod
       ansible.builtin.uri:
-        url: https://api.github.com/repos/thomasloven/lovelace-card-mod/releases/latest
+        url: https://api.github.com/repos/thomasloven/lovelace-card-mod/releases
         return_content: true
-      register: card_mod_version
+      register: card_mod_releases
 
-    - name: Download and unarchive Card Mod {{ card_mod_version.json.tag_name }}
+    - name: Set Card Mod version to latest stable release
+      ansible.builtin.set_fact:
+        card_mod_version: "{{ (card_mod_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Card Mod {{ card_mod_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-card-mod/archive/refs/tags/{{ card_mod_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/thomasloven/lovelace-card-mod/archive/refs/tags/{{ card_mod_version }}.tar.gz"
         dest: "{{ card_mod_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -104,15 +112,19 @@
         state: directory
       register: custom_features_tmp
 
-    - name: Get the latest version of Custom Features Tile Card
+    - name: Get releases of Custom Features Tile Card
       ansible.builtin.uri:
-        url: https://api.github.com/repos/Nerwyn/custom-card-features/releases/latest
+        url: https://api.github.com/repos/Nerwyn/custom-card-features/releases
         return_content: true
-      register: custom_features_version
+      register: custom_features_releases
 
-    - name: Download and unarchive Custom Features Tile Card {{ custom_features_version.json.tag_name }}
+    - name: Set Custom Features Tile Card version to latest stable release
+      ansible.builtin.set_fact:
+        custom_features_version: "{{ (custom_features_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Custom Features Tile Card {{ custom_features_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/Nerwyn/custom-card-features/archive/refs/tags/{{ custom_features_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/Nerwyn/custom-card-features/archive/refs/tags/{{ custom_features_version }}.tar.gz"
         dest: "{{ custom_features_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -139,15 +151,19 @@
         state: directory
       register: layout_card_tmp
 
-    - name: Get the latest version of Layout Card
+    - name: Get releases of Layout Card
       ansible.builtin.uri:
-        url: https://api.github.com/repos/thomasloven/lovelace-layout-card/releases/latest
+        url: https://api.github.com/repos/thomasloven/lovelace-layout-card/releases
         return_content: true
-      register: layout_card_version
+      register: layout_card_releases
 
-    - name: Download and unarchive Layout Card {{ layout_card_version.json.tag_name }}
+    - name: Set Layout Card version to latest stable release
+      ansible.builtin.set_fact:
+        layout_card_version: "{{ (layout_card_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Layout Card {{ layout_card_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-layout-card/archive/refs/tags/{{ layout_card_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/thomasloven/lovelace-layout-card/archive/refs/tags/{{ layout_card_version }}.tar.gz"
         dest: "{{ layout_card_tmp.path }}"
         remote_src: true
         extra_opts:
@@ -174,15 +190,19 @@
         state: directory
       register: slider_entity_row_tmp
 
-    - name: Get the latest version of Slider Entry Row Card
+    - name: Get releases of Slider Entry Row Card
       ansible.builtin.uri:
-        url: https://api.github.com/repos/thomasloven/lovelace-slider-entity-row/releases/latest
+        url: https://api.github.com/repos/thomasloven/lovelace-slider-entity-row/releases
         return_content: true
-      register: slider_entity_row_version
+      register: slider_entity_row_releases
 
-    - name: Download and unarchive Slider Entry Row Card {{ slider_entity_row_version.json.tag_name }}
+    - name: Set Slider Entry Row Card version to latest stable release
+      ansible.builtin.set_fact:
+        slider_entity_row_version: "{{ (slider_entity_row_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive Slider Entry Row Card {{ slider_entity_row_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-slider-entity-row/archive/refs/tags/{{ slider_entity_row_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/thomasloven/lovelace-slider-entity-row/archive/refs/tags/{{ slider_entity_row_version }}.tar.gz"
         dest: "{{ slider_entity_row_tmp.path }}"
         remote_src: true
         extra_opts:

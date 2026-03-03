@@ -34,18 +34,22 @@
         update_cache: true
       become: true
 
-    - name: Get the latest version of OrcaSlicer
+    - name: Get releases of OrcaSlicer
       uri:
-        url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest
+        url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases
         return_content: true
         headers:
           Accept: "application/vnd.github.v3+json"
         validate_certs: true
-      register: orcaslicer_version
+      register: orcaslicer_releases
+
+    - name: Set OrcaSlicer to latest stable release
+      set_fact:
+        orcaslicer_release: "{{ orcaslicer_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
     - name: Find Linux AppImage asset
       set_fact:
-        orcaslicer_download_url: "{{ (orcaslicer_version.json.assets | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$') | list | first).browser_download_url }}"
+        orcaslicer_download_url: "{{ (orcaslicer_release.assets | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$') | list | first).browser_download_url }}"
 
     - name: Download OrcaSlicer
       get_url:
@@ -135,18 +139,22 @@
 
 - name: Install ExpressLRS Configurator
   block:
-    - name: Get the latest version of ExpressLRS Configurator
+    - name: Get releases of ExpressLRS Configurator
       uri:
-        url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases/latest
+        url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases
         return_content: true
         headers:
           Accept: "application/vnd.github.v3+json"
         validate_certs: true
-      register: expresslrs_version
+      register: expresslrs_releases
+
+    - name: Set ExpressLRS Configurator to latest stable release
+      set_fact:
+        expresslrs_release: "{{ expresslrs_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
     - name: Find Linux deb asset
       set_fact:
-        expresslrs_download_url: "{{ (expresslrs_version.json.assets | selectattr('name', 'match', '.*_amd64\\.deb$') | list | first).browser_download_url }}"
+        expresslrs_download_url: "{{ (expresslrs_release.assets | selectattr('name', 'match', '.*_amd64\\.deb$') | list | first).browser_download_url }}"
 
     - name: Install ExpressLRS Configurator
       apt:

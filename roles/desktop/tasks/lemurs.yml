@@ -22,15 +22,19 @@
             state: directory
           register: lemurs_tmp
 
-        - name: Get the latest version of lemurs
+        - name: Get releases of lemurs
           ansible.builtin.uri:
-            url: https://api.github.com/repos/coastalwhite/lemurs/releases/latest
+            url: https://api.github.com/repos/coastalwhite/lemurs/releases
             return_content: true
-          register: lemurs_version
+          register: lemurs_releases
 
-        - name: Download lemurs binary {{ lemurs_version.json.tag_name }}
+        - name: Set lemurs version to latest stable release
+          ansible.builtin.set_fact:
+            lemurs_version: "{{ (lemurs_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+        - name: Download lemurs binary {{ lemurs_version }}
           get_url:
-            url: "https://github.com/coastalwhite/lemurs/releases/download/{{ lemurs_version.json.tag_name }}/lemurs-x86_64-unknown-linux-gnu.tar.xz"
+            url: "https://github.com/coastalwhite/lemurs/releases/download/{{ lemurs_version }}/lemurs-x86_64-unknown-linux-gnu.tar.xz"
             dest: "{{ lemurs_tmp.path }}/lemurs.tar.xz"
 
         - name: Extract lemurs binary
@@ -58,7 +62,7 @@
 
         - name: Download default lemurs configuration
           get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version.json.tag_name }}/extra/config.toml"
+            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/config.toml"
             dest: "/etc/lemurs/config.toml"
             mode: "0644"
           become: true
@@ -85,7 +89,7 @@
 
         - name: Download lemurs systemd service
           get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version.json.tag_name }}/extra/lemurs.service"
+            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/lemurs.service"
             dest: /usr/lib/systemd/system/lemurs.service
             mode: "0644"
           become: true
@@ -99,7 +103,7 @@
 
         - name: Download xsetup.sh script
           get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version.json.tag_name }}/extra/xsetup.sh"
+            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/xsetup.sh"
             dest: /etc/lemurs/xsetup.sh
             mode: "0755"
           become: true
@@ -107,7 +111,7 @@
         # TODO: Superceded by the copy below
         # - name: Download lemurs.pam file
         #   get_url:
-        #     url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version.json.tag_name }}/extra/lemurs.pam"
+        #     url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/lemurs.pam"
         #     dest: /etc/pam.d/lemurs
         #     mode: "0644"
         #   become: true
