@@ -76,7 +76,7 @@ homeassistantfrigate_llamacpp_required_volumes:
   models: /var/docker-volumes/homeassistant-frigate/llamacpp/models
 
 # Matter
-homeassistantfrigate_matter_docker_image: ghcr.io/home-assistant-libs/python-matter-server:stable
+homeassistantfrigate_matter_docker_image: ghcr.io/matter-js/matterjs-server:stable
 homeassistantfrigate_matter_port: 5580
 homeassistantfrigate_matter_required_volumes:
   data: /var/docker-volumes/homeassistant-frigate/matter/data
