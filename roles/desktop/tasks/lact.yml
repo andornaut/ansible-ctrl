@@ -1,15 +1,19 @@
 ---
 - name: Install LACT
   block:
-    - name: Get latest LACT version
+    - name: Get releases of LACT
       uri:
-        url: https://api.github.com/repos/ilya-zlobintsev/LACT/releases/latest
+        url: https://api.github.com/repos/ilya-zlobintsev/LACT/releases
         return_content: true
-      register: lact_version
+      register: lact_releases
+
+    - name: Set LACT to latest stable release
+      set_fact:
+        lact_release: "{{ lact_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
     - name: Set LACT download URL fact
       set_fact:
-        lact_download_url: "{{ (lact_version.json.assets | selectattr('name', 'match', 'lact-.*.amd64.ubuntu-' + (ansible_distribution_version | replace('.', '')) + '.deb') | first).browser_download_url }}"
+        lact_download_url: "{{ (lact_release.assets | selectattr('name', 'match', 'lact-.*.amd64.ubuntu-' + (ansible_distribution_version | replace('.', '')) + '.deb') | first).browser_download_url }}"
 
     - name: Install LACT package
       apt:

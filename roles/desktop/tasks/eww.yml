@@ -17,15 +17,19 @@
         state: directory
       register: eww_tmp
 
-    - name: Get the latest version of eww
+    - name: Get releases of eww
       ansible.builtin.uri:
-        url: https://api.github.com/repos/elkowar/eww/releases/latest
+        url: https://api.github.com/repos/elkowar/eww/releases
         return_content: true
-      register: eww_version
+      register: eww_releases
 
-    - name: Download and unarchive eww {{ eww_version.json.tag_name }}
+    - name: Set eww version to latest stable release
+      ansible.builtin.set_fact:
+        eww_version: "{{ (eww_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+
+    - name: Download and unarchive eww {{ eww_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ eww_version.json.tag_name }}.tar.gz"
+        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ eww_version }}.tar.gz"
         dest: "{{ eww_tmp.path }}"
         remote_src: true
         extra_opts:

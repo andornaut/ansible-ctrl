@@ -34,15 +34,19 @@
 
 - name: Install Source Code Pro font
   block:
-    - name: Get latest Source Code Pro release
+    - name: Get releases of Source Code Pro
       uri:
-        url: https://api.github.com/repos/adobe-fonts/source-code-pro/releases/latest
+        url: https://api.github.com/repos/adobe-fonts/source-code-pro/releases
         return_content: true
-      register: source_code_pro_release
+      register: source_code_pro_releases
+
+    - name: Set Source Code Pro to latest stable release
+      set_fact:
+        source_code_pro_release: "{{ source_code_pro_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
     - name: Set Source Code Pro download URL fact
       set_fact:
-        source_code_pro_url: "{{ (source_code_pro_release.json.assets | selectattr('name', 'match', '.*TTF.*.zip') | first).browser_download_url }}"
+        source_code_pro_url: "{{ (source_code_pro_release.assets | selectattr('name', 'match', '.*TTF.*.zip') | first).browser_download_url }}"
 
     - name: Create temporary directory
       ansible.builtin.file:

@@ -1,13 +1,17 @@
 ---
-- name: Get the latest version of Delta
+- name: Get releases of Delta
   uri:
-    url: https://api.github.com/repos/dandavison/delta/releases/latest
+    url: https://api.github.com/repos/dandavison/delta/releases
     return_content: true
-  register: delta_version
+  register: delta_releases
+
+- name: Set Delta to latest stable release
+  set_fact:
+    delta_release: "{{ delta_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
 - name: Set delta download URL fact
   set_fact:
-    delta_download_url: "{{ (delta_version.json.assets | selectattr('name', 'match', 'git-delta_.*_amd64.deb') | first).browser_download_url }}"
+    delta_download_url: "{{ (delta_release.assets | selectattr('name', 'match', 'git-delta_.*_amd64.deb') | first).browser_download_url }}"
 
 - name: Install Delta package
   apt:

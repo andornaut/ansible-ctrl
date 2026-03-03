@@ -1,13 +1,17 @@
 ---
-- name: Get the latest version of filectrl
+- name: Get releases of filectrl
   uri:
-    url: https://api.github.com/repos/andornaut/filectrl/releases/latest
+    url: https://api.github.com/repos/andornaut/filectrl/releases
     return_content: true
-  register: filectrl_version
+  register: filectrl_releases
+
+- name: Set filectrl to latest stable release
+  set_fact:
+    filectrl_release: "{{ filectrl_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
 
 - name: Set filectrl download URL fact
   set_fact:
-    filectrl_download_url: "{{ (filectrl_version.json.assets | selectattr('name', 'match', 'filectrl-linux') | first).browser_download_url }}"
+    filectrl_download_url: "{{ (filectrl_release.assets | selectattr('name', 'match', 'filectrl-linux') | first).browser_download_url }}"
 
 - name: Download filectrl binary
   get_url:
