@@ -4,7 +4,7 @@ github_maintainer_base_dir: "{{ ansible_env.HOME }}/src/github.com/{{ ansible_us
 
 # AI agent configuration
 github_maintainer_agent_command: "claude"
-github_maintainer_agent_flags: "--dangerously-skip-permissions"
+github_maintainer_agent_flags: "-p --dangerously-skip-permissions"
 
 # Cron schedule (default: weekly on Sunday at 3 AM)
 github_maintainer_cron_minute: "0"
@@ -12,15 +12,15 @@ github_maintainer_cron_hour: "3"
 github_maintainer_cron_day: "*"
 github_maintainer_cron_weekday: "0"
 
-# Script installation path
-github_maintainer_script_path: "{{ ansible_env.HOME }}/.local/bin/github-maintainer"
-
-# Dependency update age threshold (days)
+# Script customizations
 github_maintainer_dependency_age_threshold: 30
+github_maintainer_exclude_repositories: []
+github_maintainer_script_args: "--quiet"
+github_maintainer_script_path: "{{ ansible_env.HOME }}/.local/bin/github-maintainer"
 
 # Feature toggles
 github_maintainer_auto_merge_dependabot: true
 github_maintainer_auto_update_dependencies: true
-github_maintainer_run_tests: true
-github_maintainer_push_changes: true
 github_maintainer_dry_run: false
+github_maintainer_push_changes: true
+github_maintainer_run_tests: true
