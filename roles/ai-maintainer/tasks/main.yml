@@ -9,21 +9,21 @@
 
 - name: Ensure script directory exists
   ansible.builtin.file:
-    path: "{{ github_maintainer_script_path | dirname }}"
+    path: "{{ ai_maintainer_script_path | dirname }}"
     state: directory
     mode: "0755"
 
-- name: Download github-maintainer script
+- name: Download ai-maintainer script
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/andornaut/github-maintainer/main/github-maintainer
-    dest: "{{ github_maintainer_script_path }}"
+    url: https://raw.githubusercontent.com/andornaut/ai-maintainer/main/ai-maintainer
+    dest: "{{ ai_maintainer_script_path }}"
     mode: "0755"
     force: true
 
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
     src: cron.j2
-    dest: /etc/cron.d/ansible-role-github-maintainer
+    dest: /etc/cron.d/ansible-role-ai-maintainer
     mode: "0644"
     owner: root
     group: root
