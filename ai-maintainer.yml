@@ -1,5 +1,5 @@
 ---
 - name: Setup automated GitHub repository maintenance
-  hosts: github_maintainer
+  hosts: ai_maintainer
   roles:
-    - github-maintainer
+    - ai-maintainer
