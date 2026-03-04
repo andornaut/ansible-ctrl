@@ -1,11 +1,11 @@
-# github-maintainer
+# ai-maintainer
 
 Automated GitHub repository maintenance with AI-powered decision making.
 
 ## Usage
 
 ```bash
-make github-maintainer
+make ai-maintainer
 ```
 
 ## Variables
@@ -28,19 +28,19 @@ For each repository in `~/src/github.com/{username}/`:
 This role:
 
 - Installs `bubblewrap` and `socat` for Claude Code sandbox mode
-- Downloads the standalone [github-maintainer](https://github.com/andornaut/github-maintainer) script
+- Downloads the standalone [ai-maintainer](https://github.com/andornaut/ai-maintainer) script
 
 ## Manual Execution
 
 ```bash
 # Run with defaults
-~/.local/bin/github-maintainer
+~/.local/bin/ai-maintainer
 
 # Dry run (preview changes)
-~/.local/bin/github-maintainer --dry-run --verbose
+~/.local/bin/ai-maintainer --dry-run --verbose
 
 # Help
-~/.local/bin/github-maintainer --help
+~/.local/bin/ai-maintainer --help
 ```
 
 ## Scheduling
@@ -48,8 +48,8 @@ This role:
 By default, runs weekly on Sunday at 3:00 AM via cron. Customize schedule with:
 
 ```yaml
-github_maintainer_cron_hour: "2"
-github_maintainer_cron_weekday: "0"  # Sunday only
+ai_maintainer_cron_hour: "2"
+ai_maintainer_cron_weekday: "0"  # Sunday only
 ```
 
 ## License
