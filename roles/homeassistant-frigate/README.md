@@ -584,7 +584,9 @@ Notes:
 - [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
 - [Material icons](https://materialdesignicons.com/) - Customize Home Assistant icons. Prefix with "mdi:".
 - [Mosquitto](https://mosquitto.org/) - MQTT message broker
+- [QuickBars (app)](https://quickbars.app/)
 - [SgtBatten's HA blueprints](https://github.com/SgtBatten/HA_blueprints)
+- [Viewer for Frigate](https://play.google.com/store/apps/details?id=com.frigateviewer)
 
 ### Custom Cards
 
