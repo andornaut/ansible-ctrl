@@ -63,7 +63,7 @@
         matter:
           # http://matter.internal:5580
           container_name: matter
-          hostname: matter-{{ ansible_hostname }}
+          hostname: matter-{{ ansible_facts['hostname'] }}
           image: "{{ homeautomation_matter_docker_image }}"
           cap_add:
             - NET_ADMIN
@@ -81,7 +81,7 @@
         otbr:
           # http://localhost:8080
           container_name: otbr
-          hostname: otbr-{{ ansible_hostname }}
+          hostname: otbr-{{ ansible_facts['hostname'] }}
           image: "{{ homeautomation_otbr_docker_image }}"
           cap_add:
             - NET_ADMIN
