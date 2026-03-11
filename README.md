@@ -21,42 +21,48 @@ example
 example
 ```
 
-Install Ansible on Ubuntu:
+Install Ansible on Ubuntu via the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
 
 ```bash
-sudo apt-add-repository ppa:ansible/ansible
+sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
 ## Usage
 
 ```bash
-# Workstation roles
-make base                   # Base system configuration
-make bspwm                  # BSPWM window manager
-make desktop                # Desktop environment
-make dev                    # Development tools
-make docker                 # Docker and Kubernetes
-make games                  # Gaming packages
-make msmtp                  # Email forwarding
-make niri                   # Niri compositor
+$ make help
+Available targets:
+  help                  - Show this help message
+  clean                 - Remove temporary role files
+  requirements          - Install required Ansible roles and collections
 
-# Server roles
-make homeautomation         # Home automation
-make nas                    # Network Attached Storage
-make rsnapshot              # Rsnapshot backup system
-make upgrade                # System upgrades
-make webservers             # Web servers with Let's Encrypt
+Playbook targets:
+  base                  - Configure base system
+  bspwm                 - Configure BSPWM window manager
+  desktop               - Configure desktop environment
+  dev                   - Configure development tools
+  docker                - Configure Docker and Kubernetes
+  games                 - Configure gaming packages
+  hobbies               - Configure hobby tools (3D printing, electronics, FPV)
+  homeautomation        - Configure home automation
+  msmtp                 - Configure email forwarding
+  nas                   - Configure NAS server
+  niri                  - Configure Niri compositor
+  ai-maintainer         - Configure automated GitHub repository maintenance
+  rsnapshot             - Configure rsnapshot backup
+  upgrade               - Run system upgrades
+  webservers            - Configure web servers
 
-# Run specific tasks by tag
+# Run specific tasks by tag:
 ansible-playbook --ask-become-pass desktop.yml --tags alacritty
 ansible-playbook --ask-become-pass dev.yml --tags hobbies
 ```
 
 ## Troubleshooting
 
-Force upgrade community modules:
+Upgrade all collections:
 
 ```bash
-ansible-galaxy collection install --force community.general
+ansible-galaxy collection install --upgrade -r requirements.yml
 ```
