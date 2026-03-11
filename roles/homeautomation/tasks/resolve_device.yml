@@ -33,4 +33,4 @@
 
 - name: "Resolved device path for {{ resolved_var_name }}"
   debug:
-    msg: "{{ device_paths | default([]) }} -> {{ vars[resolved_var_name] }}"
+    msg: "{{ device_paths | default([]) }} -> {{ lookup('vars', resolved_var_name) }}"
