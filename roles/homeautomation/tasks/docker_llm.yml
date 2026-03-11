@@ -15,40 +15,40 @@
     owner: root
     group: root
   loop:
-    - "{{ homeassistantfrigate_llamacpp_required_volumes.models }}"
-    - "{{ homeassistantfrigate_openwebui_required_volumes.data }}"
+    - "{{ homeautomation_llamacpp_required_volumes.models }}"
+    - "{{ homeautomation_openwebui_required_volumes.data }}"
   become: true
 
 - name: Check which llama.cpp models already exist
   ansible.builtin.stat:
-    path: "{{ homeassistantfrigate_llamacpp_required_volumes.models }}/{{ item | basename }}"
-  loop: "{{ homeassistantfrigate_llamacpp_models }}"
+    path: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item | basename }}"
+  loop: "{{ homeautomation_llamacpp_models }}"
   register: llamacpp_model_stats
-  when: homeassistantfrigate_llamacpp_models | length > 0
+  when: homeautomation_llamacpp_models | length > 0
 
 - name: Download llama.cpp models
   ansible.builtin.get_url:
     url: "{{ item.item }}"
-    dest: "{{ homeassistantfrigate_llamacpp_required_volumes.models }}/{{ item.item | basename }}"
+    dest: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item.item | basename }}"
     mode: "0644"
   become: true
   loop: "{{ llamacpp_model_stats.results }}"
   when:
-    - homeassistantfrigate_llamacpp_models | length > 0
+    - homeautomation_llamacpp_models | length > 0
     - not item.stat.exists
 
 - name: Start LLM Docker containers
   vars:
     openwebui_base_volumes:
-      - "{{ homeassistantfrigate_openwebui_required_volumes.data }}:/app/backend/data"
+      - "{{ homeautomation_openwebui_required_volumes.data }}:/app/backend/data"
     openwebui_volumes: "{{ common_volumes + openwebui_base_volumes }}"
 
     llamacpp_base_volumes:
-      - "{{ homeassistantfrigate_llamacpp_required_volumes.models }}:/models"
+      - "{{ homeautomation_llamacpp_required_volumes.models }}:/models"
     llamacpp_volumes: "{{ common_volumes + llamacpp_base_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistantfrigate-llm
+    project_name: homeautomation-llm
     pull: always
     remove_orphans: true
     definition:
@@ -57,10 +57,10 @@
         llamacpp:
           # http://llamacpp.internal:8080
           container_name: llamacpp
-          image: "{{ homeassistantfrigate_llamacpp_docker_image }}"
+          image: "{{ homeautomation_llamacpp_docker_image }}"
           # Use --models-dir to enable "router mode"
           command: "--host 0.0.0.0 --port 8080 --models-dir /models"
-          devices: "{{ homeassistantfrigate_llamacpp_devices }}"
+          devices: "{{ homeautomation_llamacpp_devices }}"
           group_add:
             - "{{ getent_group.render[1] }}"
             - "{{ getent_group.video[1] }}"
@@ -71,10 +71,10 @@
         openwebui:
           # http://openwebui.internal:8080
           container_name: openwebui
-          image: "{{ homeassistantfrigate_openwebui_docker_image }}"
+          image: "{{ homeautomation_openwebui_docker_image }}"
           logging: "{{ default_logging }}"
           ports:
-            - "{{ homeassistantfrigate_openwebui_port }}:8080"
+            - "{{ homeautomation_openwebui_port }}:8080"
           restart: unless-stopped
           volumes: "{{ openwebui_volumes }}"
           depends_on:

@@ -1,8 +1,8 @@
 ---
 - name: Install Home Assistant
-  hosts: homeassistant_frigate
+  hosts: homeautomation
   roles:
     # Uncomment the `base` and `docker` on the first run
     #- base
     #- docker
-    - homeassistant-frigate
+    - homeautomation
