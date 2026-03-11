@@ -82,6 +82,15 @@
   become: true
   ignore_errors: true
 
-- name: Notify user to restart system
-  debug:
-    msg: "MemryX drivers installed. A system restart is required to complete the installation."
+- name: Load MemryX kernel module
+  community.general.modprobe:
+    name: memx_cascade_plus_pcie
+    state: present
+  become: true
+
+- name: Restart mxa-manager service
+  ansible.builtin.systemd:
+    name: mxa-manager
+    state: restarted
+    enabled: true
+  become: true
