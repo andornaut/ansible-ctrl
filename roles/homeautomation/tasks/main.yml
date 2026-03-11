@@ -4,24 +4,24 @@
     - name: Check for mDNS service conflicts
       assert:
         that:
-          - not (homeassistantfrigate_install_avahi and homeassistantfrigate_install_matter)
+          - not (homeautomation_install_avahi and homeautomation_install_matter)
         fail_msg: |
-          ERROR: Cannot install both Avahi (homeassistantfrigate_install_avahi) and Matter/Thread (homeassistantfrigate_install_matter)
+          ERROR: Cannot install both Avahi (homeautomation_install_avahi) and Matter/Thread (homeautomation_install_matter)
           as they both provide mDNS services and will conflict when using network_mode: host.
         success_msg: "mDNS configuration validated successfully"
 
     - name: mDNS advisory message
       debug:
         msg: |
-          {% if homeassistantfrigate_install_matter %}
+          {% if homeautomation_install_matter %}
           Provisioning Matter/Thread, so Avahi will be disabled
-          {% elif homeassistantfrigate_install_avahi %}
+          {% elif homeautomation_install_avahi %}
           Provisioning Avahi, so Matter/Thread will not be provisioned
           {% endif %}
-      when: homeassistantfrigate_install_matter or homeassistantfrigate_install_avahi
+      when: homeautomation_install_matter or homeautomation_install_avahi
 
     - import_tasks: avahi.yml
-      when: homeassistantfrigate_install_avahi
+      when: homeautomation_install_avahi
 
     - name: Disable host Avahi daemon when not needed
       systemd:
@@ -33,7 +33,7 @@
         - avahi-daemon.socket # Stop the socket first, b/c it can spawn the service
         - avahi-daemon.service
       ignore_errors: true
-      when: not homeassistantfrigate_install_avahi
+      when: not homeautomation_install_avahi
   tags:
     - avahi
     - docker
@@ -43,10 +43,10 @@
 
 - import_tasks: memryx.yml
   tags: memryx
-  when: homeassistantfrigate_install_memryx
+  when: homeautomation_install_memryx
 
 - import_tasks: otbr.yml
-  when: homeassistantfrigate_install_matter
+  when: homeautomation_install_matter
 
 - name: Install customizations
   block:
@@ -75,22 +75,22 @@
     # Must come before docker_frigate, b/c Frigate may depend on Llama.cpp
     - import_tasks: docker_llm.yml
       tags: llm
-      when: homeassistantfrigate_install_llm
+      when: homeautomation_install_llm
 
     - import_tasks: docker_frigate.yml
       tags: frigate
-      when: homeassistantfrigate_install_frigate
+      when: homeautomation_install_frigate
 
     - import_tasks: docker_esphome.yml
       tags: esphome
-      when: homeassistantfrigate_install_esphome
+      when: homeautomation_install_esphome
 
     - import_tasks: docker_matter.yml
       tags: matter
-      when: homeassistantfrigate_install_matter
+      when: homeautomation_install_matter
 
     - import_tasks: docker_voice.yml
       tags: voice
-      when: homeassistantfrigate_install_voice
+      when: homeautomation_install_voice
 
   tags: docker

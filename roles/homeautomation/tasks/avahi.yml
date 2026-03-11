@@ -9,7 +9,7 @@
     install_recommends: false
     update_cache: true
   become: true
-  when: homeassistantfrigate_avahi_interfaces | length > 0
+  when: homeautomation_avahi_interfaces | length > 0
 
 - name: "Configure Avahi: allow-interfaces"
   community.general.ini_file:
@@ -17,10 +17,10 @@
     option: allow-interfaces
     path: /etc/avahi/avahi-daemon.conf
     section: server
-    value: "{{ homeassistantfrigate_avahi_interfaces }}"
+    value: "{{ homeautomation_avahi_interfaces }}"
   become: true
   register: avahi_allow_interfaces
-  when: homeassistantfrigate_avahi_interfaces | length > 0
+  when: homeautomation_avahi_interfaces | length > 0
 
 - name: "Configure Avahi: enable-reflector"
   community.general.ini_file:
@@ -31,7 +31,7 @@
     value: yes
   become: true
   register: avahi_enable_reflector
-  when: homeassistantfrigate_avahi_interfaces | length > 0
+  when: homeautomation_avahi_interfaces | length > 0
 
 - name: Restart Avahi service
   systemd:

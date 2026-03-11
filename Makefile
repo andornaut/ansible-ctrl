@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 .PHONY: help clean requirements \
         base bspwm desktop dev docker games hobbies msmtp niri \
-        homeassistant-frigate nas ai-maintainer rsnapshot upgrade webservers
+        homeautomation nas ai-maintainer rsnapshot upgrade webservers
 
 help:
 	@echo "Available targets:"
@@ -20,7 +20,7 @@ help:
 	@echo "  docker                - Configure Docker and Kubernetes"
 	@echo "  games                 - Configure gaming packages"
 	@echo "  hobbies               - Configure hobby tools (3D printing, electronics, FPV)"
-	@echo "  homeassistant-frigate - Configure Home Assistant and Frigate"
+	@echo "  homeautomation        - Configure home automation"
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
 	@echo "  niri                  - Configure Niri compositor"
@@ -57,8 +57,8 @@ games: requirements
 hobbies: requirements
 	ansible-playbook --ask-become-pass hobbies.yml
 
-homeassistant-frigate: requirements
-	ansible-playbook --ask-become-pass homeassistant-frigate.yml
+homeautomation: requirements
+	ansible-playbook --ask-become-pass homeautomation.yml
 
 msmtp: requirements
 	ansible-playbook --ask-become-pass msmtp.yml

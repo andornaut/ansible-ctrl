@@ -2,8 +2,17 @@
 - name: Resolve Home Assistant device paths
   include_tasks: resolve_device.yml
   vars:
-    device_paths: "{{ homeassistantfrigate_homeassistant_devices }}"
+    device_paths: "{{ homeautomation_homeassistant_devices }}"
     resolved_var_name: homeassistant_devices_resolved
+
+- name: Create Govee2MQTT data directory with correct ownership
+  file:
+    path: "{{ homeautomation_govee2mqtt_required_volumes.data }}"
+    state: directory
+    owner: "{{ homeautomation_govee2mqtt_uid }}"
+    group: "{{ homeautomation_govee2mqtt_gid }}"
+  become: true
+  when: homeautomation_install_govee2mqtt
 
 - name: Remove Home Assistant, Govee2MQTT, and Mosquitto containers if they exist
   community.docker.docker_container:
@@ -19,35 +28,35 @@
   vars:
     homeassistant_base_volumes:
       - /etc/hosts:/etc/hosts:ro
-      - "{{ homeassistantfrigate_homeassistant_required_volumes.config }}:/config"
-      - "{{ homeassistantfrigate_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
-      - "{{ homeassistantfrigate_homeassistant_required_volumes.udev }}:/run/udev:ro"
-    homeassistant_volumes: "{{ common_volumes + homeassistant_base_volumes + homeassistantfrigate_homeassistant_extra_volumes }}"
+      - "{{ homeautomation_homeassistant_required_volumes.config }}:/config"
+      - "{{ homeautomation_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
+      - "{{ homeautomation_homeassistant_required_volumes.udev }}:/run/udev:ro"
+    homeassistant_volumes: "{{ common_volumes + homeassistant_base_volumes + homeautomation_homeassistant_extra_volumes }}"
 
     mosquitto_base_volumes:
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.data }}:/mosquitto/data"
-      - "{{ homeassistantfrigate_mosquitto_required_volumes.log }}:/mosquitto/log"
+      - "{{ homeautomation_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
+      - "{{ homeautomation_mosquitto_required_volumes.data }}:/mosquitto/data"
+      - "{{ homeautomation_mosquitto_required_volumes.log }}:/mosquitto/log"
     mosquitto_volumes: "{{ common_volumes + mosquitto_base_volumes }}"
 
     govee2mqtt_base_volumes:
-      - "{{ homeassistantfrigate_govee2mqtt_required_volumes.data }}:/data"
+      - "{{ homeautomation_govee2mqtt_required_volumes.data }}:/data"
     govee2mqtt_volumes: "{{ common_volumes + govee2mqtt_base_volumes }}"
 
     govee2mqtt_base_environment:
-      GOVEE_MQTT_HOST: "{{ homeassistantfrigate_mosquitto_host }}"
-      GOVEE_MQTT_PORT: "{{ homeassistantfrigate_mosquitto_port }}"
+      GOVEE_MQTT_HOST: "{{ homeautomation_mosquitto_host }}"
+      GOVEE_MQTT_PORT: "{{ homeautomation_mosquitto_port }}"
       GOVEE_TEMPERATURE_SCALE: C
       RUST_LOG_STYLE: always
       TZ: "{{ TZ }}"
-    govee2mqtt_environment: "{{ govee2mqtt_base_environment | combine(homeassistantfrigate_govee2mqtt_env | default({})) }}"
+    govee2mqtt_environment: "{{ govee2mqtt_base_environment | combine(homeautomation_govee2mqtt_env | default({})) }}"
 
     govee2mqtt_service:
       govee2mqtt:
         # http://localhost:8056
         container_name: govee2mqtt
         hostname: govee2mqtt-{{ ansible_hostname }}
-        image: "{{ homeassistantfrigate_govee2mqtt_docker_image }}"
+        image: "{{ homeautomation_govee2mqtt_docker_image }}"
         depends_on:
           - homeassistant
           - mosquitto
@@ -61,7 +70,7 @@
       homeassistant:
         # http://localhost:8123
         container_name: homeassistant
-        image: "{{ homeassistantfrigate_homeassistant_docker_image }}"
+        image: "{{ homeautomation_homeassistant_docker_image }}"
         cap_add:
           - NET_ADMIN
           - NET_RAW
@@ -87,26 +96,26 @@
       mosquitto:
         # http://mosquitto.internal:1883
         container_name: mosquitto
-        image: "{{ homeassistantfrigate_mosquitto_docker_image }}"
+        image: "{{ homeautomation_mosquitto_docker_image }}"
         logging: "{{ default_logging }}"
         ports:
-          - "{{ homeassistantfrigate_mosquitto_port }}:1883"
+          - "{{ homeautomation_mosquitto_port }}:1883"
         restart: unless-stopped
         volumes: "{{ mosquitto_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistantfrigate
+    project_name: homeautomation
     pull: always
     remove_orphans: true
     definition:
       networks:
         default:
           driver: bridge
-          enable_ipv6: "{{ homeassistantfrigate_ipv6_enabled }}"
+          enable_ipv6: "{{ homeautomation_ipv6_enabled }}"
           driver_opts:
             com.docker.network.bridge.name: br-ha
       services: >-
         {{
-          required_services | combine(govee2mqtt_service if homeassistantfrigate_install_govee2mqtt else {})
+          required_services | combine(govee2mqtt_service if homeautomation_install_govee2mqtt else {})
         }}
   notify: update /etc/hosts

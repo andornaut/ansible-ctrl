@@ -56,12 +56,12 @@
     state: present
   become: true
 
-- name: Install MemryX SDK {{ homeassistantfrigate_memryx_version }} packages
+- name: Install MemryX SDK {{ homeautomation_memryx_version }} packages
   apt:
     name:
-      - memx-drivers={{ homeassistantfrigate_memryx_version }}.*
-      - memx-accl={{ homeassistantfrigate_memryx_version }}.*
-      - mxa-manager={{ homeassistantfrigate_memryx_version }}.*
+      - memx-drivers={{ homeautomation_memryx_version }}.*
+      - memx-accl={{ homeautomation_memryx_version }}.*
+      - mxa-manager={{ homeautomation_memryx_version }}.*
     state: present
     update_cache: true
   become: true

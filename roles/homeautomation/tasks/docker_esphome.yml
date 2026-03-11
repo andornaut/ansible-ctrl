@@ -8,11 +8,11 @@
 - name: Start ESPHome Docker container
   vars:
     esphome_base_volumes:
-      - "{{ homeassistantfrigate_esphome_required_volumes.config }}:/config"
+      - "{{ homeautomation_esphome_required_volumes.config }}:/config"
     esphome_volumes: "{{ common_volumes + esphome_base_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistantfrigate-esphome
+    project_name: homeautomation-esphome
     pull: always
     remove_orphans: true
     definition:
@@ -23,13 +23,13 @@
           container_name: esphome
           environment:
             - ESPHOME_DASHBOARD_USE_PING=true
-          image: "{{ homeassistantfrigate_esphome_docker_image }}"
+          image: "{{ homeautomation_esphome_docker_image }}"
           logging: "{{ default_logging }}"
           # Must be on network_mode:host, b/c the Avahi container, which provides mdns to the Docker network,
           # is disabled when Matter is enabled
           network_mode: host
           #ports:
-          #  - "{{ homeassistantfrigate_esphome_port }}:6052"
+          #  - "{{ homeautomation_esphome_port }}:6052"
           restart: unless-stopped
           volumes: "{{ esphome_volumes }}"
   notify:
