@@ -55,7 +55,7 @@
       govee2mqtt:
         # http://localhost:8056
         container_name: govee2mqtt
-        hostname: govee2mqtt-{{ ansible_hostname }}
+        hostname: govee2mqtt-{{ ansible_facts['hostname'] }}
         image: "{{ homeautomation_govee2mqtt_docker_image }}"
         depends_on:
           - homeassistant
