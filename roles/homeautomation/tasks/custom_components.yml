@@ -1,7 +1,7 @@
 ---
 - name: Create custom_components/ directory
   file:
-    path: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
     state: directory
     owner: root
     group: root
@@ -36,7 +36,7 @@
     - name: Install BambuLab custom component
       copy:
         src: "{{ bambulab_tmp.path }}/custom_components/bambu_lab"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -69,7 +69,7 @@
     - name: Install Dreo custom component
       copy:
         src: "{{ dreo_tmp.path }}/custom_components/dreo"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -102,7 +102,7 @@
     - name: Install Frigate custom component
       copy:
         src: "{{ frigate_tmp.path }}/custom_components/frigate"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -135,7 +135,7 @@
     - name: Install Meross custom component
       copy:
         src: "{{ meross_tmp.path }}/custom_components/meross_cloud"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -169,7 +169,7 @@
     - name: Install Extended OpenAI Conversation custom component
       copy:
         src: "{{ extended_openai_conversation_tmp.path }}/custom_components/extended_openai_conversation"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -202,7 +202,7 @@
     - name: Install Simple Icons custom component
       copy:
         src: "{{ simpleicons_tmp.path }}/custom_components/simpleicons"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
@@ -235,12 +235,12 @@
     - name: Install Custom Icons custom component
       copy:
         src: "{{ custom_icons_tmp.path }}/custom_components/custom_icons"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/custom_components/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
       become: true
 
 - name: Copy python_scripts/ directory
   copy:
     src: files/homeassistant/python_scripts/
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/python_scripts/"
+    dest: "{{ homeautomation_homeassistant_required_volumes.config }}/python_scripts/"
   become: true

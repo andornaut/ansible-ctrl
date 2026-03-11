@@ -42,7 +42,7 @@ make msmtp                  # Email forwarding
 make niri                   # Niri compositor
 
 # Server roles
-make homeassistant-frigate  # Home Assistant with Frigate NVR
+make homeautomation         # Home automation
 make nas                    # Network Attached Storage
 make rsnapshot              # Rsnapshot backup system
 make upgrade                # System upgrades

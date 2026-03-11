@@ -1,0 +1,28 @@
+thinkpad ansible_host=thinkpadwifi.cybertron.spacectrl.com ansible_user=andornaut
+tron ansible_connection=local ansible_host=tron.cybertron.spacectrl.com ansible_user=andornaut
+
+[ai_maintainer]
+tron
+
+[hobbies]
+tron
+
+[homeautomation]
+snorlax
+tron
+
+[nas]
+prime
+tron
+
+[rsnapshot]
+tron
+
+[webservers]
+prime
+snorlax
+tron
+
+[workstations]
+thinkpad
+tron

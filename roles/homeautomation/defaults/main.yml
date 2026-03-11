@@ -1,0 +1,138 @@
+---
+homeautomation_docker_log_max_file: "10"
+homeautomation_docker_log_max_size: "10m"
+homeautomation_docker_network_name: homeautomation_default
+homeautomation_install_avahi: false
+homeautomation_install_esphome: false
+homeautomation_install_frigate: false
+homeautomation_install_govee2mqtt: false
+homeautomation_install_llm: false
+homeautomation_install_matter: false
+homeautomation_install_memryx: false
+homeautomation_install_voice: false
+homeautomation_ipv6_enabled: true
+
+# Avahi
+homeautomation_avahi_interfaces: ""
+
+# ESPHome
+homeautomation_esphome_docker_image: ghcr.io/esphome/esphome:stable
+homeautomation_esphome_port: 6052
+homeautomation_esphome_required_volumes:
+  config: /var/docker-volumes/homeautomation/esphome/config
+
+# Frigate
+homeautomation_frigate_devices: []
+# https://github.com/blakeblackshear/frigate/pkgs/container/frigate
+homeautomation_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
+homeautomation_frigate_env:
+  LIBVA_DRIVER_NAME: ""
+homeautomation_frigate_extra_volumes: []
+homeautomation_frigate_memory: "8g"
+# When unset, swap is disabled; when 0, this setting is ignored.
+# homeautomation_frigate_memory_swap:
+homeautomation_frigate_required_volumes:
+  config: /var/docker-volumes/homeautomation/frigate/config
+  media: /var/docker-volumes/homeautomation/frigate/media
+homeautomation_frigate_port_http_authenticated: 8971
+homeautomation_frigate_port_http_unauthenticated: 5000
+homeautomation_frigate_port_rtsp: 8554
+homeautomation_frigate_port_webrtc: 8555
+homeautomation_frigate_shm_size: "128mb"
+homeautomation_frigate_tmpfs_size_mb: 128
+
+# Govee2mqtt
+# Pinned to 2025.10.26 because newer versions (2025.11.25+, 2026.01.08+) have a broken web UI
+# due to missing /app/assets folder. See: https://github.com/wez/govee2mqtt/issues/584
+# This version includes HTTP route fixes and predates the web UI regression.
+homeautomation_govee2mqtt_env: {}
+homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:2025.10.26-b29dee52
+# The govee2mqtt image runs as non-root (USER govee:govee = 1000:1000 in Dockerfile)
+homeautomation_govee2mqtt_uid: "1000"
+homeautomation_govee2mqtt_gid: "1000"
+homeautomation_govee2mqtt_required_volumes:
+  data: /var/docker-volumes/homeautomation/govee2mqtt/data
+
+# Home Assistant
+homeautomation_homeassistant_devices: []
+homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
+homeautomation_homeassistant_extra_volumes: []
+#homeautomation_homeassistant_port: 8123 # Unused b/c hass is run in host mode
+homeautomation_homeassistant_required_volumes:
+  config: /var/docker-volumes/homeautomation/homeassistant/config
+  dbus: /run/dbus
+  localtime: /etc/localtime
+  timezone: /etc/timezone
+  udev: /run/udev
+
+# llama.cpp
+homeautomation_llamacpp_devices: []
+homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+homeautomation_llamacpp_models:
+  # Home-3B-v3: Fast, specialized Home Assistant device control with 97% function calling accuracy.
+  # Supports English, German, Spanish, French. Only 1.71GB - perfect for quick smart home commands.
+  - https://huggingface.co/acon96/Home-3B-v3-GGUF/resolve/main/Home-3B-v3.q4_k_m.gguf
+  # Qwen3.5-9B: Multimodal model supporting text and vision (images/video). Superior reasoning, coding, and
+  # long-context processing (262K tokens). Supports 201 languages, agent/tool calling, and vision-language tasks.
+  - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+homeautomation_llamacpp_required_volumes:
+  models: /var/docker-volumes/homeautomation/llamacpp/models
+
+# Matter
+homeautomation_matter_docker_image: ghcr.io/matter-js/matterjs-server:stable
+homeautomation_matter_port: 5580
+# The matter.js image runs as non-root (USER 1000:1000 in Dockerfile)
+homeautomation_matter_uid: "1000"
+homeautomation_matter_gid: "1000"
+homeautomation_matter_required_volumes:
+  data: /var/docker-volumes/homeautomation/matter/data
+
+# MemryX
+# List available versions with `sudo apt update && apt-cache madison memx-drivers`
+homeautomation_memryx_version: "2.1"
+
+# microWakeWord
+homeautomation_microwakeword_docker_image: rhasspy/wyoming-microwakeword
+
+# Mosquitto
+homeautomation_mosquitto_docker_image: eclipse-mosquitto
+homeautomation_mosquitto_host: localhost
+homeautomation_mosquitto_port: 1883
+homeautomation_mosquitto_required_volumes:
+  config: /var/docker-volumes/homeautomation/mosquitto/config
+  data: /var/docker-volumes/homeautomation/mosquitto/data
+  log: /var/docker-volumes/homeautomation/mosquitto/log
+
+# OpenThread Border Router (OTBR)
+homeautomation_otbr_backbone_if: eth0
+homeautomation_otbr_device: ""
+homeautomation_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
+homeautomation_otbr_required_volumes:
+  data: /var/docker-volumes/homeautomation/otbr/data
+homeautomation_otbr_rest_port: 8081
+homeautomation_otbr_web_port: 8080
+
+# openWakeWord
+homeautomation_openwakeword_docker_image: rhasspy/wyoming-openwakeword
+homeautomation_openwakeword_required_volumes:
+  data: /var/docker-volumes/homeautomation/openwakeword/data
+
+# OpenWebUI
+homeautomation_openwebui_docker_image: ghcr.io/open-webui/open-webui:main
+homeautomation_openwebui_port: 3000
+homeautomation_openwebui_required_volumes:
+  data: /var/docker-volumes/homeautomation/openwebui/data
+
+# Piper
+homeautomation_piper_command: "--data-dir /data --voice en_US-amy-medium"
+homeautomation_piper_docker_image: rhasspy/wyoming-piper
+homeautomation_piper_required_volumes:
+  data: /var/docker-volumes/homeautomation/piper/data
+homeautomation_piper_port: 10200
+
+# Whisper
+homeautomation_whisper_command: "--data-dir /data --language en --model tiny-int8"
+homeautomation_whisper_docker_image: rhasspy/wyoming-whisper
+homeautomation_whisper_required_volumes:
+  data: /var/docker-volumes/homeautomation/whisper/data
+homeautomation_whisper_port: 10300

@@ -2,8 +2,16 @@
 - name: Resolve OTBR device path
   include_tasks: resolve_device.yml
   vars:
-    device_paths: "{{ [homeassistantfrigate_otbr_device] if homeassistantfrigate_otbr_device.startswith('/') else [] }}"
+    device_paths: "{{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}"
     resolved_var_name: otbr_devices_resolved
+
+- name: Create Matter data directory with correct ownership
+  file:
+    path: "{{ homeautomation_matter_required_volumes.data }}"
+    state: directory
+    owner: "{{ homeautomation_matter_uid }}"
+    group: "{{ homeautomation_matter_gid }}"
+  become: true
 
 - name: Remove Matter and OTBR containers if they exist
   community.docker.docker_container:
@@ -18,11 +26,11 @@
   vars:
     matter_base_volumes:
       - /run/dbus:/run/dbus:ro
-      - "{{ homeassistantfrigate_matter_required_volumes.data }}:/data"
+      - "{{ homeautomation_matter_required_volumes.data }}:/data"
     matter_volumes: "{{ common_volumes + matter_base_volumes }}"
 
     otbr_base_volumes:
-      - "{{ homeassistantfrigate_otbr_required_volumes.data }}:/data"
+      - "{{ homeautomation_otbr_required_volumes.data }}:/data"
     otbr_volumes: "{{ common_volumes + otbr_base_volumes }}"
 
     # Build device list: always include /dev/net/tun, add physical device if present
@@ -30,7 +38,7 @@
 
     otbr_base_env:
       - AUTOFLASH_FIRMWARE=0
-      - BACKBONE_IF={{ homeassistantfrigate_otbr_backbone_if }}
+      - BACKBONE_IF={{ homeautomation_otbr_backbone_if }}
       - BAUDRATE=460800
       # For network sockets: Use /tmp/ttyOTBR (pseudo-TTY created by socat service)
       # For physical devices: Use the resolved device path (e.g., /dev/ttyUSB0)
@@ -38,15 +46,15 @@
       - FIREWALL=1
       - FLOW_CONTROL=1
       - NAT64=1
-      - OTBR_REST_PORT={{ homeassistantfrigate_otbr_rest_port }}
-      - OTBR_WEB_PORT={{ homeassistantfrigate_otbr_web_port }}
+      - OTBR_REST_PORT={{ homeautomation_otbr_rest_port }}
+      - OTBR_WEB_PORT={{ homeautomation_otbr_web_port }}
     # Network socket configuration: NETWORK_DEVICE triggers socat to bridge TCP socket to /tmp/ttyOTBR
     otbr_network_env:
-      - NETWORK_DEVICE={{ homeassistantfrigate_otbr_device }}
+      - NETWORK_DEVICE={{ homeautomation_otbr_device }}
     otbr_env: "{{ otbr_base_env + (otbr_network_env if not otbr_devices_resolved else []) }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistantfrigate-matter
+    project_name: homeautomation-matter
     pull: always
     remove_orphans: true
     definition:
@@ -56,7 +64,7 @@
           # http://matter.internal:5580
           container_name: matter
           hostname: matter-{{ ansible_hostname }}
-          image: "{{ homeassistantfrigate_matter_docker_image }}"
+          image: "{{ homeautomation_matter_docker_image }}"
           cap_add:
             - NET_ADMIN
             - NET_RAW
@@ -64,7 +72,7 @@
             - otbr
           logging: "{{ default_logging }}"
           ports:
-            - "{{ homeassistantfrigate_matter_port }}:5580"
+            - "{{ homeautomation_matter_port }}:5580"
           restart: unless-stopped
           security_opt:
             - apparmor=unconfined # Needed for Bluetooth via dbus
@@ -74,7 +82,7 @@
           # http://localhost:8080
           container_name: otbr
           hostname: otbr-{{ ansible_hostname }}
-          image: "{{ homeassistantfrigate_otbr_docker_image }}"
+          image: "{{ homeautomation_otbr_docker_image }}"
           cap_add:
             - NET_ADMIN
             - NET_RAW
