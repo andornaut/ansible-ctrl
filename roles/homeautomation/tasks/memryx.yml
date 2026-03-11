@@ -78,7 +78,7 @@
 
 - name: Run ARM setup if on ARM architecture
   command: mx_arm_setup
-  when: ansible_architecture in ['aarch64', 'arm64']
+  when: ansible_facts['architecture'] in ['aarch64', 'arm64']
   become: true
   ignore_errors: true
 
