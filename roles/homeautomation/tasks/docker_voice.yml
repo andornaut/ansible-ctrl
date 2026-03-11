@@ -13,19 +13,19 @@
     #microwakeword_volumes: "{{ common_volumes }}"
     #
     #openwakeword_base_volumes:
-    #  - "{{ homeassistantfrigate_openwakeword_required_volumes.data }}:/custom"
+    #  - "{{ homeautomation_openwakeword_required_volumes.data }}:/custom"
     #openwakeword_volumes: "{{ common_volumes + openwakeword_base_volumes }}"
 
     piper_base_volumes:
-      - "{{ homeassistantfrigate_piper_required_volumes.data }}:/data"
+      - "{{ homeautomation_piper_required_volumes.data }}:/data"
     piper_volumes: "{{ common_volumes + piper_base_volumes }}"
 
     whisper_base_volumes:
-      - "{{ homeassistantfrigate_whisper_required_volumes.data }}:/data"
+      - "{{ homeautomation_whisper_required_volumes.data }}:/data"
     whisper_volumes: "{{ common_volumes + whisper_base_volumes }}"
 
   community.docker.docker_compose_v2:
-    project_name: homeassistantfrigate-voice
+    project_name: homeautomation-voice
     pull: always
     remove_orphans: true
     definition:
@@ -35,7 +35,7 @@
         #openwakeword:
         #  http://openwakeword.internal:11434
         #  container_name: openwakeword
-        #  image: "{{ homeassistantfrigate_openwakeword_docker_image }}"
+        #  image: "{{ homeautomation_openwakeword_docker_image }}"
         #  command: --custom-model-dir /custom --preload-model 'ok_nabu'
         #  logging: "{{ default_logging }}"
         #  restart: unless-stopped
@@ -45,7 +45,7 @@
         #microwakeword:
         #  http://microwakeword.internal:11434
         #  container_name: microwakeword
-        #  image: "{{ homeassistantfrigate_microwakeword_docker_image }}"
+        #  image: "{{ homeautomation_microwakeword_docker_image }}"
         #  logging: "{{ default_logging }}"
         #  restart: unless-stopped
         #  volumes: "{{ microwakeword_volumes }}"
@@ -53,22 +53,22 @@
         piper:
           # http://piper.internal:10200
           container_name: piper
-          image: "{{ homeassistantfrigate_piper_docker_image }}"
-          command: "{{ homeassistantfrigate_piper_command }}"
+          image: "{{ homeautomation_piper_docker_image }}"
+          command: "{{ homeautomation_piper_command }}"
           logging: "{{ default_logging }}"
           ports:
-            - "{{ homeassistantfrigate_piper_port }}:10200"
+            - "{{ homeautomation_piper_port }}:10200"
           restart: unless-stopped
           volumes: "{{ piper_volumes }}"
 
         whisper:
           # http://whisper.internal:10300
           container_name: whisper
-          image: "{{ homeassistantfrigate_whisper_docker_image }}"
-          command: "{{ homeassistantfrigate_whisper_command }}"
+          image: "{{ homeautomation_whisper_docker_image }}"
+          command: "{{ homeautomation_whisper_command }}"
           logging: "{{ default_logging }}"
           ports:
-            - "{{ homeassistantfrigate_whisper_port }}:10300"
+            - "{{ homeautomation_whisper_port }}:10300"
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
   notify:

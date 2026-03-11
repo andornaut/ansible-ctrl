@@ -1,4 +1,4 @@
-# ansible-role-homeassistant-frigate
+# ansible-role-homeautomation
 
 An [Ansible](https://www.ansible.com/) role that provisions
 [Home Assistant](https://www.home-assistant.io/),
@@ -9,10 +9,10 @@ An [Ansible](https://www.ansible.com/) role that provisions
 ## Usage
 
 ```bash
-make homeassistant-frigate
+make homeautomation
 
-ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags customizations
-ansible-playbook --ask-become-pass homeassistant-frigate.yml --tags docker
+ansible-playbook --ask-become-pass homeautomation.yml --tags customizations
+ansible-playbook --ask-become-pass homeautomation.yml --tags docker
 ```
 
 ## Overview
@@ -52,18 +52,18 @@ This role automates the deployment and configuration of a complete home automati
 
 ## Role Variables
 
-See the default variables for each of the [./roles](./roles), for e.g. [letsencrypt-nginx variables](<h[ttps://github.com/andornaut/ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-ctrl/blob/master/roles/homeassistant-frigate/defaults/main.yml)>).
+See the default variables for each of the [./roles](./roles), for e.g. [letsencrypt-nginx variables](<h[ttps://github.com/andornaut/ansible-role-letsencrypt-nginx](https://github.com/andornaut/ansible-ctrl/blob/master/roles/homeautomation/defaults/main.yml)>).
 
 Key variables include:
 
 ```yaml
 # Enable optional components:
-homeassistantfrigate_install_llm: true
-homeassistantfrigate_install_voice: true
+homeautomation_install_llm: true
+homeautomation_install_voice: true
 
-homeassistantfrigate_frigate_port_http_authenticated: 8971
-homeassistantfrigate_frigate_port_http_unauthenticated: 5000
-homeassistantfrigate_openwebui_port: 3000
+homeautomation_frigate_port_http_authenticated: 8971
+homeautomation_frigate_port_http_unauthenticated: 5000
+homeautomation_openwebui_port: 3000
 ```
 
 ## Services
@@ -91,9 +91,9 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 
 ```yaml
 # Given:
-homeassistantfrigate_homeassistant_port: 8123
-homeassistantfrigate_frigate_port_http_unauthenticated: 5000
-homeassistantfrigate_openwebui_port: 3000
+homeautomation_homeassistant_port: 8123
+homeautomation_frigate_port_http_unauthenticated: 5000
+homeautomation_openwebui_port: 3000
 
 # Nginx configuration:
 letsencryptnginx_websites:
@@ -346,7 +346,7 @@ data:
 
 ### Sensi Thermostat
 
-- [/r/homeassistant/ post](https://github.com/andornaut/ansible-role-homeassistant-frigate/edit/main/README.md)
+- [/r/homeassistant/ post](https://github.com/andornaut/ansible-role-homeautomation/edit/main/README.md)
 
 Setup HomeKit:
 
@@ -396,7 +396,7 @@ docker run --rm \
     path: plus://<Model ID> # yolov9s 320x320 3472  onnx,rocm,openvino,rknn,zmq 2025-11-03  2025.3
    ```
 
-2. Start Frigate, which will download the model to `/var/docker-volumes/homeassistant-frigate/frigate/config/model_cache/`. Once Frigate has downloaded the model, stop its container.
+2. Start Frigate, which will download the model to `/var/docker-volumes/homeautomation/frigate/config/model_cache/`. Once Frigate has downloaded the model, stop its container.
 
 3. Rename the model file to include an ".onnx" filename extension:
 
@@ -423,14 +423,14 @@ docker run --rm \
    # n.b. Inclue the newly created "*_post.onnx" file
    zip 2025-11-04-yolov9s.zip 2025-11-04-yolov9s.dfp 2025-11-04-yolov9s_post.onnx
 
-   sudo cp 2025-11-04-yolov9s.zip /var/docker-volumes/homeassistant-frigate/frigate/config/
+   sudo cp 2025-11-04-yolov9s.zip /var/docker-volumes/homeautomation/frigate/config/
    ```
 
 6. Create a label map file:
 
    ```bash
    cat 2025-11-04-yolov9s.json |jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' > 2025-11-04-yolov9s.txt
-   sudo cp 2025-11-04-yolov9s.txt /var/docker-volumes/homeassistant-frigate/frigate/config/
+   sudo cp 2025-11-04-yolov9s.txt /var/docker-volumes/homeautomation/frigate/config/
    ```
 
 7. Update Frigate's `config.yml`, and then restart Frigate:

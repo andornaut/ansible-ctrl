@@ -1,7 +1,7 @@
 ---
 - name: Create www/ directory
   file:
-    path: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
     state: directory
     owner: root
     group: root
@@ -16,7 +16,7 @@
 
     - name: Create advanced-camera-card directory
       ansible.builtin.file:
-        path: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/advanced-camera-card"
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
         state: directory
         mode: "0755"
       become: true
@@ -24,7 +24,7 @@
     - name: Install advanced-camera-card
       ansible.builtin.unarchive:
         src: /tmp/advanced-camera-card.zip
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/advanced-camera-card"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
         remote_src: true
         # Drop the ./dist directory
         # -j junk  paths. The  archive's directory structure is not recreated;
@@ -61,14 +61,14 @@
     - name: Install Bubble Card bubble-card.js
       copy:
         src: "{{ bubble_card_tmp.path }}/dist/bubble-card.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true
 
     - name: Install Bubble Card bubble-pop-up-fix.js
       copy:
         src: "{{ bubble_card_tmp.path }}/dist/bubble-pop-up-fix.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true
 
@@ -101,7 +101,7 @@
     - name: Install Card Mod
       copy:
         src: "{{ card_mod_tmp.path }}/card-mod.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true
 
@@ -134,14 +134,14 @@
     - name: Install Custom Features Tile Card
       copy:
         src: "{{ custom_features_tmp.path }}/dist/custom-card-features.min.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true
 
 - name: Install Decluttering Card
   get_url:
     url: https://github.com/custom-cards/decluttering-card/releases/latest/download/decluttering-card.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+    dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
   become: true
 
 - name: Install Layout Card
@@ -173,14 +173,14 @@
     - name: Install Layout Card
       copy:
         src: "{{ layout_card_tmp.path }}/layout-card.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true
 
 - name: Install Mini Media Player Card
   get_url:
     url: https://github.com/kalkih/mini-media-player/releases/latest/download/mini-media-player-bundle.js
-    dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+    dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
   become: true
 
 - name: Install Slider Entry Row Card
@@ -212,6 +212,6 @@
     - name: Install Slider Entry Row Card
       copy:
         src: "{{ slider_entity_row_tmp.path }}/slider-entity-row.js"
-        dest: "{{ homeassistantfrigate_homeassistant_required_volumes.config }}/www/"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
       become: true

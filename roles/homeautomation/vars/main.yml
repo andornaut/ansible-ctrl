@@ -1,0 +1,16 @@
+common_volumes:
+  - "{{ homeautomation_homeassistant_required_volumes.localtime }}:/etc/localtime:ro"
+  - "{{ homeautomation_homeassistant_required_volumes.timezone }}:/etc/timezone:ro"
+
+default_logging:
+  driver: "json-file"
+  options:
+    max-size: "{{ homeautomation_docker_log_max_size }}"
+    max-file: "{{ homeautomation_docker_log_max_file }}"
+
+external_network:
+  default:
+    external: true
+    name: "{{ homeautomation_docker_network_name }}"
+
+TZ: "{{ system_timezone.stdout.strip() }}"
