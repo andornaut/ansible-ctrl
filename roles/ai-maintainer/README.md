@@ -51,7 +51,3 @@ By default, runs weekly on Sunday at 3:00 AM via cron. Customize schedule with:
 ai_maintainer_cron_hour: "2"
 ai_maintainer_cron_weekday: "0"  # Sunday only
 ```
-
-## License
-
-MIT License. See [LICENSE](../../LICENSE) for full details.
