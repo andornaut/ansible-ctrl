@@ -94,6 +94,54 @@ letsencryptnginx_websites:
 - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
 
+#### Pairing Matter Devices
+
+Prerequisites:
+
+- A Thread Border Router (e.g., [Home Assistant Connect ZBT-1](#home-assistant-connect-zbt-1))
+- Matter devices and controllers on the same L2 network
+- IPv6 networking enabled (link-local addresses are sufficient)
+
+Pairing steps:
+
+1. Factory reset the device (see device-specific steps below)
+1. In the Home Assistant mobile app, go to Settings > Devices & Services > Matter > Add device > No. It's new
+1. Scan the QR code on the device with the mobile app
+1. Wait for commissioning to complete
+
+##### Pairing from a different subnet (ethernet adapter method)
+
+If your phone's WiFi network is on a different subnet than the Thread Border Router / Matter server, the standard pairing flow will fail during device discovery. The workaround is to use a USB-C ethernet adapter to temporarily place the phone on the same LAN as the Thread Border Router. Replace steps 3-5 above with:
+
+1. In the Home Assistant mobile app, go to Settings > Devices & Services > Matter > Add device > No. It's new
+1. Scan the device's QR code
+1. Plug the ethernet adapter into the phone
+1. Wait approximately 4 seconds, then tap "I'm ready"
+
+The timing is critical: the pairing flow first performs a WiFi connectivity check before starting discovery. The ethernet adapter must be plugged in *after* the tapping "I'm ready", so that the connectivity check passes over WiFi while the subsequent mDNS discovery occurs on the ethernet LAN.
+
+##### Inovelli White Series Switch
+
+[Product page](https://inovelli.com/products/thread-matter-white-series-smart-2-1-on-off-dimmer-switch) |
+[Setup instructions](https://help.inovelli.com/en/articles/9692499-white-series-dimmer-switch-setup-instructions-home-assistant)
+
+- Factory reset: hold the top paddle (on) and config/favorites button (button above the LED) simultaneously for 20 seconds until the LED bar turns red and blinks 3 times
+- Pairing mode: the LED bar should pulse blue automatically after reset. If not, quickly tap the config/favorites button 3 times
+
+##### Eve Energy Outlet (In-Wall, 10ECN4151 / 20ECN4101)
+
+[Product page](https://www.evehome.com/en-us/eve-energy-outlet) |
+[Support](https://www.evehome.com/en-us/support/eve-energy)
+
+- Factory reset: press the right LED for 10 seconds
+
+##### Eve Door & Window Contact Sensor
+
+[Eve Door & Window](https://www.evehome.com/en-us/eve-door-window) |
+[Support](https://www.evehome.com/en-us/support/eve-door-window)
+
+- Factory reset: open the battery compartment and press the reset button with a paperclip until the red LED blinks
+
 ## Hardware
 
 ### AirGradient
