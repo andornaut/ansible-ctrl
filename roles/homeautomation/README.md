@@ -295,6 +295,42 @@ Debug with: `tcpdump port 5353 -i any` on the host, and `apk add tcpdump && tcpd
      model_type: yolo-generic
    ```
 
+### Frigate restart loop with MemryX
+
+If Frigate is in a restart loop and `docker logs frigate` shows:
+
+```text
+[error] [Client] No devices in system, please check the server
+[DFPRunner] Error in client->init_conenction local mode for device: FIXME
+Failed to initialize MemryX model: Init DFP Runner failed!
+frigate.watchdog INFO: Detection appears to have stopped. Exiting Frigate...
+```
+
+The MemryX kernel module (`memx_cascade_plus_pcie`) is not loaded, so `/dev/memx0` doesn't exist and the `mxa-manager` service has no devices. This can happen after a kernel upgrade or reboot.
+
+Verify with:
+
+```bash
+ls /dev/memx0          # Should exist
+lsmod | grep memx      # Should show memx_cascade_plus_pcie
+lspci | grep -i memryx # Should show the MX3 PCI device
+```
+
+Fix by re-running the memryx Ansible tasks, which will load the module and restart the manager:
+
+```bash
+ansible-playbook --ask-become-pass homeautomation.yml --tags memryx
+docker restart frigate
+```
+
+Or manually:
+
+```bash
+sudo modprobe memx_cascade_plus_pcie
+sudo systemctl restart mxa-manager
+docker restart frigate
+```
+
 ### Coral.ai doesn't work
 
 - [Failed to load delegate from libedgetpu.so.1.0](https://github.com/blakeblackshear/frigate/issues/3259)
