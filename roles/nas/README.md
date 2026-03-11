@@ -130,7 +130,3 @@ mount -o degraded /dev/mapper/nas0 /media/nas
 - [Btrfs Multi Device Dmcrypt](http://marc.merlins.org/perso/btrfs/post_2014-04-27_Btrfs-Multi-Device-Dmcrypt.html)
 - [Cryptsetup Documentation](https://gitlab.com/cryptsetup/cryptsetup)
 - [BTRFS Wiki - Multiple Devices](https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_with_Multiple_Devices)
-
-## License
-
-MIT License. See [LICENSE](../../LICENSE) for full details.
