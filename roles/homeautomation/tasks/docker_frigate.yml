@@ -33,8 +33,8 @@
           devices: "{{ homeautomation_frigate_devices }}"
           environment: "{{ frigate_env }}"
           group_add:
-            - "{{ getent_group.render[1] }}"
-            - "{{ getent_group.video[1] }}"
+            - "{{ ansible_facts.getent_group.render[1] }}"
+            - "{{ ansible_facts.getent_group.video[1] }}"
           logging: "{{ default_logging }}"
           mem_limit: "{{ homeautomation_frigate_memory }}"
           # Docs:
