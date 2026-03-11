@@ -2,6 +2,7 @@
 - import_tasks: apt.yml
 
 - import_tasks: antigravity.yml
+  when: dev_install_antigravity
   tags: antigravity
 
 - import_tasks: claude.yml
