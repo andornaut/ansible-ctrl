@@ -6,7 +6,7 @@
     user: root
     minute: "1"
     job: /usr/bin/rsnapshot hourly
-  when: rsnapshot_retention.hourly
+  when: rsnapshot_retention.hourly is not none
   become: true
   notify: Validate rsnapshot cron config
 
@@ -18,7 +18,7 @@
     minute: "10"
     hour: "1"
     job: /usr/bin/rsnapshot daily
-  when: rsnapshot_retention.daily
+  when: rsnapshot_retention.daily is not none
   become: true
   notify: Validate rsnapshot cron config
 
@@ -31,7 +31,7 @@
     hour: "3"
     weekday: "1" # Monday at 3:30 AM
     job: /usr/bin/rsnapshot weekly
-  when: rsnapshot_retention.weekly
+  when: rsnapshot_retention.weekly is not none
   become: true
   notify: Validate rsnapshot cron config
 
@@ -44,6 +44,6 @@
     hour: "5"
     day: "1" # 1st of month at 5:50 AM
     job: /usr/bin/rsnapshot monthly
-  when: rsnapshot_retention.monthly
+  when: rsnapshot_retention.monthly is not none
   become: true
   notify: Validate rsnapshot cron config
