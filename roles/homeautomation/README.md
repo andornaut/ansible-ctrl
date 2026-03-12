@@ -55,7 +55,7 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 
 ### Nginx
 
-Configure reverse proxies using [letsencrypt-nginx variables](https://github.com/andornaut/ansible-ctrl/blob/master/roles/letsencrypt-nginx/defaults/main.yml):
+Configure reverse proxies using [letsencrypt-nginx variables](../letsencrypt-nginx/defaults/main.yml):
 
 ```yaml
 letsencryptnginx_websites:
@@ -120,14 +120,6 @@ If your phone's WiFi network is on a different subnet than the Thread Border Rou
 
 The timing is critical: the pairing flow first performs a WiFi connectivity check before starting discovery. The ethernet adapter must be plugged in *after* the tapping "I'm ready", so that the connectivity check passes over WiFi while the subsequent mDNS discovery occurs on the ethernet LAN.
 
-##### Inovelli White Series Switch
-
-[Product page](https://inovelli.com/products/thread-matter-white-series-smart-2-1-on-off-dimmer-switch) |
-[Setup instructions](https://help.inovelli.com/en/articles/9692499-white-series-dimmer-switch-setup-instructions-home-assistant)
-
-- Factory reset: hold the top paddle (on) and config/favorites button (button above the LED) simultaneously for 20 seconds until the LED bar turns red and blinks 3 times
-- Pairing mode: the LED bar should pulse blue automatically after reset. If not, quickly tap the config/favorites button 3 times
-
 ##### Eve Energy Outlet (In-Wall, 10ECN4151 / 20ECN4101)
 
 [Product page](https://www.evehome.com/en-us/eve-energy-outlet) |
@@ -141,6 +133,14 @@ The timing is critical: the pairing flow first performs a WiFi connectivity chec
 [Support](https://www.evehome.com/en-us/support/eve-door-window)
 
 - Factory reset: open the battery compartment and press the reset button with a paperclip until the red LED blinks
+
+##### Inovelli White Series Switch
+
+[Product page](https://inovelli.com/products/thread-matter-white-series-smart-2-1-on-off-dimmer-switch) |
+[Setup instructions](https://help.inovelli.com/en/articles/9692499-white-series-dimmer-switch-setup-instructions-home-assistant)
+
+- Factory reset: hold the top paddle (on) and config/favorites button (button above the LED) simultaneously for 20 seconds until the LED bar turns red and blinks 3 times
+- Pairing mode: the LED bar should pulse blue automatically after reset. If not, quickly tap the config/favorites button 3 times
 
 ## Hardware
 
