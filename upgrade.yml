@@ -21,5 +21,4 @@
 
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
-      become: true
       when: "'flatpak' in ansible_facts.packages"
