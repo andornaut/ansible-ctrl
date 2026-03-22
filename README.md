@@ -63,19 +63,19 @@ ansible-playbook --ask-become-pass hobbies.yml --tags orcaslicer
 
 | Role | Purpose |
 | --- | --- |
-| [ai_maintainer](roles/ai_maintainer/) | Automated GitHub repo maintenance via AI agent + cron |
-| [bspwm](roles/bspwm/) | BSPWM window manager |
-| [desktop](roles/desktop/) | Desktop environment (display manager, browser, fonts, themes) |
-| [dev](roles/dev/) | Development tools and programming languages |
-| [docker](roles/docker/) | Docker CE, Compose, optional Kubernetes |
-| [games](roles/games/) | Gaming packages via flatpak |
-| [hobbies](roles/hobbies/) | 3D printing, electronics, FPV tools |
-| [homeautomation](roles/homeautomation/) | Home Assistant + related Docker containers |
-| [letsencrypt_nginx](roles/letsencrypt_nginx/) | NGINX reverse proxy with Let's Encrypt HTTPS |
-| [msmtp](roles/msmtp/) | Email forwarding via MSMTP |
-| [nas](roles/nas/) | Encrypted BTRFS RAID arrays (LUKS) |
-| [niri](roles/niri/) | Niri Wayland compositor |
-| [rsnapshot](roles/rsnapshot/) | Incremental backups with rsnapshot |
+| [ai_maintainer](roles/ai_maintainer/README.md) | Automated GitHub repo maintenance via AI agent + cron |
+| [bspwm](roles/bspwm/README.md) | BSPWM window manager |
+| [desktop](roles/desktop/README.md) | Desktop environment (display manager, browser, fonts, themes) |
+| [dev](roles/dev/README.md) | Development tools and programming languages |
+| [docker](roles/docker/README.md) | Docker CE, Compose, optional Kubernetes |
+| [games](roles/games/README.md) | Gaming packages via flatpak |
+| [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
+| [homeautomation](roles/homeautomation/README.md) | Home Assistant + related Docker containers |
+| [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
+| [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
+| [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
+| [niri](roles/niri/README.md) | Niri Wayland compositor |
+| [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
 
 ## Troubleshooting
 
