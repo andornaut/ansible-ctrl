@@ -49,7 +49,7 @@ Playbook targets:
   msmtp                 - Configure email forwarding
   nas                   - Configure NAS server
   niri                  - Configure Niri compositor
-  ai-maintainer         - Configure automated GitHub repository maintenance
+  ai_maintainer         - Configure automated GitHub repository maintenance
   rsnapshot             - Configure rsnapshot backup
   upgrade               - Run system upgrades
   webservers            - Configure web servers

@@ -1,11 +1,11 @@
-# ai-maintainer
+# ai_maintainer
 
 Automated GitHub repository maintenance with AI-powered decision making.
 
 ## Usage
 
 ```bash
-make ai-maintainer
+make ai_maintainer
 ```
 
 ## Variables

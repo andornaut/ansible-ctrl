@@ -1,0 +1,16 @@
+---
+letsencrypt_nginx_acme_directory_url: https://acme-staging-v02.api.letsencrypt.org/directory
+letsencrypt_nginx_acme_version: 2
+letsencrypt_nginx_csr_country: CA
+letsencrypt_nginx_docker_extra_volumes: []
+letsencrypt_nginx_docker_image: nginx:stable
+letsencrypt_nginx_docker_required_volumes:
+  config: /var/docker-volumes/nginx/config
+  localtime: /etc/localtime
+  www: /var/docker-volumes/nginx/www
+letsencrypt_nginx_key_size: 4096
+letsencrypt_nginx_key_type: RSA
+letsencrypt_nginx_maintainer: "Ansible managed"
+letsencrypt_nginx_remaining_days: 30
+letsencrypt_nginx_selfsigned_days: 365
+letsencrypt_nginx_websites: []

@@ -1,7 +1,7 @@
 ---
 - name: Create the partial directory
   ansible.builtin.file:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/partial"
+    path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/partial"
     state: directory
     mode: "0750"
     owner: root
@@ -10,26 +10,26 @@
 
 - name: Find existing .conf files
   ansible.builtin.find:
-    paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
+    paths: "{{ letsencrypt_nginx_docker_required_volumes.config }}"
     patterns: "*.conf"
     file_type: file
     use_regex: false
     recurse: false # Don't look in subdirectories
-  register: find_conf_files
+  register: letsencrypt_nginx_find_conf_files
   become: true
 
 - name: Delete existing .conf files
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: "{{ find_conf_files.files }}"
+  loop: "{{ letsencrypt_nginx_find_conf_files.files }}"
   become: true
-  when: find_conf_files.matched > 0
+  when: letsencrypt_nginx_find_conf_files.matched > 0
 
 - name: Copy partial configurations
   ansible.builtin.copy:
     src: "{{ item }}"
-    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/partial/"
+    dest: "{{ letsencrypt_nginx_docker_required_volumes.config }}/partial/"
     mode: "0640"
     owner: root
     group: root
@@ -42,7 +42,7 @@
 - name: Copy default site configuration
   ansible.builtin.copy:
     src: 00-default.conf
-    dest: "{{ letsencryptnginx_docker_required_volumes.config }}/00-default.conf"
+    dest: "{{ letsencrypt_nginx_docker_required_volumes.config }}/00-default.conf"
     mode: "0640"
     owner: root
     group: root
@@ -52,23 +52,23 @@
 - name: Check if SSL certificates exist
   ansible.builtin.stat:
     path: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
       item.csr_common_name | default(item.domain) | replace('*', '_')
       }}.crt
-  loop: "{{ letsencryptnginx_websites }}"
-  register: check_crts
+  loop: "{{ letsencrypt_nginx_websites }}"
+  register: letsencrypt_nginx_check_crts
   become: true
 
 - name: Generate site configurations
   ansible.builtin.template:
     src: configuration.j2
     dest: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/{{
       item.item.domain }}.conf
     mode: "0640"
     owner: root
     group: root
     force: true # Overwrite if exists
-  loop: "{{ check_crts.results }}"
+  loop: "{{ letsencrypt_nginx_check_crts.results }}"
   become: true
   notify: Restart nginx

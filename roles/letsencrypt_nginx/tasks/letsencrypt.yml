@@ -1,31 +1,31 @@
 ---
 - name: Initiate Letsencrypt DNS or HTTP challenge
   community.crypto.acme_certificate:
-    account_email: "{{ letsencryptnginx_account_email }}"
+    account_email: "{{ letsencrypt_nginx_account_email }}"
     account_key_src: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/public.pem
-    acme_directory: "{{ letsencryptnginx_acme_directory_url }}"
-    acme_version: "{{ letsencryptnginx_acme_version }}"
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem
+    acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
+    acme_version: "{{ letsencrypt_nginx_acme_version }}"
     challenge: >-
       {% if item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
     csr: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr/{{
       item.csr_common_name | default(item.domain) | replace('*', '_') }}.csr
     # Set to `force: true` when switching between staging and production
     # force: true
     fullchain_dest: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
       item.csr_common_name | default(item.domain) | replace('*', '_') }}.crt
-    remaining_days: "{{ letsencryptnginx_remaining_days }}"
+    remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
     terms_agreed: true
-  loop: "{{ letsencryptnginx_websites }}"
-  register: challenge
+  loop: "{{ letsencrypt_nginx_websites }}"
+  register: letsencrypt_nginx_challenge
   when:
     - not item.use_selfsigned_certificate | default(false)
   become: true
 
 # - ansible.builtin.debug:
-#     var: challenge
+#     var: letsencrypt_nginx_challenge
 
 - name: Create DNS challenge TXT record
   community.general.cloudflare_dns:
@@ -40,8 +40,8 @@
       {{ item.challenge_data[item.item.csr_common_name
       | default(item.item.domain)]['dns-01'].resource_value }}
     zone: "{{ item.item.cloudflare_api_zone }}"
-  loop: "{{ challenge.results }}"
-  register: dns_record
+  loop: "{{ letsencrypt_nginx_challenge.results }}"
+  register: letsencrypt_nginx_dns_record
   when:
     - item is not skipped
     - item.changed
@@ -52,7 +52,7 @@
 
 - name: Debug DNS record result
   ansible.builtin.debug:
-    var: dns_record
+    var: letsencrypt_nginx_dns_record
 
 - name: Pause to allow DNS to update
   ansible.builtin.pause:
@@ -64,12 +64,12 @@
 - name: Create HTTP challenge resource directories
   ansible.builtin.file:
     path: >-
-      {{ letsencryptnginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
+      {{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
       item.challenge_data[item.item.csr_common_name
       | default(item.item.domain)]['http-01']['resource'] | dirname }}
     state: directory
     mode: "0755"
-  loop: "{{ challenge.results }}"
+  loop: "{{ letsencrypt_nginx_challenge.results }}"
   when:
     - item is not skipped
     - item.changed
@@ -81,15 +81,15 @@
 - name: Copy HTTP challenge resources
   ansible.builtin.copy:
     dest: >-
-      {{ letsencryptnginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
+      {{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
       item.challenge_data[item.item.csr_common_name
       | default(item.item.domain)]['http-01']['resource'] }}
     content: >-
       {{ item.challenge_data[item.item.csr_common_name
       | default(item.item.domain)]['http-01']['resource_value'] }}
     mode: "0644"
-  loop: "{{ challenge.results }}"
-  register: challege_http_resources
+  loop: "{{ letsencrypt_nginx_challenge.results }}"
+  register: letsencrypt_nginx_challege_http_resources
   when:
     - item is not skipped
     - item.changed
@@ -99,32 +99,32 @@
   become: true
 
 # - ansible.builtin.debug:
-#     var: challege_http_resources
+#     var: letsencrypt_nginx_challege_http_resources
 
 - name: Complete Letsencrypt challenge
   community.crypto.acme_certificate:
-    account_email: "{{ letsencryptnginx_account_email }}"
+    account_email: "{{ letsencrypt_nginx_account_email }}"
     account_key_src: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/key/public.pem
-    acme_directory: "{{ letsencryptnginx_acme_directory_url }}"
-    acme_version: "{{ letsencryptnginx_acme_version }}"
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem
+    acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
+    acme_version: "{{ letsencrypt_nginx_acme_version }}"
     challenge: >-
       {% if item.item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
     csr: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/csr/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr/{{
       item.item.csr_common_name | default(item.item.domain)
       | replace('*', '_') }}.csr
     data: "{{ item }}"
     # Set to `force: true` when switching between staging and production
     # force: true
     fullchain_dest: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
       item.item.csr_common_name | default(item.item.domain)
       | replace('*', '_') }}.crt
-    remaining_days: "{{ letsencryptnginx_remaining_days }}"
+    remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
     terms_agreed: true
-  loop: "{{ challenge.results }}"
-  register: complete_challenge
+  loop: "{{ letsencrypt_nginx_challenge.results }}"
+  register: letsencrypt_nginx_complete_challenge
   when:
     - item is not skipped
     - item.changed
@@ -132,4 +132,4 @@
   become: true
 
 # - ansible.builtin.debug:
-#     var: complete_challenge
+#     var: letsencrypt_nginx_complete_challenge

@@ -50,10 +50,10 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 
 ### Nginx
 
-Configure reverse proxies using [letsencrypt-nginx variables](../letsencrypt-nginx/defaults/main.yml):
+Configure reverse proxies using [letsencrypt_nginx variables](../letsencrypt_nginx/defaults/main.yml):
 
 ```yaml
-letsencryptnginx_websites:
+letsencrypt_nginx_websites:
   - domain: frigate.example.com
     proxy_port: 5000
     websocket_enabled: true

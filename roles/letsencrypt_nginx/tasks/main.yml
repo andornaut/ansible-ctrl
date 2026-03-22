@@ -1,6 +1,6 @@
 ---
 # - ansible.builtin.debug:
-#     var: letsencryptnginx_websites
+#     var: letsencrypt_nginx_websites
 
 - name: Initial setup
   tags:
