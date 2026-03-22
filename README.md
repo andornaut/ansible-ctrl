@@ -5,7 +5,7 @@ Provision workstations and servers using [Ansible](https://www.ansible.com/).
 ## Requirements
 
 - [Ansible](https://www.ansible.com/) >= 2.14.6
-- Ubuntu >= 22.04
+- Ubuntu >= 24.04
 
 ### Initial Setup
 
@@ -33,11 +33,12 @@ sudo apt install ansible
 ```bash
 $ make help
 Available targets:
-  help                  - Show this help message
   clean                 - Remove temporary role files
+  help                  - Show this help message
   requirements          - Install required Ansible roles and collections
 
 Playbook targets:
+  ai_maintainer         - Configure automated GitHub repository maintenance
   base                  - Configure base system
   bspwm                 - Configure BSPWM window manager
   desktop               - Configure desktop environment
@@ -49,7 +50,6 @@ Playbook targets:
   msmtp                 - Configure email forwarding
   nas                   - Configure NAS server
   niri                  - Configure Niri compositor
-  ai_maintainer         - Configure automated GitHub repository maintenance
   rsnapshot             - Configure rsnapshot backup
   upgrade               - Run system upgrades
   webservers            - Configure web servers
