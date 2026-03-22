@@ -20,8 +20,6 @@
       - autoconf
       - automake
       - autopoint
-      # Requires gettext v0.21 from Ubuntu hirsute
-      # https://github.com/marlam/msmtp-mirror/issues/55
       - gettext
       - gettext-base
       - libgnutls28-dev
@@ -62,8 +60,6 @@
     chdir: "{{ msmtp_build_dir.path }}"
   changed_when: true
 
-# This fails when using gettext versions <0.20,
-# which ship with Ubuntu releases prior to hirsute
 - name: Make msmtp
   community.general.make:
     chdir: "{{ msmtp_build_dir.path }}"
