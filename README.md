@@ -59,6 +59,24 @@ ansible-playbook --ask-become-pass desktop.yml --tags alacritty
 ansible-playbook --ask-become-pass dev.yml --tags hobbies
 ```
 
+## Roles
+
+| Role | Purpose |
+| --- | --- |
+| [ai_maintainer](roles/ai_maintainer/) | Automated GitHub repo maintenance via AI agent + cron |
+| [bspwm](roles/bspwm/) | BSPWM window manager |
+| [desktop](roles/desktop/) | Desktop environment (display manager, browser, fonts, themes) |
+| [dev](roles/dev/) | Development tools and programming languages |
+| [docker](roles/docker/) | Docker CE, Compose, optional Kubernetes |
+| [games](roles/games/) | Gaming packages via flatpak |
+| hobbies | 3D printing, electronics, FPV tools |
+| [homeautomation](roles/homeautomation/) | Home Assistant + related Docker containers |
+| [letsencrypt_nginx](roles/letsencrypt_nginx/) | NGINX reverse proxy with Let's Encrypt HTTPS |
+| [msmtp](roles/msmtp/) | Email forwarding via MSMTP |
+| [nas](roles/nas/) | Encrypted BTRFS RAID arrays (LUKS) |
+| [niri](roles/niri/) | Niri Wayland compositor |
+| [rsnapshot](roles/rsnapshot/) | Incremental backups with rsnapshot |
+
 ## Troubleshooting
 
 Upgrade all collections:
