@@ -1,0 +1,6 @@
+---
+exclude_paths:
+  - .roles/
+  - collections/
+skip_list:
+  - yaml[truthy]  # Allows `yes` in addition to `true`
