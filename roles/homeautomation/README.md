@@ -481,11 +481,8 @@ go2rtc:
 ### Custom Cards
 
 - [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
-- [Bubble card](https://github.com/Clooos/Bubble-Card)
 - [Button card](https://github.com/custom-cards/button-card/)
 - [Card mod](https://github.com/thomasloven/lovelace-card-mod)
-- [Layout card](https://github.com/thomasloven/lovelace-layout-card)
-- [Mini media player](https://github.com/kalkih/mini-media-player)
 - [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
 
 ### Integrations
