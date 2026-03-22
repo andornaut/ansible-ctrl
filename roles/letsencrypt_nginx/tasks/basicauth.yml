@@ -1,7 +1,7 @@
 ---
 - name: Create basicauth directory
   ansible.builtin.file:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
+    path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/basicauth"
     state: directory
     mode: "0755"
     owner: root
@@ -11,7 +11,7 @@
 - name: Configure basicauth .htpasswd files for main domains
   community.general.htpasswd:
     path: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/basicauth/{{
       item.0.domain }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
@@ -24,7 +24,7 @@
     - item.1.username is defined
     - item.1.password is defined
   with_subelements:
-    - "{{ letsencryptnginx_websites }}"
+    - "{{ letsencrypt_nginx_websites }}"
     - credentials
     - skip_missing: true
   become: true
@@ -32,7 +32,7 @@
 - name: Configure HTTP Basic Authentication for aliases
   community.general.htpasswd:
     path: >-
-      {{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/basicauth/{{
       item.0.file_basename }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
@@ -47,7 +47,7 @@
     - item.0.file_basename is defined
   with_subelements:
     - >-
-      {{ letsencryptnginx_websites
+      {{ letsencrypt_nginx_websites
       | selectattr('aliases', 'defined')
       | map(attribute='aliases')
       | flatten }}
@@ -57,16 +57,16 @@
 
 - name: Find all .htpasswd files
   ansible.builtin.find:
-    paths: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
+    paths: "{{ letsencrypt_nginx_docker_required_volumes.config }}/basicauth"
     patterns: "*.htpasswd"
-  register: existing_htpasswd_files
+  register: letsencrypt_nginx_existing_htpasswd_files
   become: true
 
 - name: Get list of valid htpasswd filenames
   ansible.builtin.set_fact:
-    valid_htpasswd_files: >-
-      {{ (letsencryptnginx_websites | map(attribute='domain') | list) +
-         (letsencryptnginx_websites
+    letsencrypt_nginx_valid_htpasswd_files: >-
+      {{ (letsencrypt_nginx_websites | map(attribute='domain') | list) +
+         (letsencrypt_nginx_websites
          | selectattr('aliases', 'defined')
          | map(attribute='aliases')
          | flatten
@@ -77,6 +77,6 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  when: item.path | basename | splitext | first not in valid_htpasswd_files
-  with_items: "{{ existing_htpasswd_files.files }}"
+  when: item.path | basename | splitext | first not in letsencrypt_nginx_valid_htpasswd_files
+  with_items: "{{ letsencrypt_nginx_existing_htpasswd_files.files }}"
   become: true
