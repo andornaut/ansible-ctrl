@@ -1,6 +1,6 @@
 ---
 - name: Create the partial directory
-  file:
+  ansible.builtin.file:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/partial"
     state: directory
     mode: "0750"
@@ -9,7 +9,7 @@
   become: true
 
 - name: Find existing .conf files
-  find:
+  ansible.builtin.find:
     paths: "{{ letsencryptnginx_docker_required_volumes.config }}"
     patterns: "*.conf"
     file_type: file
@@ -19,7 +19,7 @@
   become: true
 
 - name: Delete existing .conf files
-  file:
+  ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
   loop: "{{ find_conf_files.files }}"
@@ -27,7 +27,7 @@
   when: find_conf_files.matched > 0
 
 - name: Copy partial configurations
-  copy:
+  ansible.builtin.copy:
     src: "{{ item }}"
     dest: "{{ letsencryptnginx_docker_required_volumes.config }}/partial/"
     mode: "0640"
@@ -40,7 +40,7 @@
   become: true
 
 - name: Copy default site configuration
-  copy:
+  ansible.builtin.copy:
     src: 00-default.conf
     dest: "{{ letsencryptnginx_docker_required_volumes.config }}/00-default.conf"
     mode: "0640"
@@ -50,7 +50,7 @@
   become: true
 
 - name: Check if SSL certificates exist
-  stat:
+  ansible.builtin.stat:
     path: >-
       {{ letsencryptnginx_docker_required_volumes.config }}/ssl/crt/{{
       item.csr_common_name | default(item.domain) | replace('*', '_')
@@ -60,7 +60,7 @@
   become: true
 
 - name: Generate site configurations
-  template:
+  ansible.builtin.template:
     src: configuration.j2
     dest: >-
       {{ letsencryptnginx_docker_required_volumes.config }}/{{

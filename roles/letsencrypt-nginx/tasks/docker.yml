@@ -1,7 +1,7 @@
 ---
 - name: Ensure Docker volume directories exist
-  file:
-    path: "{{ item}}"
+  ansible.builtin.file:
+    path: "{{ item }}"
     state: directory
     mode: "0755"
     owner: root

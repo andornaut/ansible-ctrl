@@ -1,4 +1,5 @@
 ---
-- hosts: workstations
+- name: Apply games role
+  hosts: workstations
   roles:
     - games

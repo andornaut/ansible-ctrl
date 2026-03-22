@@ -1,6 +1,6 @@
 ---
 - name: Install dunst build dependencies
-  apt:
+  ansible.builtin.apt:
     name:
       - libdbus-1-dev
       - libglib2.0-dev
@@ -12,7 +12,7 @@
       - libxinerama-dev
       - libxrandr-dev
       - libxss-dev
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
@@ -22,34 +22,36 @@
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory
-      register: dunst_tmp
+      register: desktop_dunst_tmp
 
     - name: Get releases of dunst
       ansible.builtin.uri:
         url: https://api.github.com/repos/dunst-project/dunst/releases
         return_content: true
-      register: dunst_releases
+      register: desktop_dunst_releases
 
     - name: Set dunst version to latest stable release
       ansible.builtin.set_fact:
-        dunst_version: "{{ (dunst_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        desktop_dunst_version: >-
+          {{ (desktop_dunst_releases.json | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false) | list | first).tag_name }}
 
-    - name: Download and unarchive dunst {{ dunst_version }}
+    - name: Download and unarchive dunst {{ desktop_dunst_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/dunst-project/dunst/archive/refs/tags/{{ dunst_version }}.tar.gz"
-        dest: "{{ dunst_tmp.path }}"
+        src: "https://github.com/dunst-project/dunst/archive/refs/tags/{{ desktop_dunst_version }}.tar.gz"
+        dest: "{{ desktop_dunst_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
     - name: Build dunst
-      make:
-        chdir: "{{ dunst_tmp.path }}"
+      community.general.make:
+        chdir: "{{ desktop_dunst_tmp.path }}"
       become: true
 
     - name: Install dunst
-      make:
-        chdir: "{{ dunst_tmp.path }}"
+      community.general.make:
+        chdir: "{{ desktop_dunst_tmp.path }}"
         target: install
       become: true

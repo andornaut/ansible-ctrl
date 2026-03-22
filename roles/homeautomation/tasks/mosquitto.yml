@@ -1,6 +1,7 @@
 ---
 - name: Copy mosquitto.conf
-  copy:
+  ansible.builtin.copy:
     src: mosquitto/mosquitto.conf
     dest: "{{ homeautomation_mosquitto_required_volumes.config }}/"
+    mode: "0644"
   become: true

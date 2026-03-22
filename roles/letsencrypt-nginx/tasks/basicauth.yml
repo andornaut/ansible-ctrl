@@ -1,6 +1,6 @@
 ---
 - name: Create basicauth directory
-  file:
+  ansible.builtin.file:
     path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
     state: directory
     mode: "0755"
@@ -9,8 +9,10 @@
   become: true
 
 - name: Configure basicauth .htpasswd files for main domains
-  htpasswd:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.domain }}.htpasswd"
+  community.general.htpasswd:
+    path: >-
+      {{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{
+      item.0.domain }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
     mode: "0644"
@@ -24,12 +26,14 @@
   with_subelements:
     - "{{ letsencryptnginx_websites }}"
     - credentials
-    - skip_missing: True
+    - skip_missing: true
   become: true
 
 - name: Configure HTTP Basic Authentication for aliases
-  htpasswd:
-    path: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{ item.0.file_basename }}.htpasswd"
+  community.general.htpasswd:
+    path: >-
+      {{ letsencryptnginx_docker_required_volumes.config }}/basicauth/{{
+      item.0.file_basename }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
     mode: "0640"
@@ -42,26 +46,35 @@
     - item.1.password is defined
     - item.0.file_basename is defined
   with_subelements:
-    - "{{ letsencryptnginx_websites | selectattr('aliases','defined') | map(attribute='aliases') | flatten }}"
+    - >-
+      {{ letsencryptnginx_websites
+      | selectattr('aliases', 'defined')
+      | map(attribute='aliases')
+      | flatten }}
     - credentials
-    - skip_missing: True
+    - skip_missing: true
   become: true
 
 - name: Find all .htpasswd files
-  find:
+  ansible.builtin.find:
     paths: "{{ letsencryptnginx_docker_required_volumes.config }}/basicauth"
     patterns: "*.htpasswd"
   register: existing_htpasswd_files
   become: true
 
 - name: Get list of valid htpasswd filenames
-  set_fact:
+  ansible.builtin.set_fact:
     valid_htpasswd_files: >-
       {{ (letsencryptnginx_websites | map(attribute='domain') | list) +
-         (letsencryptnginx_websites | selectattr('aliases','defined') | map(attribute='aliases') | flatten | map(attribute='file_basename') | list) }}
+         (letsencryptnginx_websites
+         | selectattr('aliases', 'defined')
+         | map(attribute='aliases')
+         | flatten
+         | map(attribute='file_basename')
+         | list) }}
 
 - name: Remove obsolete .htpasswd files
-  file:
+  ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
   when: item.path | basename | splitext | first not in valid_htpasswd_files

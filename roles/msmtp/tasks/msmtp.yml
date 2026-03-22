@@ -1,6 +1,6 @@
 ---
 - name: Uninstall MTAs
-  apt:
+  ansible.builtin.apt:
     name:
       - exim
       # Uninstall old version of msmtp
@@ -13,7 +13,7 @@
   become: true
 
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - s-nail
       # msmtp build dependencies
@@ -32,90 +32,93 @@
       - pkg-config
       - texinfo
     install_recommends: false
-    state: latest
+    state: present
     update_cache: true
   become: true
 
 - name: Create temporary build directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
     suffix: msmtp
-  register: build_dir
+  register: msmtp_build_dir
 
 - name: Clone msmtp git repository
-  git:
+  ansible.builtin.git:
     repo: https://git.marlam.de/git/msmtp.git
-    dest: "{{ build_dir.path }}"
+    dest: "{{ msmtp_build_dir.path }}"
     depth: 1
     force: true
+    version: master
 
 - name: Autoreconf msmtp
-  command:
+  ansible.builtin.command:
     cmd: autoreconf -i --force
-    chdir: "{{ build_dir.path }}"
+    chdir: "{{ msmtp_build_dir.path }}"
+  changed_when: true
 
 - name: Configure msmtp
-  command:
+  ansible.builtin.command:
     cmd: ./configure --sysconfdir=/etc
-    chdir: "{{ build_dir.path }}"
+    chdir: "{{ msmtp_build_dir.path }}"
+  changed_when: true
 
 # This fails when using gettext versions <0.20,
 # which ship with Ubuntu releases prior to hirsute
 - name: Make msmtp
-  make:
-    chdir: "{{ build_dir.path }}"
+  community.general.make:
+    chdir: "{{ msmtp_build_dir.path }}"
 
 - name: Make install msmtp
-  make:
-    chdir: "{{ build_dir.path }}"
+  community.general.make:
+    chdir: "{{ msmtp_build_dir.path }}"
     target: install
   become: true
 
 - name: Copy msmtp config file
-  template:
+  ansible.builtin.template:
     src: msmtprc
     dest: /etc/
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   become: true
 
 - name: Copy /etc/aliases
-  template:
+  ansible.builtin.template:
     src: aliases
     dest: /etc/
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   become: true
 
 - name: Copy /etc/mailname
-  template:
+  ansible.builtin.template:
     src: mailname
     dest: /etc/
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   become: true
 
 - name: Copy /etc/mail.rc
-  copy:
+  ansible.builtin.copy:
     src: mail.rc
     dest: /etc/
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   become: true
 
 - name: Set msmtp as sendmail MTA in s-nail
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/s-nail.rc
     regexp: '^set sendmail'
     line: 'set sendmail="/usr/local/bin/msmtp"'
   become: true
 
 - name: Link sendmail to msmtp
-  file:
+  ansible.builtin.file:
     src: /usr/local/bin/msmtp
     dest: /usr/sbin/sendmail
     force: true
@@ -125,6 +128,6 @@
   become: true
 
 - name: Cleanup build directory
-  file:
-    path: "{{ build_dir.path }}"
+  ansible.builtin.file:
+    path: "{{ msmtp_build_dir.path }}"
     state: absent

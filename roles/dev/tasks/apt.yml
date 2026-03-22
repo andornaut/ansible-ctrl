@@ -1,6 +1,6 @@
 ---
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - gh
       - git
@@ -14,7 +14,7 @@
       - mysql-client
       - postgresql-client
       - xserver-xephyr
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true

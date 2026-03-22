@@ -1,20 +1,22 @@
 ---
 - name: Set up website directories
+  become: true
   block:
     - name: Ensure .config/git directory exists
-      file:
+      ansible.builtin.file:
         path: "~/.config/git"
         state: directory
         mode: "0755"
 
     - name: Add .well-known to global gitignore
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "~/.config/git/ignore"
         line: ".well-known/"
-        create: yes
+        create: true
+        mode: "0644"
 
     - name: Create www directories
-      file:
+      ansible.builtin.file:
         path: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
         state: directory
         mode: u=rwX,g=rX,o=rX # Directories: 755, Files: 644
@@ -23,13 +25,12 @@
       loop: "{{ letsencryptnginx_websites }}"
 
     - name: Clone Git repositories
-      git:
+      ansible.builtin.git:
         repo: "{{ item.repo }}"
         dest: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
-        version: "{{ item.version|default('HEAD') }}"
+        version: "{{ item.version | default('HEAD') }}"
         update: true # Always update to latest
         depth: 1
       loop: "{{ letsencryptnginx_websites }}"
       register: git_clone
       when: item.repo is defined
-  become: true

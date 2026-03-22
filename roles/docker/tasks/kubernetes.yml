@@ -1,19 +1,24 @@
 ---
 - name: Install Kubernetes Tools
+  become: true
   block:
     - name: Get releases of helm
-      uri:
+      ansible.builtin.uri:
         url: https://api.github.com/repos/helm/helm/releases
         return_content: true
-      register: helm_releases
+      register: docker_helm_releases
 
     - name: Set helm version to latest stable release
-      set_fact:
-        helm_version: "{{ (helm_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+      ansible.builtin.set_fact:
+        docker_helm_version: >-
+          {{ (docker_helm_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
     - name: Install helm binary
-      unarchive:
-        src: https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz
+      ansible.builtin.unarchive:
+        src: "https://get.helm.sh/helm-{{ docker_helm_version }}-linux-amd64.tar.gz"
         dest: /usr/local/bin/
         extra_opts:
           - "--strip-components=1"
@@ -21,25 +26,24 @@
           - LICENSE
           - README.md
         remote_src: true
-        #creates: /usr/local/bin/helm
+        # creates: /usr/local/bin/helm
 
     - name: Get latest kubectl version
-      uri:
+      ansible.builtin.uri:
         url: "https://storage.googleapis.com/kubernetes-release/release/stable.txt"
         return_content: true
-      register: kubectl_version
+      register: docker_kubectl_version
 
     - name: Install kubectl binary
-      get_url:
-        url: "https://dl.k8s.io/release/{{ kubectl_version.content }}/bin/linux/amd64/kubectl"
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/amd64/kubectl"
         dest: /usr/local/bin/kubectl
         mode: "0755"
-        #creates: /usr/local/bin/kubectl
+        # creates: /usr/local/bin/kubectl
 
     - name: Install minikube binary
-      get_url:
+      ansible.builtin.get_url:
         url: "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
         dest: /usr/local/bin/minikube
         mode: "0755"
-        #creates: /usr/local/bin/minikube
-  become: true
+        # creates: /usr/local/bin/minikube

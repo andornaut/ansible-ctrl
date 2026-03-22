@@ -1,6 +1,6 @@
 ---
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - dex
       - libasound2-dev
@@ -20,13 +20,13 @@
       - libxft-dev
       - libxinerama-dev
       - libxpm-dev
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Clone BSPWM git repositories
-  git:
+  ansible.builtin.git:
     repo: "{{ item.repo }}"
     dest: /tmp/{{ item.name }}.git
     depth: 1
@@ -35,29 +35,30 @@
   loop: "{{ bspwm_projects }}"
 
 - name: Make BSPWM projects
-  make:
+  community.general.make:
     chdir: /tmp/{{ item.name }}.git
-  loop: "{{ bspwm_projects  }}"
+  loop: "{{ bspwm_projects }}"
 
 - name: Make install BSPWM projects
-  make:
+  community.general.make:
     chdir: /tmp/{{ item.name }}.git
     target: install
-  loop: "{{ bspwm_projects  }}"
+  loop: "{{ bspwm_projects }}"
   ignore_errors: true # Ignore "cp: cannot create regular file ... Text file busy"
-  register: r
+  register: bspwm_make_result
   become: true
 
 - name: Install bspwm.desktop file
-  copy:
+  ansible.builtin.copy:
     src: bspwm.desktop
     dest: /usr/local/share/xsessions/
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   become: true
 
 - name: Ensure that the 'Make install BSPWM projects' play succeeded or failed with 'file busy'
-  fail: msg="The 'Make install BSPWM projects' play failed"
+  ansible.builtin.fail:
+    msg: "The 'Make install BSPWM projects' play failed"
   when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
-  loop: "{{r.results}}"
+  loop: "{{ bspwm_make_result.results }}"

@@ -2,22 +2,23 @@
 - name: Configure lightdm
   block:
     - name: Install lightdm package
-      apt:
+      ansible.builtin.apt:
         name: lightdm
-        state: latest
+        state: present
         install_recommends: false
         update_cache: true
       become: true
 
     - name: Enable lightdm service
-      command: dpkg-reconfigure lightdm
+      ansible.builtin.command: dpkg-reconfigure lightdm
       become: true
+      changed_when: true
       # lightdm uses a sysvinit init script, so cannot be enabled directly.
       # The ubuntu package creates a symlink to /etc/systemd/system/display-manager.service,
       # which may need to be recreated if its been deleted by the ly.yml task (when switching DMs).
 
     - name: Enable getty on tty2
-      systemd_service:
+      ansible.builtin.systemd_service:
         name: getty@tty2.service
         daemon_reload: true
         enabled: true

@@ -1,4 +1,5 @@
 ---
-- hosts: workstations
+- name: Apply niri role
+  hosts: workstations
   roles:
     - niri

@@ -1,10 +1,10 @@
 ---
 - name: Install steam-devices apt package
-  apt:
+  ansible.builtin.apt:
     name:
       # Configures udev rules to support gamepads, etc.
       - steam-devices
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
@@ -22,7 +22,8 @@
 
 - name: Override cursor theme for flatpak GUI applications
   # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-  command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+  ansible.builtin.command:
+    cmd: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
   loop:
     - com.heroicgameslauncher.hgl
     - com.valvesoftware.Steam
@@ -30,3 +31,4 @@
     - net.lutris.Lutris
     - org.libretro.RetroArch
     - org.openjkdf2.OpenJKDF2
+  changed_when: false

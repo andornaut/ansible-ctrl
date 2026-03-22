@@ -1,87 +1,106 @@
 ---
-- import_tasks: apt.yml
+- name: Install common system packages
+  ansible.builtin.import_tasks: apt.yml
 
 - name: Configure display manager
+  tags: display-manager
   block:
     - name: Validate display manager configuration
-      assert:
+      ansible.builtin.assert:
         that:
           - (desktop_install_lightdm | int) + (desktop_install_ly | int) + (desktop_install_lemurs | int) <= 1
-        fail_msg: "Only one display manager can be installed at a time. Please enable only one of: desktop_install_lightdm, desktop_install_ly, desktop_install_lemurs"
+        fail_msg: >-
+          Only one display manager can be installed at a time.
+          Please enable only one of: desktop_install_lightdm, desktop_install_ly, desktop_install_lemurs
         success_msg: Display manager configuration is valid
 
     - name: Set display manager services to disable
-      set_fact:
-        display_managers_to_disable:
+      ansible.builtin.set_fact:
+        desktop_display_managers_to_disable:
           - gdm3
           - "{{ 'lemurs' if not desktop_install_lemurs else '' }}"
           - "{{ 'lightdm' if not desktop_install_lightdm else '' }}"
           - "{{ 'ly' if not desktop_install_ly else '' }}"
 
     - name: Disable other display manager services
-      systemd_service:
+      ansible.builtin.systemd_service:
         name: "{{ item }}"
         daemon_reload: true
         enabled: false
         masked: true
-      ignore_errors: true
-      loop: "{{ display_managers_to_disable | reject('equalto', '') | list }}"
+      failed_when: false
+      loop: "{{ desktop_display_managers_to_disable | reject('equalto', '') | list }}"
       become: true
 
     - name: Remove display-manager.service symlink
-      file:
+      ansible.builtin.file:
         path: /etc/systemd/system/display-manager.service
         state: absent
       become: true
 
-    - import_tasks: lemurs.yml
+    - name: Install and configure lemurs display manager
+      ansible.builtin.import_tasks: lemurs.yml
       when: desktop_install_lemurs
 
-    - import_tasks: lightdm.yml
+    - name: Configure lightdm
+      ansible.builtin.import_tasks: lightdm.yml
       when: desktop_install_lightdm
 
-    - import_tasks: ly.yml
+    - name: Install and configure ly display manager
+      ansible.builtin.import_tasks: ly.yml
       when: desktop_install_ly
-  tags: display-manager
 
 - name: Configure system applications
   block:
-    - import_tasks: alacritty.yml
+    - name: Configure Alacritty
+      ansible.builtin.import_tasks: alacritty.yml
       tags: alacritty
 
-    - import_tasks: chrome.yml
+    - name: Configure Google Chrome
+      ansible.builtin.import_tasks: chrome.yml
       tags: chrome
 
-    - import_tasks: dconf.yml
+    - name: Configure dconf
+      ansible.builtin.import_tasks: dconf.yml
       tags: dconf
 
-    - import_tasks: dunst.yml
+    - name: Configure dunst
+      ansible.builtin.import_tasks: dunst.yml
       tags: dunst
 
-    - import_tasks: eww.yml
+    - name: Configure eww
+      ansible.builtin.import_tasks: eww.yml
       tags: eww
 
-    - import_tasks: firefox.yml
+    - name: Configure Firefox
+      ansible.builtin.import_tasks: firefox.yml
       tags: firefox
 
-    - import_tasks: flatpak.yml
+    - name: Configure flatpak
+      ansible.builtin.import_tasks: flatpak.yml
       tags: flatpak
 
-    - import_tasks: fonts.yml
+    - name: Configure fonts
+      ansible.builtin.import_tasks: fonts.yml
       tags: fonts
 
-    - import_tasks: grub.yml
+    - name: Configure GRUB
+      ansible.builtin.import_tasks: grub.yml
       tags: grub
 
-    - import_tasks: insync.yml
+    - name: Configure Insync
+      ansible.builtin.import_tasks: insync.yml
       tags: insync
       when: desktop_install_insync
 
-    - import_tasks: lact.yml
+    - name: Configure LACT
+      ansible.builtin.import_tasks: lact.yml
       tags: lact
 
-    - import_tasks: pavolume.yml
+    - name: Configure pavolume
+      ansible.builtin.import_tasks: pavolume.yml
       tags: pavolume
 
-    - import_tasks: rofi.yml
+    - name: Configure rofi
+      ansible.builtin.import_tasks: rofi.yml
       tags: rofi

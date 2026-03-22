@@ -1,13 +1,14 @@
 ---
-- hosts: all
+- name: Upgrade all packages
+  hosts: all
   tasks:
-    - name: apt autoremove, clean, and dist-upgrade
-      apt:
+    - name: Apt autoremove, clean, and dist-upgrade
+      ansible.builtin.apt:
         autoclean: true
         autoremove: true
         clean: true
         purge: true
-        update_cache: yes
+        update_cache: true
         upgrade: dist
       become: true
 
@@ -17,8 +18,10 @@
     - name: Upgrade flatpak system packages
       ansible.builtin.command: flatpak --noninteractive --system upgrade
       become: true
+      changed_when: true
       when: "'flatpak' in ansible_facts.packages"
 
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
+      changed_when: true
       when: "'flatpak' in ansible_facts.packages"

@@ -2,46 +2,48 @@
 - name: System dependencies
   block:
     - name: Install system dependencies
-      apt:
+      ansible.builtin.apt:
         name:
           - btrfsmaintenance
           - libblockdev-mdraid3
-        state: latest
+        state: present
         install_recommends: false
         update_cache: true
       become: true
 
 - name: USB configuration
+  when: false
   block:
     - name: Check if usb_modeswitch.conf exists
-      stat:
+      ansible.builtin.stat:
         path: /etc/usb_modeswitch.conf
-      register: stat_usb_modeswitch
+      register: nas_stat_usb_modeswitch
 
     - name: Workaround usb modeswitching bug
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/usb_modeswitch.conf
         line: "DisableSwitching=1"
         regex: "^#?\\s*DisableSwitching\\s*"
-      when: stat_usb_modeswitch.stat.exists
+      when: nas_stat_usb_modeswitch.stat.exists
       become: true
   # TODO: This is disabled, b/c the workaround may no longer be necessary
   # See:
   # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
   # https://ubuntuforums.org/archive/index.php/t-1551985.html
-  when: false
 
 - name: Storage setup
+  become: true
   block:
     - name: Create RAID mount directory
-      file:
+      ansible.builtin.file:
         path: "{{ nas_raid_mount_directory }}"
         owner: root
         group: "{{ nas_raid_group }}"
         state: directory
+        mode: "0755"
 
     - name: Update crypttab for nas_raid_devices
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/crypttab
         line: "nas{{ index }} {{ item }} {{ nas_key_file }} luks,noauto"
         regexp: "^nas{{ index }}"
@@ -50,40 +52,62 @@
         index_var: index
       notify: Reload systemd
 
-    - name: Update fstab for nas_raid_devices
-      lineinfile:
+    - name: Update fstab for nas_raid_devices  # noqa: yaml[line-length]
+      ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "/dev/mapper/nas0 {{ nas_raid_mount_directory }} {{ nas_raid_fs_type }} {{ nas_raid_fs_defaults }},{% for i in range(nas_raid_devices|length) %}{% if nas_raid_fs_type == 'btrfs' %}device=/dev/mapper/nas{{ i }},{% endif %}x-systemd.after=blockdev@dev-mapper-nas{{ i }}.target,x-systemd.requires=dev-mapper-nas{{ i }}.device,x-systemd.requires-mounts-for=/dev/mapper/nas{{ i }}{% if i < (nas_raid_devices|length -1) %},{% endif %}{% endfor %},x-systemd.device-timeout=20s 0 0"
+        line: >-
+          /dev/mapper/nas0 {{ nas_raid_mount_directory }} {{ nas_raid_fs_type }}
+          {{ nas_raid_fs_defaults }},{% for i in range(nas_raid_devices | length) %}{% if
+          nas_raid_fs_type == 'btrfs' %}device=/dev/mapper/nas{{ i }},{% endif
+          %}x-systemd.after=blockdev@dev-mapper-nas{{ i }}.target,x-systemd.requires=dev-mapper-nas{{
+          i }}.device,x-systemd.requires-mounts-for=/dev/mapper/nas{{ i }}{% if i < (nas_raid_devices
+          | length - 1) %},{% endif %}{% endfor %},x-systemd.device-timeout=20s
+          0 0
         regexp: "^/dev/mapper/nas0"
       notify: Reload systemd
-  become: true
 
 - name: Backup configuration
+  become: true
+  when: nas_backup_devices is defined and nas_backup_devices | length > 0
+  tags: backupnas
   block:
     - name: Create backup mount directories
-      file:
+      ansible.builtin.file:
         path: "{{ nas_backup_mount_directory }}{{ '' if index == 0 else index + 1 }}"
         owner: root
         group: root
         state: directory
+        mode: "0755"
       loop: "{{ nas_backup_devices }}"
       loop_control:
         index_var: index
 
     - name: Update crypttab for nas_backup_devices
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/crypttab
-        line: "{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }} {{ item }} {{ nas_key_file }} luks,noauto"
+        line: >-
+          {{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}
+          {{ item }} {{ nas_key_file }} luks,noauto
         regexp: "^{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}\\s"
       loop: "{{ nas_backup_devices }}"
       loop_control:
         index_var: index
       notify: Reload systemd
 
-    - name: Update fstab for nas_backup_devices
-      lineinfile:
+    - name: Update fstab for nas_backup_devices  # noqa: yaml[line-length]
+      ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }} {{ nas_backup_mount_directory }}{{ '' if index == 0 else index + 1 }} {{ nas_backup_fs_type }} {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}.target,x-systemd.requires=dev-mapper-{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}.device,x-systemd.requires-mounts-for=/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }},x-systemd.device-timeout=20s 0 0"
+        line: >-
+          /dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}
+          {{ nas_backup_mount_directory }}{{ '' if index == 0 else index + 1 }}
+          {{ nas_backup_fs_type }}
+          {{ nas_backup_fs_defaults }},x-systemd.after=blockdev@dev-mapper-{{
+          nas_backup_device_name }}{{ '' if index == 0 else index + 1
+          }}.target,x-systemd.requires=dev-mapper-{{ nas_backup_device_name }}{{
+          '' if index == 0 else index + 1 }}.device,x-systemd.requires-mounts-for=/dev/mapper/{{
+          nas_backup_device_name }}{{ '' if index == 0 else index + 1
+          }},x-systemd.device-timeout=20s
+          0 0
         regexp: "^/dev/mapper/{{ nas_backup_device_name }}{{ '' if index == 0 else index + 1 }}\\s"
       loop: "{{ nas_backup_devices }}"
       loop_control:
@@ -91,27 +115,26 @@
       notify: Reload systemd
 
     - name: Install backupnas script
-      template:
+      ansible.builtin.template:
         src: backupnas
         dest: /usr/local/bin/
-        mode: 0755
-  become: true
-  when: nas_backup_devices is defined and nas_backup_devices | length > 0
-  tags: backupnas
+        mode: "0755"
 
 - name: Security and systemd configuration
+  become: true
   block:
     - name: Secure key_file ownership
-      file:
+      ansible.builtin.file:
         path: "{{ nas_key_file }}"
         owner: root
         group: root
         mode: "0400"
 
     - name: Install nas-luks-key.path
-      template:
+      ansible.builtin.template:
         src: nas-luks-key.path
         dest: /etc/systemd/system/
+        mode: "0644"
       notify: Reload systemd
 
     - name: Enable nas-luks-key.path
@@ -121,4 +144,3 @@
         masked: false
         state: started
       notify: Reload systemd
-  become: true

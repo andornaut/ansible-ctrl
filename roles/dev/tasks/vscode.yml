@@ -1,6 +1,6 @@
 ---
 - name: Install Visual Studio Code
-  apt:
+  ansible.builtin.apt:
     deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
     update_cache: true
   become: true

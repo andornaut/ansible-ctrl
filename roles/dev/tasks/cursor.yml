@@ -2,13 +2,14 @@
 - name: Get latest Cursor AppImage download URL
   ansible.builtin.uri:
     url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
-    return_content: yes
-  register: api_response
+    return_content: true
+  register: dev_cursor_api_response
 
 - name: Download Cursor
-  get_url:
-    url: "{{ api_response.json.downloadUrl }}"
+  ansible.builtin.get_url:
+    url: "{{ dev_cursor_api_response.json.downloadUrl }}"
     dest: /usr/local/bin/cursor
+    mode: "0755"
   become: true
 
 - name: Make Cursor executable
@@ -27,12 +28,14 @@
       kernel.apparmor_restrict_unprivileged_userns = 0
     create: true
     path: /etc/sysctl.d/20-apparmor-donotrestrict.conf
+    mode: "0644"
   become: true
 
 - name: Download Cursor icon
-  get_url:
+  ansible.builtin.get_url:
     url: "https://www.cursor.so/brand/icon.svg"
     dest: "/usr/share/icons/cursor.svg"
+    mode: "0644"
   become: true
 
 - name: Create cursor.desktop
@@ -52,4 +55,5 @@
       Categories=Utility;Development
     create: true
     path: /usr/share/applications/cursor.desktop
+    mode: "0644"
   become: true

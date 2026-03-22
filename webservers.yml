@@ -3,8 +3,8 @@
   hosts: webservers
   roles:
     # Uncomment the `base` and `docker` on the first run
-    #- base
-    #- docker
+    # - base
+    # - docker
     - letsencrypt-nginx
   tags:
     - nginx

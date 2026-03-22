@@ -3,20 +3,4 @@ exclude_paths:
   - .roles/
   - collections/
 skip_list:
-  - command-instead-of-shell  # Shell used for cmake builds with $(nproc) expansion
-  - fqcn[action-core]  # Not using FQCN for builtin modules throughout the project
-  - fqcn[action]  # Community modules (make, dconf, alternatives) used without FQCN
-  - jinja[invalid]  # Jinja2 template rewrite recommendations
-  - jinja[spacing]  # Minor Jinja2 spacing inconsistencies
-  - key-order[task]  # Existing task key ordering varies across roles
-  - name[casing]  # Existing task names use lowercase
-  - name[play]  # Some plays are unnamed
-  - no-changed-when  # Command tasks used for upgrades and validation
-  - no-handler  # Some notify-like patterns use `when: changed` instead of handlers
-  - package-latest  # Intentionally installing latest versions
-  - risky-file-permissions  # Permissions set where needed, not on every file task
-  - var-naming[no-role-prefix]  # Register variables don't use role prefix across roles
-  - yaml[comments]  # Commented-out role entries use `#-` without space
-  - yaml[line-length]  # Some long Jinja2 expressions exceed 160 chars
-  - yaml[octal-values]  # Existing octal permissions use implicit format
-  - yaml[truthy]  # Allows `yes` in addition to `true`
+  - role-name  # ai-maintainer and letsencrypt-nginx have hyphens; renaming would be a large refactor

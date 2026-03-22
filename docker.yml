@@ -1,4 +1,5 @@
 ---
-- hosts: webservers:workstations
+- name: Apply docker role
+  hosts: webservers:workstations
   roles:
     - docker

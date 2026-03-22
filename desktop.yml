@@ -1,4 +1,5 @@
 ---
-- hosts: workstations
+- name: Apply desktop role
+  hosts: workstations
   roles:
     - desktop

@@ -2,14 +2,14 @@
 - name: Install system fonts
   block:
     - name: Install font packages
-      apt:
+      ansible.builtin.apt:
         name:
           - fonts-dejavu
           - fonts-hack
           - fonts-ubuntu-console
           - ttf-mscorefonts-installer
           - xfonts-terminus
-        state: latest
+        state: present
         install_recommends: false
         update_cache: true
       become: true
@@ -17,7 +17,7 @@
     - name: Configure Microsoft fonts
       block:
         - name: Accept mscorefonts EULA
-          debconf:
+          ansible.builtin.debconf:
             name: ttf-mscorefonts-installer
             question: msttcorefonts/accepted-mscorefonts-eula
             vtype: select
@@ -25,9 +25,9 @@
           become: true
 
         - name: Install mscorefonts
-          apt:
+          ansible.builtin.apt:
             name: ttf-mscorefonts-installer
-            state: latest
+            state: present
             install_recommends: false
           notify: Update font cache
           become: true
@@ -35,36 +35,42 @@
 - name: Install Source Code Pro font
   block:
     - name: Get releases of Source Code Pro
-      uri:
+      ansible.builtin.uri:
         url: https://api.github.com/repos/adobe-fonts/source-code-pro/releases
         return_content: true
-      register: source_code_pro_releases
+      register: desktop_source_code_pro_releases
 
     - name: Set Source Code Pro to latest stable release
-      set_fact:
-        source_code_pro_release: "{{ source_code_pro_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+      ansible.builtin.set_fact:
+        desktop_source_code_pro_release: >-
+          {{ desktop_source_code_pro_releases.json | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false) | list | first }}
 
     - name: Set Source Code Pro download URL fact
-      set_fact:
-        source_code_pro_url: "{{ (source_code_pro_release.assets | selectattr('name', 'match', '.*TTF.*.zip') | first).browser_download_url }}"
+      ansible.builtin.set_fact:
+        desktop_source_code_pro_url: >-
+          {{ (desktop_source_code_pro_release.assets
+          | selectattr('name', 'match', '.*TTF.*.zip') | first).browser_download_url }}
 
     - name: Create temporary directory
       ansible.builtin.file:
         path: /tmp/source-code-pro
         state: directory
+        mode: "0755"
 
     - name: Download and extract Source Code Pro package
-      unarchive:
-        src: "{{ source_code_pro_url }}"
+      ansible.builtin.unarchive:
+        src: "{{ desktop_source_code_pro_url }}"
         dest: /tmp/source-code-pro/
         remote_src: true
         creates: /tmp/source-code-pro/LICENSE.md
 
     - name: Install Source Code Pro font files
-      copy:
+      ansible.builtin.copy:
         src: /tmp/source-code-pro/
         dest: /usr/share/fonts/truetype/source-code-pro
         remote_src: true
+        mode: "0644"
       delegate_to: "{{ inventory_hostname }}"
       notify: Update font cache
       become: true

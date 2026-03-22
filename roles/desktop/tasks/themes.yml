@@ -1,6 +1,6 @@
 ---
 - name: Install themes system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - adwaita-icon-theme
       - gnome-themes-extra
@@ -14,7 +14,7 @@
       - numix-icon-theme
       - paper-icon-theme
       - papirus-icon-theme
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true

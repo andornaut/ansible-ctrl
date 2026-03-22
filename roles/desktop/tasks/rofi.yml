@@ -1,6 +1,6 @@
 ---
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - bison
       - flex
@@ -9,49 +9,54 @@
       - libxkbcommon-x11-dev
       - meson-1.5
       - ninja-build
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Create a temporary directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
-  register: rofi_tmp
+  register: desktop_rofi_tmp
 
 # Fork of rofi that supports Wayland:
 # https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
 - name: Get releases of rofi
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/lbonn/rofi/releases
     return_content: true
-  register: rofi_releases
+  register: desktop_rofi_releases
 
 - name: Set rofi version to latest stable release
-  set_fact:
-    rofi_version: "{{ (rofi_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+  ansible.builtin.set_fact:
+    desktop_rofi_version: >-
+      {{ (desktop_rofi_releases.json | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false) | list | first).tag_name }}
 
 - name: Download and unarchive rofi
   ansible.builtin.unarchive:
-    src: https://github.com/lbonn/rofi/releases/download/{{ rofi_version }}/rofi-{{ rofi_version }}.tar.xz
-    dest: "{{ rofi_tmp.path }}"
+    src: "https://github.com/lbonn/rofi/releases/download/{{ desktop_rofi_version }}/rofi-{{ desktop_rofi_version }}.tar.xz"
+    dest: "{{ desktop_rofi_tmp.path }}"
     remote_src: true
     extra_opts:
       - --strip-components
       - 1
 
 - name: Configure rofi build
-  command:
+  ansible.builtin.command:
     cmd: meson setup build
-    chdir: "{{ rofi_tmp.path }}"
+    chdir: "{{ desktop_rofi_tmp.path }}"
+  changed_when: true
 
 - name: Build rofi
-  command:
+  ansible.builtin.command:
     cmd: ninja -C build
-    chdir: "{{ rofi_tmp.path }}"
+    chdir: "{{ desktop_rofi_tmp.path }}"
+  changed_when: true
 
 - name: Install rofi
-  command:
+  ansible.builtin.command:
     cmd: ninja -C build install
-    chdir: "{{ rofi_tmp.path }}"
+    chdir: "{{ desktop_rofi_tmp.path }}"
   become: true
+  changed_when: true

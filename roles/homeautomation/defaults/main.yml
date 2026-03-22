@@ -49,7 +49,7 @@ homeautomation_hamcp_env: {}
 homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
 homeautomation_hamcp_port: 8086
 # Long-lived access token for Home Assistant API authentication
-# Generate at: Home Assistant → Profile → Security → Long-lived access tokens → Create token
+# Generate at: Home Assistant -> Profile -> Security -> Long-lived access tokens -> Create token
 homeautomation_hamcp_token: ""
 homeautomation_install_hamcp: false
 
@@ -69,7 +69,7 @@ homeautomation_govee2mqtt_required_volumes:
 homeautomation_homeassistant_devices: []
 homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
 homeautomation_homeassistant_extra_volumes: []
-#homeautomation_homeassistant_port: 8123 # Unused b/c hass is run in host mode
+# homeautomation_homeassistant_port: 8123 # Unused b/c hass is run in host mode
 homeautomation_homeassistant_required_volumes:
   config: /var/docker-volumes/homeautomation/homeassistant/config
   dbus: /run/dbus

@@ -1,16 +1,17 @@
 ---
 - name: Resolve Home Assistant device paths
-  include_tasks: resolve_device.yml
+  ansible.builtin.include_tasks: resolve_device.yml
   vars:
     device_paths: "{{ homeautomation_homeassistant_devices }}"
-    resolved_var_name: homeassistant_devices_resolved
+    resolved_var_name: homeautomation_homeassistant_devices_resolved
 
 - name: Create Govee2MQTT data directory with correct ownership
-  file:
+  ansible.builtin.file:
     path: "{{ homeautomation_govee2mqtt_required_volumes.data }}"
     state: directory
     owner: "{{ homeautomation_govee2mqtt_uid }}"
     group: "{{ homeautomation_govee2mqtt_gid }}"
+    mode: "0755"
   become: true
   when: homeautomation_install_govee2mqtt
 
@@ -22,7 +23,7 @@
     - govee2mqtt
     - homeassistant
     - mosquitto
-  ignore_errors: true
+  failed_when: false
 
 - name: Start Home Assistant, Govee2MQTT, and Mosquitto Docker containers
   vars:
@@ -31,25 +32,27 @@
       - "{{ homeautomation_homeassistant_required_volumes.config }}:/config"
       - "{{ homeautomation_homeassistant_required_volumes.dbus }}:/run/dbus:ro"
       - "{{ homeautomation_homeassistant_required_volumes.udev }}:/run/udev:ro"
-    homeassistant_volumes: "{{ common_volumes + homeassistant_base_volumes + homeautomation_homeassistant_extra_volumes }}"
+    homeassistant_volumes: >-
+      {{ homeautomation_common_volumes + homeassistant_base_volumes + homeautomation_homeassistant_extra_volumes }}
 
     mosquitto_base_volumes:
       - "{{ homeautomation_mosquitto_required_volumes.config }}:/mosquitto/config:ro"
       - "{{ homeautomation_mosquitto_required_volumes.data }}:/mosquitto/data"
       - "{{ homeautomation_mosquitto_required_volumes.log }}:/mosquitto/log"
-    mosquitto_volumes: "{{ common_volumes + mosquitto_base_volumes }}"
+    mosquitto_volumes: "{{ homeautomation_common_volumes + mosquitto_base_volumes }}"
 
     govee2mqtt_base_volumes:
       - "{{ homeautomation_govee2mqtt_required_volumes.data }}:/data"
-    govee2mqtt_volumes: "{{ common_volumes + govee2mqtt_base_volumes }}"
+    govee2mqtt_volumes: "{{ homeautomation_common_volumes + govee2mqtt_base_volumes }}"
 
     govee2mqtt_base_environment:
       GOVEE_MQTT_HOST: "{{ homeautomation_mosquitto_host }}"
       GOVEE_MQTT_PORT: "{{ homeautomation_mosquitto_port }}"
       GOVEE_TEMPERATURE_SCALE: C
       RUST_LOG_STYLE: always
-      TZ: "{{ TZ }}"
-    govee2mqtt_environment: "{{ govee2mqtt_base_environment | combine(homeautomation_govee2mqtt_env | default({})) }}"
+      TZ: "{{ homeautomation_tz }}"
+    govee2mqtt_environment: >-
+      {{ govee2mqtt_base_environment | combine(homeautomation_govee2mqtt_env | default({})) }}
 
     govee2mqtt_service:
       govee2mqtt:
@@ -61,7 +64,7 @@
           - homeassistant
           - mosquitto
         environment: "{{ govee2mqtt_environment }}"
-        logging: "{{ default_logging }}"
+        logging: "{{ homeautomation_default_logging }}"
         # Host networking required for UDP broadcast-based Govee LAN device discovery
         network_mode: host
         restart: unless-stopped
@@ -77,7 +80,7 @@
           - NET_RAW
         depends_on:
           - mosquitto
-        devices: "{{ homeassistant_devices_resolved }}"
+        devices: "{{ homeautomation_homeassistant_devices_resolved }}"
         # Restart the container if the web server becomes unresponsive
         healthcheck:
           test: ["CMD", "curl", "-sf", "http://localhost:8123/manifest.json"]
@@ -85,7 +88,7 @@
           timeout: 10s
           retries: 3
           start_period: 120s
-        logging: "{{ default_logging }}"
+        logging: "{{ homeautomation_default_logging }}"
         # Host networking required for mDNS device discovery (Google Cast, Bluetooth),
         # and direct LAN access. Cannot use bridge networking for these protocols.
         network_mode: host
@@ -98,7 +101,7 @@
         # http://mosquitto.internal:1883
         container_name: mosquitto
         image: "{{ homeautomation_mosquitto_docker_image }}"
-        logging: "{{ default_logging }}"
+        logging: "{{ homeautomation_default_logging }}"
         ports:
           - "{{ homeautomation_mosquitto_port }}:1883"
         restart: unless-stopped
@@ -119,4 +122,4 @@
         {{
           required_services | combine(govee2mqtt_service if homeautomation_install_govee2mqtt else {})
         }}
-  notify: update /etc/hosts
+  notify: Update /etc/hosts

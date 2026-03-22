@@ -1,10 +1,11 @@
 ---
 - name: Create custom_components/ directory
-  file:
+  ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
     state: directory
     owner: root
     group: root
+    mode: "0755"
   become: true
 
 - name: Install BambuLab custom component
@@ -12,32 +13,37 @@
     - name: Create a temporary directory for BambuLab
       ansible.builtin.tempfile:
         state: directory
-      register: bambulab_tmp
+      register: homeautomation_bambulab_tmp
 
     - name: Get releases of BambuLab
       ansible.builtin.uri:
         url: https://api.github.com/repos/greghesp/ha-bambulab/releases
         return_content: true
-      register: bambulab_releases
+      register: homeautomation_bambulab_releases
 
     - name: Set BambuLab version to latest stable release
       ansible.builtin.set_fact:
-        bambulab_version: "{{ (bambulab_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_bambulab_version: >-
+          {{ (homeautomation_bambulab_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive BambuLab {{ bambulab_version }}
+    - name: Download and unarchive BambuLab
       ansible.builtin.unarchive:
-        src: "https://github.com/greghesp/ha-bambulab/archive/refs/tags/{{ bambulab_version }}.tar.gz"
-        dest: "{{ bambulab_tmp.path }}"
+        src: "https://github.com/greghesp/ha-bambulab/archive/refs/tags/{{ homeautomation_bambulab_version }}.tar.gz"
+        dest: "{{ homeautomation_bambulab_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install BambuLab custom component
-      copy:
-        src: "{{ bambulab_tmp.path }}/custom_components/bambu_lab"
+    - name: Install BambuLab custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_bambulab_tmp.path }}/custom_components/bambu_lab"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Dreo custom component
@@ -45,32 +51,37 @@
     - name: Create a temporary directory for Dreo
       ansible.builtin.tempfile:
         state: directory
-      register: dreo_tmp
+      register: homeautomation_dreo_tmp
 
     - name: Get releases of Dreo
       ansible.builtin.uri:
         url: https://api.github.com/repos/JeffSteinbok/hass-dreo/releases
         return_content: true
-      register: dreo_releases
+      register: homeautomation_dreo_releases
 
     - name: Set Dreo version to latest stable release
       ansible.builtin.set_fact:
-        dreo_version: "{{ (dreo_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_dreo_version: >-
+          {{ (homeautomation_dreo_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Dreo {{ dreo_version }}
+    - name: Download and unarchive Dreo
       ansible.builtin.unarchive:
-        src: "https://github.com/JeffSteinbok/hass-dreo/archive/refs/tags/{{ dreo_version }}.tar.gz"
-        dest: "{{ dreo_tmp.path }}"
+        src: "https://github.com/JeffSteinbok/hass-dreo/archive/refs/tags/{{ homeautomation_dreo_version }}.tar.gz"
+        dest: "{{ homeautomation_dreo_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Dreo custom component
-      copy:
-        src: "{{ dreo_tmp.path }}/custom_components/dreo"
+    - name: Install Dreo custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_dreo_tmp.path }}/custom_components/dreo"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Frigate custom component
@@ -78,32 +89,39 @@
     - name: Create a temporary directory for Frigate
       ansible.builtin.tempfile:
         state: directory
-      register: frigate_tmp
+      register: homeautomation_frigate_tmp
 
     - name: Get releases of Frigate
       ansible.builtin.uri:
         url: https://api.github.com/repos/blakeblackshear/frigate-hass-integration/releases
         return_content: true
-      register: frigate_releases
+      register: homeautomation_frigate_releases
 
     - name: Set Frigate version to latest stable release
       ansible.builtin.set_fact:
-        frigate_version: "{{ (frigate_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_frigate_version: >-
+          {{ (homeautomation_frigate_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Frigate {{ frigate_version }}
+    - name: Download and unarchive Frigate
       ansible.builtin.unarchive:
-        src: "https://github.com/blakeblackshear/frigate-hass-integration/archive/refs/tags/{{ frigate_version }}.tar.gz"
-        dest: "{{ frigate_tmp.path }}"
+        src: >-
+          https://github.com/blakeblackshear/frigate-hass-integration/archive/refs/tags/{{
+          homeautomation_frigate_version }}.tar.gz
+        dest: "{{ homeautomation_frigate_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Frigate custom component
-      copy:
-        src: "{{ frigate_tmp.path }}/custom_components/frigate"
+    - name: Install Frigate custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_frigate_tmp.path }}/custom_components/frigate"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Meross custom component
@@ -111,32 +129,39 @@
     - name: Create a temporary directory for Meross
       ansible.builtin.tempfile:
         state: directory
-      register: meross_tmp
+      register: homeautomation_meross_tmp
 
     - name: Get releases of Meross
       ansible.builtin.uri:
         url: https://api.github.com/repos/albertogeniola/meross-homeassistant/releases
         return_content: true
-      register: meross_releases
+      register: homeautomation_meross_releases
 
     - name: Set Meross version to latest stable release
       ansible.builtin.set_fact:
-        meross_version: "{{ (meross_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_meross_version: >-
+          {{ (homeautomation_meross_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Meross {{ meross_version }}
+    - name: Download and unarchive Meross
       ansible.builtin.unarchive:
-        src: "https://github.com/albertogeniola/meross-homeassistant/archive/refs/tags/{{ meross_version }}.tar.gz"
-        dest: "{{ meross_tmp.path }}"
+        src: >-
+          https://github.com/albertogeniola/meross-homeassistant/archive/refs/tags/{{
+          homeautomation_meross_version }}.tar.gz
+        dest: "{{ homeautomation_meross_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Meross custom component
-      copy:
-        src: "{{ meross_tmp.path }}/custom_components/meross_cloud"
+    - name: Install Meross custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_meross_tmp.path }}/custom_components/meross_cloud"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Extended OpenAI Conversation custom component
@@ -144,33 +169,42 @@
     - name: Create a temporary directory for Extended OpenAI Conversation
       ansible.builtin.tempfile:
         state: directory
-      register: extended_openai_conversation_tmp
+      register: homeautomation_extended_openai_conversation_tmp
 
     # Get latest stable release (excludes pre-releases and drafts)
     - name: Get releases of Extended OpenAI Conversation
       ansible.builtin.uri:
         url: https://api.github.com/repos/jekalmin/extended_openai_conversation/releases
         return_content: true
-      register: extended_openai_conversation_releases
+      register: homeautomation_extended_openai_conversation_releases
 
     - name: Set Extended OpenAI Conversation version to latest stable release
       ansible.builtin.set_fact:
-        extended_openai_conversation_version: "{{ (extended_openai_conversation_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_extended_openai_conversation_version: >-
+          {{ (homeautomation_extended_openai_conversation_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Extended OpenAI Conversation {{ extended_openai_conversation_version }}
+    - name: Download and unarchive Extended OpenAI Conversation
       ansible.builtin.unarchive:
-        src: "https://github.com/jekalmin/extended_openai_conversation/archive/refs/tags/{{ extended_openai_conversation_version }}.tar.gz"
-        dest: "{{ extended_openai_conversation_tmp.path }}"
+        src: >-
+          https://github.com/jekalmin/extended_openai_conversation/archive/refs/tags/{{
+          homeautomation_extended_openai_conversation_version }}.tar.gz
+        dest: "{{ homeautomation_extended_openai_conversation_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Extended OpenAI Conversation custom component
-      copy:
-        src: "{{ extended_openai_conversation_tmp.path }}/custom_components/extended_openai_conversation"
+    - name: Install Extended OpenAI Conversation custom component files
+      ansible.builtin.copy:
+        src: >-
+          {{ homeautomation_extended_openai_conversation_tmp.path
+          }}/custom_components/extended_openai_conversation
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Simple Icons custom component
@@ -178,32 +212,39 @@
     - name: Create a temporary directory for Simple Icons
       ansible.builtin.tempfile:
         state: directory
-      register: simpleicons_tmp
+      register: homeautomation_simpleicons_tmp
 
     - name: Get releases of Simple Icons
       ansible.builtin.uri:
         url: https://api.github.com/repos/vigonotion/hass-simpleicons/releases
         return_content: true
-      register: simpleicons_releases
+      register: homeautomation_simpleicons_releases
 
     - name: Set Simple Icons version to latest stable release
       ansible.builtin.set_fact:
-        simpleicons_version: "{{ (simpleicons_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_simpleicons_version: >-
+          {{ (homeautomation_simpleicons_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Simple Icons {{ simpleicons_version }}
+    - name: Download and unarchive Simple Icons
       ansible.builtin.unarchive:
-        src: "https://github.com/vigonotion/hass-simpleicons/archive/refs/tags/{{ simpleicons_version }}.tar.gz"
-        dest: "{{ simpleicons_tmp.path }}"
+        src: >-
+          https://github.com/vigonotion/hass-simpleicons/archive/refs/tags/{{
+          homeautomation_simpleicons_version }}.tar.gz
+        dest: "{{ homeautomation_simpleicons_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Simple Icons custom component
-      copy:
-        src: "{{ simpleicons_tmp.path }}/custom_components/simpleicons"
+    - name: Install Simple Icons custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_simpleicons_tmp.path }}/custom_components/simpleicons"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Custom Icons custom component
@@ -211,36 +252,44 @@
     - name: Create a temporary directory for Custom Icons
       ansible.builtin.tempfile:
         state: directory
-      register: custom_icons_tmp
+      register: homeautomation_custom_icons_tmp
 
     - name: Get releases of Custom Icons
       ansible.builtin.uri:
         url: https://api.github.com/repos/thomasloven/hass-custom_icons/releases
         return_content: true
-      register: custom_icons_releases
+      register: homeautomation_custom_icons_releases
 
     - name: Set Custom Icons version to latest stable release
       ansible.builtin.set_fact:
-        custom_icons_version: "{{ (custom_icons_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_custom_icons_version: >-
+          {{ (homeautomation_custom_icons_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Custom Icons {{ custom_icons_version }}
+    - name: Download and unarchive Custom Icons
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/hass-custom_icons/archive/refs/tags/{{ custom_icons_version }}.tar.gz"
-        dest: "{{ custom_icons_tmp.path }}"
+        src: >-
+          https://github.com/thomasloven/hass-custom_icons/archive/refs/tags/{{
+          homeautomation_custom_icons_version }}.tar.gz
+        dest: "{{ homeautomation_custom_icons_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Custom Icons custom component
-      copy:
-        src: "{{ custom_icons_tmp.path }}/custom_components/custom_icons"
+    - name: Install Custom Icons custom component files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_custom_icons_tmp.path }}/custom_components/custom_icons"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Copy python_scripts/ directory
-  copy:
+  ansible.builtin.copy:
     src: files/homeassistant/python_scripts/
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/python_scripts/"
+    mode: "0644"
   become: true

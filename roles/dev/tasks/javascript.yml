@@ -1,25 +1,33 @@
 ---
 # Install system-wide nodejs/npm for use by all users or for Ansible tasks, where nvm may not be sourced.
 - name: Install system nodejs and npm
-  apt:
+  ansible.builtin.apt:
     name:
       - nodejs
       - npm
-    state: latest
+    state: present
     update_cache: true
   become: true
 
 # Install nvm for user-specific nodejs/npm management
 - name: Get releases of nvm
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/nvm-sh/nvm/releases
     return_content: true
-  register: nvm_releases
+  register: dev_nvm_releases
 
 - name: Set nvm version to latest stable release
-  set_fact:
-    nvm_version: "{{ (nvm_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+  ansible.builtin.set_fact:
+    dev_nvm_version: >-
+      {{ (dev_nvm_releases.json
+      | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false)
+      | list | first).tag_name }}
 
-- name: Install nvm
-  ansible.builtin.shell: >
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version }}/install.sh | bash
+- name: Install nvm # noqa: command-instead-of-module
+  ansible.builtin.shell:
+    cmd: >
+      set -o pipefail &&
+      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ dev_nvm_version }}/install.sh | bash
+    executable: /bin/bash
+  changed_when: true

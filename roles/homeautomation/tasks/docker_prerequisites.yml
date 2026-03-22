@@ -1,33 +1,33 @@
 ---
 - name: Get group ids
-  getent:
+  ansible.builtin.getent:
     database: group
 
 - name: Read system timezone
-  ansible.builtin.shell: cat /etc/timezone
-  register: system_timezone
+  ansible.builtin.command: cat /etc/timezone
+  register: homeautomation_system_timezone
   changed_when: false
   tags:
     - frigate
     - homeassistant
 
 - name: Install docker_etc_hosts script
-  get_url:
+  ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker_etc_hosts
     dest: /usr/local/bin/docker_etc_hosts
     mode: "0755"
   become: true
 
 - name: Install docker-etc-hosts systemd service
-  get_url:
+  ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker-etc-hosts.service
     dest: /etc/systemd/system/docker-etc-hosts.service
     mode: "0644"
   become: true
-  notify: reload systemd
+  notify: Reload systemd
 
 - name: Enable and start docker-etc-hosts service
-  systemd:
+  ansible.builtin.systemd:
     name: docker-etc-hosts.service
     enabled: true
     state: started
