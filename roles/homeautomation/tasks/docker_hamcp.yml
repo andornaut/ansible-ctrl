@@ -1,0 +1,38 @@
+---
+- name: Remove ha-mcp container if it exists
+  community.docker.docker_container:
+    name: hamcp
+    state: absent
+  ignore_errors: true
+
+- name: Start ha-mcp Docker container
+  vars:
+    hamcp_base_environment:
+      HOMEASSISTANT_TOKEN: "{{ homeautomation_hamcp_token }}"
+      HOMEASSISTANT_URL: "{{ homeautomation_hamcp_homeassistant_url }}"
+      TZ: "{{ TZ }}"
+    hamcp_environment: "{{ hamcp_base_environment | combine(homeautomation_hamcp_env | default({})) }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeautomation-hamcp
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ external_network }}"
+      services:
+        hamcp:
+          # http://hamcp.internal:9583
+          container_name: hamcp
+          command: "fastmcp run fastmcp-http.json"
+          environment: "{{ hamcp_environment }}"
+          extra_hosts:
+            - "host.docker.internal:host-gateway"
+          image: "{{ homeautomation_hamcp_docker_image }}"
+          logging: "{{ default_logging }}"
+          ports:
+            - "{{ homeautomation_hamcp_port }}:9583"
+          restart: unless-stopped
+          volumes: "{{ common_volumes }}"
+  notify:
+    - restart homeassistant
+    - update /etc/hosts

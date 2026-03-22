@@ -41,6 +41,18 @@ homeautomation_frigate_port_webrtc: 8555
 homeautomation_frigate_shm_size: "128mb"
 homeautomation_frigate_tmpfs_size_mb: 128
 
+# ha-mcp
+homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
+homeautomation_hamcp_env: {}
+# host.docker.internal is mapped to host-gateway via extra_hosts in docker_hamcp.yml,
+# which allows this bridge-networked container to reach the host-networked Home Assistant
+homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
+homeautomation_hamcp_port: 9583
+# Long-lived access token for Home Assistant API authentication
+# Generate at: Home Assistant → Profile → Security → Long-lived access tokens → Create token
+homeautomation_hamcp_token: ""
+homeautomation_install_hamcp: false
+
 # Govee2mqtt
 # Pinned to 2025.10.26 because newer versions (2025.11.25+, 2026.01.08+) have a broken web UI
 # due to missing /app/assets folder. See: https://github.com/wez/govee2mqtt/issues/584
