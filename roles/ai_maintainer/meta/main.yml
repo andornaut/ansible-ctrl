@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: andornaut
+  description: Automated GitHub repo maintenance via AI agent and cron
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+  galaxy_tags:
+    - ai
+    - automation
+    - github
