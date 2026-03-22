@@ -8,11 +8,12 @@ SHELL := /bin/bash
 
 help:
 	@echo "Available targets:"
-	@echo "  help                  - Show this help message"
 	@echo "  clean                 - Remove temporary role files"
+	@echo "  help                  - Show this help message"
 	@echo "  requirements          - Install required Ansible roles and collections"
 	@echo ""
 	@echo "Playbook targets:"
+	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
 	@echo "  base                  - Configure base system"
 	@echo "  bspwm                 - Configure BSPWM window manager"
 	@echo "  desktop               - Configure desktop environment"
@@ -24,7 +25,6 @@ help:
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
 	@echo "  niri                  - Configure Niri compositor"
-	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
