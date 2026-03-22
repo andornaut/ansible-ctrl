@@ -37,17 +37,17 @@
 
     - name: Build hyprutils (1/2)
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_configure }}"
+        cmd: "{{ niri_hypr_cmake_configure }}"
         chdir: "{{ hyprutils_tmp.path }}"
 
     - name: Build hyprutils (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target all"
+        cmd: "{{ niri_hypr_cmake_build }} --target all"
         chdir: "{{ hyprutils_tmp.path }}"
 
     - name: Install hyprutils
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ hyprutils_tmp.path }}"
       become: true
 
@@ -85,17 +85,17 @@
 
     - name: Build hyprlang (1/2)
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_configure }}"
+        cmd: "{{ niri_hypr_cmake_configure }}"
         chdir: "{{ hyprlang_tmp.path }}"
 
     - name: Build hyprlang (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target hyprlang"
+        cmd: "{{ niri_hypr_cmake_build }} --target hyprlang"
         chdir: "{{ hyprlang_tmp.path }}"
 
     - name: Install hyprlang
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ hyprlang_tmp.path }}"
       become: true
 
@@ -133,17 +133,17 @@
 
     - name: Build hyprgraphics (1/2)
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_configure }}"
+        cmd: "{{ niri_hypr_cmake_configure }}"
         chdir: "{{ hyprgraphics_tmp.path }}"
 
     - name: Build hyprgraphics (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target all"
+        cmd: "{{ niri_hypr_cmake_build }} --target all"
         chdir: "{{ hyprgraphics_tmp.path }}"
 
     - name: Install hyprgraphics
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ hyprgraphics_tmp.path }}"
       become: true
   tags: [hyprgraphics]
@@ -176,18 +176,18 @@
 
     - name: Build hyprwayland-scanner (1/2)
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_configure }}"
+        cmd: "{{ niri_hypr_cmake_configure }}"
         chdir: "{{ hypr_scanner_tmp.path }}"
 
     - name: Build hyprwayland-scanner (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }}"
+        cmd: "{{ niri_hypr_cmake_build }}"
         chdir: "{{ hypr_scanner_tmp.path }}"
       become: true
 
     - name: Install hyprwayland-scanner
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ hypr_scanner_tmp.path }}"
       become: true
   tags: [hyprscanner]
@@ -220,17 +220,17 @@
 
     - name: Build hypridle (1/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_configure }}"
+        cmd: "{{ niri_hypr_cmake_configure }}"
         chdir: "{{ hypridle_tmp.path }}"
 
     - name: Build hypridle (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target hypridle"
+        cmd: "{{ niri_hypr_cmake_build }} --target hypridle"
         chdir: "{{ hypridle_tmp.path }}"
 
     - name: Install hypridle
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ hypridle_tmp.path }}"
       become: true
 
@@ -248,86 +248,95 @@
     - name: Create a temporary directory for hyprlock
       ansible.builtin.tempfile:
         state: directory
-      register: hyprlock_tmp
+      register: niri_hyprlock_tmp
 
     - name: Get releases of hyprlock
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprlock/releases
         return_content: true
-      register: hyprlock_releases
+      register: niri_hyprlock_releases
 
     - name: Set hyprlock version to latest stable release
       ansible.builtin.set_fact:
-        hyprlock_version: "{{ (hyprlock_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hyprlock_version: >-
+          {{ (niri_hyprlock_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprlock {{ hyprlock_version }}
+    - name: Download and unarchive hyprlock {{ niri_hyprlock_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ hyprlock_version }}.tar.gz
-        dest: "{{ hyprlock_tmp.path }}"
+        src: https://github.com/hyprwm/hyprlock/archive/refs/tags/{{ niri_hyprlock_version }}.tar.gz
+        dest: "{{ niri_hyprlock_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
     - name: Build hyprlock (1/2)
-      ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_configure }}"
-        chdir: "{{ hyprlock_tmp.path }}"
+      ansible.builtin.command:
+        cmd: "{{ niri_hypr_cmake_configure }}"
+        chdir: "{{ niri_hyprlock_tmp.path }}"
 
     # This fails on versions >=0.6.1
     # https://github.com/hyprwm/hyprlock/issues/710
     - name: Build hyprlock (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target all"
-        chdir: "{{ hyprlock_tmp.path }}"
+        cmd: "{{ niri_hypr_cmake_build }} --target all"
+        chdir: "{{ niri_hyprlock_tmp.path }}"
 
     - name: Install hyprlock
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
-        chdir: "{{ hyprlock_tmp.path }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
+        chdir: "{{ niri_hyprlock_tmp.path }}"
       become: true
   tags: [hyprlock]
 
 - name: Install hyprpaper
+  tags: [hyprpaper]
   block:
     - name: Create a temporary directory for hyprpaper
       ansible.builtin.tempfile:
         state: directory
-      register: hyprpaper_tmp
+      register: niri_hyprpaper_tmp
 
     - name: Get releases of hyprpaper
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprpaper/releases
         return_content: true
-      register: hyprpaper_releases
+      register: niri_hyprpaper_releases
 
     - name: Set hyprpaper version to latest stable release
       ansible.builtin.set_fact:
-        hyprpaper_version: "{{ (hyprpaper_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hyprpaper_version: >-
+          {{ (niri_hyprpaper_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprpaper {{ hyprpaper_version }}
+    - name: Download and unarchive hyprpaper {{ niri_hyprpaper_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ hyprpaper_version }}.tar.gz
-        dest: "{{ hyprpaper_tmp.path }}"
+        src: https://github.com/hyprwm/hyprpaper/archive/refs/tags/{{ niri_hyprpaper_version }}.tar.gz
+        dest: "{{ niri_hyprpaper_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
     - name: Build hyprpaper (1/2)
-      ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_configure }}"
-        chdir: "{{ hyprpaper_tmp.path }}"
+      ansible.builtin.command:
+        cmd: "{{ niri_hypr_cmake_configure }}"
+        chdir: "{{ niri_hyprpaper_tmp.path }}"
 
     - name: Build hyprpaper (2/2)
       ansible.builtin.shell:
-        cmd: "{{ hypr_cmake_build }} --target hyprpaper"
-        chdir: "{{ hyprpaper_tmp.path }}"
+        cmd: "{{ niri_hypr_cmake_build }} --target hyprpaper"
+        chdir: "{{ niri_hyprpaper_tmp.path }}"
 
     - name: Install hyprpaper
       ansible.builtin.command:
-        cmd: "{{ hypr_cmake_install }}"
-        chdir: "{{ hyprpaper_tmp.path }}"
+        cmd: "{{ niri_hypr_cmake_install }}"
+        chdir: "{{ niri_hyprpaper_tmp.path }}"
       become: true
 
     - name: Enable hyprpaper.service
@@ -337,4 +346,3 @@
         enabled: true
         scope: user
         state: started
-  tags: [hyprpaper]
