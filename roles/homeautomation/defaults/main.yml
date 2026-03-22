@@ -47,7 +47,7 @@ homeautomation_hamcp_env: {}
 # host.docker.internal is mapped to host-gateway via extra_hosts in docker_hamcp.yml,
 # which allows this bridge-networked container to reach the host-networked Home Assistant
 homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
-homeautomation_hamcp_port: 9583
+homeautomation_hamcp_port: 8086
 # Long-lived access token for Home Assistant API authentication
 # Generate at: Home Assistant → Profile → Security → Long-lived access tokens → Create token
 homeautomation_hamcp_token: ""

@@ -21,7 +21,7 @@
       networks: "{{ external_network }}"
       services:
         hamcp:
-          # http://hamcp.internal:9583
+          # http://hamcp.internal:8086
           container_name: hamcp
           command: "fastmcp run fastmcp-http.json"
           environment: "{{ hamcp_environment }}"
