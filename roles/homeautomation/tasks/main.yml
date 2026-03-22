@@ -62,6 +62,7 @@
         - esphome
         - frigate
         - govee2mqtt
+        - hamcp
         - homeassistant
         - llm
         - matter
@@ -88,6 +89,10 @@
     - import_tasks: docker_matter.yml
       tags: matter
       when: homeautomation_install_matter
+
+    - import_tasks: docker_hamcp.yml
+      tags: hamcp
+      when: homeautomation_install_hamcp
 
     - import_tasks: docker_voice.yml
       tags: voice
