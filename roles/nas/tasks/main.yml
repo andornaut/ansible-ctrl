@@ -138,7 +138,7 @@
       notify: Reload systemd
 
     - name: Enable nas-luks-key.path
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: nas-luks-key.path
         enabled: true
         masked: false

@@ -1,11 +1,11 @@
 ---
 - name: Reload systemd
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     daemon_reload: true
   become: true
 
 - name: Restart Avahi service
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: avahi-daemon
     daemon_reload: true
     state: started

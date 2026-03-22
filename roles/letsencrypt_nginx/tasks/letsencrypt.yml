@@ -89,7 +89,7 @@
       | default(item.item.domain)]['http-01']['resource_value'] }}
     mode: "0644"
   loop: "{{ letsencrypt_nginx_challenge.results }}"
-  register: letsencrypt_nginx_challege_http_resources
+  register: letsencrypt_nginx_challenge_http_resources
   when:
     - item is not skipped
     - item.changed
@@ -99,7 +99,7 @@
   become: true
 
 # - ansible.builtin.debug:
-#     var: letsencrypt_nginx_challege_http_resources
+#     var: letsencrypt_nginx_challenge_http_resources
 
 - name: Complete Letsencrypt challenge
   community.crypto.acme_certificate:

@@ -28,7 +28,7 @@
       when: homeautomation_install_avahi
 
     - name: Disable host Avahi daemon when not needed
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: "{{ item }}"
         state: stopped
         enabled: false

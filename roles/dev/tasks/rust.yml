@@ -12,4 +12,4 @@
   ansible.builtin.command: rustup default stable
   become: false
   args:
-    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustc"
+    creates: "{{ ansible_facts['env']['HOME'] }}/.cargo/bin/rustc"
