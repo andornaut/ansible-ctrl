@@ -29,8 +29,8 @@
             - "host.docker.internal:host-gateway"
           image: "{{ homeautomation_hamcp_docker_image }}"
           logging: "{{ default_logging }}"
-          ports:
-            - "{{ homeautomation_hamcp_port }}:9583"
+          #ports:
+          #  - "{{ homeautomation_hamcp_port }}:9583"
           restart: unless-stopped
           volumes: "{{ common_volumes }}"
   notify:

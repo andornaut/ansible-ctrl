@@ -25,6 +25,7 @@ See [defaults/main.yml](./defaults/main.yml) for all available variables.
 ```yaml
 # Enable optional components:
 homeautomation_install_frigate: true
+homeautomation_install_hamcp: true
 homeautomation_install_llm: true
 homeautomation_install_matter: true
 homeautomation_install_voice: true
@@ -68,6 +69,42 @@ letsencryptnginx_websites:
   - domain: ha.example.com
     proxy_port: 8123
     websocket_path: /api/websocket
+```
+
+### ha-mcp
+
+- [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) - MCP server for AI assistant integration with Home Assistant
+
+Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home Assistant devices, automations, and services via the [Model Context Protocol](https://modelcontextprotocol.io/).
+
+The container runs in HTTP mode on port 9583 and connects to the host-networked Home Assistant instance via `extra_hosts` (`host.docker.internal` mapped to `host-gateway`).
+
+#### MCP client configuration
+
+VSCode (`~/.config/Code/User/mcp.json`):
+
+```json
+{
+  "servers": {
+    "ha-mcp": {
+      "type": "http",
+      "url": "http://localhost:9583/mcp"
+    }
+  }
+}
+```
+
+Claude Code (`~/.claude.json`):
+
+```json
+{
+  "mcpServers": {
+    "ha-mcp": {
+      "type": "http",
+      "url": "http://localhost:9583/mcp"
+    }
+  }
+}
 ```
 
 ### LLM
