@@ -3,4 +3,13 @@ exclude_paths:
   - .roles/
   - collections/
 skip_list:
+  - fqcn[action-core]  # Not using FQCN for builtin modules throughout the project
+  - name[casing]  # Existing task names use lowercase
+  - name[play]  # Some plays are unnamed
+  - no-changed-when  # Command tasks used for upgrades and validation
+  - no-handler  # Some notify-like patterns use `when: changed` instead of handlers
+  - package-latest  # Intentionally installing latest versions
+  - risky-file-permissions  # Permissions set where needed, not on every file task
+  - yaml[comments]  # Commented-out role entries use `#-` without space
+  - yaml[octal-values]  # Existing octal permissions use implicit format
   - yaml[truthy]  # Allows `yes` in addition to `true`
