@@ -1,6 +1,6 @@
 ---
 - name: Resolve OTBR device path
-  ansible.builtin.include_tasks: resolve_device.yml
+  ansible.builtin.import_tasks: resolve_device.yml
   vars:
     device_paths: >-
       {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}

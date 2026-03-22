@@ -91,7 +91,7 @@ server {
 
 {% if not item.item.permit_untrusted_networks | default(False)
         or item.item.credentials | default(False)
-        or item.item.trusted_network | default(False) %}
+        or item.item.trusted_networks | default(False) %}
     # Deny access if required conditions aren't met
     deny all;
 {% endif %}
@@ -178,7 +178,7 @@ server {
 {% if not location.permit_untrusted_networks | default(False)
         or location.credentials | default(False)
         or item.item.credentials | default(False)
-        or item.item.trusted_network | default(False) %}
+        or item.item.trusted_networks | default(False) %}
         # Deny access if required conditions aren't met
         deny all;
 {% endif %}

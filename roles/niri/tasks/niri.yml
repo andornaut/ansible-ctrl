@@ -86,7 +86,7 @@
 
     - name: Configure electron flags for Wayland
       ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.config/electron-flags.conf"
+        path: "{{ ansible_facts['env']['HOME'] }}/.config/electron-flags.conf"
         line: "--ozone-platform-hint=auto"
         create: true
         mode: "0644"

@@ -56,7 +56,7 @@ Playbook targets:
 
 # Run specific tasks by tag:
 ansible-playbook --ask-become-pass desktop.yml --tags alacritty
-ansible-playbook --ask-become-pass dev.yml --tags hobbies
+ansible-playbook --ask-become-pass hobbies.yml --tags orcaslicer
 ```
 
 ## Roles

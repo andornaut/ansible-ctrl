@@ -18,10 +18,12 @@
     - name: Upgrade flatpak system packages
       ansible.builtin.command: flatpak --noninteractive --system upgrade
       become: true
-      changed_when: true
+      register: flatpak_system_result
+      changed_when: "'Nothing to do.' not in flatpak_system_result.stdout"
       when: "'flatpak' in ansible_facts.packages"
 
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
-      changed_when: true
+      register: flatpak_user_result
+      changed_when: "'Nothing to do.' not in flatpak_user_result.stdout"
       when: "'flatpak' in ansible_facts.packages"

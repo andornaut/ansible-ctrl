@@ -240,7 +240,7 @@ rsync_long_args	--delete --numeric-ids --relative --delete-excluded --rsync-path
 
 {% for host in rsnapshot_hosts %}
 {% for directory in host.directories|default((), true) %}
-backup	{% if not host.local|default(false) and host.name != 'localhost' %}{{ host.user|default(ansible_env.USER, true) }}@{{ host.name }}:{% endif %}{{ directory }}	{{ host.name }}/
+backup	{% if not host.local|default(false) and host.name != 'localhost' %}{{ host.user|default(ansible_facts['env']['USER'], true) }}@{{ host.name }}:{% endif %}{{ directory }}	{{ host.name }}/
 {% endfor %}
 {% for script in host.scripts|default((), true) %}
 backup_script	{{ script.command }} {{ script.args }}	{{ host.name }}_{{ script.command|basename }}/

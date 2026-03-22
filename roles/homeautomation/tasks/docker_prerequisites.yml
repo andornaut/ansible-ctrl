@@ -27,7 +27,7 @@
   notify: Reload systemd
 
 - name: Enable and start docker-etc-hosts service
-  ansible.builtin.systemd:
+  ansible.builtin.systemd_service:
     name: docker-etc-hosts.service
     enabled: true
     state: started

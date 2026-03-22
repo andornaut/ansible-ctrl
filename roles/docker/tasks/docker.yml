@@ -61,14 +61,14 @@
   become: true
   block:
     - name: Start and enable Docker service
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: docker
         daemon_reload: true
         state: started
         enabled: true
 
     - name: Start and enable Docker Registry service
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: docker-registry
         daemon_reload: true
         state: started
