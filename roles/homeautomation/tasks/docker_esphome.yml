@@ -25,8 +25,8 @@
             - ESPHOME_DASHBOARD_USE_PING=true
           image: "{{ homeautomation_esphome_docker_image }}"
           logging: "{{ default_logging }}"
-          # Must be on network_mode:host, b/c the Avahi container, which provides mdns to the Docker network,
-          # is disabled when Matter is enabled
+          # Host networking required for mDNS-based ESP device discovery on the LAN.
+          # Avahi (which could provide mDNS to bridge networks) is disabled when Matter is enabled.
           network_mode: host
           #ports:
           #  - "{{ homeautomation_esphome_port }}:6052"
