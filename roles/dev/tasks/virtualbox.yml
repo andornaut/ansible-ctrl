@@ -1,6 +1,6 @@
 ---
 - name: Accept virtualbox-ext-pack license
-  debconf:
+  ansible.builtin.debconf:
     name: virtualbox-ext-pack
     question: virtualbox-ext-pack/license
     value: "true"
@@ -8,7 +8,7 @@
   become: true
 
 - name: Accept virtualbox-ext-pack license seen
-  debconf:
+  ansible.builtin.debconf:
     name: virtualbox-ext-pack
     question: virtualbox-ext-pack/license
     value: "true"
@@ -16,13 +16,13 @@
   become: true
 
 - name: Install Virtualbox packages
-  apt:
+  ansible.builtin.apt:
     name:
       - virtualbox
       - virtualbox-dkms
       - virtualbox-ext-pack
       - virtualbox-guest-additions-iso
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   environment:

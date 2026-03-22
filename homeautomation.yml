@@ -3,6 +3,6 @@
   hosts: homeautomation
   roles:
     # Uncomment the `base` and `docker` on the first run
-    #- base
-    #- docker
+    # - base
+    # - docker
     - homeautomation

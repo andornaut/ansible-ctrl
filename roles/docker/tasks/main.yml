@@ -1,5 +1,7 @@
 ---
-- import_tasks: docker.yml
+- name: Install and configure Docker
+  ansible.builtin.import_tasks: docker.yml
 
-- import_tasks: kubernetes.yml
+- name: Install Kubernetes tools
+  ansible.builtin.import_tasks: kubernetes.yml
   when: docker_install_kubernetes

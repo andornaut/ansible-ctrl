@@ -1,20 +1,27 @@
 ---
 - name: Get releases of Delta
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/dandavison/delta/releases
     return_content: true
-  register: delta_releases
+  register: dev_delta_releases
 
 - name: Set Delta to latest stable release
-  set_fact:
-    delta_release: "{{ delta_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+  ansible.builtin.set_fact:
+    dev_delta_release: >-
+      {{ dev_delta_releases.json
+      | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false)
+      | list | first }}
 
 - name: Set delta download URL fact
-  set_fact:
-    delta_download_url: "{{ (delta_release.assets | selectattr('name', 'match', 'git-delta_.*_amd64.deb') | first).browser_download_url }}"
+  ansible.builtin.set_fact:
+    dev_delta_download_url: >-
+      {{ (dev_delta_release.assets
+      | selectattr('name', 'match', 'git-delta_.*_amd64.deb')
+      | first).browser_download_url }}
 
 - name: Install Delta package
-  apt:
-    deb: "{{ delta_download_url }}"
+  ansible.builtin.apt:
+    deb: "{{ dev_delta_download_url }}"
     install_recommends: false
   become: true

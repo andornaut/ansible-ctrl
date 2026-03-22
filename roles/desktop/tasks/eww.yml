@@ -1,11 +1,11 @@
 ---
 - name: Install eww build dependencies
-  apt:
+  ansible.builtin.apt:
     name:
       - libdbusmenu-glib-dev
       - libdbusmenu-gtk3-dev
       - libgtk-layer-shell-dev
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
@@ -15,35 +15,38 @@
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory
-      register: eww_tmp
+      register: desktop_eww_tmp
 
     - name: Get releases of eww
       ansible.builtin.uri:
         url: https://api.github.com/repos/elkowar/eww/releases
         return_content: true
-      register: eww_releases
+      register: desktop_eww_releases
 
     - name: Set eww version to latest stable release
       ansible.builtin.set_fact:
-        eww_version: "{{ (eww_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        desktop_eww_version: >-
+          {{ (desktop_eww_releases.json | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false) | list | first).tag_name }}
 
-    - name: Download and unarchive eww {{ eww_version }}
+    - name: Download and unarchive eww {{ desktop_eww_version }}
       ansible.builtin.unarchive:
-        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ eww_version }}.tar.gz"
-        dest: "{{ eww_tmp.path }}"
+        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ desktop_eww_version }}.tar.gz"
+        dest: "{{ desktop_eww_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
     - name: Build eww
-      command:
+      ansible.builtin.command:
         cmd: cargo build --release --no-default-features --features x11 --features=wayland
-        chdir: "{{ eww_tmp.path }}"
+        chdir: "{{ desktop_eww_tmp.path }}"
+      changed_when: true
 
     - name: Install eww binary
       ansible.builtin.copy:
-        src: "{{ eww_tmp.path }}/target/release/eww"
+        src: "{{ desktop_eww_tmp.path }}/target/release/eww"
         dest: /usr/local/bin/
         remote_src: true
         owner: root
@@ -54,8 +57,9 @@
 - name: Configure eww service
   block:
     - name: Install eww.service
-      copy:
+      ansible.builtin.copy:
         dest: /etc/systemd/user/eww.service
+        mode: "0644"
         content: |
           [Unit]
           Description=ElKowars wacky widgets
@@ -76,7 +80,7 @@
       become: true
 
     - name: Enable eww service
-      systemd_service:
+      ansible.builtin.systemd_service:
         name: eww.service
         daemon_reload: true
         enabled: true

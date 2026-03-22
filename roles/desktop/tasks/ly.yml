@@ -4,7 +4,7 @@
     - name: Prepare build environment
       block:
         - name: Install ly's build dependencies
-          apt:
+          ansible.builtin.apt:
             name:
               - build-essential
               - clang
@@ -15,7 +15,7 @@
               - lld
               - llvm
               - llvm-dev
-            state: latest
+            state: present
             install_recommends: false
             update_cache: true
           become: true
@@ -23,25 +23,26 @@
         - name: Set up zig compiler
           block:
             - name: Get latest zig version
-              uri:
+              ansible.builtin.uri:
                 url: https://ziglang.org/download/index.json
                 return_content: true
-              register: zig_versions
+              register: desktop_zig_versions
 
             # ly requires zig v0.15.0+.
             - name: Set zig version fact
-              set_fact:
-                zig_version: "0.15.2"
+              ansible.builtin.set_fact:
+                desktop_zig_version: "0.15.2"
 
             - name: Create a temporary directory for zig
               ansible.builtin.tempfile:
                 state: directory
-              register: zig_tmp
+              register: desktop_zig_tmp
 
             - name: Download zig compiler archive
-              get_url:
-                url: "{{ zig_versions.json[zig_version]['x86_64-linux'].tarball }}"
-                dest: "{{ zig_tmp.path }}/zig.tar.xz"
+              ansible.builtin.get_url:
+                url: "{{ desktop_zig_versions.json[desktop_zig_version]['x86_64-linux'].tarball }}"
+                dest: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
+                mode: "0644"
 
             - name: Create zig installation directory
               ansible.builtin.file:
@@ -52,7 +53,7 @@
 
             - name: Install zig compiler
               ansible.builtin.unarchive:
-                src: "{{ zig_tmp.path }}/zig.tar.xz"
+                src: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
                 dest: /opt/zig
                 remote_src: true
                 extra_opts:
@@ -66,79 +67,82 @@
         - name: Create a temporary directory
           ansible.builtin.tempfile:
             state: directory
-          register: ly_tmp
+          register: desktop_ly_tmp
 
         - name: Get releases of ly
           ansible.builtin.uri:
             url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases
             return_content: true
-          register: ly_releases
+          register: desktop_ly_releases
 
         - name: Set ly to latest stable release
           ansible.builtin.set_fact:
-            ly_release: "{{ ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+            desktop_ly_release: >-
+              {{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false)
+              | selectattr('draft', 'equalto', false) | list | first }}
 
-        - name: Download and unarchive ly {{ ly_release.tag_name }}
+        - name: Download and unarchive ly {{ desktop_ly_release.tag_name }}
           ansible.builtin.unarchive:
-            src: "{{ ly_release.tarball_url }}"
-            dest: "{{ ly_tmp.path }}"
+            src: "{{ desktop_ly_release.tarball_url }}"
+            dest: "{{ desktop_ly_tmp.path }}"
             remote_src: true
             extra_opts:
               - --strip-components
               - 1
 
         - name: Compile and install ly
-          command:
+          ansible.builtin.command:
             cmd: /opt/zig/zig build installexe
-            chdir: "{{ ly_tmp.path }}"
+            chdir: "{{ desktop_ly_tmp.path }}"
           become: true
+          changed_when: true
 
     - name: Configure ly
       block:
         - name: Look in /usr/share and /usr/local/share for wayland-sessions
-          lineinfile:
+          ansible.builtin.lineinfile:
             line: "waylandsessions = /usr/share/wayland-sessions:/usr/local/share/wayland-sessions"
             path: /etc/ly/config.ini
             regexp: '^waylandsessions *='
           become: true
 
         - name: Look in /usr/share and /usr/local/share for xsessions
-          lineinfile:
+          ansible.builtin.lineinfile:
             line: "xsessions = /usr/share/xsessions:/usr/local/share/xsessions"
             path: /etc/ly/config.ini
             regexp: '^xsessions *='
           become: true
 
         - name: Enable password field clearing
-          lineinfile:
+          ansible.builtin.lineinfile:
             line: "clear_password = true"
             path: /etc/ly/config.ini
             regexp: '^#?\s*clear_password\s*='
           become: true
 
         - name: Enable borderless mode
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /etc/ly/config.ini
             regexp: '^#?\s*hide_borders\s*='
             line: "hide_borders = true"
           become: true
 
         - name: Enable Gnome keyring authentication
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /etc/pam.d/login
             line: "auth       optional     pam_gnome_keyring.so"
             insertafter: "^auth.*pam_unix.so"
           become: true
 
         - name: Enable Gnome keyring password integration
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /etc/pam.d/ly
             line: "password   optional     pam_gnome_keyring.so"
             insertafter: "^password.*pam_unix.so"
           become: true
 
         - name: Enable Gnome keyring session management
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /etc/pam.d/login
             line: "session    optional     pam_gnome_keyring.so auto_start"
             insertafter: "^session.*pam_unix.so"
@@ -147,7 +151,7 @@
     - name: Configure system integration
       block:
         - name: Prevent TTY conflicts
-          systemd_service:
+          ansible.builtin.systemd_service:
             name: getty@tty2.service
             daemon_reload: true
             state: stopped
@@ -155,7 +159,7 @@
           become: true
 
         - name: Enable ly display manager
-          systemd_service:
+          ansible.builtin.systemd_service:
             name: ly.service
             daemon_reload: true
             enabled: true

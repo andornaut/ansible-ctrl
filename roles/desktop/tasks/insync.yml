@@ -2,13 +2,13 @@
 - name: Configure Insync repository
   block:
     - name: Add Insync apt key
-      apt_key:
+      ansible.builtin.apt_key:
         keyserver: keyserver.ubuntu.com
         id: ACCAF35C
       become: true
 
     - name: Add Insync apt repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
         update_cache: true
       become: true
@@ -17,9 +17,9 @@
   become: true
   block:
     - name: Install Insync package
-      apt:
+      ansible.builtin.apt:
         name: insync
-        state: latest
+        state: present
         install_recommends: false
 
     - name: Fix Wayland compatibility
@@ -32,7 +32,7 @@
         state: absent
 
     - name: Write insync.desktop with Wayland compatibility fix
-      copy:
+      ansible.builtin.copy:
         content: |
           [Desktop Entry]
           Version=1.0

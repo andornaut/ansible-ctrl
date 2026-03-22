@@ -39,9 +39,6 @@ homeautomation_openwebui_port: 3000
 
 ### Home Assistant
 
-- [Example automation.yaml](./examples/homeassistant/automations.yaml)
-- [Example configuration.yaml](./examples/homeassistant/configuration.yaml)
-
 Test configuration:
 
 ```bash
@@ -50,9 +47,6 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 ```
 
 ### Frigate
-
-- [Example config.yml](./examples/frigate/config.yml)
-- [GitHub issue #311](https://github.com/blakeblackshear/frigate/issues/311)
 
 ### Nginx
 
@@ -481,7 +475,6 @@ go2rtc:
 ### Custom Cards
 
 - [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
-- [Button card](https://github.com/custom-cards/button-card/)
 - [Card mod](https://github.com/thomasloven/lovelace-card-mod)
 - [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
 

@@ -1,9 +1,9 @@
 ---
 - name: Install dependencies
-  import_tasks: dependencies.yml
+  ansible.builtin.import_tasks: dependencies.yml
 
 - name: Configure rsnapshot
-  import_tasks: rsnapshot.yml
+  ansible.builtin.import_tasks: rsnapshot.yml
 
 - name: Configure backup schedules in cron
-  import_tasks: cron.yml
+  ansible.builtin.import_tasks: cron.yml

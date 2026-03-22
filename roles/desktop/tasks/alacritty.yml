@@ -1,25 +1,26 @@
 ---
 - name: Install Alacritty apt respository
-  apt_repository:
+  ansible.builtin.apt_repository:
     repo: ppa:aslatter/ppa
     update_cache: true
   become: true
 
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - alacritty
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Register Alacritty alternative
-  command: update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 50
+  ansible.builtin.command: update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 50
   become: true
+  changed_when: true
 
 - name: Set Alacritty as default x-terminal-emulator
-  alternatives:
+  community.general.alternatives:
     name: x-terminal-emulator
     path: /usr/bin/alacritty
   become: true

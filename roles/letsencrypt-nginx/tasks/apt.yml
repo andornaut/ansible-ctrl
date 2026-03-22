@@ -1,12 +1,12 @@
 ---
 - name: Install system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - apache2-utils
       - python3-openssl
       - python3-passlib
       - ssl-cert
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true

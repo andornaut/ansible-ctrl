@@ -1,10 +1,10 @@
 ---
 - name: Install Bluetooth system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - bluez
       - dbus-broker
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
@@ -24,17 +24,12 @@
     owner: root
     group: root
     mode: "0644"
-  register: apparmor_policy
   become: true
-
-- name: Load docker-ble-policy
-  ansible.builtin.shell: apparmor_parser -r -W /etc/apparmor.d/docker-ble-policy
-  become: true
-  when: apparmor_policy.changed
+  notify: Load docker-ble-policy
 # Shouldn't need to reload if we're loading the new profile above
-#- name: Reload apparmor.service
-#  ansible.builtin.systemd_service:
-#    name: apparmor.service
-#    state: restarted
-#  when: apparmor_policy.changed
-#  become: true
+# - name: Reload apparmor.service
+#   ansible.builtin.systemd_service:
+#     name: apparmor.service
+#     state: restarted
+#   when: homeautomation_apparmor_policy.changed
+#   become: true

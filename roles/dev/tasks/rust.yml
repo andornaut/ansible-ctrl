@@ -1,15 +1,15 @@
 ---
 - name: Install Rust system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - rustup
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Install Rust toolchain
-  command: rustup default stable
+  ansible.builtin.command: rustup default stable
   become: false
   args:
     creates: "{{ ansible_env.HOME }}/.cargo/bin/rustc"

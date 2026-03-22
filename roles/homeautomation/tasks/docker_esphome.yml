@@ -3,20 +3,20 @@
   community.docker.docker_container:
     name: esphome
     state: absent
-  ignore_errors: true
+  failed_when: false
 
 - name: Start ESPHome Docker container
   vars:
     esphome_base_volumes:
       - "{{ homeautomation_esphome_required_volumes.config }}:/config"
-    esphome_volumes: "{{ common_volumes + esphome_base_volumes }}"
+    esphome_volumes: "{{ homeautomation_common_volumes + esphome_base_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeautomation-esphome
     pull: always
     remove_orphans: true
     definition:
-      networks: "{{ external_network }}"
+      networks: "{{ homeautomation_external_network }}"
       services:
         esphome:
           # http://esphome.internal:6052
@@ -24,14 +24,14 @@
           environment:
             - ESPHOME_DASHBOARD_USE_PING=true
           image: "{{ homeautomation_esphome_docker_image }}"
-          logging: "{{ default_logging }}"
+          logging: "{{ homeautomation_default_logging }}"
           # Host networking required for mDNS-based ESP device discovery on the LAN.
           # Avahi (which could provide mDNS to bridge networks) is disabled when Matter is enabled.
           network_mode: host
-          #ports:
-          #  - "{{ homeautomation_esphome_port }}:6052"
+          # ports:
+          #   - "{{ homeautomation_esphome_port }}:6052"
           restart: unless-stopped
           volumes: "{{ esphome_volumes }}"
   notify:
-    - restart homeassistant
-    - update /etc/hosts
+    - Restart homeassistant
+    - Update /etc/hosts

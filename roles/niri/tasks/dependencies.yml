@@ -1,9 +1,11 @@
 ---
 - name: Update dynamic linker cache
   ansible.builtin.command: ldconfig
+  changed_when: false
   become: true
 
 - name: Install system dependencies
+  tags: [packages]
   block:
     - name: Install system packages
       ansible.builtin.apt:
@@ -11,7 +13,7 @@
           - clang
           - gcc-14
           - g++-14
-          #- libdbus-1-dev  # A newer version is installed in hypr.yml
+          # - libdbus-1-dev  # A newer version is installed in hypr.yml
           - libdisplay-info-dev
           - libegl1-mesa-dev
           - libgbm-dev
@@ -44,9 +46,9 @@
           - libmagic-dev
           - libpugixml-dev
           # Must not be installed, b/c it conflicts with v2.1.0 which is installed from source
-          #- libsdbus-c++-dev
+          # - libsdbus-c++-dev
           - libspng-dev
-        state: latest
+        state: present
         install_recommends: false
         update_cache: true
       become: true
@@ -61,29 +63,34 @@
         - gcc
         - g++
       become: true
-  tags: [packages]
 
 - name: Install libsdbus
+  tags: [libsdbus]
   block:
     - name: Create a temporary directory for libsdbus
       ansible.builtin.tempfile:
         state: directory
-      register: libsdbus_tmp
+      register: niri_libsdbus_tmp
 
     - name: Get releases of libsdbus
       ansible.builtin.uri:
         url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases
         return_content: true
-      register: libsdbus_releases
+      register: niri_libsdbus_releases
 
     - name: Set libsdbus version to latest stable release
       ansible.builtin.set_fact:
-        libsdbus_version: "{{ (libsdbus_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_libsdbus_version: >-
+          {{ (niri_libsdbus_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive libsdbus {{ libsdbus_version }}
+    - name: Download and unarchive libsdbus {{ niri_libsdbus_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/{{ libsdbus_version }}.tar.gz
-        dest: "{{ libsdbus_tmp.path }}"
+        src: "https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/\
+          {{ niri_libsdbus_version }}.tar.gz"
+        dest: "{{ niri_libsdbus_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -91,52 +98,58 @@
 
     - name: Create build directory for libsdbus
       ansible.builtin.file:
-        path: "{{ libsdbus_tmp.path }}/build"
+        path: "{{ niri_libsdbus_tmp.path }}/build"
         state: directory
         mode: "0755"
 
     # Workaround: Install into /usr instead of the default of /usr/local
     # https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
     - name: Build libsdbus (1/2)
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
-        chdir: "{{ libsdbus_tmp.path }}/build"
+        chdir: "{{ niri_libsdbus_tmp.path }}/build"
+      changed_when: true
 
     - name: Build libsdbus (2/2)
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: cmake --build .
-        chdir: "{{ libsdbus_tmp.path }}/build"
+        chdir: "{{ niri_libsdbus_tmp.path }}/build"
+      changed_when: true
 
     - name: Install libsdbus
       ansible.builtin.command:
         cmd: cmake --build . --target install
-        chdir: "{{ libsdbus_tmp.path }}/build"
+        chdir: "{{ niri_libsdbus_tmp.path }}/build"
+      changed_when: true
       become: true
-  tags: [libsdbus]
 
 - name: Install Wayland (for wayland-scanner)
+  tags: [wayland]
   block:
     - name: Get latest release info from GitLab API
       ansible.builtin.uri:
         url: "https://gitlab.freedesktop.org/api/v4/projects/121/releases"
         method: GET
         return_content: true
-      register: wayland_scanner_info
+      register: niri_wayland_scanner_info
 
     - name: Set Wayland variables
       ansible.builtin.set_fact:
-        wayland_scanner_version: "{{ wayland_scanner_info.json[0].tag_name }}"
-        wayland_scanner_download_url: "{{ wayland_scanner_info.json[0].assets.sources | selectattr('format', 'equalto', 'tar.gz') | map(attribute='url') | first }}"
+        niri_wayland_scanner_version: "{{ niri_wayland_scanner_info.json[0].tag_name }}"
+        niri_wayland_scanner_download_url: >-
+          {{ niri_wayland_scanner_info.json[0].assets.sources
+          | selectattr('format', 'equalto', 'tar.gz')
+          | map(attribute='url') | first }}
 
     - name: Create a temporary directory for Wayland
       ansible.builtin.tempfile:
         state: directory
-      register: wayland_scanner_tmp
+      register: niri_wayland_scanner_tmp
 
-    - name: Download and unarchive Wayland {{ wayland_scanner_version }}
+    - name: Download and unarchive Wayland {{ niri_wayland_scanner_version }}
       ansible.builtin.unarchive:
-        src: "{{ wayland_scanner_download_url }}"
-        dest: "{{ wayland_scanner_tmp.path }}"
+        src: "{{ niri_wayland_scanner_download_url }}"
+        dest: "{{ niri_wayland_scanner_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -144,50 +157,56 @@
 
     - name: Create build directory for Wayland
       ansible.builtin.file:
-        path: "{{ wayland_scanner_tmp.path }}/build"
+        path: "{{ niri_wayland_scanner_tmp.path }}/build"
         state: directory
         mode: "0755"
 
     - name: Configure Wayland
       ansible.builtin.command:
         cmd: meson build/ --prefix=/usr/local --buildtype=release
-        chdir: "{{ wayland_scanner_tmp.path }}"
+        chdir: "{{ niri_wayland_scanner_tmp.path }}"
+      changed_when: true
 
     - name: Build Wayland
       ansible.builtin.command:
         cmd: ninja
-        chdir: "{{ wayland_scanner_tmp.path }}/build"
+        chdir: "{{ niri_wayland_scanner_tmp.path }}/build"
+      changed_when: true
 
     - name: Install Wayland
       ansible.builtin.command:
         cmd: ninja install
-        chdir: "{{ wayland_scanner_tmp.path }}/build"
+        chdir: "{{ niri_wayland_scanner_tmp.path }}/build"
+      changed_when: true
       become: true
-  tags: [wayland]
 
 - name: Install wayland-protocols
+  tags: [wayland]
   block:
     - name: Get latest release info from GitLab API
       ansible.builtin.uri:
         url: "https://gitlab.freedesktop.org/api/v4/projects/2891/releases"
         method: GET
         return_content: true
-      register: wayland_protocols_info
+      register: niri_wayland_protocols_info
 
     - name: Set wayland-protocols variables
       ansible.builtin.set_fact:
-        wayland_protocols_version: "{{ wayland_protocols_info.json[0].tag_name }}"
-        wayland_protocols_download_url: "{{ wayland_protocols_info.json[0].assets.sources | selectattr('format', 'equalto', 'tar.gz') | map(attribute='url') | first }}"
+        niri_wayland_protocols_version: "{{ niri_wayland_protocols_info.json[0].tag_name }}"
+        niri_wayland_protocols_download_url: >-
+          {{ niri_wayland_protocols_info.json[0].assets.sources
+          | selectattr('format', 'equalto', 'tar.gz')
+          | map(attribute='url') | first }}
 
     - name: Create a temporary directory for wayland-protocols
       ansible.builtin.tempfile:
         state: directory
-      register: wayland_protocols_tmp
+      register: niri_wayland_protocols_tmp
 
-    - name: Download and unarchive wayland-protocols {{ wayland_protocols_version }}
+    - name: Download and unarchive wayland-protocols {{ niri_wayland_protocols_version }}
       ansible.builtin.unarchive:
-        src: "{{ wayland_protocols_download_url }}"
-        dest: "{{ wayland_protocols_tmp.path }}"
+        src: "{{ niri_wayland_protocols_download_url }}"
+        dest: "{{ niri_wayland_protocols_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -195,54 +214,61 @@
 
     - name: Create build directory for wayland-protocols
       ansible.builtin.file:
-        path: "{{ wayland_protocols_tmp.path }}/build"
+        path: "{{ niri_wayland_protocols_tmp.path }}/build"
         state: directory
         mode: "0755"
 
     - name: Configure wayland-protocols
       ansible.builtin.command:
         cmd: meson build/ --prefix=/usr/local --buildtype=release
-        chdir: "{{ wayland_protocols_tmp.path }}"
+        chdir: "{{ niri_wayland_protocols_tmp.path }}"
+      changed_when: true
 
     - name: Build wayland-protocols
       ansible.builtin.command:
         cmd: ninja
-        chdir: "{{ wayland_protocols_tmp.path }}/build"
+        chdir: "{{ niri_wayland_protocols_tmp.path }}/build"
+      changed_when: true
 
     - name: Install wayland-protocols
       ansible.builtin.command:
         cmd: ninja install
-        chdir: "{{ wayland_protocols_tmp.path }}/build"
+        chdir: "{{ niri_wayland_protocols_tmp.path }}/build"
+      changed_when: true
       become: true
-  tags: [wayland]
 
 - name: Install hyprland-protocols
+  tags: [hypr]
   block:
     - name: Get releases of hyprland-protocols
       ansible.builtin.uri:
         url: "https://api.github.com/repos/hyprwm/hyprland-protocols/releases"
         method: GET
         return_content: true
-      register: hyprland_protocols_releases
+      register: niri_hyprland_protocols_releases
 
     - name: Set hyprland-protocols to latest stable release
       ansible.builtin.set_fact:
-        hyprland_protocols_release: "{{ hyprland_protocols_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+        niri_hyprland_protocols_release: >-
+          {{ niri_hyprland_protocols_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first }}
 
     - name: Set hyprland-protocols variables
       ansible.builtin.set_fact:
-        hyprland_protocols_version: "{{ hyprland_protocols_release.tag_name }}"
-        hyprland_protocols_download_url: "{{ hyprland_protocols_release.tarball_url }}"
+        niri_hyprland_protocols_version: "{{ niri_hyprland_protocols_release.tag_name }}"
+        niri_hyprland_protocols_download_url: "{{ niri_hyprland_protocols_release.tarball_url }}"
 
     - name: Create a temporary directory for hyprland-protocols
       ansible.builtin.tempfile:
         state: directory
-      register: hyprland_protocols_tmp
+      register: niri_hyprland_protocols_tmp
 
-    - name: Download and unarchive hyprland-protocols {{ hyprland_protocols_version }}
+    - name: Download and unarchive hyprland-protocols {{ niri_hyprland_protocols_version }}
       ansible.builtin.unarchive:
-        src: "{{ hyprland_protocols_download_url }}"
-        dest: "{{ hyprland_protocols_tmp.path }}"
+        src: "{{ niri_hyprland_protocols_download_url }}"
+        dest: "{{ niri_hyprland_protocols_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -251,16 +277,18 @@
     - name: Configure hyprland-protocols
       ansible.builtin.command:
         cmd: meson build/ --prefix=/usr/local --buildtype=release
-        chdir: "{{ hyprland_protocols_tmp.path }}"
+        chdir: "{{ niri_hyprland_protocols_tmp.path }}"
+      changed_when: true
 
     - name: Build hyprland-protocols
       ansible.builtin.command:
         cmd: ninja
-        chdir: "{{ hyprland_protocols_tmp.path }}/build"
+        chdir: "{{ niri_hyprland_protocols_tmp.path }}/build"
+      changed_when: true
 
     - name: Install hyprland-protocols
       ansible.builtin.command:
         cmd: ninja install
-        chdir: "{{ hyprland_protocols_tmp.path }}/build"
+        chdir: "{{ niri_hyprland_protocols_tmp.path }}/build"
+      changed_when: true
       become: true
-  tags: [hypr]

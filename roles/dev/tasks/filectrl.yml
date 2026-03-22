@@ -1,22 +1,29 @@
 ---
 - name: Get releases of filectrl
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/andornaut/filectrl/releases
     return_content: true
-  register: filectrl_releases
+  register: dev_filectrl_releases
 
 - name: Set filectrl to latest stable release
-  set_fact:
-    filectrl_release: "{{ filectrl_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+  ansible.builtin.set_fact:
+    dev_filectrl_release: >-
+      {{ dev_filectrl_releases.json
+      | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false)
+      | list | first }}
 
 - name: Set filectrl download URL fact
-  set_fact:
-    filectrl_download_url: "{{ (filectrl_release.assets | selectattr('name', 'match', 'filectrl-linux') | first).browser_download_url }}"
+  ansible.builtin.set_fact:
+    dev_filectrl_download_url: >-
+      {{ (dev_filectrl_release.assets
+      | selectattr('name', 'match', 'filectrl-linux')
+      | first).browser_download_url }}
 
 - name: Download filectrl binary
-  get_url:
-    url: "{{ filectrl_download_url }}"
+  ansible.builtin.get_url:
+    url: "{{ dev_filectrl_download_url }}"
     dest: /usr/local/bin/filectrl
-    mode: '0755'
+    mode: "0755"
     force: true
   become: true

@@ -1,48 +1,64 @@
 ---
-- import_tasks: apt.yml
+- name: Import apt tasks
+  ansible.builtin.import_tasks: apt.yml
 
-- import_tasks: antigravity.yml
+- name: Import antigravity tasks
+  ansible.builtin.import_tasks: antigravity.yml
   when: dev_install_antigravity
   tags: antigravity
 
-- import_tasks: claude.yml
+- name: Import claude tasks
+  ansible.builtin.import_tasks: claude.yml
   tags: claude
 
-- import_tasks: cursor.yml
+- name: Import cursor tasks
+  ansible.builtin.import_tasks: cursor.yml
   tags: cursor
 
-- import_tasks: codex.yml
+- name: Import codex tasks
+  ansible.builtin.import_tasks: codex.yml
   tags: codex
 
-- import_tasks: delta.yml
+- name: Import delta tasks
+  ansible.builtin.import_tasks: delta.yml
   tags: delta
 
-- import_tasks: filectrl.yml
+- name: Import filectrl tasks
+  ansible.builtin.import_tasks: filectrl.yml
   tags: filectrl
 
-- import_tasks: gemini.yml
+- name: Import gemini tasks
+  ansible.builtin.import_tasks: gemini.yml
   tags: gemini
 
-- import_tasks: go.yml
+- name: Import go tasks
+  ansible.builtin.import_tasks: go.yml
   tags: go
 
-- import_tasks: javascript.yml
+- name: Import javascript tasks
+  ansible.builtin.import_tasks: javascript.yml
   tags: javascript
 
-- import_tasks: opencode.yml
+- name: Import opencode tasks
+  ansible.builtin.import_tasks: opencode.yml
   tags: opencode
 
-- import_tasks: python.yml
+- name: Import python tasks
+  ansible.builtin.import_tasks: python.yml
   tags: python
 
-- import_tasks: ruby.yml
+- name: Import ruby tasks
+  ansible.builtin.import_tasks: ruby.yml
   tags: ruby
 
-- import_tasks: rust.yml
+- name: Import rust tasks
+  ansible.builtin.import_tasks: rust.yml
   tags: rust
 
-- import_tasks: virtualbox.yml
+- name: Import virtualbox tasks
+  ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox
 
-- import_tasks: vscode.yml
+- name: Import vscode tasks
+  ansible.builtin.import_tasks: vscode.yml
   tags: vscode

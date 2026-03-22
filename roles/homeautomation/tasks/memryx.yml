@@ -12,20 +12,20 @@
     - memx-drivers
     - mxa-manager
   become: true
-  ignore_errors: true
+  failed_when: false
 
 - name: Remove existing MemryX packages
-  apt:
+  ansible.builtin.apt:
     name:
       - memx-*
       - mxa-manager
     state: absent
     purge: true
   become: true
-  ignore_errors: true
+  failed_when: false
 
 - name: Remove existing MemryX repository files
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
@@ -34,7 +34,7 @@
   become: true
 
 - name: Install DKMS and kernel headers
-  apt:
+  ansible.builtin.apt:
     name:
       - dkms
       - "linux-headers-{{ ansible_facts['kernel'] }}"
@@ -56,8 +56,8 @@
     state: present
   become: true
 
-- name: Install MemryX SDK {{ homeautomation_memryx_version }} packages
-  apt:
+- name: Install MemryX SDK packages
+  ansible.builtin.apt:
     name:
       - memx-drivers={{ homeautomation_memryx_version }}.*
       - memx-accl={{ homeautomation_memryx_version }}.*
@@ -77,10 +77,11 @@
   become: true
 
 - name: Run ARM setup if on ARM architecture
-  command: mx_arm_setup
+  ansible.builtin.command: mx_arm_setup
   when: ansible_facts['architecture'] in ['aarch64', 'arm64']
   become: true
-  ignore_errors: true
+  changed_when: true
+  failed_when: false
 
 - name: Load MemryX kernel module
   community.general.modprobe:

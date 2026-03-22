@@ -1,8 +1,11 @@
 ---
 - name: Validate mDNS configuration
+  tags:
+    - avahi
+    - docker
   block:
     - name: Check for mDNS service conflicts
-      assert:
+      ansible.builtin.assert:
         that:
           - not (homeautomation_install_avahi and homeautomation_install_matter)
         fail_msg: |
@@ -10,8 +13,8 @@
           as they both provide mDNS services and will conflict when using network_mode: host.
         success_msg: "mDNS configuration validated successfully"
 
-    - name: mDNS advisory message
-      debug:
+    - name: MDNS advisory message
+      ansible.builtin.debug:
         msg: |
           {% if homeautomation_install_matter %}
           Provisioning Matter/Thread, so Avahi will be disabled
@@ -20,44 +23,52 @@
           {% endif %}
       when: homeautomation_install_matter or homeautomation_install_avahi
 
-    - import_tasks: avahi.yml
+    - name: Import Avahi tasks
+      ansible.builtin.import_tasks: avahi.yml
       when: homeautomation_install_avahi
 
     - name: Disable host Avahi daemon when not needed
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ item }}"
         state: stopped
         enabled: false
       become: true
       loop:
-        - avahi-daemon.socket # Stop the socket first, b/c it can spawn the service
+        # Stop the socket first, b/c it can spawn the service
+        - avahi-daemon.socket
         - avahi-daemon.service
-      ignore_errors: true
+      failed_when: false
       when: not homeautomation_install_avahi
-  tags:
-    - avahi
-    - docker
 
-- import_tasks: bluetooth.yml
-- import_tasks: mosquitto.yml
+- name: Import Bluetooth tasks
+  ansible.builtin.import_tasks: bluetooth.yml
+- name: Import Mosquitto tasks
+  ansible.builtin.import_tasks: mosquitto.yml
 
-- import_tasks: memryx.yml
+- name: Import MemryX tasks
+  ansible.builtin.import_tasks: memryx.yml
   tags: memryx
   when: homeautomation_install_memryx
 
-- import_tasks: otbr.yml
+- name: Import OTBR tasks
+  ansible.builtin.import_tasks: otbr.yml
   when: homeautomation_install_matter
 
 - name: Install customizations
-  block:
-    - import_tasks: custom_components.yml
-    - import_tasks: themes.yml
-    - import_tasks: www.yml
   tags: customizations
+  block:
+    - name: Import custom components tasks
+      ansible.builtin.import_tasks: custom_components.yml
+    - name: Import themes tasks
+      ansible.builtin.import_tasks: themes.yml
+    - name: Import www tasks
+      ansible.builtin.import_tasks: www.yml
 
 - name: Configure Docker containers
+  tags: docker
   block:
-    - import_tasks: docker_prerequisites.yml
+    - name: Import Docker prerequisites tasks
+      ansible.builtin.import_tasks: docker_prerequisites.yml
       tags:
         - esphome
         - frigate
@@ -70,32 +81,37 @@
         - voice
 
     # Must come first, because it creates the shared bridge network
-    - import_tasks: docker_homeassistant.yml
+    - name: Import Home Assistant Docker tasks
+      ansible.builtin.import_tasks: docker_homeassistant.yml
       tags: homeassistant
 
     # Must come before docker_frigate, b/c Frigate may depend on Llama.cpp
-    - import_tasks: docker_llm.yml
+    - name: Import LLM Docker tasks
+      ansible.builtin.import_tasks: docker_llm.yml
       tags: llm
       when: homeautomation_install_llm
 
-    - import_tasks: docker_frigate.yml
+    - name: Import Frigate Docker tasks
+      ansible.builtin.import_tasks: docker_frigate.yml
       tags: frigate
       when: homeautomation_install_frigate
 
-    - import_tasks: docker_esphome.yml
+    - name: Import ESPHome Docker tasks
+      ansible.builtin.import_tasks: docker_esphome.yml
       tags: esphome
       when: homeautomation_install_esphome
 
-    - import_tasks: docker_matter.yml
+    - name: Import Matter Docker tasks
+      ansible.builtin.import_tasks: docker_matter.yml
       tags: matter
       when: homeautomation_install_matter
 
-    - import_tasks: docker_hamcp.yml
+    - name: Import ha-mcp Docker tasks
+      ansible.builtin.import_tasks: docker_hamcp.yml
       tags: hamcp
       when: homeautomation_install_hamcp
 
-    - import_tasks: docker_voice.yml
+    - name: Import Voice Docker tasks
+      ansible.builtin.import_tasks: docker_voice.yml
       tags: voice
       when: homeautomation_install_voice
-
-  tags: docker

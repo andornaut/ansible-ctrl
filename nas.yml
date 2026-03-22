@@ -1,4 +1,5 @@
 ---
-- hosts: nas
+- name: Apply nas role
+  hosts: nas
   roles:
     - nas

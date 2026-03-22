@@ -6,14 +6,15 @@
   loop:
     - openwebui
     - llamacpp
-  ignore_errors: true
+  failed_when: false
 
 - name: Create required directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: root
     group: root
+    mode: "0755"
   loop:
     - "{{ homeautomation_llamacpp_required_volumes.models }}"
     - "{{ homeautomation_openwebui_required_volumes.data }}"
@@ -23,7 +24,7 @@
   ansible.builtin.stat:
     path: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item | basename }}"
   loop: "{{ homeautomation_llamacpp_models }}"
-  register: llamacpp_model_stats
+  register: homeautomation_llamacpp_model_stats
   when: homeautomation_llamacpp_models | length > 0
 
 - name: Download llama.cpp models
@@ -32,7 +33,7 @@
     dest: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item.item | basename }}"
     mode: "0644"
   become: true
-  loop: "{{ llamacpp_model_stats.results }}"
+  loop: "{{ homeautomation_llamacpp_model_stats.results }}"
   when:
     - homeautomation_llamacpp_models | length > 0
     - not item.stat.exists
@@ -41,18 +42,18 @@
   vars:
     openwebui_base_volumes:
       - "{{ homeautomation_openwebui_required_volumes.data }}:/app/backend/data"
-    openwebui_volumes: "{{ common_volumes + openwebui_base_volumes }}"
+    openwebui_volumes: "{{ homeautomation_common_volumes + openwebui_base_volumes }}"
 
     llamacpp_base_volumes:
       - "{{ homeautomation_llamacpp_required_volumes.models }}:/models"
-    llamacpp_volumes: "{{ common_volumes + llamacpp_base_volumes }}"
+    llamacpp_volumes: "{{ homeautomation_common_volumes + llamacpp_base_volumes }}"
 
   community.docker.docker_compose_v2:
     project_name: homeautomation-llm
     pull: always
     remove_orphans: true
     definition:
-      networks: "{{ external_network }}"
+      networks: "{{ homeautomation_external_network }}"
       services:
         llamacpp:
           # http://llamacpp.internal:8080
@@ -64,7 +65,7 @@
           group_add:
             - "{{ ansible_facts.getent_group.render[1] }}"
             - "{{ ansible_facts.getent_group.video[1] }}"
-          logging: "{{ default_logging }}"
+          logging: "{{ homeautomation_default_logging }}"
           restart: unless-stopped
           volumes: "{{ llamacpp_volumes }}"
 
@@ -72,7 +73,7 @@
           # http://openwebui.internal:8080
           container_name: openwebui
           image: "{{ homeautomation_openwebui_docker_image }}"
-          logging: "{{ default_logging }}"
+          logging: "{{ homeautomation_default_logging }}"
           ports:
             - "{{ homeautomation_openwebui_port }}:8080"
           restart: unless-stopped
@@ -80,5 +81,5 @@
           depends_on:
             - llamacpp
   notify:
-    - restart homeassistant
-    - update /etc/hosts
+    - Restart homeassistant
+    - Update /etc/hosts

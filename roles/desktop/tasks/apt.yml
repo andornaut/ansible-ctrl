@@ -1,6 +1,6 @@
 ---
 - name: Install common system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - blueman
       - desktop-file-utils
@@ -8,7 +8,7 @@
       - feh
       - gnome-keyring
       - gnome-themes-extra
-      #- gnome-themes-standard
+      # - gnome-themes-standard
       - gvfs-backends
       - imagemagick
       - jq
@@ -42,7 +42,7 @@
       - xinput
       - xsel
       - zenity
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true

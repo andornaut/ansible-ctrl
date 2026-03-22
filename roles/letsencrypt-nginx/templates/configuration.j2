@@ -48,7 +48,7 @@ server {
 {% if not item.stat.exists or item.item.use_selfsigned_certificate | default(False) %}
     include /etc/nginx/conf.d/partial/selfsigned_certificate;
 {% else %}
-    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.crt;
+    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name | default(item.item.domain) | replace('*', '_') }}.crt;
     ssl_certificate_key /etc/nginx/conf.d/ssl/key/private.pem;
 {% endif %}
 
@@ -106,7 +106,7 @@ server {
 {% if not item.stat.exists or item.item.use_selfsigned_certificate | default(False) %}
     include /etc/nginx/conf.d/partial/selfsigned_certificate;
 {% else %}
-    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name|default(item.item.domain)|replace('*', '_') }}.crt;
+    ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name | default(item.item.domain) | replace('*', '_') }}.crt;
     ssl_certificate_key /etc/nginx/conf.d/ssl/key/private.pem;
 
     # ACME challenge location
@@ -214,7 +214,7 @@ server {
 {% endif %}
 {% else %}
         root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
-{% if item.item.default_path | default(False)%}
+{% if item.item.default_path | default(False) %}
         try_files $uri $uri/ {{ item.item.default_path }};
 {% endif %}
 {% endif %}

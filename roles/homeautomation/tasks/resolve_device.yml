@@ -1,20 +1,20 @@
 ---
 - name: Resolve device symlink paths to actual devices
-  stat:
+  ansible.builtin.stat:
     path: "{{ item }}"
-  register: device_stats_result
+  register: homeautomation_device_stats_result
   loop: "{{ device_paths | default([]) }}"
   when: item.startswith('/dev/')
 
-- name: "Set resolved device paths for {{ resolved_var_name }}"
-  set_fact:
+- name: Set resolved device paths
+  ansible.builtin.set_fact:
     "{{ resolved_var_name }}": "{{ resolved_devices }}"
   vars:
     resolved_devices: >-
       {%- set devices = [] -%}
       {%- for device in (device_paths | default([])) -%}
         {%- if device.startswith('/dev/') -%}
-          {%- set device_stat = device_stats_result.results | selectattr('item', 'equalto', device) | first | default({}) -%}
+          {%- set device_stat = homeautomation_device_stats_result.results | selectattr('item', 'equalto', device) | first | default({}) -%}
           {%- if device_stat.stat is defined and device_stat.stat.islnk -%}
             {%- set target = device_stat.stat.lnk_target -%}
             {%- if target.startswith('/') -%}
@@ -31,6 +31,6 @@
       {%- endfor -%}
       {{ devices }}
 
-- name: "Resolved device path for {{ resolved_var_name }}"
-  debug:
+- name: Display resolved device paths
+  ansible.builtin.debug:
     msg: "{{ device_paths | default([]) }} -> {{ lookup('vars', resolved_var_name) }}"

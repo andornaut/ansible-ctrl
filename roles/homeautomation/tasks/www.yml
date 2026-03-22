@@ -1,18 +1,20 @@
 ---
 - name: Create www/ directory
-  file:
+  ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
     state: directory
     owner: root
     group: root
+    mode: "0755"
   become: true
 
 - name: Install advanced-camera-card
   block:
     - name: Download advanced-camera-card
-      get_url:
+      ansible.builtin.get_url:
         url: https://github.com/dermotduffy/advanced-camera-card/releases/latest/download/advanced-camera-card.zip
         dest: /tmp/advanced-camera-card.zip
+        mode: "0644"
 
     - name: Create advanced-camera-card directory
       ansible.builtin.file:
@@ -21,7 +23,7 @@
         mode: "0755"
       become: true
 
-    - name: Install advanced-camera-card
+    - name: Install advanced-camera-card files
       ansible.builtin.unarchive:
         src: /tmp/advanced-camera-card.zip
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
@@ -37,32 +39,39 @@
     - name: Create a temporary directory for Card Mod
       ansible.builtin.tempfile:
         state: directory
-      register: card_mod_tmp
+      register: homeautomation_card_mod_tmp
 
     - name: Get releases of Card Mod
       ansible.builtin.uri:
         url: https://api.github.com/repos/thomasloven/lovelace-card-mod/releases
         return_content: true
-      register: card_mod_releases
+      register: homeautomation_card_mod_releases
 
     - name: Set Card Mod version to latest stable release
       ansible.builtin.set_fact:
-        card_mod_version: "{{ (card_mod_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_card_mod_version: >-
+          {{ (homeautomation_card_mod_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Card Mod {{ card_mod_version }}
+    - name: Download and unarchive Card Mod
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-card-mod/archive/refs/tags/{{ card_mod_version }}.tar.gz"
-        dest: "{{ card_mod_tmp.path }}"
+        src: >-
+          https://github.com/thomasloven/lovelace-card-mod/archive/refs/tags/{{
+          homeautomation_card_mod_version }}.tar.gz
+        dest: "{{ homeautomation_card_mod_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Card Mod
-      copy:
-        src: "{{ card_mod_tmp.path }}/card-mod.js"
+    - name: Install Card Mod files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_card_mod_tmp.path }}/card-mod.js"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Custom Features Tile Card
@@ -70,38 +79,46 @@
     - name: Create a temporary directory for Custom Features Tile Card
       ansible.builtin.tempfile:
         state: directory
-      register: custom_features_tmp
+      register: homeautomation_custom_features_tmp
 
     - name: Get releases of Custom Features Tile Card
       ansible.builtin.uri:
         url: https://api.github.com/repos/Nerwyn/custom-card-features/releases
         return_content: true
-      register: custom_features_releases
+      register: homeautomation_custom_features_releases
 
     - name: Set Custom Features Tile Card version to latest stable release
       ansible.builtin.set_fact:
-        custom_features_version: "{{ (custom_features_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_custom_features_version: >-
+          {{ (homeautomation_custom_features_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Custom Features Tile Card {{ custom_features_version }}
+    - name: Download and unarchive Custom Features Tile Card
       ansible.builtin.unarchive:
-        src: "https://github.com/Nerwyn/custom-card-features/archive/refs/tags/{{ custom_features_version }}.tar.gz"
-        dest: "{{ custom_features_tmp.path }}"
+        src: >-
+          https://github.com/Nerwyn/custom-card-features/archive/refs/tags/{{
+          homeautomation_custom_features_version }}.tar.gz
+        dest: "{{ homeautomation_custom_features_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Custom Features Tile Card
-      copy:
-        src: "{{ custom_features_tmp.path }}/dist/custom-card-features.min.js"
+    - name: Install Custom Features Tile Card files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_custom_features_tmp.path }}/dist/custom-card-features.min.js"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
+        mode: "0644"
       become: true
 
 - name: Install Decluttering Card
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/custom-cards/decluttering-card/releases/latest/download/decluttering-card.js
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
+    mode: "0644"
   become: true
 
 - name: Install Slider Entry Row Card
@@ -109,30 +126,37 @@
     - name: Create a temporary directory for Slider Entry Row Card
       ansible.builtin.tempfile:
         state: directory
-      register: slider_entity_row_tmp
+      register: homeautomation_slider_entity_row_tmp
 
     - name: Get releases of Slider Entry Row Card
       ansible.builtin.uri:
         url: https://api.github.com/repos/thomasloven/lovelace-slider-entity-row/releases
         return_content: true
-      register: slider_entity_row_releases
+      register: homeautomation_slider_entity_row_releases
 
     - name: Set Slider Entry Row Card version to latest stable release
       ansible.builtin.set_fact:
-        slider_entity_row_version: "{{ (slider_entity_row_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        homeautomation_slider_entity_row_version: >-
+          {{ (homeautomation_slider_entity_row_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive Slider Entry Row Card {{ slider_entity_row_version }}
+    - name: Download and unarchive Slider Entry Row Card
       ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-slider-entity-row/archive/refs/tags/{{ slider_entity_row_version }}.tar.gz"
-        dest: "{{ slider_entity_row_tmp.path }}"
+        src: >-
+          https://github.com/thomasloven/lovelace-slider-entity-row/archive/refs/tags/{{
+          homeautomation_slider_entity_row_version }}.tar.gz
+        dest: "{{ homeautomation_slider_entity_row_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
-    - name: Install Slider Entry Row Card
-      copy:
-        src: "{{ slider_entity_row_tmp.path }}/slider-entity-row.js"
+    - name: Install Slider Entry Row Card files
+      ansible.builtin.copy:
+        src: "{{ homeautomation_slider_entity_row_tmp.path }}/slider-entity-row.js"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
         remote_src: true
+        mode: "0644"
       become: true

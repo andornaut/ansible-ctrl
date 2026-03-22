@@ -1,85 +1,101 @@
 ---
 - name: Install Ruby system packages
-  apt:
+  ansible.builtin.apt:
     name:
       - ruby
       - ruby-dev
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Create a temporary directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
-  register: tmp_ruby
+  register: dev_tmp_ruby
 
 - name: Install Ruby tools
   block:
     - name: Install chruby
       block:
         - name: Get releases of chruby
-          uri:
+          ansible.builtin.uri:
             url: https://api.github.com/repos/postmodern/chruby/releases
             return_content: true
-          register: chruby_releases
+          register: dev_chruby_releases
 
         - name: Set chruby to latest stable release
-          set_fact:
-            chruby_release: "{{ chruby_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+          ansible.builtin.set_fact:
+            dev_chruby_release: >-
+              {{ dev_chruby_releases.json
+              | selectattr('prerelease', 'equalto', false)
+              | selectattr('draft', 'equalto', false)
+              | list | first }}
 
         - name: Set chruby download URL fact
-          set_fact:
-            chruby_download_url: "{{ (chruby_release.assets | selectattr('name', 'match', 'chruby-.*.tar.gz') | first).browser_download_url }}"
+          ansible.builtin.set_fact:
+            dev_chruby_download_url: >-
+              {{ (dev_chruby_release.assets
+              | selectattr('name', 'match', 'chruby-.*.tar.gz')
+              | first).browser_download_url }}
 
         - name: Download chruby package
-          get_url:
-            url: "{{ chruby_download_url }}"
-            dest: "{{ tmp_ruby.path }}/chruby.tar.gz"
-            mode: 0644
+          ansible.builtin.get_url:
+            url: "{{ dev_chruby_download_url }}"
+            dest: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
+            mode: "0644"
 
         - name: Decompress chruby.tar.gz
           ansible.builtin.unarchive:
-            src: "{{ tmp_ruby.path }}/chruby.tar.gz"
+            src: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
             remote_src: true
-            dest: "{{ tmp_ruby.path}}"
+            dest: "{{ dev_tmp_ruby.path }}"
 
         - name: Make install chruby
-          make:
-            chdir: "{{ tmp_ruby.path}}/chruby-{{ chruby_release.tag_name | replace('v', '') }}"
+          community.general.make:
+            chdir: >-
+              {{ dev_tmp_ruby.path }}/chruby-{{ dev_chruby_release.tag_name | replace('v', '') }}
             target: install
           become: true
 
     - name: Install ruby-install
       block:
         - name: Get releases of ruby-install
-          uri:
+          ansible.builtin.uri:
             url: https://api.github.com/repos/postmodern/ruby-install/releases
             return_content: true
-          register: ruby_install_releases
+          register: dev_ruby_install_releases
 
         - name: Set ruby-install to latest stable release
-          set_fact:
-            ruby_install_release: "{{ ruby_install_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first }}"
+          ansible.builtin.set_fact:
+            dev_ruby_install_release: >-
+              {{ dev_ruby_install_releases.json
+              | selectattr('prerelease', 'equalto', false)
+              | selectattr('draft', 'equalto', false)
+              | list | first }}
 
         - name: Set ruby-install download URL fact
-          set_fact:
-            ruby_install_download_url: "{{ (ruby_install_release.assets | selectattr('name', 'match', 'ruby-install-.*.tar.gz') | first).browser_download_url }}"
+          ansible.builtin.set_fact:
+            dev_ruby_install_download_url: >-
+              {{ (dev_ruby_install_release.assets
+              | selectattr('name', 'match', 'ruby-install-.*.tar.gz')
+              | first).browser_download_url }}
 
         - name: Download ruby-install package
-          get_url:
-            url: "{{ ruby_install_download_url }}"
-            dest: "{{ tmp_ruby.path }}/ruby-install.tar.gz"
-            mode: 0644
+          ansible.builtin.get_url:
+            url: "{{ dev_ruby_install_download_url }}"
+            dest: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
+            mode: "0644"
 
         - name: Decompress ruby-install.tar.gz
           ansible.builtin.unarchive:
-            src: "{{ tmp_ruby.path }}/ruby-install.tar.gz"
+            src: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
             remote_src: true
-            dest: "{{ tmp_ruby.path }}"
+            dest: "{{ dev_tmp_ruby.path }}"
 
         - name: Make install ruby-install
-          make:
-            chdir: "{{ tmp_ruby.path }}/ruby-install-{{ ruby_install_release.tag_name | replace('v', '') }}"
+          community.general.make:
+            chdir: >-
+              {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}
             target: install
           become: true
