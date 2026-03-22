@@ -69,7 +69,7 @@ ansible-playbook --ask-become-pass dev.yml --tags hobbies
 | [dev](roles/dev/) | Development tools and programming languages |
 | [docker](roles/docker/) | Docker CE, Compose, optional Kubernetes |
 | [games](roles/games/) | Gaming packages via flatpak |
-| hobbies | 3D printing, electronics, FPV tools |
+| [hobbies](roles/hobbies/) | 3D printing, electronics, FPV tools |
 | [homeautomation](roles/homeautomation/) | Home Assistant + related Docker containers |
 | [letsencrypt_nginx](roles/letsencrypt_nginx/) | NGINX reverse proxy with Let's Encrypt HTTPS |
 | [msmtp](roles/msmtp/) | Email forwarding via MSMTP |
