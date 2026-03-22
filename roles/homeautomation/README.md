@@ -77,9 +77,16 @@ letsencryptnginx_websites:
 
 Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home Assistant devices, automations, and services via the [Model Context Protocol](https://modelcontextprotocol.io/).
 
-The container runs in HTTP mode on port 9583 and connects to the host-networked Home Assistant instance via `extra_hosts` (`host.docker.internal` mapped to `host-gateway`).
+#### Setup
+
+1. Generate a long-lived access token in Home Assistant: Profile → Security → Long-lived access tokens → Create token
+2. Set `homeautomation_install_hamcp: true` and `homeautomation_hamcp_token` in your host vars
+3. Run the playbook: `ansible-playbook --ask-become-pass homeautomation.yml --tags hamcp`
+4. Verify the container is running: `docker logs hamcp`
 
 #### MCP client configuration
+
+Clients connect via `hamcp.internal:8086` — the container's internal port on the bridge network (not a host-mapped port). The `.internal` DNS name is maintained by the `docker_etc_hosts` systemd service.
 
 VSCode (`~/.config/Code/User/mcp.json`):
 
@@ -88,7 +95,7 @@ VSCode (`~/.config/Code/User/mcp.json`):
   "servers": {
     "ha-mcp": {
       "type": "http",
-      "url": "http://localhost:9583/mcp"
+      "url": "http://hamcp.internal:8086/mcp"
     }
   }
 }
@@ -101,7 +108,7 @@ Claude Code (`~/.claude.json`):
   "mcpServers": {
     "ha-mcp": {
       "type": "http",
-      "url": "http://localhost:9583/mcp"
+      "url": "http://hamcp.internal:8086/mcp"
     }
   }
 }
