@@ -32,46 +32,6 @@
         extra_opts: "-j"
       become: true
 
-- name: Install Bubble Card
-  block:
-    - name: Create a temporary directory for Bubble Card
-      ansible.builtin.tempfile:
-        state: directory
-      register: bubble_card_tmp
-
-    - name: Get releases of Bubble Card
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/Clooos/Bubble-Card/releases
-        return_content: true
-      register: bubble_card_releases
-
-    - name: Set Bubble Card version to latest stable release
-      ansible.builtin.set_fact:
-        bubble_card_version: "{{ (bubble_card_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
-
-    - name: Download and unarchive Bubble Card {{ bubble_card_version }}
-      ansible.builtin.unarchive:
-        src: "https://github.com/Clooos/Bubble-Card/archive/refs/tags/{{ bubble_card_version }}.tar.gz"
-        dest: "{{ bubble_card_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
-
-    - name: Install Bubble Card bubble-card.js
-      copy:
-        src: "{{ bubble_card_tmp.path }}/dist/bubble-card.js"
-        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
-        remote_src: true
-      become: true
-
-    - name: Install Bubble Card bubble-pop-up-fix.js
-      copy:
-        src: "{{ bubble_card_tmp.path }}/dist/bubble-pop-up-fix.js"
-        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
-        remote_src: true
-      become: true
-
 - name: Install Card Mod
   block:
     - name: Create a temporary directory for Card Mod
@@ -141,45 +101,6 @@
 - name: Install Decluttering Card
   get_url:
     url: https://github.com/custom-cards/decluttering-card/releases/latest/download/decluttering-card.js
-    dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
-  become: true
-
-- name: Install Layout Card
-  block:
-    - name: Create a temporary directory for Layout Card
-      ansible.builtin.tempfile:
-        state: directory
-      register: layout_card_tmp
-
-    - name: Get releases of Layout Card
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/thomasloven/lovelace-layout-card/releases
-        return_content: true
-      register: layout_card_releases
-
-    - name: Set Layout Card version to latest stable release
-      ansible.builtin.set_fact:
-        layout_card_version: "{{ (layout_card_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
-
-    - name: Download and unarchive Layout Card {{ layout_card_version }}
-      ansible.builtin.unarchive:
-        src: "https://github.com/thomasloven/lovelace-layout-card/archive/refs/tags/{{ layout_card_version }}.tar.gz"
-        dest: "{{ layout_card_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
-
-    - name: Install Layout Card
-      copy:
-        src: "{{ layout_card_tmp.path }}/layout-card.js"
-        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
-        remote_src: true
-      become: true
-
-- name: Install Mini Media Player Card
-  get_url:
-    url: https://github.com/kalkih/mini-media-player/releases/latest/download/mini-media-player-bundle.js
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
   become: true
 
