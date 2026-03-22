@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: andornaut
+  description: Install hobby tools (3D printing, electronics, FPV) on Ubuntu
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+  galaxy_tags:
+    - hobbies
+    - 3dprinting
+    - electronics
+    - fpv
