@@ -1,0 +1,34 @@
+---
+- name: Ensure Docker volume directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  loop:
+    - "{{ letsencrypt_nginx_docker_required_volumes.config }}"
+    - "{{ letsencrypt_nginx_docker_required_volumes.www }}"
+  become: true
+
+- name: Start Nginx Docker container
+  vars:
+    required_volumes:
+      - "{{ letsencrypt_nginx_docker_required_volumes.config }}:/etc/nginx/conf.d:ro"
+      - "{{ letsencrypt_nginx_docker_required_volumes.localtime }}:/etc/localtime:ro"
+      - "{{ letsencrypt_nginx_docker_required_volumes.www }}:/var/www:ro"
+      - /var/cache/nginx
+      - /var/run
+  community.docker.docker_compose_v2:
+    project_name: letsencrypt_nginx
+    pull: always
+    remove_orphans: true
+    definition:
+      services:
+        nginx:
+          container_name: nginx
+          image: "{{ letsencrypt_nginx_docker_image }}"
+          network_mode: host
+          restart: unless-stopped
+          volumes: "{{ required_volumes + letsencrypt_nginx_docker_extra_volumes }}"
+  become: true

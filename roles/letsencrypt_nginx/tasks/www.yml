@@ -17,20 +17,20 @@
 
     - name: Create www directories
       ansible.builtin.file:
-        path: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}"
         state: directory
         mode: u=rwX,g=rX,o=rX # Directories: 755, Files: 644
         owner: root
         group: root
-      loop: "{{ letsencryptnginx_websites }}"
+      loop: "{{ letsencrypt_nginx_websites }}"
 
     - name: Clone Git repositories
       ansible.builtin.git:
         repo: "{{ item.repo }}"
-        dest: "{{ letsencryptnginx_docker_required_volumes.www }}/{{ item.domain }}"
+        dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}"
         version: "{{ item.version | default('HEAD') }}"
         update: true # Always update to latest
         depth: 1
-      loop: "{{ letsencryptnginx_websites }}"
-      register: git_clone
+      loop: "{{ letsencrypt_nginx_websites }}"
+      register: letsencrypt_nginx_git_clone
       when: item.repo is defined

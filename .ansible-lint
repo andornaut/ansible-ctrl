@@ -2,5 +2,4 @@
 exclude_paths:
   - .roles/
   - collections/
-skip_list:
-  - role-name  # ai-maintainer and letsencrypt-nginx have hyphens; renaming would be a large refactor
+skip_list: []

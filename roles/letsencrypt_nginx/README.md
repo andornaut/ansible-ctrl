@@ -1,4 +1,4 @@
-# ansible-role-letsencrypt-nginx
+# ansible-role-letsencrypt_nginx
 
 Provisions NGINX as a Docker container with Let's Encrypt HTTPS certificates.
 
@@ -21,13 +21,13 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ### Required Variables
 
-- `letsencryptnginx_account_email`: Email for Let's Encrypt registration
-- `letsencryptnginx_acme_directory_url`: Let's Encrypt API endpoint
+- `letsencrypt_nginx_account_email`: Email for Let's Encrypt registration
+- `letsencrypt_nginx_acme_directory_url`: Let's Encrypt API endpoint
 
 ### Website Configuration
 
 ```yaml
-letsencryptnginx_websites:
+letsencrypt_nginx_websites:
   # Returns HTTP 404
   - domain: subdomain.example.com
     use_selfsigned_certificate: true
