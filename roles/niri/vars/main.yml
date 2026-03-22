@@ -1,7 +1,7 @@
 ---
-hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
+niri_hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
 
-hypr_cmake_configure: >-
+niri_hypr_cmake_configure: >-
   cmake
   --no-warn-unused-cli
   -DCMAKE_BUILD_TYPE:STRING=Release
@@ -11,4 +11,4 @@ hypr_cmake_configure: >-
   -S .
   -B build
 
-hypr_cmake_install: "cmake --install build"
+niri_hypr_cmake_install: "cmake --install build"
