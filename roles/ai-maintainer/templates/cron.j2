@@ -1,4 +1,6 @@
 # Ansible managed - repo-maintenance
 # Automated GitHub repository maintenance with AI-powered decision making
 
+PATH={{ ai_maintainer_cron_path }}
+
 {{ ai_maintainer_cron_minute }} {{ ai_maintainer_cron_hour }} {{ ai_maintainer_cron_day }} * {{ ai_maintainer_cron_weekday }} {{ ansible_user }} {{ ai_maintainer_script_path }} {{ ai_maintainer_script_args }} --base-dir {{ ai_maintainer_base_dir }} --agent-command {{ ai_maintainer_agent_command }} --agent-flags="{{ ai_maintainer_agent_flags }}" --dependency-min-age-days {{ ai_maintainer_dependency_min_age_days }}{% for repo in ai_maintainer_exclude_repositories %} -e {{ repo }}{% endfor %}
