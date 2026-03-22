@@ -29,6 +29,9 @@
 - import_tasks: javascript.yml
   tags: javascript
 
+- import_tasks: opencode.yml
+  tags: opencode
+
 - import_tasks: python.yml
   tags: python
 

@@ -1,0 +1,7 @@
+---
+- name: Install opencode-ai
+  ansible.builtin.npm:
+    name: opencode-ai
+    global: true
+    state: latest
+  become: true
