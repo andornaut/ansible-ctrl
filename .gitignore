@@ -1,6 +1,4 @@
-.ansible
-.roles/
+.ansible/
 .vscode/mcp.json
-collections/
 host_vars/
 hosts

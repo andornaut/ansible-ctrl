@@ -1,5 +1,4 @@
 ---
 exclude_paths:
-  - .roles/
-  - collections/
+  - .ansible/
 skip_list: []

@@ -30,7 +30,7 @@ help:
 	@echo "  webservers            - Configure web servers"
 
 clean:
-	rm -rf .roles
+	rm -rf .ansible/roles .ansible/collections
 
 requirements:
 	ansible-galaxy role install -r requirements.yml
