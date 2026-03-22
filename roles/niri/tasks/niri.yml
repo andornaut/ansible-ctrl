@@ -1,5 +1,6 @@
 ---
 - name: Install niri
+  tags: [niri]
   block:
     - name: Create a temporary directory
       ansible.builtin.tempfile:
@@ -91,4 +92,3 @@
         scope: user
         state: started
       when: ansible_service_mgr == 'systemd'
-  tags: [niri]

@@ -1,25 +1,30 @@
 ---
 - name: Install xwayland-satellite
+  tags: [xwayland]
   block:
     - name: Create a temporary directory for xwayland-satellite
       ansible.builtin.tempfile:
         state: directory
-      register: xwayland_tmp
+      register: niri_xwayland_tmp
 
     - name: Get releases of xwayland-satellite
       ansible.builtin.uri:
         url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases
         return_content: true
-      register: xwayland_releases
+      register: niri_xwayland_releases
 
     - name: Set xwayland-satellite version to latest stable release
       ansible.builtin.set_fact:
-        xwayland_version: "{{ (xwayland_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+        niri_xwayland_version: >-
+          {{ (niri_xwayland_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-    - name: Download and unarchive xwayland-satellite {{ xwayland_version }}
+    - name: Download and unarchive xwayland-satellite {{ niri_xwayland_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ xwayland_version }}.tar.gz
-        dest: "{{ xwayland_tmp.path }}"
+        src: https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/{{ niri_xwayland_version }}.tar.gz
+        dest: "{{ niri_xwayland_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -28,12 +33,12 @@
     - name: Build xwayland-satellite
       ansible.builtin.command:
         cmd: cargo build --release -F systemd
-        chdir: "{{ xwayland_tmp.path }}"
+        chdir: "{{ niri_xwayland_tmp.path }}"
 
     - name: Configure xwayland-satellite.service
       community.general.ini_file:
         no_extra_spaces: true
-        path: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
+        path: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
         section: Service
         option: "{{ item.option }}"
         value: "{{ item.value }}"
@@ -48,9 +53,9 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
       loop:
-        - src: "{{ xwayland_tmp.path }}/resources/xwayland-satellite.service"
+        - src: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
           dest: /etc/systemd/user/
-        - src: "{{ xwayland_tmp.path }}/target/release/xwayland-satellite"
+        - src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
           dest: /usr/local/bin/
       become: true
 
@@ -61,4 +66,3 @@
         enabled: true
         scope: user
         state: started
-  tags: [xwayland]
