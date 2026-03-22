@@ -1,4 +1,5 @@
 .roles/
+.vscode/mcp.json
 collections/
 host_vars/
 hosts

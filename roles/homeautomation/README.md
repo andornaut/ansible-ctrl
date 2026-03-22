@@ -88,7 +88,7 @@ Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home As
 
 Clients connect via `hamcp.internal:8086` — the container's internal port on the bridge network (not a host-mapped port). The `.internal` DNS name is maintained by the `docker_etc_hosts` systemd service.
 
-VSCode (`~/.config/Code/User/mcp.json`):
+VSCode — configured in this project's `.vscode/mcp.json` (gitignored; auto-starts when the project is opened):
 
 ```json
 {
