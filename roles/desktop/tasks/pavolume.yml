@@ -1,23 +1,22 @@
 ---
 - name: Clone pavolume git repository
-  git:
+  ansible.builtin.git:
     repo: "https://github.com/andornaut/pavolume.git"
     dest: /tmp/pavolume.git
     depth: 1
     force: true
+    version: main
 
 - name: Make pavolume
-  make:
+  community.general.make:
     chdir: /tmp/pavolume.git
 
 - name: Make install pavolume
-  make:
+  community.general.make:
     chdir: /tmp/pavolume.git
     target: install
-  ignore_errors: true # Ignore "cp: cannot create regular file ... Text file busy"
-  register: r
+  register: desktop_pavolume_install
+  failed_when:
+    - desktop_pavolume_install.failed
+    - "'cp: cannot create regular file' not in desktop_pavolume_install.stderr"
   become: true
-
-- name: Ensure that the 'Make install pavolume' play succeeded or failed with 'file busy'
-  fail: msg="The 'Make install pavolume' play failed"
-  when: "r.failed and 'cp: cannot create regular file' not in r.stderr"

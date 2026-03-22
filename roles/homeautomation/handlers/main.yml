@@ -1,15 +1,29 @@
 ---
-- name: reload systemd
-  systemd:
+- name: Reload systemd
+  ansible.builtin.systemd:
     daemon_reload: true
   become: true
 
-- name: restart homeassistant
+- name: Restart Avahi service
+  ansible.builtin.systemd:
+    name: avahi-daemon
+    daemon_reload: true
+    state: started
+    enabled: true
+  become: true
+
+- name: Restart homeassistant
   community.docker.docker_container:
     name: homeassistant
     restart: true
 
-- name: update /etc/hosts
-  # https://github.com/andornaut/docker_etc_hosts
-  command: /usr/local/bin/docker_etc_hosts
+- name: Load docker-ble-policy
+  ansible.builtin.command: apparmor_parser -r -W /etc/apparmor.d/docker-ble-policy
   become: true
+  changed_when: true
+
+- name: Update /etc/hosts
+  # https://github.com/andornaut/docker_etc_hosts
+  ansible.builtin.command: /usr/local/bin/docker_etc_hosts
+  become: true
+  changed_when: true

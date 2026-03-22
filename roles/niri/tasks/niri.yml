@@ -15,7 +15,11 @@
 
     - name: Set niri version to latest stable release
       ansible.builtin.set_fact:
-        niri_version: "{{ (niri_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_version: >-
+          {{ (niri_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
     - name: Download and unarchive niri {{ niri_version }}
       ansible.builtin.unarchive:
@@ -30,6 +34,7 @@
       ansible.builtin.command:
         cmd: cargo build --release
         chdir: "{{ niri_tmp.path }}"
+      changed_when: true
 
     - name: Set executable permissions for niri binaries
       ansible.builtin.file:
@@ -46,6 +51,7 @@
         path: "{{ niri_tmp.path }}/resources/niri.service"
         section: Service
         value: /usr/local/bin/niri --session
+        mode: "0644"
 
     - name: Create required directories
       ansible.builtin.file:
@@ -62,6 +68,7 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         remote_src: true
+        mode: "0644"
       loop:
         - src: "{{ niri_tmp.path }}/target/release/niri"
           dest: /usr/local/bin/

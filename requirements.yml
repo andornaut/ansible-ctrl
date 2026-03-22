@@ -3,6 +3,7 @@ collections:
   - community.crypto
   - community.docker
   - community.general
+  - ansible.posix
 roles:
   - src: https://github.com/andornaut/ansible-role-base
     name: base

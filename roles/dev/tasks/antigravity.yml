@@ -1,5 +1,6 @@
 ---
 - name: Configure Google Antigravity Repository
+  become: true
   block:
     - name: Ensure keyrings directory exists
       ansible.builtin.file:
@@ -14,21 +15,28 @@
 
     - name: Download and install Google Antigravity GPG key
       ansible.builtin.shell:
-        cmd: curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg
+        cmd: >-
+          set -o pipefail &&
+          curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg |
+          gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg
         creates: /etc/apt/keyrings/antigravity-repo-key.gpg
+        executable: /bin/bash
 
     - name: Add Google Antigravity repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch={% if ansible_architecture == 'x86_64' %}amd64{% else %}{{ansible_architecture}}{% endif %} signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main"
+        repo: >-
+          deb [arch={% if ansible_architecture == 'x86_64' %}amd64{% else %}{{ ansible_architecture }}{% endif %}
+          signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg]
+          https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/
+          antigravity-debian main
         state: present
         update_cache: true
-  become: true
 
 - name: Install Google Antigravity
-  apt:
+  ansible.builtin.apt:
     name:
       - antigravity
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true

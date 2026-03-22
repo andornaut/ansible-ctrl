@@ -1,4 +1,5 @@
 ---
-- hosts: hobbies
+- name: Apply hobbies role
+  hosts: hobbies
   roles:
     - hobbies

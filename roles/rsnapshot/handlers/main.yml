@@ -1,5 +1,5 @@
 ---
-- name: Validate rsnapshot cron config
-  command: rsnapshot configtest
+- name: Validate rsnapshot configuration
+  ansible.builtin.command: rsnapshot configtest
   changed_when: false
   become: true

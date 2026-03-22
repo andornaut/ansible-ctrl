@@ -1,15 +1,15 @@
 ---
 - name: Check if Google Chrome is already installed
-  command: dpkg-query -W google-chrome-stable
-  register: chrome_check
+  ansible.builtin.command: dpkg-query -W google-chrome-stable
+  register: desktop_chrome_check
   failed_when: false
   changed_when: false
 
 - name: Install Google Chrome
-  package:
+  ansible.builtin.package:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
-  when: chrome_check.rc != 0
+  when: desktop_chrome_check.rc != 0
 
 - name: Configure Google Chrome for Wayland
   ansible.builtin.replace:

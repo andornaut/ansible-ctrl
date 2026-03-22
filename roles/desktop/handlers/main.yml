@@ -1,12 +1,15 @@
 ---
 - name: Update font cache
-  command: fc-cache --force
+  ansible.builtin.command: fc-cache --force
   become: true
+  changed_when: true
 
 - name: Update GRUB
-  command: update-grub
+  ansible.builtin.command: update-grub
   become: true
+  changed_when: true
 
 - name: Reload dconf
-  command: dconf reset -f /
+  ansible.builtin.command: dconf reset -f /
   become: true
+  changed_when: true

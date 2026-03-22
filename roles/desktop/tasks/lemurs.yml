@@ -2,7 +2,7 @@
 - name: Install and configure lemurs display manager
   block:
     - name: Install lemurs dependencies
-      apt:
+      ansible.builtin.apt:
         name:
           - build-essential
           - curl
@@ -10,7 +10,7 @@
           - libxcb-xkb-dev
           - libxcb1-dev
           - pkg-config
-        state: latest
+        state: present
         install_recommends: false
         update_cache: true
       become: true
@@ -20,32 +20,37 @@
         - name: Create a temporary directory
           ansible.builtin.tempfile:
             state: directory
-          register: lemurs_tmp
+          register: desktop_lemurs_tmp
 
         - name: Get releases of lemurs
           ansible.builtin.uri:
             url: https://api.github.com/repos/coastalwhite/lemurs/releases
             return_content: true
-          register: lemurs_releases
+          register: desktop_lemurs_releases
 
         - name: Set lemurs version to latest stable release
           ansible.builtin.set_fact:
-            lemurs_version: "{{ (lemurs_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).tag_name }}"
+            desktop_lemurs_version: >-
+              {{ (desktop_lemurs_releases.json | selectattr('prerelease', 'equalto', false)
+              | selectattr('draft', 'equalto', false) | list | first).tag_name }}
 
-        - name: Download lemurs binary {{ lemurs_version }}
-          get_url:
-            url: "https://github.com/coastalwhite/lemurs/releases/download/{{ lemurs_version }}/lemurs-x86_64-unknown-linux-gnu.tar.xz"
-            dest: "{{ lemurs_tmp.path }}/lemurs.tar.xz"
+        - name: Download lemurs binary {{ desktop_lemurs_version }}
+          ansible.builtin.get_url:
+            url: >-
+              https://github.com/coastalwhite/lemurs/releases/download/{{ desktop_lemurs_version
+              }}/lemurs-x86_64-unknown-linux-gnu.tar.xz
+            dest: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
+            mode: "0644"
 
         - name: Extract lemurs binary
-          unarchive:
-            src: "{{ lemurs_tmp.path }}/lemurs.tar.xz"
-            dest: "{{ lemurs_tmp.path }}"
+          ansible.builtin.unarchive:
+            src: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
+            dest: "{{ desktop_lemurs_tmp.path }}"
             remote_src: true
 
         - name: Install lemurs binary
-          copy:
-            src: "{{ lemurs_tmp.path }}/lemurs-x86_64-unknown-linux-gnu/lemurs"
+          ansible.builtin.copy:
+            src: "{{ desktop_lemurs_tmp.path }}/lemurs-x86_64-unknown-linux-gnu/lemurs"
             dest: /usr/local/bin/lemurs
             mode: "0755"
             remote_src: true
@@ -54,70 +59,68 @@
     - name: Configure lemurs
       block:
         - name: Create lemurs configuration directory
-          file:
+          ansible.builtin.file:
             path: /etc/lemurs
             state: directory
             mode: "0755"
           become: true
 
         - name: Download default lemurs configuration
-          get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/config.toml"
+          ansible.builtin.get_url:
+            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version }}/extra/config.toml"
             dest: "/etc/lemurs/config.toml"
             mode: "0644"
           become: true
 
         - name: Override configuration settings
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /etc/lemurs/config.toml
             regexp: "{{ item.regexp }}"
             line: "{{ item.line }}"
           loop:
-            - {
-                regexp: '^xsessions_path\s*=.*',
-                line: 'xsessions_path = "/usr/local/share/xsessions"',
-              }
-            - {
-                regexp: '^wayland_sessions_path\s*=.*',
-                line: 'wayland_sessions_path = "/usr/local/share/wayland-sessions"',
-              }
-            - {
-                regexp: '^system_shell\s*=.*',
-                line: 'system_shell = "/bin/bash"',
-              }
+            - regexp: '^xsessions_path\s*=.*'
+              line: 'xsessions_path = "/usr/local/share/xsessions"'
+            - regexp: '^wayland_sessions_path\s*=.*'
+              line: 'wayland_sessions_path = "/usr/local/share/wayland-sessions"'
+            - regexp: '^system_shell\s*=.*'
+              line: 'system_shell = "/bin/bash"'
           become: true
 
         - name: Download lemurs systemd service
-          get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/lemurs.service"
+          ansible.builtin.get_url:
+            url: >-
+              https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version
+              }}/extra/lemurs.service
             dest: /usr/lib/systemd/system/lemurs.service
             mode: "0644"
           become: true
 
         - name: Update ExecStart path in service file
-          lineinfile:
+          ansible.builtin.lineinfile:
             path: /usr/lib/systemd/system/lemurs.service
             regexp: '^ExecStart\s*=.*'
             line: "ExecStart=/usr/local/bin/lemurs"
           become: true
 
         - name: Download xsetup.sh script
-          get_url:
-            url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/xsetup.sh"
+          ansible.builtin.get_url:
+            url: >-
+              https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version
+              }}/extra/xsetup.sh
             dest: /etc/lemurs/xsetup.sh
             mode: "0755"
           become: true
 
         # TODO: Superceded by the copy below
         # - name: Download lemurs.pam file
-        #   get_url:
-        #     url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ lemurs_version }}/extra/lemurs.pam"
+        #   ansible.builtin.get_url:
+        #     url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version }}/extra/lemurs.pam"
         #     dest: /etc/pam.d/lemurs
         #     mode: "0644"
         #   become: true
 
         - name: Copy lemurs.pam file to /etc/pam.d/lemurs
-          copy:
+          ansible.builtin.copy:
             src: lemurs.pam
             dest: /etc/pam.d/lemurs
             mode: "0644"
@@ -126,7 +129,7 @@
     - name: Configure system integration
       block:
         - name: Prevent TTY conflicts
-          systemd_service:
+          ansible.builtin.systemd_service:
             name: getty@tty2.service
             daemon_reload: true
             state: stopped
@@ -134,7 +137,7 @@
           become: true
 
         - name: Enable lemurs display manager
-          systemd_service:
+          ansible.builtin.systemd_service:
             name: lemurs.service
             daemon_reload: true
             enabled: true

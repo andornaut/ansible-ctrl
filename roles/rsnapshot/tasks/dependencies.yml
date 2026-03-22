@@ -1,21 +1,21 @@
 ---
 - name: Install rsnapshot and cron packages
-  apt:
+  ansible.builtin.apt:
     name:
       - cron
       - rsnapshot
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Download MySQL and PostgreSQL backup scripts
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ item }}"
     dest: /usr/local/bin/
     owner: root
     group: root
-    mode: 0755
+    mode: "0755"
   loop:
     - https://raw.githubusercontent.com/andornaut/backup-mysql/master/backupmysql
     - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/master/backupdockerpostgresql

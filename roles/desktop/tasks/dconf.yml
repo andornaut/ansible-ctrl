@@ -1,31 +1,31 @@
 ---
 - name: Install dconf dependencies
-  apt:
+  ansible.builtin.apt:
     name:
       - dconf-cli
       - python3-psutil
-    state: latest
+    state: present
     install_recommends: false
     update_cache: true
   become: true
 
 - name: Configure keyboard settings
+  notify: Reload dconf
   block:
     - name: Prevent Super+Space from switching input sources
-      dconf:
+      community.general.dconf:
         key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
         value: "@au []"
         state: present
 
     - name: Set US keyboard layout as the only available layout
-      dconf:
+      community.general.dconf:
         key: "/org/gnome/desktop/input-sources/sources"
         value: "[('xkb', 'us')]"
         state: present
 
     - name: Prevent ibus-daemon from interfering with keyboard shortcuts
-      dconf:
+      community.general.dconf:
         key: "/org/gnome/settings-daemon/plugins/keyboard/active"
         value: "false"
         state: present
-  notify: Reload dconf

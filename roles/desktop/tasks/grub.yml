@@ -1,25 +1,24 @@
 ---
 - name: Configure GRUB settings
+  notify: Update GRUB
   block:
     - name: Show GRUB menu
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/default/grub
         regexp: '^#?GRUB_TIMEOUT_STYLE\s*='
         line: "GRUB_TIMEOUT_STYLE=menu"
       become: true
 
     - name: Set GRUB timeout to 3 seconds
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/default/grub
         regexp: '^#?GRUB_TIMEOUT\s*='
         line: "GRUB_TIMEOUT=3"
       become: true
 
     - name: Enable Thinkpad touchpad scrolling
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/default/grub
         regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="psmouse.synaptics_intertouch=0"'
       become: true
-
-  notify: Update GRUB

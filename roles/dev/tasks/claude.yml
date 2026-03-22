@@ -1,15 +1,14 @@
 ---
-- name: Install Claude Code using native installer
+- name: Install Claude Code using native installer # noqa: command-instead-of-module
   ansible.builtin.shell:
-    cmd: curl -fsSL https://claude.ai/install.sh | bash
+    cmd: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
     creates: ~/.local/bin/claude
-  args:
     executable: /bin/bash
   environment:
     HOME: "{{ ansible_env.HOME }}"
 
 - name: Install claude-code-router globally for current user
-  ansible.builtin.npm:
+  community.general.npm:
     name: '@musistudio/claude-code-router'
     global: true
-    state: latest
+    state: present

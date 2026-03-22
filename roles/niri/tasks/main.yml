@@ -2,20 +2,20 @@
 # Install and configure Niri Wayland compositor and related tools
 
 - name: Install system dependencies
-  import_tasks: dependencies.yml
+  ansible.builtin.import_tasks: dependencies.yml
   tags:
     - hypr
     - niri
     - wayland
 
 - name: Install Hyprland ecosystem tools
-  import_tasks: hypr.yml
+  ansible.builtin.import_tasks: hypr.yml
   tags: hypr
 
 - name: Install and configure Niri compositor
-  import_tasks: niri.yml
+  ansible.builtin.import_tasks: niri.yml
   tags: niri
 
 - name: Configure XWayland support
-  import_tasks: xwayland.yml
+  ansible.builtin.import_tasks: xwayland.yml
   tags: wayland
