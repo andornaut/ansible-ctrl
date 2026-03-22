@@ -10,26 +10,31 @@
 # - hyprpaper: Wallpaper utilihyprpaperty
 
 - name: Install hyprutils
+  tags: [hyprutils]
   block:
     - name: Create a temporary directory for hyprutils
       ansible.builtin.tempfile:
         state: directory
-      register: hyprutils_tmp
+      register: niri_hyprutils_tmp
 
     - name: Get releases of hyprutils
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprutils/releases
         return_content: true
-      register: hyprutils_releases
+      register: niri_hyprutils_releases
 
     - name: Set hyprutils version to latest stable release
       ansible.builtin.set_fact:
-        hyprutils_version: "{{ (hyprutils_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hyprutils_version: >-
+          {{ (niri_hyprutils_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprutils {{ hyprutils_version }}
+    - name: Download and unarchive hyprutils {{ niri_hyprutils_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ hyprutils_version }}/.tar.gz
-        dest: "{{ hyprutils_tmp.path }}"
+        src: https://github.com/hyprwm/hyprutils/archive/refs/tags/{{ niri_hyprutils_version }}/.tar.gz
+        dest: "{{ niri_hyprutils_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -38,46 +43,50 @@
     - name: Build hyprutils (1/2)
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ hyprutils_tmp.path }}"
+        chdir: "{{ niri_hyprutils_tmp.path }}"
 
     - name: Build hyprutils (2/2)
       ansible.builtin.shell:
         cmd: "{{ niri_hypr_cmake_build }} --target all"
-        chdir: "{{ hyprutils_tmp.path }}"
+        chdir: "{{ niri_hyprutils_tmp.path }}"
 
     - name: Install hyprutils
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ hyprutils_tmp.path }}"
+        chdir: "{{ niri_hyprutils_tmp.path }}"
       become: true
 
     - name: Cleanup temporary directory
       ansible.builtin.file:
-        path: "{{ hyprutils_tmp.path }}"
+        path: "{{ niri_hyprutils_tmp.path }}"
         state: absent
-  tags: [hyprutils]
 
 - name: Install hyprlang
+  tags: [hyprlang]
   block:
     - name: Create a temporary directory for hyprlang
       ansible.builtin.tempfile:
         state: directory
-      register: hyprlang_tmp
+      register: niri_hyprlang_tmp
 
     - name: Get releases of hyprlang
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprlang/releases
         return_content: true
-      register: hyprlang_releases
+      register: niri_hyprlang_releases
 
     - name: Set hyprlang version to latest stable release
       ansible.builtin.set_fact:
-        hyprlang_version: "{{ (hyprlang_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hyprlang_version: >-
+          {{ (niri_hyprlang_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprlang {{ hyprlang_version }}
+    - name: Download and unarchive hyprlang {{ niri_hyprlang_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ hyprlang_version }}/.tar.gz
-        dest: "{{ hyprlang_tmp.path }}"
+        src: https://github.com/hyprwm/hyprlang/archive/refs/tags/{{ niri_hyprlang_version }}/.tar.gz
+        dest: "{{ niri_hyprlang_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -86,46 +95,50 @@
     - name: Build hyprlang (1/2)
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ hyprlang_tmp.path }}"
+        chdir: "{{ niri_hyprlang_tmp.path }}"
 
     - name: Build hyprlang (2/2)
       ansible.builtin.shell:
         cmd: "{{ niri_hypr_cmake_build }} --target hyprlang"
-        chdir: "{{ hyprlang_tmp.path }}"
+        chdir: "{{ niri_hyprlang_tmp.path }}"
 
     - name: Install hyprlang
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ hyprlang_tmp.path }}"
+        chdir: "{{ niri_hyprlang_tmp.path }}"
       become: true
 
     - name: Cleanup temporary directory
       ansible.builtin.file:
-        path: "{{ hyprlang_tmp.path }}"
+        path: "{{ niri_hyprlang_tmp.path }}"
         state: absent
-  tags: [hyprlang]
 
 - name: Install hyprgraphics
+  tags: [hyprgraphics]
   block:
     - name: Create a temporary directory for hyprgraphics
       ansible.builtin.tempfile:
         state: directory
-      register: hyprgraphics_tmp
+      register: niri_hyprgraphics_tmp
 
     - name: Get releases of hyprgraphics
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprgraphics/releases
         return_content: true
-      register: hyprgraphics_releases
+      register: niri_hyprgraphics_releases
 
     - name: Set hyprgraphics version to latest stable release
       ansible.builtin.set_fact:
-        hyprgraphics_version: "{{ (hyprgraphics_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hyprgraphics_version: >-
+          {{ (niri_hyprgraphics_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprgraphics {{ hyprgraphics_version }}
+    - name: Download and unarchive hyprgraphics {{ niri_hyprgraphics_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ hyprgraphics_version }}/.tar.gz
-        dest: "{{ hyprgraphics_tmp.path }}"
+        src: https://github.com/hyprwm/hyprgraphics/archive/refs/tags/{{ niri_hyprgraphics_version }}/.tar.gz
+        dest: "{{ niri_hyprgraphics_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -134,41 +147,45 @@
     - name: Build hyprgraphics (1/2)
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ hyprgraphics_tmp.path }}"
+        chdir: "{{ niri_hyprgraphics_tmp.path }}"
 
     - name: Build hyprgraphics (2/2)
       ansible.builtin.shell:
         cmd: "{{ niri_hypr_cmake_build }} --target all"
-        chdir: "{{ hyprgraphics_tmp.path }}"
+        chdir: "{{ niri_hyprgraphics_tmp.path }}"
 
     - name: Install hyprgraphics
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ hyprgraphics_tmp.path }}"
+        chdir: "{{ niri_hyprgraphics_tmp.path }}"
       become: true
-  tags: [hyprgraphics]
 
 - name: Install hyprwayland-scanner
+  tags: [hyprscanner]
   block:
     - name: Create a temporary directory for hyprwayland-scanner
       ansible.builtin.tempfile:
         state: directory
-      register: hypr_scanner_tmp
+      register: niri_hypr_scanner_tmp
 
     - name: Get releases of hyprwayland-scanner
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases
         return_content: true
-      register: hypr_scanner_releases
+      register: niri_hypr_scanner_releases
 
     - name: Set hyprwayland-scanner version to latest stable release
       ansible.builtin.set_fact:
-        hypr_scanner_version: "{{ (hypr_scanner_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hypr_scanner_version: >-
+          {{ (niri_hypr_scanner_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hyprwayland-scanner {{ hypr_scanner_version }}
+    - name: Download and unarchive hyprwayland-scanner {{ niri_hypr_scanner_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ hypr_scanner_version }}.tar.gz
-        dest: "{{ hypr_scanner_tmp.path }}"
+        src: https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/{{ niri_hypr_scanner_version }}.tar.gz
+        dest: "{{ niri_hypr_scanner_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
@@ -177,61 +194,65 @@
     - name: Build hyprwayland-scanner (1/2)
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ hypr_scanner_tmp.path }}"
+        chdir: "{{ niri_hypr_scanner_tmp.path }}"
 
     - name: Build hyprwayland-scanner (2/2)
       ansible.builtin.shell:
         cmd: "{{ niri_hypr_cmake_build }}"
-        chdir: "{{ hypr_scanner_tmp.path }}"
+        chdir: "{{ niri_hypr_scanner_tmp.path }}"
       become: true
 
     - name: Install hyprwayland-scanner
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ hypr_scanner_tmp.path }}"
+        chdir: "{{ niri_hypr_scanner_tmp.path }}"
       become: true
-  tags: [hyprscanner]
 
 - name: Install hypridle
+  tags: [hypridle]
   block:
     - name: Create a temporary directory for hypridle
       ansible.builtin.tempfile:
         state: directory
-      register: hypridle_tmp
+      register: niri_hypridle_tmp
 
     - name: Get releases of hypridle
       ansible.builtin.uri:
         url: https://api.github.com/repos/hyprwm/hypridle/releases
         return_content: true
-      register: hypridle_releases
+      register: niri_hypridle_releases
 
     - name: Set hypridle version to latest stable release
       ansible.builtin.set_fact:
-        hypridle_version: "{{ (hypridle_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | list | first).name }}"
+        niri_hypridle_version: >-
+          {{ (niri_hypridle_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).name }}
 
-    - name: Download and unarchive hypridle {{ hypridle_version }}
+    - name: Download and unarchive hypridle {{ niri_hypridle_version }}
       ansible.builtin.unarchive:
-        src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ hypridle_version }}/.tar.gz
-        dest: "{{ hypridle_tmp.path }}"
+        src: https://github.com/hyprwm/hypridle/archive/refs/tags/{{ niri_hypridle_version }}/.tar.gz
+        dest: "{{ niri_hypridle_tmp.path }}"
         remote_src: true
         extra_opts:
           - --strip-components
           - 1
 
     - name: Build hypridle (1/2)
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ hypridle_tmp.path }}"
+        chdir: "{{ niri_hypridle_tmp.path }}"
 
     - name: Build hypridle (2/2)
       ansible.builtin.shell:
         cmd: "{{ niri_hypr_cmake_build }} --target hypridle"
-        chdir: "{{ hypridle_tmp.path }}"
+        chdir: "{{ niri_hypridle_tmp.path }}"
 
     - name: Install hypridle
       ansible.builtin.command:
         cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ hypridle_tmp.path }}"
+        chdir: "{{ niri_hypridle_tmp.path }}"
       become: true
 
     - name: Enable hypridle.service
@@ -241,9 +262,9 @@
         enabled: true
         scope: user
         state: started
-  tags: [hypridle]
 
 - name: Install hyprlock
+  tags: [hyprlock]
   block:
     - name: Create a temporary directory for hyprlock
       ansible.builtin.tempfile:
@@ -290,7 +311,6 @@
         cmd: "{{ niri_hypr_cmake_install }}"
         chdir: "{{ niri_hyprlock_tmp.path }}"
       become: true
-  tags: [hyprlock]
 
 - name: Install hyprpaper
   tags: [hyprpaper]
