@@ -4,6 +4,8 @@ exclude_paths:
   - collections/
 skip_list:
   - fqcn[action-core]  # Not using FQCN for builtin modules throughout the project
+  - fqcn[action]  # Community modules (make, dconf, alternatives) used without FQCN
+  - jinja[invalid]  # Jinja2 template rewrite recommendations
   - name[casing]  # Existing task names use lowercase
   - name[play]  # Some plays are unnamed
   - no-changed-when  # Command tasks used for upgrades and validation
