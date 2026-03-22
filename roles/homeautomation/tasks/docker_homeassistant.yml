@@ -62,6 +62,7 @@
           - mosquitto
         environment: "{{ govee2mqtt_environment }}"
         logging: "{{ default_logging }}"
+        # Host networking required for UDP broadcast-based Govee LAN device discovery
         network_mode: host
         restart: unless-stopped
         volumes: "{{ govee2mqtt_volumes }}"
@@ -85,8 +86,8 @@
           retries: 3
           start_period: 120s
         logging: "{{ default_logging }}"
-        # Required to support Google Cast if Avahi is disabled
-        # n.b. Can only run one of Avahi or otbr/thread on the host
+        # Host networking required for mDNS device discovery (Google Cast, Bluetooth),
+        # and direct LAN access. Cannot use bridge networking for these protocols.
         network_mode: host
         restart: unless-stopped
         security_opt:
