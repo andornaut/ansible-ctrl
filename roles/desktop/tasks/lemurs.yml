@@ -111,14 +111,6 @@
             mode: "0755"
           become: true
 
-        # TODO: Superceded by the copy below
-        # - name: Download lemurs.pam file
-        #   ansible.builtin.get_url:
-        #     url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version }}/extra/lemurs.pam"
-        #     dest: /etc/pam.d/lemurs
-        #     mode: "0644"
-        #   become: true
-
         - name: Copy lemurs.pam file to /etc/pam.d/lemurs
           ansible.builtin.copy:
             src: lemurs.pam
