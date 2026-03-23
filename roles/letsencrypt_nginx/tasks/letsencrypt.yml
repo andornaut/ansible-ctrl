@@ -45,7 +45,7 @@
   when:
     - item is not skipped
     - item.changed
-    - item.challenge_data | length > 0
+    - item.challenge_data is truthy
     - item.item.cloudflare_api_token is defined
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
@@ -73,7 +73,7 @@
   when:
     - item is not skipped
     - item.changed
-    - item.challenge_data | length > 0
+    - item.challenge_data is truthy
     - item.item.cloudflare_api_token is not defined
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
@@ -93,7 +93,7 @@
   when:
     - item is not skipped
     - item.changed
-    - item.challenge_data | length > 0
+    - item.challenge_data is truthy
     - item.item.cloudflare_api_token is not defined
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
