@@ -9,7 +9,7 @@
     install_recommends: false
     update_cache: true
   become: true
-  when: homeautomation_avahi_interfaces | length > 0
+  when: (homeautomation_avahi_interfaces | length) > 0
 
 - name: "Configure Avahi: allow-interfaces"
   community.general.ini_file:
@@ -21,7 +21,7 @@
     mode: "0644"
   become: true
   notify: Restart Avahi service
-  when: homeautomation_avahi_interfaces | length > 0
+  when: (homeautomation_avahi_interfaces | length) > 0
 
 - name: "Configure Avahi: enable-reflector"
   community.general.ini_file:
@@ -33,4 +33,4 @@
     mode: "0644"
   become: true
   notify: Restart Avahi service
-  when: homeautomation_avahi_interfaces | length > 0
+  when: (homeautomation_avahi_interfaces | length) > 0
