@@ -12,6 +12,10 @@
       become: true
 
 - name: USB configuration
+  # TODO: This is disabled, b/c the workaround may no longer be necessary
+  # See:
+  # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
+  # https://ubuntuforums.org/archive/index.php/t-1551985.html
   when: false
   block:
     - name: Check if usb_modeswitch.conf exists
@@ -26,10 +30,6 @@
         regex: "^#?\\s*DisableSwitching\\s*"
       when: nas_stat_usb_modeswitch.stat.exists
       become: true
-  # TODO: This is disabled, b/c the workaround may no longer be necessary
-  # See:
-  # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
-  # https://ubuntuforums.org/archive/index.php/t-1551985.html
 
 - name: Storage setup
   become: true
@@ -52,7 +52,7 @@
         index_var: index
       notify: Reload systemd
 
-    - name: Update fstab for nas_raid_devices  # noqa: yaml[line-length]
+    - name: Update fstab for nas_raid_devices # noqa: yaml[line-length]
       ansible.builtin.lineinfile:
         path: /etc/fstab
         line: >-
@@ -94,7 +94,7 @@
         index_var: index
       notify: Reload systemd
 
-    - name: Update fstab for nas_backup_devices  # noqa: yaml[line-length]
+    - name: Update fstab for nas_backup_devices # noqa: yaml[line-length]
       ansible.builtin.lineinfile:
         path: /etc/fstab
         line: >-
