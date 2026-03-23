@@ -195,6 +195,17 @@ server {
     }
 {% endfor %}
 
+    # Hide dotfiles (except .well-known, which uses ^~ prefix)
+    location ~ /\. {
+        return 404;
+    }
+
+{% for pattern in letsencrypt_nginx_hidden_patterns + (item.item.hidden_patterns | default([])) %}
+    location ~ {{ pattern }} {
+        return 404;
+    }
+{% endfor %}
+
     # Main location configuration
     location / {
 {% if item.item.proxy_port is defined %}
