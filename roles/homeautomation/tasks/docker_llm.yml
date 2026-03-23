@@ -25,7 +25,7 @@
     path: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item | basename }}"
   loop: "{{ homeautomation_llamacpp_models }}"
   register: homeautomation_llamacpp_model_stats
-  when: homeautomation_llamacpp_models | length > 0
+  when: (homeautomation_llamacpp_models | length) > 0
 
 - name: Download llama.cpp models
   ansible.builtin.get_url:
@@ -35,7 +35,7 @@
   become: true
   loop: "{{ homeautomation_llamacpp_model_stats.results }}"
   when:
-    - homeautomation_llamacpp_models | length > 0
+    - (homeautomation_llamacpp_models | length) > 0
     - not item.stat.exists
 
 - name: Start LLM Docker containers

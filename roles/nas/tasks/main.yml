@@ -68,7 +68,7 @@
 
 - name: Backup configuration
   become: true
-  when: nas_backup_devices is defined and nas_backup_devices | length > 0
+  when: nas_backup_devices is defined and (nas_backup_devices | length) > 0
   tags: backupnas
   block:
     - name: Create backup mount directories
