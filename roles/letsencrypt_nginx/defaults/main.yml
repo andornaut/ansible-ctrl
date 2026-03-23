@@ -13,4 +13,5 @@ letsencrypt_nginx_key_type: RSA
 letsencrypt_nginx_maintainer: "Ansible managed"
 letsencrypt_nginx_remaining_days: 30
 letsencrypt_nginx_selfsigned_days: 365
+letsencrypt_nginx_hidden_patterns: []
 letsencrypt_nginx_websites: []
