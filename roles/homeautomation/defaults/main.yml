@@ -55,7 +55,7 @@ homeautomation_install_hamcp: false
 
 # Govee2mqtt
 homeautomation_govee2mqtt_env: {}
-homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:2026.03.25-ab9deb66
+homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:latest
 # The govee2mqtt image runs as non-root (USER govee:govee = 1000:1000 in Dockerfile)
 homeautomation_govee2mqtt_uid: "1000"
 homeautomation_govee2mqtt_gid: "1000"
