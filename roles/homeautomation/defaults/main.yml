@@ -54,11 +54,8 @@ homeautomation_hamcp_token: ""
 homeautomation_install_hamcp: false
 
 # Govee2mqtt
-# Pinned to 2025.10.26 because newer versions (2025.11.25+, 2026.01.08+) have a broken web UI
-# due to missing /app/assets folder. See: https://github.com/wez/govee2mqtt/issues/584
-# This version includes HTTP route fixes and predates the web UI regression.
 homeautomation_govee2mqtt_env: {}
-homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:2025.10.26-b29dee52
+homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:2026.03.25-ab9deb66
 # The govee2mqtt image runs as non-root (USER govee:govee = 1000:1000 in Dockerfile)
 homeautomation_govee2mqtt_uid: "1000"
 homeautomation_govee2mqtt_gid: "1000"
