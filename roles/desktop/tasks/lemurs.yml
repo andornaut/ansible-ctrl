@@ -34,7 +34,7 @@
               {{ (desktop_lemurs_releases.json | selectattr('prerelease', 'equalto', false)
               | selectattr('draft', 'equalto', false) | list | first).tag_name }}
 
-        - name: Download lemurs binary {{ desktop_lemurs_version }}
+        - name: Download lemurs binary
           ansible.builtin.get_url:
             url: >-
               https://github.com/coastalwhite/lemurs/releases/download/{{ desktop_lemurs_version
