@@ -71,6 +71,7 @@
         dest: /usr/share/fonts/truetype/source-code-pro
         remote_src: true
         mode: "0644"
+        directory_mode: "0755"
       delegate_to: "{{ inventory_hostname }}"
       notify: Update font cache
       become: true
