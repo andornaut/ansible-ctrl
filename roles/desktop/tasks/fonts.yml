@@ -56,6 +56,7 @@
       ansible.builtin.file:
         path: /tmp/source-code-pro
         state: directory
+        mode: "0755"
 
     - name: Download and extract Source Code Pro package
       ansible.builtin.unarchive:
