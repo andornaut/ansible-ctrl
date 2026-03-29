@@ -17,7 +17,7 @@
       ansible.builtin.set_fact:
         desktop_lact_download_url: >-
           {{ (desktop_lact_release.assets | selectattr('name', 'match',
-          'lact-.*.amd64.ubuntu-' + (ansible_distribution_version | replace('.', '')) + '.deb')
+          'lact-.*.amd64.ubuntu-' + (ansible_facts['distribution_version'] | replace('.', '')) + '.deb')
           | first).browser_download_url }}
 
     - name: Install LACT package
