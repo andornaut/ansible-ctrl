@@ -9,7 +9,7 @@
 
     - name: Add Insync apt repository
       ansible.builtin.apt_repository:
-        repo: deb http://apt.insync.io/ubuntu {{ ansible_distribution_release }} non-free contrib
+        repo: deb http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
         update_cache: true
       become: true
 
