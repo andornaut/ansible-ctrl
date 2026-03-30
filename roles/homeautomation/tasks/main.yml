@@ -91,25 +91,26 @@
       tags: llm
       when: homeautomation_install_llm
 
-    - name: Import Frigate Docker tasks
-      ansible.builtin.import_tasks: docker_frigate.yml
-      tags: frigate
-      when: homeautomation_install_frigate
-
+    # The remaining do not have a required ordering
     - name: Import ESPHome Docker tasks
       ansible.builtin.import_tasks: docker_esphome.yml
       tags: esphome
       when: homeautomation_install_esphome
 
-    - name: Import Matter Docker tasks
-      ansible.builtin.import_tasks: docker_matter.yml
-      tags: matter
-      when: homeautomation_install_matter
+    - name: Import Frigate Docker tasks
+      ansible.builtin.import_tasks: docker_frigate.yml
+      tags: frigate
+      when: homeautomation_install_frigate
 
     - name: Import ha-mcp Docker tasks
       ansible.builtin.import_tasks: docker_hamcp.yml
       tags: hamcp
       when: homeautomation_install_hamcp
+
+    - name: Import Matter Docker tasks
+      ansible.builtin.import_tasks: docker_matter.yml
+      tags: matter
+      when: homeautomation_install_matter
 
     - name: Import Voice Docker tasks
       ansible.builtin.import_tasks: docker_voice.yml
