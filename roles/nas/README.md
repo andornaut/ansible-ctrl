@@ -74,17 +74,18 @@ Add to `/etc/fstab`:
 /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
 ```
 
-### Mounting the Array
+### Auto-mounting
 
-Using systemd (recommended):
+The `nas-mount.service` systemd oneshot service automatically mounts the array on boot if the LUKS key file exists. It runs after `local-fs.target` and starts `media-nas.mount`, which pulls in the LUKS unlock via fstab systemd dependencies.
 
 ```bash
+# Check status
+systemctl status nas-mount.service
+
+# Manual mount
 systemctl start media-nas.mount
-```
 
-Manual method:
-
-```bash
+# Manual mount (without systemd)
 cryptdisks_start nas0
 cryptdisks_start nas1
 mount /media/nas
@@ -92,16 +93,11 @@ mount /media/nas
 
 ### Unmounting the Array
 
-Using systemd (recommended):
-
 ```bash
 systemctl stop media-nas.mount
 systemctl stop systemd-cryptsetup@nas*.service
-```
 
-Manual method:
-
-```bash
+# Without systemd
 umount /media/nas
 cryptdisks_stop nas0
 cryptdisks_stop nas1
