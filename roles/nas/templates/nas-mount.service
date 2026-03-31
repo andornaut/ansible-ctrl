@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount NAS LUKS volumes
+After=local-fs.target
+ConditionPathExists={{ nas_key_file }}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl start media-nas.mount
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
