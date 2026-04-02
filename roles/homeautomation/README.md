@@ -27,13 +27,26 @@ See [defaults/main.yml](./defaults/main.yml) for all available variables.
 homeautomation_install_frigate: true
 homeautomation_install_hamcp: true
 homeautomation_install_llm: true
-homeautomation_install_matter: true
+homeautomation_install_matterjs: true  # or homeautomation_install_legacy_pythonmatterserver: true
 homeautomation_install_voice: true
 
 homeautomation_frigate_port_http_authenticated: 8971
 homeautomation_frigate_port_http_unauthenticated: 5000
 homeautomation_openwebui_port: 3000
 ```
+
+## Web UIs
+
+| Service | URL | Notes |
+|---|---|---|
+| Home Assistant | http://localhost:8123 | Host network |
+| Frigate | http://frigate.internal:5000 | Unauthenticated |
+| Frigate | http://frigate.internal:8971 | Authenticated |
+| ESPHome | http://localhost:6052 | Host network |
+| Open WebUI | http://openwebui.internal:8080 | LLM chat interface |
+| OTBR | http://localhost:8080 | Thread Border Router web UI |
+| Matter.js | http://matterjs.internal:5580 | When using Matter.js |
+| Python Matter Server | http://pythonmatterserver.internal:5580 | When using python-matter-server |
 
 ## Services
 

@@ -1,0 +1,45 @@
+---
+- name: Create Matter.js data directory with correct ownership
+  ansible.builtin.file:
+    path: "{{ homeautomation_matterjs_required_volumes.data }}"
+    state: directory
+    owner: "{{ homeautomation_matterjs_uid }}"
+    group: "{{ homeautomation_matterjs_gid }}"
+    mode: "0755"
+  become: true
+
+- name: Remove Matter.js container if it exists
+  community.docker.docker_container:
+    name: matterjs
+    state: absent
+  failed_when: false
+
+- name: Start Matter.js Docker container
+  vars:
+    matterjs_base_volumes:
+      - /run/dbus:/run/dbus:ro
+      - "{{ homeautomation_matterjs_required_volumes.data }}:/data"
+    matterjs_volumes: "{{ homeautomation_common_volumes + matterjs_base_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeautomation-matterjs
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ homeautomation_external_network }}"
+      services:
+        matterjs:
+          # http://matterjs.internal:5580
+          container_name: matterjs
+          hostname: matterjs-{{ ansible_facts['hostname'] }}
+          image: "{{ homeautomation_matterjs_docker_image }}"
+          cap_add:
+            - NET_ADMIN
+            - NET_RAW
+          logging: "{{ homeautomation_default_logging }}"
+          restart: unless-stopped
+          security_opt:
+            # Needed for Bluetooth via dbus
+            - apparmor=unconfined
+          volumes: "{{ matterjs_volumes }}"
+  notify: Update /etc/hosts

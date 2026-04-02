@@ -6,31 +6,14 @@
       {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}
     resolved_var_name: homeautomation_otbr_devices_resolved
 
-- name: Create Matter data directory with correct ownership
-  ansible.builtin.file:
-    path: "{{ homeautomation_matter_required_volumes.data }}"
-    state: directory
-    owner: "{{ homeautomation_matter_uid }}"
-    group: "{{ homeautomation_matter_gid }}"
-    mode: "0755"
-  become: true
-
-- name: Remove Matter and OTBR containers if they exist
+- name: Remove OTBR container if it exists
   community.docker.docker_container:
-    name: "{{ item }}"
+    name: otbr
     state: absent
-  loop:
-    - matter
-    - otbr
   failed_when: false
 
-- name: Start Matter and Open Thread Border Router (OTBR) Docker containers
+- name: Start Open Thread Border Router (OTBR) Docker container
   vars:
-    matter_base_volumes:
-      - /run/dbus:/run/dbus:ro
-      - "{{ homeautomation_matter_required_volumes.data }}:/data"
-    matter_volumes: "{{ homeautomation_common_volumes + matter_base_volumes }}"
-
     otbr_base_volumes:
       - "{{ homeautomation_otbr_required_volumes.data }}:/data"
     otbr_volumes: "{{ homeautomation_common_volumes + otbr_base_volumes }}"
@@ -59,31 +42,11 @@
       {{ otbr_base_env + (otbr_network_env if not homeautomation_otbr_devices_resolved else []) }}
 
   community.docker.docker_compose_v2:
-    project_name: homeautomation-matter
+    project_name: homeautomation-otbr
     pull: always
     remove_orphans: true
     definition:
-      networks: "{{ homeautomation_external_network }}"
       services:
-        matter:
-          # http://matter.internal:5580
-          container_name: matter
-          hostname: matter-{{ ansible_facts['hostname'] }}
-          image: "{{ homeautomation_matter_docker_image }}"
-          cap_add:
-            - NET_ADMIN
-            - NET_RAW
-          depends_on:
-            - otbr
-          logging: "{{ homeautomation_default_logging }}"
-          ports:
-            - "{{ homeautomation_matter_port }}:5580"
-          restart: unless-stopped
-          security_opt:
-            # Needed for Bluetooth via dbus
-            - apparmor=unconfined
-          volumes: "{{ matter_volumes }}"
-
         otbr:
           # http://localhost:8080
           container_name: otbr
