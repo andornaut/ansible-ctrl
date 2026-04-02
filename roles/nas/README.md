@@ -5,11 +5,16 @@ Manages encrypted BTRFS RAID arrays on Ubuntu.
 ## Usage
 
 ```bash
-# Run full NAS setup
 make nas
 
 ansible-playbook --ask-become-pass nas.yml --tags backupnas
 ```
+
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| backupnas | Configure backup LUKS devices and install backup script |
 
 ## Variables
 

@@ -16,14 +16,12 @@
   when: homeautomation_install_govee2mqtt
 
 - name: Remove Home Assistant, Govee2MQTT, and Mosquitto containers if they exist
-  community.docker.docker_container:
-    name: "{{ item }}"
-    state: absent
-  loop:
-    - govee2mqtt
-    - homeassistant
-    - mosquitto
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - govee2mqtt
+      - homeassistant
+      - mosquitto
 
 - name: Start Home Assistant, Govee2MQTT, and Mosquitto Docker containers
   vars:

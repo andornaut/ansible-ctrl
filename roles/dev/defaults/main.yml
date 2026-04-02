@@ -1,3 +1,2 @@
 ---
-dev_bashrc_path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
 dev_install_antigravity: false

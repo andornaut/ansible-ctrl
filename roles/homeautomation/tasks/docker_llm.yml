@@ -1,12 +1,10 @@
 ---
 - name: Remove Llama.cpp and OpenWebUI containers if they exist
-  community.docker.docker_container:
-    name: "{{ item }}"
-    state: absent
-  loop:
-    - openwebui
-    - llamacpp
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - openwebui
+      - llamacpp
 
 - name: Create required directories
   ansible.builtin.file:

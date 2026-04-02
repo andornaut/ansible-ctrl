@@ -7,54 +7,31 @@ Provisions NGINX as a Docker container with Let's Encrypt HTTPS certificates.
 ```bash
 make webservers
 
-ansible-playbook --ask-become-pass webservers.yml --tags configuration
-ansible-playbook --ask-become-pass webservers.yml --tags letsencrypt
 ansible-playbook --ask-become-pass webservers.yml --tags nginx
-
-# Limit to specific host:
-ansible-playbook --ask-become-pass webservers.yml --tags nginx --limit hostname
 ```
+
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| configuration | Regenerate [NGINX](https://nginx.org/) configuration files |
+| docker | Manage the NGINX [Docker](https://docs.docker.com/) container |
+| [letsencrypt](https://letsencrypt.org/) | Obtain and renew HTTPS certificates |
+| nginx | Full [NGINX](https://nginx.org/) setup (apt, www, basicauth, configuration) |
+| www | Set up web root directories and clone site repos |
 
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
 
-### Required Variables
+## Container ports
 
-- `letsencrypt_nginx_account_email`: Email for Let's Encrypt registration
-- `letsencrypt_nginx_acme_directory_url`: Let's Encrypt API endpoint
+The `nginx` container runs with `network_mode: host`, binding directly to the host's network interfaces.
 
-### Website Configuration
-
-```yaml
-letsencrypt_nginx_websites:
-  # Returns HTTP 404
-  - domain: subdomain.example.com
-    use_selfsigned_certificate: true
-
-  - domain: example.com
-    repo: https://github.com/andornaut/example.com.git
-
-  - domain: httpbasic.example.com
-    http_basic_authentication:
-      allowed_networks:
-        - 192.168.0.0/16
-      credentials:
-        - username: hello
-          password: world
-    locations:
-      - src: /nas
-        dest: /media/nas
-
-  - domain: proxy.example.com
-    cloudflare_api_token: token
-    cloudflare_api_zone: example.com
-    csr_commonName: "*.example.com"
-    proxy_port: 8123
-    proxy_https: false
-    proxy_remove_authorization_header: false
-    websocket_path: /api/websocket
-```
+| Port | Protocol | Description |
+| --- | --- | --- |
+| 80 | HTTP | Redirect to HTTPS; ACME certificate validation |
+| 443 | HTTPS | TLS-terminated reverse proxy with HTTP/2 and QUIC |
 
 ## Private GitHub Repository Access
 
