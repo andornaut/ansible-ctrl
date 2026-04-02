@@ -7,7 +7,8 @@ homeautomation_install_esphome: false
 homeautomation_install_frigate: false
 homeautomation_install_govee2mqtt: false
 homeautomation_install_llm: false
-homeautomation_install_matter: false
+homeautomation_install_matterjs: false
+homeautomation_install_legacy_pythonmatterserver: false
 homeautomation_install_memryx: false
 homeautomation_install_voice: false
 homeautomation_ipv6_enabled: true
@@ -87,14 +88,18 @@ homeautomation_llamacpp_models:
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
 
-# Matter
-homeautomation_matter_docker_image: ghcr.io/matter-js/matterjs-server:stable
-homeautomation_matter_port: 5580
+# Matter.js
+homeautomation_matterjs_docker_image: ghcr.io/matter-js/matterjs-server:stable
 # The matter.js image runs as non-root (USER 1000:1000 in Dockerfile)
-homeautomation_matter_uid: "1000"
-homeautomation_matter_gid: "1000"
-homeautomation_matter_required_volumes:
-  data: /var/docker-volumes/homeautomation/matter/data
+homeautomation_matterjs_uid: "1000"
+homeautomation_matterjs_gid: "1000"
+homeautomation_matterjs_required_volumes:
+  data: /var/docker-volumes/homeautomation/matterjs/data
+
+# Python Matter Server (legacy)
+homeautomation_pythonmatterserver_docker_image: ghcr.io/home-assistant-libs/python-matter-server:stable
+homeautomation_pythonmatterserver_required_volumes:
+  data: /var/docker-volumes/homeautomation/pythonmatterserver/data
 
 # MemryX
 # List available versions with `sudo apt update && apt-cache madison memx-drivers`
