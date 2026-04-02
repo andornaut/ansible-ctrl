@@ -37,6 +37,8 @@
             - NET_ADMIN
             - NET_RAW
           logging: "{{ homeautomation_default_logging }}"
+          # ports:
+          #   - "5580:5580"
           restart: unless-stopped
           security_opt:
             # Needed for Bluetooth via dbus
