@@ -2,7 +2,7 @@
 
 Provisions [Home Assistant](https://www.home-assistant.io/) and related services as Docker containers: [ESPHome](https://esphome.io/), [Frigate](https://github.com/blakeblackshear/frigate), [Govee2MQTT](https://github.com/wez/govee2mqtt), [ha-mcp](https://github.com/homeassistant-ai/ha-mcp), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Matter.js](https://github.com/project-chip/matter.js), [Mosquitto](https://mosquitto.org/), [Open WebUI](https://github.com/open-webui/open-webui), [OTBR](https://openthread.io/guides/border-router), [Piper](https://github.com/rhasspy/piper), and [Whisper](https://github.com/rhasspy/wyoming-whisper).
 
-[![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors-small.png)
+[![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors.png)
 [![frigate](./screenshots/frigate-small.png)](./screenshots/frigate.png)
 
 ## Usage
