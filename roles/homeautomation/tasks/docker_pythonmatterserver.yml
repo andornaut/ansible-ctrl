@@ -1,0 +1,42 @@
+---
+- name: Create Python Matter Server data directory
+  ansible.builtin.file:
+    path: "{{ homeautomation_pythonmatterserver_required_volumes.data }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Remove Python Matter Server container if it exists
+  community.docker.docker_container:
+    name: pythonmatterserver
+    state: absent
+  failed_when: false
+
+- name: Start Python Matter Server Docker container
+  vars:
+    pms_base_volumes:
+      - /run/dbus:/run/dbus:ro
+      - "{{ homeautomation_pythonmatterserver_required_volumes.data }}:/data"
+    pms_volumes: "{{ homeautomation_common_volumes + pms_base_volumes }}"
+
+  community.docker.docker_compose_v2:
+    project_name: homeautomation-pythonmatterserver
+    pull: always
+    remove_orphans: true
+    definition:
+      networks: "{{ homeautomation_external_network }}"
+      services:
+        pythonmatterserver:
+          # http://pythonmatterserver.internal:5580
+          container_name: pythonmatterserver
+          hostname: pythonmatterserver-{{ ansible_facts['hostname'] }}
+          image: "{{ homeautomation_pythonmatterserver_docker_image }}"
+          cap_add:
+            - NET_ADMIN
+            - NET_RAW
+          logging: "{{ homeautomation_default_logging }}"
+          restart: unless-stopped
+          security_opt:
+            - apparmor=unconfined
+          volumes: "{{ pms_volumes }}"
+  notify: Update /etc/hosts

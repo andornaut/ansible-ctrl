@@ -3,25 +3,27 @@
   tags:
     - avahi
     - docker
+    - matter
   block:
     - name: Check for mDNS service conflicts
       ansible.builtin.assert:
         that:
-          - not (homeautomation_install_avahi and homeautomation_install_matter)
+          - not (homeautomation_install_avahi and (homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver))
+          - not (homeautomation_install_matterjs and homeautomation_install_legacy_pythonmatterserver)
         fail_msg: |
-          ERROR: Cannot install both Avahi (homeautomation_install_avahi) and Matter/Thread (homeautomation_install_matter)
-          as they both provide mDNS services and will conflict when using network_mode: host.
+          ERROR: Cannot install both Avahi and Matter/Thread (mDNS conflict),
+          and cannot install both Matter.js and Python Matter Server simultaneously.
         success_msg: "mDNS configuration validated successfully"
 
     - name: MDNS advisory message
       ansible.builtin.debug:
         msg: |
-          {% if homeautomation_install_matter %}
+          {% if homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver %}
           Provisioning Matter/Thread, so Avahi will be disabled
           {% elif homeautomation_install_avahi %}
           Provisioning Avahi, so Matter/Thread will not be provisioned
           {% endif %}
-      when: homeautomation_install_matter or homeautomation_install_avahi
+      when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver or homeautomation_install_avahi
 
     - name: Import Avahi tasks
       ansible.builtin.import_tasks: avahi.yml
@@ -52,7 +54,7 @@
 
 - name: Import OTBR tasks
   ansible.builtin.import_tasks: otbr.yml
-  when: homeautomation_install_matter
+  when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver
 
 - name: Install customizations
   tags: customizations
@@ -91,6 +93,22 @@
       tags: llm
       when: homeautomation_install_llm
 
+    # OTBR must come before the matter server containers
+    - name: Import OTBR Docker tasks
+      ansible.builtin.import_tasks: docker_otbr.yml
+      tags: matter
+      when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver
+
+    - name: Import Matter.js Docker tasks
+      ansible.builtin.import_tasks: docker_matterjs.yml
+      tags: matter
+      when: homeautomation_install_matterjs
+
+    - name: Import Python Matter Server Docker tasks
+      ansible.builtin.import_tasks: docker_pythonmatterserver.yml
+      tags: matter
+      when: homeautomation_install_legacy_pythonmatterserver
+
     # The remaining do not have a required ordering
     - name: Import ESPHome Docker tasks
       ansible.builtin.import_tasks: docker_esphome.yml
@@ -106,11 +124,6 @@
       ansible.builtin.import_tasks: docker_hamcp.yml
       tags: hamcp
       when: homeautomation_install_hamcp
-
-    - name: Import Matter Docker tasks
-      ansible.builtin.import_tasks: docker_matter.yml
-      tags: matter
-      when: homeautomation_install_matter
 
     - name: Import Voice Docker tasks
       ansible.builtin.import_tasks: docker_voice.yml
