@@ -22,22 +22,20 @@
           - kikit
         extra_args: "--break-system-packages"
 
+# Flatpak Devices tab crashes/freezes: https://github.com/OrcaSlicer/OrcaSlicer/issues/12919
+# Re-enable once the upstream issue is fixed. Install manually via AppImage until then.
+# - name: Install OrcaSlicer
+#   tags: orcaslicer
+#   community.general.flatpak:
+#     name: com.orcaslicer.OrcaSlicer
+#     method: user
+
 - name: Install OrcaSlicer
   tags: orcaslicer
   block:
-    - name: Install OrcaSlicer video playback dependencies
-      ansible.builtin.apt:
-        name:
-          - gstreamer1.0-libav
-          - gstreamer1.0-plugins-bad
-        state: present
-        install_recommends: false
-        update_cache: true
-      become: true
-
     - name: Get releases of OrcaSlicer
       ansible.builtin.uri:
-        url: https://api.github.com/repos/SoftFever/OrcaSlicer/releases
+        url: https://api.github.com/repos/OrcaSlicer/OrcaSlicer/releases
         return_content: true
         headers:
           Accept: "application/vnd.github.v3+json"
