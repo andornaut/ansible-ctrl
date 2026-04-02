@@ -24,29 +24,44 @@ See [defaults/main.yml](./defaults/main.yml) for all available variables.
 
 ```yaml
 # Enable optional components:
+homeautomation_install_esphome: true
 homeautomation_install_frigate: true
+homeautomation_install_govee2mqtt: true
 homeautomation_install_hamcp: true
 homeautomation_install_llm: true
-homeautomation_install_matterjs: true  # or homeautomation_install_legacy_pythonmatterserver: true
+homeautomation_install_memryx: true
 homeautomation_install_voice: true
+# Matter controller (mutually exclusive, pick one):
+homeautomation_install_matterjs: true
+homeautomation_install_legacy_pythonmatterserver: false
 
 homeautomation_frigate_port_http_authenticated: 8971
 homeautomation_frigate_port_http_unauthenticated: 5000
-homeautomation_openwebui_port: 3000
 ```
 
-## Web UIs
+## Container ports
 
-| Service | URL | Notes |
-|---|---|---|
-| Home Assistant | http://localhost:8123 | Host network |
-| Frigate | http://frigate.internal:5000 | Unauthenticated |
-| Frigate | http://frigate.internal:8971 | Authenticated |
-| ESPHome | http://localhost:6052 | Host network |
-| Open WebUI | http://openwebui.internal:8080 | LLM chat interface |
-| OTBR | http://localhost:8080 | Thread Border Router web UI |
-| Matter.js | http://matterjs.internal:5580 | When using Matter.js |
-| Python Matter Server | http://pythonmatterserver.internal:5580 | When using python-matter-server |
+All containers are reachable from the Docker host via `{container_name}.internal` DNS (maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts)). Host-networked containers bind directly to the host. Bridge-networked containers have commented-out port mappings in their task files that can be uncommented if host-port access is needed.
+
+| Container | Network | Port | Protocol | Description |
+| --- | --- | --- | --- | --- |
+| homeassistant | host | 8123 | HTTP | Web UI and API |
+| esphome | host | 6052 | HTTP | Dashboard |
+| govee2mqtt | host | — | UDP | LAN broadcast discovery |
+| otbr | host | 8080 | HTTP | Thread Border Router web UI |
+| otbr | host | 8081 | REST | Thread Border Router REST API |
+| mosquitto | bridge | 1883 | MQTT | MQTT broker |
+| frigate | bridge | 5000 | HTTP | Frigate web UI (unauthenticated) |
+| frigate | bridge | 8971 | HTTP | Frigate web UI (authenticated) |
+| frigate | bridge | 8554 | RTSP | RTSP streams |
+| frigate | bridge | 8555 | WebRTC | WebRTC streams |
+| llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
+| openwebui | bridge | 8080 | HTTP | Web UI |
+| hamcp | bridge | 8086 | HTTP | MCP server (FastMCP) |
+| matterjs | bridge | 5580 | HTTP/WS | Web UI and WebSocket API |
+| pythonmatterserver | bridge | 5580 | HTTP/WS | Web UI and WebSocket API |
+| piper | bridge | 10200 | Wyoming | Text-to-speech |
+| whisper | bridge | 10300 | Wyoming | Speech-to-text |
 
 ## Services
 
@@ -523,12 +538,12 @@ Built-in:
 Custom:
 
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
+- [Custom Icons](https://github.com/thomasloven/hass-custom_icons)
 - [Dreo](https://github.com/JeffSteinbok/hass-dreo)
+- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration) - [Notifications blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee2MQTT](https://github.com/wez/govee2mqtt)
-- [Keymaster](https://github.com/FutureTense/keymaster)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
-- [Sensi Thermostat](https://github.com/iprak/sensi)
 - [Simpleicons](https://github.com/vigonotion/hass-simpleicons)
 
 ### Other

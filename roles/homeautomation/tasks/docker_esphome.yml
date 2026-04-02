@@ -29,7 +29,7 @@
           # Avahi (which could provide mDNS to bridge networks) is disabled when Matter is enabled.
           network_mode: host
           # ports:
-          #   - "{{ homeautomation_esphome_port }}:6052"
+          #   - "6052:6052"
           restart: unless-stopped
           volumes: "{{ esphome_volumes }}"
   notify:
