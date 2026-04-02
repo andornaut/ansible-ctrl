@@ -31,7 +31,7 @@
           image: "{{ homeautomation_hamcp_docker_image }}"
           logging: "{{ homeautomation_default_logging }}"
           # ports:
-          #   - "{{ homeautomation_hamcp_port }}:9583"
+          #   - "8086:8086"
           restart: unless-stopped
           volumes: "{{ homeautomation_common_volumes }}"
   notify:

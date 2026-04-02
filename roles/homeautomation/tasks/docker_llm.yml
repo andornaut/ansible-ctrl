@@ -66,6 +66,8 @@
             - "{{ ansible_facts.getent_group.render[1] }}"
             - "{{ ansible_facts.getent_group.video[1] }}"
           logging: "{{ homeautomation_default_logging }}"
+          # ports:
+          #   - "8080:8080"
           restart: unless-stopped
           volumes: "{{ llamacpp_volumes }}"
 
@@ -74,8 +76,8 @@
           container_name: openwebui
           image: "{{ homeautomation_openwebui_docker_image }}"
           logging: "{{ homeautomation_default_logging }}"
-          ports:
-            - "{{ homeautomation_openwebui_port }}:8080"
+          # ports:
+          #   - "8080:8080"
           restart: unless-stopped
           volumes: "{{ openwebui_volumes }}"
           depends_on:
