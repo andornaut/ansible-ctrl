@@ -230,10 +230,21 @@ M5Stack bluetooth proxy:
 - [Official documentation](https://connectzbt1.home-assistant.io/)
 - [Thread](https://www.home-assistant.io/integrations/thread/#list-of-thread-border-router-devices) - [Enabling thread support](https://support.nabucasa.com/hc/en-us/articles/26124710072861-Enabling-Thread-support)
 
-### SMLight SLZB-MR1
+### SMLight SLZB-MR1U
 
 - [AliExpress](https://www.aliexpress.com/item/1005008814854495.html)
 - [Setup and review](https://smarthomescene.com/reviews/smlight-slzb-mr1-multi-radio-coordinator-setup-and-review/)
+- [SMLIGHT Manuals](https://smlight.tech/support/manuals/books/slzb-os/page/zigbee2mqtt-zha-settings)
+
+#### ZHA setup
+
+The SLZB-MR1U has two radios: Zigbee (CC2652P7, port 7638) and Thread (EFR32MG21, port 6638).
+
+1. Open the SLZB-MR1U web UI and confirm the Zigbee radio is in coordinator mode
+2. Leave "Zigbee Hub Mode" disabled (Hub Mode makes the SLZB a standalone hub, bypassing ZHA)
+3. In Home Assistant: Settings > Devices & Services > Add Integration > ZHA
+4. Radio type: **ZNP** (TI CC2652P7 chip)
+5. Serial port path: `socket://<SLZB-IP>:7638`
 
 ### Coral.ai USB Accelerator
 
