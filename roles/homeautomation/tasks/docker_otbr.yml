@@ -7,10 +7,10 @@
     resolved_var_name: homeautomation_otbr_devices_resolved
 
 - name: Remove OTBR container if it exists
-  community.docker.docker_container:
-    name: otbr
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - otbr
 
 - name: Start Open Thread Border Router (OTBR) Docker container
   vars:

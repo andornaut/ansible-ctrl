@@ -1,9 +1,9 @@
 ---
 - name: Remove ha-mcp container if it exists
-  community.docker.docker_container:
-    name: hamcp
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - hamcp
 
 - name: Start ha-mcp Docker container
   vars:

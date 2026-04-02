@@ -1,9 +1,9 @@
 ---
 - name: Remove Frigate container if it exists
-  community.docker.docker_container:
-    name: frigate
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - frigate
 
 - name: Start Frigate Docker container
   vars:

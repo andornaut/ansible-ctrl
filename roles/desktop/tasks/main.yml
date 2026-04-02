@@ -8,18 +8,18 @@
     - name: Validate display manager configuration
       ansible.builtin.assert:
         that:
-          - (desktop_install_lightdm | int) + (desktop_install_ly | int) + (desktop_install_lemurs | int) <= 1
+          - (desktop_install_ly | int) + (desktop_install_lemurs | int) <= 1
         fail_msg: >-
           Only one display manager can be installed at a time.
-          Please enable only one of: desktop_install_lightdm, desktop_install_ly, desktop_install_lemurs
+          Please enable only one of: desktop_install_ly, desktop_install_lemurs
         success_msg: Display manager configuration is valid
 
     - name: Set display manager services to disable
       ansible.builtin.set_fact:
         desktop_display_managers_to_disable:
           - gdm3
+          - lightdm
           - "{{ 'lemurs' if not desktop_install_lemurs else '' }}"
-          - "{{ 'lightdm' if not desktop_install_lightdm else '' }}"
           - "{{ 'ly' if not desktop_install_ly else '' }}"
 
     - name: Disable other display manager services
@@ -41,10 +41,6 @@
     - name: Install and configure lemurs display manager
       ansible.builtin.import_tasks: lemurs.yml
       when: desktop_install_lemurs
-
-    - name: Configure lightdm
-      ansible.builtin.import_tasks: lightdm.yml
-      when: desktop_install_lightdm
 
     - name: Install and configure ly display manager
       ansible.builtin.import_tasks: ly.yml
