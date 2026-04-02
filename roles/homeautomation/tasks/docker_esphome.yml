@@ -1,9 +1,9 @@
 ---
 - name: Remove ESPHome container if it exists
-  community.docker.docker_container:
-    name: esphome
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - esphome
 
 - name: Start ESPHome Docker container
   vars:

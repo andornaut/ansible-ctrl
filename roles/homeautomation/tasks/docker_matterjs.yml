@@ -9,10 +9,10 @@
   become: true
 
 - name: Remove Matter.js container if it exists
-  community.docker.docker_container:
-    name: matterjs
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - matterjs
 
 - name: Start Matter.js Docker container
   vars:

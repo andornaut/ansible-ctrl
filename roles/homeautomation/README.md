@@ -1,10 +1,6 @@
 # ansible-role-homeautomation
 
-An [Ansible](https://www.ansible.com/) role that provisions
-[Home Assistant](https://www.home-assistant.io/),
-[Frigate](https://github.com/blakeblackshear/frigate),
-[Mosquitto](https://mosquitto.org/), and related services as
-[Docker](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/) containers.
+Provisions [Home Assistant](https://www.home-assistant.io/) and related services as Docker containers: [ESPHome](https://esphome.io/), [Frigate](https://github.com/blakeblackshear/frigate), [Govee2MQTT](https://github.com/wez/govee2mqtt), [ha-mcp](https://github.com/homeassistant-ai/ha-mcp), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Matter.js](https://github.com/project-chip/matter.js), [Mosquitto](https://mosquitto.org/), [Open WebUI](https://github.com/open-webui/open-webui), [OTBR](https://openthread.io/guides/border-router), [Piper](https://github.com/rhasspy/piper), and [Whisper](https://github.com/rhasspy/wyoming-whisper).
 
 [![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/light-colors-small.png)
 [![frigate](./screenshots/frigate-small.png)](./screenshots/frigate.png)
@@ -14,30 +10,28 @@ An [Ansible](https://www.ansible.com/) role that provisions
 ```bash
 make homeautomation
 
-ansible-playbook --ask-become-pass homeautomation.yml --tags customizations
-ansible-playbook --ask-become-pass homeautomation.yml --tags docker
+ansible-playbook --ask-become-pass homeautomation.yml --tags frigate
 ```
+
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| [avahi](https://avahi.org/) | mDNS discovery service |
+| customizations | HA custom components, themes, and www assets |
+| docker | All Docker container tasks |
+| [esphome](https://esphome.io/) | ESP device firmware and dashboard |
+| [frigate](https://github.com/blakeblackshear/frigate) | Video surveillance with AI detection |
+| [hamcp](https://github.com/homeassistant-ai/ha-mcp) | Home Assistant MCP server |
+| homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
+| llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
+| matter | [Matter.js](https://github.com/project-chip/matter.js) and [OTBR](https://openthread.io/guides/border-router) |
+| [memryx](https://www.memryx.com/) | GPU accelerator drivers |
+| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/rhasspy/wyoming-whisper) STT |
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml) for all available variables.
-
-```yaml
-# Enable optional components:
-homeautomation_install_esphome: true
-homeautomation_install_frigate: true
-homeautomation_install_govee2mqtt: true
-homeautomation_install_hamcp: true
-homeautomation_install_llm: true
-homeautomation_install_memryx: true
-homeautomation_install_voice: true
-# Matter controller (mutually exclusive, pick one):
-homeautomation_install_matterjs: true
-homeautomation_install_legacy_pythonmatterserver: false
-
-homeautomation_frigate_port_http_authenticated: 8971
-homeautomation_frigate_port_http_unauthenticated: 5000
-```
+See [defaults/main.yml](./defaults/main.yml).
 
 ## Container ports
 
@@ -146,17 +140,18 @@ Claude Code (`~/.claude.json`):
 
 ### Voice Assistant
 
-- [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) - [Documentation](https://voice-pe.home-assistant.io/documentation/)
 - [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
-- [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [Piper](https://github.com/rhasspy/piper) - Text-to-speech. [Voices](https://rhasspy.github.io/piper-samples/)
+- [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) - [Documentation](https://voice-pe.home-assistant.io/documentation/)
 - [Whisper](https://github.com/openai/whisper) - Speech-to-text
+- [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [microWakeWord](https://github.com/kahrendt/microWakeWord) - Wake word detection
 - [openWakeWord](https://github.com/dscripka/openWakeWord) - [Create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
 
 ### Matter / Thread
 
 - [matter.js](https://github.com/project-chip/matter.js)
+- [python-matter-server](https://github.com/home-assistant-libs/python-matter-server)
 - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
 

@@ -1,12 +1,10 @@
 ---
 - name: Remove Piper and Whisper containers if they exist
-  community.docker.docker_container:
-    name: "{{ item }}"
-    state: absent
-  loop:
-    - piper
-    - whisper
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - piper
+      - whisper
 
 - name: Start Voice Docker containers
   vars:

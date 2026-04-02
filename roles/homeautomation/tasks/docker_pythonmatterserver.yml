@@ -7,10 +7,10 @@
   become: true
 
 - name: Remove Python Matter Server container if it exists
-  community.docker.docker_container:
-    name: pythonmatterserver
-    state: absent
-  failed_when: false
+  ansible.builtin.include_tasks: remove_docker_containers.yml
+  vars:
+    container_names:
+      - pythonmatterserver
 
 - name: Start Python Matter Server Docker container
   vars:

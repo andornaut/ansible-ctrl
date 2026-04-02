@@ -11,26 +11,6 @@
         update_cache: true
       become: true
 
-- name: USB configuration
-  # TODO: This is disabled, b/c the workaround may no longer be necessary
-  # See:
-  # https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/755342
-  # https://ubuntuforums.org/archive/index.php/t-1551985.html
-  when: false
-  block:
-    - name: Check if usb_modeswitch.conf exists
-      ansible.builtin.stat:
-        path: /etc/usb_modeswitch.conf
-      register: nas_stat_usb_modeswitch
-
-    - name: Workaround usb modeswitching bug
-      ansible.builtin.lineinfile:
-        path: /etc/usb_modeswitch.conf
-        line: "DisableSwitching=1"
-        regex: "^#?\\s*DisableSwitching\\s*"
-      when: nas_stat_usb_modeswitch.stat.exists
-      become: true
-
 - name: Storage setup
   become: true
   block:

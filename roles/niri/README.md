@@ -1,8 +1,6 @@
 # ansible-role-niri
 
-Installs and configures [niri](https://github.com/YaLTeR/niri) Wayland compositor on Ubuntu.
-
-- [sway-services](https://github.com/xdbob/sway-services)
+Installs and configures [niri](https://github.com/YaLTeR/niri) Wayland compositor and Hyprland ecosystem tools on Ubuntu.
 
 ## Usage
 
@@ -10,8 +8,15 @@ Installs and configures [niri](https://github.com/YaLTeR/niri) Wayland composito
 make niri
 
 ansible-playbook --ask-become-pass niri.yml --tags hypr
-ansible-playbook --ask-become-pass niri.yml --tags xwayland
 ```
+
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| [hypr](https://hyprland.org/) | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper, etc.) |
+| [niri](https://github.com/YaLTeR/niri) | Wayland compositor |
+| [wayland](https://wayland.freedesktop.org/) | Wayland protocols and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 
 ## Variables
 
