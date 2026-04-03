@@ -83,6 +83,9 @@ homeautomation_llamacpp_models:
   # Qwen3.5-9B: Multimodal model supporting text and vision (images/video). Superior reasoning, coding, and
   # long-context processing (262K tokens). Supports 201 languages, agent/tool calling, and vision-language tasks.
   - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+  # Gemma 4 E4B: Google's multimodal model (text + images). 26B total params, 4B active (MoE).
+  # Strong reasoning and coding. 256K context window.
+  - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
 
