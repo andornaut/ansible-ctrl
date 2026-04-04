@@ -44,18 +44,11 @@
 
     - name: Set OrcaSlicer to latest stable release
       ansible.builtin.set_fact:
-        hobbies_orcaslicer_release: >-
-          {{ hobbies_orcaslicer_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first }}
+        hobbies_orcaslicer_release: "{{ hobbies_orcaslicer_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
     - name: Find Linux AppImage asset
       ansible.builtin.set_fact:
-        hobbies_orcaslicer_download_url: >-
-          {{ (hobbies_orcaslicer_release.assets
-          | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$')
-          | list | first).browser_download_url }}
+        hobbies_orcaslicer_download_url: "{{ hobbies_orcaslicer_release.assets | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$') | map(attribute='browser_download_url') | first }}"
 
     - name: Download OrcaSlicer
       ansible.builtin.get_url:
@@ -163,18 +156,11 @@
 
     - name: Set ExpressLRS Configurator to latest stable release
       ansible.builtin.set_fact:
-        hobbies_expresslrs_release: >-
-          {{ hobbies_expresslrs_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first }}
+        hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
     - name: Find Linux deb asset
       ansible.builtin.set_fact:
-        hobbies_expresslrs_download_url: >-
-          {{ (hobbies_expresslrs_release.assets
-          | selectattr('name', 'match', '.*_amd64\\.deb$')
-          | list | first).browser_download_url }}
+        hobbies_expresslrs_download_url: "{{ hobbies_expresslrs_release.assets | selectattr('name', 'match', '.*_amd64\\.deb$') | map(attribute='browser_download_url') | first }}"
 
     - name: Install ExpressLRS Configurator
       ansible.builtin.apt:

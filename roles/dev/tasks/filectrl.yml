@@ -7,18 +7,11 @@
 
 - name: Set filectrl to latest stable release
   ansible.builtin.set_fact:
-    dev_filectrl_release: >-
-      {{ dev_filectrl_releases.json
-      | selectattr('prerelease', 'equalto', false)
-      | selectattr('draft', 'equalto', false)
-      | list | first }}
+    dev_filectrl_release: "{{ dev_filectrl_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
 - name: Set filectrl download URL fact
   ansible.builtin.set_fact:
-    dev_filectrl_download_url: >-
-      {{ (dev_filectrl_release.assets
-      | selectattr('name', 'match', 'filectrl-linux')
-      | first).browser_download_url }}
+    dev_filectrl_download_url: "{{ dev_filectrl_release.assets | selectattr('name', 'match', 'filectrl-linux') | map(attribute='browser_download_url') | first }}"
 
 - name: Download filectrl binary
   ansible.builtin.get_url:
