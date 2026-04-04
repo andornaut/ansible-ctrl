@@ -1,6 +1,6 @@
 # ansible-role-homeautomation
 
-Provisions [Home Assistant](https://www.home-assistant.io/) and related services as Docker containers: [ESPHome](https://esphome.io/), [Frigate](https://github.com/blakeblackshear/frigate), [Govee2MQTT](https://github.com/wez/govee2mqtt), [ha-mcp](https://github.com/homeassistant-ai/ha-mcp), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Matter.js](https://github.com/project-chip/matter.js), [Mosquitto](https://mosquitto.org/), [Open WebUI](https://github.com/open-webui/open-webui), [OTBR](https://openthread.io/guides/border-router), [Piper](https://github.com/rhasspy/piper), and [Whisper](https://github.com/rhasspy/wyoming-whisper).
+Provisions [Home Assistant](https://www.home-assistant.io/) and related services as Docker containers: [ESPHome](https://esphome.io/), [Frigate](https://github.com/blakeblackshear/frigate), [Govee2MQTT](https://github.com/wez/govee2mqtt), [ha-mcp](https://github.com/homeassistant-ai/ha-mcp), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Matter.js](https://github.com/project-chip/matter.js) or [Python Matter Server](https://github.com/home-assistant-libs/python-matter-server), [Mosquitto](https://mosquitto.org/), [Open WebUI](https://github.com/open-webui/open-webui), [OTBR](https://openthread.io/guides/border-router), [Piper](https://github.com/rhasspy/piper), and [Whisper](https://github.com/rhasspy/wyoming-whisper).
 
 [![homeassistant](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors.png)
 [![frigate](./screenshots/frigate-small.png)](./screenshots/frigate.png)
@@ -25,7 +25,7 @@ ansible-playbook --ask-become-pass homeautomation.yml --tags frigate
 | [hamcp](https://github.com/homeassistant-ai/ha-mcp) | Home Assistant MCP server |
 | homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
 | llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
-| matter | [Matter.js](https://github.com/project-chip/matter.js) and [OTBR](https://openthread.io/guides/border-router) |
+| matter | [Matter.js](https://github.com/project-chip/matter.js) or [Python Matter Server](https://github.com/home-assistant-libs/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://www.memryx.com/) | GPU accelerator drivers |
 | voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/rhasspy/wyoming-whisper) STT |
 
@@ -68,8 +68,6 @@ docker exec homeassistant hass --config /config --script check_config
 docker exec homeassistant hass --config /config --script check_config --secrets
 ```
 
-### Frigate
-
 ### Nginx
 
 Configure reverse proxies using [letsencrypt_nginx variables](../letsencrypt_nginx/defaults/main.yml):
@@ -104,7 +102,7 @@ Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home As
 
 Clients connect via `hamcp.internal:8086` — the container's internal port on the bridge network (not a host-mapped port). The `.internal` DNS name is maintained by the `docker_etc_hosts` systemd service.
 
-VSCode — configured in this project's `.vscode/mcp.json` (gitignored; auto-starts when the project is opened):
+VSCode — configured in this project's `.vscode/mcp.json` (auto-starts when the project is opened):
 
 ```json
 {
@@ -524,8 +522,8 @@ Built-in:
 - [Google Cast](https://www.home-assistant.io/integrations/cast/)
 - [HomeKit](https://www.home-assistant.io/integrations/homekit/)
 - [Matter](https://www.home-assistant.io/integrations/matter/)
-- [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
 - [OTBR](https://www.home-assistant.io/integrations/otbr/)
+- [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
 - [Roborock](https://www.home-assistant.io/integrations/roborock/)
 - [Thread](https://www.home-assistant.io/integrations/thread/)
 - [Zigbee Home Automation](https://www.home-assistant.io/integrations/zha/)
@@ -543,10 +541,10 @@ Custom:
 
 ### Other
 
+- [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)
+- [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
 - [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
 - [Material icons](https://materialdesignicons.com/) - prefix with "mdi:"
 - [QuickBars (app)](https://quickbars.app/)
-- [Viewer for Frigate](https://play.google.com/store/apps/details?id=com.frigateviewer)
 - [SgtBatten's HA blueprints](https://github.com/SgtBatten/HA_blueprints)
-- [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)
-- [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
+- [Viewer for Frigate](https://play.google.com/store/apps/details?id=com.frigateviewer)
