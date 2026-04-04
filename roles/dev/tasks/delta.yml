@@ -7,18 +7,11 @@
 
 - name: Set Delta to latest stable release
   ansible.builtin.set_fact:
-    dev_delta_release: >-
-      {{ dev_delta_releases.json
-      | selectattr('prerelease', 'equalto', false)
-      | selectattr('draft', 'equalto', false)
-      | list | first }}
+    dev_delta_release: "{{ dev_delta_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
 - name: Set delta download URL fact
   ansible.builtin.set_fact:
-    dev_delta_download_url: >-
-      {{ (dev_delta_release.assets
-      | selectattr('name', 'match', 'git-delta_.*_amd64.deb')
-      | first).browser_download_url }}
+    dev_delta_download_url: "{{ dev_delta_release.assets | selectattr('name', 'match', 'git-delta_.*_amd64.deb') | map(attribute='browser_download_url') | first }}"
 
 - name: Install Delta package
   ansible.builtin.apt:

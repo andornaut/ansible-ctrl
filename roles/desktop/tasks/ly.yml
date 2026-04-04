@@ -77,9 +77,7 @@
 
         - name: Set ly to latest stable release
           ansible.builtin.set_fact:
-            desktop_ly_release: >-
-              {{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false)
-              | selectattr('draft', 'equalto', false) | list | first }}
+            desktop_ly_release: "{{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
         - name: Download and unarchive ly {{ desktop_ly_release.tag_name }}
           ansible.builtin.unarchive:

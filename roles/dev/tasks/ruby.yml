@@ -26,18 +26,11 @@
 
         - name: Set chruby to latest stable release
           ansible.builtin.set_fact:
-            dev_chruby_release: >-
-              {{ dev_chruby_releases.json
-              | selectattr('prerelease', 'equalto', false)
-              | selectattr('draft', 'equalto', false)
-              | list | first }}
+            dev_chruby_release: "{{ dev_chruby_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
         - name: Set chruby download URL fact
           ansible.builtin.set_fact:
-            dev_chruby_download_url: >-
-              {{ (dev_chruby_release.assets
-              | selectattr('name', 'match', 'chruby-.*.tar.gz')
-              | first).browser_download_url }}
+            dev_chruby_download_url: "{{ dev_chruby_release.assets | selectattr('name', 'match', 'chruby-.*.tar.gz') | map(attribute='browser_download_url') | first }}"
 
         - name: Download chruby package
           ansible.builtin.get_url:
@@ -68,18 +61,11 @@
 
         - name: Set ruby-install to latest stable release
           ansible.builtin.set_fact:
-            dev_ruby_install_release: >-
-              {{ dev_ruby_install_releases.json
-              | selectattr('prerelease', 'equalto', false)
-              | selectattr('draft', 'equalto', false)
-              | list | first }}
+            dev_ruby_install_release: "{{ dev_ruby_install_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
         - name: Set ruby-install download URL fact
           ansible.builtin.set_fact:
-            dev_ruby_install_download_url: >-
-              {{ (dev_ruby_install_release.assets
-              | selectattr('name', 'match', 'ruby-install-.*.tar.gz')
-              | first).browser_download_url }}
+            dev_ruby_install_download_url: "{{ dev_ruby_install_release.assets | selectattr('name', 'match', 'ruby-install-.*.tar.gz') | map(attribute='browser_download_url') | first }}"
 
         - name: Download ruby-install package
           ansible.builtin.get_url:
