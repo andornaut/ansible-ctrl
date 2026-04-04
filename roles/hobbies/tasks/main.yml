@@ -84,14 +84,16 @@
       ansible.builtin.set_fact:
         hobbies_betaflight_release: >-
           {{ hobbies_betaflight_releases.json
-          | selectattr('assets', 'search', 'linux64-portable') | first }}
+          | community.general.json_query("[?!prerelease && assets[?contains(name, 'linux64-portable')]]")
+          | first }}
 
     - name: Find Linux portable asset
       ansible.builtin.set_fact:
         hobbies_betaflight_download_url: >-
-          {{ (hobbies_betaflight_release.assets
-          | selectattr('name', 'match', '.*linux64-portable\\.zip$')
-          | list | first).browser_download_url }}
+          {{ hobbies_betaflight_release.assets
+          | selectattr('name', 'search', 'linux64-portable\\.zip$')
+          | map(attribute='browser_download_url')
+          | first }}
 
     - name: Create Betaflight directory
       ansible.builtin.file:
