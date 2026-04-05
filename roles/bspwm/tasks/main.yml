@@ -3,6 +3,7 @@
   ansible.builtin.apt:
     name:
       - dex
+      - xorg
       - libasound2-dev
       - libcairo2-dev
       - libpulse-dev
