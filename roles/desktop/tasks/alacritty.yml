@@ -1,10 +1,4 @@
 ---
-- name: Install Alacritty apt respository
-  ansible.builtin.apt_repository:
-    repo: ppa:aslatter/ppa
-    update_cache: true
-  become: true
-
 - name: Install system packages
   ansible.builtin.apt:
     name:

@@ -11,6 +11,7 @@
       - libxcb-ewmh-dev
       - libxcb-icccm4-dev
       - libxcb-keysyms1-dev
+      - libxcb-xkb-dev
       - libxcb-randr0-dev
       - libxcb-render-util0-dev
       - libxcb-shape0-dev
@@ -60,5 +61,5 @@
 - name: Ensure that the 'Make install BSPWM projects' play succeeded or failed with 'file busy'
   ansible.builtin.fail:
     msg: "The 'Make install BSPWM projects' play failed"
-  when: "item.failed and 'cp: cannot create regular file' not in item.stderr"
+  when: item.failed and 'Text file busy' not in item.stderr
   loop: "{{ bspwm_make_result.results }}"

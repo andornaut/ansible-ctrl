@@ -2,6 +2,28 @@
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
 
+# Programming languages must be installed before tools that depend on them
+- name: Import go tasks
+  ansible.builtin.import_tasks: go.yml
+  tags: go
+
+- name: Import javascript tasks
+  ansible.builtin.import_tasks: javascript.yml
+  tags: javascript
+
+- name: Import python tasks
+  ansible.builtin.import_tasks: python.yml
+  tags: python
+
+- name: Import ruby tasks
+  ansible.builtin.import_tasks: ruby.yml
+  tags: ruby
+
+- name: Import rust tasks
+  ansible.builtin.import_tasks: rust.yml
+  tags: rust
+
+# Tools
 - name: Import antigravity tasks
   ansible.builtin.import_tasks: antigravity.yml
   when: dev_install_antigravity
@@ -11,13 +33,13 @@
   ansible.builtin.import_tasks: claude.yml
   tags: claude
 
-- name: Import cursor tasks
-  ansible.builtin.import_tasks: cursor.yml
-  tags: cursor
-
 - name: Import codex tasks
   ansible.builtin.import_tasks: codex.yml
   tags: codex
+
+- name: Import cursor tasks
+  ansible.builtin.import_tasks: cursor.yml
+  tags: cursor
 
 - name: Import delta tasks
   ansible.builtin.import_tasks: delta.yml
@@ -31,29 +53,9 @@
   ansible.builtin.import_tasks: gemini.yml
   tags: gemini
 
-- name: Import go tasks
-  ansible.builtin.import_tasks: go.yml
-  tags: go
-
-- name: Import javascript tasks
-  ansible.builtin.import_tasks: javascript.yml
-  tags: javascript
-
 - name: Import opencode tasks
   ansible.builtin.import_tasks: opencode.yml
   tags: opencode
-
-- name: Import python tasks
-  ansible.builtin.import_tasks: python.yml
-  tags: python
-
-- name: Import ruby tasks
-  ansible.builtin.import_tasks: ruby.yml
-  tags: ruby
-
-- name: Import rust tasks
-  ansible.builtin.import_tasks: rust.yml
-  tags: rust
 
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml

@@ -7,14 +7,8 @@
           ansible.builtin.apt:
             name:
               - build-essential
-              - clang
-              - libclang-dev
-              - liblldb-dev
               - libpam0g-dev
               - libxcb-xkb-dev
-              - lld
-              - llvm
-              - llvm-dev
             state: present
             install_recommends: false
             update_cache: true
@@ -22,16 +16,21 @@
 
         - name: Set up zig compiler
           block:
-            - name: Get latest zig version
+            - name: Get zig versions
               ansible.builtin.uri:
                 url: https://ziglang.org/download/index.json
                 return_content: true
               register: desktop_zig_versions
 
             # ly requires zig v0.15.0+.
-            - name: Set zig version fact
+            - name: Set latest stable zig version
               ansible.builtin.set_fact:
-                desktop_zig_version: "0.15.2"
+                desktop_zig_version: >-
+                  {{ desktop_zig_versions.json | dict2items
+                     | selectattr('key', 'match', '^\d+\.\d+\.\d+$')
+                     | map(attribute='key')
+                     | community.general.version_sort
+                     | last }}
 
             - name: Create a temporary directory for zig
               ansible.builtin.tempfile:
@@ -90,7 +89,7 @@
 
         - name: Compile and install ly
           ansible.builtin.command:
-            cmd: /opt/zig/zig build installexe
+            cmd: /opt/zig/zig build installnoconf
             chdir: "{{ desktop_ly_tmp.path }}"
           become: true
           changed_when: true
@@ -158,7 +157,7 @@
 
         - name: Enable ly display manager
           ansible.builtin.systemd_service:
-            name: ly.service
+            name: ly@tty2.service
             daemon_reload: true
             enabled: true
             masked: false
