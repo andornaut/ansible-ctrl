@@ -42,11 +42,14 @@
 
     - name: Set Source Code Pro to latest stable release
       ansible.builtin.set_fact:
-        desktop_source_code_pro_release: "{{ desktop_source_code_pro_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
+        desktop_source_code_pro_release: "{{ desktop_source_code_pro_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
 
     - name: Set Source Code Pro download URL fact
       ansible.builtin.set_fact:
-        desktop_source_code_pro_url: "{{ desktop_source_code_pro_release.assets | selectattr('name', 'match', '.*TTF.*.zip') | map(attribute='browser_download_url') | first }}"
+        desktop_source_code_pro_url: >-
+          {{ desktop_source_code_pro_release.assets
+          | selectattr('name', 'match', '.*TTF.*.zip')
+          | map(attribute='browser_download_url') | first }}
 
     - name: Create temporary directory
       ansible.builtin.file:
