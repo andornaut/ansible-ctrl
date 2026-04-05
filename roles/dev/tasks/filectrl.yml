@@ -11,7 +11,10 @@
 
 - name: Set filectrl download URL fact
   ansible.builtin.set_fact:
-    dev_filectrl_download_url: "{{ dev_filectrl_release.assets | selectattr('name', 'match', 'filectrl-linux') | map(attribute='browser_download_url') | first }}"
+    dev_filectrl_download_url: >-
+      {{ dev_filectrl_release.assets
+      | selectattr('name', 'match', 'filectrl-linux')
+      | map(attribute='browser_download_url') | first }}
 
 - name: Download filectrl binary
   ansible.builtin.get_url:
