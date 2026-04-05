@@ -15,34 +15,57 @@
 
     - name: Configure Firefox apt packages
       block:
-        - name: Check if Firefox is installed from non-PPA source
-          ansible.builtin.shell: set -o pipefail && dpkg -l firefox | grep -E "ii.*firefox.*ubuntu"
-          register: desktop_firefox_installed_from_ubuntu
+        - name: Remove old Firefox PPA
+          ansible.builtin.apt_repository:
+            repo: ppa:mozillateam/firefox-next
+            state: absent
+            update_cache: false
+          become: true
+
+        - name: Remove old Firefox apt pin
+          ansible.builtin.file:
+            path: /etc/apt/preferences.d/firefox-no-snap
+            state: absent
+          become: true
+
+        - name: Remove Firefox if installed from non-Mozilla source
+          ansible.builtin.shell: set -o pipefail && dpkg -l firefox 2>/dev/null | grep -q "^ii"
+          register: desktop_firefox_installed
           failed_when: false
           changed_when: false
           become: true
 
-        - name: Remove Firefox if installed from Ubuntu repositories
+        - name: Purge old Firefox package
           ansible.builtin.apt:
             name: firefox
             purge: true
             state: absent
           become: true
-          when: desktop_firefox_installed_from_ubuntu.rc == 0
+          when: desktop_firefox_installed.rc == 0
 
-        - name: Add Firefox Next PPA
+        - name: Download Mozilla apt signing key
+          ansible.builtin.get_url:
+            url: https://packages.mozilla.org/apt/repo-signing-key.gpg
+            dest: /etc/apt/keyrings/packages.mozilla.org.gpg
+            mode: "0644"
+          become: true
+
+        - name: Add Mozilla apt repository
           ansible.builtin.apt_repository:
-            repo: ppa:mozillateam/firefox-next
+            repo: >-
+              deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
+              https://packages.mozilla.org/apt mozilla main
+            state: present
             update_cache: true
           become: true
 
-        - name: Configure mozilla PPA priority
+        - name: Configure Mozilla apt priority
           ansible.builtin.copy:
             content: |
               Package: firefox*
-              Pin: release o=Ubuntu*
-              Pin-Priority: -1
-            dest: /etc/apt/preferences.d/firefox-no-snap
+              Pin: origin packages.mozilla.org
+              Pin-Priority: 1000
+            dest: /etc/apt/preferences.d/mozilla-firefox
             mode: "0644"
           become: true
 
@@ -53,6 +76,7 @@
               - speech-dispatcher # Required for text-to-speech
             state: present
             install_recommends: false
+            update_cache: true
           become: true
 
     - name: Set Firefox as default browser
