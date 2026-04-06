@@ -117,4 +117,5 @@
         mode: "0644"
       notify:
         - Reload systemd
-        - Reenable nas-mount.service
+        - Disable nas-mount.service
+        - Enable nas-mount.service
