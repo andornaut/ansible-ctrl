@@ -48,7 +48,7 @@
           # Must not be installed, b/c it conflicts with v2.1.0 which is installed from source
           # - libsdbus-c++-dev
           - libspng-dev
-        state: present
+        state: latest
         install_recommends: false
         update_cache: true
       become: true

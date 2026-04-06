@@ -14,7 +14,7 @@
       - mysql-client
       - postgresql-client
       - xserver-xephyr
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true

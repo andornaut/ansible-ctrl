@@ -22,7 +22,7 @@
       - virtualbox-dkms
       - virtualbox-ext-pack
       - virtualbox-guest-additions-iso
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   environment:

@@ -3,5 +3,5 @@
   community.general.npm:
     name: opencode-ai
     global: true
-    state: present
+    state: latest
   become: true

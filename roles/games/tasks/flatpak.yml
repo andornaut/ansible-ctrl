@@ -4,7 +4,7 @@
     name:
       # Configures udev rules to support gamepads, etc.
       - steam-devices
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true

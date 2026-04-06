@@ -38,7 +38,7 @@
     name:
       - dkms
       - "linux-headers-{{ ansible_facts['kernel'] }}"
-    state: present
+    state: latest
     update_cache: true
   become: true
 

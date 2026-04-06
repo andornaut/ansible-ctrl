@@ -4,4 +4,4 @@
   community.general.npm:
     name: "@openai/codex"
     global: true
-    state: present
+    state: latest
