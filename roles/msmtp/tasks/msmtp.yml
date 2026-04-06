@@ -30,7 +30,7 @@
       - pkg-config
       - texinfo
     install_recommends: false
-    state: present
+    state: latest
     update_cache: true
   become: true
 

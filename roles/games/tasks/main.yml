@@ -8,7 +8,7 @@
       # For `chdman` to create .chd archives
       - mame-tools
     install_recommends: false
-    state: present
+    state: latest
     update_cache: true
   become: true
 
