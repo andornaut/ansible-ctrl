@@ -65,11 +65,11 @@
         creates: /tmp/source-code-pro/LICENSE.md
 
     - name: Install Source Code Pro font files
-      ansible.builtin.command:
-        cmd: >-
-          rsync -r --chmod=D0755,F0644
-          /tmp/source-code-pro/TTF/
-          /usr/share/fonts/truetype/source-code-pro/
-      changed_when: false
+      ansible.builtin.copy:
+        src: /tmp/source-code-pro/TTF/
+        dest: /usr/share/fonts/truetype/source-code-pro/
+        remote_src: true
+        mode: "0644"
+        directory_mode: "0755"
       notify: Update font cache
       become: true
