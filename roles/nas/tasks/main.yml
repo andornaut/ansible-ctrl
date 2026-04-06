@@ -110,6 +110,13 @@
         group: root
         mode: "0400"
 
+    - name: Install nas-luks-key.path
+      ansible.builtin.template:
+        src: nas-luks-key.path
+        dest: /etc/systemd/system/
+        mode: "0644"
+      notify: Reload systemd
+
     - name: Install nas-mount.service
       ansible.builtin.template:
         src: nas-mount.service
@@ -117,10 +124,15 @@
         mode: "0644"
       notify: Reload systemd
 
+    - name: Enable nas-luks-key.path
+      ansible.builtin.systemd_service:
+        name: nas-luks-key.path
+        enabled: true
+        masked: false
+        state: started
+
     - name: Enable nas-mount.service
       ansible.builtin.systemd_service:
         name: nas-mount.service
         enabled: true
         masked: false
-        state: started
-      notify: Reload systemd

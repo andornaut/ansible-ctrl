@@ -1,12 +1,15 @@
 [Unit]
-Description=Mount NAS LUKS volumes
+Description=Unlock and mount NAS LUKS volumes
 After=local-fs.target
 ConditionPathExists={{ nas_key_file }}
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/systemctl start media-nas.mount
 RemainAfterExit=true
+{% for i in range(nas_raid_devices | length) %}
+ExecStart=/usr/sbin/cryptdisks_start nas{{ i }}
+{% endfor %}
+ExecStart=/usr/bin/systemctl start media-nas.mount
 
 [Install]
 WantedBy=multi-user.target

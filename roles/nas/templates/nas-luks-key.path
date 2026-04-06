@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for NAS LUKS key file
+
+[Path]
+PathExists={{ nas_key_file }}
+Unit=nas-mount.service
+
+[Install]
+WantedBy=paths.target
