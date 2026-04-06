@@ -134,6 +134,7 @@ homeautomation_openwakeword_required_volumes:
 
 # OpenWebUI
 homeautomation_openwebui_docker_image: ghcr.io/open-webui/open-webui:main
+homeautomation_openwebui_env: {}
 homeautomation_openwebui_required_volumes:
   data: /var/docker-volumes/homeautomation/openwebui/data
 
