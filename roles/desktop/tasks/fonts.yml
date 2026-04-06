@@ -9,7 +9,7 @@
           - fonts-ubuntu-console
           - ttf-mscorefonts-installer
           - xfonts-terminus
-        state: present
+        state: latest
         install_recommends: false
         update_cache: true
       become: true
@@ -27,7 +27,7 @@
         - name: Install mscorefonts
           ansible.builtin.apt:
             name: ttf-mscorefonts-installer
-            state: present
+            state: latest
             install_recommends: false
           notify: Update font cache
           become: true

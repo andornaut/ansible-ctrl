@@ -14,7 +14,7 @@
       - numix-icon-theme
       - paper-icon-theme
       - papirus-icon-theme
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true
