@@ -1,7 +1,12 @@
 [Unit]
 Description=Unlock and mount NAS LUKS volumes
+{% if nas_key_file_mount_unit %}
+After={{ nas_key_file_mount_unit }}
+BindsTo={{ nas_key_file_mount_unit }}
+{% else %}
 After=local-fs.target
 ConditionPathExists={{ nas_key_file }}
+{% endif %}
 
 [Service]
 Type=oneshot
@@ -12,4 +17,4 @@ ExecStart=/usr/sbin/cryptdisks_start nas{{ i }}
 ExecStart=/usr/bin/systemctl start media-nas.mount
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ nas_key_file_mount_unit | default('multi-user.target', true) }}
