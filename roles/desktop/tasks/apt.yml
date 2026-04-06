@@ -46,3 +46,16 @@
     install_recommends: false
     update_cache: true
   become: true
+
+# Disable systemd-networkd, which conflicts with NetworkManager and causes a
+# 2-minute boot delay (systemd-networkd-wait-online times out waiting for
+# interfaces that NetworkManager manages).
+- name: Disable systemd-networkd
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - systemd-networkd.service
+    - systemd-networkd-wait-online.service
+  become: true
