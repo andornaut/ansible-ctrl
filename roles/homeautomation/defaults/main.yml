@@ -77,9 +77,6 @@ homeautomation_homeassistant_required_volumes:
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
 homeautomation_llamacpp_models:
-  # Home-3B-v3: Fast, specialized Home Assistant device control with 97% function calling accuracy.
-  # Supports English, German, Spanish, French. Only 1.71GB - perfect for quick smart home commands.
-  - https://huggingface.co/acon96/Home-3B-v3-GGUF/resolve/main/Home-3B-v3.q4_k_m.gguf
   # Qwen3.5-9B: Multimodal model supporting text and vision (images/video). Superior reasoning, coding, and
   # long-context processing (262K tokens). Supports 201 languages, agent/tool calling, and vision-language tasks.
   - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
