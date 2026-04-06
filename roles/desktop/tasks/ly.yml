@@ -9,7 +9,7 @@
               - build-essential
               - libpam0g-dev
               - libxcb-xkb-dev
-            state: present
+            state: latest
             install_recommends: false
             update_cache: true
           become: true

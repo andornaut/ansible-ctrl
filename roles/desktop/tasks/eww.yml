@@ -5,7 +5,7 @@
       - libdbusmenu-glib-dev
       - libdbusmenu-gtk3-dev
       - libgtk-layer-shell-dev
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true

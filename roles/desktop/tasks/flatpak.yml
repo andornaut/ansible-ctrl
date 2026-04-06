@@ -42,7 +42,7 @@
         name:
           - flatpak
           - flatpak-builder
-        state: present
+        state: latest
         install_recommends: false
       become: true
 

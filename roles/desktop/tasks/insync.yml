@@ -8,13 +8,13 @@
         mode: "0644"
       become: true
 
-    - name: Remove old Insync apt repository (without signed-by)
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb http://apt.insync.io/ubuntu
-          {{ ansible_facts['distribution_release'] }} non-free contrib
+    - name: Remove old Insync apt source files
+      ansible.builtin.file:
+        path: "{{ item }}"
         state: absent
-        update_cache: false
+      loop:
+        - /etc/apt/sources.list.d/apt_insync_io_ubuntu.list
+        - /etc/apt/sources.list.d/insync.list
       become: true
 
     - name: Add Insync apt repository
@@ -22,6 +22,7 @@
         repo: >-
           deb [signed-by=/etc/apt/keyrings/insync.asc]
           http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
+        filename: insync
         update_cache: true
       become: true
 
@@ -31,7 +32,7 @@
     - name: Install Insync package
       ansible.builtin.apt:
         name: insync
-        state: present
+        state: latest
         install_recommends: false
 
     - name: Fix Wayland compatibility

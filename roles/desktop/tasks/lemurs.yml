@@ -10,7 +10,7 @@
           - libxcb-xkb-dev
           - libxcb1-dev
           - pkg-config
-        state: present
+        state: latest
         install_recommends: false
         update_cache: true
       become: true

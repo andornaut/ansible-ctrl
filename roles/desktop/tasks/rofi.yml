@@ -8,7 +8,7 @@
       - libstartup-notification0-dev
       - libxkbcommon-x11-dev
       - ninja-build
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true
@@ -16,7 +16,7 @@
 - name: Install meson (versioned package on noble)
   ansible.builtin.apt:
     name: meson-1.5
-    state: present
+    state: latest
     install_recommends: false
   become: true
   when: ansible_facts['distribution_version'] is version('25.04', '<')
@@ -24,7 +24,7 @@
 - name: Install meson
   ansible.builtin.apt:
     name: meson
-    state: present
+    state: latest
     install_recommends: false
   become: true
   when: ansible_facts['distribution_version'] is version('25.04', '>=')

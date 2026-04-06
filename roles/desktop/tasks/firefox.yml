@@ -49,17 +49,32 @@
           become: true
           when: desktop_firefox_installed.rc == 0
 
+        - name: Remove old Mozilla apt signing key (.gpg armored format)
+          ansible.builtin.file:
+            path: /etc/apt/keyrings/packages.mozilla.org.gpg
+            state: absent
+          become: true
+
         - name: Download Mozilla apt signing key
           ansible.builtin.get_url:
             url: https://packages.mozilla.org/apt/repo-signing-key.gpg
-            dest: /etc/apt/keyrings/packages.mozilla.org.gpg
+            dest: /etc/apt/keyrings/packages.mozilla.org.asc
             mode: "0644"
+          become: true
+
+        - name: Remove old Mozilla apt repository (with .gpg key path)
+          ansible.builtin.apt_repository:
+            repo: >-
+              deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
+              https://packages.mozilla.org/apt mozilla main
+            state: absent
+            update_cache: false
           become: true
 
         - name: Add Mozilla apt repository
           ansible.builtin.apt_repository:
             repo: >-
-              deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
+              deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc]
               https://packages.mozilla.org/apt mozilla main
             state: present
             update_cache: true
@@ -80,7 +95,7 @@
             name:
               - firefox
               - speech-dispatcher # Required for text-to-speech
-            state: present
+            state: latest
             install_recommends: false
             update_cache: true
           become: true

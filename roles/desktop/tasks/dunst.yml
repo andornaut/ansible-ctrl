@@ -12,7 +12,7 @@
       - libxinerama-dev
       - libxrandr-dev
       - libxss-dev
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true
