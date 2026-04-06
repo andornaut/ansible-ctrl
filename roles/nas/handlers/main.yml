@@ -4,7 +4,15 @@
     daemon_reload: true
   become: true
 
-- name: Reenable nas-mount.service
-  ansible.builtin.command:
-    cmd: systemctl reenable nas-mount.service
+# Disable+enable updates the WantedBy symlink when the [Install] section changes
+- name: Disable nas-mount.service
+  ansible.builtin.systemd_service:
+    name: nas-mount.service
+    enabled: false
+  become: true
+
+- name: Enable nas-mount.service
+  ansible.builtin.systemd_service:
+    name: nas-mount.service
+    enabled: true
   become: true
