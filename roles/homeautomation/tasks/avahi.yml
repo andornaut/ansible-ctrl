@@ -5,7 +5,7 @@
   ansible.builtin.apt:
     name:
       - avahi-daemon
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true

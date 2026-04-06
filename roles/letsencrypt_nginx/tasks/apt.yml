@@ -6,7 +6,7 @@
       - python3-openssl
       - python3-passlib
       - ssl-cert
-    state: present
+    state: latest
     install_recommends: false
     update_cache: true
   become: true

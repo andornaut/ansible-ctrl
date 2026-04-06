@@ -12,7 +12,7 @@
       ansible.builtin.apt:
         name:
           - kicad
-        state: present
+        state: latest
         install_recommends: false
         update_cache: true
 
@@ -174,5 +174,5 @@
     - name: Install ExpressLRS Configurator
       ansible.builtin.apt:
         deb: "{{ hobbies_expresslrs_download_url }}"
-        state: present
+        state: latest
       become: true

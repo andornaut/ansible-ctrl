@@ -4,7 +4,7 @@
     name:
       - bubblewrap
       - socat
-    state: present
+    state: latest
   become: true
 
 - name: Ensure script directory exists
