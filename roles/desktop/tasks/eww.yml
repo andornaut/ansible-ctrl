@@ -17,26 +17,34 @@
         state: directory
       register: desktop_eww_tmp
 
-    - name: Get releases of eww
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/elkowar/eww/releases
-        return_content: true
-      register: desktop_eww_releases
-
-    - name: Set eww version to latest stable release
-      ansible.builtin.set_fact:
-        desktop_eww_version: >-
-          {{ (desktop_eww_releases.json | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false) | list | first).tag_name }}
-
-    - name: Download and unarchive eww {{ desktop_eww_version }}
-      ansible.builtin.unarchive:
-        src: "https://github.com/elkowar/eww/archive/refs/tags/{{ desktop_eww_version }}.tar.gz"
+    # Install from main branch because the latest stable release (v0.6.0, Aug 2024) is stale
+    - name: Clone eww repository (main branch)
+      ansible.builtin.git:
+        repo: https://github.com/elkowar/eww.git
         dest: "{{ desktop_eww_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
+        version: master
+        depth: 1
+
+    # - name: Get releases of eww
+    #   ansible.builtin.uri:
+    #     url: https://api.github.com/repos/elkowar/eww/releases
+    #     return_content: true
+    #   register: desktop_eww_releases
+
+    # - name: Set eww version to latest stable release
+    #   ansible.builtin.set_fact:
+    #     desktop_eww_version: >-
+    #       {{ (desktop_eww_releases.json | selectattr('prerelease', 'equalto', false)
+    #       | selectattr('draft', 'equalto', false) | list | first).tag_name }}
+
+    # - name: Download and unarchive eww {{ desktop_eww_version }}
+    #   ansible.builtin.unarchive:
+    #     src: "https://github.com/elkowar/eww/archive/refs/tags/{{ desktop_eww_version }}.tar.gz"
+    #     dest: "{{ desktop_eww_tmp.path }}"
+    #     remote_src: true
+    #     extra_opts:
+    #       - --strip-components
+    #       - 1
 
     - name: Build eww
       ansible.builtin.command:
@@ -53,6 +61,13 @@
         group: root
         mode: "0755"
       become: true
+
+    - name: Reload eww
+      ansible.builtin.systemd_service:
+        name: eww.service
+        daemon_reload: true
+        scope: user
+        state: restarted
 
 - name: Configure eww service
   block:
