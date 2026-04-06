@@ -1,15 +1,27 @@
 ---
 - name: Configure Insync repository
   block:
-    - name: Add Insync apt key
-      ansible.builtin.apt_key:
-        keyserver: keyserver.ubuntu.com
-        id: ACCAF35C
+    - name: Download Insync apt signing key
+      ansible.builtin.get_url:
+        url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xACCAF35C
+        dest: /etc/apt/keyrings/insync.asc
+        mode: "0644"
+      become: true
+
+    - name: Remove old Insync apt repository (without signed-by)
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb http://apt.insync.io/ubuntu
+          {{ ansible_facts['distribution_release'] }} non-free contrib
+        state: absent
+        update_cache: false
       become: true
 
     - name: Add Insync apt repository
       ansible.builtin.apt_repository:
-        repo: deb http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
+        repo: >-
+          deb [signed-by=/etc/apt/keyrings/insync.asc]
+          http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
         update_cache: true
       become: true
 

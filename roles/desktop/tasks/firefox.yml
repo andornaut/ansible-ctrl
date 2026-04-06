@@ -22,6 +22,12 @@
             update_cache: false
           become: true
 
+        - name: Remove old Firefox PPA file
+          ansible.builtin.file:
+            path: /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_noble.list
+            state: absent
+          become: true
+
         - name: Remove old Firefox apt pin
           ansible.builtin.file:
             path: /etc/apt/preferences.d/firefox-no-snap
