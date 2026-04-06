@@ -8,6 +8,7 @@ nas_backup_rsnapshot_retention: 10
 nas_backup_rsnapshot_source_relative_path: rsnapshot/weekly.1
 nas_backup_source_directory: "{{ nas_raid_mount_directory }}/.backups"
 nas_key_file: "{{ ansible_facts['env']['HOME'] }}/.nas-luks-key"
+nas_key_file_mount_unit: ""
 nas_raid_devices: []
 nas_raid_fs_defaults: defaults,noauto
 nas_raid_fs_type: btrfs
