@@ -287,6 +287,48 @@
         mode: "0644"
       become: true
 
+- name: Install Waste Collection Schedule custom component
+  block:
+    - name: Create a temporary directory for Waste Collection Schedule
+      ansible.builtin.tempfile:
+        state: directory
+      register: homeautomation_waste_collection_schedule_tmp
+
+    - name: Get releases of Waste Collection Schedule
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/mampfes/hacs_waste_collection_schedule/releases
+        return_content: true
+      register: homeautomation_waste_collection_schedule_releases
+
+    - name: Set Waste Collection Schedule version to latest stable release
+      ansible.builtin.set_fact:
+        homeautomation_waste_collection_schedule_version: >-
+          {{ (homeautomation_waste_collection_schedule_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
+
+    - name: Download and unarchive Waste Collection Schedule
+      ansible.builtin.unarchive:
+        src: >-
+          https://github.com/mampfes/hacs_waste_collection_schedule/archive/refs/tags/{{
+          homeautomation_waste_collection_schedule_version }}.tar.gz
+        dest: "{{ homeautomation_waste_collection_schedule_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Install Waste Collection Schedule custom component files
+      ansible.builtin.copy:
+        src: >-
+          {{ homeautomation_waste_collection_schedule_tmp.path
+          }}/custom_components/waste_collection_schedule
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
+        remote_src: true
+        mode: "0644"
+      become: true
+
 - name: Copy python_scripts/ directory
   ansible.builtin.copy:
     src: files/homeassistant/python_scripts/
