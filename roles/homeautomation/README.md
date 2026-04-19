@@ -357,6 +357,7 @@ Debug with: `tcpdump port 5353 -i any` on the host, and `apk add tcpdump && tcpd
 ### Converting ONNX model to DFP for Memryx
 
 - [Memryx driver installation](https://github.com/blakeblackshear/frigate/blob/dev/docker/memryx/user_installation.sh) - packages are "held" and won't auto-upgrade
+- [Memryx Frigate manual setup](https://devblog.memryx.com/memryx-frigate-manual-setup/)
 
 1. Add the Frigate+ model to Frigate's `config.yml`:
 
