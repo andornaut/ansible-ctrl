@@ -5,3 +5,7 @@
     daemon_reload: true
     state: restarted
   become: true
+
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u
+  become: true
