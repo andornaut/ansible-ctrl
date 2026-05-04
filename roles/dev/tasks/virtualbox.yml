@@ -29,5 +29,15 @@
     DEBIAN_FRONTEND: noninteractive
   become: true
 
+- name: Blacklist KVM modules to prevent conflict with VirtualBox
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/blacklist-kvm.conf
+    content: |
+      blacklist kvm_amd
+      blacklist kvm
+    mode: "0644"
+  become: true
+  notify: Update initramfs
+
 # If seeing an error: "Kernel driver not installed (rc=-1908)" or "VirtualBox kernel modules not loaded"
 # Run: `sudo apt install --reinstall virtualbox-dkms virtualbox`
