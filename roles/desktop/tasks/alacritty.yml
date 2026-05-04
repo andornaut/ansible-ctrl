@@ -9,7 +9,8 @@
   become: true
 
 - name: Register Alacritty alternative
-  ansible.builtin.command: update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 50
+  ansible.builtin.command:
+    cmd: update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 50
   become: true
   changed_when: true
 
