@@ -6,3 +6,34 @@
     executable: /bin/bash
   environment:
     HOME: "{{ ansible_facts['env']['HOME'] }}"
+
+- name: Configure Claude Desktop (Cowork) repository
+  become: true
+  block:
+    - name: Download Claude Desktop GPG key
+      ansible.builtin.get_url:
+        url: https://pkg.claude-desktop-debian.dev/KEY.gpg
+        dest: /etc/apt/keyrings/claude-desktop.asc
+        mode: "0644"
+
+    - name: Add Claude Desktop repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={% if ansible_facts['architecture'] == 'x86_64' %}amd64{% else %}{{ ansible_facts['architecture'] }}{% endif %}
+          signed-by=/etc/apt/keyrings/claude-desktop.asc]
+          https://pkg.claude-desktop-debian.dev stable main
+        state: present
+        update_cache: true
+
+# bubblewrap provides Cowork's sandbox isolation backend; the KVM/QEMU
+# backend is non-functional on Linux in this build, so without bubblewrap
+# Cowork falls back to running with no isolation.
+- name: Install Claude Desktop (Cowork) and sandbox backend
+  ansible.builtin.apt:
+    name:
+      - bubblewrap
+      - claude-desktop
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
