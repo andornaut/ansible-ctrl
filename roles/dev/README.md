@@ -14,13 +14,12 @@ ansible-playbook --ask-become-pass dev.yml --tags rust
 
 | Tag | Description |
 | --- | --- |
-| [antigravity](https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/) | Google auto-updater tool |
+| [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
 | [delta](https://github.com/dandavison/delta) | Syntax-highlighting diff viewer for git |
 | [filectrl](https://github.com/andornaut/filectrl) | File manager |
-| [gemini](https://github.com/google-gemini/gemini-cli) | Google Gemini CLI |
 | [go](https://go.dev/) | Go toolchain |
 | javascript | [Node.js](https://nodejs.org/) and [nvm](https://github.com/nvm-sh/nvm) |
 | [opencode](https://github.com/opencode-ai/opencode) | OpenCode AI tool |

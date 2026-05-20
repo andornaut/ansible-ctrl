@@ -26,7 +26,6 @@
 # Tools
 - name: Import antigravity tasks
   ansible.builtin.import_tasks: antigravity.yml
-  when: dev_install_antigravity
   tags: antigravity
 
 - name: Import claude tasks
