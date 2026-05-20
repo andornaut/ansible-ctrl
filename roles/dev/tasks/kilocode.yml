@@ -1,0 +1,13 @@
+---
+- name: Ensure Kilo Code CLI is installed
+  community.general.npm:
+    name: "@kilocode/cli"
+    global: true
+    state: latest
+  become: true
+
+- name: Install Kilo Code VS Code extension
+  ansible.builtin.command:
+    cmd: code --install-extension kilocode.kilo-code
+  register: dev_kilocode_vscode_ext
+  changed_when: "'successfully installed' in dev_kilocode_vscode_ext.stdout"
