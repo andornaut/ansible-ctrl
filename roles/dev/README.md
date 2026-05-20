@@ -28,7 +28,3 @@ ansible-playbook --ask-become-pass dev.yml --tags rust
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform with DKMS |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
-
-## Variables
-
-See [defaults/main.yml](./defaults/main.yml).
