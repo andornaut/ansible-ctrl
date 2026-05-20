@@ -10,18 +10,18 @@
 - name: "Create a temporary directory for {{ github_component_name }}"
   ansible.builtin.tempfile:
     state: directory
-  register: github_component_tmp
+  register: homeautomation_github_component_tmp
 
 - name: "Get releases of {{ github_component_name }}"
   ansible.builtin.uri:
     url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
     return_content: true
-  register: github_component_releases
+  register: homeautomation_github_component_releases
 
-- name: "Set {{ github_component_name }} version to latest stable release"
+- name: "Set version to latest stable release for {{ github_component_name }}"
   ansible.builtin.set_fact:
-    github_component_version: >-
-      {{ (github_component_releases.json
+    homeautomation_github_component_version: >-
+      {{ (homeautomation_github_component_releases.json
       | selectattr('prerelease', 'equalto', false)
       | selectattr('draft', 'equalto', false)
       | list | first).tag_name }}
@@ -30,16 +30,16 @@
   ansible.builtin.unarchive:
     src: >-
       https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
-      github_component_version }}.tar.gz
-    dest: "{{ github_component_tmp.path }}"
+      homeautomation_github_component_version }}.tar.gz
+    dest: "{{ homeautomation_github_component_tmp.path }}"
     remote_src: true
     extra_opts:
       - --strip-components
       - 1
 
-- name: "Install {{ github_component_name }} files"
+- name: "Install files for {{ github_component_name }}"
   ansible.builtin.copy:
-    src: "{{ github_component_tmp.path }}/{{ github_component_src }}"
+    src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
     dest: "{{ github_component_dest }}"
     remote_src: true
     mode: "0644"

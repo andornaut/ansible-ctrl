@@ -48,10 +48,6 @@
   ansible.builtin.import_tasks: filectrl.yml
   tags: filectrl
 
-- name: Import gemini tasks
-  ansible.builtin.import_tasks: gemini.yml
-  tags: gemini
-
 - name: Import opencode tasks
   ansible.builtin.import_tasks: opencode.yml
   tags: opencode
