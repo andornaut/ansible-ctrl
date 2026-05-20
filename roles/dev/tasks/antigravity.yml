@@ -2,11 +2,6 @@
 - name: Configure Google Antigravity Repository
   become: true
   block:
-    - name: Remove old Antigravity apt signing key (.gpg dearmored format)
-      ansible.builtin.file:
-        path: /etc/apt/keyrings/antigravity-repo-key.gpg
-        state: absent
-
     - name: Download Google Antigravity GPG key
       ansible.builtin.get_url:
         url: https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg
@@ -23,7 +18,7 @@
         state: present
         update_cache: true
 
-- name: Install Google Antigravity
+- name: Install Google Antigravity IDE
   ansible.builtin.apt:
     name:
       - antigravity
@@ -31,3 +26,11 @@
     install_recommends: false
     update_cache: true
   become: true
+
+- name: Install Antigravity CLI (agy) # noqa: command-instead-of-module
+  ansible.builtin.shell:
+    cmd: set -o pipefail && curl -fsSL https://antigravity.google/cli/install.sh | bash
+    creates: ~/.local/bin/agy
+    executable: /bin/bash
+  environment:
+    HOME: "{{ ansible_facts['env']['HOME'] }}"
