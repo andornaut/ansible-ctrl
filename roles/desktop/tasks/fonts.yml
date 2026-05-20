@@ -34,15 +34,11 @@
 
 - name: Install Source Code Pro font
   block:
-    - name: Get releases of Source Code Pro
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/adobe-fonts/source-code-pro/releases
-        return_content: true
-      register: desktop_source_code_pro_releases
-
-    - name: Set Source Code Pro to latest stable release
-      ansible.builtin.set_fact:
-        desktop_source_code_pro_release: "{{ desktop_source_code_pro_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
+    - name: Get latest Source Code Pro release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: adobe-fonts/source-code-pro
+        github_release_fact: desktop_source_code_pro_release
 
     - name: Set Source Code Pro download URL fact
       ansible.builtin.set_fact:

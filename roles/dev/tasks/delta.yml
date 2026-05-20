@@ -1,13 +1,9 @@
 ---
-- name: Get releases of Delta
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/dandavison/delta/releases
-    return_content: true
-  register: dev_delta_releases
-
-- name: Set Delta to latest stable release
-  ansible.builtin.set_fact:
-    dev_delta_release: "{{ dev_delta_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
+- name: Get latest Delta release
+  ansible.builtin.include_tasks: get_latest_github_release.yml
+  vars:
+    github_release_repo: dandavison/delta
+    github_release_fact: dev_delta_release
 
 - name: Set delta download URL fact
   ansible.builtin.set_fact:

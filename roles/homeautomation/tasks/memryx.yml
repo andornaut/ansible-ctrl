@@ -12,7 +12,6 @@
     - memx-drivers
     - mxa-manager
   become: true
-  failed_when: false
 
 - name: Remove existing MemryX packages
   ansible.builtin.apt:
@@ -22,7 +21,6 @@
     state: absent
     purge: true
   become: true
-  failed_when: false
 
 - name: Remove existing MemryX repository files
   ansible.builtin.file:
@@ -81,7 +79,6 @@
   when: ansible_facts['architecture'] in ['aarch64', 'arm64']
   become: true
   changed_when: true
-  failed_when: false
 
 - name: Load MemryX kernel module
   community.general.modprobe:

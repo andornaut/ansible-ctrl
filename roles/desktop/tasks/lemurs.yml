@@ -22,17 +22,15 @@
             state: directory
           register: desktop_lemurs_tmp
 
-        - name: Get releases of lemurs
-          ansible.builtin.uri:
-            url: https://api.github.com/repos/coastalwhite/lemurs/releases
-            return_content: true
-          register: desktop_lemurs_releases
+        - name: Get latest lemurs release
+          ansible.builtin.include_tasks: get_latest_github_release.yml
+          vars:
+            github_release_repo: coastalwhite/lemurs
+            github_release_fact: desktop_lemurs_release
 
-        - name: Set lemurs version to latest stable release
+        - name: Set lemurs version fact
           ansible.builtin.set_fact:
-            desktop_lemurs_version: >-
-              {{ (desktop_lemurs_releases.json | selectattr('prerelease', 'equalto', false)
-              | selectattr('draft', 'equalto', false) | list | first).tag_name }}
+            desktop_lemurs_version: "{{ desktop_lemurs_release.tag_name }}"
 
         - name: Download lemurs binary
           ansible.builtin.get_url:

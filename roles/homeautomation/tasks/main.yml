@@ -39,7 +39,6 @@
         # Stop the socket first, b/c it can spawn the service
         - avahi-daemon.socket
         - avahi-daemon.service
-      failed_when: false
       when: not homeautomation_install_avahi
 
 - name: Import Bluetooth tasks

@@ -23,9 +23,7 @@
   when:
     - not item.use_selfsigned_certificate | default(false)
   become: true
-
-# - ansible.builtin.debug:
-#     var: letsencrypt_nginx_challenge
+  no_log: true
 
 - name: Create DNS challenge TXT record
   community.general.cloudflare_dns:
@@ -49,10 +47,7 @@
     - item.item.cloudflare_api_token is defined
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
-
-- name: Debug DNS record result
-  ansible.builtin.debug:
-    var: letsencrypt_nginx_dns_record
+  no_log: true
 
 - name: Pause to allow DNS to update
   ansible.builtin.pause:
@@ -130,6 +125,7 @@
     - item.changed
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
+  no_log: true
 
 # - ansible.builtin.debug:
 #     var: letsencrypt_nginx_complete_challenge
