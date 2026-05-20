@@ -10,12 +10,12 @@
   ansible.builtin.uri:
     url: "https://api.github.com/repos/{{ github_release_repo }}/releases"
     return_content: true
-  register: github_release_response
+  register: niri_github_release_response
 
-- name: "Set {{ github_release_fact }} to latest stable release"
+- name: "Set fact to latest stable release for {{ github_release_fact }}"
   ansible.builtin.set_fact:
     "{{ github_release_fact }}": >-
-      {{ github_release_response.json
+      {{ niri_github_release_response.json
       | selectattr('prerelease', 'equalto', false)
       | selectattr('draft', 'equalto', false)
       | list | first }}
