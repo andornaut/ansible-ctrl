@@ -28,6 +28,11 @@
   ansible.builtin.import_tasks: antigravity.yml
   tags: antigravity
 
+# vscode must run before claude and kilocode (they install VS Code extensions)
+- name: Import vscode tasks
+  ansible.builtin.import_tasks: vscode.yml
+  tags: vscode
+
 - name: Import claude tasks
   ansible.builtin.import_tasks: claude.yml
   tags: claude
@@ -48,6 +53,10 @@
   ansible.builtin.import_tasks: filectrl.yml
   tags: filectrl
 
+- name: Import kilocode tasks
+  ansible.builtin.import_tasks: kilocode.yml
+  tags: kilocode
+
 - name: Import opencode tasks
   ansible.builtin.import_tasks: opencode.yml
   tags: opencode
@@ -55,7 +64,3 @@
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox
-
-- name: Import vscode tasks
-  ansible.builtin.import_tasks: vscode.yml
-  tags: vscode
