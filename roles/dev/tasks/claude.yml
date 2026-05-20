@@ -7,6 +7,12 @@
   environment:
     HOME: "{{ ansible_facts['env']['HOME'] }}"
 
+- name: Install Claude Code VS Code extension
+  ansible.builtin.command:
+    cmd: code --install-extension anthropic.claude-code
+  register: dev_claude_vscode_ext
+  changed_when: "'successfully installed' in dev_claude_vscode_ext.stdout"
+
 - name: Configure Claude Desktop (Cowork) repository
   become: true
   block:
