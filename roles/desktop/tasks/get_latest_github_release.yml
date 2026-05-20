@@ -1,0 +1,21 @@
+---
+# Fetch the latest non-prerelease, non-draft GitHub release and store it as a fact.
+#
+# Required vars:
+#   github_release_repo (str): "owner/repo"
+#   github_release_fact (str): variable name to set with the release object
+#
+# The release object exposes .tag_name, .assets, etc. for the caller to use.
+- name: "Get releases of {{ github_release_repo }}"
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ github_release_repo }}/releases"
+    return_content: true
+  register: github_release_response
+
+- name: "Set {{ github_release_fact }} to latest stable release"
+  ansible.builtin.set_fact:
+    "{{ github_release_fact }}": >-
+      {{ github_release_response.json
+      | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false)
+      | list | first }}

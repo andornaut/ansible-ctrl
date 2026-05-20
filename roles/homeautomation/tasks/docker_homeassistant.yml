@@ -81,7 +81,7 @@
         devices: "{{ homeautomation_homeassistant_devices_resolved }}"
         # Restart the container if the web server becomes unresponsive
         healthcheck:
-          test: ["CMD", "curl", "-sf", "http://localhost:8123/manifest.json"]
+          test: ["CMD", "curl", "-sf", "http://localhost:{{ homeautomation_homeassistant_port }}/manifest.json"]
           interval: 30s
           timeout: 10s
           retries: 3

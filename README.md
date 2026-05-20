@@ -9,7 +9,14 @@ Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
 ### Initial Setup
 
-Create a `hosts` file in the project root:
+Install Ansible on Ubuntu via the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
+
+```bash
+sudo add-apt-repository --yes --update ppa:ansible/ansible
+sudo apt install ansible
+```
+
+Create a `hosts` file in the project root (gitignored):
 
 ```ini
 example ansible_connection=local ansible_host=example.com ansible_user=andornaut ansible_python_interpreter=/usr/bin/python3
@@ -21,11 +28,27 @@ example
 example
 ```
 
-Install Ansible on Ubuntu via the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
+### Inventory and host variables
+
+- `hosts` (gitignored): inventory file
+- `host_vars/<hostname>.yml` (gitignored): per-host variable overrides — feature flags (`{role}_install_{component}`), Docker image tags, extra volumes, and any host-specific configuration
+- Role defaults live in `roles/<role>/defaults/main.yml`; override them in `host_vars/`, not in defaults
+
+### Secrets
+
+Secrets (API tokens, SMTP passwords, Cloudflare tokens, HA long-lived tokens) are stored in `host_vars/` files, which are gitignored. For shared or committed secrets, use [ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html):
 
 ```bash
-sudo add-apt-repository --yes --update ppa:ansible/ansible
-sudo apt install ansible
+ansible-vault encrypt host_vars/example.yml
+ansible-playbook --ask-vault-pass --ask-become-pass desktop.yml
+```
+
+### CI
+
+Pull requests run [ansible-lint](.github/workflows/lint.yml) on the playbooks and roles. Run the same check locally:
+
+```bash
+python3 -m venv /tmp/ansible-lint-venv && /tmp/ansible-lint-venv/bin/pip install ansible-lint && /tmp/ansible-lint-venv/bin/ansible-lint
 ```
 
 ## Usage

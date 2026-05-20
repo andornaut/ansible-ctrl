@@ -69,6 +69,4 @@
             - "{{ homeautomation_whisper_port }}:10300"
           restart: unless-stopped
           volumes: "{{ whisper_volumes }}"
-  notify:
-    - Restart homeassistant
-    - Update /etc/hosts
+  notify: Update /etc/hosts

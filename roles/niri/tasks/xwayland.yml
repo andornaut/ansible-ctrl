@@ -7,19 +7,15 @@
         state: directory
       register: niri_xwayland_tmp
 
-    - name: Get releases of xwayland-satellite
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/Supreeeme/xwayland-satellite/releases
-        return_content: true
-      register: niri_xwayland_releases
+    - name: Get latest xwayland-satellite release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: Supreeeme/xwayland-satellite
+        github_release_fact: niri_xwayland_release
 
-    - name: Set xwayland-satellite version to latest stable release
+    - name: Set xwayland-satellite version fact
       ansible.builtin.set_fact:
-        niri_xwayland_version: >-
-          {{ (niri_xwayland_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).tag_name }}
+        niri_xwayland_version: "{{ niri_xwayland_release.tag_name }}"
 
     - name: Download and unarchive xwayland-satellite {{ niri_xwayland_version }}
       ansible.builtin.unarchive:
