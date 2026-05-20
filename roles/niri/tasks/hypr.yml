@@ -17,19 +17,15 @@
         state: directory
       register: niri_hyprutils_tmp
 
-    - name: Get releases of hyprutils
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprutils/releases
-        return_content: true
-      register: niri_hyprutils_releases
+    - name: Get latest hyprutils release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprutils
+        github_release_fact: niri_hyprutils_release
 
-    - name: Set hyprutils version to latest stable release
+    - name: Set hyprutils version fact
       ansible.builtin.set_fact:
-        niri_hyprutils_version: >-
-          {{ (niri_hyprutils_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hyprutils_version: "{{ niri_hyprutils_release.name }}"
 
     - name: Download and unarchive hyprutils {{ niri_hyprutils_version }}
       ansible.builtin.unarchive:
@@ -73,19 +69,15 @@
         state: directory
       register: niri_hyprlang_tmp
 
-    - name: Get releases of hyprlang
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprlang/releases
-        return_content: true
-      register: niri_hyprlang_releases
+    - name: Get latest hyprlang release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprlang
+        github_release_fact: niri_hyprlang_release
 
-    - name: Set hyprlang version to latest stable release
+    - name: Set hyprlang version fact
       ansible.builtin.set_fact:
-        niri_hyprlang_version: >-
-          {{ (niri_hyprlang_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hyprlang_version: "{{ niri_hyprlang_release.name }}"
 
     - name: Download and unarchive hyprlang {{ niri_hyprlang_version }}
       ansible.builtin.unarchive:
@@ -129,19 +121,15 @@
         state: directory
       register: niri_hyprgraphics_tmp
 
-    - name: Get releases of hyprgraphics
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprgraphics/releases
-        return_content: true
-      register: niri_hyprgraphics_releases
+    - name: Get latest hyprgraphics release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprgraphics
+        github_release_fact: niri_hyprgraphics_release
 
-    - name: Set hyprgraphics version to latest stable release
+    - name: Set hyprgraphics version fact
       ansible.builtin.set_fact:
-        niri_hyprgraphics_version: >-
-          {{ (niri_hyprgraphics_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hyprgraphics_version: "{{ niri_hyprgraphics_release.name }}"
 
     - name: Download and unarchive hyprgraphics {{ niri_hyprgraphics_version }}
       ansible.builtin.unarchive:
@@ -180,19 +168,15 @@
         state: directory
       register: niri_hypr_scanner_tmp
 
-    - name: Get releases of hyprwayland-scanner
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprwayland-scanner/releases
-        return_content: true
-      register: niri_hypr_scanner_releases
+    - name: Get latest hyprwayland-scanner release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprwayland-scanner
+        github_release_fact: niri_hypr_scanner_release
 
-    - name: Set hyprwayland-scanner version to latest stable release
+    - name: Set hyprwayland-scanner version fact
       ansible.builtin.set_fact:
-        niri_hypr_scanner_version: >-
-          {{ (niri_hypr_scanner_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hypr_scanner_version: "{{ niri_hypr_scanner_release.name }}"
 
     - name: Download and unarchive hyprwayland-scanner {{ niri_hypr_scanner_version }}
       ansible.builtin.unarchive:
@@ -232,19 +216,15 @@
         state: directory
       register: niri_hypridle_tmp
 
-    - name: Get releases of hypridle
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hypridle/releases
-        return_content: true
-      register: niri_hypridle_releases
+    - name: Get latest hypridle release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hypridle
+        github_release_fact: niri_hypridle_release
 
-    - name: Set hypridle version to latest stable release
+    - name: Set hypridle version fact
       ansible.builtin.set_fact:
-        niri_hypridle_version: >-
-          {{ (niri_hypridle_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hypridle_version: "{{ niri_hypridle_release.name }}"
 
     - name: Download and unarchive hypridle {{ niri_hypridle_version }}
       ansible.builtin.unarchive:
@@ -291,19 +271,15 @@
         state: directory
       register: niri_hyprlock_tmp
 
-    - name: Get releases of hyprlock
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprlock/releases
-        return_content: true
-      register: niri_hyprlock_releases
+    - name: Get latest hyprlock release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprlock
+        github_release_fact: niri_hyprlock_release
 
-    - name: Set hyprlock version to latest stable release
+    - name: Set hyprlock version fact
       ansible.builtin.set_fact:
-        niri_hyprlock_version: >-
-          {{ (niri_hyprlock_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hyprlock_version: "{{ niri_hyprlock_release.name }}"
 
     - name: Download and unarchive hyprlock {{ niri_hyprlock_version }}
       ansible.builtin.unarchive:
@@ -344,19 +320,15 @@
         state: directory
       register: niri_hyprpaper_tmp
 
-    - name: Get releases of hyprpaper
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/hyprwm/hyprpaper/releases
-        return_content: true
-      register: niri_hyprpaper_releases
+    - name: Get latest hyprpaper release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprpaper
+        github_release_fact: niri_hyprpaper_release
 
-    - name: Set hyprpaper version to latest stable release
+    - name: Set hyprpaper version fact
       ansible.builtin.set_fact:
-        niri_hyprpaper_version: >-
-          {{ (niri_hyprpaper_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_hyprpaper_version: "{{ niri_hyprpaper_release.name }}"
 
     - name: Download and unarchive hyprpaper {{ niri_hyprpaper_version }}
       ansible.builtin.unarchive:

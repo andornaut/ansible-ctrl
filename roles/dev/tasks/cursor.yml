@@ -12,12 +12,6 @@
     mode: "0755"
   become: true
 
-- name: Make Cursor executable
-  ansible.builtin.file:
-    path: /usr/local/bin/cursor
-    mode: "0755"
-  become: true
-
 - name: "Workaround: Cursor Appimage error when run on Ubuntu 24.04"
   ansible.builtin.blockinfile:
     append_newline: true

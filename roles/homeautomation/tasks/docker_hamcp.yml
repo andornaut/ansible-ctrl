@@ -34,6 +34,5 @@
           #   - "8086:8086"
           restart: unless-stopped
           volumes: "{{ homeautomation_common_volumes }}"
-  notify:
-    - Restart homeassistant
-    - Update /etc/hosts
+  notify: Update /etc/hosts
+  no_log: true

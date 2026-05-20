@@ -36,17 +36,15 @@
 
 # Fork of rofi that supports Wayland:
 # https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
-- name: Get releases of rofi
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/lbonn/rofi/releases
-    return_content: true
-  register: desktop_rofi_releases
+- name: Get latest rofi release
+  ansible.builtin.include_tasks: get_latest_github_release.yml
+  vars:
+    github_release_repo: lbonn/rofi
+    github_release_fact: desktop_rofi_release
 
-- name: Set rofi version to latest stable release
+- name: Set rofi version fact
   ansible.builtin.set_fact:
-    desktop_rofi_version: >-
-      {{ (desktop_rofi_releases.json | selectattr('prerelease', 'equalto', false)
-      | selectattr('draft', 'equalto', false) | list | first).tag_name }}
+    desktop_rofi_version: "{{ desktop_rofi_release.tag_name }}"
 
 - name: Download and unarchive rofi
   ansible.builtin.unarchive:

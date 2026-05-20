@@ -1,13 +1,9 @@
 ---
-- name: Get releases of filectrl
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/andornaut/filectrl/releases
-    return_content: true
-  register: dev_filectrl_releases
-
-- name: Set filectrl to latest stable release
-  ansible.builtin.set_fact:
-    dev_filectrl_release: "{{ dev_filectrl_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
+- name: Get latest filectrl release
+  ansible.builtin.include_tasks: get_latest_github_release.yml
+  vars:
+    github_release_repo: andornaut/filectrl
+    github_release_fact: dev_filectrl_release
 
 - name: Set filectrl download URL fact
   ansible.builtin.set_fact:

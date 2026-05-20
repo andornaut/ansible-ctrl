@@ -65,6 +65,4 @@
           shm_size: "{{ homeautomation_frigate_shm_size }}"
           volumes: >-
             {{ frigate_volumes + ([frigate_tmpfs_volume] if homeautomation_frigate_tmpfs_size_mb > 0 else []) }}
-  notify:
-    - Restart homeassistant
-    - Update /etc/hosts
+  notify: Update /etc/hosts

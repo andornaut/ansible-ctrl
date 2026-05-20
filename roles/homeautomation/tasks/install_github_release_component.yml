@@ -1,0 +1,46 @@
+---
+# Download the latest stable GitHub release of a component and install
+# a subpath of its archive to a destination directory.
+#
+# Required vars:
+#   github_component_name (str): Display name (used in task names)
+#   github_component_repo (str): "owner/repo"
+#   github_component_src  (str): Path inside the extracted archive (file or directory)
+#   github_component_dest (str): Destination directory on the target host
+- name: "Create a temporary directory for {{ github_component_name }}"
+  ansible.builtin.tempfile:
+    state: directory
+  register: github_component_tmp
+
+- name: "Get releases of {{ github_component_name }}"
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
+    return_content: true
+  register: github_component_releases
+
+- name: "Set {{ github_component_name }} version to latest stable release"
+  ansible.builtin.set_fact:
+    github_component_version: >-
+      {{ (github_component_releases.json
+      | selectattr('prerelease', 'equalto', false)
+      | selectattr('draft', 'equalto', false)
+      | list | first).tag_name }}
+
+- name: "Download and unarchive {{ github_component_name }}"
+  ansible.builtin.unarchive:
+    src: >-
+      https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
+      github_component_version }}.tar.gz
+    dest: "{{ github_component_tmp.path }}"
+    remote_src: true
+    extra_opts:
+      - --strip-components
+      - 1
+
+- name: "Install {{ github_component_name }} files"
+  ansible.builtin.copy:
+    src: "{{ github_component_tmp.path }}/{{ github_component_src }}"
+    dest: "{{ github_component_dest }}"
+    remote_src: true
+    mode: "0644"
+  become: true

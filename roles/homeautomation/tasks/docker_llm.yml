@@ -81,6 +81,4 @@
           volumes: "{{ openwebui_volumes }}"
           depends_on:
             - llamacpp
-  notify:
-    - Restart homeassistant
-    - Update /etc/hosts
+  notify: Update /etc/hosts

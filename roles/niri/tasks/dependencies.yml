@@ -72,19 +72,15 @@
         state: directory
       register: niri_libsdbus_tmp
 
-    - name: Get releases of libsdbus
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/Kistler-Group/sdbus-cpp/releases
-        return_content: true
-      register: niri_libsdbus_releases
+    - name: Get latest libsdbus release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: Kistler-Group/sdbus-cpp
+        github_release_fact: niri_libsdbus_release
 
-    - name: Set libsdbus version to latest stable release
+    - name: Set libsdbus version fact
       ansible.builtin.set_fact:
-        niri_libsdbus_version: >-
-          {{ (niri_libsdbus_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_libsdbus_version: "{{ niri_libsdbus_release.name }}"
 
     - name: Download and unarchive libsdbus {{ niri_libsdbus_version }}
       ansible.builtin.unarchive:
@@ -240,20 +236,11 @@
 - name: Install hyprland-protocols
   tags: [hypr]
   block:
-    - name: Get releases of hyprland-protocols
-      ansible.builtin.uri:
-        url: "https://api.github.com/repos/hyprwm/hyprland-protocols/releases"
-        method: GET
-        return_content: true
-      register: niri_hyprland_protocols_releases
-
-    - name: Set hyprland-protocols to latest stable release
-      ansible.builtin.set_fact:
-        niri_hyprland_protocols_release: >-
-          {{ niri_hyprland_protocols_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first }}
+    - name: Get latest hyprland-protocols release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: hyprwm/hyprland-protocols
+        github_release_fact: niri_hyprland_protocols_release
 
     - name: Set hyprland-protocols variables
       ansible.builtin.set_fact:

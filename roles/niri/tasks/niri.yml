@@ -7,19 +7,15 @@
         state: directory
       register: niri_tmp
 
-    - name: Get releases of niri
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/YaLTeR/niri/releases
-        return_content: true
-      register: niri_releases
+    - name: Get latest niri release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: YaLTeR/niri
+        github_release_fact: niri_release
 
-    - name: Set niri version to latest stable release
+    - name: Set niri version fact
       ansible.builtin.set_fact:
-        niri_version: >-
-          {{ (niri_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).name }}
+        niri_version: "{{ niri_release.name }}"
 
     - name: Download and unarchive niri {{ niri_version }}
       ansible.builtin.unarchive:

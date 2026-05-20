@@ -32,6 +32,4 @@
           #   - "6052:6052"
           restart: unless-stopped
           volumes: "{{ esphome_volumes }}"
-  notify:
-    - Restart homeassistant
-    - Update /etc/hosts
+  notify: Update /etc/hosts

@@ -28,6 +28,7 @@
     - credentials
     - skip_missing: true
   become: true
+  no_log: true
 
 - name: Configure HTTP Basic Authentication for aliases
   community.general.htpasswd:
@@ -54,6 +55,7 @@
     - credentials
     - skip_missing: true
   become: true
+  no_log: true
 
 - name: Find all .htpasswd files
   ansible.builtin.find:
