@@ -22,44 +22,28 @@
           - kikit
         extra_args: "--break-system-packages"
 
-# Flatpak Devices tab crashes/freezes: https://github.com/OrcaSlicer/OrcaSlicer/issues/12919
-# Re-enable once the upstream issue is fixed. Install manually via AppImage until then.
-# - name: Install OrcaSlicer
-#   tags: orcaslicer
-#   community.general.flatpak:
-#     name: com.orcaslicer.OrcaSlicer
-#     method: user
-
+# Workaround for Devices tab crash: https://github.com/OrcaSlicer/OrcaSlicer/issues/10756#issuecomment-4527372832
 - name: Install OrcaSlicer
   tags: orcaslicer
   block:
-    - name: Get releases of OrcaSlicer
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/OrcaSlicer/OrcaSlicer/releases
-        return_content: true
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        validate_certs: true
-      register: hobbies_orcaslicer_releases
+    # - name: Remove OrcaSlicer AppImage
+    #   ansible.builtin.file:
+    #     path: /usr/local/bin/OrcaSlicer
+    #     state: absent
+    #   become: true
 
-    - name: Set OrcaSlicer to latest stable release
-      ansible.builtin.set_fact:
-        hobbies_orcaslicer_release: "{{ hobbies_orcaslicer_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
+    - name: Install OrcaSlicer flatpak
+      community.general.flatpak:
+        name: com.orcaslicer.OrcaSlicer
+        method: user
 
-    - name: Find Linux AppImage asset
-      ansible.builtin.set_fact:
-        hobbies_orcaslicer_download_url: >-
-          {{ hobbies_orcaslicer_release.assets
-          | selectattr('name', 'match', 'OrcaSlicer.*Linux.*AppImage$')
-          | map(attribute='browser_download_url') | first }}
-
-    - name: Download OrcaSlicer
-      ansible.builtin.get_url:
-        url: "{{ hobbies_orcaslicer_download_url }}"
-        dest: "/usr/local/bin/OrcaSlicer"
-        force: true
-        mode: "0755"
-      become: true
+    - name: Configure OrcaSlicer WebKit environment
+      ansible.builtin.command: >-
+        flatpak override --user
+        --env=WEBKIT_DISABLE_COMPOSITING_MODE=0
+        --env=WEBKIT_DISABLE_DMABUF_RENDERER=0
+        com.orcaslicer.OrcaSlicer
+      changed_when: true
 
 # Recent Betaflight releases are PWA-only (https://app.betaflight.com).
 # This installs the latest release with a Linux portable build (10.10.0).
