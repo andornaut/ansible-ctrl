@@ -14,7 +14,6 @@
     github_component_name: BambuLab
     github_component_repo: greghesp/ha-bambulab
     github_component_src: custom_components/bambu_lab
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Dreo custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -22,7 +21,6 @@
     github_component_name: Dreo
     github_component_repo: JeffSteinbok/hass-dreo
     github_component_src: custom_components/dreo
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Frigate custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -30,7 +28,6 @@
     github_component_name: Frigate
     github_component_repo: blakeblackshear/frigate-hass-integration
     github_component_src: custom_components/frigate
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Meross custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -38,7 +35,6 @@
     github_component_name: Meross
     github_component_repo: albertogeniola/meross-homeassistant
     github_component_src: custom_components/meross_cloud
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Extended OpenAI Conversation custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -46,7 +42,6 @@
     github_component_name: Extended OpenAI Conversation
     github_component_repo: jekalmin/extended_openai_conversation
     github_component_src: custom_components/extended_openai_conversation
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Simple Icons custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -54,7 +49,6 @@
     github_component_name: Simple Icons
     github_component_repo: vigonotion/hass-simpleicons
     github_component_src: custom_components/simpleicons
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Custom Icons custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -62,7 +56,6 @@
     github_component_name: Custom Icons
     github_component_repo: thomasloven/hass-custom_icons
     github_component_src: custom_components/custom_icons
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
 
 - name: Install Waste Collection Schedule custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -70,7 +63,13 @@
     github_component_name: Waste Collection Schedule
     github_component_repo: mampfes/hacs_waste_collection_schedule
     github_component_src: custom_components/waste_collection_schedule
-    github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/"
+
+- name: Install Watchman custom component
+  ansible.builtin.include_tasks: install_github_release_component.yml
+  vars:
+    github_component_name: Watchman
+    github_component_repo: dummylabs/thewatchman
+    github_component_src: custom_components/watchman
 
 - name: Copy python_scripts/ directory
   ansible.builtin.copy:
