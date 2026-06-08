@@ -6,7 +6,9 @@
 #   github_component_name (str): Display name (used in task names)
 #   github_component_repo (str): "owner/repo"
 #   github_component_src  (str): Path inside the extracted archive (file or directory)
+# Optional vars:
 #   github_component_dest (str): Destination directory on the target host
+#     (defaults to the Home Assistant custom_components/ directory)
 - name: "Create a temporary directory for {{ github_component_name }}"
   ansible.builtin.tempfile:
     state: directory
@@ -40,7 +42,7 @@
 - name: "Install files for {{ github_component_name }}"
   ansible.builtin.copy:
     src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
-    dest: "{{ github_component_dest }}"
+    dest: "{{ github_component_dest | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}"
     remote_src: true
     mode: "0644"
   become: true
