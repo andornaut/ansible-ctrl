@@ -72,7 +72,6 @@ homeautomation_homeassistant_required_volumes:
   config: /var/docker-volumes/homeautomation/homeassistant/config
   dbus: /run/dbus
   localtime: /etc/localtime
-  timezone: /etc/timezone
   udev: /run/udev
 
 # llama.cpp
