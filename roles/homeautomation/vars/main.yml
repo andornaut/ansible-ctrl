@@ -1,6 +1,5 @@
 homeautomation_common_volumes:
   - "{{ homeautomation_homeassistant_required_volumes.localtime }}:/etc/localtime:ro"
-  - "{{ homeautomation_homeassistant_required_volumes.timezone }}:/etc/timezone:ro"
 
 homeautomation_default_logging:
   driver: "json-file"
