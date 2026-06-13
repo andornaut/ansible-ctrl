@@ -4,7 +4,7 @@
     database: group
 
 - name: Read system timezone
-  ansible.builtin.command: cat /etc/timezone
+  ansible.builtin.command: timedatectl show -p Timezone --value
   register: homeautomation_system_timezone
   changed_when: false
   tags:
