@@ -3,76 +3,87 @@
 # https://github.com/blakeblackshear/frigate/blob/dev/docker/memryx/user_installation.sh
 # https://developer.memryx.com/get_started/install_driver.html
 
-- name: Unhold MemryX packages before removal
-  ansible.builtin.dpkg_selections:
-    name: "{{ item }}"
-    selection: install
-  loop:
-    - memx-accl
-    - memx-drivers
-    - mxa-manager
-  become: true
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: apt
 
-- name: Remove existing MemryX packages
-  ansible.builtin.apt:
-    name:
-      - memx-*
-      - mxa-manager
-    state: absent
-    purge: true
-  become: true
+# Only (re)install when the desired version isn't already installed. The apt pin
+# uses a "{{ version }}.*" glob, so match the installed version on the same prefix.
+- name: Determine whether MemryX (re)install is needed
+  ansible.builtin.set_fact:
+    homeautomation_memryx_reinstall: >-
+      {{ 'memx-drivers' not in ansible_facts['packages']
+         or not ansible_facts['packages']['memx-drivers'][0]['version'].startswith(homeautomation_memryx_version ~ '.') }}
 
-- name: Remove existing MemryX repository files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/apt/sources.list.d/memryx.list
-    - /etc/apt/trusted.gpg.d/memryx.asc
+- name: (Re)install MemryX SDK
+  when: homeautomation_memryx_reinstall
   become: true
+  block:
+    - name: Unhold MemryX packages before removal
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: install
+      loop:
+        - memx-accl
+        - memx-drivers
+        - mxa-manager
+      # Packages may not be installed yet (first run), so dpkg can't find them to unhold.
+      failed_when: false
 
-- name: Install DKMS and kernel headers
-  ansible.builtin.apt:
-    name:
-      - dkms
-      - "linux-headers-{{ ansible_facts['kernel'] }}"
-    state: latest
-    update_cache: true
-  become: true
+    - name: Remove existing MemryX packages
+      ansible.builtin.apt:
+        name:
+          - memx-accl
+          - memx-drivers
+          - mxa-manager
+        state: absent
+        purge: true
 
-- name: Add MemryX GPG key
-  ansible.builtin.get_url:
-    url: https://developer.memryx.com/deb/memryx.asc
-    dest: /etc/apt/trusted.gpg.d/memryx.asc
-    mode: "0644"
-  become: true
+    - name: Remove existing MemryX repository files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/memryx.list
+        - /etc/apt/trusted.gpg.d/memryx.asc
 
-- name: Add MemryX repository
-  ansible.builtin.apt_repository:
-    repo: "deb https://developer.memryx.com/deb stable main"
-    filename: memryx
-    state: present
-  become: true
+    - name: Install DKMS and kernel headers
+      ansible.builtin.apt:
+        name:
+          - dkms
+          - "linux-headers-{{ ansible_facts['kernel'] }}"
+        state: latest
+        update_cache: true
 
-- name: Install MemryX SDK packages
-  ansible.builtin.apt:
-    name:
-      - memx-drivers={{ homeautomation_memryx_version }}.*
-      - memx-accl={{ homeautomation_memryx_version }}.*
-      - mxa-manager={{ homeautomation_memryx_version }}.*
-    state: present
-    update_cache: true
-  become: true
+    - name: Add MemryX GPG key
+      ansible.builtin.get_url:
+        url: https://developer.memryx.com/deb/memryx.asc
+        dest: /etc/apt/trusted.gpg.d/memryx.asc
+        mode: "0644"
 
-- name: Hold MemryX packages to prevent automatic upgrades
-  ansible.builtin.dpkg_selections:
-    name: "{{ item }}"
-    selection: hold
-  loop:
-    - memx-accl
-    - memx-drivers
-    - mxa-manager
-  become: true
+    - name: Add MemryX repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://developer.memryx.com/deb stable main"
+        filename: memryx
+        state: present
+
+    - name: Install MemryX SDK packages
+      ansible.builtin.apt:
+        name:
+          - memx-drivers={{ homeautomation_memryx_version }}.*
+          - memx-accl={{ homeautomation_memryx_version }}.*
+          - mxa-manager={{ homeautomation_memryx_version }}.*
+        state: present
+        update_cache: true
+
+    - name: Hold MemryX packages to prevent automatic upgrades
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - memx-accl
+        - memx-drivers
+        - mxa-manager
 
 - name: Run ARM setup if on ARM architecture
   ansible.builtin.command: mx_arm_setup
