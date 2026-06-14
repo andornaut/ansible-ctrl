@@ -16,5 +16,6 @@ ansible-playbook --ask-become-pass hobbies.yml --tags kicad
 | --- | --- |
 | [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator (portable build) |
 | [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool (deb) |
+| [freerouting](https://github.com/freerouting/freerouting) | PCB autorouter for KiCad (self-contained linux-x64 build to `/opt/freerouting`; `freerouting` on PATH runs with `-da` to disable analytics) |
 | [kicad](https://www.kicad.org/) | Electronics schematic and PCB design (with [kikit](https://github.com/yaqwsx/KiKit)) |
 | [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer) | 3D printer slicer (AppImage) |

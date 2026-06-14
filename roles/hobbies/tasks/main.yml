@@ -132,6 +132,90 @@
           Categories=Utility
       become: true
 
+# Freerouting is the autorouter used with KiCad (export Specctra DSN -> route -> import SES).
+# Upstream ships a self-contained jpackage app-image (bundled JRE) as a linux-x64 zip;
+# the bin/freerouting launcher runs in-place, so no system Java or wrapper is needed.
+- name: Install Freerouting
+  tags: freerouting
+  block:
+    - name: Get Freerouting releases
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/freerouting/freerouting/releases
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: hobbies_freerouting_releases
+
+    # Pick the most recent linux-x64.zip across all stable releases rather than
+    # betting the newest stable release has the asset (freerouting cuts releases
+    # frequently and a fresh tag may briefly lack built assets). Match on the
+    # plain 'linux-x64' substring (unique to the zip asset) to avoid regex-escape
+    # differences across Jinja versions.
+    - name: Find latest Linux x64 zip asset
+      ansible.builtin.set_fact:
+        hobbies_freerouting_download_url: >-
+          {{ hobbies_freerouting_releases.json
+          | rejectattr('prerelease') | rejectattr('draft')
+          | map(attribute='assets') | flatten
+          | selectattr('name', 'search', 'linux-x64')
+          | map(attribute='browser_download_url') | first }}
+
+    - name: Derive Freerouting install directory name
+      ansible.builtin.set_fact:
+        hobbies_freerouting_dir: "{{ hobbies_freerouting_download_url | basename | regex_replace('\\.zip$', '') }}"
+
+    - name: Create Freerouting directory
+      ansible.builtin.file:
+        path: /opt/freerouting
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: "Download and extract Freerouting ({{ hobbies_freerouting_dir }})"
+      ansible.builtin.unarchive:
+        src: "{{ hobbies_freerouting_download_url }}"
+        dest: /opt/freerouting
+        remote_src: true
+        creates: "/opt/freerouting/{{ hobbies_freerouting_dir }}"
+      become: true
+
+    - name: Symlink stable Freerouting path to the installed version
+      ansible.builtin.file:
+        src: "/opt/freerouting/{{ hobbies_freerouting_dir }}"
+        dest: /opt/freerouting/current
+        state: link
+        force: true
+      become: true
+
+    # Wrapper (not a symlink) so we can default -da to opt out of upstream's
+    # analytics phone-home; callers can still pass routing args, e.g.
+    # freerouting -de board.dsn -do board.ses -mp 100
+    - name: Install freerouting launcher wrapper onto PATH
+      ansible.builtin.copy:
+        dest: /usr/local/bin/freerouting
+        mode: "0755"
+        follow: false
+        content: |
+          #!/bin/bash
+          exec /opt/freerouting/current/bin/freerouting -da "$@"
+      become: true
+
+    - name: Install Freerouting desktop file
+      ansible.builtin.copy:
+        dest: /usr/share/applications/freerouting.desktop
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Name=Freerouting
+          Comment=Advanced PCB autorouter
+          Exec=/opt/freerouting/current/bin/freerouting -da
+          Icon=/opt/freerouting/current/lib/freerouting.png
+          Terminal=false
+          Type=Application
+          Categories=Development;Electronics
+      become: true
+
 - name: Install ExpressLRS Configurator
   tags: expresslrs
   block:
@@ -146,7 +230,7 @@
 
     - name: Set ExpressLRS Configurator to latest stable release
       ansible.builtin.set_fact:
-        hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
+        hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | rejectattr('prerelease') | rejectattr('draft') | first }}"
 
     - name: Find Linux deb asset
       ansible.builtin.set_fact:
