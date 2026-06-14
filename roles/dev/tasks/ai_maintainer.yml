@@ -37,7 +37,7 @@
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
     src: ai_maintainer_cron.j2
-    dest: /etc/cron.d/ansible-role-ai-maintainer
+    dest: /etc/cron.d/ansible-role-dev
     mode: "0644"
     owner: root
     group: root
