@@ -64,3 +64,9 @@
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox
+
+# ai-maintainer installs a cron job; only on hosts in the ai_maintainer group
+- name: Import ai-maintainer tasks
+  ansible.builtin.import_tasks: ai_maintainer.yml
+  tags: ai_maintainer
+  when: "'ai_maintainer' in group_names"
