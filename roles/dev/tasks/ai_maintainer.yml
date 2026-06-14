@@ -1,0 +1,44 @@
+---
+- name: Install dependencies for Claude Code sandbox mode
+  ansible.builtin.apt:
+    name:
+      - bubblewrap
+      - socat
+    state: latest
+  become: true
+
+- name: Ensure script directory exists
+  ansible.builtin.file:
+    path: "{{ dev_ai_maintainer_script_path | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Check for a local ai-maintainer project checkout
+  ansible.builtin.stat:
+    path: "{{ dev_ai_maintainer_project_script_path }}"
+  register: dev_ai_maintainer_project_script
+
+- name: Symlink ai-maintainer to the local project script
+  ansible.builtin.file:
+    src: "{{ dev_ai_maintainer_project_script_path }}"
+    dest: "{{ dev_ai_maintainer_script_path }}"
+    state: link
+    force: true
+  when: dev_ai_maintainer_project_script.stat.exists
+
+- name: Download ai-maintainer script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/andornaut/ai-maintainer/main/ai-maintainer
+    dest: "{{ dev_ai_maintainer_script_path }}"
+    mode: "0755"
+    force: true
+  when: not dev_ai_maintainer_project_script.stat.exists
+
+- name: Create cron file for automated repo maintenance
+  ansible.builtin.template:
+    src: ai_maintainer_cron.j2
+    dest: /etc/cron.d/ansible-role-ai-maintainer
+    mode: "0644"
+    owner: root
+    group: root
+  become: true

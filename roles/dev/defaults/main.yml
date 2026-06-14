@@ -1,0 +1,27 @@
+---
+# ai-maintainer: automated GitHub repo maintenance via AI agent and cron
+# Directory containing GitHub repositories
+dev_ai_maintainer_src_base_dir: "{{ ansible_facts['env']['HOME'] }}/src/github.com/andornaut/ai-maintainer"
+
+# AI agent configuration
+dev_ai_maintainer_agent_command: "claude"
+dev_ai_maintainer_agent_flags: "--dangerously-skip-permissions"
+
+# PATH for cron environment (must include directories for agent command and other tools)
+dev_ai_maintainer_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_maintainer_script_path | dirname }}"
+
+# Cron schedule (default: weekly on Sunday at 3 AM)
+dev_ai_maintainer_cron_minute: "0"
+dev_ai_maintainer_cron_hour: "3"
+dev_ai_maintainer_cron_day: "*"
+dev_ai_maintainer_cron_weekday: "0"
+
+# Script customizations
+dev_ai_maintainer_dependency_min_age_days: 30
+dev_ai_maintainer_exclude_repositories: []
+dev_ai_maintainer_script_args: "--quiet"
+dev_ai_maintainer_script_path: "{{ ansible_facts['env']['HOME'] }}/.local/bin/ai-maintainer"
+
+# Local project checkout of the script. When present, the role symlinks
+# dev_ai_maintainer_script_path to it instead of downloading from GitHub.
+dev_ai_maintainer_project_script_path: "{{ dev_ai_maintainer_src_base_dir }}/ai-maintainer"
