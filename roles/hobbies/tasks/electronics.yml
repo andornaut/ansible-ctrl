@@ -3,9 +3,9 @@
   tags: kicad
   become: true
   block:
-    - name: Install Kicad 9.0 apt repository
+    - name: Install Kicad 10.0 apt repository
       ansible.builtin.apt_repository:
-        repo: ppa:kicad/kicad-9.0-releases
+        repo: ppa:kicad/kicad-10.0-releases
         update_cache: true
 
     - name: Install Kicad package
@@ -15,18 +15,18 @@
         state: latest
         install_recommends: false
         update_cache: true
+      # splinter-keyboard's `npm run fab-jlcpcb` uses the bundled kicad-cli for
+      # gerber/drill/position export (no kikit or other fab tool needed).
 
-    - name: Install kikit from PyPI
-      ansible.builtin.pip:
-        name:
-          - kikit
-        extra_args: "--break-system-packages"
-
-# Per-user KiCad action plugin installed by git clone into the user's scripting
-# plugins dir (not system-wide, so no become). Pin to the latest stable release
-# tag rather than tracking main; update: true re-checks out the resolved tag on
-# re-run so it advances after a new release.
-- name: Install kicad-jlcpcb-tools plugin
+# Optional, NOT required by the fab pipeline: the splinter-keyboard fab scripts
+# generate BOM/CPL from kicad-cli + a parts JSON, not this plugin. It's installed
+# only as a convenience for browsing the JLCPCB catalog and looking up LCSC part
+# numbers to put in v4/kicad/jlcpcb-parts.json. Per-user KiCad action plugin
+# installed by git clone into the user's scripting plugins dir (not system-wide,
+# so no become). Pin to the latest stable release tag rather than tracking main;
+# update: true re-checks out the resolved tag on re-run so it advances after a
+# new release.
+- name: Install kicad-jlcpcb-tools plugin (optional, for LCSC lookup)
   tags: kicad
   block:
     - name: Get kicad-jlcpcb-tools latest release
@@ -41,7 +41,7 @@
     - name: Clone kicad-jlcpcb-tools plugin at the latest release tag
       ansible.builtin.git:
         repo: https://github.com/Bouni/kicad-jlcpcb-tools.git
-        dest: "{{ ansible_facts['env']['HOME'] }}/.local/share/kicad/9.0/scripting/plugins/kicad-jlcpcb-tools"
+        dest: "{{ ansible_facts['env']['HOME'] }}/.local/share/kicad/10.0/scripting/plugins/kicad-jlcpcb-tools"
         version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
         update: true
 
