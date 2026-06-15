@@ -22,6 +22,29 @@
           - kikit
         extra_args: "--break-system-packages"
 
+# Per-user KiCad action plugin installed by git clone into the user's scripting
+# plugins dir (not system-wide, so no become). Pin to the latest stable release
+# tag rather than tracking main; update: true re-checks out the resolved tag on
+# re-run so it advances after a new release.
+- name: Install kicad-jlcpcb-tools plugin
+  tags: kicad
+  block:
+    - name: Get kicad-jlcpcb-tools latest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Bouni/kicad-jlcpcb-tools/releases/latest
+        return_content: true
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        validate_certs: true
+      register: hobbies_jlcpcb_release
+
+    - name: Clone kicad-jlcpcb-tools plugin at the latest release tag
+      ansible.builtin.git:
+        repo: https://github.com/Bouni/kicad-jlcpcb-tools.git
+        dest: "{{ ansible_facts['env']['HOME'] }}/.local/share/kicad/9.0/scripting/plugins/kicad-jlcpcb-tools"
+        version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
+        update: true
+
 # Freerouting is the autorouter used with KiCad (export Specctra DSN -> route -> import SES).
 # Upstream ships a self-contained jpackage app-image (bundled JRE) as a linux-x64 zip;
 # the bin/freerouting launcher runs in-place, so no system Java or wrapper is needed.
