@@ -15,17 +15,12 @@
         state: latest
         install_recommends: false
         update_cache: true
-      # splinter-keyboard's `npm run fab-jlcpcb` uses the bundled kicad-cli for
-      # gerber/drill/position export (no kikit or other fab tool needed).
+      # splinter-keyboard's `npm run fab-jlcpcb` uses the bundled kicad-cli;
+      # `npm run panelize` also needs KiKit (dedicated venv below).
 
-# Optional, NOT required by the fab pipeline: the splinter-keyboard fab scripts
-# generate BOM/CPL from kicad-cli + a parts JSON, not this plugin. It's installed
-# only as a convenience for browsing the JLCPCB catalog and looking up LCSC part
-# numbers to put in v4/kicad/jlcpcb-parts.json. Per-user KiCad action plugin
-# installed by git clone into the user's scripting plugins dir (not system-wide,
-# so no become). Pin to the latest stable release tag rather than tracking main;
-# update: true re-checks out the resolved tag on re-run so it advances after a
-# new release.
+# Optional convenience for browsing the JLCPCB catalog and looking up LCSC part
+# numbers (not used by the fab pipeline). Per-user plugin, so no become. Pinned to
+# the latest release tag; update: true re-checks it out on re-run so it advances.
 - name: Install kicad-jlcpcb-tools plugin (optional, for LCSC lookup)
   tags: kicad
   block:
@@ -45,9 +40,40 @@
         version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
         update: true
 
-# Freerouting is the autorouter used with KiCad (export Specctra DSN -> route -> import SES).
-# Upstream ships a self-contained jpackage app-image (bundled JRE) as a linux-x64 zip;
-# the bin/freerouting launcher runs in-place, so no system Java or wrapper is needed.
+# PCB panelizer for splinter-keyboard's `npm run panelize`. KiCad 10 support is only
+# in KiKit + pcbnewTransition git master (no PyPI release has it yet). Dedicated venv
+# isolates the unstable git-master pin; --system-site-packages exposes KiCad's pcbnew
+# (a C extension from the kicad apt package, not pip-installable). The consumer
+# (panelize.sh) runs with PYTHONNOUSERSITE=1 so a stale ~/.local copy cannot shadow it.
+- name: Install KiKit panelizer (git master, KiCad 10) into a dedicated venv
+  tags: kicad
+  become: true
+  block:
+    - name: Ensure python3-venv is available
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+
+    - name: Install KiKit + pcbnewTransition (git master) into /opt/kikit
+      # state: latest tracks master HEAD. Switch to plain 'kikit' once upstream
+      # ships a KiCad 10 PyPI release.
+      #
+      # --ignore-installed makes the venv install its own copies of every pip
+      # dependency (shapely, numpy, ...) instead of borrowing system site-packages;
+      # only pcbnew (not a pip package) is borrowed. Keeps the venv self-contained.
+      # (pip's resolver warnings about unrelated system packages are harmless.)
+      ansible.builtin.pip:
+        name:
+          - git+https://github.com/yaqwsx/pcbnewTransition.git
+          - git+https://github.com/yaqwsx/KiKit.git
+        state: latest
+        extra_args: --ignore-installed
+        virtualenv: /opt/kikit
+        virtualenv_command: python3 -m venv
+        virtualenv_site_packages: true
+
+# Upstream ships a self-contained jpackage app-image (bundled JRE) as a linux-x64
+# zip; the bin/freerouting launcher runs in-place, so no system Java is needed.
 - name: Install Freerouting
   tags: freerouting
   block:
