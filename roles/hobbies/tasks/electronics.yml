@@ -15,8 +15,6 @@
         state: latest
         install_recommends: false
         update_cache: true
-      # splinter-keyboard's `npm run fab-jlcpcb` uses the bundled kicad-cli;
-      # `npm run panelize` also needs KiKit (dedicated venv below).
 
 # Optional convenience for browsing the JLCPCB catalog and looking up LCSC part
 # numbers (not used by the fab pipeline). Per-user plugin, so no become. Pinned to
