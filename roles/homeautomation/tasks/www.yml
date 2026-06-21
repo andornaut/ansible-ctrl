@@ -34,6 +34,13 @@
         extra_opts: "-j"
       become: true
 
+- name: Install Button Card
+  ansible.builtin.get_url:
+    url: https://github.com/custom-cards/button-card/releases/latest/download/button-card.js
+    dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
+    mode: "0644"
+  become: true
+
 - name: Install Card Mod
   ansible.builtin.include_tasks: install_github_release_component.yml
   vars:
