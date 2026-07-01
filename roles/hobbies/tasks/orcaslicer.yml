@@ -1,0 +1,23 @@
+---
+# Workaround for Devices tab crash: https://github.com/OrcaSlicer/OrcaSlicer/issues/10756#issuecomment-4527372832
+- name: Install OrcaSlicer
+  tags: orcaslicer
+  block:
+    # - name: Remove OrcaSlicer AppImage
+    #   ansible.builtin.file:
+    #     path: /usr/local/bin/OrcaSlicer
+    #     state: absent
+    #   become: true
+
+    - name: Install OrcaSlicer flatpak
+      community.general.flatpak:
+        name: com.orcaslicer.OrcaSlicer
+        method: user
+
+    - name: Configure OrcaSlicer WebKit environment
+      ansible.builtin.command: >-
+        flatpak override --user
+        --env=WEBKIT_DISABLE_COMPOSITING_MODE=0
+        --env=WEBKIT_DISABLE_DMABUF_RENDERER=0
+        com.orcaslicer.OrcaSlicer
+      changed_when: true
