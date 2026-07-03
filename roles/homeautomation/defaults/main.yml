@@ -65,6 +65,9 @@ homeautomation_govee2mqtt_required_volumes:
 homeautomation_homeassistant_devices: []
 homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
 homeautomation_homeassistant_extra_volumes: []
+# Patch aioruckus HEAD->GET for ruckus_unleashed on aiohttp 3.14+ (see
+# tasks/patch_aioruckus_head.yml). Enable on hosts using the Ruckus integration.
+homeautomation_homeassistant_patch_aioruckus_head: false
 # Host-side port. Home Assistant runs with network_mode: host, so no port
 # mapping is needed; this is used by the container healthcheck.
 homeautomation_homeassistant_port: 8123
