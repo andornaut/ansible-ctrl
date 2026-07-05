@@ -34,6 +34,9 @@
       - FLOW_CONTROL=1
       - NAT64=1
       - OTBR_REST_PORT={{ homeautomation_otbr_rest_port }}
+      # The image only starts otbr-web when OTBR_WEB is set (see the image's
+      # enable-check.sh); OTBR_WEB_PORT alone is not enough.
+      - OTBR_WEB=1
       - OTBR_WEB_PORT={{ homeautomation_otbr_web_port }}
     # Network socket configuration: NETWORK_DEVICE triggers socat to bridge TCP socket to /tmp/ttyOTBR
     otbr_network_env:
