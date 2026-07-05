@@ -5,23 +5,30 @@
     - docker
     - matter
   block:
+    # OTBR (installed with either Matter server) runs its own mDNS responder on
+    # the host to advertise the Thread border agent and republish the Matter
+    # (_matter._tcp) services on the LAN. Avahi is a second host mDNS responder,
+    # and two responders competing for UDP 5353 on the same host conflict, so
+    # Avahi and OTBR (Matter/Thread) cannot both run. The Matter server itself
+    # also does host mDNS (network_mode: host), which reinforces this.
     - name: Check for mDNS service conflicts
       ansible.builtin.assert:
         that:
           - not (homeautomation_install_avahi and (homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver))
           - not (homeautomation_install_matterjs and homeautomation_install_legacy_pythonmatterserver)
         fail_msg: |
-          ERROR: Cannot install both Avahi and Matter/Thread (mDNS conflict),
-          and cannot install both Matter.js and Python Matter Server simultaneously.
+          ERROR: Cannot enable Avahi alongside Matter/Thread. OTBR runs a host
+          mDNS responder that conflicts with Avahi's host mDNS. Also cannot
+          enable both Matter.js and Python Matter Server at the same time.
         success_msg: "mDNS configuration validated successfully"
 
     - name: MDNS advisory message
       ansible.builtin.debug:
         msg: |
           {% if homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver %}
-          Provisioning Matter/Thread, so Avahi will be disabled
+          Provisioning Matter/Thread (OTBR host mDNS), so Avahi will be disabled
           {% elif homeautomation_install_avahi %}
-          Provisioning Avahi, so Matter/Thread will not be provisioned
+          Provisioning Avahi, so Matter/Thread (OTBR) will not be provisioned
           {% endif %}
       when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver or homeautomation_install_avahi
 
