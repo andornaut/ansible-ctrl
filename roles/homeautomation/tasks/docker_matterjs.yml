@@ -26,7 +26,6 @@
     pull: always
     remove_orphans: true
     definition:
-      networks: "{{ homeautomation_external_network }}"
       services:
         matterjs:
           # http://matterjs.internal:5580
@@ -37,8 +36,11 @@
             - NET_ADMIN
             - NET_RAW
           logging: "{{ homeautomation_default_logging }}"
-          # ports:
-          #   - "5580:5580"
+          # Host networking is required so the server can see the _matter._tcp
+          # mDNS advertisements OTBR publishes on the LAN. On the bridge network
+          # those multicasts don't reach it, so Thread nodes never resolve and
+          # all Matter devices show as unavailable (same as pythonmatterserver).
+          network_mode: host
           restart: unless-stopped
           security_opt:
             # Needed for Bluetooth via dbus

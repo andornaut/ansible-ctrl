@@ -43,6 +43,8 @@ All containers are reachable from the Docker host via `{container_name}.internal
 | govee2mqtt | host | — | UDP | LAN broadcast discovery |
 | otbr | host | 8080 | HTTP | Thread Border Router web UI |
 | otbr | host | 8081 | REST | Thread Border Router REST API |
+| matterjs | host | 5580 | HTTP/WS | Web UI and WebSocket API |
+| pythonmatterserver | host | 5580 | HTTP/WS | Web UI and WebSocket API |
 | mosquitto | bridge | 1883 | MQTT | MQTT broker |
 | frigate | bridge | 5000 | HTTP | Frigate web UI (unauthenticated) |
 | frigate | bridge | 8971 | HTTP | Frigate web UI (authenticated) |
@@ -51,8 +53,6 @@ All containers are reachable from the Docker host via `{container_name}.internal
 | llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
 | openwebui | bridge | 8080 | HTTP | Web UI |
 | hamcp | bridge | 8086 | HTTP | MCP server (FastMCP) |
-| matterjs | bridge | 5580 | HTTP/WS | Web UI and WebSocket API |
-| pythonmatterserver | bridge | 5580 | HTTP/WS | Web UI and WebSocket API |
 | piper | bridge | 10200 | Wyoming | Text-to-speech |
 | whisper | bridge | 10300 | Wyoming | Speech-to-text |
 
@@ -151,6 +151,8 @@ Claude Code (`~/.claude.json`):
 - [python-matter-server](https://github.com/home-assistant-libs/python-matter-server)
 - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
+
+The Matter server (matter.js or python-matter-server) runs with `network_mode: host`. It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter server never resolves any node and all Matter devices show as unavailable. This is also why Avahi cannot run alongside Matter/Thread: OTBR (and the host-networked Matter server) already run mDNS on the host, and a second responder conflicts.
 
 #### Pairing Matter Devices
 
