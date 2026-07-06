@@ -1,7 +1,7 @@
 ---
 # Apt
 - name: Configure Firefox Apt installation method
-  when: not desktop_install_firefox_flatpak
+  when: desktop_install_firefox_apt
   block:
     - name: Remove Firefox flatpak if using apt
       community.general.flatpak:
@@ -106,7 +106,7 @@
 
 # Flatpak
 - name: Configure Firefox flatpak installation method
-  when: desktop_install_firefox_flatpak
+  when: not desktop_install_firefox_apt
   block:
     - name: Remove and hold Firefox apt package
       block:
