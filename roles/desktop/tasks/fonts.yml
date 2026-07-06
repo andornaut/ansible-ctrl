@@ -60,6 +60,15 @@
         remote_src: true
         creates: /tmp/source-code-pro/LICENSE.md
 
+    - name: Create Source Code Pro font directory
+      ansible.builtin.file:
+        path: /usr/share/fonts/truetype/source-code-pro/
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+      become: true
+
     - name: Install Source Code Pro font files
       ansible.builtin.copy:
         src: /tmp/source-code-pro/TTF/
@@ -67,5 +76,7 @@
         remote_src: true
         mode: "0644"
         directory_mode: "0755"
+        owner: root
+        group: root
       notify: Update font cache
       become: true
