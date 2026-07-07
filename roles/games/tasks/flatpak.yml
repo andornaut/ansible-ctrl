@@ -16,6 +16,8 @@
       - com.valvesoftware.Steam
       - net.davidotek.pupgui2
       - net.lutris.Lutris
+      # Vulkan layer so the MangoHud overlay works inside sandboxed games
+      - org.freedesktop.Platform.VulkanLayer.MangoHud
       - org.libretro.RetroArch
       - org.openjkdf2.OpenJKDF2
     method: user

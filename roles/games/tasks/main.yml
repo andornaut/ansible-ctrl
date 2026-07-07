@@ -5,6 +5,15 @@
       # - 2048-qt
       # - bsdgames
 
+      # Performance and overlay tools. gamemode adjusts CPU governor and
+      # process priority during play (flatpak games call gamemoderun, which
+      # talks to the host daemon over D-Bus). gamescope wraps games in a
+      # micro-compositor for scaling and framerate control. mangohud is the
+      # performance overlay for native games; flatpak games use the MangoHud
+      # Vulkan layer extension installed in flatpak.yml.
+      - gamemode
+      - gamescope
+      - mangohud
       # For `chdman` to create .chd archives
       - mame-tools
     install_recommends: false
