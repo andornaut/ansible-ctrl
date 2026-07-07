@@ -16,9 +16,10 @@
         line: "GRUB_TIMEOUT=3"
       become: true
 
-    - name: Enable Thinkpad touchpad scrolling
+    - name: Set GRUB kernel command line
       ansible.builtin.lineinfile:
         path: /etc/default/grub
         regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
-        line: 'GRUB_CMDLINE_LINUX_DEFAULT="psmouse.synaptics_intertouch=0"'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ desktop_grub_cmdline_linux_default }}"'
       become: true
+      when: desktop_grub_cmdline_linux_default | length > 0

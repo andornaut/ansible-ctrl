@@ -1,0 +1,22 @@
+---
+# Install the GNOME Shell desktop with gdm3. install_recommends is false so
+# snapd and the Firefox snap (both only Recommends of ubuntu-desktop-minimal)
+# are not pulled in; the flatpak task holds snapd removed. xserver-xorg adds
+# the "GNOME on Xorg" session alongside the default Wayland session.
+- name: Install GNOME desktop and Xorg session
+  ansible.builtin.apt:
+    name:
+      - ubuntu-desktop-minimal
+      - xserver-xorg
+    state: present
+    install_recommends: false
+    update_cache: true
+  become: true
+
+- name: Enable gdm3 display manager
+  ansible.builtin.systemd_service:
+    name: gdm3
+    daemon_reload: true
+    enabled: true
+    masked: false
+  become: true

@@ -1,5 +1,13 @@
 ---
+# desktop_environment is required and has no default: set it per host to
+# "tiling" (bspwm/niri window managers with lemurs/ly) or "gnome" (GNOME Shell
+# with gdm3). Controls which display manager and WM-specific tools (dunst, eww,
+# rofi, pavolume) are installed. The role fails fast if it is unset.
+
 desktop_eww_bar: bar
+# Extra kernel parameters written to GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves
+# the line unset; set per host (e.g. the Thinkpad touchpad scrolling fix).
+desktop_grub_cmdline_linux_default: ""
 desktop_install_firefox_apt: false
 desktop_install_insync: false
 # Display manager settings

@@ -1,9 +1,24 @@
 ---
+- name: Validate desktop environment
+  ansible.builtin.assert:
+    that:
+      - desktop_environment is defined and desktop_environment in ["tiling", "gnome"]
+    fail_msg: >-
+      desktop_environment must be set (no default) to "tiling" or "gnome".
+      Set it in host_vars for this host.
+    success_msg: Desktop environment "{{ desktop_environment }}" is valid
+
 - name: Install common system packages
   ansible.builtin.import_tasks: apt.yml
 
+- name: Install GNOME desktop
+  ansible.builtin.import_tasks: gnome.yml
+  tags: gnome
+  when: desktop_environment == "gnome"
+
 - name: Configure display manager
   tags: display-manager
+  when: desktop_environment == "tiling"
   block:
     - name: Validate display manager configuration
       ansible.builtin.assert:
@@ -46,7 +61,7 @@
       ansible.builtin.import_tasks: ly.yml
       when: desktop_install_ly
 
-- name: Configure system applications
+- name: Configure common applications
   block:
     - name: Configure Alacritty
       ansible.builtin.import_tasks: alacritty.yml
@@ -59,14 +74,6 @@
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf
-
-    - name: Configure dunst
-      ansible.builtin.import_tasks: dunst.yml
-      tags: dunst
-
-    - name: Configure eww
-      ansible.builtin.import_tasks: eww.yml
-      tags: eww
 
     - name: Configure Firefox
       ansible.builtin.import_tasks: firefox.yml
@@ -92,6 +99,17 @@
     - name: Configure LACT
       ansible.builtin.import_tasks: lact.yml
       tags: lact
+
+- name: Configure tiling window manager applications
+  when: desktop_environment == "tiling"
+  block:
+    - name: Configure dunst
+      ansible.builtin.import_tasks: dunst.yml
+      tags: dunst
+
+    - name: Configure eww
+      ansible.builtin.import_tasks: eww.yml
+      tags: eww
 
     - name: Configure pavolume
       ansible.builtin.import_tasks: pavolume.yml
