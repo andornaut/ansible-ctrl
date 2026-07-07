@@ -78,7 +78,7 @@
           ansible.builtin.set_fact:
             desktop_ly_release: "{{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
-        - name: Download and unarchive ly {{ desktop_ly_release.tag_name }}
+        - name: Download and unarchive ly
           ansible.builtin.unarchive:
             src: "{{ desktop_ly_release.tarball_url }}"
             dest: "{{ desktop_ly_tmp.path }}"
