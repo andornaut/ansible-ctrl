@@ -29,7 +29,6 @@ desktop_flatpak_replacements:
   inkscape: org.inkscape.Inkscape
   libreoffice: org.libreoffice.LibreOffice
   vlc: org.videolan.VLC
-  wireshark: org.wireshark.Wireshark
 
 # Additional flatpak applications
 desktop_flatpak_extras:
