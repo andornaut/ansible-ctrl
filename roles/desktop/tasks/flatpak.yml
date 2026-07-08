@@ -48,7 +48,7 @@
 
     - name: Install and configure flatpak applications for the target user
       become: true
-      become_user: "{{ desktop_flatpak_user }}"
+      become_user: "{{ desktop_user }}"
       block:
         - name: Add flathub repository
           community.general.flatpak_remote:

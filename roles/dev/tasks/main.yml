@@ -1,4 +1,10 @@
 ---
+- name: Resolve {{ dev_user }} home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ dev_user }}"
+  tags: always
+
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
 

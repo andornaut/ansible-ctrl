@@ -30,7 +30,7 @@
 - name: Install Antigravity CLI (agy) # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL https://antigravity.google/cli/install.sh | bash
-    creates: ~/.local/bin/agy
+    creates: "{{ dev_user_home }}/.local/bin/agy"
     executable: /bin/bash
   environment:
-    HOME: "{{ ansible_facts['env']['HOME'] }}"
+    HOME: "{{ dev_user_home }}"
