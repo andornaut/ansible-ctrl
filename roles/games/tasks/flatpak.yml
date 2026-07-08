@@ -9,28 +9,18 @@
     update_cache: true
   become: true
 
-- name: Install flatpak packages
-  community.general.flatpak:
-    name:
-      - com.heroicgameslauncher.hgl
-      - com.valvesoftware.Steam
-      - net.davidotek.pupgui2
-      - net.lutris.Lutris
-      # Vulkan layer so the MangoHud overlay works inside sandboxed games
-      - org.freedesktop.Platform.VulkanLayer.MangoHud
-      - org.libretro.RetroArch
-      - org.openjkdf2.OpenJKDF2
-    method: user
+- name: Install and configure flatpak applications for the target user
+  become: true
+  become_user: "{{ games_flatpak_user }}"
+  block:
+    - name: Install flatpak packages
+      community.general.flatpak:
+        name: "{{ games_flatpak_apps }}"
+        method: user
 
-- name: Override cursor theme for flatpak GUI applications
-  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-  ansible.builtin.command:
-    cmd: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
-  loop:
-    - com.heroicgameslauncher.hgl
-    - com.valvesoftware.Steam
-    - net.davidotek.pupgui2
-    - net.lutris.Lutris
-    - org.libretro.RetroArch
-    - org.openjkdf2.OpenJKDF2
-  changed_when: false
+    - name: Override cursor theme for flatpak GUI applications
+      # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+      ansible.builtin.command:
+        cmd: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+      loop: "{{ games_flatpak_apps }}"
+      changed_when: false
