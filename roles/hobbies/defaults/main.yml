@@ -1,0 +1,10 @@
+---
+# Target hobbies user account. Defaults to the remote user running the play;
+# override per host. Used to run per-user flatpak installs (OrcaSlicer) via
+# become_user (method: user, never root) and to derive hobbies_user_home. Not a
+# blanket privilege-escalation setting.
+hobbies_user: "{{ ansible_facts['user_id'] }}"
+# Home directory of hobbies_user, resolved from the passwd database (a getent
+# lookup runs in tasks/main.yml). Used where a task needs the literal home path
+# (e.g. the KiCad plugin install location).
+hobbies_user_home: "{{ ansible_facts['getent_passwd'][hobbies_user][4] }}"

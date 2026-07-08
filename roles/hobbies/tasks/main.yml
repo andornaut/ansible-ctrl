@@ -1,4 +1,10 @@
 ---
+- name: Resolve {{ hobbies_user }} home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ hobbies_user }}"
+  tags: always
+
 - name: Import FPV tasks
   ansible.builtin.import_tasks: fpv.yml
   tags: fpv

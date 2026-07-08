@@ -34,7 +34,7 @@
     - name: Clone kicad-jlcpcb-tools plugin at the latest release tag
       ansible.builtin.git:
         repo: https://github.com/Bouni/kicad-jlcpcb-tools.git
-        dest: "{{ ansible_facts['env']['HOME'] }}/.local/share/kicad/10.0/scripting/plugins/kicad-jlcpcb-tools"
+        dest: "{{ hobbies_user_home }}/.local/share/kicad/10.0/scripting/plugins/kicad-jlcpcb-tools"
         version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
         update: true
 

@@ -1,6 +1,12 @@
 ---
 # Install and configure Niri Wayland compositor and related tools
 
+- name: Resolve {{ niri_user }} home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ niri_user }}"
+  tags: always
+
 - name: Install system dependencies
   ansible.builtin.import_tasks: dependencies.yml
   tags:

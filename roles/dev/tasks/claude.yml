@@ -2,10 +2,10 @@
 - name: Install Claude Code using native installer # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
-    creates: ~/.local/bin/claude
+    creates: "{{ dev_user_home }}/.local/bin/claude"
     executable: /bin/bash
   environment:
-    HOME: "{{ ansible_facts['env']['HOME'] }}"
+    HOME: "{{ dev_user_home }}"
 
 - name: Install Claude Code VS Code extension
   ansible.builtin.command:
