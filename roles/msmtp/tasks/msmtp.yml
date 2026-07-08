@@ -46,7 +46,7 @@
     dest: "{{ msmtp_build_dir.path }}"
     depth: 1
     force: true
-    version: master
+    version: msmtp-1.8.32
 
 - name: Autoreconf msmtp
   ansible.builtin.command:
