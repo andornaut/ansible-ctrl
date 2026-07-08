@@ -1,0 +1,34 @@
+---
+- name: Configure CoolerControl repository
+  become: true
+  block:
+    - name: Download CoolerControl apt signing key
+      ansible.builtin.get_url:
+        url: https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/gpg.668189E5007F5A8D.key
+        dest: /usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc
+        mode: "0644"
+
+    - name: Add CoolerControl apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [signed-by=/usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc]
+          https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/deb/ubuntu
+          {{ ansible_facts['distribution_release'] }} main
+        filename: coolercontrol
+        update_cache: true
+
+- name: Install and enable CoolerControl
+  become: true
+  block:
+    - name: Install CoolerControl package
+      ansible.builtin.apt:
+        name: coolercontrol
+        state: latest
+        install_recommends: false
+
+    - name: Enable and start coolercontrold daemon
+      ansible.builtin.systemd_service:
+        name: coolercontrold
+        enabled: true
+        state: started
+        daemon_reload: true
