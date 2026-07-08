@@ -75,13 +75,15 @@
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf
 
-    - name: Configure Firefox
-      ansible.builtin.import_tasks: firefox.yml
-      tags: firefox
-
+    # flatpak.yml must run before firefox.yml: it installs the flatpak package
+    # and adds the flathub remote, which the Firefox flatpak install depends on.
     - name: Configure flatpak
       ansible.builtin.import_tasks: flatpak.yml
       tags: flatpak
+
+    - name: Configure Firefox
+      ansible.builtin.import_tasks: firefox.yml
+      tags: firefox
 
     - name: Configure fonts
       ansible.builtin.import_tasks: fonts.yml
@@ -103,6 +105,9 @@
 - name: Configure tiling window manager applications
   when: desktop_environment == "tiling"
   block:
+    - name: Install tiling window manager system packages
+      ansible.builtin.import_tasks: apt_tiling.yml
+
     - name: Configure dunst
       ansible.builtin.import_tasks: dunst.yml
       tags: dunst

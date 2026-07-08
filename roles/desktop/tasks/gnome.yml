@@ -1,14 +1,35 @@
 ---
 # Install the GNOME Shell desktop with gdm3. install_recommends is false so
 # snapd and the Firefox snap (both only Recommends of ubuntu-desktop-minimal)
-# are not pulled in; the flatpak task holds snapd removed. xserver-xorg adds
-# the "GNOME on Xorg" session alongside the default Wayland session.
-- name: Install GNOME desktop and Xorg session
+# are not pulled in; the flatpak task holds snapd removed. GNOME 49+ ships a
+# Wayland-only session (the "GNOME on Xorg" session was removed), so xserver-xorg
+# is not installed; legacy X11 apps run under XWayland, pulled in by GNOME.
+- name: Install GNOME desktop
   ansible.builtin.apt:
     name:
       - ubuntu-desktop-minimal
-      - xserver-xorg
     state: present
+    install_recommends: false
+    update_cache: true
+  become: true
+
+# Useful GNOME applications must be listed explicitly because they are only
+# Recommends of ubuntu-desktop-minimal, which is installed with recommends off.
+# loupe is GNOME's GTK4 image viewer (successor to eog); evince (PDF viewer) is
+# already installed via the common apt.yml.
+- name: Install GNOME applications
+  ansible.builtin.apt:
+    name:
+      - baobab
+      - gnome-calculator
+      - gnome-clocks
+      - gnome-disk-utility
+      - gnome-font-viewer
+      - gnome-system-monitor
+      - gnome-text-editor
+      - loupe
+      - seahorse
+    state: latest
     install_recommends: false
     update_cache: true
   become: true
