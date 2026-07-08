@@ -10,9 +10,15 @@ desktop_eww_bar: bar
 desktop_grub_cmdline_linux_default: ""
 desktop_install_firefox_apt: false
 desktop_install_insync: false
+# Web browser set as the xdg-settings default: "firefox" or "google-chrome".
+desktop_default_browser: firefox
 # Display manager settings
 desktop_install_ly: false
 desktop_install_lemurs: false
+
+# User account that flatpak applications are installed for (method: user).
+# Defaults to the remote user running the play; override per host (e.g. nomnomnom).
+desktop_flatpak_user: "{{ ansible_facts['user_id'] }}"
 
 # Apt packages to replace with flatpak equivalents
 desktop_flatpak_replacements:

@@ -24,7 +24,8 @@
 
         - name: Remove old Firefox PPA file
           ansible.builtin.file:
-            path: /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_noble.list
+            path: >-
+              /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_{{ ansible_facts['distribution_release'] }}.list
             state: absent
           become: true
 
@@ -103,6 +104,7 @@
     - name: Set Firefox as default browser
       ansible.builtin.command: xdg-settings set default-web-browser firefox.desktop
       changed_when: true
+      when: desktop_default_browser == "firefox"
 
 # Flatpak
 - name: Configure Firefox flatpak installation method
@@ -137,3 +139,9 @@
     - name: Set Firefox as default browser
       ansible.builtin.command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
       changed_when: true
+      when: desktop_default_browser == "firefox"
+      environment:
+        # The Firefox flatpak exports its .desktop file to the per-user flatpak
+        # directory, which is not in XDG_DATA_DIRS over an Ansible SSH session,
+        # so xdg-settings cannot find it (rc 2) without this.
+        XDG_DATA_DIRS: "{{ ansible_env.HOME }}/.local/share/flatpak/exports/share:/usr/local/share:/usr/share"
