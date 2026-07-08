@@ -13,6 +13,7 @@
       - mercurial
       - mysql-client
       - postgresql-client
+      - wireshark
       - xserver-xephyr
     state: latest
     install_recommends: false
