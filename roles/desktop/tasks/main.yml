@@ -71,6 +71,10 @@
       ansible.builtin.import_tasks: chrome.yml
       tags: chrome
 
+    - name: Configure CoolerControl
+      ansible.builtin.import_tasks: coolercontrol.yml
+      tags: coolercontrol
+
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf
