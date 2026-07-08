@@ -34,7 +34,7 @@
       ansible.builtin.set_fact:
         desktop_dunst_version: "{{ desktop_dunst_release.tag_name }}"
 
-    - name: Download and unarchive dunst {{ desktop_dunst_version }}
+    - name: Download and unarchive dunst
       ansible.builtin.unarchive:
         src: "https://github.com/dunst-project/dunst/archive/refs/tags/{{ desktop_dunst_version }}.tar.gz"
         dest: "{{ desktop_dunst_tmp.path }}"

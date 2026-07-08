@@ -4,8 +4,6 @@
     name:
       - blueman
       - desktop-file-utils
-      - evince # PDF reader
-      - feh
       - gnome-keyring
       - gnome-themes-extra
       # - gnome-themes-standard
@@ -13,7 +11,6 @@
       - imagemagick
       - jq
       - libnotify-bin
-      - lxappearance
       - network-manager
       - network-manager-gnome
       - pavucontrol
@@ -21,27 +18,21 @@
       - policykit-1-gnome
       - python3-pip
       - python3-setuptools
-      - redshift
-      - scrot
-      - suckless-tools
-      - thunar
-      - thunar-archive-plugin
-      - thunar-media-tags-plugin
-      - thunar-volman
-      - tumbler
-      - tumbler-plugins-extra
       - unzip
-      - wmctrl
       - xarchiver
-      - xautolock
-      - xbacklight
-      - xclip
       - xdg-user-dirs
       - xdg-utils
-      - xdotool
-      - xinput
-      - xsel
       - zenity
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+
+# Papers (GTK4) is the successor to Evince and replaced it as GNOME's document
+# viewer. It is only packaged on Ubuntu >= 26.04; fall back to Evince on older.
+- name: Install document viewer
+  ansible.builtin.apt:
+    name: "{{ 'papers' if ansible_facts['distribution_version'] is version('26.04', '>=') else 'evince' }}"
     state: latest
     install_recommends: false
     update_cache: true

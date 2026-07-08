@@ -1,0 +1,21 @@
+---
+# X11/WM utilities used by the bspwm/niri tiling environments. Not installed on
+# GNOME hosts, where the equivalents are provided by the desktop or unused.
+- name: Install tiling window manager system packages
+  ansible.builtin.apt:
+    name:
+      - feh
+      - lxappearance
+      - scrot
+      - suckless-tools
+      - wmctrl
+      - xautolock
+      - xbacklight
+      - xclip
+      - xdotool
+      - xinput
+      - xsel
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
