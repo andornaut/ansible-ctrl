@@ -6,6 +6,7 @@ games_flatpak_user: "{{ ansible_facts['user_id'] }}"
 # Flatpak applications installed and configured for games_flatpak_user.
 games_flatpak_apps:
   - com.heroicgameslauncher.hgl
+  - com.mojang.Minecraft
   - com.valvesoftware.Steam
   - net.davidotek.pupgui2
   - net.lutris.Lutris
