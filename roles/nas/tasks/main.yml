@@ -1,4 +1,10 @@
 ---
+- name: Resolve {{ nas_user }} home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ nas_user }}"
+  tags: always
+
 - name: System dependencies
   block:
     - name: Install system dependencies

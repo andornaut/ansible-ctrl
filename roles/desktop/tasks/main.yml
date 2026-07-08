@@ -1,4 +1,10 @@
 ---
+- name: Resolve {{ desktop_user }} home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ desktop_user }}"
+  tags: always
+
 - name: Validate desktop environment
   ansible.builtin.assert:
     that:

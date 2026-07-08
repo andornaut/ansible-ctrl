@@ -16,9 +16,16 @@ desktop_default_browser: firefox
 desktop_install_ly: false
 desktop_install_lemurs: false
 
-# User account that flatpak applications are installed for (method: user).
-# Defaults to the remote user running the play; override per host (e.g. nomnomnom).
-desktop_flatpak_user: "{{ ansible_facts['user_id'] }}"
+# Target desktop user account. Defaults to the remote user running the play;
+# override per host (e.g. nomnomnom). This is NOT applied to every task in the
+# role: only the few that must act as a specific user (flatpak method:user
+# installs via become_user) or read from that user's home use it. It is not a
+# blanket privilege-escalation setting.
+desktop_user: "{{ ansible_facts['user_id'] }}"
+# Home directory of desktop_user, resolved from the passwd database (a getent
+# lookup runs in tasks/main.yml). Used only where a task needs the literal home
+# path (e.g. locating per-user flatpak exports when setting the default browser).
+desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
 
 # Apt packages to replace with flatpak equivalents
 desktop_flatpak_replacements:

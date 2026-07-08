@@ -4,6 +4,8 @@
   when: desktop_install_firefox_apt
   block:
     - name: Remove Firefox flatpak if using apt
+      become: true
+      become_user: "{{ desktop_user }}"
       community.general.flatpak:
         name: org.mozilla.firefox
         method: user
@@ -125,7 +127,9 @@
             selection: hold
           become: true
 
-    - name: Install and configure Firefox flatpak
+    - name: Install and configure Firefox flatpak for the target user
+      become: true
+      become_user: "{{ desktop_user }}"
       block:
         - name: Install Firefox flatpak
           community.general.flatpak:
@@ -137,11 +141,14 @@
           changed_when: true
 
     - name: Set Firefox as default browser
+      become: true
+      become_user: "{{ desktop_user }}"
       ansible.builtin.command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
       changed_when: true
       when: desktop_default_browser == "firefox"
       environment:
+        HOME: "{{ desktop_user_home }}"
         # The Firefox flatpak exports its .desktop file to the per-user flatpak
         # directory, which is not in XDG_DATA_DIRS over an Ansible SSH session,
         # so xdg-settings cannot find it (rc 2) without this.
-        XDG_DATA_DIRS: "{{ ansible_env.HOME }}/.local/share/flatpak/exports/share:/usr/local/share:/usr/share"
+        XDG_DATA_DIRS: "{{ desktop_user_home }}/.local/share/flatpak/exports/share:/usr/local/share:/usr/share"

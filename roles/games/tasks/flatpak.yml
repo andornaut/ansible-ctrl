@@ -11,7 +11,7 @@
 
 - name: Install and configure flatpak applications for the target user
   become: true
-  become_user: "{{ games_flatpak_user }}"
+  become_user: "{{ games_user }}"
   block:
     - name: Install flatpak packages
       community.general.flatpak:

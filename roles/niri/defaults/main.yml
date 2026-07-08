@@ -1,0 +1,7 @@
+---
+# Target niri user account whose per-user config (electron-flags.conf) is written.
+# Defaults to the remote user running the play; override per host.
+niri_user: "{{ ansible_facts['user_id'] }}"
+# Home directory of niri_user, resolved from the passwd database (a getent lookup
+# runs in tasks/main.yml).
+niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
