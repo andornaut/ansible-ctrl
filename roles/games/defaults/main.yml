@@ -1,0 +1,13 @@
+---
+# User account that flatpak applications are installed for (method: user).
+# Defaults to the remote user running the play; override per host (e.g. nomnomnom).
+games_flatpak_user: "{{ ansible_facts['user_id'] }}"
+
+# Flatpak applications installed and configured for games_flatpak_user.
+games_flatpak_apps:
+  - com.heroicgameslauncher.hgl
+  - com.valvesoftware.Steam
+  - net.davidotek.pupgui2
+  - net.lutris.Lutris
+  - org.libretro.RetroArch
+  - org.openjkdf2.OpenJKDF2

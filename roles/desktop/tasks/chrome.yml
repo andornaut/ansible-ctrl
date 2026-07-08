@@ -17,3 +17,8 @@
     regexp: '^Exec\S*=([/\w-]*)\S*(.*)$'
     replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
   become: true
+
+- name: Set Google Chrome as default browser
+  ansible.builtin.command: xdg-settings set default-web-browser google-chrome.desktop
+  changed_when: true
+  when: desktop_default_browser == "google-chrome"
