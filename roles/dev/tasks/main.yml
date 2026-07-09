@@ -51,10 +51,6 @@
   ansible.builtin.import_tasks: cursor.yml
   tags: cursor
 
-- name: Import delta tasks
-  ansible.builtin.import_tasks: delta.yml
-  tags: delta
-
 - name: Import filectrl tasks
   ansible.builtin.import_tasks: filectrl.yml
   tags: filectrl

@@ -1,11 +1,10 @@
 ---
-- name: Install Claude Code CLI # noqa: command-instead-of-module
-  ansible.builtin.shell:
-    cmd: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
-    creates: "{{ dev_user_home }}/.local/bin/claude"
-    executable: /bin/bash
-  environment:
-    HOME: "{{ dev_user_home }}"
+- name: Install Claude Code CLI
+  ansible.builtin.include_tasks: install_user_cli.yml
+  vars:
+    dev_cli_name: Claude Code CLI
+    dev_cli_bin: claude
+    dev_cli_url: https://claude.ai/install.sh
 
 - name: Check for VS Code
   ansible.builtin.command:
@@ -33,7 +32,7 @@
     - name: Add Claude Desktop repository
       ansible.builtin.apt_repository:
         repo: >-
-          deb [arch={% if ansible_facts['architecture'] == 'x86_64' %}amd64{% else %}{{ ansible_facts['architecture'] }}{% endif %}
+          deb [arch={{ dev_arch }}
           signed-by=/etc/apt/keyrings/claude-desktop.asc]
           https://pkg.claude-desktop-debian.dev stable main
         state: present

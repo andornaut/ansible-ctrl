@@ -4,7 +4,7 @@
     name:
       - gh
       - git
-      - golang
+      - git-delta
       - jq
       - libmysqlclient-dev
       - libxml2-dev

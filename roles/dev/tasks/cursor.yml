@@ -12,18 +12,29 @@
     mode: "0755"
   become: true
 
-- name: "Workaround: Cursor Appimage error when run on Ubuntu 24.04"
-  ansible.builtin.blockinfile:
-    append_newline: true
-    block: |
-      # Workaround issue with Cursor and Appimage:
-      # https://forum.cursor.com/t/cannot-launch-cursor-without-no-sandbox/35261/2
-      # https://askubuntu.com/questions/1511854/how-to-permanently-disable-ubuntus-new-apparmor-user-namespace-creation-restric
-      kernel.apparmor_restrict_unprivileged_userns = 0
-    create: true
+# CLEANUP (added 2026-07-09): remove once every host in dev has run this role at
+# least once. Superseded by the per-binary AppArmor profile created below.
+- name: Remove global AppArmor user namespace restriction disablement workaround
+  ansible.builtin.file:
     path: /etc/sysctl.d/20-apparmor-donotrestrict.conf
-    mode: "0644"
+    state: absent
   become: true
+
+- name: Create AppArmor profile for Cursor
+  ansible.builtin.copy:
+    dest: /etc/apparmor.d/usr.local.bin.cursor
+    mode: "0644"
+    content: |
+      # This profile allows the Cursor AppImage to use unprivileged user namespaces
+      # without disabling the restriction globally.
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile cursor /usr/local/bin/cursor flags=(unconfined) {
+        userns,
+      }
+  become: true
+  notify: Reload AppArmor
 
 - name: Download Cursor icon
   ansible.builtin.get_url:
