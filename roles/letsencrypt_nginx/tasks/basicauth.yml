@@ -28,6 +28,7 @@
     - credentials
     - skip_missing: true
   become: true
+  # The loop items contain basicauth usernames and cleartext passwords.
   no_log: true
 
 - name: Configure HTTP Basic Authentication for aliases
@@ -55,6 +56,7 @@
     - credentials
     - skip_missing: true
   become: true
+  # The loop items contain basicauth usernames and cleartext passwords.
   no_log: true
 
 - name: Find all .htpasswd files

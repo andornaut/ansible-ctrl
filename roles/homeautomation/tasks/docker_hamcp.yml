@@ -35,4 +35,5 @@
           restart: unless-stopped
           volumes: "{{ homeautomation_common_volumes }}"
   notify: Update /etc/hosts
+  # The environment contains the Home Assistant long-lived access token.
   no_log: true
