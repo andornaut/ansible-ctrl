@@ -17,58 +17,82 @@
     - name: Find latest release with Linux build
       ansible.builtin.set_fact:
         hobbies_betaflight_release: "{{ item }}"
-      loop: "{{ hobbies_betaflight_releases.json | rejectattr('prerelease') }}"
+      loop: "{{ hobbies_betaflight_releases.json | rejectattr('prerelease') | rejectattr('draft') }}"
       when:
         - hobbies_betaflight_release is not defined
         - item.assets | selectattr('name', 'search', 'linux64-portable') | list | length > 0
       loop_control:
         label: "{{ item.tag_name }}"
 
+    # Use a [.] character class rather than an escaped \. : this is a folded block
+    # scalar, so YAML passes backslashes through untouched and Jinja does not treat
+    # \\ as an escape, which leaves the regex matching a literal backslash and
+    # selecting nothing. Same reason the freerouting asset match avoids escapes.
     - name: Find Linux portable asset
       ansible.builtin.set_fact:
         hobbies_betaflight_download_url: >-
           {{ hobbies_betaflight_release.assets
-          | selectattr('name', 'search', 'linux64-portable\\.zip$')
+          | selectattr('name', 'search', 'linux64-portable[.]zip$')
           | map(attribute='browser_download_url') | first }}
 
-    - name: Create Betaflight directory
+    # The zip's top-level directory is literally "Betaflight Configurator", space
+    # included. Extract each release into its own tag-stamped directory and expose
+    # it as /opt/betaflight/current, so the space never reaches a launcher path.
+    - name: Derive Betaflight install paths
+      ansible.builtin.set_fact:
+        hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}"
+        hobbies_betaflight_app_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}/Betaflight Configurator"
+
+    - name: Create Betaflight release directory
       ansible.builtin.file:
-        path: /opt/betaflight
+        path: "{{ hobbies_betaflight_release_dir }}"
         state: directory
         mode: "0755"
       become: true
 
-    - name: "Download and extract Betaflight Configurator {{ hobbies_betaflight_release.tag_name }}"
+    # creates is evaluated by the action plugin, so an already-installed release
+    # skips the download entirely rather than refetching the zip every play.
+    - name: Download and extract Betaflight Configurator
       ansible.builtin.unarchive:
         src: "{{ hobbies_betaflight_download_url }}"
-        dest: /opt/betaflight
+        dest: "{{ hobbies_betaflight_release_dir }}"
         remote_src: true
+        creates: "{{ hobbies_betaflight_app_dir }}"
       become: true
+      register: hobbies_betaflight_unarchive
 
-    - name: Rename Betaflight directory to match desktop file paths
-      ansible.builtin.command: mv "/opt/betaflight/Betaflight Configurator" /opt/betaflight/betaflight-configurator
-      args:
-        creates: /opt/betaflight/betaflight-configurator
-        removes: "/opt/betaflight/Betaflight Configurator"
-      become: true
-
+    # The zip ships some files as 0600 (including the two binaries at 0700), which
+    # leaves them unreadable by the non-root user who launches the app. The capital
+    # X grants execute only where it is already set, so libraries land at 0644 and
+    # the binaries at 0755.
     - name: Set Betaflight Configurator permissions
-      ansible.builtin.shell: |
-        find /opt/betaflight/betaflight-configurator -type d -exec chmod a+rx {} \;
-        find /opt/betaflight/betaflight-configurator -type f -exec chmod a+r {} \;
-        chmod 755 /opt/betaflight/betaflight-configurator/betaflight-configurator
-        chmod 755 /opt/betaflight/betaflight-configurator/chrome_crashpad_handler
-      changed_when: true
+      ansible.builtin.file:
+        path: "{{ hobbies_betaflight_app_dir }}"
+        state: directory
+        mode: u=rwX,go=rX
+        recurse: true
+      become: true
+      when: hobbies_betaflight_unarchive is changed
+
+    - name: Symlink stable Betaflight path to the installed version
+      ansible.builtin.file:
+        src: "{{ hobbies_betaflight_app_dir }}"
+        dest: /opt/betaflight/current
+        state: link
+        force: true
       become: true
 
-    - name: Create Betaflight Configurator wrapper script
+    # Wrapper (not a symlink) so the app runs with its bundled libraries on
+    # LD_LIBRARY_PATH and with its own directory as the working directory.
+    - name: Install Betaflight Configurator launcher wrapper onto PATH
       ansible.builtin.copy:
-        dest: /opt/betaflight/betaflight-configurator/betaflight-configurator.sh
+        dest: /usr/local/bin/betaflight-configurator
         mode: "0755"
+        follow: false
         content: |
           #!/bin/bash
-          cd /opt/betaflight/betaflight-configurator
-          LD_LIBRARY_PATH=/opt/betaflight/betaflight-configurator/lib exec ./betaflight-configurator "$@"
+          cd /opt/betaflight/current
+          LD_LIBRARY_PATH=/opt/betaflight/current/lib exec ./betaflight-configurator "$@"
       become: true
 
     - name: Install Betaflight Configurator desktop file
@@ -79,11 +103,27 @@
           [Desktop Entry]
           Name=Betaflight Configurator
           Comment=Crossplatform configuration tool for the Betaflight flight control system
-          Exec=/opt/betaflight/betaflight-configurator/betaflight-configurator.sh
-          Icon=/opt/betaflight/betaflight-configurator/icon/bf_icon_128.png
+          Exec=/usr/local/bin/betaflight-configurator
+          Icon=/opt/betaflight/current/icon/bf_icon_128.png
           Terminal=false
           Type=Application
           Categories=Utility
+      become: true
+
+    # CLEANUP (added 2026-07-09): remove once every host in hobbies has run this role
+    # at least once.
+    #
+    # Pre-versioned layout: the extract landed in "Betaflight Configurator" and a
+    # separate task renamed it to betaflight-configurator. The rename was guarded by
+    # creates, so after the first run it never fired again and both directories sat
+    # on disk. Superseded by the tag-stamped directory and the current symlink.
+    - name: Remove legacy Betaflight directories
+      ansible.builtin.file:
+        path: "/opt/betaflight/{{ item }}"
+        state: absent
+      loop:
+        - Betaflight Configurator
+        - betaflight-configurator
       become: true
 
 - name: Install ExpressLRS Configurator
@@ -102,15 +142,15 @@
       ansible.builtin.set_fact:
         hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | rejectattr('prerelease') | rejectattr('draft') | first }}"
 
+    # [.] rather than \. for the same reason as the Betaflight asset match above.
     - name: Find Linux deb asset
       ansible.builtin.set_fact:
         hobbies_expresslrs_download_url: >-
           {{ hobbies_expresslrs_release.assets
-          | selectattr('name', 'match', '.*_amd64\\.deb$')
+          | selectattr('name', 'search', '_' ~ hobbies_arch ~ '[.]deb$')
           | map(attribute='browser_download_url') | first }}
 
     - name: Install ExpressLRS Configurator
       ansible.builtin.apt:
         deb: "{{ hobbies_expresslrs_download_url }}"
-        state: latest
       become: true
