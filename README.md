@@ -4,7 +4,7 @@ Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-- [Ansible](https://www.ansible.com/) >= 2.14.6
+- [Ansible](https://www.ansible.com/) >= 2.17
 - Ubuntu >= 24.04
 
 ### Initial Setup
@@ -16,15 +16,15 @@ sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-Create a `hosts` file in the project root (gitignored):
+Create a `hosts` file in the project root (gitignored). Group names match each playbook's `hosts:` field: `desktop`, `dev`, `games`, `hobbies`, `homeautomation`, `nas`, `rsnapshot`, `webservers`. `base.yml`, `msmtp.yml`, and `upgrade.yml` run on `all`.
 
 ```ini
 example ansible_connection=local ansible_host=example.com ansible_user=andornaut ansible_python_interpreter=/usr/bin/python3
 
-[workstations]
+[desktop]
 example
 
-[upgrade]
+[dev]
 example
 ```
 
@@ -53,50 +53,48 @@ python3 -m venv /tmp/ansible-lint-venv && /tmp/ansible-lint-venv/bin/pip install
 
 ## Usage
 
+Each playbook in the project root (every root `.yml` except `requirements.yml`) has a `make` target of the
+same name, which installs dependencies first, then runs `ansible-playbook --ask-become-pass <playbook>.yml`.
+
 ```bash
-$ make help
-Available targets:
-  clean                 - Remove temporary role files
-  help                  - Show this help message
-  requirements          - Install required Ansible roles and collections
+# List the targets
+make help
 
-Playbook targets:
-  ai_maintainer         - Configure automated GitHub repository maintenance
-  base                  - Configure base system
-  desktop               - Configure desktop environment
-  dev                   - Configure development tools
-  docker                - Configure Docker and Kubernetes
-  games                 - Configure gaming packages
-  hobbies               - Configure hobby tools (3D printing, electronics, FPV)
-  homeautomation        - Configure home automation
-  msmtp                 - Configure email forwarding
-  nas                   - Configure NAS server
-  rsnapshot             - Configure rsnapshot backup
-  upgrade               - Run system upgrades
-  webservers            - Configure web servers
+# Run a playbook
+make desktop
 
-# Run specific tasks by tag:
+# Run specific tasks by tag
 ansible-playbook --ask-become-pass desktop.yml --tags alacritty
 ansible-playbook --ask-become-pass hobbies.yml --tags orcaslicer
 ```
+
+`base.yml`, `msmtp.yml`, and `upgrade.yml` apply to `all` hosts. `upgrade.yml` uses no role: it runs apt
+dist-upgrade and flatpak upgrade.
 
 ## Roles
 
 | Role | Purpose |
 | --- | --- |
-| [ai_maintainer](roles/ai_maintainer/README.md) | Automated GitHub repo maintenance via AI agent + cron |
-| [bspwm](roles/bspwm/README.md) | BSPWM window manager |
+| [bspwm](roles/bspwm/README.md) | BSPWM window manager and X11 utilities |
 | [desktop](roles/desktop/README.md) | Desktop environment (display manager, browser, fonts, themes) |
 | [dev](roles/dev/README.md) | Development tools and programming languages |
-| [docker](roles/docker/README.md) | Docker CE, Compose, optional Kubernetes |
+| [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
 | [games](roles/games/README.md) | Gaming packages via flatpak |
 | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
 | [homeautomation](roles/homeautomation/README.md) | Home Assistant + related Docker containers |
 | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
 | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
 | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
-| [niri](roles/niri/README.md) | Niri Wayland compositor |
+| [niri](roles/niri/README.md) | Niri Wayland compositor and Wayland utilities |
 | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
+
+`desktop.yml` applies the [desktop](roles/desktop/README.md) role to the whole `desktop` group, then applies
+[bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) according to each host's `desktop_environment`
+(`bspwm`, `niri`, or `gnome`).
+
+Automated GitHub repo maintenance (ai-maintainer) is a tag in the [dev](roles/dev/README.md) role, not a role
+of its own. The `make ai_maintainer` target refers to a playbook that does not exist; run
+`ansible-playbook dev.yml --tags ai_maintainer` instead.
 
 ## Troubleshooting
 
