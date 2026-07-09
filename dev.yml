@@ -1,5 +1,5 @@
 ---
 - name: Apply dev role
-  hosts: workstations
+  hosts: dev
   roles:
     - dev
