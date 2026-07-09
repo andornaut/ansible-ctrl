@@ -4,7 +4,7 @@ Provision workstations and servers using [Ansible](https://www.ansible.com/).
 
 ## Requirements
 
-- [Ansible](https://www.ansible.com/) >= 2.17
+- [Ansible](https://www.ansible.com/) >= 2.18
 - Ubuntu >= 24.04
 
 ### Initial Setup
