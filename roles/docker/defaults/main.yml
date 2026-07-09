@@ -1,2 +1,17 @@
 ---
+# Debian architecture name, used by the apt repository and the Kubernetes binary downloads.
+# Ansible reports the kernel names (x86_64, aarch64), which Debian, helm, kubectl, and
+# minikube all spell differently (amd64, arm64).
+docker_arch: >-
+  {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
+# User added to the "docker" group so that the docker CLI works without sudo.
+# Defaults to the remote user running the play; override per host.
+docker_user: "{{ ansible_facts['user_id'] }}"
+
 docker_install_kubernetes: false
+# Docker Registry binds host port 5000, which is also the port Frigate publishes by
+# default (homeautomation_frigate_port_http_unauthenticated). Setting this back to false
+# stops the role installing and starting the registry, but does not uninstall an existing
+# one: purging it would destroy /var/lib/docker-registry. Remove it by hand instead.
+docker_install_registry: false
