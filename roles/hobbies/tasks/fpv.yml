@@ -65,7 +65,10 @@
     # leaves them unreadable by the non-root user who launches the app. The capital
     # X grants execute only where it is already set, so libraries land at 0644 and
     # the binaries at 0755.
-    - name: Set Betaflight Configurator permissions
+    #
+    # Not a handler: the symlink below must point at a tree whose permissions are
+    # already fixed, and handlers do not flush until the end of the play.
+    - name: Set Betaflight Configurator permissions # noqa: no-handler
       ansible.builtin.file:
         path: "{{ hobbies_betaflight_app_dir }}"
         state: directory
