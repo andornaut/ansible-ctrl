@@ -10,7 +10,6 @@
   become: true
 
 - name: Configure keyboard settings
-  notify: Reload dconf
   block:
     - name: Prevent Super+Space from switching input sources
       community.general.dconf:

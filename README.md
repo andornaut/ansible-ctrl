@@ -63,7 +63,6 @@ Available targets:
 Playbook targets:
   ai_maintainer         - Configure automated GitHub repository maintenance
   base                  - Configure base system
-  bspwm                 - Configure BSPWM window manager
   desktop               - Configure desktop environment
   dev                   - Configure development tools
   docker                - Configure Docker and Kubernetes
@@ -72,7 +71,6 @@ Playbook targets:
   homeautomation        - Configure home automation
   msmtp                 - Configure email forwarding
   nas                   - Configure NAS server
-  niri                  - Configure Niri compositor
   rsnapshot             - Configure rsnapshot backup
   upgrade               - Run system upgrades
   webservers            - Configure web servers

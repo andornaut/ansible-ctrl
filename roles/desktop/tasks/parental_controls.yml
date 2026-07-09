@@ -1,0 +1,24 @@
+---
+- name: Install malcontent
+  ansible.builtin.apt:
+    name:
+      - malcontent
+      - malcontent-gui
+    state: latest
+    install_recommends: false
+  become: true
+
+- name: Set malcontent OARS app filter for {{ desktop_user }}
+  ansible.builtin.command: >-
+    malcontent-client set-app-filter --no-interactive {{ desktop_user }}
+    {{ desktop_parental_controls_oars.items() | map('join', '=') | join(' ') }}
+  become: true
+  changed_when: true
+  when: desktop_parental_controls_oars | length > 0
+
+- name: Deploy Chrome family policy
+  ansible.builtin.copy:
+    content: "{{ desktop_chrome_family_policies | to_nice_json }}\n"
+    dest: /etc/opt/chrome/policies/managed/family.json
+    mode: "0644"
+  become: true

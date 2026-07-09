@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 .PHONY: help clean requirements \
-        base bspwm desktop dev docker games hobbies msmtp niri \
+        base desktop dev docker games hobbies msmtp \
         homeautomation nas ai_maintainer rsnapshot upgrade webservers
 
 help:
@@ -15,7 +15,6 @@ help:
 	@echo "Playbook targets:"
 	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
 	@echo "  base                  - Configure base system"
-	@echo "  bspwm                 - Configure BSPWM window manager"
 	@echo "  desktop               - Configure desktop environment"
 	@echo "  dev                   - Configure development tools"
 	@echo "  docker                - Configure Docker and Kubernetes"
@@ -24,7 +23,6 @@ help:
 	@echo "  homeautomation        - Configure home automation"
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
-	@echo "  niri                  - Configure Niri compositor"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
@@ -38,9 +36,6 @@ requirements:
 
 base: requirements
 	ansible-playbook --ask-become-pass base.yml
-
-bspwm: requirements
-	ansible-playbook --ask-become-pass bspwm.yml
 
 desktop: requirements
 	ansible-playbook --ask-become-pass desktop.yml
@@ -65,9 +60,6 @@ msmtp: requirements
 
 nas: requirements
 	ansible-playbook --ask-become-pass nas.yml
-
-niri: requirements
-	ansible-playbook --ask-become-pass niri.yml
 
 ai_maintainer: requirements
 	ansible-playbook --ask-become-pass ai_maintainer.yml

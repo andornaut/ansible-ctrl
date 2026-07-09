@@ -8,9 +8,9 @@
 - name: Validate desktop environment
   ansible.builtin.assert:
     that:
-      - desktop_environment is defined and desktop_environment in ["tiling", "gnome"]
+      - desktop_environment is defined and desktop_environment in ["gnome", "niri", "bspwm"]
     fail_msg: >-
-      desktop_environment must be set (no default) to "tiling" or "gnome".
+      desktop_environment must be set (no default) to "gnome", "niri", or "bspwm".
       Set it in host_vars for this host.
     success_msg: Desktop environment "{{ desktop_environment }}" is valid
 
@@ -24,7 +24,7 @@
 
 - name: Configure display manager
   tags: display-manager
-  when: desktop_environment == "tiling"
+  when: desktop_environment != "gnome"
   block:
     - name: Validate display manager configuration
       ansible.builtin.assert:
@@ -81,9 +81,23 @@
       ansible.builtin.import_tasks: coolercontrol.yml
       tags: coolercontrol
 
+    - name: Install it87 fan control driver
+      ansible.builtin.import_tasks: it87.yml
+      tags: it87
+      when: desktop_install_it87
+
+    - name: Install nct6687d fan control driver
+      ansible.builtin.import_tasks: nct6687d.yml
+      tags: nct6687d
+      when: desktop_install_nct6687d
+
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf
+
+    - name: Configure file-roller archive associations
+      ansible.builtin.import_tasks: file_roller.yml
+      tags: file-roller
 
     # flatpak.yml must run before firefox.yml: it installs the flatpak package
     # and adds the flathub remote, which the Firefox flatpak install depends on.
@@ -112,8 +126,13 @@
       ansible.builtin.import_tasks: lact.yml
       tags: lact
 
+    - name: Configure parental controls
+      ansible.builtin.import_tasks: parental_controls.yml
+      tags: parental-controls
+      when: desktop_install_parental_controls
+
 - name: Configure tiling window manager applications
-  when: desktop_environment == "tiling"
+  when: desktop_environment != "gnome"
   block:
     - name: Install tiling window manager system packages
       ansible.builtin.import_tasks: apt_tiling.yml

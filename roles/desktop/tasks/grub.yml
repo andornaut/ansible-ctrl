@@ -22,4 +22,3 @@
         regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ desktop_grub_cmdline_linux_default }}"'
       become: true
-      when: desktop_grub_cmdline_linux_default | length > 0

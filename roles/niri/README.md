@@ -4,10 +4,11 @@ Installs and configures [niri](https://github.com/YaLTeR/niri) Wayland composito
 
 ## Usage
 
-```bash
-make niri
+Applied by the `desktop` playbook when `desktop_environment == "niri"`, or run the role directly by tag:
 
-ansible-playbook --ask-become-pass niri.yml --tags hypr
+```bash
+ansible-playbook --ask-become-pass desktop.yml --tags niri
+ansible-playbook --ask-become-pass desktop.yml --tags hypr
 ```
 
 ## Tags

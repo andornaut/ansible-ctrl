@@ -4,6 +4,7 @@
     name:
       - blueman
       - desktop-file-utils
+      - file-roller
       - gnome-keyring
       - gnome-themes-extra
       # - gnome-themes-standard
@@ -18,10 +19,9 @@
       - policykit-1-gnome
       - python3-pip
       - python3-setuptools
-      - unzip
-      - xarchiver
       - xdg-user-dirs
       - xdg-utils
+      - xdotool
       - zenity
     state: latest
     install_recommends: false
