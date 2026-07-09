@@ -2,23 +2,27 @@
 - name: Install Kubernetes Tools
   become: true
   block:
-    - name: Get releases of helm
+    # The /releases endpoint is ordered by creation date, not by version, so its
+    # first entry can be a patch release of an older branch.
+    - name: Get the latest helm release
       ansible.builtin.uri:
-        url: https://api.github.com/repos/helm/helm/releases
+        url: https://api.github.com/repos/helm/helm/releases/latest
         return_content: true
-      register: docker_helm_releases
+      register: docker_helm_release
 
-    - name: Set helm version to latest stable release
-      ansible.builtin.set_fact:
-        docker_helm_version: >-
-          {{ (docker_helm_releases.json
-          | selectattr('prerelease', 'equalto', false)
-          | selectattr('draft', 'equalto', false)
-          | list | first).tag_name }}
+    # unarchive downloads before it can compare anything and has no checksum short
+    # circuit, so the installed version gates the task instead. `helm version --short`
+    # prints e.g. "v3.16.2+g13654a5".
+    - name: Get installed helm version
+      ansible.builtin.command:
+        cmd: helm version --short
+      register: docker_helm_installed
+      changed_when: false
+      failed_when: false
 
     - name: Install helm binary
       ansible.builtin.unarchive:
-        src: "https://get.helm.sh/helm-{{ docker_helm_version }}-linux-amd64.tar.gz"
+        src: "https://get.helm.sh/helm-{{ docker_helm_release.json.tag_name }}-linux-{{ docker_arch }}.tar.gz"
         dest: /usr/local/bin/
         extra_opts:
           - "--strip-components=1"
@@ -26,7 +30,7 @@
           - LICENSE
           - README.md
         remote_src: true
-        # creates: /usr/local/bin/helm
+      when: docker_helm_release.json.tag_name not in docker_helm_installed.stdout
 
     - name: Get latest kubectl version
       ansible.builtin.uri:
@@ -34,16 +38,19 @@
         return_content: true
       register: docker_kubectl_version
 
+    # Both upstreams publish a sidecar digest. get_url compares it against the installed
+    # binary and downloads only on a mismatch, so a new release is picked up without
+    # refetching ~160MB of unchanged binaries on every play.
     - name: Install kubectl binary
       ansible.builtin.get_url:
-        url: "https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/amd64/kubectl"
+        url: "https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/{{ docker_arch }}/kubectl"
+        checksum: "sha256:https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/{{ docker_arch }}/kubectl.sha256"
         dest: /usr/local/bin/kubectl
         mode: "0755"
-        # creates: /usr/local/bin/kubectl
 
     - name: Install minikube binary
       ansible.builtin.get_url:
-        url: "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
+        url: "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-{{ docker_arch }}"
+        checksum: "sha256:https://storage.googleapis.com/minikube/releases/latest/minikube-linux-{{ docker_arch }}.sha256"
         dest: /usr/local/bin/minikube
         mode: "0755"
-        # creates: /usr/local/bin/minikube
