@@ -1,6 +1,8 @@
 # ansible-role-niri
 
-Installs and configures [niri](https://github.com/YaLTeR/niri) Wayland compositor and Hyprland ecosystem tools on Ubuntu.
+Installs and configures the [niri](https://github.com/YaLTeR/niri) Wayland compositor, the Hyprland ecosystem tools, and the Wayland utilities used by the niri session on Ubuntu.
+
+The Wayland-only utilities (brightnessctl, grim, slurp, wl-clipboard) live here rather than in the `desktop` role; their X11 counterparts (xbacklight, scrot) are installed by the [bspwm](../bspwm/) role. X11 tools with no Wayland replacement stay in the `desktop` role, because niri runs them as XWayland clients.
 
 ## Usage
 
@@ -17,7 +19,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags hypr
 | --- | --- |
 | [hypr](https://hyprland.org/) | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper, etc.) |
 | [niri](https://github.com/YaLTeR/niri) | Wayland compositor |
-| [wayland](https://wayland.freedesktop.org/) | Wayland protocols and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
+| [wayland](https://wayland.freedesktop.org/) | Wayland packages (brightnessctl, grim, slurp, wl-clipboard), protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 
 ## Variables
 

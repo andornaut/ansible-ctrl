@@ -1,20 +1,17 @@
 ---
 # Associate genuine archive formats with GNOME file-roller as the default
 # handler for the desktop user (desktop_file_roller_mime_types in defaults).
-- name: Query current default handler for archive MIME types
-  become: true
-  become_user: "{{ desktop_user }}"
-  ansible.builtin.command: xdg-mime query default {{ item }}
-  register: desktop_file_roller_current
-  changed_when: false
-  loop: "{{ desktop_file_roller_mime_types }}"
-
+# mimeapps.list is written directly rather than shelling out to xdg-mime, which
+# resolves the path from $HOME and so needs the environment fixed up under
+# become_user.
 - name: Set file-roller as the default archive handler
   become: true
   become_user: "{{ desktop_user }}"
-  ansible.builtin.command: xdg-mime default org.gnome.FileRoller.desktop {{ item.item }}
-  changed_when: true
-  when: item.stdout != "org.gnome.FileRoller.desktop"
-  loop: "{{ desktop_file_roller_current.results }}"
-  loop_control:
-    label: "{{ item.item }}"
+  community.general.ini_file:
+    path: "{{ desktop_user_home }}/.config/mimeapps.list"
+    section: Default Applications
+    option: "{{ item }}"
+    value: org.gnome.FileRoller.desktop
+    no_extra_spaces: true
+    mode: "0644"
+  loop: "{{ desktop_file_roller_mime_types }}"

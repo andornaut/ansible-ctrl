@@ -2,25 +2,27 @@
 - name: Install common system packages
   ansible.builtin.apt:
     name:
-      - blueman
       - desktop-file-utils
       - file-roller
+      # gnome-keyring is only a Recommends of ubuntu-desktop-minimal, which
+      # gnome.yml installs with recommends disabled, so it must be listed here.
       - gnome-keyring
       - gnome-themes-extra
-      # - gnome-themes-standard
       - gvfs-backends
       - imagemagick
       - jq
       - libnotify-bin
       - network-manager
-      - network-manager-gnome
+      # pavucontrol supports per-app routing and port selection that the GNOME
+      # sound panel does not, so it is installed on every desktop.
       - pavucontrol
       - playerctl
-      - policykit-1-gnome
       - python3-pip
       - python3-setuptools
       - xdg-user-dirs
       - xdg-utils
+      # xdotool is X11-only, but the shell functions in ~/.bashrc are sourced on every
+      # desktop, GNOME included, so it cannot live in the bspwm role.
       - xdotool
       - zenity
     state: latest
