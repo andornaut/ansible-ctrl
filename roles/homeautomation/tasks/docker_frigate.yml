@@ -66,3 +66,5 @@
           volumes: >-
             {{ frigate_volumes + ([frigate_tmpfs_volume] if homeautomation_frigate_tmpfs_size_mb > 0 else []) }}
   notify: Update /etc/hosts
+  # The environment contains the RTSP password and the Gemini and Frigate+ API keys.
+  no_log: true
