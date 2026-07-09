@@ -1,0 +1,12 @@
+---
+# Install a CLI into dev_user's ~/.local/bin from an upstream shell installer.
+# Callers set dev_cli_name, dev_cli_bin, dev_cli_url, and optionally dev_cli_shell.
+- name: Install {{ dev_cli_name }} # noqa: command-instead-of-module
+  ansible.builtin.shell:
+    cmd: set -o pipefail && curl -fsSL {{ dev_cli_url }} | {{ dev_cli_shell | default('bash') }}
+    creates: "{{ dev_user_home }}/.local/bin/{{ dev_cli_bin }}"
+    executable: /bin/bash
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"

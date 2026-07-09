@@ -20,3 +20,11 @@
     link: /usr/bin/python
     priority: 0
   become: true
+
+- name: Install uv CLI
+  ansible.builtin.include_tasks: install_user_cli.yml
+  vars:
+    dev_cli_name: uv CLI
+    dev_cli_bin: uv
+    dev_cli_url: https://astral.sh/uv/install.sh
+    dev_cli_shell: sh
