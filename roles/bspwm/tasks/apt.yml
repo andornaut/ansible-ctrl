@@ -1,0 +1,36 @@
+---
+# X11 tools that have a true Wayland replacement in the niri role: scrot -> grim and
+# slurp, xautolock -> hypridle, xbacklight -> brightnessctl. The X11 tools that both
+# sessions use (niri runs them as XWayland clients) are installed by the desktop role's
+# apt_tiling.yml, and xdotool by its apt.yml.
+- name: Install X11 system packages and build dependencies
+  ansible.builtin.apt:
+    name:
+      - dex
+      - scrot
+      - xautolock
+      - xbacklight
+      - xorg
+      # Build dependencies for the projects in bspwm_projects, which are
+      # compiled from source by bspwm.yml.
+      - libasound2-dev
+      - libcairo2-dev
+      - libx11-xcb-dev
+      - libxcb1-dev
+      - libxcb-ewmh-dev
+      - libxcb-icccm4-dev
+      - libxcb-keysyms1-dev
+      - libxcb-xkb-dev
+      - libxcb-randr0-dev
+      - libxcb-render-util0-dev
+      - libxcb-shape0-dev
+      - libxcb-util0-dev
+      - libxcb-xinerama0-dev
+      - libxcb-xtest0-dev
+      - libxft-dev
+      - libxinerama-dev
+      - libxpm-dev
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true

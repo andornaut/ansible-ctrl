@@ -1,66 +1,12 @@
 ---
-- name: Install system packages
-  ansible.builtin.apt:
-    name:
-      - dex
-      - xorg
-      - libasound2-dev
-      - libcairo2-dev
-      - libpulse-dev
-      - libx11-xcb-dev
-      - libxcb1-dev
-      - libxcb-ewmh-dev
-      - libxcb-icccm4-dev
-      - libxcb-keysyms1-dev
-      - libxcb-xkb-dev
-      - libxcb-randr0-dev
-      - libxcb-render-util0-dev
-      - libxcb-shape0-dev
-      - libxcb-util0-dev
-      - libxcb-xinerama0-dev
-      - libxcb-xtest0-dev
-      - libxft-dev
-      - libxinerama-dev
-      - libxpm-dev
-    state: latest
-    install_recommends: false
-    update_cache: true
-  become: true
+# Install and configure the BSPWM window manager and related X11 tools
 
-- name: Clone BSPWM git repositories
-  ansible.builtin.git:
-    repo: "{{ item.repo }}"
-    dest: /tmp/{{ item.name }}.git
-    depth: 1
-    force: true
-    version: "{{ item.version if item.version is defined else 'HEAD' }}"
-  loop: "{{ bspwm_projects }}"
+- name: Install X11 system packages and build dependencies
+  ansible.builtin.import_tasks: apt.yml
+  tags:
+    - bspwm
+    - x11
 
-- name: Make BSPWM projects
-  community.general.make:
-    chdir: /tmp/{{ item.name }}.git
-  loop: "{{ bspwm_projects }}"
-
-- name: Make install BSPWM projects
-  community.general.make:
-    chdir: /tmp/{{ item.name }}.git
-    target: install
-  loop: "{{ bspwm_projects }}"
-  ignore_errors: true # Ignore "cp: cannot create regular file ... Text file busy"
-  register: bspwm_make_result
-  become: true
-
-- name: Install bspwm.desktop file
-  ansible.builtin.copy:
-    src: bspwm.desktop
-    dest: /usr/local/share/xsessions/
-    owner: root
-    group: root
-    mode: "0644"
-  become: true
-
-- name: Ensure that the 'Make install BSPWM projects' play succeeded or failed with 'file busy'
-  ansible.builtin.fail:
-    msg: "The 'Make install BSPWM projects' play failed"
-  when: item.failed and 'Text file busy' not in item.stderr
-  loop: "{{ bspwm_make_result.results }}"
+- name: Build and install BSPWM
+  ansible.builtin.import_tasks: bspwm.yml
+  tags: bspwm

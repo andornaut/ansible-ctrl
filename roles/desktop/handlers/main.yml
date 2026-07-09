@@ -1,4 +1,17 @@
 ---
+# Deferred to a handler so that it runs after eww.service is installed, which
+# happens in a later block than the binary it restarts.
+- name: Restart eww
+  ansible.builtin.systemd_service:
+    name: eww.service
+    daemon_reload: true
+    scope: user
+    state: restarted
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+
 - name: Update font cache
   ansible.builtin.command: fc-cache --force
   become: true

@@ -1,0 +1,35 @@
+---
+- name: Clone BSPWM git repositories
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: /tmp/{{ item.name }}.git
+    depth: 1
+    force: true
+    version: "{{ item.version | default('HEAD') }}"
+  loop: "{{ bspwm_projects }}"
+
+- name: Make BSPWM projects
+  community.general.make:
+    chdir: /tmp/{{ item.name }}.git
+  loop: "{{ bspwm_projects }}"
+
+- name: Make install BSPWM projects
+  community.general.make:
+    chdir: /tmp/{{ item.name }}.git
+    target: install
+  loop: "{{ bspwm_projects }}"
+  register: bspwm_make_install
+  failed_when:
+    - bspwm_make_install.failed
+    # Reinstalling a running binary yields "cp: cannot create regular file ... Text file busy"
+    - "'Text file busy' not in (bspwm_make_install.stderr | default(''))"
+  become: true
+
+- name: Install bspwm.desktop file
+  ansible.builtin.copy:
+    src: bspwm.desktop
+    dest: /usr/local/share/xsessions/
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

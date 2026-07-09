@@ -7,6 +7,12 @@
     key: "{{ niri_user }}"
   tags: always
 
+- name: Install Wayland system packages
+  ansible.builtin.import_tasks: apt.yml
+  tags:
+    - niri
+    - wayland
+
 - name: Install system dependencies
   ansible.builtin.import_tasks: dependencies.yml
   tags:

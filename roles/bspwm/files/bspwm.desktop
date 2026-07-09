@@ -2,5 +2,6 @@
 Name=bspwm
 Comment=Binary space partitioning window manager
 Exec=bspwm
+TryExec=/usr/local/bin/bspwm
 Type=Application
 DesktopNames=bspwm

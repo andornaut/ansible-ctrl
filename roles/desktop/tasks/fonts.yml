@@ -7,7 +7,6 @@
           - fonts-dejavu
           - fonts-hack
           - fonts-ubuntu-console
-          - ttf-mscorefonts-installer
           - xfonts-terminus
         state: latest
         install_recommends: false

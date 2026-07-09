@@ -17,7 +17,7 @@
       ansible.builtin.set_fact:
         niri_xwayland_version: "{{ niri_xwayland_release.tag_name }}"
 
-    - name: Download and unarchive xwayland-satellite {{ niri_xwayland_version }}
+    - name: Download and unarchive xwayland-satellite
       ansible.builtin.unarchive:
         src: "https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/\
           {{ niri_xwayland_version }}.tar.gz"
