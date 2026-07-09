@@ -2,4 +2,5 @@
 - name: Apply msmtp role
   hosts: all
   roles:
-    - msmtp
+    - role: msmtp
+      tags: msmtp

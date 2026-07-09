@@ -1,4 +1,18 @@
 ---
+# The next task purges the host's working MTA, so a run that is missing its host_vars
+# must fail here rather than at the relay template halfway through, which would leave
+# the host with no MTA at all.
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - msmtp_domain is defined
+      - msmtp_user is defined
+      - msmtp_password_INSECURE is defined
+      # msmtpd accepts mail without authenticating the sender, so anything other
+      # than a loopback address would be an open relay on the LAN.
+      - msmtp_relay_interface is match('^(127\.|::1$)')
+    quiet: true
+
 - name: Uninstall MTAs
   ansible.builtin.apt:
     name:
@@ -9,16 +23,50 @@
     install_recommends: false
   become: true
 
-# msmtp-mta provides /usr/sbin/sendmail, which mailutils and s-nail invoke by default.
+# msmtp-mta provides /usr/sbin/sendmail, which mailutils' mail(1) invokes by default.
 - name: Install system packages
   ansible.builtin.apt:
     name:
       - msmtp
       - msmtp-mta
-      - s-nail
       - mailutils
     install_recommends: false
     state: latest
+  become: true
+
+# msmtp ships an AppArmor profile for /usr/bin/msmtp whose only /etc read rules cover
+# /etc/msmtprc, /etc/aliases, /etc/mailname and /etc/netrc. The profile is disabled by
+# default (debconf msmtp/apparmor), but on a host where it is enforced, msmtpd's
+# "-C /etc/msmtprc-relay" is denied with EACCES and every message bounces.
+# The profile reads this local include when enforced and ignores it otherwise, so
+# writing it unconditionally costs nothing and removes the failure mode.
+- name: Allow the relay config in the msmtp AppArmor profile
+  ansible.builtin.copy:
+    dest: /etc/apparmor.d/local/usr.bin.msmtp
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by ansible-role-msmtp.
+      {{ msmtp_relay_config_path }} r,
+  become: true
+
+# debconf disables the profile via this symlink by default (msmtp/apparmor), and
+# reloading only matters where it is enforced.
+- name: Check whether the msmtp AppArmor profile is disabled
+  ansible.builtin.stat:
+    path: /etc/apparmor.d/disable/usr.bin.msmtp
+  register: msmtp_apparmor_disabled
+
+# Unconditional for the same reason as the msmtpd restart below: reloading only when
+# the copy above changes would let a run that wrote the rule and then died never
+# converge, because the next run sees the file unchanged and skips the reload,
+# leaving an enforced profile denying msmtpd's relay-config reads indefinitely.
+- name: Reload AppArmor so the relay rule is live before msmtpd restarts
+  ansible.builtin.systemd_service:
+    name: apparmor
+    state: reloaded
+  when: not msmtp_apparmor_disabled.stat.exists
   become: true
 
 # The msmtp-mta package creates the "msmtp" system user and group, which the systemd
@@ -34,7 +82,6 @@
     mode: "0600"
   become: true
   no_log: true
-  register: msmtp_relay_config
 
 - name: Create msmtpd systemd override directory
   ansible.builtin.file:
@@ -53,40 +100,28 @@
     group: root
     mode: "0644"
   become: true
-  register: msmtp_systemd_override
 
-- name: Enable and start msmtpd
+# msmtp-mta's postinst starts msmtpd with its default command, which reads
+# /etc/msmtprc. It must be restarted against the relay config before /etc/msmtprc
+# below points clients at msmtpd, otherwise mail sent in between relays back into
+# msmtpd. This is an ordering constraint, so it cannot be deferred to a handler.
+#
+# The restart is unconditional rather than gated on the two templates above having
+# changed. A run that writes them and then dies before this point (unreachable host,
+# interrupt) would otherwise never converge: the next run sees both files unchanged,
+# skips the restart, and leaves msmtpd on the packaged ExecStart while /etc/msmtprc
+# already points at it. daemon_reload does not restart a running unit, so nothing
+# else would heal it. msmtpd holds no queue, so restarting it every run is cheap.
+- name: Restart msmtpd before pointing clients at it
   ansible.builtin.systemd_service:
     name: msmtpd
     daemon_reload: true
     enabled: true
-    state: started
-  become: true
-
-# msmtp-mta's postinst starts msmtpd with its default command, which reads
-# /etc/msmtprc. Restart it against the relay config before the next task points
-# /etc/msmtprc at msmtpd, otherwise mail sent in between relays back into msmtpd.
-# This is an ordering constraint rather than a handler: `meta: flush_handlers`
-# would flush every pending handler in the play, not just this role's.
-- name: Restart msmtpd before pointing clients at it
-  ansible.builtin.systemd_service:
-    name: msmtpd
     state: restarted
   become: true
-  when: msmtp_relay_config is changed or msmtp_systemd_override is changed
 
-# Holds no credentials, so it can stay world-readable: cron drops privileges to
-# the crontab owner before invoking sendmail, and Ubuntu's msmtp package is not
-# setgid, so unprivileged senders must be able to read this file.
-- name: Copy msmtp config file
-  ansible.builtin.template:
-    src: msmtprc
-    dest: /etc/msmtprc
-    owner: root
-    group: root
-    mode: "0644"
-  become: true
-
+# Written before /etc/msmtprc, which references it via its "aliases" directive, so
+# clients are never pointed at a config whose aliases file does not exist yet.
 - name: Copy /etc/aliases
   ansible.builtin.template:
     src: aliases
@@ -100,6 +135,18 @@
   ansible.builtin.template:
     src: mailname
     dest: /etc/mailname
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# Holds no credentials, so it can stay world-readable: cron drops privileges to
+# the crontab owner before invoking sendmail, and Ubuntu's msmtp package is not
+# setgid, so unprivileged senders must be able to read this file.
+- name: Copy msmtp config file
+  ansible.builtin.template:
+    src: msmtprc
+    dest: /etc/msmtprc
     owner: root
     group: root
     mode: "0644"
@@ -121,31 +168,45 @@
     - msmtpd
   become: true
 
+# CLEANUP (added 2026-07-09): remove once every host has run this role at least once.
+# This role applies to `all`, so that is the whole inventory.
+#
+# Earlier versions of this role installed s-nail alongside mailutils, but only
+# mailutils registers mail(1) in alternatives, so s-nail was only ever reachable as
+# `s-nail` and nothing uses it. Purging also removes its /etc/s-nail.rc conffile,
+# stale sendmail override included.
+- name: Uninstall s-nail
+  ansible.builtin.apt:
+    name: s-nail
+    state: absent
+    purge: true
+  become: true
+
 # CLEANUP (added 2026-07-09): remove both tasks below once every host has run this
 # role at least once. This role applies to `all`, so that is the whole inventory.
 #
-# Earlier versions of this role pointed the mail clients at a source-built
-# /usr/local/bin/msmtp. Both now reach msmtp through their packaged default of
-# /usr/sbin/sendmail, so hosts provisioned by those versions need the overrides
-# removed. The two files are treated differently because their ownership differs.
+# Earlier versions of this role pointed mail(1) at a source-built /usr/local/bin/msmtp
+# via /etc/mail.rc. It now reaches msmtp through its packaged default of
+# /usr/sbin/sendmail, so hosts provisioned by those versions need the override line
+# removed. Removing only the exact line the old role wrote, rather than the file,
+# matters twice over: /etc/mail.rc is a conffile of bsd-mailx, and deleting a foreign
+# package's conffile makes dpkg record it as user-deleted, so even `apt install
+# --reinstall` would not restore it; and a broader "^set sendmail" pattern would keep
+# deleting an operator's own override on every run until this CLEANUP is retired.
 #
-# /etc/mail.rc is shipped by bsd-mailx, which this role never installs, so on these
-# hosts the file only ever exists as the role's own leftover and can go entirely. It
-# must go rather than be corrected: mailutils treats a bare program path as a mailer
-# it pipes to without appending recipients, so "set sendmail=<path>" makes every
+# The line must go rather than be corrected: mailutils treats a bare program path as a
+# mailer it pipes to without appending recipients, so "set sendmail=<path>" makes every
 # mail(1) invocation fail with "no recipients found".
-#
-# /etc/s-nail.rc is a conffile owned by the installed s-nail package, so only the
-# injected line is removed.
-- name: Remove stale sendmail override from /etc/mail.rc
-  ansible.builtin.file:
+- name: Check for a stale /etc/mail.rc
+  ansible.builtin.stat:
     path: /etc/mail.rc
-    state: absent
-  become: true
+  register: msmtp_mail_rc
 
-- name: Remove stale sendmail override from /etc/s-nail.rc
+# lineinfile fails on a missing path, so guarded on the stat above.
+- name: Remove stale sendmail override from /etc/mail.rc
   ansible.builtin.lineinfile:
-    path: /etc/s-nail.rc
-    regexp: '^set sendmail'
+    path: /etc/mail.rc
+    regexp: '^set sendmail="?/usr/local/bin/msmtp"?\s*$'
     state: absent
+  when: msmtp_mail_rc.stat.exists
   become: true

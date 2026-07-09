@@ -1,0 +1,14 @@
+account default
+
+host {{ msmtp_host }}
+port {{ msmtp_port }}
+domain {{ msmtp_domain }}
+
+auth on
+user {{ msmtp_user }}
+password {{ msmtp_password_INSECURE }}
+
+tls on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+
+syslog LOG_MAIL
