@@ -1,0 +1,59 @@
+---
+# Nuvoton NCT6687D Super I/O driver for MSI boards (e.g. nomnomnom). The
+# mainline kernel binds these chips to nct6683, which misreports fans, so
+# blacklist it and use this out-of-tree fork to expose the fan pwm/hwmon that
+# CoolerControl manages. https://github.com/Fred78290/nct6687d
+- name: Install nct6687d fan control driver
+  become: true
+  block:
+    - name: Install nct6687d DKMS build prerequisites
+      ansible.builtin.apt:
+        name:
+          - build-essential
+          - dkms
+          - git
+          - "linux-headers-{{ ansible_facts['kernel'] }}"
+        state: present
+        update_cache: true
+
+    - name: Clone nct6687d driver source
+      ansible.builtin.git:
+        repo: "{{ desktop_nct6687d_repo }}"
+        dest: /usr/src/nct6687d
+        version: "{{ desktop_nct6687d_version }}"
+      register: desktop_nct6687d_source
+
+    - name: Check whether nct6687d is registered with DKMS for the running kernel
+      ansible.builtin.command: dkms status nct6687d -k {{ ansible_facts['kernel'] }}
+      register: desktop_nct6687d_dkms
+      changed_when: false
+
+    - name: Build and install nct6687d via DKMS
+      ansible.builtin.command:
+        cmd: make dkms/install
+        chdir: /usr/src/nct6687d
+      when: desktop_nct6687d_source.changed or "installed" not in desktop_nct6687d_dkms.stdout
+      changed_when: true
+
+    - name: Blacklist the conflicting mainline nct6683 driver
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/nct6683-blacklist.conf
+        content: "blacklist nct6683\n"
+        mode: "0644"
+
+    - name: Configure nct6687 module options
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/nct6687.conf
+        content: "options nct6687 msi_fan_brute_force=1\n"
+        mode: "0644"
+
+    - name: Load nct6687 at boot
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/nct6687.conf
+        content: "nct6687\n"
+        mode: "0644"
+
+    - name: Load the nct6687 module now
+      community.general.modprobe:
+        name: nct6687
+        state: present

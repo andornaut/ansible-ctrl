@@ -12,7 +12,6 @@
       - xautolock
       - xbacklight
       - xclip
-      - xdotool
       - xinput
       - xsel
     state: latest

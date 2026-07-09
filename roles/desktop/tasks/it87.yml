@@ -1,0 +1,58 @@
+---
+# ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards (e.g. tron).
+# The mainline it87 driver only supports IT8705F/871xF/872xF, so this
+# out-of-tree fork is required to expose the fan pwm/hwmon that CoolerControl
+# manages. https://github.com/frankcrawford/it87
+- name: Install it87 fan control driver
+  become: true
+  block:
+    - name: Install it87 DKMS build prerequisites
+      ansible.builtin.apt:
+        name:
+          - build-essential
+          - dkms
+          - git
+          - "linux-headers-{{ ansible_facts['kernel'] }}"
+        state: present
+        update_cache: true
+
+    - name: Clone it87 driver source
+      ansible.builtin.git:
+        repo: "{{ desktop_it87_repo }}"
+        dest: /usr/src/it87
+        version: "{{ desktop_it87_version }}"
+      register: desktop_it87_source
+
+    - name: Check whether it87 is registered with DKMS for the running kernel
+      ansible.builtin.command: dkms status it87 -k {{ ansible_facts['kernel'] }}
+      register: desktop_it87_dkms
+      changed_when: false
+
+    # The Makefile "dkms" target copies the source to /usr/src/it87-<version>,
+    # then runs dkms add/build/install for the running kernel.
+    - name: Build and install it87 via DKMS
+      ansible.builtin.command:
+        cmd: make dkms
+        chdir: /usr/src/it87
+      when: desktop_it87_source.changed or "installed" not in desktop_it87_dkms.stdout
+      changed_when: true
+
+    - name: Configure it87 module options
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/it87.conf
+        content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
+        mode: "0644"
+
+    - name: Load it87 at boot
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/it87.conf
+        content: |
+          # ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards
+          # Out-of-tree DKMS module: https://github.com/frankcrawford/it87
+          it87
+        mode: "0644"
+
+    - name: Load the it87 module now
+      community.general.modprobe:
+        name: it87
+        state: present

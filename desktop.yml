@@ -1,5 +1,13 @@
 ---
 - name: Apply desktop role
-  hosts: workstations
+  hosts: desktop
   roles:
     - desktop
+    # The tiling window manager is selected by desktop_environment. Run just the
+    # WM via tags: ansible-playbook desktop.yml --tags niri (or --tags bspwm).
+    - role: bspwm
+      when: desktop_environment == "bspwm"
+      tags: bspwm
+    - role: niri
+      when: desktop_environment == "niri"
+      tags: niri
