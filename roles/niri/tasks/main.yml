@@ -1,7 +1,7 @@
 ---
 # Install and configure Niri Wayland compositor and related tools
 
-- name: Resolve {{ niri_user }} home directory
+- name: Resolve home directory for {{ niri_user }}
   ansible.builtin.getent:
     database: passwd
     key: "{{ niri_user }}"

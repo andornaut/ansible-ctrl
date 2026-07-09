@@ -1,5 +1,5 @@
 ---
-- name: Resolve {{ nas_user }} home directory
+- name: Resolve home directory for {{ nas_user }}
   ansible.builtin.getent:
     database: passwd
     key: "{{ nas_user }}"
