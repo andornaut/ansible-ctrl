@@ -31,7 +31,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [dunst](https://dunst-project.org/) | Notification daemon (built from source), tiling only |
 | [eww](https://github.com/elkowar/eww) | Widget daemon (built with Cargo), tiling only |
 | [file-roller](https://gitlab.gnome.org/GNOME/file-roller) | Default handler for archive MIME types |
-| [firefox](https://www.mozilla.org/firefox/) | Web browser (PPA or Flatpak) |
+| [firefox](https://www.mozilla.org/firefox/) | Web browser (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`) |
 | [flatpak](https://flatpak.org/) | Flatpak runtime and Flathub apps |
 | fonts | System fonts (Hack, DejaVu, Source Code Pro, etc.) |
 | gnome | GNOME Shell + gdm3 (`ubuntu-desktop-minimal`), gnome only |
@@ -47,6 +47,21 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 Tags naming a `desktop_install_*` variable are gated on that flag, which defaults to `false`: the tag alone
 runs nothing. The Super I/O drivers expose the pwm/fan hwmon that CoolerControl manages; enable the one
 matching the board's chip.
+
+`desktop_default_browser` (`firefox` or `google-chrome`) selects which browser `xdg-settings` marks as the
+default handler.
+
+## Apt pins
+
+Packages that flatpak replaces (`desktop_flatpak_replacements`, plus `snapd` and its gnome-software plugin)
+are purged and then pinned to priority `-1` in `/etc/apt/preferences.d/flatpak-replacements`. The apt
+`firefox` package is pinned the same way, in `firefox-no-apt`, whenever Firefox is installed as a flatpak.
+A dpkg hold is not enough: dpkg discards a hold for a package it has no record of, which is exactly the
+state a purged package is in, so only a negative pin keeps apt from pulling these back in.
+
+`desktop_install_firefox_apt: true` reverses that: it removes the `firefox-no-apt` pin, adds the Mozilla apt
+repo, and pins `firefox*` from that origin to priority `1000` (`mozilla-firefox`) so it outranks Ubuntu's
+snap-transitional package.
 
 ## Variables
 
