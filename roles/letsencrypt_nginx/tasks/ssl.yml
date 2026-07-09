@@ -59,6 +59,9 @@
   loop: "{{ letsencrypt_nginx_websites }}"
   when: not item.use_selfsigned_certificate | default(false)
   become: true
+  # Each website entry holds a Cloudflare API token and basicauth credentials,
+  # which the default callback would otherwise print as the loop item.
+  no_log: true
 
 - name: Create self-signed certificate
   community.crypto.x509_certificate:

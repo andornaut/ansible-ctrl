@@ -23,6 +23,8 @@
   when:
     - not item.use_selfsigned_certificate | default(false)
   become: true
+  # The loop items contain Cloudflare API tokens, and the challenge data
+  # includes the ACME account key.
   no_log: true
 
 - name: Create DNS challenge TXT record
@@ -47,6 +49,7 @@
     - item.item.cloudflare_api_token is defined
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
+  # api_token is the Cloudflare API token.
   no_log: true
 
 - name: Pause to allow DNS to update
@@ -125,6 +128,8 @@
     - item.changed
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
+  # `data` carries the challenge results, which embed the Cloudflare API token
+  # from the originating website entry.
   no_log: true
 
 # - ansible.builtin.debug:
