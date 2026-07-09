@@ -1,6 +1,6 @@
 # ansible-role-homeautomation
 
-Provisions [Home Assistant](https://www.home-assistant.io/) and related services as Docker containers: [ESPHome](https://esphome.io/), [Frigate](https://github.com/blakeblackshear/frigate), [Govee2MQTT](https://github.com/wez/govee2mqtt), [ha-mcp](https://github.com/homeassistant-ai/ha-mcp), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Matter.js](https://github.com/project-chip/matter.js) or [Python Matter Server](https://github.com/home-assistant-libs/python-matter-server), [Mosquitto](https://mosquitto.org/), [Open WebUI](https://github.com/open-webui/open-webui), [OTBR](https://openthread.io/guides/border-router), [Piper](https://github.com/rhasspy/piper), and [Whisper](https://github.com/rhasspy/wyoming-whisper).
+Provisions [Home Assistant](https://www.home-assistant.io/) and the related services listed under [Tags](#tags) as Docker containers.
 
 [![homeassistant](https://raw.githubusercontent.com/andornaut/homeassistant-ibm1970-theme/main/screenshots/dark-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors.png)
 
@@ -36,7 +36,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 All containers are reachable from the Docker host via `{container_name}.internal` DNS (maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts)). Host-networked containers bind directly to the host.
 
-For bridge-networked containers the port below is the container's **internal** port, which is what `.internal` DNS reaches. Most publish no host port at all; their port mappings are commented out in the task files and can be uncommented if host-port access is needed. The exception is openwebui, which publishes host port 3000.
+For bridge-networked containers the port below is the container's **internal** port, which is what `.internal` DNS reaches. Most publish no host port at all; uncomment their port mappings in the task files if host-port access is needed. The exception is openwebui, which publishes host port 3000.
 
 | Container | Network | Port | Protocol | Description |
 | --- | --- | --- | --- | --- |
@@ -88,39 +88,22 @@ letsencrypt_nginx_websites:
 
 ### ha-mcp
 
-- [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) - MCP server for AI assistant integration with Home Assistant
-
-Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home Assistant devices, automations, and services via the [Model Context Protocol](https://modelcontextprotocol.io/).
+[ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the [Model Context Protocol](https://modelcontextprotocol.io/).
 
 #### Setup
 
-1. Generate a long-lived access token in Home Assistant: Profile → Security → Long-lived access tokens → Create token
+1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
 2. Set `homeautomation_install_hamcp: true` and `homeautomation_hamcp_token` in your host vars
 3. Run the playbook: `ansible-playbook --ask-become-pass homeautomation.yml --tags hamcp`
 4. Verify the container is running: `docker logs hamcp`
 
 #### MCP client configuration
 
-Clients connect via `hamcp.internal:8086`, the container's internal port on the bridge network (not a host-mapped port).
-
-VSCode, configured in this project's `.vscode/mcp.json` (auto-starts when the project is opened):
+Clients connect to `http://hamcp.internal:8086/mcp`, the container's internal port on the bridge network (not a host-mapped port). Configured for VSCode in this project's `.vscode/mcp.json` (auto-starts when the project is opened), and under `mcpServers` in `~/.claude.json` for Claude Code:
 
 ```json
 {
   "servers": {
-    "ha-mcp": {
-      "type": "http",
-      "url": "http://hamcp.internal:8086/mcp"
-    }
-  }
-}
-```
-
-Claude Code (`~/.claude.json`):
-
-```json
-{
-  "mcpServers": {
     "ha-mcp": {
       "type": "http",
       "url": "http://hamcp.internal:8086/mcp"
@@ -156,7 +139,7 @@ Claude Code (`~/.claude.json`):
 
 Enable exactly one Matter server: `homeautomation_install_matterjs`, or the superseded `homeautomation_install_legacy_pythonmatterserver`. The role asserts that both are not enabled at once.
 
-The Matter server (matter.js or python-matter-server) runs with `network_mode: host`. It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter server never resolves any node and all Matter devices show as unavailable. This is also why Avahi cannot run alongside Matter/Thread: OTBR (and the host-networked Matter server) already run mDNS on the host, and a second responder conflicts.
+The Matter server runs with `network_mode: host`. It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter server never resolves any node and all Matter devices show as unavailable. This is also why Avahi cannot run alongside Matter/Thread: OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts.
 
 #### Pairing Matter Devices
 
@@ -175,14 +158,14 @@ Pairing steps:
 
 ##### Pairing from a different subnet (ethernet adapter method)
 
-If your phone's WiFi network is on a different subnet than the Thread Border Router / Matter server, the standard pairing flow will fail during device discovery. The workaround is to use a USB-C ethernet adapter to temporarily place the phone on the same LAN as the Thread Border Router. Replace steps 3-5 above with:
+If the phone's WiFi network is on a different subnet than the Thread Border Router, pairing fails during device discovery. Work around it with a USB-C ethernet adapter that temporarily puts the phone on the same LAN. Replace steps 2-4 above with:
 
 1. In the Home Assistant mobile app, go to Settings > Devices & Services > Matter > Add device > No. It's new
 1. Scan the device's QR code
 1. Plug the ethernet adapter into the phone
 1. Wait approximately 4 seconds, then tap "I'm ready"
 
-The timing is critical: the pairing flow first performs a WiFi connectivity check before starting discovery. The ethernet adapter must be plugged in *after* the tapping "I'm ready", so that the connectivity check passes over WiFi while the subsequent mDNS discovery occurs on the ethernet LAN.
+The timing is critical: the pairing flow runs a WiFi connectivity check before the "I'm ready" prompt, and starts mDNS discovery after it. Plug the ethernet adapter in *before* tapping "I'm ready", so that the connectivity check passes over WiFi while discovery occurs on the ethernet LAN.
 
 ##### Eve Energy Outlet (In-Wall, 10ECN4151 / 20ECN4101)
 
