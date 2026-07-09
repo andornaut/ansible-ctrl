@@ -1,0 +1,28 @@
+---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+# Home directory of desktop_user, resolved from the passwd database (a getent
+# lookup runs in tasks/main.yml). Used only where a task needs the literal home
+# path (e.g. locating per-user flatpak exports when setting the default browser).
+desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
+# UID of desktop_user, from the same getent lookup. `systemctl --user` locates the
+# target user's bus through XDG_RUNTIME_DIR=/run/user/<uid>, which is not set when
+# Ansible escalates to a user it did not log in as.
+desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
+
+# Platform key into https://ziglang.org/download/index.json. Zig spells these with
+# the kernel architecture names that Ansible reports, so no mapping is needed here
+# (unlike dev_arch/docker_arch, which translate to the Debian names apt expects).
+desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
+
+# The packages flatpak.yml purges and then pins, so apt cannot bring them back.
+# Override desktop_flatpak_replacements instead.
+desktop_flatpak_pinned_packages: "{{ desktop_flatpak_replacements.keys() | list + ['gnome-software-plugin-snap', 'snapd'] }}"
+
+# The .desktop id that identifies desktop_default_browser to xdg-settings. Firefox
+# exports a different id depending on which install method firefox.yml took.
+desktop_default_browser_desktop_id: >-
+  {{ {'google-chrome': 'google-chrome.desktop',
+      'firefox': 'firefox.desktop' if desktop_install_firefox_apt else 'org.mozilla.firefox.desktop'}[desktop_default_browser] }}

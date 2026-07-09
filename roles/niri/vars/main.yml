@@ -1,4 +1,12 @@
 ---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+# Home directory of niri_user, resolved from the passwd database (a getent lookup
+# runs in tasks/main.yml).
+niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
+
 niri_hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
 
 niri_hypr_cmake_configure: >-

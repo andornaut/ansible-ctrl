@@ -1,0 +1,13 @@
+---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+# Debian architecture name, used by the apt repositories. Ansible reports the kernel
+# names (x86_64, aarch64), which Debian spells differently (amd64, arm64).
+dev_arch: >-
+  {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
+# Home directory of dev_user, resolved from the passwd database (a getent lookup
+# runs in tasks/main.yml).
+dev_user_home: "{{ ansible_facts['getent_passwd'][dev_user][4] }}"
