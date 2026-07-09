@@ -30,7 +30,9 @@ config passed with `-C` that contains secrets unless the file is owned by the ca
 euid and carries no group or other permission bits, and a `DynamicUser` UID can never own
 a file on disk. `/etc/msmtprc-relay` is therefore `msmtp:msmtp` mode `0600`. The drop-in
 also clears the shipped unit's `CAP_NET_BIND_SERVICE` grants, which the unprivileged port
-makes dead weight.
+makes dead weight, and restores the sandboxing that `DynamicUser=true` had implied
+(`ProtectSystem=strict`, `RestrictSUIDSGID`, `RemoveIPC`), so the daemon cannot rewrite
+the relay config it owns.
 
 `msmtp` ships an AppArmor profile that grants read access to `/etc/msmtprc` but not
 `/etc/msmtprc-relay`. The profile is disabled by default (debconf `msmtp/apparmor`), but
@@ -51,6 +53,11 @@ rejected rather than retried. Anything that must survive an outage needs a queui
 
 See [defaults/main.yml](./defaults/main.yml). `msmtp_domain`, `msmtp_user`, and
 `msmtp_password_INSECURE` have no defaults: set them per host in `host_vars/` (gitignored). The password is
-rendered into `/etc/msmtprc-relay` only. `msmtp_relay_interface` must stay on a loopback address, because
-`msmtpd` accepts mail without authenticating the sender. The role asserts both before
-touching anything, since its first real task uninstalls the host's existing MTA.
+rendered into `/etc/msmtprc-relay` only.
+
+The role asserts all of the following before touching anything, because its first real task uninstalls the
+host's existing MTA:
+
+- `msmtp_domain`, `msmtp_user`, and `msmtp_password_INSECURE` are defined
+- `msmtp_relay_interface` is exactly `127.0.0.1` or `::1`, not merely a `127.`-prefixed name
+- `msmtp_relay_port` is unprivileged (1024 to 65535)

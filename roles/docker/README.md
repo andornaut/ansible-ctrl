@@ -13,10 +13,11 @@ starting the registry; it does not remove an existing one, because purging the p
 ```bash
 make docker
 
-# The optional components are gated on a flag as well as a tag, so setting the
-# tag alone skips every task.
+# Kubernetes is gated on a flag as well as its tag, so the tag alone skips every task.
 ansible-playbook --ask-become-pass docker.yml --tags kubernetes -e docker_install_kubernetes=true
 ```
+
+The registry has no tag of its own: it is installed under the `docker` tag, gated on `docker_install_registry`.
 
 ## Variables
 

@@ -2,7 +2,7 @@
 
 Installs and configures the [niri](https://github.com/YaLTeR/niri) Wayland compositor, the Hyprland ecosystem tools, and the Wayland utilities used by the niri session on Ubuntu.
 
-The Wayland-only utilities (brightnessctl, grim, slurp, wl-clipboard) live here rather than in the `desktop` role; their X11 counterparts (xbacklight, scrot) are installed by the [bspwm](../bspwm/) role. X11 tools with no Wayland replacement stay in the `desktop` role, because niri runs them as XWayland clients.
+This role installs only the Wayland-only utilities (brightnessctl, grim, slurp, wl-clipboard); their X11 counterparts belong to the [bspwm](../bspwm/) role. Tools that both sessions share live in the [desktop](../desktop/) role.
 
 ## Usage
 

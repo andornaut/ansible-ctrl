@@ -34,24 +34,26 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Container ports
 
-All containers are reachable from the Docker host via `{container_name}.internal` DNS (maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts)). Host-networked containers bind directly to the host. Bridge-networked containers have commented-out port mappings in their task files that can be uncommented if host-port access is needed.
+All containers are reachable from the Docker host via `{container_name}.internal` DNS (maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts)). Host-networked containers bind directly to the host.
+
+For bridge-networked containers the port below is the container's **internal** port, which is what `.internal` DNS reaches. Most publish no host port at all; their port mappings are commented out in the task files and can be uncommented if host-port access is needed. The exception is openwebui, which publishes host port 3000.
 
 | Container | Network | Port | Protocol | Description |
 | --- | --- | --- | --- | --- |
 | homeassistant | host | 8123 | HTTP | Web UI and API |
 | esphome | host | 6052 | HTTP | Dashboard |
-| govee2mqtt | host | — | UDP | LAN broadcast discovery |
+| govee2mqtt | host | none | UDP | LAN broadcast discovery |
 | otbr | host | 8080 | HTTP | Thread Border Router web UI |
 | otbr | host | 8081 | REST | Thread Border Router REST API |
 | matterjs | host | 5580 | HTTP/WS | Web UI and WebSocket API |
-| pythonmatterserver | host | 5580 | HTTP/WS | Web UI and WebSocket API |
+| pythonmatterserver | host | 5580 | HTTP/WS | Web UI and WebSocket API (legacy) |
 | mosquitto | bridge | 1883 | MQTT | MQTT broker |
 | frigate | bridge | 5000 | HTTP | Frigate web UI (unauthenticated) |
 | frigate | bridge | 8971 | HTTP | Frigate web UI (authenticated) |
 | frigate | bridge | 8554 | RTSP | RTSP streams |
 | frigate | bridge | 8555 | WebRTC | WebRTC streams |
 | llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
-| openwebui | bridge | 8080 | HTTP | Web UI |
+| openwebui | bridge | 8080 | HTTP | Web UI, published on host port 3000 |
 | hamcp | bridge | 8086 | HTTP | MCP server (FastMCP) |
 | piper | bridge | 10200 | Wyoming | Text-to-speech |
 | whisper | bridge | 10300 | Wyoming | Speech-to-text |
@@ -99,9 +101,9 @@ Provides 96+ tools for AI assistants (Claude, etc.) to query and control Home As
 
 #### MCP client configuration
 
-Clients connect via `hamcp.internal:8086` — the container's internal port on the bridge network (not a host-mapped port). The `.internal` DNS name is maintained by the `docker_etc_hosts` systemd service.
+Clients connect via `hamcp.internal:8086`, the container's internal port on the bridge network (not a host-mapped port).
 
-VSCode — configured in this project's `.vscode/mcp.json` (auto-starts when the project is opened):
+VSCode, configured in this project's `.vscode/mcp.json` (auto-starts when the project is opened):
 
 ```json
 {
@@ -151,6 +153,8 @@ Claude Code (`~/.claude.json`):
 - [python-matter-server](https://github.com/home-assistant-libs/python-matter-server)
 - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
+
+Enable exactly one Matter server: `homeautomation_install_matterjs`, or the superseded `homeautomation_install_legacy_pythonmatterserver`. The role asserts that both are not enabled at once.
 
 The Matter server (matter.js or python-matter-server) runs with `network_mode: host`. It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter server never resolves any node and all Matter devices show as unavailable. This is also why Avahi cannot run alongside Matter/Thread: OTBR (and the host-networked Matter server) already run mDNS on the host, and a second responder conflicts.
 

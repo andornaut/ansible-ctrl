@@ -31,7 +31,7 @@ example
 ### Inventory and host variables
 
 - `hosts` (gitignored): inventory file
-- `host_vars/<hostname>.yml` (gitignored): per-host variable overrides — feature flags (`{role}_install_{component}`), Docker image tags, extra volumes, and any host-specific configuration
+- `host_vars/<hostname>.yml` (gitignored): per-host variable overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes, and any host-specific configuration
 - Role defaults live in `roles/<role>/defaults/main.yml`; override them in `host_vars/`, not in defaults
 
 ### Secrets
@@ -68,8 +68,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags alacritty
 ansible-playbook --ask-become-pass hobbies.yml --tags orcaslicer
 ```
 
-`base.yml`, `msmtp.yml`, and `upgrade.yml` apply to `all` hosts. `upgrade.yml` uses no role: it runs apt
-dist-upgrade and flatpak upgrade.
+`upgrade.yml` uses no role: it runs apt dist-upgrade and flatpak upgrade.
 
 ## Roles
 
