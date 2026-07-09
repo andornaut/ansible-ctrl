@@ -22,3 +22,10 @@
   ansible.builtin.command: xdg-settings set default-web-browser google-chrome.desktop
   changed_when: true
   when: desktop_default_browser == "google-chrome"
+
+- name: Create Chrome managed policies directory
+  ansible.builtin.file:
+    path: /etc/opt/chrome/policies/managed
+    state: directory
+    mode: "0755"
+  become: true

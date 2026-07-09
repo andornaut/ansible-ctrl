@@ -1,5 +1,0 @@
----
-- name: Apply bspwm role
-  hosts: workstations
-  roles:
-    - bspwm

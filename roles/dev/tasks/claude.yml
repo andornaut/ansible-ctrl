@@ -1,5 +1,5 @@
 ---
-- name: Install Claude Code using native installer # noqa: command-instead-of-module
+- name: Install Claude Code CLI # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
     creates: "{{ dev_user_home }}/.local/bin/claude"
@@ -7,13 +7,21 @@
   environment:
     HOME: "{{ dev_user_home }}"
 
+- name: Check for VS Code
+  ansible.builtin.command:
+    cmd: command -v code
+  register: dev_claude_vscode_bin
+  changed_when: false
+  failed_when: false
+
 - name: Install Claude Code VS Code extension
   ansible.builtin.command:
     cmd: code --install-extension anthropic.claude-code
   register: dev_claude_vscode_ext
   changed_when: "'successfully installed' in dev_claude_vscode_ext.stdout"
+  when: dev_claude_vscode_bin.rc == 0
 
-- name: Configure Claude Desktop (Cowork) repository
+- name: Install Claude Desktop (Cowork)
   become: true
   block:
     - name: Download Claude Desktop GPG key
@@ -31,15 +39,14 @@
         state: present
         update_cache: true
 
-# bubblewrap provides Cowork's sandbox isolation backend; the KVM/QEMU
-# backend is non-functional on Linux in this build, so without bubblewrap
-# Cowork falls back to running with no isolation.
-- name: Install Claude Desktop (Cowork) and sandbox backend
-  ansible.builtin.apt:
-    name:
-      - bubblewrap
-      - claude-desktop
-    state: latest
-    install_recommends: false
-    update_cache: true
-  become: true
+    # bubblewrap provides Cowork's sandbox isolation backend; the KVM/QEMU
+    # backend is non-functional on Linux in this build, so without bubblewrap
+    # Cowork falls back to running with no isolation.
+    - name: Install Claude Desktop (Cowork) and sandbox backend
+      ansible.builtin.apt:
+        name:
+          - bubblewrap
+          - claude-desktop
+        state: latest
+        install_recommends: false
+        update_cache: true

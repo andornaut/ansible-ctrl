@@ -24,3 +24,8 @@
         cmd: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
       loop: "{{ games_flatpak_apps }}"
       changed_when: false
+
+    - name: Grant Steam read-write access to PipeWire socket for microphone input
+      ansible.builtin.command:
+        cmd: flatpak override --user --filesystem=xdg-run/pipewire-0 com.valvesoftware.Steam
+      changed_when: false

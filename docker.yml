@@ -1,5 +1,5 @@
 ---
 - name: Apply docker role
-  hosts: webservers:workstations
+  hosts: dev:homeautomation:webservers
   roles:
     - docker

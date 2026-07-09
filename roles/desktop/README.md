@@ -4,10 +4,10 @@ Configures a Linux desktop environment with common applications on Ubuntu.
 
 Set `desktop_environment` per host to choose the environment:
 
-- `tiling` (default): bspwm/niri window managers with a lemurs/ly display manager, plus dunst, eww, rofi, and pavolume. Pair with the `bspwm` or `niri` role.
+- `niri` or `bspwm`: the named tiling window manager (applied by `desktop.yml`) with a lemurs/ly display manager, plus dunst, eww, rofi, and pavolume.
 - `gnome`: GNOME Shell with gdm3 (installs `ubuntu-desktop-minimal` and the Xorg session), skipping the WM-specific tools.
 
-Applications common to both (browsers, flatpak, fonts, GRUB, LACT, etc.) are installed regardless.
+Applications common to all (browsers, flatpak, fonts, GRUB, LACT, etc.) are installed regardless.
 
 ## Usage
 

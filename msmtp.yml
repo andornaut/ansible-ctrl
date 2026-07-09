@@ -1,5 +1,5 @@
 ---
 - name: Apply msmtp role
-  hosts: webservers:workstations
+  hosts: all
   roles:
     - msmtp

@@ -4,8 +4,10 @@ Installs [BSPWM](https://github.com/baskerville/bspwm) and related desktop utili
 
 ## Usage
 
+Applied by the `desktop` playbook when `desktop_environment == "bspwm"`, or run the role directly by tag:
+
 ```bash
-make bspwm
+ansible-playbook --ask-become-pass desktop.yml --tags bspwm
 ```
 
 ## Variables

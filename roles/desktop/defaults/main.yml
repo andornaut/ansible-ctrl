@@ -1,8 +1,8 @@
 ---
 # desktop_environment is required and has no default: set it per host to
-# "tiling" (bspwm/niri window managers with lemurs/ly) or "gnome" (GNOME Shell
-# with gdm3). Controls which display manager and WM-specific tools (dunst, eww,
-# rofi, pavolume) are installed. The role fails fast if it is unset.
+# "niri" or "bspwm" (tiling window managers with lemurs/ly, plus dunst, eww,
+# rofi, pavolume) or "gnome" (GNOME Shell with gdm3). The matching window
+# manager role is applied by desktop.yml. The role fails fast if it is unset.
 
 desktop_eww_bar: bar
 # Extra kernel parameters written to GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves
@@ -10,11 +10,55 @@ desktop_eww_bar: bar
 desktop_grub_cmdline_linux_default: ""
 desktop_install_firefox_apt: false
 desktop_install_insync: false
+# Out-of-tree DKMS Super I/O drivers for CPU/case fan control. Enable the one
+# matching the board's chip (they expose the pwm/fan hwmon that CoolerControl
+# manages). See it87.yml and nct6687d.yml.
+# it87: ITE IT8696E/IT8883 on Gigabyte AM5 boards (the mainline it87 driver does
+# not support these chips).
+desktop_install_it87: false
+desktop_it87_repo: https://github.com/frankcrawford/it87.git
+desktop_it87_version: master
+# nct6687d: Nuvoton NCT6687D on MSI boards.
+desktop_install_nct6687d: false
+desktop_nct6687d_repo: https://github.com/Fred78290/nct6687d.git
+desktop_nct6687d_version: master
 # Web browser set as the xdg-settings default: "firefox" or "google-chrome".
 desktop_default_browser: firefox
 # Display manager settings
 desktop_install_ly: false
 desktop_install_lemurs: false
+
+# Archive MIME types associated with file-roller as the default handler. Limited
+# to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are
+# intentionally excluded so they keep opening in their proper handlers.
+desktop_file_roller_mime_types:
+  - application/zip
+  - application/x-7z-compressed
+  - application/vnd.rar
+  - application/x-rar
+  - application/x-tar
+  - application/gzip
+  - application/x-compressed-tar
+  - application/x-bzip-compressed-tar
+  - application/x-xz-compressed-tar
+  - application/x-xz
+  - application/x-lzma-compressed-tar
+  - application/zstd
+  - application/x-zstd-compressed-tar
+
+# Parental controls (malcontent OARS filter + Chrome SafeSearch).
+# Set desktop_install_parental_controls: true per host to enable.
+desktop_install_parental_controls: false
+# OARS content rating ceilings. Apps rated above the given level are hidden in
+# gnome-software. Levels: none < mild < moderate < intense.
+# Example: sex-nudity: mild blocks anything rated moderate or intense.
+desktop_parental_controls_oars: {}
+# Chrome managed policies written to /etc/opt/chrome/policies/managed/family.json
+# when desktop_install_parental_controls is true. Override per host to adjust.
+desktop_chrome_family_policies:
+  ForceGoogleSafeSearch: true
+  ForceYouTubeRestrict: 1
+  DnsOverHttpsMode: "off"
 
 # Target desktop user account. Defaults to the remote user running the play;
 # override per host (e.g. nomnomnom). This is NOT applied to every task in the
