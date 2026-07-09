@@ -3,9 +3,9 @@
   tags: kicad
   become: true
   block:
-    - name: Install Kicad 10.0 apt repository
+    - name: Install Kicad release apt repository
       ansible.builtin.apt_repository:
-        repo: ppa:kicad/kicad-10.0-releases
+        repo: "ppa:kicad/kicad-{{ hobbies_kicad_version }}-releases"
         update_cache: true
 
     - name: Install Kicad package
@@ -34,7 +34,7 @@
     - name: Clone kicad-jlcpcb-tools plugin at the latest release tag
       ansible.builtin.git:
         repo: https://github.com/Bouni/kicad-jlcpcb-tools.git
-        dest: "{{ hobbies_user_home }}/.local/share/kicad/10.0/scripting/plugins/kicad-jlcpcb-tools"
+        dest: "{{ hobbies_user_home }}/.local/share/kicad/{{ hobbies_kicad_version }}/scripting/plugins/kicad-jlcpcb-tools"
         version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
         update: true
 
@@ -109,7 +109,7 @@
         mode: "0755"
       become: true
 
-    - name: "Download and extract Freerouting ({{ hobbies_freerouting_dir }})"
+    - name: Download and extract Freerouting
       ansible.builtin.unarchive:
         src: "{{ hobbies_freerouting_download_url }}"
         dest: /opt/freerouting
