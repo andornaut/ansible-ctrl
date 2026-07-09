@@ -17,6 +17,3 @@ nas_raid_mount_directory: /media/nas
 # Account whose home directory holds the LUKS key file (see nas_key_file).
 # Defaults to the remote user running the play; override per host.
 nas_user: "{{ ansible_facts['user_id'] }}"
-# Home directory of nas_user, resolved from the passwd database (a getent lookup
-# runs in tasks/main.yml).
-nas_user_home: "{{ ansible_facts['getent_passwd'][nas_user][4] }}"

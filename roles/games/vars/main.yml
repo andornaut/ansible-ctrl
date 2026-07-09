@@ -1,0 +1,10 @@
+---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+# gamescope wraps games in a micro-compositor for scaling and framerate control.
+# This is a platform probe, not a preference: the apt package only exists on
+# Ubuntu >= 26.04, and forcing it true on an older release just fails the install.
+# Flatpak games use the Vulkan layer extension in games_flatpak_extensions regardless.
+games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"

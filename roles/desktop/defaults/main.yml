@@ -29,10 +29,6 @@ desktop_install_ly: false
 desktop_install_lemurs: false
 # Must be one of https://ziglang.org/download/community-mirrors.txt
 desktop_zig_mirror: https://ziglang.freetls.fastly.net
-# Platform key into https://ziglang.org/download/index.json. Zig spells these with
-# the kernel architecture names that Ansible reports, so no mapping is needed here
-# (unlike dev_arch/docker_arch, which translate to the Debian names apt expects).
-desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
 
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are
@@ -72,14 +68,6 @@ desktop_chrome_family_policies:
 # installs via become_user) or read from that user's home use it. It is not a
 # blanket privilege-escalation setting.
 desktop_user: "{{ ansible_facts['user_id'] }}"
-# Home directory of desktop_user, resolved from the passwd database (a getent
-# lookup runs in tasks/main.yml). Used only where a task needs the literal home
-# path (e.g. locating per-user flatpak exports when setting the default browser).
-desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
-# UID of desktop_user, from the same getent lookup. `systemctl --user` locates the
-# target user's bus through XDG_RUNTIME_DIR=/run/user/<uid>, which is not set when
-# Ansible escalates to a user it did not log in as.
-desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 
 # Apt packages to replace with flatpak equivalents
 desktop_flatpak_replacements:

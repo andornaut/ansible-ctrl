@@ -1,0 +1,8 @@
+---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+# Home directory of nas_user, resolved from the passwd database (a getent lookup
+# runs in tasks/main.yml). Override nas_key_file, not this, to move the LUKS key.
+nas_user_home: "{{ ansible_facts['getent_passwd'][nas_user][4] }}"
