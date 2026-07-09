@@ -2,24 +2,60 @@
 # Workaround for Devices tab crash: https://github.com/OrcaSlicer/OrcaSlicer/issues/10756#issuecomment-4527372832
 - name: Install OrcaSlicer
   tags: orcaslicer
-  become: true
-  become_user: "{{ hobbies_user }}"
   block:
-    # - name: Remove OrcaSlicer AppImage
-    #   ansible.builtin.file:
-    #     path: /usr/local/bin/OrcaSlicer
-    #     state: absent
-    #   become: true
+    # The flatpak and flatpak_remote modules both resolve the flatpak executable and
+    # fail if it is absent. The desktop role installs it too, but package installs
+    # stay scoped to their own role, so hobbies.yml can run on a host that has never
+    # had the desktop role applied.
+    - name: Install flatpak package
+      ansible.builtin.apt:
+        name: flatpak
+        state: present
+        install_recommends: false
+      become: true
 
-    - name: Install OrcaSlicer flatpak
-      community.general.flatpak:
-        name: com.orcaslicer.OrcaSlicer
-        method: user
+    - name: Install and configure OrcaSlicer for the target user
+      become: true
+      become_user: "{{ hobbies_user }}"
+      block:
+        - name: Add flathub repository
+          community.general.flatpak_remote:
+            name: flathub
+            flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+            method: user
 
-    - name: Configure OrcaSlicer WebKit environment
-      ansible.builtin.command: >-
-        flatpak override --user
-        --env=WEBKIT_DISABLE_COMPOSITING_MODE=0
-        --env=WEBKIT_DISABLE_DMABUF_RENDERER=0
-        com.orcaslicer.OrcaSlicer
-      changed_when: true
+        - name: Install OrcaSlicer flatpak
+          community.general.flatpak:
+            name: com.orcaslicer.OrcaSlicer
+            method: user
+
+        # `flatpak override` rewrites the per-user override file unconditionally and
+        # reports nothing, so compare `--show` output either side of it.
+        - name: Configure OrcaSlicer WebKit environment
+          ansible.builtin.shell:
+            cmd: |
+              before="$(flatpak override --user --show com.orcaslicer.OrcaSlicer)"
+              flatpak override --user \
+                --env=WEBKIT_DISABLE_COMPOSITING_MODE=0 \
+                --env=WEBKIT_DISABLE_DMABUF_RENDERER=0 \
+                com.orcaslicer.OrcaSlicer
+              after="$(flatpak override --user --show com.orcaslicer.OrcaSlicer)"
+              [ "${before}" = "${after}" ] || echo CHANGED
+            executable: /bin/bash
+          register: hobbies_orcaslicer_override
+          changed_when: "'CHANGED' in hobbies_orcaslicer_override.stdout"
+
+    # CLEANUP (added 2026-07-09): remove once every host in hobbies has run this role
+    # at least once.
+    #
+    # OrcaSlicer is installed as a user flatpak only. Earlier revisions of this role
+    # dropped an AppImage in /usr/local/bin; remove it so the two cannot diverge.
+    # Runs last so a failed flatpak install never leaves the host with neither, and
+    # sits outside the become_user block above because the file is root-owned:
+    # become_user is inherited independently of become, so a task nested there would
+    # escalate to hobbies_user rather than root.
+    - name: Remove OrcaSlicer AppImage
+      ansible.builtin.file:
+        path: /usr/local/bin/OrcaSlicer
+        state: absent
+      become: true
