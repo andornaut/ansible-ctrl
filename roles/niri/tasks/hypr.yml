@@ -27,7 +27,7 @@
       ansible.builtin.set_fact:
         niri_hyprutils_version: "{{ niri_hyprutils_release.name }}"
 
-    - name: Download and unarchive hyprutils {{ niri_hyprutils_version }}
+    - name: Download and unarchive hyprutils
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprutils/archive/refs/tags/\
           {{ niri_hyprutils_version }}/.tar.gz"
@@ -79,7 +79,7 @@
       ansible.builtin.set_fact:
         niri_hyprlang_version: "{{ niri_hyprlang_release.name }}"
 
-    - name: Download and unarchive hyprlang {{ niri_hyprlang_version }}
+    - name: Download and unarchive hyprlang
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprlang/archive/refs/tags/\
           {{ niri_hyprlang_version }}/.tar.gz"
@@ -131,7 +131,7 @@
       ansible.builtin.set_fact:
         niri_hyprgraphics_version: "{{ niri_hyprgraphics_release.name }}"
 
-    - name: Download and unarchive hyprgraphics {{ niri_hyprgraphics_version }}
+    - name: Download and unarchive hyprgraphics
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprgraphics/archive/refs/tags/\
           {{ niri_hyprgraphics_version }}/.tar.gz"
@@ -178,7 +178,7 @@
       ansible.builtin.set_fact:
         niri_hypr_scanner_version: "{{ niri_hypr_scanner_release.name }}"
 
-    - name: Download and unarchive hyprwayland-scanner {{ niri_hypr_scanner_version }}
+    - name: Download and unarchive hyprwayland-scanner
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprwayland-scanner/archive/refs/tags/\
           {{ niri_hypr_scanner_version }}.tar.gz"
@@ -226,7 +226,7 @@
       ansible.builtin.set_fact:
         niri_hypridle_version: "{{ niri_hypridle_release.name }}"
 
-    - name: Download and unarchive hypridle {{ niri_hypridle_version }}
+    - name: Download and unarchive hypridle
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hypridle/archive/refs/tags/\
           {{ niri_hypridle_version }}/.tar.gz"
@@ -281,7 +281,7 @@
       ansible.builtin.set_fact:
         niri_hyprlock_version: "{{ niri_hyprlock_release.name }}"
 
-    - name: Download and unarchive hyprlock {{ niri_hyprlock_version }}
+    - name: Download and unarchive hyprlock
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprlock/archive/refs/tags/\
           {{ niri_hyprlock_version }}.tar.gz"
@@ -330,7 +330,7 @@
       ansible.builtin.set_fact:
         niri_hyprpaper_version: "{{ niri_hyprpaper_release.name }}"
 
-    - name: Download and unarchive hyprpaper {{ niri_hyprpaper_version }}
+    - name: Download and unarchive hyprpaper
       ansible.builtin.unarchive:
         src: "https://github.com/hyprwm/hyprpaper/archive/refs/tags/\
           {{ niri_hyprpaper_version }}.tar.gz"

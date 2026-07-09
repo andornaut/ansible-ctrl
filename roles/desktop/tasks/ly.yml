@@ -22,7 +22,7 @@
                 return_content: true
               register: desktop_zig_versions
 
-            # ly requires zig v0.15.0+.
+            # ly requires zig v0.16.0+.
             - name: Set latest stable zig version
               ansible.builtin.set_fact:
                 desktop_zig_version: >-
@@ -37,11 +37,17 @@
                 state: directory
               register: desktop_zig_tmp
 
+            # The ziglang.org origin serves this ~55MB tarball at ~50KB/s (~20 minutes), because its
+            # bandwidth is donated. The Zig project publishes https://ziglang.org/download/community-mirrors.txt
+            # and asks tooling to fetch from a mirror instead. Mirrors host the tarball under its basename.
+            # Verify the origin's shasum, since mirrors are third parties.
             - name: Download zig compiler archive
               ansible.builtin.get_url:
-                url: "{{ desktop_zig_versions.json[desktop_zig_version]['x86_64-linux'].tarball }}"
+                url: "{{ desktop_zig_mirror }}/{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].tarball | basename }}"
+                checksum: "sha256:{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].shasum }}"
                 dest: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
                 mode: "0644"
+                timeout: 30
 
             - name: Create zig installation directory
               ansible.builtin.file:
@@ -96,6 +102,18 @@
 
     - name: Configure ly
       block:
+        # "zig build installnoconf" writes config.ini.example but not config.ini,
+        # so that upgrades leave an existing config alone. Seed it once, otherwise
+        # the lineinfile tasks below have no file to edit on a fresh host.
+        - name: Seed ly configuration from the example
+          ansible.builtin.copy:
+            src: /etc/ly/config.ini.example
+            dest: /etc/ly/config.ini
+            remote_src: true
+            force: false
+            mode: "0644"
+          become: true
+
         - name: Look in /usr/share and /usr/local/share for wayland-sessions
           ansible.builtin.lineinfile:
             line: "waylandsessions = /usr/share/wayland-sessions:/usr/local/share/wayland-sessions"

@@ -13,21 +13,14 @@
     update_cache: true
   become: true
 
-- name: Install meson (versioned package on noble)
-  ansible.builtin.apt:
-    name: meson-1.5
-    state: latest
-    install_recommends: false
-  become: true
-  when: ansible_facts['distribution_version'] is version('25.04', '<')
-
+# The "meson" package on noble is 1.3, which is too old to build rofi. Noble
+# also ships a versioned "meson-1.5" package; later releases do not.
 - name: Install meson
   ansible.builtin.apt:
-    name: meson
+    name: "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
     state: latest
     install_recommends: false
   become: true
-  when: ansible_facts['distribution_version'] is version('25.04', '>=')
 
 - name: Create a temporary directory
   ansible.builtin.tempfile:

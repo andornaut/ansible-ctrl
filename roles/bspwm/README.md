@@ -1,6 +1,10 @@
 # ansible-role-bspwm
 
-Installs [BSPWM](https://github.com/baskerville/bspwm) and related desktop utilities on Ubuntu.
+Installs [BSPWM](https://github.com/baskerville/bspwm) and the X11 utilities used by its session on Ubuntu.
+
+BSPWM and the [baskerville](https://github.com/baskerville) tools listed in `bspwm_projects` are built from source into `/usr/local/bin`.
+
+This role installs only the X11 tools that have a true Wayland replacement in the [niri](../niri/) role: `scrot` (grim and slurp), `xautolock` (hypridle), `xbacklight` (brightnessctl), plus `dex` and `xorg`. The X11 tools that both sessions use, because niri runs them as XWayland clients, are installed by the `desktop` role.
 
 ## Usage
 
@@ -9,6 +13,13 @@ Applied by the `desktop` playbook when `desktop_environment == "bspwm"`, or run 
 ```bash
 ansible-playbook --ask-become-pass desktop.yml --tags bspwm
 ```
+
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| bspwm | Everything in this role |
+| x11 | X11 packages and build dependencies only, skipping the source builds |
 
 ## Variables
 

@@ -60,14 +60,8 @@
         owner: root
         group: root
         mode: "0755"
+      notify: Restart eww
       become: true
-
-    - name: Reload eww
-      ansible.builtin.systemd_service:
-        name: eww.service
-        daemon_reload: true
-        scope: user
-        state: restarted
 
 - name: Configure eww service
   block:
@@ -101,3 +95,7 @@
         enabled: true
         scope: user
         state: started
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"

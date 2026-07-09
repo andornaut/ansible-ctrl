@@ -1,4 +1,12 @@
 ---
+- name: Install pavolume build dependencies
+  ansible.builtin.apt:
+    name: libpulse-dev
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+
 - name: Clone pavolume git repository
   ansible.builtin.git:
     repo: "https://github.com/andornaut/pavolume.git"

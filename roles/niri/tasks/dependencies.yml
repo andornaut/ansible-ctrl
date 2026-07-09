@@ -27,7 +27,6 @@
           - libxcb-cursor-dev
           - libxkbcommon-dev
           - wayland-scanner++
-          - wl-clipboard
           - xdg-desktop-portal
           - xdg-desktop-portal-gnome
           - xdg-desktop-portal-gtk
@@ -82,7 +81,7 @@
       ansible.builtin.set_fact:
         niri_libsdbus_version: "{{ niri_libsdbus_release.name }}"
 
-    - name: Download and unarchive libsdbus {{ niri_libsdbus_version }}
+    - name: Download and unarchive libsdbus
       ansible.builtin.unarchive:
         src: "https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/\
           {{ niri_libsdbus_version }}.tar.gz"
@@ -142,7 +141,7 @@
         state: directory
       register: niri_wayland_scanner_tmp
 
-    - name: Download and unarchive Wayland {{ niri_wayland_scanner_version }}
+    - name: Download and unarchive Wayland
       ansible.builtin.unarchive:
         src: "{{ niri_wayland_scanner_download_url }}"
         dest: "{{ niri_wayland_scanner_tmp.path }}"
@@ -199,7 +198,7 @@
         state: directory
       register: niri_wayland_protocols_tmp
 
-    - name: Download and unarchive wayland-protocols {{ niri_wayland_protocols_version }}
+    - name: Download and unarchive wayland-protocols
       ansible.builtin.unarchive:
         src: "{{ niri_wayland_protocols_download_url }}"
         dest: "{{ niri_wayland_protocols_tmp.path }}"
@@ -252,7 +251,7 @@
         state: directory
       register: niri_hyprland_protocols_tmp
 
-    - name: Download and unarchive hyprland-protocols {{ niri_hyprland_protocols_version }}
+    - name: Download and unarchive hyprland-protocols
       ansible.builtin.unarchive:
         src: "{{ niri_hyprland_protocols_download_url }}"
         dest: "{{ niri_hyprland_protocols_tmp.path }}"
