@@ -31,12 +31,12 @@ example
 ### Inventory and host variables
 
 - `hosts` (gitignored): inventory file
-- `host_vars/<hostname>.yml` (gitignored): per-host variable overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes, and any host-specific configuration
+- `host_vars/<hostname>.yml` (gitignored): per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes
 - Role defaults live in `roles/<role>/defaults/main.yml`; override them in `host_vars/`, not in defaults
 
 ### Secrets
 
-Secrets (API tokens, SMTP passwords, Cloudflare tokens, HA long-lived tokens) are stored in `host_vars/` files, which are gitignored. For shared or committed secrets, use [ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html):
+Secrets (API tokens, SMTP passwords, HA long-lived tokens) live in the gitignored `host_vars/` files. For shared or committed secrets, use [ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html):
 
 ```bash
 ansible-vault encrypt host_vars/example.yml
@@ -53,8 +53,8 @@ python3 -m venv /tmp/ansible-lint-venv && /tmp/ansible-lint-venv/bin/pip install
 
 ## Usage
 
-Each playbook in the project root (every root `.yml` except `requirements.yml`) has a `make` target of the
-same name, which installs dependencies first, then runs `ansible-playbook --ask-become-pass <playbook>.yml`.
+Every root `.yml` except `requirements.yml` is a playbook with a `make` target of the same name, which installs
+dependencies first, then runs `ansible-playbook --ask-become-pass <playbook>.yml`.
 
 ```bash
 # List the targets
@@ -91,8 +91,8 @@ ansible-playbook --ask-become-pass hobbies.yml --tags orcaslicer
 [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) according to each host's `desktop_environment`
 (`bspwm`, `niri`, or `gnome`).
 
-Automated GitHub repo maintenance (ai-maintainer) is a tag in the [dev](roles/dev/README.md) role, not a role
-of its own. The `make ai_maintainer` target refers to a playbook that does not exist; run
+Automated GitHub repo maintenance (ai-maintainer) is a tag in the [dev](roles/dev/README.md) role, not a role.
+The `make ai_maintainer` target refers to a playbook that does not exist; run
 `ansible-playbook dev.yml --tags ai_maintainer` instead.
 
 ## Troubleshooting

@@ -9,7 +9,7 @@ Set `desktop_environment` per host to choose the environment:
 
 Applications common to all (browsers, flatpak, fonts, GRUB, LACT, etc.) are installed regardless.
 
-On tiling hosts this role installs the session utilities that a window manager does not provide for itself (blueman, lxappearance, network-manager-gnome, policykit-1-gnome), plus the X11 tools that both tiling sessions use, since niri runs them as XWayland clients (feh, suckless-tools, wmctrl, xclip, xinput, xsel). Only the tools with a true Wayland replacement belong to the [bspwm](../bspwm/) role (X11) and the [niri](../niri/) role (Wayland).
+On tiling hosts this role also installs the session utilities a window manager does not provide for itself (blueman, lxappearance, network-manager-gnome, policykit-1-gnome) and the X11 tools both tiling sessions use, since niri runs them as XWayland clients (feh, suckless-tools, wmctrl, xclip, xinput, xsel). Only the tools with a true Wayland replacement belong to the [bspwm](../bspwm/) role (X11) and the [niri](../niri/) role (Wayland).
 
 ## Usage
 
@@ -50,18 +50,6 @@ matching the board's chip.
 
 `desktop_default_browser` (`firefox` or `google-chrome`) selects which browser `xdg-settings` marks as the
 default handler.
-
-## Apt pins
-
-Packages that flatpak replaces (`desktop_flatpak_replacements`, plus `snapd` and its gnome-software plugin)
-are purged and then pinned to priority `-1` in `/etc/apt/preferences.d/flatpak-replacements`. The apt
-`firefox` package is pinned the same way, in `firefox-no-apt`, whenever Firefox is installed as a flatpak.
-A dpkg hold is not enough: dpkg discards a hold for a package it has no record of, which is exactly the
-state a purged package is in, so only a negative pin keeps apt from pulling these back in.
-
-`desktop_install_firefox_apt: true` reverses that: it removes the `firefox-no-apt` pin, adds the Mozilla apt
-repo, and pins `firefox*` from that origin to priority `1000` (`mozilla-firefox`) so it outranks Ubuntu's
-snap-transitional package.
 
 ## Variables
 
