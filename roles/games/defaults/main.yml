@@ -4,6 +4,12 @@
 # become_user (method: user, never root). Not a blanket privilege-escalation setting.
 games_user: "{{ ansible_facts['user_id'] }}"
 
+# gamescope wraps games in a micro-compositor for scaling and framerate control.
+# This is a platform probe, not a preference: the apt package only exists on
+# Ubuntu >= 26.04, and forcing it true on an older release just fails the install.
+# Flatpak games use the Vulkan layer extension in games_flatpak_extensions regardless.
+games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"
+
 # Flatpak applications installed and configured for games_user.
 games_flatpak_apps:
   - com.heroicgameslauncher.hgl
@@ -13,3 +19,28 @@ games_flatpak_apps:
   - net.lutris.Lutris
   - org.libretro.RetroArch
   - org.openjkdf2.OpenJKDF2
+
+# The org.freedesktop.Platform version that every game runtime here accepts.
+# Verify after a runtime bump with:
+#   flatpak remote-info flathub com.valvesoftware.Steam | grep Runtime
+# Note that community.general.flatpak matches on application ID only, so changing
+# the branch will not replace an extension already installed on an older one;
+# uninstall it first.
+games_flatpak_runtime_branch: "25.08"
+
+# Sandboxed flatpak games cannot see the host's mangohud or gamescope binaries,
+# so the Vulkan layers must also be installed inside flatpak. A branch is
+# required because flathub publishes these extensions on several at once.
+games_flatpak_extensions:
+  - org.freedesktop.Platform.VulkanLayer.MangoHud//{{ games_flatpak_runtime_branch }}
+  - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
+
+# `flatpak override --user` arguments, keyed by application ID. The "default" key
+# applies to every app in games_flatpak_apps; a per-application key is merged on top.
+games_flatpak_overrides:
+  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+  default:
+    - --env=XCURSOR_THEME=Adwaita
+  com.valvesoftware.Steam:
+    # Read-write access to the PipeWire socket for microphone input.
+    - --filesystem=xdg-run/pipewire-0

@@ -1,31 +1,47 @@
 ---
-- name: Install steam-devices apt package
+# The flatpak and flatpak_remote modules both resolve the flatpak executable and fail if
+# it is absent. The desktop role installs it too, but package installs stay scoped to
+# their own role, so games.yml can run on a host that has never had the desktop role
+# applied.
+- name: Install flatpak package
   ansible.builtin.apt:
-    name:
-      # Configures udev rules to support gamepads, etc.
-      - steam-devices
-    state: latest
+    name: flatpak
+    state: present
     install_recommends: false
-    update_cache: true
   become: true
 
 - name: Install and configure flatpak applications for the target user
   become: true
   become_user: "{{ games_user }}"
   block:
-    - name: Install flatpak packages
+    # The desktop role adds this remote for desktop_user. A per-user flatpak
+    # installation has its own remotes, so games_user needs its own.
+    - name: Add flathub repository
+      community.general.flatpak_remote:
+        name: flathub
+        flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+        method: user
+
+    - name: Install flatpak applications
       community.general.flatpak:
         name: "{{ games_flatpak_apps }}"
         method: user
 
-    - name: Override cursor theme for flatpak GUI applications
-      # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-      ansible.builtin.command:
-        cmd: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
-      loop: "{{ games_flatpak_apps }}"
-      changed_when: false
+    - name: Install flatpak Vulkan layer extensions
+      community.general.flatpak:
+        name: "{{ games_flatpak_extensions }}"
+        method: user
 
-    - name: Grant Steam read-write access to PipeWire socket for microphone input
-      ansible.builtin.command:
-        cmd: flatpak override --user --filesystem=xdg-run/pipewire-0 com.valvesoftware.Steam
-      changed_when: false
+    # `flatpak override` rewrites the per-user override file unconditionally and reports
+    # nothing, so compare `--show` output either side of it to report changes honestly.
+    - name: Apply flatpak overrides
+      ansible.builtin.shell:
+        cmd: |
+          before="$(flatpak override --user --show {{ item }})"
+          flatpak override --user {{ (games_flatpak_overrides.default + (games_flatpak_overrides[item] | default([]))) | join(' ') }} {{ item }}
+          after="$(flatpak override --user --show {{ item }})"
+          [ "${before}" = "${after}" ] || echo CHANGED
+        executable: /bin/bash
+      loop: "{{ games_flatpak_apps }}"
+      register: games_flatpak_override
+      changed_when: "'CHANGED' in games_flatpak_override.stdout"
