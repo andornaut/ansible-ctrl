@@ -179,57 +179,10 @@
             insertafter: "^session.*pam_unix.so"
           become: true
 
-    - name: Configure system integration
-      block:
-        # CLEANUP (added 2026-07-10): remove once every host that runs ly has converged.
-        #
-        # The current release installs only ly@.service, but installnoconf leaves a superseded
-        # ly.service behind (and some hosts carry a hand-written /etc copy). Both hard-code
-        # tty2, so a stray one starts a second greeter on ly@tty2's tty. No daemon_reload
-        # here: the next task issues one first.
-        - name: Find the superseded ly units
-          ansible.builtin.stat:
-            path: "{{ item }}"
-          register: desktop_ly_superseded_units
-          loop:
-            - /etc/systemd/system/ly.service
-            - /usr/lib/systemd/system/ly.service
-
-        # Stop it while systemd can still see the unit, before the files are removed.
-        # masked: false because a host flipped from another DM arrives with ly.service masked
-        # (main.yml masks it when desktop_install_ly is false), and a masked unit can't be
-        # stopped. The module applies masked, then enabled, then state, so one call unmasks
-        # and stops.
-        - name: Stop the superseded ly unit
-          ansible.builtin.systemd_service:
-            name: ly.service
-            state: stopped
-            enabled: false
-            masked: false
-          become: true
-          when: desktop_ly_superseded_units.results | selectattr('stat.exists') | list | length > 0
-
-        - name: Remove the superseded ly units
-          ansible.builtin.file:
-            path: "{{ item.item }}"
-            state: absent
-          become: true
-          loop: "{{ desktop_ly_superseded_units.results | selectattr('stat.exists') | list }}"
-          loop_control:
-            label: "{{ item.item }}"
-
-        - name: Prevent TTY conflicts
-          ansible.builtin.systemd_service:
-            name: getty@tty2.service
-            daemon_reload: true
-            state: stopped
-            enabled: false
-          become: true
-
-        - name: Enable ly display manager
-          ansible.builtin.systemd_service:
-            name: ly@tty2.service
-            daemon_reload: true
-            enabled: true
-            masked: false
-          become: true
+    - name: Enable ly display manager
+      ansible.builtin.systemd_service:
+        name: ly@tty2.service
+        daemon_reload: true
+        enabled: true
+        masked: false
+      become: true
