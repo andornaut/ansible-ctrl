@@ -32,6 +32,15 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
+# Restart rather than start: the unit is a oneshot with RemainAfterExit=yes, so it is
+# already active on a converged host and `started` would do nothing. It re-downloads every
+# filter list and rebuilds the per-user cdb, which is why only a changed filter fires it.
+- name: Recompile the malcontent web filter lists
+  ansible.builtin.systemd_service:
+    name: malcontent-webd-update.service
+    state: restarted
+  become: true
+
 - name: Update font cache
   ansible.builtin.command: fc-cache --force
   become: true
