@@ -1,6 +1,5 @@
 ---
-# Deferred to a handler so that it runs after eww.service is installed, which
-# happens in a later block than the binary it restarts.
+# Deferred so it runs after eww.service is installed in a later block.
 - name: Restart eww
   ansible.builtin.systemd_service:
     name: eww.service
@@ -12,11 +11,8 @@
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
 
-# hypridle is built and started by the niri role, which desktop.yml applies after this
-# one. Handlers flush at the end of the play, so on a full run the unit exists by the
-# time this fires, even on a host being provisioned for the first time. A tag selection
-# that writes the config but skips the niri role (`--tags idle`) leaves the unit absent,
-# which is tolerated: hypridle reads the config when the niri role first starts it.
+# hypridle is built and started by the niri role, applied after this one. The unit may not
+# exist yet on a --tags idle run, which failed_when below tolerates.
 - name: Restart hypridle
   ansible.builtin.systemd_service:
     name: hypridle.service
@@ -32,9 +28,8 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
-# Restart rather than start: the unit is a oneshot with RemainAfterExit=yes, so it is
-# already active on a converged host and `started` would do nothing. It re-downloads every
-# filter list and rebuilds the per-user cdb, which is why only a changed filter fires it.
+# Oneshot with RemainAfterExit, so restart rather than start; it refetches every filter
+# list, so only a changed filter fires it.
 - name: Recompile the malcontent web filter lists
   ansible.builtin.systemd_service:
     name: malcontent-webd-update.service
@@ -46,8 +41,8 @@
   become: true
   changed_when: true
 
-# hicolor ships an icon-theme.cache, which GTK reads in preference to scanning the
-# directory, so a newly added icon stays invisible until the cache is rebuilt.
+# GTK reads hicolor's icon-theme.cache in preference to scanning, so a new icon stays
+# invisible until it is rebuilt.
 - name: Update hicolor icon cache
   ansible.builtin.command: gtk-update-icon-cache --force /usr/share/icons/hicolor
   become: true
@@ -58,10 +53,7 @@
   become: true
   changed_when: true
 
-# logind re-reads its configuration only on restart; it has no reload verb. Restarting it
-# does not end the logged-in sessions, which it re-adopts from /run/systemd/sessions, and
-# xss-lock reacquires its sleep inhibitor on its own once logind is back, without needing a
-# restart of its own.
+# logind re-reads its config only on restart (no reload verb); it re-adopts live sessions.
 - name: Restart systemd-logind
   ansible.builtin.systemd_service:
     name: systemd-logind
