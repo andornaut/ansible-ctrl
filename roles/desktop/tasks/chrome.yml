@@ -11,17 +11,45 @@
   become: true
   when: desktop_chrome_check.rc != 0
 
+# google-chrome.desktop is a plain package file, not a conffile, so dpkg overwrites it
+# whenever Chrome self-updates from its own apt repo, reverting the flag until the next
+# run of this role. Patch it anyway, then shadow it: XDG_DATA_DIRS puts /usr/local/share
+# ahead of /usr/share, and dpkg never writes under /usr/local, so the copy is what
+# actually launches Chrome and it holds the flag continuously. Patching the packaged
+# file first is what keeps the copy below idempotent (identical content, no checksum
+# difference) and lets it pick up new Actions or MimeTypes that Chrome adds upstream.
+#
+# The repeating group swallows the flags already following the binary and the
+# replacement writes exactly one back, so this repairs a wrong value ("=x11") or the
+# duplicates that an earlier, non-idempotent version of this task appended on every run.
+# A negative lookahead would instead skip such a line forever, leaving the damage in
+# place. The separator is `[ \t]+` rather than `\s+` because `\s` matches a newline,
+# which would let the group swallow the line after Exec=.
 - name: Configure Google Chrome for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/google-chrome.desktop
-    regexp: '^Exec\S*=([/\w-]*)\S*(.*)$'
-    replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
+    regexp: '^(Exec=\S+)(?:[ \t]+--ozone-platform-hint=\S+)*'
+    replace: '\1 --ozone-platform-hint=auto'
   become: true
 
-- name: Set Google Chrome as default browser
-  ansible.builtin.command: xdg-settings set default-web-browser google-chrome.desktop
-  changed_when: true
-  when: desktop_default_browser == "google-chrome"
+- name: Create the local applications directory
+  ansible.builtin.file:
+    path: /usr/local/share/applications
+    state: directory
+    mode: "0755"
+  become: true
+
+# Same desktop id ("google-chrome.desktop"), so xdg-settings and the default-browser
+# tasks are unaffected: they resolve the id through XDG_DATA_DIRS and find this first.
+- name: Shadow the Google Chrome desktop entry so the Wayland flag survives dpkg
+  ansible.builtin.copy:
+    src: /usr/share/applications/google-chrome.desktop
+    dest: /usr/local/share/applications/google-chrome.desktop
+    remote_src: true
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
 
 - name: Create Chrome managed policies directory
   ansible.builtin.file:

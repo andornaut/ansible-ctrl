@@ -14,6 +14,16 @@
       Set it in host_vars for this host.
     success_msg: Desktop environment "{{ desktop_environment }}" is valid
 
+# Fail here rather than in default_browser.yml, which resolves the value through a dict
+# lookup in vars/main.yml and so would raise an opaque templating error, and only after
+# chrome.yml, flatpak.yml and firefox.yml have already purged and pinned packages.
+- name: Validate default browser
+  ansible.builtin.assert:
+    that:
+      - desktop_default_browser in ["firefox", "google-chrome"]
+    fail_msg: desktop_default_browser must be "firefox" or "google-chrome".
+    success_msg: Default browser "{{ desktop_default_browser }}" is valid
+
 - name: Install common system packages
   ansible.builtin.import_tasks: apt.yml
 
@@ -108,6 +118,16 @@
     - name: Configure Firefox
       ansible.builtin.import_tasks: firefox.yml
       tags: firefox
+
+    # After chrome.yml and firefox.yml, which install the .desktop files it selects
+    # between. Tagged with both of them as well as itself, so that `--tags firefox`
+    # still repoints the default browser after switching install methods.
+    - name: Configure the default browser
+      ansible.builtin.import_tasks: default_browser.yml
+      tags:
+        - chrome
+        - default-browser
+        - firefox
 
     - name: Configure fonts
       ansible.builtin.import_tasks: fonts.yml
