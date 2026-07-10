@@ -30,6 +30,16 @@ desktop_install_lemurs: false
 # Must be one of https://ziglang.org/download/community-mirrors.txt
 desktop_zig_mirror: https://ziglang.freetls.fastly.net
 
+# Idle timeouts in minutes: the screen blanks, then the session locks, then the monitor
+# powers off. They must not decrease in that order; idle.yml fails fast if they do. Only
+# X11 tells blanking apart from powering the monitor down, so bspwm honours all three,
+# niri ignores the blank timeout, and GNOME ignores the power-off timeout. See idle.yml.
+desktop_screen_blank_minutes: 10
+desktop_screen_lock_minutes: 20
+desktop_screen_off_minutes: 60
+# The command xautolock runs to lock a bspwm session, passed to its -locker flag.
+desktop_xautolock_locker: gnome-screensaver-command --lock
+
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are
 # intentionally excluded so they keep opening in their proper handlers.

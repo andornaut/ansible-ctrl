@@ -12,6 +12,26 @@
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
 
+# hypridle is built and started by the niri role, which desktop.yml applies after this
+# one. Handlers flush at the end of the play, so on a full run the unit exists by the
+# time this fires, even on a host being provisioned for the first time. A tag selection
+# that writes the config but skips the niri role (`--tags idle`) leaves the unit absent,
+# which is tolerated: hypridle reads the config when the niri role first starts it.
+- name: Restart hypridle
+  ansible.builtin.systemd_service:
+    name: hypridle.service
+    daemon_reload: true
+    scope: user
+    state: restarted
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_hypridle_restart
+  failed_when:
+    - desktop_hypridle_restart is failed
+    - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
+
 - name: Update font cache
   ansible.builtin.command: fc-cache --force
   become: true

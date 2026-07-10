@@ -1,0 +1,32 @@
+# Managed by the desktop role (tasks/idle.yml). Timeouts come from
+# desktop_screen_lock_minutes and desktop_screen_off_minutes.
+general {
+    lock_cmd = hyprlock
+    before_sleep_cmd = loginctl lock-session
+    #after_sleep_cmd = brightnessctl -r
+}
+
+#listener {
+#    timeout = 180 # 3min.
+#    on-timeout = brightnessctl -s set 5%
+#    on-resume = brightnessctl -r
+#}
+
+listener {
+    timeout = {{ desktop_screen_lock_seconds }} # {{ desktop_screen_lock_minutes }}min
+    on-timeout = loginctl lock-session
+}
+
+listener {
+    timeout = {{ desktop_screen_off_seconds }} # {{ desktop_screen_off_minutes }}min
+    on-timeout = niri msg action power-off-monitors
+
+    # Workaround: eww closes all windows when its monitor is powered-off
+    # https://github.com/elkowar/eww/issues/477#issuecomment-1159530928
+    on-resume = niri msg action power-on-monitors && eww open {{ desktop_eww_bar }}
+}
+
+#listener {
+#    timeout = 1800 # 30min
+#    on-timeout = systemctl suspend
+#}

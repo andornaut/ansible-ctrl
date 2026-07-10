@@ -28,6 +28,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | fonts | System fonts (Hack, DejaVu, Source Code Pro, etc.) |
 | gnome | GNOME Shell and gdm3 (`ubuntu-desktop-minimal`), gnome only |
 | [grub](https://www.gnu.org/software/grub/) | Bootloader settings |
+| idle | Screen blanking, session locking and monitor power-off (dconf, `xset`, `xautolock`, [hypridle](https://github.com/hyprwm/hypridle)) |
 | [insync](https://www.insynchq.com/) | Google Drive sync client (`desktop_install_insync`) |
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
@@ -45,6 +46,8 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_environment` | `bspwm`, `niri`, or `gnome`. Selects the window manager `desktop.yml` applies, and which tags run |
 | `desktop_default_browser` | `firefox` or `google-chrome`. The handler `xdg-settings` marks as default |
 | `desktop_install_*` | Feature flags, all defaulting to `false`. A tag naming one runs nothing unless the flag is set |
+| `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
+| `desktop_xautolock_locker` | The command `xautolock` runs to lock a bspwm session |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
 [vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home directory and
@@ -62,6 +65,17 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
 - Only tools with a true per-protocol replacement belong to the [bspwm](../bspwm/) role (X11) and the
   [niri](../niri/) role (Wayland). Everything both sessions share lives here.
 - The Super I/O drivers expose the pwm/fan hwmon that CoolerControl manages. Enable the one matching the board's chip.
+- The idle timeouts are one policy with three mechanisms. GNOME reads dconf, bspwm reads `xset` and `xautolock` out of
+  the session scripts, and niri delegates to `hypridle`. Only X11 tells blanking apart from powering the monitor down,
+  so bspwm honours all three timeouts, niri ignores the blank timeout, and GNOME ignores the power-off timeout.
+- The session files the `idle` tag writes (`.config/bspwm/desktop`, `.config/autostart/xautolock.desktop`,
+  `.config/hypr/hypridle.conf`) may be symlinks into a dotfiles repository, which rules out `template` and `copy`:
+  on a no-op run their action plugin re-runs the `file` module against the resolved link target, and `file` expands
+  environment variables in that path, corrupting it for a repository whose tree lives under a directory named
+  `$HOME`. `blockinfile`, `lineinfile` and `replace` resolve the link themselves and write through it, so the
+  generated files (`hypridle.conf` and the xautolock entry) are wrapped in an `ANSIBLE MANAGED BLOCK` rather than
+  templated. A *dangling* link is a separate problem, and `stat` reports it as existing unless it too follows, so
+  `idle_check_dotfile.yml` classifies each path first and fails with a clear message rather than orphaning the link.
 - `ly` is built with Zig, downloaded from `desktop_zig_mirror` rather than from ziglang.org, whose donated
   bandwidth makes the origin download take about 20 minutes. Set it to a host listed in
   [community-mirrors.txt](https://ziglang.org/download/community-mirrors.txt); the archive is checksummed against

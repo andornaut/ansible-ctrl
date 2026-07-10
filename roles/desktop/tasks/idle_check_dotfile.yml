@@ -1,0 +1,39 @@
+---
+# Classify one path that idle.yml writes, which may be a symlink into a dotfiles
+# repository.
+#
+# Required vars:
+#   idle_dotfile_path (str): the path to classify
+#
+# Sets desktop_idle_dotfile_exists (bool): whether the path resolves to a real file.
+#
+# A dangling symlink has to be told apart from an absent path. `stat` with follow: true
+# reports both as absent, but writing to them differs: creating an absent path is correct,
+# while lineinfile and replace abort on a dangling link. Fail instead, because a dangling
+# link means the repository has not been applied on the host.
+
+- name: Stat the link at {{ idle_dotfile_path }}
+  ansible.builtin.stat:
+    path: "{{ idle_dotfile_path }}"
+    follow: false
+  register: desktop_idle_dotfile_link
+
+- name: Stat the target of {{ idle_dotfile_path }}
+  ansible.builtin.stat:
+    path: "{{ idle_dotfile_path }}"
+    follow: true
+  register: desktop_idle_dotfile_target
+
+- name: Assert that there is no dangling symlink at {{ idle_dotfile_path }}
+  ansible.builtin.assert:
+    that:
+      - not (desktop_idle_dotfile_link.stat.islnk | default(false))
+        or desktop_idle_dotfile_target.stat.exists
+    fail_msg: >-
+      {{ idle_dotfile_path }} is a symlink whose target is missing. Restore the dotfiles
+      repository on this host before configuring the idle timeouts.
+    success_msg: Safe to write {{ idle_dotfile_path }}
+
+- name: Record whether a file exists at {{ idle_dotfile_path }}
+  ansible.builtin.set_fact:
+    desktop_idle_dotfile_exists: "{{ desktop_idle_dotfile_target.stat.exists }}"

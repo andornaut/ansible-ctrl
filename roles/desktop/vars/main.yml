@@ -12,6 +12,23 @@ desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
 # Ansible escalates to a user it did not log in as.
 desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 
+# Idle timeouts in the units each daemon expects. xautolock takes minutes; xset, hypridle
+# and dconf take seconds.
+desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"
+desktop_screen_lock_seconds: "{{ desktop_screen_lock_minutes | int * 60 }}"
+desktop_screen_off_seconds: "{{ desktop_screen_off_minutes | int * 60 }}"
+# GNOME's screensaver lock-delay counts from the moment the screen blanks, not from the
+# moment the session went idle, so it is the gap between the two timeouts.
+desktop_screen_lock_delay_seconds: >-
+  {{ (desktop_screen_lock_minutes | int - desktop_screen_blank_minutes | int) * 60 }}
+
+# Session configuration files that idle.yml writes. Each may be a symlink into a dotfiles
+# repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
+# replace) may write them.
+desktop_bspwm_session_script: "{{ desktop_user_home }}/.config/bspwm/desktop"
+desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
+desktop_xautolock_autostart: "{{ desktop_user_home }}/.config/autostart/xautolock.desktop"
+
 # Platform key into https://ziglang.org/download/index.json. Zig spells these with
 # the kernel architecture names that Ansible reports, so no mapping is needed here
 # (unlike dev_arch/docker_arch, which translate to the Debian names apt expects).
