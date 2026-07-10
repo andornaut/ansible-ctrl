@@ -1,7 +1,7 @@
 ---
 # Install the GNOME Shell desktop with gdm3. install_recommends is false so
 # snapd and the Firefox snap (both only Recommends of ubuntu-desktop-minimal)
-# are not pulled in; the flatpak task holds snapd removed. GNOME 49+ ships a
+# are not pulled in; the base role holds snapd removed. GNOME 49+ ships a
 # Wayland-only session (the "GNOME on Xorg" session was removed), so xserver-xorg
 # is not installed; legacy X11 apps run under XWayland, pulled in by GNOME.
 - name: Install GNOME desktop
