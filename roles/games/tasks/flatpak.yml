@@ -38,7 +38,7 @@
       ansible.builtin.shell:
         cmd: |
           before="$(flatpak override --user --show {{ item }})"
-          flatpak override --user {{ (games_flatpak_overrides.default + (games_flatpak_overrides[item] | default([]))) | join(' ') }} {{ item }}
+          flatpak override --user {{ (games_flatpak_overrides.default + (games_flatpak_overrides[item] | default([]))) | map('quote') | join(' ') }} {{ item }}
           after="$(flatpak override --user --show {{ item }})"
           [ "${before}" = "${after}" ] || echo CHANGED
         executable: /bin/bash

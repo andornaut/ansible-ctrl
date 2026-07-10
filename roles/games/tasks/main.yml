@@ -1,4 +1,13 @@
 ---
+# Populates ansible_facts['getent_passwd'][games_user] so games_user_home (and the
+# paths derived from it) resolve. tags: always so it still runs under --tags
+# flatpak/heroic, both of which depend on games_user_home.
+- name: Look up games_user home directory
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ games_user }}"
+  tags: always
+
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
   tags: apt
@@ -6,3 +15,9 @@
 - name: Import flatpak tasks
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
+
+- name: Configure Heroic Games Launcher
+  ansible.builtin.import_tasks: heroic.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: heroic
