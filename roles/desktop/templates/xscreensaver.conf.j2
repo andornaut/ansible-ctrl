@@ -1,0 +1,36 @@
+# Managed by the desktop role (tasks/idle.yml). Timeouts come from
+# desktop_screen_blank_minutes, desktop_screen_lock_minutes and desktop_screen_off_minutes.
+#
+# xscreensaver owns blanking, locking and DPMS on one clock, so the bspwm session script
+# must not also run `xset s` or `xset dpms`: the daemon takes the X screensaver extension
+# over at startup and would fight anything that programmed it.
+#
+# lockTimeout is a grace period measured from the blank, not from the start of idle, so it
+# is the gap between the two timeouts, exactly as GNOME's lock-delay is. During that grace
+# the screen is blanked but not locked; since 6.00 xscreensaver requires a click or a Shift
+# tap before the prompt accepts input, so a password cannot be typed into the window
+# underneath before the dialog is on screen.
+#
+# dpmsQuickOff powers the monitor down the moment the screen blanks, ignoring the three
+# timeouts below. It must be set, not merely left out: the block is appended to a file the
+# role does not own, so an existing True above it would otherwise stand.
+#
+# fade cross-fades to black when the screen blanks and unfade fades back on wake. Both are
+# set False for an instant transition, and for the same reason as dpmsQuickOff: an existing
+# True written above the block by xscreensaver-settings would otherwise stand.
+mode:          {{ desktop_xscreensaver_mode }}
+timeout:       {{ desktop_screen_blank_time }}
+splash:        False
+dialogTheme:   {{ desktop_xscreensaver_dialog_theme }}
+
+fade:          False
+unfade:        False
+
+lock:          True
+lockTimeout:   {{ desktop_screen_lock_delay_time }}
+
+dpmsEnabled:   True
+dpmsQuickOff:  False
+dpmsStandby:   {{ desktop_screen_off_time }}
+dpmsSuspend:   {{ desktop_screen_off_time }}
+dpmsOff:       {{ desktop_screen_off_time }}
