@@ -9,7 +9,14 @@
     update_cache: true
   become: true
 
+# dconf writes to the invoking user's database, so these run as desktop_user rather than
+# as whoever the play connects as. XDG_RUNTIME_DIR points the module at that user's
+# session bus, which is not set when Ansible escalates to a user it did not log in as.
 - name: Configure keyboard settings
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
   block:
     - name: Prevent Super+Space from switching input sources
       community.general.dconf:
