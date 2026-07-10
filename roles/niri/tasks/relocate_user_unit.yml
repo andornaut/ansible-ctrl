@@ -24,11 +24,13 @@
 
 # CLEANUP (added 2026-07-09): remove the caller's include, and this file, once every niri
 # host has run this role at least once.
-- name: Remove {{ niri_relocate_units | join(', ') }} from the administrator unit directory
+- name: Remove the relocated units from the administrator unit directory
   ansible.builtin.file:
     path: "/etc/systemd/user/{{ item }}"
     state: absent
   loop: "{{ niri_relocate_units }}"
+  loop_control:
+    label: "{{ item }}"
   become: true
 
 - name: Re-enable the relocated units against their unit paths # noqa: command-instead-of-module
