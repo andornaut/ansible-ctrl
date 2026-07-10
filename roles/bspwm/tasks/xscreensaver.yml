@@ -143,29 +143,3 @@
       mode {{ bspwm_xscreensaver_auth.stat.mode | default('missing') }}). Authentication
       will not work without it.
     success_msg: xscreensaver-auth is setuid root
-
-# Only now, with a working setuid xscreensaver on disk: purging before the build left a failed
-# build with no locker (the old locker ran from a deleted binary). Hence the guard, not a bare
-# `state: absent`.
-- name: Stat the xscreensaver binary
-  ansible.builtin.stat:
-    path: /usr/local/bin/xscreensaver
-  register: bspwm_xscreensaver_binary
-
-# CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
-#
-# All superseded by xscreensaver: gnome-screensaver and xautolock (an old idle trigger that
-# invoked a locker it often lacked), and the xss-lock/i3lock pair that replaced xscreensaver
-# for one release (i3lock fails open and grabs no keyboard during the blank-before-lock gap).
-- name: Purge the superseded screen lockers
-  when: bspwm_xscreensaver_binary.stat.exists
-  ansible.builtin.apt:
-    name:
-      - gnome-screensaver
-      - i3lock
-      - xautolock
-      - xss-lock
-    state: absent
-    purge: true
-    autoremove: true
-  become: true
