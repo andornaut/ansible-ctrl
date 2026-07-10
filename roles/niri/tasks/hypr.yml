@@ -255,6 +255,26 @@
       changed_when: true
       become: true
 
+    # CLEANUP (added 2026-07-09): remove once every niri host has run this role at least
+    # once. Same shadowing hazard as hyprpaper below: cmake installs hypridle.service
+    # into /usr/local/lib/systemd/user pointing at /usr/local/bin/hypridle, and a copy in
+    # the administrator's /etc/systemd/user outranks it while pointing at /usr/bin.
+    # desktop/handlers/main.yml restarts this unit on every hypridle.conf change, so a
+    # shadowed copy fails at ExecStart while the play reports success.
+    - name: Remove hypridle.service from the administrator unit directory
+      ansible.builtin.file:
+        path: /etc/systemd/user/hypridle.service
+        state: absent
+      become: true
+
+    - name: Re-enable hypridle.service against its unit path # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl --user reenable hypridle.service
+      changed_when: false
+      become: true
+      become_user: "{{ niri_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+
     - name: Enable hypridle.service
       ansible.builtin.systemd_service:
         name: hypridle.service
@@ -359,21 +379,26 @@
       changed_when: true
       become: true
 
-    # cmake installs hyprpaper.service into /usr/local/lib/systemd/user with the
-    # correct /usr/local/bin/hyprpaper ExecStart. An older copy in the
-    # administrator's /etc/systemd/user outranks it and still points at
-    # /usr/bin/hyprpaper, which this role never installs.
+    # CLEANUP (added 2026-07-09): remove once every niri host has run this role at least
+    # once.
+    #
+    # cmake installs hyprpaper.service into /usr/local/lib/systemd/user with the correct
+    # /usr/local/bin/hyprpaper ExecStart. An older copy in the administrator's
+    # /etc/systemd/user outranks it and still points at /usr/bin/hyprpaper, which this
+    # role never installs.
     - name: Remove hyprpaper.service from the administrator unit directory
       ansible.builtin.file:
         path: /etc/systemd/user/hyprpaper.service
         state: absent
-      register: niri_hyprpaper_stale_unit
       become: true
 
-    - name: Re-enable hyprpaper.service against its new unit path
+    - name: Re-enable hyprpaper.service against its unit path # noqa: command-instead-of-module
       ansible.builtin.command: systemctl --user reenable hyprpaper.service
-      when: niri_hyprpaper_stale_unit.changed
-      changed_when: true
+      changed_when: false
+      become: true
+      become_user: "{{ niri_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
 
     - name: Enable hyprpaper.service
       ansible.builtin.systemd_service:
