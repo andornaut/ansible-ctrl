@@ -1,6 +1,6 @@
 # ansible-role-dev
 
-Installs development tools and programming languages on Ubuntu. Applied to hosts in the `dev` inventory group.
+Installs development tools and programming languages on Ubuntu.
 
 ## Usage
 
@@ -14,11 +14,11 @@ ansible-playbook --ask-become-pass dev.yml --tags rust
 
 | Tag | Description |
 | --- | --- |
-| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Automated GitHub repo maintenance via AI agent + cron (see below) |
+| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
-| [cursor](https://www.cursor.com/) | AI code editor (AppImage, granted unprivileged user namespaces by a dedicated AppArmor profile rather than by disabling the restriction globally) |
+| [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
 | [filectrl](https://github.com/andornaut/filectrl) | File manager |
 | [go](https://go.dev/) | Go toolchain |
 | javascript | [Node.js](https://nodejs.org/) and [nvm](https://github.com/nvm-sh/nvm) |
@@ -30,15 +30,26 @@ ansible-playbook --ask-become-pass dev.yml --tags rust
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform with DKMS |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
-Untagged apt packages (gh, git, [git-delta](https://github.com/dandavison/delta), jq, meld, wireshark, etc.) are installed by [tasks/apt.yml](./tasks/apt.yml) on every run.
+Untagged apt packages (gh, git, [git-delta](https://github.com/dandavison/delta), jq, meld, wireshark, etc.) are
+installed by [tasks/apt.yml](./tasks/apt.yml) on every run.
 
-## ai-maintainer
+## Variables
 
-For hosts in the `ai_maintainer` inventory group, the `ai_maintainer` tag installs a weekly
-cron job (Sunday 3 AM) that runs the [ai-maintainer](https://github.com/andornaut/ai-maintainer)
-script to merge dependabot PRs, update dependencies, and fix test/CI failures across
-`~/src/github.com/andornaut/`. The script is symlinked from a local checkout when present,
-otherwise downloaded. Configure it via the `dev_ai_maintainer_*` vars in
-[defaults/main.yml](./defaults/main.yml).
+See [defaults/main.yml](./defaults/main.yml). The `dev_ai_maintainer_*` vars configure the cron job and the
+directory it operates on.
 
-Run manually: `~/.local/bin/ai-maintainer --dry-run --verbose`.
+## Notes
+
+- Cursor is granted unprivileged user namespaces by a dedicated AppArmor profile, rather than by disabling the
+  restriction globally.
+- The `ai_maintainer` tag runs only on hosts in the `ai_maintainer` inventory group. It installs a Sunday 3 AM
+  cron job that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer) to merge dependabot PRs, update
+  dependencies, and fix test and CI failures across `~/src/github.com/andornaut/`. The script is symlinked from a
+  local checkout when present, and downloaded otherwise.
+
+## Operations
+
+```bash
+# Run ai-maintainer by hand
+~/.local/bin/ai-maintainer --dry-run --verbose
+```

@@ -17,7 +17,7 @@ ansible-playbook --ask-become-pass webservers.yml --tags nginx
 | configuration | Regenerate [NGINX](https://nginx.org/) configuration files |
 | docker | Manage the NGINX [Docker](https://docs.docker.com/) container |
 | [letsencrypt](https://letsencrypt.org/) | Obtain and renew HTTPS certificates |
-| nginx | Full [NGINX](https://nginx.org/) setup (apt, www, basicauth, configuration) |
+| nginx | Full NGINX setup (apt, www, basicauth, configuration) |
 | www | Set up web root directories and clone site repos |
 
 ## Variables
@@ -33,42 +33,38 @@ The `nginx` container runs with `network_mode: host`, binding directly to the ho
 | 80 | HTTP | Redirect to HTTPS; ACME certificate validation |
 | 443 | HTTPS | TLS-terminated reverse proxy with HTTP/2 and QUIC |
 
-## Private GitHub Repository Access
+## Notes
 
-Configure Git credential helper on the target host:
+- Cloning private GitHub repos requires a git credential helper on the target host, configured as root because
+  the git tasks use `become: true`. Generate a token at
+  [github.com/settings/tokens](https://github.com/settings/tokens) with the `repo` scope only.
 
-```bash
-# Run as root (these git operations use become: true)
-git config --global credential.helper store
-echo "https://<username>:<token>@github.com" > ~/.git-credentials
-chmod 600 ~/.git-credentials
-```
+  ```bash
+  git config --global credential.helper store
+  echo "https://<username>:<token>@github.com" > ~/.git-credentials
+  chmod 600 ~/.git-credentials
+  ```
 
-Generate token at [github.com/settings/tokens](https://github.com/settings/tokens) (select "repo" scope only)
+- When the web root lives on a mount, restart NGINX after the mount comes up. Create
+  `/etc/systemd/system/restart-nginx-after-nas.service`:
 
-## Systemd Integration
+  ```ini
+  [Unit]
+  Description=Restart Nginx after mount
+  Requires=media-nas.mount
+  After=media-nas.mount
 
-For mount dependencies, create `/etc/systemd/system/restart-nginx-after-nas.service`:
+  [Service]
+  Type=oneshot
+  ExecStartPre=sleep 30
+  ExecStart=docker restart nginx
+  RemainAfterExit=true
 
-```ini
-[Unit]
-Description=Restart Nginx after mount
-Requires=media-nas.mount
-After=media-nas.mount
+  [Install]
+  WantedBy=media-nas.mount
+  ```
 
-[Service]
-Type=oneshot
-ExecStartPre=sleep 30
-ExecStart=docker restart nginx
-RemainAfterExit=true
-
-[Install]
-WantedBy=media-nas.mount
-```
-
-Enable:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable restart-nginx-after-nas.service
-```
+  ```bash
+  sudo systemctl daemon-reload
+  sudo systemctl enable restart-nginx-after-nas.service
+  ```
