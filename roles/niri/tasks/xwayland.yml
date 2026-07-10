@@ -70,22 +70,11 @@
           dest: /usr/local/bin/
       become: true
 
-    # CLEANUP (added 2026-07-09): remove once every niri host has run this role at least
-    # once. Written into the administrator's directory by an earlier version of this
-    # role, where it outranks and shadows the unit installed above.
-    - name: Remove xwayland-satellite.service from the administrator unit directory
-      ansible.builtin.file:
-        path: /etc/systemd/user/xwayland-satellite.service
-        state: absent
-      become: true
-
-    - name: Re-enable xwayland-satellite.service against its unit path # noqa: command-instead-of-module
-      ansible.builtin.command: systemctl --user reenable xwayland-satellite.service
-      changed_when: false
-      become: true
-      become_user: "{{ niri_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+    - name: Relocate the xwayland-satellite unit
+      ansible.builtin.include_tasks: relocate_user_unit.yml
+      vars:
+        niri_relocate_units: [xwayland-satellite.service]
+        niri_relocate_enable_units: [xwayland-satellite.service]
 
     - name: Enable xwayland-satellite.service
       ansible.builtin.systemd_service:
