@@ -1,4 +1,77 @@
 ---
+# One pin record, written unconditionally, rather than one file per install method.
+# Two records for the same package in preferences.d collide, and apt resolves the
+# collision by taking the first specific-form record it reads, which is a function of
+# filename ordering that nothing here controls. A single idempotent record has no
+# sibling to be outranked by.
+#
+# This is also why neither branch below has to remove the Mozilla repository or its
+# signing key: Pin-Priority -1 blocks an install from that repository exactly as it
+# blocks one from Ubuntu's. Note -1 also blocks firefox as a dependency of another
+# package, and dist-upgrade removes it rather than skipping it if it is ever installed.
+- name: Pin Firefox to the chosen install method
+  ansible.builtin.copy:
+    content: |
+      Package: firefox*
+      Pin: {{ 'origin packages.mozilla.org' if desktop_install_firefox_apt else 'release a=*' }}
+      Pin-Priority: {{ 1000 if desktop_install_firefox_apt else -1 }}
+    dest: /etc/apt/preferences.d/firefox
+    mode: "0644"
+  become: true
+
+# CLEANUP (added 2026-07-09): remove once every desktop host has run this role at
+# least once.
+#
+# Unconditional, not inside an install branch. These repair state that earlier versions
+# of this role left behind, and the host that has the state is not necessarily the host
+# whose branch would have cleaned it up: a host can still carry the apt branch's
+# "mozilla-firefox" pin and Mozilla repository despite taking the flatpak branch today.
+# A migration gated on `desktop_install_firefox_apt` never runs anywhere, because no
+# host in the desktop group sets it.
+- name: Remove superseded Firefox apt artifacts
+  become: true
+  block:
+    # Earlier versions wrote one pin file per install method and had each branch delete
+    # the other's: "mozilla-firefox" from the apt branch, "firefox-no-apt" from the
+    # flatpak branch, and "firefox-no-snap" before either. Left behind, any of them is a
+    # second record for firefox* racing the one above on filename order.
+    - name: Remove superseded Firefox apt pins
+      ansible.builtin.file:
+        path: /etc/apt/preferences.d/{{ item }}
+        state: absent
+      loop:
+        - firefox-no-apt
+        - firefox-no-snap
+        - mozilla-firefox
+
+    - name: Remove old Firefox PPA
+      ansible.builtin.apt_repository:
+        repo: ppa:mozillateam/firefox-next
+        state: absent
+        update_cache: false
+
+    - name: Remove old Firefox PPA file
+      ansible.builtin.file:
+        path: >-
+          /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_{{ ansible_facts['distribution_release'] }}.list
+        state: absent
+
+    # Superseded by the .asc keyring the apt branch downloads below. The repository must
+    # go with the key: an apt source whose signed-by path does not exist fails every
+    # `apt update` on the host.
+    - name: Remove old Mozilla apt repository (with .gpg key path)
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
+          https://packages.mozilla.org/apt mozilla main
+        state: absent
+        update_cache: false
+
+    - name: Remove old Mozilla apt signing key (.gpg armored format)
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/packages.mozilla.org.gpg
+        state: absent
+
 # Apt
 - name: Configure Firefox Apt installation method
   when: desktop_install_firefox_apt
@@ -17,26 +90,6 @@
 
     - name: Configure Firefox apt packages
       block:
-        - name: Remove old Firefox PPA
-          ansible.builtin.apt_repository:
-            repo: ppa:mozillateam/firefox-next
-            state: absent
-            update_cache: false
-          become: true
-
-        - name: Remove old Firefox PPA file
-          ansible.builtin.file:
-            path: >-
-              /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_{{ ansible_facts['distribution_release'] }}.list
-            state: absent
-          become: true
-
-        - name: Remove old Firefox apt pin
-          ansible.builtin.file:
-            path: /etc/apt/preferences.d/firefox-no-snap
-            state: absent
-          become: true
-
         - name: Remove Firefox if installed from non-Mozilla source
           ansible.builtin.shell: set -o pipefail && dpkg -l firefox 2>/dev/null | grep -q "^ii"
           register: desktop_firefox_installed
@@ -52,26 +105,11 @@
           become: true
           when: desktop_firefox_installed.rc == 0
 
-        - name: Remove old Mozilla apt signing key (.gpg armored format)
-          ansible.builtin.file:
-            path: /etc/apt/keyrings/packages.mozilla.org.gpg
-            state: absent
-          become: true
-
         - name: Download Mozilla apt signing key
           ansible.builtin.get_url:
             url: https://packages.mozilla.org/apt/repo-signing-key.gpg
             dest: /etc/apt/keyrings/packages.mozilla.org.asc
             mode: "0644"
-          become: true
-
-        - name: Remove old Mozilla apt repository (with .gpg key path)
-          ansible.builtin.apt_repository:
-            repo: >-
-              deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
-              https://packages.mozilla.org/apt mozilla main
-            state: absent
-            update_cache: false
           become: true
 
         - name: Add Mozilla apt repository
@@ -81,16 +119,6 @@
               https://packages.mozilla.org/apt mozilla main
             state: present
             update_cache: true
-          become: true
-
-        - name: Configure Mozilla apt priority
-          ansible.builtin.copy:
-            content: |
-              Package: firefox*
-              Pin: origin packages.mozilla.org
-              Pin-Priority: 1000
-            dest: /etc/apt/preferences.d/mozilla-firefox
-            mode: "0644"
           become: true
 
         - name: Install Firefox and dependencies
@@ -103,29 +131,37 @@
             update_cache: true
           become: true
 
-    - name: Set Firefox as default browser
-      ansible.builtin.command: xdg-settings set default-web-browser firefox.desktop
-      changed_when: true
-      when: desktop_default_browser == "firefox"
-
 # Flatpak
 - name: Configure Firefox flatpak installation method
   when: not desktop_install_firefox_apt
   block:
-    - name: Remove and hold Firefox apt package
-      block:
-        - name: Remove Firefox apt package
-          ansible.builtin.apt:
-            name: firefox
-            purge: true
-            state: absent
-          become: true
+    # CLEANUP (added 2026-07-09): remove once every desktop host has run this branch of
+    # the role at least once. They all take it, since none sets
+    # desktop_install_firefox_apt.
+    #
+    # An earlier version of this role held the firefox package with dpkg_selections.
+    # dpkg keeps a hold whenever it retains a status record for the package, so a host
+    # that still has one would fail the purge below on the hold. Unhold before purging,
+    # and gate on `apt-mark showhold`, for the same reasons as in flatpak.yml.
+    - name: List held apt packages
+      ansible.builtin.command: apt-mark showhold
+      register: desktop_firefox_apt_holds
+      changed_when: false
 
-        - name: Hold Firefox apt package
-          ansible.builtin.dpkg_selections:
-            name: firefox
-            selection: hold
-          become: true
+    - name: Unhold Firefox apt package
+      ansible.builtin.dpkg_selections:
+        name: firefox
+        selection: install
+      when: "'firefox' in desktop_firefox_apt_holds.stdout_lines"
+      become: true
+
+    # The pin at the top of this file prevents an install; it cannot undo one.
+    - name: Remove Firefox apt package
+      ansible.builtin.apt:
+        name: firefox
+        purge: true
+        state: absent
+      become: true
 
     - name: Install and configure Firefox flatpak for the target user
       become: true
@@ -139,16 +175,3 @@
         - name: Configure Firefox cursor theme
           ansible.builtin.command: flatpak override --user --env=XCURSOR_THEME=Adwaita org.mozilla.firefox
           changed_when: true
-
-    - name: Set Firefox as default browser
-      become: true
-      become_user: "{{ desktop_user }}"
-      ansible.builtin.command: xdg-settings set default-web-browser org.mozilla.firefox.desktop
-      changed_when: true
-      when: desktop_default_browser == "firefox"
-      environment:
-        HOME: "{{ desktop_user_home }}"
-        # The Firefox flatpak exports its .desktop file to the per-user flatpak
-        # directory, which is not in XDG_DATA_DIRS over an Ansible SSH session,
-        # so xdg-settings cannot find it (rc 2) without this.
-        XDG_DATA_DIRS: "{{ desktop_user_home }}/.local/share/flatpak/exports/share:/usr/local/share:/usr/share"

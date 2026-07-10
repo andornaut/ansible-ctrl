@@ -27,6 +27,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [chrome](https://www.google.com/chrome/) | Web browser |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control (Cloudsmith apt repo) |
 | [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources) |
+| default-browser | Points `xdg-settings` at `desktop_default_browser`. Also runs under the `chrome` and `firefox` tags |
 | display-manager | Display manager ([lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly)), tiling only |
 | [dunst](https://dunst-project.org/) | Notification daemon (built from source), tiling only |
 | [eww](https://github.com/elkowar/eww) | Widget daemon (built with Cargo), tiling only |
@@ -54,5 +55,10 @@ default handler.
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
+
+[vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home
+directory and UID, the Zig platform key, the apt packages flatpak replaces, and the `.desktop` id of the
+default browser). Role vars outrank `host_vars`, so overriding them there has no effect: override the
+default they are derived from instead.
 
 The `ly` display manager is built with Zig, which is downloaded from `desktop_zig_mirror` rather than from ziglang.org, whose donated bandwidth makes the origin download take about 20 minutes. Set it to a host listed in [community-mirrors.txt](https://ziglang.org/download/community-mirrors.txt); the archive is checksummed against the shasum the origin publishes.
