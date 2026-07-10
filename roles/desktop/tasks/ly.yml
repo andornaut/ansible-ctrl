@@ -9,6 +9,8 @@
               - build-essential
               - libpam0g-dev
               - libxcb-xkb-dev
+              # Extracts the .zip source archive (see "Download and unarchive ly").
+              - unzip
             state: latest
             install_recommends: false
             update_cache: true
@@ -90,19 +92,19 @@
           ansible.builtin.set_fact:
             desktop_ly_release: "{{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
+        # Codeberg's generated .tar.gz archive (tarball_url) returns HTTP 500, so fetch the
+        # .zip. unzip has no --strip-components, and the zip wraps its contents in a top-level
+        # `ly/` directory, so the build below chdirs into that subdir rather than flattening.
         - name: Download and unarchive ly
           ansible.builtin.unarchive:
-            src: "{{ desktop_ly_release.tarball_url }}"
+            src: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
             dest: "{{ desktop_ly_tmp.path }}"
             remote_src: true
-            extra_opts:
-              - --strip-components
-              - 1
 
         - name: Compile and install ly
           ansible.builtin.command:
             cmd: /opt/zig/zig build installnoconf
-            chdir: "{{ desktop_ly_tmp.path }}"
+            chdir: "{{ desktop_ly_tmp.path }}/ly"
           become: true
           changed_when: true
       always:
