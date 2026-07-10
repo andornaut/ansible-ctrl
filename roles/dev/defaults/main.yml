@@ -3,6 +3,11 @@
 # install for. Defaults to the remote user running the play; override per host.
 dev_user: "{{ ansible_facts['user_id'] }}"
 
+# VirtualBox and its DKMS kernel modules. Secure Boot refuses to load those
+# modules unless the machine owner key is enrolled, so enable this only on
+# hosts that are meant to run VMs.
+dev_install_virtualbox: false
+
 # ai-maintainer: automated GitHub repo maintenance via AI agent and cron
 # Directory containing GitHub repositories
 dev_ai_maintainer_src_base_dir: "{{ dev_user_home }}/src/github.com/andornaut/ai-maintainer"
