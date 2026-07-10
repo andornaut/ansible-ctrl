@@ -67,7 +67,7 @@
           {{ dev_virtualbox_dkms_source.files
              | map(attribute='path') | map('basename')
              | map('regex_replace', '^virtualbox-', '')
-             | sort | last }}
+             | community.general.version_sort | last }}
 
     - name: Check whether virtualbox is registered with DKMS for the running kernel
       ansible.builtin.command: dkms status virtualbox/{{ dev_virtualbox_dkms_version }} -k {{ ansible_facts['kernel'] }}
@@ -89,6 +89,11 @@
       when: "'installed' not in dev_virtualbox_dkms.stdout"
       changed_when: true
 
+    # Secure Boot rejects a DKMS module signed with a MOK the firmware does not
+    # trust. Enrolling one needs an interactive reboot, so report that case
+    # instead of aborting. Every other modprobe error is still fatal. Asking
+    # modprobe is authoritative; probing mokutil would guess, and would treat a
+    # missing mokutil as "Secure Boot off".
     - name: Load the virtualbox kernel modules
       community.general.modprobe:
         name: "{{ item }}"
@@ -97,3 +102,32 @@
         - vboxdrv
         - vboxnetflt
         - vboxnetadp
+      register: dev_virtualbox_modprobe
+      failed_when: >-
+        dev_virtualbox_modprobe.rc | default(0) != 0
+        and 'Key was rejected by service' not in dev_virtualbox_modprobe.stderr | default('')
+        and 'Required key not available' not in dev_virtualbox_modprobe.stderr | default('')
+
+    - name: Determine whether the virtualbox kernel modules loaded
+      ansible.builtin.set_fact:
+        dev_virtualbox_modules_loaded: >-
+          {{ dev_virtualbox_modprobe.results
+             | map(attribute='stderr', default='')
+             | select('search', 'Key was rejected by service|Required key not available')
+             | list | length == 0 }}
+
+    - name: Report that Secure Boot is blocking the virtualbox kernel modules
+      ansible.builtin.debug:
+        msg: >-
+          Secure Boot rejected the virtualbox kernel modules, so VirtualBox will not
+          run. Enroll the DKMS signing key with `sudo mokutil --import
+          /var/lib/shim-signed/mok/MOK.der`, then reboot and complete the enrollment
+          from the MOK Manager screen.
+      when: not dev_virtualbox_modules_loaded | bool
+
+    - name: Ensure virtualbox.service is enabled and running
+      ansible.builtin.systemd_service:
+        name: virtualbox
+        state: started
+        enabled: true
+      when: dev_virtualbox_modules_loaded | bool
