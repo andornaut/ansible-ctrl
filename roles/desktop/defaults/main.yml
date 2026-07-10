@@ -45,6 +45,9 @@ desktop_xscreensaver_mode: blank
 # xscreensaver-auth: aquablack, blue, borderless, borderlessblack, darkgray, default,
 # greenblack, white, wine. "default" is the light grey one with 3D bevels.
 desktop_xscreensaver_dialog_theme: borderlessblack
+# Side length in pixels of the unlock dialog's logo. It cannot be removed (xscreensaver
+# aborts without it), so it is shrunk from the app-default of 210.
+desktop_xscreensaver_logo_size: 64
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables
