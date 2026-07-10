@@ -1,13 +1,20 @@
 ---
 - name: Install Visual Studio Code
   ansible.builtin.apt:
-    deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+    # The code.visualstudio.com/sha/download redirector completes its TLS
+    # handshake and then stalls without sending a body. This is the URL that
+    # Microsoft documents for scripted installs.
+    deb: https://update.code.visualstudio.com/latest/linux-deb-x64/stable
     update_cache: true
   become: true
 
 - name: Configure Visual Studio Code for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/code.desktop
-    regexp: '^Exec\S*=([/\w-]*)\S*(.*)$'
-    replace: "Exec=\\1 --ozone-platform-hint=auto \\2"
+    # Consume any existing run of the flag before re-adding a single copy, so
+    # that repeated runs neither match their own output nor accumulate flags.
+    # \s would match the newline and pull the next line into an Exec= that has
+    # no arguments, so the horizontal whitespace classes are load-bearing.
+    regexp: '^Exec=(\S+)(?:[ \t]+--ozone-platform-hint=auto)*[ \t]*(.*)$'
+    replace: 'Exec=\1 --ozone-platform-hint=auto \2'
   become: true
