@@ -1,8 +1,8 @@
 ---
-# ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards (e.g. tron).
-# The mainline it87 driver only supports IT8705F/871xF/872xF, so this
-# out-of-tree fork is required to expose the fan pwm/hwmon that CoolerControl
-# manages. https://github.com/frankcrawford/it87
+# ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards. The mainline
+# it87 driver only supports IT8705F/871xF/872xF, so this out-of-tree fork is
+# required to expose the fan pwm/hwmon that CoolerControl manages.
+# https://github.com/frankcrawford/it87
 - name: Install it87 fan control driver
   become: true
   block:
