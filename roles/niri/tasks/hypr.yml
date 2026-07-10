@@ -359,6 +359,22 @@
       changed_when: true
       become: true
 
+    # cmake installs hyprpaper.service into /usr/local/lib/systemd/user with the
+    # correct /usr/local/bin/hyprpaper ExecStart. An older copy in the
+    # administrator's /etc/systemd/user outranks it and still points at
+    # /usr/bin/hyprpaper, which this role never installs.
+    - name: Remove hyprpaper.service from the administrator unit directory
+      ansible.builtin.file:
+        path: /etc/systemd/user/hyprpaper.service
+        state: absent
+      register: niri_hyprpaper_stale_unit
+      become: true
+
+    - name: Re-enable hyprpaper.service against its new unit path
+      ansible.builtin.command: systemctl --user reenable hyprpaper.service
+      when: niri_hyprpaper_stale_unit.changed
+      changed_when: true
+
     - name: Enable hyprpaper.service
       ansible.builtin.systemd_service:
         name: hyprpaper.service
