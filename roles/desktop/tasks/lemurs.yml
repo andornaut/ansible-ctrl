@@ -123,20 +123,10 @@
             mode: "0644"
           become: true
 
-    - name: Configure system integration
-      block:
-        - name: Prevent TTY conflicts
-          ansible.builtin.systemd_service:
-            name: getty@tty2.service
-            daemon_reload: true
-            state: stopped
-            enabled: false
-          become: true
-
-        - name: Enable lemurs display manager
-          ansible.builtin.systemd_service:
-            name: lemurs.service
-            daemon_reload: true
-            enabled: true
-            masked: false
-          become: true
+    - name: Enable lemurs display manager
+      ansible.builtin.systemd_service:
+        name: lemurs.service
+        daemon_reload: true
+        enabled: true
+        masked: false
+      become: true
