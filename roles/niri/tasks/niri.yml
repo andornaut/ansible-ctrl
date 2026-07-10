@@ -57,6 +57,7 @@
       loop:
         - /usr/local/share/wayland-sessions
         - /usr/local/share/xdg-desktop-portal
+        - /usr/local/lib/systemd/user
       become: true
 
     - name: Copy niri files
@@ -75,10 +76,28 @@
         - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
           dest: /usr/local/share/xdg-desktop-portal/
         - src: "{{ niri_tmp.path }}/resources/niri.service"
-          dest: /etc/systemd/user/
+          dest: /usr/local/lib/systemd/user/
         - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
-          dest: /etc/systemd/user/
+          dest: /usr/local/lib/systemd/user/
       become: true
+
+    # niri is installed under /usr/local, so its units belong in
+    # /usr/local/lib/systemd/user. Copies left in the administrator's
+    # /etc/systemd/user outrank them and shadow every later change.
+    - name: Remove niri units from the administrator unit directory
+      ansible.builtin.file:
+        path: "/etc/systemd/user/{{ item }}"
+        state: absent
+      loop:
+        - niri.service
+        - niri-shutdown.target
+      register: niri_stale_units
+      become: true
+
+    - name: Re-enable niri.service against its new unit path
+      ansible.builtin.command: systemctl --user reenable niri.service
+      when: niri_stale_units.changed
+      changed_when: true
 
     - name: Configure electron flags for Wayland
       ansible.builtin.lineinfile:

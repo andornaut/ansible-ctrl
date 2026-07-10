@@ -47,6 +47,16 @@
         - option: Environment
           value: DISPLAY=:0
 
+    # xwayland-satellite is installed under /usr/local, so its unit belongs in
+    # /usr/local/lib/systemd/user rather than the administrator's /etc/systemd/user,
+    # which outranks it and would shadow future changes.
+    - name: Create the local systemd user unit directory
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/user
+        state: directory
+        mode: "0755"
+      become: true
+
     - name: Copy xwayland-satellite files
       ansible.builtin.copy:
         src: "{{ item.src }}"
@@ -55,10 +65,22 @@
         mode: "0644"
       loop:
         - src: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
-          dest: /etc/systemd/user/
+          dest: /usr/local/lib/systemd/user/
         - src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
           dest: /usr/local/bin/
       become: true
+
+    - name: Remove xwayland-satellite.service from the administrator unit directory
+      ansible.builtin.file:
+        path: /etc/systemd/user/xwayland-satellite.service
+        state: absent
+      register: niri_xwayland_stale_unit
+      become: true
+
+    - name: Re-enable xwayland-satellite.service against its new unit path
+      ansible.builtin.command: systemctl --user reenable xwayland-satellite.service
+      when: niri_xwayland_stale_unit.changed
+      changed_when: true
 
     - name: Enable xwayland-satellite.service
       ansible.builtin.systemd_service:
