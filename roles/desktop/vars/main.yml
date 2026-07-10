@@ -21,6 +21,20 @@ desktop_malcontent_users:
   - malcontent-timerd
   - malcontent-webd
 
+# Whether any web filtering is configured for desktop_user. "none" is malcontent's own
+# spelling for the disabled filter type, so it doubles as the feature flag.
+desktop_parental_controls_web_filter_enabled: "{{ desktop_parental_controls_web_filter_type != 'none' }}"
+# Positional arguments to `malcontent-client set-web-filter`. Lists are `id=uri` pairs and
+# individual hostnames are bare; a `~` prefix moves either onto the allow list. Order does
+# not matter to malcontent, and idempotency is decided by diffing `get-web-filter` output
+# rather than by comparing this string.
+desktop_parental_controls_web_filter_args: >-
+  {{ (desktop_parental_controls_web_block_lists.items() | map('join', '=') | list)
+     + (desktop_parental_controls_web_allow_lists.items() | map('join', '=')
+        | map('regex_replace', '^', '~') | list)
+     + (desktop_parental_controls_web_blocked_hosts | list)
+     + (desktop_parental_controls_web_allowed_hosts | map('regex_replace', '^', '~') | list) }}
+
 # Idle timeouts in the units each daemon expects. hypridle and dconf take seconds;
 # xscreensaver takes H:MM:SS.
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"

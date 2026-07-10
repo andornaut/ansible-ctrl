@@ -33,7 +33,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
 | [nct6687d](https://github.com/Fred78290/nct6687d) | DKMS Super I/O driver for Nuvoton chips on MSI boards (`desktop_install_nct6687d`) |
-| parental-controls | [malcontent](https://gitlab.freedesktop.org/pwithnall/malcontent) OARS filter and Chrome SafeSearch policies (`desktop_install_parental_controls`) |
+| parental-controls | [malcontent](https://gitlab.freedesktop.org/pwithnall/malcontent) OARS filter, web filter and Chrome SafeSearch policies (`desktop_install_parental_controls`) |
 | [pavolume](https://github.com/andornaut/pavolume) | PulseAudio volume controller, tiling only |
 | [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source), tiling only |
 
@@ -47,6 +47,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_default_browser` | `firefox` or `google-chrome`. The handler `xdg-settings` marks as default |
 | `desktop_install_*` | Feature flags, all defaulting to `false`. A tag naming one runs nothing unless the flag is set |
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
+| `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, `{id: HTTPS URI}` filter lists, custom hostnames, safe search |
 | `desktop_xscreensaver_mode` | What `xscreensaver` draws once a bspwm session blanks (`blank` or `random`) |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
@@ -81,6 +82,17 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
   *dangling* link is a separate problem, and `stat` reports it as existing unless it too follows, so
   `idle_check_dotfile.yml` classifies each path first and fails with a clear message rather than orphaning the link.
 - `xscreensaver` reloads `~/.xscreensaver` whenever it changes, so no handler restarts it.
+- Web filtering is enforced in the name service switch, not in the browser. `nss-malcontent` sinkholes a blocked
+  hostname for users that have a compiled filter list under `/var/lib/malcontent-webd/filter-lists/` and defers for
+  everyone else, so the `/etc/nsswitch.conf` edit is system-wide while the policy stays per-user. Matching is exact:
+  the compiled list is a cdb keyed on whole hostnames, with no wildcards and no subdomain matching. Filter lists must
+  be plain newline-separated bare hostnames served over HTTPS, and a single malformed line aborts the update, leaving
+  the previous list in place and a message in `/var/lib/malcontent-webd/update-error`.
+- The `use-application-dns.net` canary is blocked for *every* user on a host with the module installed, because
+  `nss-malcontent` checks it before opening the per-user list. That turns DNS-over-HTTPS off in every user's Firefox,
+  which is the point: DoH would otherwise resolve past the module entirely.
+- Recompiling a filter list re-downloads every list, so the role only fires that handler when `get-web-filter` shows
+  the filter actually moved.
 - `ly` is built with Zig, downloaded from `desktop_zig_mirror` rather than from ziglang.org, whose donated
   bandwidth makes the origin download take about 20 minutes. Set it to a host listed in
   [community-mirrors.txt](https://ziglang.org/download/community-mirrors.txt); the archive is checksummed against
