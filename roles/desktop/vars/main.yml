@@ -17,9 +17,10 @@ desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 # (unlike dev_arch/docker_arch, which translate to the Debian names apt expects).
 desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
 
-# The packages flatpak.yml purges and then pins, so apt cannot bring them back.
+# The packages flatpak.yml purges and then pins, so apt cannot bring them back. Snap is
+# not among them: the base role purges and pins snapd on every host, not just desktops.
 # Override desktop_flatpak_replacements instead.
-desktop_flatpak_pinned_packages: "{{ desktop_flatpak_replacements.keys() | list + ['gnome-software-plugin-snap', 'snapd'] }}"
+desktop_flatpak_pinned_packages: "{{ desktop_flatpak_replacements.keys() | list }}"
 
 # The .desktop id that identifies desktop_default_browser to xdg-settings. Firefox
 # exports a different id depending on which install method firefox.yml took.
