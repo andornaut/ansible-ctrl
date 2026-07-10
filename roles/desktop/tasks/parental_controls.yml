@@ -24,6 +24,16 @@
   changed_when: true
   become: true
 
+# Each daemon claims a D-Bus name its policy grants to one of those users, and dbus
+# resolves policy users when it loads its configuration. A dbus that started before the
+# users existed rejects the claim, and the daemon exits 72/OSFILE with "Lost D-Bus name".
+- name: Reload dbus so its policies resolve the new users
+  ansible.builtin.systemd_service:
+    name: dbus.service
+    state: reloaded
+  when: desktop_malcontent_getent.rc != 0
+  become: true
+
 - name: Start the malcontent daemons now that their users exist
   ansible.builtin.systemd_service:
     name: "{{ item }}"
