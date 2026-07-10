@@ -1,5 +1,5 @@
 ---
-- name: Install Home Assistant
+- name: Apply homeautomation role
   hosts: homeautomation
   roles:
     # Uncomment the `base` and `docker` on the first run

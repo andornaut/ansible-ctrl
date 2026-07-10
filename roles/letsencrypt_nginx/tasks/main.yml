@@ -2,7 +2,7 @@
 # - ansible.builtin.debug:
 #     var: letsencrypt_nginx_websites
 
-- name: Initial setup
+- name: Set up packages, web roots, and basic authentication
   tags:
     - letsencrypt
     - nginx
@@ -10,14 +10,14 @@
     - name: Install required packages
       ansible.builtin.import_tasks: apt.yml
 
-    - name: Setup web root directories
+    - name: Set up web root directories
       ansible.builtin.import_tasks: www.yml
       tags: www
 
     - name: Configure basic authentication
       ansible.builtin.import_tasks: basicauth.yml
 
-- name: Let's Encrypt Certificate setup
+- name: Set up Let's Encrypt certificates
   tags: letsencrypt
   block:
     - name: Configure SSL certificates

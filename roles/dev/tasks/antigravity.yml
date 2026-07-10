@@ -1,5 +1,5 @@
 ---
-- name: Configure Google Antigravity Repository
+- name: Configure Google Antigravity repository
   become: true
   block:
     - name: Download Google Antigravity GPG key

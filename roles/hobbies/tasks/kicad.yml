@@ -1,14 +1,14 @@
 ---
-- name: Install Kicad
+- name: Install KiCad
   tags: kicad
   become: true
   block:
-    - name: Install Kicad release apt repository
+    - name: Add the KiCad releases apt repository
       ansible.builtin.apt_repository:
         repo: "ppa:kicad/kicad-{{ hobbies_kicad_version }}-releases"
         update_cache: true
 
-    - name: Install Kicad package
+    - name: Install KiCad package
       ansible.builtin.apt:
         name:
           - kicad
@@ -19,10 +19,10 @@
 # Optional convenience for browsing the JLCPCB catalog and looking up LCSC part
 # numbers (not used by the fab pipeline). Per-user plugin, so no become. Pinned to
 # the latest release tag; update: true re-checks it out on re-run so it advances.
-- name: Install kicad-jlcpcb-tools plugin (optional, for LCSC lookup)
+- name: Install kicad-jlcpcb-tools plugin
   tags: kicad
   block:
-    - name: Get kicad-jlcpcb-tools latest release
+    - name: Get latest kicad-jlcpcb-tools release
       ansible.builtin.uri:
         url: https://api.github.com/repos/Bouni/kicad-jlcpcb-tools/releases/latest
         return_content: true
@@ -43,16 +43,16 @@
 # isolates the unstable git-master pin; --system-site-packages exposes KiCad's pcbnew
 # (a C extension from the kicad apt package, not pip-installable). The consumer
 # (panelize.sh) runs with PYTHONNOUSERSITE=1 so a stale ~/.local copy cannot shadow it.
-- name: Install KiKit panelizer (git master, KiCad 10) into a dedicated venv
+- name: Install KiKit panelizer into a dedicated venv
   tags: kicad
   become: true
   block:
-    - name: Ensure python3-venv is available
+    - name: Install python3-venv
       ansible.builtin.apt:
         name: python3-venv
         state: present
 
-    - name: Install KiKit + pcbnewTransition (git master) into /opt/kikit
+    - name: Install KiKit and pcbnewTransition into /opt/kikit
       # state: latest tracks master HEAD. Switch to plain 'kikit' once upstream
       # ships a KiCad 10 PyPI release.
       #
@@ -89,7 +89,7 @@
     # frequently and a fresh tag may briefly lack built assets). Match on the
     # plain 'linux-x64' substring (unique to the zip asset) to avoid regex-escape
     # differences across Jinja versions.
-    - name: Find latest Linux x64 zip asset
+    - name: Set Freerouting download URL fact
       ansible.builtin.set_fact:
         hobbies_freerouting_download_url: >-
           {{ hobbies_freerouting_releases.json
@@ -98,7 +98,7 @@
           | selectattr('name', 'search', 'linux-x64')
           | map(attribute='browser_download_url') | first }}
 
-    - name: Derive Freerouting install directory name
+    - name: Set Freerouting install directory fact
       ansible.builtin.set_fact:
         hobbies_freerouting_dir: "{{ hobbies_freerouting_download_url | basename | regex_replace('\\.zip$', '') }}"
 

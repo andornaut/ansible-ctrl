@@ -63,7 +63,7 @@
         - g++
       become: true
 
-- name: Install libsdbus
+- name: Build and install libsdbus
   tags: [libsdbus]
   block:
     - name: Create a temporary directory for libsdbus
@@ -118,17 +118,17 @@
       changed_when: true
       become: true
 
-- name: Install Wayland (for wayland-scanner)
+- name: Build and install Wayland (for wayland-scanner)
   tags: [wayland]
   block:
-    - name: Get latest release info from GitLab API
+    - name: Get latest Wayland release
       ansible.builtin.uri:
         url: "https://gitlab.freedesktop.org/api/v4/projects/121/releases"
         method: GET
         return_content: true
       register: niri_wayland_scanner_info
 
-    - name: Set Wayland variables
+    - name: Set Wayland version and download URL facts
       ansible.builtin.set_fact:
         niri_wayland_scanner_version: "{{ niri_wayland_scanner_info.json[0].tag_name }}"
         niri_wayland_scanner_download_url: >-
@@ -175,17 +175,17 @@
       changed_when: true
       become: true
 
-- name: Install wayland-protocols
+- name: Build and install wayland-protocols
   tags: [wayland]
   block:
-    - name: Get latest release info from GitLab API
+    - name: Get latest wayland-protocols release
       ansible.builtin.uri:
         url: "https://gitlab.freedesktop.org/api/v4/projects/2891/releases"
         method: GET
         return_content: true
       register: niri_wayland_protocols_info
 
-    - name: Set wayland-protocols variables
+    - name: Set wayland-protocols version and download URL facts
       ansible.builtin.set_fact:
         niri_wayland_protocols_version: "{{ niri_wayland_protocols_info.json[0].tag_name }}"
         niri_wayland_protocols_download_url: >-
@@ -232,7 +232,7 @@
       changed_when: true
       become: true
 
-- name: Install hyprland-protocols
+- name: Build and install hyprland-protocols
   tags: [hypr]
   block:
     - name: Get latest hyprland-protocols release
@@ -241,7 +241,7 @@
         github_release_repo: hyprwm/hyprland-protocols
         github_release_fact: niri_hyprland_protocols_release
 
-    - name: Set hyprland-protocols variables
+    - name: Set hyprland-protocols version and download URL facts
       ansible.builtin.set_fact:
         niri_hyprland_protocols_version: "{{ niri_hyprland_protocols_release.tag_name }}"
         niri_hyprland_protocols_download_url: "{{ niri_hyprland_protocols_release.tarball_url }}"
