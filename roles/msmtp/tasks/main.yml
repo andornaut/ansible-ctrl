@@ -8,9 +8,18 @@
       - msmtp_domain is defined
       - msmtp_user is defined
       - msmtp_password_INSECURE is defined
-      # msmtpd accepts mail without authenticating the sender, so anything other
-      # than a loopback address would be an open relay on the LAN.
-      - msmtp_relay_interface is match('^(127\.|::1$)')
+      # Exact match, not a prefix pattern: msmtpd accepts mail without
+      # authenticating the sender, and a "127."-prefixed hostname resolving to a
+      # LAN address would be an open relay.
+      - msmtp_relay_interface in ['127.0.0.1', '::1']
+      # The systemd override clears CAP_NET_BIND_SERVICE, so a privileged port
+      # would pass the play and then silently crash-loop msmtpd on bind.
+      - msmtp_relay_port | int >= 1024
+      - msmtp_relay_port | int <= 65535
+    fail_msg: >-
+      Set msmtp_domain, msmtp_user and msmtp_password_INSECURE in host_vars
+      (gitignored), keep msmtp_relay_interface on loopback, and use an
+      unprivileged msmtp_relay_port.
     quiet: true
 
 - name: Uninstall MTAs
@@ -24,6 +33,10 @@
   become: true
 
 # msmtp-mta provides /usr/sbin/sendmail, which mailutils' mail(1) invokes by default.
+#
+# state=present, not latest: this role applies to `all`, and `latest` against a freshly
+# refreshed cache would make every run of it a partial apt upgrade of the whole fleet.
+# upgrade.yml is where packages get upgraded.
 - name: Install system packages
   ansible.builtin.apt:
     name:
@@ -31,7 +44,8 @@
       - msmtp-mta
       - mailutils
     install_recommends: false
-    state: latest
+    state: present
+    update_cache: true
   become: true
 
 # msmtp ships an AppArmor profile for /usr/bin/msmtp whose only /etc read rules cover
@@ -40,15 +54,49 @@
 # "-C /etc/msmtprc-relay" is denied with EACCES and every message bounces.
 # The profile reads this local include when enforced and ignores it otherwise, so
 # writing it unconditionally costs nothing and removes the failure mode.
+
+# dh_apparmor's postinst creates this file, as the operator's local-override point, when
+# msmtp is configured. Stat it before blockinfile can create it, so the CLEANUP below
+# knows whether there was a pre-existing file to repair.
+- name: Check for a pre-existing msmtp AppArmor local rule
+  ansible.builtin.stat:
+    path: /etc/apparmor.d/local/usr.bin.msmtp
+  register: msmtp_apparmor_local
+
+# blockinfile rather than copy: the file belongs to the operator, so only the role's own
+# marker block may be rewritten.
 - name: Allow the relay config in the msmtp AppArmor profile
-  ansible.builtin.copy:
-    dest: /etc/apparmor.d/local/usr.bin.msmtp
+  ansible.builtin.blockinfile:
+    path: /etc/apparmor.d/local/usr.bin.msmtp
+    create: true
     owner: root
     group: root
     mode: "0644"
-    content: |
-      # Managed by ansible-role-msmtp.
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: ansible-role-msmtp"
+    block: |
       {{ msmtp_relay_config_path }} r,
+  become: true
+
+# CLEANUP (added 2026-07-09): remove the task below, and the stat above, once every host
+# has run this role at least once. This role applies to `all`, so that is the whole
+# inventory.
+#
+# An earlier version of this role wrote this file wholesale with `copy`. blockinfile
+# owns only the text between its markers, so those markerless lines would survive
+# forever: the rule would be duplicated, and on the day msmtp_relay_config_path is
+# renamed the orphan would keep granting an enforced profile read access to the old,
+# credential-bearing config.
+#
+# Guarded on the stat rather than on blockinfile having created the file: `replace`
+# fails on a missing path before it honours check mode, while blockinfile creates
+# nothing under `--check`, so an unguarded replace aborts `--check` on any host that
+# does not have msmtp installed yet.
+- name: Remove the markerless msmtp AppArmor local rule
+  ansible.builtin.replace:
+    path: /etc/apparmor.d/local/usr.bin.msmtp
+    regexp: '\A# Managed by ansible-role-msmtp\.\n\S+ r,\n'
+    replace: ''
+  when: msmtp_apparmor_local.stat.exists
   become: true
 
 # debconf disables the profile via this symlink by default (msmtp/apparmor), and
@@ -158,15 +206,28 @@
 # Earlier versions of this role built msmtp from source into /usr/local/bin, which
 # precedes /usr/bin on the default PATH. Left in place, an interactive `msmtp` resolves
 # to the stale build rather than the packaged one the systemd unit and /usr/sbin/sendmail
-# invoke by absolute path.
-- name: Remove source-built msmtp binaries
+# invoke by absolute path. The man pages matter for the same reason:
+# /usr/local/share/man precedes /usr/share in the manpath, so `man msmtp` documents the
+# source-built version rather than the packaged binary that actually runs.
+- name: Remove source-built msmtp binaries and man pages
   ansible.builtin.file:
-    path: "/usr/local/bin/{{ item }}"
+    path: "{{ item }}"
     state: absent
   loop:
-    - msmtp
-    - msmtpd
+    - /usr/local/bin/msmtp
+    - /usr/local/bin/msmtpd
+    - /usr/local/share/man/man1/msmtp.1
+    - /usr/local/share/man/man1/msmtpd.1
   become: true
+
+# Deliberately not removed: the autoconf/automake/autopoint/gettext/libtool/texinfo and
+# -dev packages that earlier versions of this role installed to build msmtp from source.
+# None of them is a leaf. dh-autoreconf depends on autoconf, automake and libtool, and
+# debhelper depends on dh-autoreconf, so `apt remove autoconf` takes the whole debhelper
+# toolchain (and lintian, intltool, po-debconf, piper) out with it. The base role also
+# installs autoconf on every host, and this role applies to `all`, so removing it here
+# would leave the two roles reinstalling and repurging it forever, neither converging.
+# The packages are harmless where they sit.
 
 # CLEANUP (added 2026-07-09): remove once every host has run this role at least once.
 # This role applies to `all`, so that is the whole inventory.
@@ -182,7 +243,7 @@
     purge: true
   become: true
 
-# CLEANUP (added 2026-07-09): remove both tasks below once every host has run this
+# CLEANUP (added 2026-07-09): remove the task below once every host has run this
 # role at least once. This role applies to `all`, so that is the whole inventory.
 #
 # Earlier versions of this role pointed mail(1) at a source-built /usr/local/bin/msmtp
@@ -197,16 +258,11 @@
 # The line must go rather than be corrected: mailutils treats a bare program path as a
 # mailer it pipes to without appending recipients, so "set sendmail=<path>" makes every
 # mail(1) invocation fail with "no recipients found".
-- name: Check for a stale /etc/mail.rc
-  ansible.builtin.stat:
-    path: /etc/mail.rc
-  register: msmtp_mail_rc
-
-# lineinfile fails on a missing path, so guarded on the stat above.
+# No guard needed for a missing file: lineinfile with state=absent exits ok
+# ("file not present") when the path does not exist.
 - name: Remove stale sendmail override from /etc/mail.rc
   ansible.builtin.lineinfile:
     path: /etc/mail.rc
     regexp: '^set sendmail="?/usr/local/bin/msmtp"?\s*$'
     state: absent
-  when: msmtp_mail_rc.stat.exists
   become: true
