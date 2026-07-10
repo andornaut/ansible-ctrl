@@ -10,6 +10,14 @@
 - name: Install X11 system packages and build dependencies
   ansible.builtin.apt:
     name:
+      # Provides /etc/X11/Xsession.d/95dbus_update-activation-env, which runs
+      # `dbus-update-activation-environment --systemd --all` during login and imports the
+      # session environment (notably XDG_SESSION_TYPE) into the systemd --user manager.
+      # Without it that manager never learns XDG_SESSION_TYPE, so systemd-restarted user
+      # services inherit an empty value: eww then reads it as not-x11 and hides the bspwm
+      # workspace switcher until the next login. ly launches the session through
+      # /etc/X11/Xsession, so the hook fires when this package is present.
+      - dbus-x11
       - dex
       - scrot
       - xbacklight
