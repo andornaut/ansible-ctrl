@@ -109,6 +109,11 @@
       ansible.builtin.import_tasks: file_roller.yml
       tags: file-roller
 
+    # After dconf.yml, which installs the dconf-cli that the GNOME timeouts are set with.
+    - name: Configure screen blanking and locking
+      ansible.builtin.import_tasks: idle.yml
+      tags: idle
+
     # flatpak.yml must run before firefox.yml: it installs the flatpak package
     # and adds the flathub remote, which the Firefox flatpak install depends on.
     - name: Configure flatpak

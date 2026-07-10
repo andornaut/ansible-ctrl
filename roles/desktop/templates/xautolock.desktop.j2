@@ -1,0 +1,7 @@
+[Desktop Entry]
+# Managed by the desktop role (tasks/idle.yml). -time is in minutes.
+Exec=/usr/bin/xautolock -secure -time {{ desktop_screen_lock_minutes }} -locker '{{ desktop_xautolock_locker }}'
+TryExec=/usr/bin/xautolock
+Name=xautolock
+Comment=fire up programs in case of user inactivity under X
+Type=Application
