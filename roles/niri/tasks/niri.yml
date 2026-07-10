@@ -81,33 +81,13 @@
           dest: /usr/local/lib/systemd/user/
       become: true
 
-    # CLEANUP (added 2026-07-09): remove once every niri host has run this role at least
-    # once.
-    #
-    # niri is installed under /usr/local, so its units belong in
-    # /usr/local/lib/systemd/user. Copies written there by an earlier version of this
-    # role outrank them and shadow every later change.
-    - name: Remove niri units from the administrator unit directory
-      ansible.builtin.file:
-        path: "/etc/systemd/user/{{ item }}"
-        state: absent
-      loop:
-        - niri.service
-        - niri-shutdown.target
-      become: true
-
-    # Unconditional and idempotent: `reenable` rewrites the enable symlink, which records
-    # an absolute path into the directory emptied above, and `systemctl enable` will not
-    # rewrite it for a unit it already considers enabled. become_user and XDG_RUNTIME_DIR
-    # are required because sudo's env_reset drops the latter, and without it
-    # `systemctl --user` targets the escalated user's manager rather than niri_user's.
-    - name: Re-enable niri.service against its unit path # noqa: command-instead-of-module
-      ansible.builtin.command: systemctl --user reenable niri.service
-      changed_when: false
-      become: true
-      become_user: "{{ niri_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+    # Neither unit has an [Install] section, so neither has an enable symlink to re-assert.
+    - name: Relocate the niri units
+      ansible.builtin.include_tasks: relocate_user_unit.yml
+      vars:
+        niri_relocate_units:
+          - niri.service
+          - niri-shutdown.target
 
     - name: Configure electron flags for Wayland
       ansible.builtin.lineinfile:
