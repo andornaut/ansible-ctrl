@@ -98,17 +98,20 @@
 
           [Service]
           Type=exec
-          # The daemon does not always exit on SIGTERM once its windows are mapped,
-          # which leaves the unit deactivating for the default 90s. The incoming
-          # daemon then finds the outgoing one still holding the IPC socket, prints
-          # "Eww server already running", declines to serve, and lingers tailing logs,
-          # so systemd reports the unit active while the old daemon serves the old
-          # config. Bound the stop, and kill any surviving server before starting.
+          # The daemon does not exit on SIGTERM once its windows are mapped, so the
+          # unit would sit deactivating until TimeoutStopSec elapsed and systemd
+          # resorted to SIGKILL. The incoming daemon then found the outgoing one
+          # still holding the IPC socket, printed "Eww server already running",
+          # declined to serve, and lingered tailing logs, leaving systemd reporting
+          # the unit active while the old daemon served the old config. `eww kill`
+          # shuts the daemon down cleanly, so stop through it, and bound the stop and
+          # clear any surviving server as backstops.
           TimeoutStopSec=5
           ExecStartPre=-/usr/local/bin/eww kill
           ExecStart=/usr/local/bin/eww daemon --no-daemonize --logs
           ExecStartPost=/usr/local/bin/eww open {{ desktop_eww_bar }}
           ExecReload=/usr/local/bin/eww reload
+          ExecStop=-/usr/local/bin/eww kill
           Slice=session.slice
 
           [Install]
