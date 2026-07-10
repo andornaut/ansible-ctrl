@@ -158,25 +158,32 @@
             line: "hide_borders = true"
           become: true
 
-        - name: Enable Gnome keyring authentication
+        # CLEANUP (added 2026-07-10): delete once every desktop_install_ly host has re-run
+        # this role. ly's own /etc/pam.d/ly already ships pam_gnome_keyring auth, password
+        # and session lines, so the earlier additions to /etc/pam.d/login (reached via ly's
+        # `auth/session include login`) and the stray /etc/pam.d/ly password line were
+        # redundant. The duplicated session auto_start unlocks the keyring on the first call,
+        # then logs a spurious "couldn't unlock the login keyring" on the second, already
+        # unlocked call. Stripping them leaves ly's native integration to auto-unlock cleanly.
+        - name: Remove redundant Gnome keyring auth line from login PAM
           ansible.builtin.lineinfile:
             path: /etc/pam.d/login
-            line: "auth       optional     pam_gnome_keyring.so"
-            insertafter: "^auth.*pam_unix.so"
+            regexp: '^auth\s+optional\s+pam_gnome_keyring\.so\s*$'
+            state: absent
           become: true
 
-        - name: Enable Gnome keyring password integration
+        - name: Remove redundant Gnome keyring password line from ly PAM
           ansible.builtin.lineinfile:
             path: /etc/pam.d/ly
-            line: "password   optional     pam_gnome_keyring.so"
-            insertafter: "^password.*pam_unix.so"
+            regexp: '^password\s+optional\s+pam_gnome_keyring\.so\s*$'
+            state: absent
           become: true
 
-        - name: Enable Gnome keyring session management
+        - name: Remove redundant Gnome keyring session line from login PAM
           ansible.builtin.lineinfile:
             path: /etc/pam.d/login
-            line: "session    optional     pam_gnome_keyring.so auto_start"
-            insertafter: "^session.*pam_unix.so"
+            regexp: '^session\s+optional\s+pam_gnome_keyring\.so\s+auto_start\s*$'
+            state: absent
           become: true
 
     - name: Enable ly display manager
