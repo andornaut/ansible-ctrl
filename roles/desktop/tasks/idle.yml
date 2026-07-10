@@ -91,51 +91,6 @@
   become: true
   become_user: "{{ desktop_user }}"
   block:
-    - name: Check the bspwm session script
-      ansible.builtin.include_tasks: idle_check_dotfile.yml
-      vars:
-        idle_dotfile_path: "{{ desktop_bspwm_session_script }}"
-
-    # CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
-    #
-    # xscreensaver owns the X screensaver extension and DPMS, so any `xset s`/`xset dpms` in
-    # the session script fights it at login. The regexps match any argument form. The script
-    # is hand-written, so edit it and skip when absent rather than creating it.
-    - name: Remove the superseded xset lines from the bspwm session script
-      when: desktop_idle_dotfile_exists
-      ansible.builtin.lineinfile:
-        path: "{{ desktop_bspwm_session_script }}"
-        regexp: "{{ item }}"
-        state: absent
-      loop:
-        - '^xset[ \t]+s[ \t]'
-        - '^xset[ \t]+\+dpms'
-        - '^xset[ \t]+-dpms'
-        - '^xset[ \t]+dpms[ \t]'
-
-    # CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
-    #
-    # The xset lines were once inside a managed block; lineinfile above strips the lines but
-    # leaves its markers and comment behind.
-    - name: Remove the superseded managed block from the bspwm session script
-      when: desktop_idle_dotfile_exists
-      ansible.builtin.blockinfile:
-        path: "{{ desktop_bspwm_session_script }}"
-        block: ""
-        state: absent
-
-    # CLEANUP (added 2026-07-10): the bspwm role purges these, so dex would launch entries
-    # whose binaries are gone. This unlinks the dotfiles symlink, not its target, so the repo
-    # copies must be deleted separately.
-    - name: Remove the superseded autostart entries
-      ansible.builtin.file:
-        path: "{{ desktop_user_home }}/.config/autostart/{{ item }}.desktop"
-        state: absent
-      loop:
-        - gnome-screensaver
-        - xautolock
-        - xss-lock
-
     - name: Check the xscreensaver configuration
       ansible.builtin.include_tasks: idle_check_dotfile.yml
       vars:
@@ -235,14 +190,3 @@
       idle-suspend: nothing in an xscreensaver session tells logind that the session is
       idle, so logind's IdleAction would never fire. Unset the variable, or move the host
       to GNOME or niri.
-
-# CLEANUP (added 2026-07-10): remove once every desktop host has converged.
-#
-# A superseded drop-in that drove IdleAction from an idle hint nothing sets any more. Inert,
-# but it would still override the distribution's IdleAction on a host that once had it.
-- name: Remove the superseded logind drop-in
-  ansible.builtin.file:
-    path: /etc/systemd/logind.conf.d/50-desktop-idle.conf
-    state: absent
-  become: true
-  notify: Restart systemd-logind

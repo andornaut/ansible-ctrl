@@ -64,7 +64,6 @@ desktop_suspend_inactive_action: >-
 # Session configuration files that idle.yml writes. Each may be a symlink into a dotfiles
 # repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
 # replace) may write them.
-desktop_bspwm_session_script: "{{ desktop_user_home }}/.config/bspwm/desktop"
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
 # xscreensaver reads ~/.xscreensaver and reloads it whenever it changes, so writing it
 # needs no handler. `#` starts a comment there, which is what blockinfile's default marker
