@@ -157,8 +157,9 @@
         idle_dotfile_path: "{{ desktop_xresources }}"
 
     # The dialog is drawn by xscreensaver-auth (Xt), so its look comes from RESOURCE_MANAGER,
-    # not ~/.xscreensaver. xrdb runs this through cpp, where `#` is a directive, so the markers
-    # use `!`. The session script merges it at login, so changes apply next login.
+    # not ~/.xscreensaver. xrdb runs this through cpp, where `#` is a directive (so the markers
+    # use `!`) and a lone apostrophe warns, so keep both out of the block. The session script
+    # merges it at login, so changes apply next login.
     - name: Configure the xscreensaver unlock dialog
       ansible.builtin.blockinfile:
         path: "{{ desktop_xresources }}"
