@@ -38,6 +38,13 @@ games_flatpak_extensions:
 # only stat paths it is granted, cannot see them.
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
+# How often the token-refresh --user timer (in tasks/heroic.yml) exercises the Epic
+# (legendary) and GOG (gogdl) OAuth refresh tokens so the Heroic store logins do not
+# lapse while Heroic is closed. A systemd OnUnitActiveSec value (validated with
+# systemd-analyze). Kept under the hosts' 4h idle-suspend threshold so a refresh
+# lands before the machine suspends.
+games_heroic_token_refresh_interval: "3h"
+
 # `flatpak override --user` arguments, keyed by application ID. The "default" key
 # applies to every app in games_flatpak_apps; a per-application key is merged on top.
 games_flatpak_overrides:

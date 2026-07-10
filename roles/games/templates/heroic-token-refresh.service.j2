@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Refresh Heroic (Epic/GOG) store login tokens
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/heroic-refresh-tokens

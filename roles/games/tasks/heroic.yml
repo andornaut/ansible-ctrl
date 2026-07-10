@@ -43,10 +43,9 @@
       defaultWinePrefix: "{{ games_heroic_dir }}/Prefixes"
       defaultWinePrefixDir: "{{ games_heroic_dir }}/Prefixes"
       winePrefix: "{{ games_heroic_dir }}/Prefixes/shared"
-    games_heroic_current: >-
-      {{ games_heroic_settings | dict2items
-         | selectattr('key', 'in', games_heroic_desired.keys() | list)
-         | items2dict }}
+    # True when applying the desired keys would actually change the settings.
+    games_heroic_change_needed: >-
+      {{ (games_heroic_settings | combine(games_heroic_desired)) != games_heroic_settings }}
   block:
     # Writing while Heroic runs is pointless: it rewrites config.json on exit and
     # would revert the change. Fail with an actionable message. Guarded on a change
@@ -58,11 +57,11 @@
           and config.json needs updating; it would overwrite the change on exit.
           Close Heroic on this host and re-run.
       when:
-        - games_heroic_current != games_heroic_desired
+        - games_heroic_change_needed | bool
         - games_heroic_running.rc == 0
 
     - name: Rewrite config.json with the enforced paths
-      when: games_heroic_current != games_heroic_desired
+      when: games_heroic_change_needed | bool
       ansible.builtin.copy:
         dest: "{{ games_heroic_config_file }}"
         content: >-
@@ -70,3 +69,70 @@
              | combine({'defaultSettings': games_heroic_settings | combine(games_heroic_desired)})
              | to_nice_json }}
         mode: "0644"
+
+# Keep the Epic (legendary) and GOG (gogdl) store logins from lapsing between Heroic
+# sessions. Heroic refreshes its own tokens while open; a systemd --user timer runs
+# the same refresh as games_user otherwise. It is user-scoped (no root, no linger):
+# without linger the user manager starts at login, so the timer's OnStartupSec fires
+# a catch-up run shortly after each login and OnUnitActiveSec keeps it going during
+# the session. On hosts where the user is not logged in at converge time it is only
+# enabled (symlinked) and starts on their next login.
+- name: Validate the token-refresh interval
+  ansible.builtin.command:
+    cmd: systemd-analyze timespan {{ games_heroic_token_refresh_interval | quote }}
+  changed_when: false
+  check_mode: false
+
+- name: Create the user bin and systemd unit directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ games_user_home }}/.local/bin"
+    - "{{ games_user_home }}/.config/systemd/user/timers.target.wants"
+
+- name: Install the token-refresh script
+  ansible.builtin.template:
+    src: heroic-refresh-tokens.j2
+    dest: "{{ games_user_home }}/.local/bin/heroic-refresh-tokens"
+    mode: "0755"
+
+- name: Install the token-refresh user service unit
+  ansible.builtin.template:
+    src: heroic-token-refresh.service.j2
+    dest: "{{ games_user_home }}/.config/systemd/user/heroic-token-refresh.service"
+    mode: "0644"
+  register: games_heroic_refresh_service
+
+- name: Install the token-refresh user timer unit
+  ansible.builtin.template:
+    src: heroic-token-refresh.timer.j2
+    dest: "{{ games_user_home }}/.config/systemd/user/heroic-token-refresh.timer"
+    mode: "0644"
+  register: games_heroic_refresh_timer
+
+# Enabling by symlink works even when the user manager is not running, so the timer
+# activates on next login regardless; the systemd_service task below then reloads
+# and starts it immediately when a session is present.
+- name: Enable the token-refresh timer
+  ansible.builtin.file:
+    src: ../heroic-token-refresh.timer
+    dest: "{{ games_user_home }}/.config/systemd/user/timers.target.wants/heroic-token-refresh.timer"
+    state: link
+
+- name: Check for a running user systemd manager
+  ansible.builtin.stat:
+    path: "/run/user/{{ games_user_uid }}/systemd/private"
+  register: games_user_systemd
+  changed_when: false
+
+- name: Reload and (re)start the token-refresh timer in the active session
+  ansible.builtin.systemd_service:
+    name: heroic-token-refresh.timer
+    scope: user
+    state: "{{ 'restarted' if games_heroic_refresh_timer.changed else 'started' }}"
+    daemon_reload: "{{ games_heroic_refresh_service.changed or games_heroic_refresh_timer.changed }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ games_user_uid }}"
+  when: games_user_systemd.stat.exists
