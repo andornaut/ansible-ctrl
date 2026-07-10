@@ -1,15 +1,6 @@
 # ansible-role-desktop
 
-Configures a Linux desktop environment with common applications on Ubuntu.
-
-Set `desktop_environment` per host to choose the environment:
-
-- `niri` or `bspwm`: the named tiling window manager (applied by `desktop.yml`) with a lemurs/ly display manager, plus dunst, eww, rofi, and pavolume.
-- `gnome`: GNOME Shell with gdm3 (installs `ubuntu-desktop-minimal`), skipping the WM-specific tools. GNOME 49+ ships a Wayland-only session, so no Xorg server is installed; legacy X11 apps run under XWayland, which GNOME pulls in.
-
-Applications common to all (browsers, flatpak, fonts, GRUB, LACT, etc.) are installed regardless.
-
-On tiling hosts this role also installs the session utilities a window manager does not provide for itself (blueman, lxappearance, network-manager-gnome, policykit-1-gnome) and the X11 tools both tiling sessions use, since niri runs them as XWayland clients (feh, suckless-tools, wmctrl, xclip, xinput, xsel). Only the tools with a true Wayland replacement belong to the [bspwm](../bspwm/) role (X11) and the [niri](../niri/) role (Wayland).
+Configures a Linux desktop environment and common applications on Ubuntu.
 
 ## Usage
 
@@ -35,7 +26,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [firefox](https://www.mozilla.org/firefox/) | Web browser (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`) |
 | [flatpak](https://flatpak.org/) | Flatpak runtime and Flathub apps |
 | fonts | System fonts (Hack, DejaVu, Source Code Pro, etc.) |
-| gnome | GNOME Shell + gdm3 (`ubuntu-desktop-minimal`), gnome only |
+| gnome | GNOME Shell and gdm3 (`ubuntu-desktop-minimal`), gnome only |
 | [grub](https://www.gnu.org/software/grub/) | Bootloader settings |
 | [insync](https://www.insynchq.com/) | Google Drive sync client (`desktop_install_insync`) |
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
@@ -45,20 +36,33 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [pavolume](https://github.com/andornaut/pavolume) | PulseAudio volume controller, tiling only |
 | [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source), tiling only |
 
-Tags naming a `desktop_install_*` variable are gated on that flag, which defaults to `false`: the tag alone
-runs nothing. The Super I/O drivers expose the pwm/fan hwmon that CoolerControl manages; enable the one
-matching the board's chip.
-
-`desktop_default_browser` (`firefox` or `google-chrome`) selects which browser `xdg-settings` marks as the
-default handler.
-
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
 
-[vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home
-directory and UID, the Zig platform key, the apt packages flatpak replaces, and the `.desktop` id of the
-default browser). Role vars outrank `host_vars`, so overriding them there has no effect: override the
-default they are derived from instead.
+| Variable | Purpose |
+| --- | --- |
+| `desktop_environment` | `bspwm`, `niri`, or `gnome`. Selects the window manager `desktop.yml` applies, and which tags run |
+| `desktop_default_browser` | `firefox` or `google-chrome`. The handler `xdg-settings` marks as default |
+| `desktop_install_*` | Feature flags, all defaulting to `false`. A tag naming one runs nothing unless the flag is set |
+| `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
-The `ly` display manager is built with Zig, which is downloaded from `desktop_zig_mirror` rather than from ziglang.org, whose donated bandwidth makes the origin download take about 20 minutes. Set it to a host listed in [community-mirrors.txt](https://ziglang.org/download/community-mirrors.txt); the archive is checksummed against the shasum the origin publishes.
+[vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home directory and
+UID, the Zig platform key, the apt packages flatpak replaces, and the `.desktop` id of the default browser).
+Role vars outrank `host_vars`, so overriding them there has no effect: override the default they derive from.
+
+## Notes
+
+- `desktop_environment: gnome` installs GNOME Shell and gdm3 and skips the WM-specific tags. GNOME 49+ ships a
+  Wayland-only session, so no Xorg server is installed; legacy X11 apps run under the XWayland that GNOME pulls in.
+- Tiling hosts additionally get a display manager, dunst, eww, rofi, and pavolume; the session utilities a window
+  manager does not provide for itself (blueman, lxappearance, network-manager-gnome, policykit-1-gnome); and the
+  X11 tools both tiling sessions use (feh, suckless-tools, wmctrl, xclip, xinput, xsel), since niri runs them as
+  XWayland clients.
+- Only tools with a true per-protocol replacement belong to the [bspwm](../bspwm/) role (X11) and the
+  [niri](../niri/) role (Wayland). Everything both sessions share lives here.
+- The Super I/O drivers expose the pwm/fan hwmon that CoolerControl manages. Enable the one matching the board's chip.
+- `ly` is built with Zig, downloaded from `desktop_zig_mirror` rather than from ziglang.org, whose donated
+  bandwidth makes the origin download take about 20 minutes. Set it to a host listed in
+  [community-mirrors.txt](https://ziglang.org/download/community-mirrors.txt); the archive is checksummed against
+  the shasum the origin publishes.

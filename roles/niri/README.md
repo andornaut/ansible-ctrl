@@ -1,14 +1,15 @@
 # ansible-role-niri
 
-Installs and configures the [niri](https://github.com/YaLTeR/niri) Wayland compositor, the Hyprland ecosystem tools, and the Wayland utilities used by the niri session on Ubuntu.
-
-This role installs only the Wayland-only utilities (brightnessctl, grim, slurp, wl-clipboard); their X11 counterparts belong to the [bspwm](../bspwm/) role. Tools that both sessions share live in the [desktop](../desktop/) role.
+Installs the [niri](https://github.com/YaLTeR/niri) Wayland compositor, the Hyprland ecosystem tools, and the
+Wayland utilities its session requires, on Ubuntu.
 
 ## Usage
 
-Applied by the `desktop` playbook when `desktop_environment == "niri"`, or run the role directly by tag:
+Applied by `desktop.yml` when `desktop_environment == "niri"`.
 
 ```bash
+make desktop
+
 ansible-playbook --ask-become-pass desktop.yml --tags niri
 ansible-playbook --ask-become-pass desktop.yml --tags hypr
 ```
@@ -25,12 +26,15 @@ ansible-playbook --ask-become-pass desktop.yml --tags hypr
 
 See [defaults/main.yml](./defaults/main.yml).
 
-## Running X11 Applications
+## Notes
 
-For X11 applications like Steam, modify the desktop entry:
+- This role owns only the Wayland-only utilities (brightnessctl, grim, slurp, wl-clipboard). Their X11
+  counterparts belong to the [bspwm](../bspwm/) role, and tools both sessions share live in the
+  [desktop](../desktop/) role.
+- X11 applications such as Steam need `xwayland-run` in their desktop entry:
 
-```ini
-[Desktop Entry]
-Name=Steam
-Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.valvesoftware.Steam
-```
+  ```ini
+  [Desktop Entry]
+  Name=Steam
+  Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.valvesoftware.Steam
+  ```
