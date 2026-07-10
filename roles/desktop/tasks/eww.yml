@@ -113,6 +113,7 @@
 
           [Install]
           WantedBy=graphical-session.target
+      notify: Restart eww
       become: true
 
     - name: Enable eww service
