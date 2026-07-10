@@ -14,116 +14,88 @@ ansible-playbook --ask-become-pass nas.yml --tags backupnas
 
 | Tag | Description |
 | --- | --- |
-| backupnas | Configure backup LUKS devices and install backup script |
+| backupnas | Configure backup LUKS devices and install the `backupnas` script |
 
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
 
-## Initial Setup
+## Notes
 
-1. Create LUKS-encrypted devices:
+- `nas-mount.service` is a systemd oneshot that mounts the array on boot if the LUKS key file exists. It runs
+  after `local-fs.target` and starts `media-nas.mount`, which pulls in the LUKS unlock via fstab's systemd
+  dependencies.
 
-```bash
-# Create LUKS container on device
-device=/dev/disk/by-id/...
-cryptsetup luksFormat ${device}
+## Setup
 
-# Add key file
-keyfile=/path/to/keyfile
-head -c 256 /dev/random > ${keyfile}
-cryptsetup luksAddKey ${device} ${keyfile}
+The role does not create the LUKS devices, the filesystem, or the fstab and crypttab entries. Do that once, by
+hand, before applying it.
 
-# Map the encrypted container
-cryptsetup luksOpen --key-file ${keyfile} ${device} nas0
-# Repeat for additional devices (e.g., nas1, nas2, etc.)
-```
+1. Create the LUKS-encrypted devices:
 
-1. Create a BTRFS RAID Array
+   ```bash
+   device=/dev/disk/by-id/...
+   cryptsetup luksFormat ${device}
 
-```bash
-# Create RAID1 array from encrypted devices
-mkfs.btrfs -m raid1 -d raid1 /dev/mapper/nas0 /dev/mapper/nas1
+   # Add a key file
+   keyfile=/path/to/keyfile
+   head -c 256 /dev/random > ${keyfile}
+   cryptsetup luksAddKey ${device} ${keyfile}
 
-# Mount the array
-mount \
-    -t btrfs /dev/mapper/nas0 \
-    -o device=/dev/mapper/nas0,device=/dev/mapper/nas1 \
-    /media/nas
+   # Map the encrypted container, repeating for nas1, nas2, and so on
+   cryptsetup luksOpen --key-file ${keyfile} ${device} nas0
+   ```
 
-# Verify array status
-btrfs filesystem show /media/nas
-```
+2. Create the BTRFS RAID array:
 
-## Configuration
+   ```bash
+   mkfs.btrfs -m raid1 -d raid1 /dev/mapper/nas0 /dev/mapper/nas1
 
-### crypttab Setup
+   mount \
+       -t btrfs /dev/mapper/nas0 \
+       -o device=/dev/mapper/nas0,device=/dev/mapper/nas1 \
+       /media/nas
 
-Add to `/etc/crypttab`:
+   btrfs filesystem show /media/nas
+   ```
 
-```text
-# Format: <mapper name> <UUID> <key file> <options>
-nas0 UUID-0000-1111-2222 /root/luks-key luks,noauto
-nas1 UUID-3333-4444-5555 /root/luks-key luks,noauto
-nasbackup /dev/disk/by-id/ata-XXX-YYY_ZZZZ /root/luks-key luks,noauto
-```
+3. Add the mapper devices to `/etc/crypttab`, as `<mapper name> <UUID> <key file> <options>`:
 
-### fstab Setup
+   ```text
+   nas0 UUID-0000-1111-2222 /root/luks-key luks,noauto
+   nas1 UUID-3333-4444-5555 /root/luks-key luks,noauto
+   nasbackup /dev/disk/by-id/ata-XXX-YYY_ZZZZ /root/luks-key luks,noauto
+   ```
 
-Add to `/etc/fstab`:
+4. Add the mount points to `/etc/fstab`, as `<device> <mount point> <filesystem> <options>`:
 
-```text
-# Format: <device> <mount point> <filesystem> <options>
-/dev/mapper/nas0 /media/nas btrfs defaults,noauto,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
+   ```text
+   /dev/mapper/nas0 /media/nas btrfs defaults,noauto,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
 
-/dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
-```
+   /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
+   ```
 
-### Auto-mounting
-
-The `nas-mount.service` systemd oneshot service automatically mounts the array on boot if the LUKS key file exists. It runs after `local-fs.target` and starts `media-nas.mount`, which pulls in the LUKS unlock via fstab systemd dependencies.
+## Operations
 
 ```bash
-# Check status
+# Check the auto-mount service
 systemctl status nas-mount.service
 
-# Manual mount
+# Mount and unmount
 systemctl start media-nas.mount
-
-# Manual mount (without systemd)
-cryptdisks_start nas0
-cryptdisks_start nas1
-mount /media/nas
-```
-
-### Unmounting the Array
-
-```bash
 systemctl stop media-nas.mount
 systemctl stop systemd-cryptsetup@nas*.service
 
-# Without systemd
-umount /media/nas
-cryptdisks_stop nas0
-cryptdisks_stop nas1
-```
+# Mount and unmount without systemd
+cryptdisks_start nas0 && cryptdisks_start nas1 && mount /media/nas
+umount /media/nas && cryptdisks_stop nas0 && cryptdisks_stop nas1
 
-### Backup Operations
-
-```bash
-# Mount backup destination
-mount /media/nasbackup
-
-# Run backup
-backupnas
-```
-
-### Mounting Degraded Array
-
-For recovery or maintenance when a device is missing:
-
-```bash
+# Mount a degraded array, for recovery or maintenance when a device is missing
 mount -o degraded /dev/mapper/nas0 /media/nas
+
+# Back up to the backup array
+mount /media/nasbackup
+backupnas
 ```
 
 ## References
