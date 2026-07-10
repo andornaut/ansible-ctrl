@@ -130,21 +130,26 @@
       notify: Restart eww
       become: true
 
+    # CLEANUP (added 2026-07-09): remove once every desktop host has run this role at
+    # least once.
+    #
+    # Written by an earlier version of this role, which installed the unit into the
+    # administrator's directory. /etc/systemd/user outranks /usr/local/lib/systemd/user,
+    # so a copy left there shadows the one above and every change to it is a no-op.
     - name: Remove eww.service from the administrator unit directory
       ansible.builtin.file:
         path: /etc/systemd/user/eww.service
         state: absent
-      register: desktop_eww_stale_unit
       become: true
 
     # The enable symlink records an absolute path, so it still points into
-    # /etc/systemd/user after the unit moves, and systemctl enable will not rewrite
-    # an already-enabled unit.
-    - name: Re-enable eww.service against its new unit path
+    # /etc/systemd/user after the unit moves, and `systemctl enable` will not rewrite it
+    # for a unit it already considers enabled. `reenable` rewrites it unconditionally and
+    # is idempotent, so this asserts the end state rather than reacting to the removal
+    # above: a run interrupted between the two tasks still converges on the next run.
+    - name: Re-enable eww.service against its unit path # noqa: command-instead-of-module
       ansible.builtin.command: systemctl --user reenable eww.service
-      when: desktop_eww_stale_unit.changed
-      changed_when: true
-      notify: Restart eww
+      changed_when: false
       become: true
       become_user: "{{ desktop_user }}"
       environment:
