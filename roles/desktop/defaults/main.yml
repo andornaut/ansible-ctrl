@@ -37,10 +37,23 @@ desktop_zig_mirror: https://ziglang.freetls.fastly.net
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# What xscreensaver draws once a bspwm session blanks, written as its `mode` resource.
-# "blank" is a black screen; "random" runs the screen hacks, some of which display images
-# from the user's home directory.
-desktop_xscreensaver_mode: blank
+# The colour i3lock fills the locked screen with, as RRGGBB without a leading `#`. i3lock
+# draws nothing else: the role passes -u to suppress even the unlock indicator, so the
+# locked screen carries no logo, hostname, clock or version string.
+desktop_i3lock_color: "000000"
+
+# Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
+# already has, so adding a host to the desktop group never silently changes it; 0 disables
+# idle suspend; N suspends after N minutes. Set it per host.
+#
+# Each desktop environment enforces it through whatever already tracks session idleness:
+# dconf on GNOME, logind's IdleAction under bspwm, a hypridle listener under niri. None of
+# them tells mains from battery, so the timeout applies to both. Locking is a separate
+# policy: the screen still locks at desktop_screen_lock_minutes either way.
+#
+# niri is the exception to "unset leaves it alone": hypridle.conf is generated whole, so an
+# unset value writes no suspend listener, which is the same as 0.
+desktop_suspend_inactive_minutes: ~
 
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are

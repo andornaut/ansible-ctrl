@@ -1,20 +1,21 @@
 ---
 # X11 tools that have a true Wayland replacement in the niri role: scrot -> grim and
-# slurp, xscreensaver -> hypridle and hyprlock, xbacklight -> brightnessctl. The X11 tools
-# that both sessions use (niri runs them as XWayland clients) are installed by the desktop
-# role's apt_tiling.yml, and xdotool by its apt.yml.
+# slurp, xss-lock and i3lock -> hypridle and hyprlock, xbacklight -> brightnessctl. The
+# X11 tools that both sessions use (niri runs them as XWayland clients) are installed by
+# the desktop role's apt_tiling.yml, and xdotool by its apt.yml.
 #
-# xscreensaver blanks, locks and powers down the display on its own timers, which the
-# desktop role writes to ~/.xscreensaver. It is installed here rather than by that role,
-# which owns the timeout policy but not the X11 mechanism.
+# xss-lock runs i3lock when the X screensaver activates, and also on `loginctl
+# lock-session` and before the system sleeps. Both are installed here rather than by the
+# desktop role, which owns the timeout policy but not the X11 mechanism.
 - name: Install X11 system packages and build dependencies
   ansible.builtin.apt:
     name:
       - dex
+      - i3lock
       - scrot
       - xbacklight
       - xorg
-      - xscreensaver
+      - xss-lock
       # Build dependencies for the projects in bspwm_projects, which are
       # compiled from source by bspwm.yml.
       - libasound2-dev
@@ -41,9 +42,8 @@
 
 # CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
 #
-# Both are superseded by xscreensaver, which blanks, locks and powers down the display
-# itself. Purging them matters beyond tidiness, because either one left installed fights
-# xscreensaver for the same X screensaver extension:
+# All three are superseded by xss-lock plus i3lock. Purging them matters beyond tidiness,
+# because each one left installed fights the others for the same X screensaver extension:
 #
 # gnome-screensaver is a GNOME 3.6-era program that Ubuntu still ships but no longer uses.
 # On startup it zeroes the X screensaver timeout, so a session that runs it never blanks,
@@ -54,11 +54,20 @@
 # role ever installed gnome-screensaver, so on a host that never happened to have it,
 # xautolock spent every idle period running a command that did not exist. It reports
 # nothing when its locker is missing, so the session simply never locked.
+#
+# xscreensaver takes the X screensaver extension over on startup and drives DPMS from its
+# own resources, so `xset s` and `xset dpms` cannot coexist with it. It was replaced
+# because Ubuntu ships the Oct 2023 build (6.08) whose unlock dialog hardcodes a logo and
+# a version heading that no X resource can remove.
+#
+# Purging is what makes the switch stick: a still-installed xscreensaver would keep its
+# autostart entry working on hosts where the dotfiles repository has not been reapplied.
 - name: Purge the superseded screen lockers
   ansible.builtin.apt:
     name:
       - gnome-screensaver
       - xautolock
+      - xscreensaver
     state: absent
     purge: true
     autoremove: true

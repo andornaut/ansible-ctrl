@@ -1,0 +1,15 @@
+# Managed by the desktop role (tasks/idle.yml).
+#
+# Written on bspwm hosts only. logind suspends the host once every user-class session
+# reports itself idle, and it cannot work that out for itself: something must call
+# SetIdleHint. Under bspwm that something is xss-lock. Under niri nothing does, so niri
+# suspends from a hypridle listener instead, and GNOME uses gnome-settings-daemon.
+# logind has no notion of the power source, so this timeout applies on mains and on battery
+# alike; set desktop_suspend_inactive_minutes to 0 to never idle-suspend.
+#
+# A session without a TTY never reports itself idle, so a lingering `ssh host 'daemon &'`
+# login silently disables idle suspend for the whole host. That only affects IdleAction:
+# blanking, locking and DPMS run off the X server's idle counter, not this hint.
+[Login]
+IdleAction={{ 'suspend' if desktop_suspend_inactive_seconds | int > 0 else 'ignore' }}
+IdleActionSec={{ desktop_suspend_inactive_seconds }}
