@@ -117,6 +117,13 @@
         chdir: "{{ niri_libsdbus_tmp.path }}/build"
       changed_when: true
       become: true
+  always:
+    - name: Remove the temporary directory for libsdbus
+      ansible.builtin.file:
+        path: "{{ niri_libsdbus_tmp.path }}"
+        state: absent
+      when: niri_libsdbus_tmp.path is defined
+      become: true
 
 - name: Build and install Wayland (for wayland-scanner)
   tags: [wayland]
@@ -173,6 +180,13 @@
         cmd: ninja install
         chdir: "{{ niri_wayland_scanner_tmp.path }}/build"
       changed_when: true
+      become: true
+  always:
+    - name: Remove the temporary directory for Wayland
+      ansible.builtin.file:
+        path: "{{ niri_wayland_scanner_tmp.path }}"
+        state: absent
+      when: niri_wayland_scanner_tmp.path is defined
       become: true
 
 - name: Build and install wayland-protocols
@@ -231,6 +245,13 @@
         chdir: "{{ niri_wayland_protocols_tmp.path }}/build"
       changed_when: true
       become: true
+  always:
+    - name: Remove the temporary directory for wayland-protocols
+      ansible.builtin.file:
+        path: "{{ niri_wayland_protocols_tmp.path }}"
+        state: absent
+      when: niri_wayland_protocols_tmp.path is defined
+      become: true
 
 - name: Build and install hyprland-protocols
   tags: [hypr]
@@ -277,4 +298,11 @@
         cmd: ninja install
         chdir: "{{ niri_hyprland_protocols_tmp.path }}/build"
       changed_when: true
+      become: true
+  always:
+    - name: Remove the temporary directory for hyprland-protocols
+      ansible.builtin.file:
+        path: "{{ niri_hyprland_protocols_tmp.path }}"
+        state: absent
+      when: niri_hyprland_protocols_tmp.path is defined
       become: true

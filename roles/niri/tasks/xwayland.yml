@@ -83,3 +83,10 @@
         enabled: true
         scope: user
         state: started
+  always:
+    - name: Remove the temporary directory for xwayland-satellite
+      ansible.builtin.file:
+        path: "{{ niri_xwayland_tmp.path }}"
+        state: absent
+      when: niri_xwayland_tmp.path is defined
+      become: true

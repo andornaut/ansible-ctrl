@@ -33,10 +33,15 @@
 - name: Install Go
   when: dev_go_version not in dev_go_installed.stdout
   block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: dev_go_tmp
+
     - name: Download Go tarball
       ansible.builtin.get_url:
         url: "https://go.dev/dl/{{ dev_go_version }}.linux-{{ dev_arch }}.tar.gz"
-        dest: "/tmp/{{ dev_go_version }}.linux-{{ dev_arch }}.tar.gz"
+        dest: "{{ dev_go_tmp.path }}/go.tar.gz"
         mode: "0644"
 
     # The tarball unpacks into a "go" directory, so the old tree must go first:
@@ -49,7 +54,14 @@
 
     - name: Extract Go tarball to /usr/local
       ansible.builtin.unarchive:
-        src: "/tmp/{{ dev_go_version }}.linux-{{ dev_arch }}.tar.gz"
+        src: "{{ dev_go_tmp.path }}/go.tar.gz"
         dest: /usr/local
         remote_src: true
+      become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ dev_go_tmp.path }}"
+        state: absent
+      when: dev_go_tmp.path is defined
       become: true

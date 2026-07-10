@@ -47,20 +47,15 @@
           | map(attribute='browser_download_url') | first }}
 
     - name: Create a temporary directory
-      ansible.builtin.file:
-        path: /tmp/source-code-pro
+      ansible.builtin.tempfile:
         state: directory
-        mode: "0755"
+      register: desktop_source_code_pro_tmp
 
-    # The archive holds a single TTF/ directory and no LICENSE.md, so `creates`
-    # must name a file the archive actually contains. /tmp is tmpfs, so this
-    # downloads once per boot.
     - name: Download and extract Source Code Pro package
       ansible.builtin.unarchive:
         src: "{{ desktop_source_code_pro_url }}"
-        dest: /tmp/source-code-pro/
+        dest: "{{ desktop_source_code_pro_tmp.path }}/"
         remote_src: true
-        creates: /tmp/source-code-pro/TTF/SourceCodePro-Regular.ttf
 
     - name: Create Source Code Pro font directory
       ansible.builtin.file:
@@ -76,7 +71,7 @@
     # a green run. Fail instead.
     - name: Find extracted Source Code Pro font files
       ansible.builtin.find:
-        paths: /tmp/source-code-pro/TTF
+        paths: "{{ desktop_source_code_pro_tmp.path }}/TTF"
         patterns: "*.ttf"
       register: desktop_source_code_pro_files
       failed_when: desktop_source_code_pro_files.matched == 0
@@ -96,4 +91,11 @@
       loop_control:
         label: "{{ item.path | basename }}"
       notify: Update font cache
+      become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_source_code_pro_tmp.path }}"
+        state: absent
+      when: desktop_source_code_pro_tmp.path is defined
       become: true

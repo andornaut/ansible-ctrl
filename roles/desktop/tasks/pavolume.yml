@@ -7,24 +7,37 @@
     update_cache: true
   become: true
 
-- name: Clone pavolume git repository
-  ansible.builtin.git:
-    repo: "https://github.com/andornaut/pavolume.git"
-    dest: /tmp/pavolume.git
-    depth: 1
-    force: true
-    version: main
+- name: Build and install pavolume
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: desktop_pavolume_tmp
 
-- name: Build pavolume
-  community.general.make:
-    chdir: /tmp/pavolume.git
+    - name: Clone pavolume git repository
+      ansible.builtin.git:
+        repo: "https://github.com/andornaut/pavolume.git"
+        dest: "{{ desktop_pavolume_tmp.path }}"
+        depth: 1
+        version: main
 
-- name: Install pavolume
-  community.general.make:
-    chdir: /tmp/pavolume.git
-    target: install
-  register: desktop_pavolume_install
-  failed_when:
-    - desktop_pavolume_install.failed
-    - "'cp: cannot create regular file' not in desktop_pavolume_install.stderr"
-  become: true
+    - name: Build pavolume
+      community.general.make:
+        chdir: "{{ desktop_pavolume_tmp.path }}"
+
+    - name: Install pavolume
+      community.general.make:
+        chdir: "{{ desktop_pavolume_tmp.path }}"
+        target: install
+      register: desktop_pavolume_install
+      failed_when:
+        - desktop_pavolume_install.failed
+        - "'cp: cannot create regular file' not in desktop_pavolume_install.stderr"
+      become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_pavolume_tmp.path }}"
+        state: absent
+      when: desktop_pavolume_tmp.path is defined
+      become: true
