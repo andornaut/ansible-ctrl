@@ -52,10 +52,3 @@
   ansible.builtin.command: update-grub
   become: true
   changed_when: true
-
-# logind re-reads its config only on restart (no reload verb); it re-adopts live sessions.
-- name: Restart systemd-logind
-  ansible.builtin.systemd_service:
-    name: systemd-logind
-    state: restarted
-  become: true
