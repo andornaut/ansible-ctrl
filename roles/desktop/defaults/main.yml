@@ -37,8 +37,10 @@ desktop_zig_mirror: https://ziglang.freetls.fastly.net
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# The command xautolock runs to lock a bspwm session, passed to its -locker flag.
-desktop_xautolock_locker: gnome-screensaver-command --lock
+# What xscreensaver draws once a bspwm session blanks, written as its `mode` resource.
+# "blank" is a black screen; "random" runs the screen hacks, some of which display images
+# from the user's home directory.
+desktop_xscreensaver_mode: blank
 
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are

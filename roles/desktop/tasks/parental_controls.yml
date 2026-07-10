@@ -63,10 +63,10 @@
 # oneshot with RemainAfterExit=yes and is enabled WantedBy=multi-user.target, so it is
 # active on any host where it has already succeeded, and starting it is a no-op there.
 #
-# It compiles /var/lib/malcontent-webd/filter-lists from the per-user web filters set by
-# `malcontent-client set-web-filter`. This role sets none, so the compiled lists are empty
-# and only the Chrome policy below restricts content. The unit runs with PrivateNetwork
-# and IPAddressDeny=any, so it downloads nothing regardless.
+# The unit is only a D-Bus client: it calls UpdateFilters on org.freedesktop.MalcontentWeb1
+# and exits, which is why it can run under PrivateNetwork. malcontent-webd does the fetching
+# and writes /var/lib/malcontent-webd/filter-lists, one per user who has a web filter set by
+# `malcontent-client set-web-filter`. Failures land in /var/lib/malcontent-webd/update-error.
 - name: Compile the malcontent web filter lists
   ansible.builtin.systemd_service:
     name: malcontent-webd-update.service

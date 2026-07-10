@@ -1,17 +1,21 @@
 ---
 # Screen blanking, session locking and monitor power-off. The policy is shared across
 # every desktop environment (the desktop_screen_*_minutes variables); the mechanism is
-# not. GNOME reads dconf, bspwm reads xset out of the session script and xautolock out of
-# an autostart entry, and niri delegates to hypridle.
+# not. GNOME reads dconf, bspwm delegates to xscreensaver, and niri to hypridle.
 #
 # Only X11 separates blanking the screen from powering the monitor down, so only bspwm
 # honours all three timeouts. niri has no blanking step and gets the lock and power-off
 # timeouts; GNOME exposes no separate power-off delay and gets the blank and lock
 # timeouts, powering the display down when it blanks.
 #
-# hypridle.conf and the xautolock autostart entry are generated whole: the role owns every
-# setting in them, so there is nothing to pattern-match. The bspwm session script is a
-# hand-written shell script, so only its xset lines are edited.
+# xscreensaver owns all three under bspwm. It takes over the X screensaver extension on
+# startup, so `xset s` cannot coexist with it: whatever the session script sets, the daemon
+# overrides. Driving DPMS from the same daemon keeps blanking, locking and power-off on one
+# clock. This is why gnome-screensaver had to go rather than merely be reconfigured.
+#
+# hypridle.conf and the autostart entries are generated whole: the role owns every setting
+# in them, so there is nothing to pattern-match. The bspwm session script is a hand-written
+# shell script, so only its superseded xset lines are removed.
 #
 # Any of these files may be a symlink into a dotfiles repository, which rules out template
 # and copy. When the content they would write already matches, their action plugin re-runs
@@ -82,75 +86,70 @@
       vars:
         idle_dotfile_path: "{{ desktop_bspwm_session_script }}"
 
-    # xset s blanks the screen; DPMS powers the display down. The three DPMS stages are
-    # collapsed onto the power-off timeout: standby and suspend save no meaningful power
-    # on a display that is already blank. The regexps match any argument form, not just a
-    # numeric one, so that an existing `xset s off` is rewritten rather than left below
-    # the inserted line where it would win at session start.
+    # CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
+    #
+    # xscreensaver disables the X screensaver extension when it starts and programs DPMS
+    # from its own resources, so these lines are dead at best. `xset s` is worse than dead:
+    # a session that still runs it races the daemon at login. The regexps match any
+    # argument form, so `xset s off` left by an older revision goes too.
     #
     # The script is hand-written, so it is edited rather than generated, and skipped when
     # absent rather than created in the dotfiles repository's place.
-    #
-    # When a line is already present its regexp rewrites it wherever it sits. When it is
-    # not, it is inserted before the session script's `exec`, which replaces the shell
-    # process: appending at the end of the file (lineinfile's fallback when the anchor
-    # does not match) would leave the command after the exec, where it never runs. A
-    # script with no exec line falls back to the end of the file, which is correct there.
-    - name: Configure bspwm screen blanking and monitor power-off
+    - name: Remove the superseded xset lines from the bspwm session script
       when: desktop_idle_dotfile_exists
-      block:
-        - name: Set the X11 screensaver timeout
-          ansible.builtin.lineinfile:
-            path: "{{ desktop_bspwm_session_script }}"
-            regexp: '^xset[ \t]+s[ \t]'
-            line: "xset s {{ desktop_screen_blank_seconds }} # Time in seconds before screensaver activation"
-            insertbefore: '^exec[ \t]'
+      ansible.builtin.lineinfile:
+        path: "{{ desktop_bspwm_session_script }}"
+        regexp: "{{ item }}"
+        state: absent
+      loop:
+        - '^xset[ \t]+s[ \t]'
+        - '^xset[ \t]+\+dpms'
+        - '^xset[ \t]+dpms[ \t]'
 
-        - name: Enable X11 DPMS
-          ansible.builtin.lineinfile:
-            path: "{{ desktop_bspwm_session_script }}"
-            regexp: '^xset[ \t]+\+dpms'
-            line: xset +dpms
-            insertbefore: '^exec[ \t]'
+    # CLEANUP (added 2026-07-10): both programs are purged by the bspwm role, so dex would
+    # be left launching entries whose binaries are gone. Removing a path here unlinks a
+    # dotfiles symlink rather than the file it points at, so the repository copies were
+    # deleted separately; this only cleans up hosts that still carry the links.
+    - name: Remove the superseded autostart entries
+      ansible.builtin.file:
+        path: "{{ desktop_user_home }}/.config/autostart/{{ item }}.desktop"
+        state: absent
+      loop:
+        - gnome-screensaver
+        - xautolock
 
-        - name: Set the X11 DPMS timeouts
-          ansible.builtin.lineinfile:
-            path: "{{ desktop_bspwm_session_script }}"
-            regexp: '^xset[ \t]+dpms[ \t]'
-            line: >-
-              xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }}
-              {{ desktop_screen_off_seconds }} # Time in seconds before display: standby, suspend, off
-            insertbefore: '^exec[ \t]'
-
-    - name: Check the xautolock autostart entry
+    - name: Check the xscreensaver configuration
       ansible.builtin.include_tasks: idle_check_dotfile.yml
       vars:
-        idle_dotfile_path: "{{ desktop_xautolock_autostart }}"
+        idle_dotfile_path: "{{ desktop_xscreensaver_conf }}"
+
+    # Unlike hypridle.conf, this file is not emptied before the block is written. The role
+    # owns only the idle policy; xscreensaver-settings writes everything else a user might
+    # have set here, and discarding that is not this role's business. The managed block is
+    # appended last, so its resources win over any duplicate above it.
+    #
+    # No handler restarts the daemon: it reloads ~/.xscreensaver whenever the file changes.
+    - name: Configure xscreensaver
+      ansible.builtin.blockinfile:
+        path: "{{ desktop_xscreensaver_conf }}"
+        block: "{{ lookup('ansible.builtin.template', 'xscreensaver.conf.j2') }}"
+        create: true
+        mode: "0644"
+
+    - name: Check the xscreensaver autostart entry
+      ansible.builtin.include_tasks: idle_check_dotfile.yml
+      vars:
+        idle_dotfile_path: "{{ desktop_xscreensaver_autostart }}"
 
     - name: Create the autostart directory
       ansible.builtin.file: # noqa: risky-file-permissions
-        path: "{{ desktop_xautolock_autostart | dirname }}"
+        path: "{{ desktop_xscreensaver_autostart | dirname }}"
         state: directory
 
-    # CLEANUP (added 2026-07-09): the entry used to be written by template, which cannot
-    # write through a dotfiles symlink. blockinfile appends rather than replaces, so the
-    # templated content has to go before the managed block is inserted. The regexp matches
-    # a file that does not already start with blockinfile's default marker. Remove once
-    # every bspwm desktop host has run this role at least once.
-    - name: Empty the templated xautolock autostart entry
-      when: desktop_idle_dotfile_exists
-      ansible.builtin.replace:
-        path: "{{ desktop_xautolock_autostart }}"
-        regexp: '\A(?!# BEGIN ANSIBLE MANAGED BLOCK)[\s\S]+\Z'
-        replace: ''
-
-    # The whole entry is generated, so the lock timeout cannot be pattern-matched out of
-    # an Exec line whose -locker command may itself contain a -time argument. The locker
-    # command comes from desktop_xautolock_locker.
-    - name: Configure the xautolock autostart entry
+    - name: Configure the xscreensaver autostart entry
       ansible.builtin.blockinfile:
-        path: "{{ desktop_xautolock_autostart }}"
-        block: "{{ lookup('ansible.builtin.template', 'xautolock.desktop.j2') }}"
+        path: "{{ desktop_xscreensaver_autostart }}"
+        block: "{{ lookup('ansible.builtin.template', 'xscreensaver.desktop.j2') }}"
         create: true
         mode: "0644"
 

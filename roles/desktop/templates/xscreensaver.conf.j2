@@ -1,0 +1,14 @@
+# Managed by the desktop role (tasks/idle.yml). Timeouts come from
+# desktop_screen_blank_minutes, desktop_screen_lock_minutes and desktop_screen_off_minutes.
+# lockTimeout is the grace period after blanking, so the session locks
+# desktop_screen_lock_minutes after it goes idle.
+mode:		{{ desktop_xscreensaver_mode }}
+timeout:	{{ desktop_screen_blank_time }}
+lock:		True
+lockTimeout:	{{ desktop_screen_lock_delay_time }}
+splash:		False
+dpmsEnabled:	True
+dpmsQuiet:	True
+dpmsStandby:	{{ desktop_screen_off_time }}
+dpmsSuspend:	{{ desktop_screen_off_time }}
+dpmsOff:	{{ desktop_screen_off_time }}

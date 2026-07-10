@@ -6,7 +6,7 @@
 # The X11 tools below stay here rather than moving to the bspwm role: niri runs XWayland,
 # and the dotfiles that call them (ranger, rofi, dunst) run as XWayland clients under it.
 # Only the tools with a true Wayland replacement are split between the bspwm role (scrot,
-# xautolock, xbacklight) and the niri role (grim, slurp, hypridle, brightnessctl).
+# xscreensaver, xbacklight) and the niri role (grim, slurp, hypridle, brightnessctl).
 - name: Install tiling window manager system packages
   ansible.builtin.apt:
     name:
