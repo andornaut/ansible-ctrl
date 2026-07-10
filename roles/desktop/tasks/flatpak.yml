@@ -2,7 +2,7 @@
 - name: Remove system packages replaced by flatpak
   become: true
   block:
-    - name: Remove snap and applications, clean cache, and autoremove
+    - name: Purge packages replaced by flatpak
       ansible.builtin.apt:
         name: "{{ desktop_flatpak_pinned_packages }}"
         autoremove: true
@@ -39,7 +39,7 @@
         recurse: true
       register: desktop_snap_directories_result
 
-    - name: Remove snap directories
+    - name: Remove the discovered snap directories
       ansible.builtin.file:
         path: "{{ item.path | default(item) }}"
         state: absent

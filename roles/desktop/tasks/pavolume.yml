@@ -15,11 +15,11 @@
     force: true
     version: main
 
-- name: Make pavolume
+- name: Build pavolume
   community.general.make:
     chdir: /tmp/pavolume.git
 
-- name: Make install pavolume
+- name: Install pavolume
   community.general.make:
     chdir: /tmp/pavolume.git
     target: install

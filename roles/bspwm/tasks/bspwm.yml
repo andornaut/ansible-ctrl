@@ -8,12 +8,12 @@
     version: "{{ item.version | default('HEAD') }}"
   loop: "{{ bspwm_projects }}"
 
-- name: Make BSPWM projects
+- name: Build BSPWM projects
   community.general.make:
     chdir: /tmp/{{ item.name }}.git
   loop: "{{ bspwm_projects }}"
 
-- name: Make install BSPWM projects
+- name: Install BSPWM projects
   community.general.make:
     chdir: /tmp/{{ item.name }}.git
     target: install

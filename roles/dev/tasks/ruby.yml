@@ -16,15 +16,15 @@
 
 - name: Install Ruby tools
   block:
-    - name: Install chruby
+    - name: Download and install chruby
       block:
-        - name: Get releases of chruby
+        - name: Get chruby releases
           ansible.builtin.uri:
             url: https://api.github.com/repos/postmodern/chruby/releases
             return_content: true
           register: dev_chruby_releases
 
-        - name: Set chruby to latest stable release
+        - name: Set chruby release fact
           ansible.builtin.set_fact:
             dev_chruby_release: "{{ dev_chruby_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 
@@ -41,28 +41,28 @@
             dest: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
             mode: "0644"
 
-        - name: Decompress chruby.tar.gz
+        - name: Extract chruby archive
           ansible.builtin.unarchive:
             src: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
             remote_src: true
             dest: "{{ dev_tmp_ruby.path }}"
 
-        - name: Make install chruby
+        - name: Install chruby
           community.general.make:
             chdir: >-
               {{ dev_tmp_ruby.path }}/chruby-{{ dev_chruby_release.tag_name | replace('v', '') }}
             target: install
           become: true
 
-    - name: Install ruby-install
+    - name: Download and install ruby-install
       block:
-        - name: Get releases of ruby-install
+        - name: Get ruby-install releases
           ansible.builtin.uri:
             url: https://api.github.com/repos/postmodern/ruby-install/releases
             return_content: true
           register: dev_ruby_install_releases
 
-        - name: Set ruby-install to latest stable release
+        - name: Set ruby-install release fact
           ansible.builtin.set_fact:
             dev_ruby_install_release: "{{ dev_ruby_install_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
 
@@ -79,13 +79,13 @@
             dest: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
             mode: "0644"
 
-        - name: Decompress ruby-install.tar.gz
+        - name: Extract ruby-install archive
           ansible.builtin.unarchive:
             src: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
             remote_src: true
             dest: "{{ dev_tmp_ruby.path }}"
 
-        - name: Make install ruby-install
+        - name: Install ruby-install
           community.general.make:
             chdir: >-
               {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}

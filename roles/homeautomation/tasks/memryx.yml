@@ -15,7 +15,7 @@
       {{ 'memx-drivers' not in ansible_facts['packages']
          or not ansible_facts['packages']['memx-drivers'][0]['version'].startswith(homeautomation_memryx_version ~ '.') }}
 
-- name: (Re)install MemryX SDK
+- name: Install or reinstall the MemryX SDK
   when: homeautomation_memryx_reinstall
   become: true
   block:

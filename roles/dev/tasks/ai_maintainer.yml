@@ -7,7 +7,7 @@
     state: latest
   become: true
 
-- name: Ensure script directory exists
+- name: Create the ai-maintainer script directory
   ansible.builtin.file:
     path: "{{ dev_ai_maintainer_script_path | dirname }}"
     state: directory

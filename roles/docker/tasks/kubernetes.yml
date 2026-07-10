@@ -1,10 +1,10 @@
 ---
-- name: Install Kubernetes Tools
+- name: Install Kubernetes tools
   become: true
   block:
     # The /releases endpoint is ordered by creation date, not by version, so its
     # first entry can be a patch release of an older branch.
-    - name: Get the latest helm release
+    - name: Get latest helm release
       ansible.builtin.uri:
         url: https://api.github.com/repos/helm/helm/releases/latest
         return_content: true

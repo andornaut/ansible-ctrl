@@ -14,7 +14,7 @@
         validate_certs: true
       register: hobbies_betaflight_releases
 
-    - name: Find latest release with Linux build
+    - name: Set Betaflight Configurator release fact
       ansible.builtin.set_fact:
         hobbies_betaflight_release: "{{ item }}"
       loop: "{{ hobbies_betaflight_releases.json | rejectattr('prerelease') | rejectattr('draft') }}"
@@ -28,7 +28,7 @@
     # scalar, so YAML passes backslashes through untouched and Jinja does not treat
     # \\ as an escape, which leaves the regex matching a literal backslash and
     # selecting nothing. Same reason the freerouting asset match avoids escapes.
-    - name: Find Linux portable asset
+    - name: Set Betaflight Configurator download URL fact
       ansible.builtin.set_fact:
         hobbies_betaflight_download_url: >-
           {{ hobbies_betaflight_release.assets
@@ -38,7 +38,7 @@
     # The zip's top-level directory is literally "Betaflight Configurator", space
     # included. Extract each release into its own tag-stamped directory and expose
     # it as /opt/betaflight/current, so the space never reaches a launcher path.
-    - name: Derive Betaflight install paths
+    - name: Set Betaflight Configurator install path facts
       ansible.builtin.set_fact:
         hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}"
         hobbies_betaflight_app_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}/Betaflight Configurator"
@@ -113,10 +113,10 @@
           Categories=Utility
       become: true
 
-- name: Install ExpressLRS Configurator
+- name: Download and install ExpressLRS Configurator
   tags: expresslrs
   block:
-    - name: Get releases of ExpressLRS Configurator
+    - name: Get ExpressLRS Configurator releases
       ansible.builtin.uri:
         url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases
         return_content: true
@@ -125,12 +125,12 @@
         validate_certs: true
       register: hobbies_expresslrs_releases
 
-    - name: Set ExpressLRS Configurator to latest stable release
+    - name: Set ExpressLRS Configurator release fact
       ansible.builtin.set_fact:
         hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | rejectattr('prerelease') | rejectattr('draft') | first }}"
 
     # [.] rather than \. for the same reason as the Betaflight asset match above.
-    - name: Find Linux deb asset
+    - name: Set ExpressLRS Configurator download URL fact
       ansible.builtin.set_fact:
         hobbies_expresslrs_download_url: >-
           {{ hobbies_expresslrs_release.assets

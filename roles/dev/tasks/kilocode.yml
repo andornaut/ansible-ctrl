@@ -1,5 +1,5 @@
 ---
-- name: Ensure Kilo Code CLI is installed
+- name: Install Kilo Code CLI
   community.general.npm:
     name: "@kilocode/cli"
     global: true

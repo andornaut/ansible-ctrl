@@ -6,13 +6,13 @@
 #   github_release_fact (str): variable name to set with the release object
 #
 # The release object exposes .tag_name, .name, .tarball_url, .assets, etc.
-- name: "Get releases of {{ github_release_repo }}"
+- name: Get releases of {{ github_release_repo }}
   ansible.builtin.uri:
     url: "https://api.github.com/repos/{{ github_release_repo }}/releases"
     return_content: true
   register: niri_github_release_response
 
-- name: "Set fact to latest stable release for {{ github_release_fact }}"
+- name: Set fact to latest stable release for {{ github_release_fact }}
   ansible.builtin.set_fact:
     "{{ github_release_fact }}": >-
       {{ niri_github_release_response.json

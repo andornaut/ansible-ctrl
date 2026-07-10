@@ -23,7 +23,7 @@
               register: desktop_zig_versions
 
             # ly requires zig v0.16.0+.
-            - name: Set latest stable zig version
+            - name: Set zig version fact
               ansible.builtin.set_fact:
                 desktop_zig_version: >-
                   {{ desktop_zig_versions.json | dict2items
@@ -74,13 +74,13 @@
             state: directory
           register: desktop_ly_tmp
 
-        - name: Get releases of ly
+        - name: Get ly releases
           ansible.builtin.uri:
             url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases
             return_content: true
           register: desktop_ly_releases
 
-        - name: Set ly to latest stable release
+        - name: Set ly release fact
           ansible.builtin.set_fact:
             desktop_ly_release: "{{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
 

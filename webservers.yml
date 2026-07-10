@@ -1,5 +1,5 @@
 ---
-- name: Configure Let's Encrypt and Nginx
+- name: Apply letsencrypt_nginx role
   hosts: webservers
   roles:
     # Uncomment the `base` and `docker` on the first run
@@ -13,7 +13,7 @@
 - name: Configure Let's Encrypt auto-renewal
   hosts: localhost
   tasks:
-    - name: Setup renewal cron job
+    - name: Create the Let's Encrypt renewal cron job
       ansible.builtin.cron:
         name: "Let's Encrypt certificate renewal"
         cron_file: ansible-role-letsencrypt_nginx

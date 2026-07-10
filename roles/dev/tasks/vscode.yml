@@ -5,7 +5,7 @@
     update_cache: true
   become: true
 
-- name: "Workaround: Make Visual Studio Code run in Wayland"
+- name: Configure Visual Studio Code for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/code.desktop
     regexp: '^Exec\S*=([/\w-]*)\S*(.*)$'

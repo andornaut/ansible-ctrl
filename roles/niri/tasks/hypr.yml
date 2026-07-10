@@ -9,7 +9,7 @@
 # - hyprlock: Screen locker
 # - hyprpaper: Wallpaper utility
 
-- name: Install hyprutils
+- name: Build and install hyprutils
   tags: [hyprutils]
   block:
     - name: Create a temporary directory for hyprutils
@@ -56,12 +56,12 @@
       changed_when: true
       become: true
 
-    - name: Cleanup temporary directory
+    - name: Clean up temporary directory for hyprutils
       ansible.builtin.file:
         path: "{{ niri_hyprutils_tmp.path }}"
         state: absent
 
-- name: Install hyprlang
+- name: Build and install hyprlang
   tags: [hyprlang]
   block:
     - name: Create a temporary directory for hyprlang
@@ -108,12 +108,12 @@
       changed_when: true
       become: true
 
-    - name: Cleanup temporary directory
+    - name: Clean up temporary directory for hyprlang
       ansible.builtin.file:
         path: "{{ niri_hyprlang_tmp.path }}"
         state: absent
 
-- name: Install hyprgraphics
+- name: Build and install hyprgraphics
   tags: [hyprgraphics]
   block:
     - name: Create a temporary directory for hyprgraphics
@@ -160,7 +160,7 @@
       changed_when: true
       become: true
 
-- name: Install hyprwayland-scanner
+- name: Build and install hyprwayland-scanner
   tags: [hyprscanner]
   block:
     - name: Create a temporary directory for hyprwayland-scanner
@@ -208,7 +208,7 @@
       changed_when: true
       become: true
 
-- name: Install hypridle
+- name: Build and install hypridle
   tags: [hypridle]
   block:
     - name: Create a temporary directory for hypridle
@@ -263,7 +263,7 @@
         scope: user
         state: started
 
-- name: Install hyprlock
+- name: Build and install hyprlock
   tags: [hyprlock]
   block:
     - name: Create a temporary directory for hyprlock
@@ -312,7 +312,7 @@
       changed_when: true
       become: true
 
-- name: Install hyprpaper
+- name: Build and install hyprpaper
   tags: [hyprpaper]
   block:
     - name: Create a temporary directory for hyprpaper

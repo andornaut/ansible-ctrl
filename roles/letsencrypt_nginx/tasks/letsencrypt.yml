@@ -1,5 +1,5 @@
 ---
-- name: Initiate Letsencrypt DNS or HTTP challenge
+- name: Initiate Let's Encrypt DNS or HTTP challenge
   community.crypto.acme_certificate:
     account_email: "{{ letsencrypt_nginx_account_email }}"
     account_key_src: >-
@@ -99,7 +99,7 @@
 # - ansible.builtin.debug:
 #     var: letsencrypt_nginx_challenge_http_resources
 
-- name: Complete Letsencrypt challenge
+- name: Complete Let's Encrypt challenge
   community.crypto.acme_certificate:
     account_email: "{{ letsencrypt_nginx_account_email }}"
     account_key_src: >-

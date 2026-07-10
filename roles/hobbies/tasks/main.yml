@@ -9,7 +9,7 @@
   ansible.builtin.import_tasks: fpv.yml
   tags: fpv
 
-- name: Import Kicad tasks
+- name: Import KiCad tasks
   ansible.builtin.import_tasks: kicad.yml
   tags: kicad
 
