@@ -47,7 +47,7 @@ desktop_xscreensaver_mode: blank
 desktop_xscreensaver_dialog_theme: borderlessblack
 # Side length in pixels of the unlock dialog's logo. It cannot be removed (xscreensaver
 # aborts without it), so it is shrunk from the app-default of 210.
-desktop_xscreensaver_logo_size: 64
+desktop_xscreensaver_logo_size: 32
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables
