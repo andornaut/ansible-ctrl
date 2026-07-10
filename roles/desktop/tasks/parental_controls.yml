@@ -53,6 +53,26 @@
   when: desktop_malcontent_getent.rc != 0
   become: true
 
+# Part of the same packaging bug: the postinst starts malcontent-webd-update alongside the
+# daemons, so on a host whose service users did not exist yet it died 217/USER. Restarting
+# the daemons does not clear it, and its own timer only fires weekly, so the unit sits
+# failed until then.
+#
+# This is not gated on the getent check above, because a host that reached that state
+# before this task existed now has its users and skips the whole workaround. The unit is a
+# oneshot with RemainAfterExit=yes and is enabled WantedBy=multi-user.target, so it is
+# active on any host where it has already succeeded, and starting it is a no-op there.
+#
+# It compiles /var/lib/malcontent-webd/filter-lists from the per-user web filters set by
+# `malcontent-client set-web-filter`. This role sets none, so the compiled lists are empty
+# and only the Chrome policy below restricts content. The unit runs with PrivateNetwork
+# and IPAddressDeny=any, so it downloads nothing regardless.
+- name: Compile the malcontent web filter lists
+  ansible.builtin.systemd_service:
+    name: malcontent-webd-update.service
+    state: started
+  become: true
+
 - name: Set malcontent OARS app filter for {{ desktop_user }}
   ansible.builtin.command: >-
     malcontent-client set-app-filter --no-interactive {{ desktop_user }}
