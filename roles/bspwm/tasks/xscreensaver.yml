@@ -1,0 +1,198 @@
+---
+# xscreensaver is built from source rather than installed from apt. Ubuntu ships 6.08, an
+# October 2023 build; upstream is at bspwm_xscreensaver_version and nothing packages it.
+#
+# Only the driver is built. `make` at the top level also compiles several hundred screen
+# hacks, which take far longer than everything else and are never run: the desktop role
+# writes `mode: blank`. `make -C driver install` still installs the PAM configuration, the
+# app-defaults file and the systemd unit, so nothing is missing.
+#
+# The whole point of xscreensaver's design is that xscreensaver-auth runs setuid root and
+# separately from the daemon, so a crash of the daemon or of a screen hack cannot unlock the
+# screen. Its Makefile only warns when it cannot install the binary setuid, so the mode is
+# asserted afterwards rather than trusted.
+- name: Install xscreensaver build dependencies
+  ansible.builtin.apt:
+    name:
+      - bc
+      - build-essential
+      - intltool
+      - libcap-dev
+      - libgdk-pixbuf-2.0-dev
+      - libgl-dev
+      - libgle-dev
+      - libglu1-mesa-dev
+      - libgtk-3-dev
+      - libjpeg-dev
+      - libpam0g-dev
+      - libpng-dev
+      - libsystemd-dev
+      - libx11-dev
+      - libxext-dev
+      - libxinerama-dev
+      - libxml2-dev
+      - libxmu-dev
+      - libxrandr-dev
+      - libxss-dev
+      - libxt-dev
+      - libxtst-dev
+      - libxxf86vm-dev
+      - pkgconf
+      - x11proto-core-dev
+      - xbitmaps
+      - xutils-dev
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+
+# Purged before the build, not after, because dpkg owns /etc/pam.d/xscreensaver and
+# `make install` overwrites it: purging the package afterwards would delete the PAM stack
+# out from under the binary that was just installed, and authentication would fail.
+#
+# The other lockers are purged at the end of this file instead, once there is something to
+# replace them with. Removing them first would leave a host with no locker at all if the
+# build failed, which is how tron and thinkpad spent an afternoon unable to lock.
+- name: Purge the packaged xscreensaver
+  ansible.builtin.apt:
+    name: xscreensaver
+    state: absent
+    purge: true
+    autoremove: true
+  become: true
+
+- name: Check the installed xscreensaver version
+  ansible.builtin.command: /usr/local/bin/xscreensaver --version
+  register: bspwm_xscreensaver_installed
+  changed_when: false
+  failed_when: false
+
+- name: Build and install xscreensaver
+  when: bspwm_xscreensaver_version not in (bspwm_xscreensaver_installed.stdout | default(''))
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: bspwm_xscreensaver_tmp
+
+    # The checksum pins the tarball: jwz serves it over HTTPS from his own host, and the
+    # release is not signed, so the digest is the only thing that ties what is built to
+    # what was reviewed. It has to be downloaded separately: unarchive fetches a remote src
+    # itself but has no checksum parameter, so it would verify nothing.
+    - name: Download xscreensaver
+      ansible.builtin.get_url:
+        url: "{{ bspwm_xscreensaver_url }}"
+        dest: "{{ bspwm_xscreensaver_tmp.path }}/xscreensaver.tar.gz"
+        checksum: "sha256:{{ bspwm_xscreensaver_sha256 }}"
+        mode: "0644"
+
+    - name: Unarchive xscreensaver
+      ansible.builtin.unarchive:
+        src: "{{ bspwm_xscreensaver_tmp.path }}/xscreensaver.tar.gz"
+        dest: "{{ bspwm_xscreensaver_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Configure xscreensaver
+      ansible.builtin.command: ./configure --prefix=/usr/local
+      args:
+        chdir: "{{ bspwm_xscreensaver_tmp.path }}"
+      changed_when: true
+
+    - name: Build the xscreensaver utility objects
+      community.general.make:
+        chdir: "{{ bspwm_xscreensaver_tmp.path }}/utils"
+
+    - name: Build the xscreensaver driver
+      community.general.make:
+        chdir: "{{ bspwm_xscreensaver_tmp.path }}/driver"
+
+    - name: Install xscreensaver
+      community.general.make:
+        chdir: "{{ bspwm_xscreensaver_tmp.path }}/driver"
+        target: install
+      become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ bspwm_xscreensaver_tmp.path }}"
+        state: absent
+      when: bspwm_xscreensaver_tmp.path is defined
+      become: true
+
+# Outside the build block so it runs on every converge, not just when the source is rebuilt:
+# a host that already has 6.15 skips the block, but the setuid bit must still be correct.
+#
+# The Makefile installs xscreensaver-auth with `install -o root -m 4755`, but GNU coreutils
+# `install` clears the setuid bit whenever -o or -g is given, and still exits 0, so the
+# binary lands non-setuid and the Makefile's own "unable to install setuid" fallback never
+# fires. chmod does not have that behaviour, so set the bit explicitly.
+- name: Make the authentication helper setuid root
+  ansible.builtin.file:
+    path: /usr/local/libexec/xscreensaver/xscreensaver-auth
+    owner: root
+    group: root
+    mode: "04755"
+  become: true
+
+- name: Stat the authentication helper
+  ansible.builtin.stat:
+    path: /usr/local/libexec/xscreensaver/xscreensaver-auth
+  register: bspwm_xscreensaver_auth
+
+# The whole point of xscreensaver's design is that xscreensaver-auth runs setuid root and
+# separately from the daemon, so a crash of the daemon or of a screen hack cannot unlock the
+# screen. Without the setuid bit authentication silently fails, so assert rather than trust.
+- name: Assert that the authentication helper is setuid root
+  ansible.builtin.assert:
+    that:
+      - bspwm_xscreensaver_auth.stat.exists
+      - bspwm_xscreensaver_auth.stat.pw_name == "root"
+      - bspwm_xscreensaver_auth.stat.mode is search('^4')
+    fail_msg: >-
+      /usr/local/libexec/xscreensaver/xscreensaver-auth is not setuid root
+      (owner {{ bspwm_xscreensaver_auth.stat.pw_name | default('missing') }},
+      mode {{ bspwm_xscreensaver_auth.stat.mode | default('missing') }}). Authentication
+      will not work without it.
+    success_msg: xscreensaver-auth is setuid root
+
+# Only now, with a working, setuid xscreensaver on disk. Purging these before the build meant a
+# failed build left the host with no locker: the running xss-lock kept going from a deleted
+# binary, and the i3lock it would have exec'd was gone, so the screen blanked and never
+# locked. That is the same failure the xautolock and gnome-screensaver comments below
+# describe, and it is why the guard exists rather than a bare `state: absent`.
+- name: Stat the xscreensaver binary
+  ansible.builtin.stat:
+    path: /usr/local/bin/xscreensaver
+  register: bspwm_xscreensaver_binary
+
+# CLEANUP (added 2026-07-10): remove once every bspwm desktop host has converged.
+#
+# gnome-screensaver is a GNOME 3.6-era program that Ubuntu still ships but no longer uses.
+# On startup it zeroes the X screensaver timeout, so a session that runs it never blanks,
+# and it then locks on its own timer read from org.gnome.desktop.session/idle-delay rather
+# than on the role's.
+#
+# xautolock was the idle trigger, and it invoked gnome-screensaver to do the locking. No
+# role ever installed gnome-screensaver, so on a host that never happened to have it,
+# xautolock spent every idle period running a command that did not exist. It reports
+# nothing when its locker is missing, so the session simply never locked.
+#
+# xss-lock and i3lock replaced xscreensaver for one release. i3lock is a single process that
+# fails open: kill it while the screen is locked and the session is simply unlocked. It also
+# cannot show a persistent indicator, so a locked screen is indistinguishable from a blanked
+# one, and nothing grabbed the keyboard during the blank-before-lock window it left.
+- name: Purge the superseded screen lockers
+  when: bspwm_xscreensaver_binary.stat.exists
+  ansible.builtin.apt:
+    name:
+      - gnome-screensaver
+      - i3lock
+      - xautolock
+      - xss-lock
+    state: absent
+    purge: true
+    autoremove: true
+  become: true

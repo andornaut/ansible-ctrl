@@ -28,7 +28,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | fonts | System fonts (Hack, DejaVu, Source Code Pro, etc.) |
 | gnome | GNOME Shell and gdm3 (`ubuntu-desktop-minimal`), gnome only |
 | [grub](https://www.gnu.org/software/grub/) | Bootloader settings |
-| idle | Screen blanking, session locking and monitor power-off (dconf, [xss-lock](https://github.com/wavexx/xss-lock) and [i3lock](https://i3wm.org/i3lock/), [hypridle](https://github.com/hyprwm/hypridle)) |
+| idle | Screen blanking, session locking and monitor power-off (dconf, [xscreensaver](https://www.jwz.org/xscreensaver/), [hypridle](https://github.com/hyprwm/hypridle)) |
 | [insync](https://www.insynchq.com/) | Google Drive sync client (`desktop_install_insync`) |
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
@@ -48,8 +48,9 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_install_*` | Feature flags, all defaulting to `false`. A tag naming one runs nothing unless the flag is set |
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, `{id: HTTPS URI}` filter lists, custom hostnames, safe search |
-| `desktop_i3lock_color` | `RRGGBB` (no leading `#`) that `i3lock` fills the locked screen with under bspwm |
-| `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone; `0` disables it; applies on mains and battery alike |
+| `desktop_xscreensaver_mode` | What `xscreensaver` draws once a bspwm session blanks (only `blank`: the hacks are not built) |
+| `desktop_xscreensaver_dialog_theme` | Colour scheme for the unlock dialog (`borderlessblack`, `darkgray`, `default`, ...) |
+| `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone. **Not supported under bspwm**: setting it there fails the play |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
 [vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home directory and
@@ -67,44 +68,45 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
 - Only tools with a true per-protocol replacement belong to the [bspwm](../bspwm/) role (X11) and the
   [niri](../niri/) role (Wayland). Everything both sessions share lives here.
 - The Super I/O drivers expose the pwm/fan hwmon that CoolerControl manages. Enable the one matching the board's chip.
-- The idle timeouts are one policy with three mechanisms. GNOME reads dconf, bspwm delegates to `xss-lock` and
-  `i3lock`, and niri to `hypridle`. Only X11 tells blanking apart from powering the monitor down, so bspwm honours
-  all three timeouts, niri ignores the blank timeout, and GNOME ignores the power-off timeout.
-- Under bspwm, `xset s TIMEOUT CYCLE` carries the blank timeout and the blank-to-lock grace period. The X screensaver
-  blanks at `TIMEOUT` and emits a Cycle event `CYCLE` later; `xss-lock` runs its notifier on the first and `i3lock` on
-  the second, so the grace period is the same quantity as GNOME's `lock-delay`. That path is only taken when a
-  notifier is configured and the cycle is non-zero, which is why the autostart entry passes `--notifier`; otherwise
-  `xss-lock` locks the moment the screen blanks. A forced activation (`xset s activate`) locks immediately regardless.
-  `xset dpms` then carries the power-off timeout alone, with standby and suspend disabled so that blanking leaves the
-  monitor powered.
+- The idle timeouts are one policy with three mechanisms. GNOME reads dconf, bspwm delegates to `xscreensaver`, and
+  niri to `hypridle`. Only X11 tells blanking apart from powering the monitor down, so bspwm honours all three
+  timeouts, niri ignores the blank timeout, and GNOME ignores the power-off timeout.
+- Under bspwm, `xscreensaver` owns blanking, locking and DPMS together. It takes over the X screensaver extension on
+  startup, so `xset s` cannot coexist with it and the `idle` tag strips those lines from the session script.
+  `xscreensaver`'s `lockTimeout` is a grace period measured from the moment the screen blanks, not from the start of
+  idle, so it is the gap between the blank and lock timeouts, exactly like GNOME's `lock-delay`. It grabs the keyboard
+  while blanked, and since 6.00 requires a click or a Shift tap before the prompt accepts input, so a password cannot
+  be typed into the window underneath during that grace period.
+- `xscreensaver` is built from source by the [bspwm](../bspwm/) role, into `/usr/local`. Ubuntu ships 6.08, an October
+  2023 build. Only the driver is compiled; the several hundred screen hacks are not, which is why `mode` must stay
+  `blank`.
+- The unlock dialog's appearance is X **resources**, not `xscreensaver` preferences. `xscreensaver-auth` is an Xt
+  program, so it merges `RESOURCE_MANAGER` over its compiled-in app-defaults, which is why the role writes them to
+  `.Xresources` (merged by the session script's `xrdb -merge`) rather than to `.xscreensaver`. `dialogTheme` is the
+  one exception: it is a preference. `xrdb` runs the file through `cpp`, so that managed block uses `!` markers, not
+  `#`. The logo and the version heading cannot be removed: the logo is compiled in and `xscreensaver-auth` aborts
+  without it, and the heading is a notice the author asks not to be removed.
 - Idle **suspend** is a separate policy from idle locking, driven by `desktop_suspend_inactive_minutes`. `logind`
-  cannot detect idleness itself: something must call `SetIdleHint`. So each environment suspends through whatever
-  already tracks that. GNOME uses `gnome-settings-daemon` (`sleep-inactive-{ac,battery}-{type,timeout}`); bspwm uses
-  `logind`'s `IdleAction`, because `xss-lock` sets the hint; niri uses a `hypridle` listener, because `hypridle`
-  never sets it. None of the three distinguishes mains from battery, so the timeout applies to both.
+  cannot detect idleness itself: something must call `SetIdleHint`. GNOME uses `gnome-settings-daemon`
+  (`sleep-inactive-{ac,battery}-{type,timeout}`); niri uses a `hypridle` listener that runs `systemctl suspend`
+  itself. **bspwm has nothing**: `xscreensaver` never calls `SetIdleHint`, so `logind`'s `IdleAction` could never
+  fire. Setting the variable on a bspwm host fails the play rather than writing a drop-in that does nothing.
 - **Known issue**: `desktop_screen_*_minutes` and `desktop_suspend_inactive_minutes` are rendered into
-  `.config/bspwm/desktop` and `.config/hypr/hypridle.conf`, which are symlinks into the shared dotfiles repository.
-  Two hosts with different values would rewrite those managed blocks on every converge and fight over them in git.
-  It is latent only because every host currently uses the same values. The fix is to stop rendering per-host policy
-  into dotfiles: give the role a file it owns outright (a drop-in directory, or a path outside the repository) and
-  leave the dotfiles copy free of host-specific values.
-- `logind` runs `IdleAction` only once **every** user-class session is idle. A session with no TTY never reports
-  itself idle, so a lingering `ssh host 'daemon &'` login silently disables idle suspend for the whole host. That
-  affects `IdleAction` alone: blanking, locking and DPMS all run off the X server's idle counter instead.
-- `xss-lock` also locks on `loginctl lock-session` and before the system sleeps, and `xset s activate` forces a lock,
-  which is what the `super + ctrl + q` binding in `sxhkdrc` calls. Killing `i3lock` while the screen is locked leaves
-  the session unlocked until the next idle timeout: it is a single process and fails open, the same as `xscreensaver`.
-- The session files the `idle` tag writes (`.config/bspwm/desktop`, `.config/autostart/xss-lock.desktop`,
-  `.config/hypr/hypridle.conf`) may be symlinks into a dotfiles repository,
+  `.config/bspwm/desktop`, `.xscreensaver`, `.Xresources` and `.config/hypr/hypridle.conf`, which are symlinks into
+  the shared dotfiles repository. Two hosts with different values would rewrite those managed blocks on every
+  converge and fight over them in git. It is latent only because every host currently uses the same values. The fix
+  is to stop rendering per-host policy into dotfiles: give the role a file it owns outright and leave the dotfiles
+  copy free of host-specific values.
+- The session files the `idle` tag writes (`.config/bspwm/desktop`, `.xscreensaver`, `.Xresources`,
+  `.config/autostart/xscreensaver.desktop`, `.config/hypr/hypridle.conf`) may be symlinks into a dotfiles repository,
   which rules out `template` and `copy`: on a no-op run their action plugin re-runs the `file` module against the
   resolved link target, and `file` expands environment variables in that path, corrupting it for a repository whose
   tree lives under a directory named `$HOME`. `blockinfile`, `lineinfile` and `replace` resolve the link themselves
   and write through it, so the generated files are wrapped in an `ANSIBLE MANAGED BLOCK` rather than templated. A
   *dangling* link is a separate problem, and `stat` reports it as existing unless it too follows, so
   `idle_check_dotfile.yml` classifies each path first and fails with a clear message rather than orphaning the link.
-- Nothing under bspwm reapplies the idle policy to a running session. `dex` launches `xss-lock` at session start, and
-  the `xset` lines live in the session script, so a changed autostart entry *or* a changed `desktop_screen_*_minutes`
-  value only takes effect at the next login. Run the `xset` lines by hand to apply them sooner.
+- `xscreensaver` reloads `~/.xscreensaver` whenever it changes, so no handler restarts it. `.Xresources` is merged
+  only at login, so dialog changes take effect at the next one.
 - Web filtering is enforced in the name service switch, not in the browser. `nss-malcontent` sinkholes a blocked
   hostname for users that have a compiled filter list under `/var/lib/malcontent-webd/filter-lists/` and defers for
   everyone else, so the `/etc/nsswitch.conf` edit is system-wide while the policy stays per-user. Matching is exact:

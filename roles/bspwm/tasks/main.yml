@@ -7,6 +7,12 @@
     - bspwm
     - x11
 
+- name: Build and install xscreensaver
+  ansible.builtin.import_tasks: xscreensaver.yml
+  tags:
+    - bspwm
+    - xscreensaver
+
 - name: Build and install BSPWM
   ansible.builtin.import_tasks: bspwm.yml
   tags: bspwm

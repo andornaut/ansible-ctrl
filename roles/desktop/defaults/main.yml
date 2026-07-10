@@ -37,10 +37,14 @@ desktop_zig_mirror: https://ziglang.freetls.fastly.net
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# The colour i3lock fills the locked screen with, as RRGGBB without a leading `#`. i3lock
-# draws nothing else: the role passes -u to suppress even the unlock indicator, so the
-# locked screen carries no logo, hostname, clock or version string.
-desktop_i3lock_color: "000000"
+# What xscreensaver draws once a bspwm session blanks, written as its `mode` resource.
+# "blank" is a black screen; "random" runs the screen hacks, some of which display images
+# from the user's home directory. The hacks are not built, so only "blank" works.
+desktop_xscreensaver_mode: blank
+# Colour scheme for xscreensaver's unlock dialog, one of the themes compiled into
+# xscreensaver-auth: aquablack, blue, borderless, borderlessblack, darkgray, default,
+# greenblack, white, wine. "default" is the light grey one with 3D bevels.
+desktop_xscreensaver_dialog_theme: borderlessblack
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables
