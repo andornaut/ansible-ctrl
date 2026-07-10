@@ -28,8 +28,8 @@ listener {
 
 {% if desktop_suspend_inactive_managed and desktop_suspend_inactive_seconds | int > 0 %}
 # Idle suspend. logind's IdleAction is not used here: hypridle never calls SetIdleHint, so
-# logind would never learn that the session went idle. The bspwm hosts do use IdleAction,
-# because xss-lock sets that hint for them.
+# logind would never learn that the session went idle. hypridle runs the suspend itself
+# instead. bspwm has no equivalent, which is why idle.yml rejects the variable there.
 #
 # KNOWN ISSUE: this file is usually a symlink into the dotfiles repository, which every host
 # shares, so a per-host desktop_suspend_inactive_minutes lands in a file that is committed
