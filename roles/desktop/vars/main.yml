@@ -12,6 +12,15 @@ desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
 # Ansible escalates to a user it did not log in as.
 desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 
+# System users malcontent's daemons run as, declared by the package in
+# /usr/lib/sysusers.d. The names are not all derivable from the unit names: the timer
+# extension agent's unit is malcontent-timer-extension-agent but its user is
+# malcontent-timer-ext-agent.
+desktop_malcontent_users:
+  - malcontent-timer-ext-agent
+  - malcontent-timerd
+  - malcontent-webd
+
 # Idle timeouts in the units each daemon expects. xautolock takes minutes; xset, hypridle
 # and dconf take seconds.
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"

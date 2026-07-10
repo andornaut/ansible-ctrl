@@ -8,6 +8,32 @@
     install_recommends: false
   become: true
 
+# malcontent's daemons run as dedicated system users declared in /usr/lib/sysusers.d.
+# The package's postinst is meant to create them, but it did not on every host here, and
+# without them each daemon dies at startup with 217/USER "Unknown user". systemd-sysusers
+# reads those declarations and is idempotent; getent exits non-zero if any user is absent.
+- name: Check whether the malcontent service users exist
+  ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
+  register: desktop_malcontent_getent
+  changed_when: false
+  failed_when: false
+
+- name: Create the missing malcontent service users # noqa: command-instead-of-module
+  ansible.builtin.command: systemd-sysusers
+  when: desktop_malcontent_getent.rc != 0
+  changed_when: true
+  become: true
+
+- name: Start the malcontent daemons now that their users exist
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - malcontent-timerd.service
+    - malcontent-webd.service
+  when: desktop_malcontent_getent.rc != 0
+  become: true
+
 - name: Set malcontent OARS app filter for {{ desktop_user }}
   ansible.builtin.command: >-
     malcontent-client set-app-filter --no-interactive {{ desktop_user }}
