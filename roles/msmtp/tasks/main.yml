@@ -1,19 +1,17 @@
 ---
-# The next task purges the host's working MTA, so a run that is missing its host_vars
-# must fail here rather than at the relay template halfway through, which would leave
-# the host with no MTA at all.
+# The next task purges the host's MTA, so fail here on missing host_vars rather than
+# halfway through, which would leave the host with no MTA.
 - name: Validate required variables
   ansible.builtin.assert:
     that:
       - msmtp_domain is defined
       - msmtp_user is defined
       - msmtp_password_INSECURE is defined
-      # Exact match, not a prefix pattern: msmtpd accepts mail without
-      # authenticating the sender, and a "127."-prefixed hostname resolving to a
-      # LAN address would be an open relay.
+      # Exact loopback match, not a prefix: a "127."-prefixed name resolving to a LAN
+      # address would be an open relay (msmtpd accepts unauthenticated mail).
       - msmtp_relay_interface in ['127.0.0.1', '::1']
-      # The systemd override clears CAP_NET_BIND_SERVICE, so a privileged port
-      # would pass the play and then silently crash-loop msmtpd on bind.
+      # The systemd override clears CAP_NET_BIND_SERVICE, so a privileged port would
+      # crash-loop msmtpd on bind.
       - msmtp_relay_port | int >= 1024
       - msmtp_relay_port | int <= 65535
     fail_msg: >-
@@ -33,10 +31,8 @@
   become: true
 
 # msmtp-mta provides /usr/sbin/sendmail, which mailutils' mail(1) invokes by default.
-#
-# state=present, not latest: this role applies to `all`, and `latest` against a freshly
-# refreshed cache would make every run of it a partial apt upgrade of the whole fleet.
-# upgrade.yml is where packages get upgraded.
+# state=present, not latest: this role applies to `all`, so latest would make every run a
+# partial apt upgrade of the fleet. upgrade.yml is where packages get upgraded.
 - name: Install system packages
   ansible.builtin.apt:
     name:
@@ -48,15 +44,11 @@
     update_cache: true
   become: true
 
-# msmtp ships an AppArmor profile for /usr/bin/msmtp whose only /etc read rules cover
-# /etc/msmtprc, /etc/aliases, /etc/mailname and /etc/netrc. The profile is disabled by
-# default (debconf msmtp/apparmor), but on a host where it is enforced, msmtpd's
-# "-C /etc/msmtprc-relay" is denied with EACCES and every message bounces.
-# The profile reads this local include when enforced and ignores it otherwise, so
-# writing it unconditionally costs nothing and removes the failure mode.
-
-# blockinfile rather than copy: the file belongs to the operator, so only the role's own
-# marker block may be rewritten.
+# msmtp's AppArmor profile for /usr/bin/msmtp only grants reads of the packaged config
+# paths, so where it is enforced msmtpd's "-C /etc/msmtprc-relay" is denied and mail
+# bounces. The profile reads this local include when enforced and ignores it otherwise, so
+# writing it unconditionally is safe. blockinfile, not copy: the file is the operator's, so
+# only the role's marker block is rewritten.
 - name: Allow the relay config in the msmtp AppArmor profile
   ansible.builtin.blockinfile:
     path: /etc/apparmor.d/local/usr.bin.msmtp
@@ -69,17 +61,15 @@
       {{ msmtp_relay_config_path }} r,
   become: true
 
-# debconf disables the profile via this symlink by default (msmtp/apparmor), and
-# reloading only matters where it is enforced.
+# The profile is disabled by default via this symlink; reloading only matters when enforced.
 - name: Check whether the msmtp AppArmor profile is disabled
   ansible.builtin.stat:
     path: /etc/apparmor.d/disable/usr.bin.msmtp
   register: msmtp_apparmor_disabled
 
-# Unconditional for the same reason as the msmtpd restart below: reloading only when
-# the copy above changes would let a run that wrote the rule and then died never
-# converge, because the next run sees the file unchanged and skips the reload,
-# leaving an enforced profile denying msmtpd's relay-config reads indefinitely.
+# Unconditional (like the msmtpd restart below): gating on the include changing would let a
+# run that wrote the rule and then died never converge, leaving an enforced profile denying
+# msmtpd's relay-config reads.
 - name: Reload AppArmor so the relay rule is live before msmtpd restarts
   ansible.builtin.systemd_service:
     name: apparmor
@@ -87,15 +77,11 @@
   when: not msmtp_apparmor_disabled.stat.exists
   become: true
 
-# When the profile is disabled on disk (the package default), the reload above is
-# skipped on the assumption that a disabled profile is not enforced. That does not
-# hold: the msmtp postinst creates the disable symlink without unloading a profile
-# already resident in the kernel, and a legacy copy loaded under the bare
-# "/usr/bin/msmtp" name (from before the profile was renamed to "msmtp /usr/bin/msmtp")
-# is never reconciled by a bulk reload because it no longer matches the on-disk file.
-# Either way the stale profile keeps denying msmtpd's "-C /etc/msmtprc-relay" read and
-# every message bounces. Unload any loaded msmtp profile so the kernel matches the
-# disabled-on-disk state, matching by both spellings since removal is by profile name.
+# A profile disabled on disk can still be loaded in the kernel: the postinst creates the
+# disable symlink without unloading a resident profile, and a legacy copy under the bare
+# "/usr/bin/msmtp" name no longer matches the on-disk file so a bulk reload skips it. Either
+# way it keeps denying msmtpd's relay-config read. Unload any loaded msmtp profile (both
+# spellings, since removal is by name) so the kernel matches the disabled-on-disk state.
 - name: Unload a stale msmtp AppArmor profile left enforcing while disabled on disk
   ansible.builtin.shell:
     executable: /bin/bash
@@ -114,10 +100,9 @@
   when: msmtp_apparmor_disabled.stat.exists
   become: true
 
-# The msmtp-mta package creates the "msmtp" system user and group, which the systemd
-# override runs msmtpd as. msmtp rejects a config passed with -C that holds secrets
-# unless the file is owned by the calling euid and is not readable by group or other,
-# so this must be msmtp:msmtp 0600 rather than root:msmtp 0640.
+# msmtpd runs as the "msmtp" user (from msmtp-mta) via the systemd override. msmtp rejects a
+# -C config holding secrets unless it is owned by the caller and unreadable by group/other,
+# so this is msmtp:msmtp 0600, not root:msmtp 0640.
 - name: Copy msmtp relay config file
   ansible.builtin.template:
     src: msmtprc-relay
@@ -146,17 +131,11 @@
     mode: "0644"
   become: true
 
-# msmtp-mta's postinst starts msmtpd with its default command, which reads
-# /etc/msmtprc. It must be restarted against the relay config before /etc/msmtprc
-# below points clients at msmtpd, otherwise mail sent in between relays back into
-# msmtpd. This is an ordering constraint, so it cannot be deferred to a handler.
-#
-# The restart is unconditional rather than gated on the two templates above having
-# changed. A run that writes them and then dies before this point (unreachable host,
-# interrupt) would otherwise never converge: the next run sees both files unchanged,
-# skips the restart, and leaves msmtpd on the packaged ExecStart while /etc/msmtprc
-# already points at it. daemon_reload does not restart a running unit, so nothing
-# else would heal it. msmtpd holds no queue, so restarting it every run is cheap.
+# Restart msmtpd against the relay config before /etc/msmtprc below points clients at it, or
+# mail sent in between relays back into msmtpd. An ordering constraint, so not a handler.
+# Unconditional: gating on the templates changing would let a run that wrote them and then
+# died never converge (daemon_reload doesn't restart a running unit). msmtpd holds no queue,
+# so restarting every run is cheap.
 - name: Restart msmtpd before pointing clients at it
   ansible.builtin.systemd_service:
     name: msmtpd
@@ -197,11 +176,7 @@
     mode: "0644"
   become: true
 
-# Deliberately not removed: the autoconf/automake/autopoint/gettext/libtool/texinfo and
-# -dev packages that earlier versions of this role installed to build msmtp from source.
-# None of them is a leaf. dh-autoreconf depends on autoconf, automake and libtool, and
-# debhelper depends on dh-autoreconf, so `apt remove autoconf` takes the whole debhelper
-# toolchain (and lintian, intltool, po-debconf, piper) out with it. The base role also
-# installs autoconf on every host, and this role applies to `all`, so removing it here
-# would leave the two roles reinstalling and repurging it forever, neither converging.
-# The packages are harmless where they sit.
+# The autoconf/automake/libtool/etc build packages an earlier version installed are
+# deliberately not removed: none is a leaf (removing autoconf drags out the whole debhelper
+# toolchain), the base role installs autoconf on every host anyway, and this role applies to
+# `all`, so purging here would fight the base role forever. Harmless where they sit.
