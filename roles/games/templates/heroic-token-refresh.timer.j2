@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Periodically refresh Heroic (Epic/GOG) store login tokens
+
+[Timer]
+# Without linger the user manager starts at login, so OnStartupSec fires shortly
+# after each login (the catch-up run); OnUnitActiveSec keeps it going during a
+# long session.
+OnStartupSec=1min
+OnUnitActiveSec={{ games_heroic_token_refresh_interval }}
+
+[Install]
+WantedBy=timers.target
