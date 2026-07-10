@@ -87,6 +87,33 @@
   when: not msmtp_apparmor_disabled.stat.exists
   become: true
 
+# When the profile is disabled on disk (the package default), the reload above is
+# skipped on the assumption that a disabled profile is not enforced. That does not
+# hold: the msmtp postinst creates the disable symlink without unloading a profile
+# already resident in the kernel, and a legacy copy loaded under the bare
+# "/usr/bin/msmtp" name (from before the profile was renamed to "msmtp /usr/bin/msmtp")
+# is never reconciled by a bulk reload because it no longer matches the on-disk file.
+# Either way the stale profile keeps denying msmtpd's "-C /etc/msmtprc-relay" read and
+# every message bounces. Unload any loaded msmtp profile so the kernel matches the
+# disabled-on-disk state, matching by both spellings since removal is by profile name.
+- name: Unload a stale msmtp AppArmor profile left enforcing while disabled on disk
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -euo pipefail
+      changed=
+      for name in msmtp /usr/bin/msmtp; do
+        if grep -qE "^${name} \(" /sys/kernel/security/apparmor/profiles; then
+          printf '%s' "${name}" > /sys/kernel/security/apparmor/.remove
+          changed=1
+        fi
+      done
+      [ -n "${changed}" ] && echo changed || true
+  register: msmtp_apparmor_unload
+  changed_when: "'changed' in msmtp_apparmor_unload.stdout"
+  when: msmtp_apparmor_disabled.stat.exists
+  become: true
+
 # The msmtp-mta package creates the "msmtp" system user and group, which the systemd
 # override runs msmtpd as. msmtp rejects a config passed with -C that holds secrets
 # unless the file is owned by the calling euid and is not readable by group or other,
