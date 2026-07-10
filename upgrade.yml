@@ -17,7 +17,7 @@
         upgrade: dist
       become: true
 
-    - name: Gathering package facts
+    - name: Gather package facts
       ansible.builtin.package_facts:
 
     - name: Upgrade flatpak system packages

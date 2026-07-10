@@ -1,5 +1,5 @@
 ---
-- name: Setup backup directory and scripts
+- name: Create the rsnapshot backup directory
   ansible.builtin.file:
     path: "{{ rsnapshot_directory }}"
     state: directory
@@ -8,7 +8,7 @@
     group: root
   become: true
 
-- name: Configure rsnapshot and scheduling
+- name: Copy rsnapshot configuration file
   ansible.builtin.template:
     src: rsnapshot.conf.j2
     dest: /etc/rsnapshot.conf

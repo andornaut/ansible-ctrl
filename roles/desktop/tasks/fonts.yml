@@ -46,7 +46,7 @@
           | selectattr('name', 'match', '.*TTF.*.zip')
           | map(attribute='browser_download_url') | first }}
 
-    - name: Create temporary directory
+    - name: Create a temporary directory
       ansible.builtin.file:
         path: /tmp/source-code-pro
         state: directory

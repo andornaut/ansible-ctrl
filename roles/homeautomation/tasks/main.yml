@@ -22,7 +22,7 @@
           enable both Matter.js and Python Matter Server at the same time.
         success_msg: "mDNS configuration validated successfully"
 
-    - name: MDNS advisory message
+    - name: Show the mDNS provisioning plan
       ansible.builtin.debug:
         msg: |
           {% if homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver %}
