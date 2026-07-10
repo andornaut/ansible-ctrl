@@ -52,33 +52,48 @@
         state: directory
         mode: "0755"
 
+    # The archive holds a single TTF/ directory and no LICENSE.md, so `creates`
+    # must name a file the archive actually contains. /tmp is tmpfs, so this
+    # downloads once per boot.
     - name: Download and extract Source Code Pro package
       ansible.builtin.unarchive:
         src: "{{ desktop_source_code_pro_url }}"
         dest: /tmp/source-code-pro/
         remote_src: true
-        creates: /tmp/source-code-pro/LICENSE.md
+        creates: /tmp/source-code-pro/TTF/SourceCodePro-Regular.ttf
 
-    - name: Install Source Code Pro font files
-      ansible.builtin.copy:
-        src: /tmp/source-code-pro/TTF/
-        dest: /usr/share/fonts/truetype/source-code-pro/
-        remote_src: true
-        mode: "0644"
-        directory_mode: "0755"
-        owner: root
-        group: root
-      notify: Update font cache
-      become: true
-
-    # The copy above applies its file `mode` (0644) to the destination
-    # directory too, stripping the search (x) bit and making the fonts
-    # unreadable. Reassert the directory mode after copying so it stays 0755.
-    - name: Ensure Source Code Pro font directory is searchable
+    - name: Create Source Code Pro font directory
       ansible.builtin.file:
         path: /usr/share/fonts/truetype/source-code-pro/
         state: directory
         mode: "0755"
         owner: root
         group: root
+      become: true
+
+    # `find` warns and returns an empty list for a missing path rather than failing, so
+    # a release that moves the fonts out of TTF/ would install nothing and still report
+    # a green run. Fail instead.
+    - name: Find extracted Source Code Pro font files
+      ansible.builtin.find:
+        paths: /tmp/source-code-pro/TTF
+        patterns: "*.ttf"
+      register: desktop_source_code_pro_files
+      failed_when: desktop_source_code_pro_files.matched == 0
+
+    # Copy the fonts individually. A recursive copy of the TTF/ directory would
+    # apply `mode` to the destination directory as well, stripping its search
+    # bit (`directory_mode` only covers directories the module creates).
+    - name: Install Source Code Pro font files
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: /usr/share/fonts/truetype/source-code-pro/{{ item.path | basename }}
+        remote_src: true
+        mode: "0644"
+        owner: root
+        group: root
+      loop: "{{ desktop_source_code_pro_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      notify: Update font cache
       become: true
