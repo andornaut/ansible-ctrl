@@ -91,3 +91,10 @@
               {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}
             target: install
           become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ dev_tmp_ruby.path }}"
+        state: absent
+      when: dev_tmp_ruby.path is defined
+      become: true

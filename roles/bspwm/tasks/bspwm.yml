@@ -1,29 +1,42 @@
 ---
-- name: Clone BSPWM git repositories
-  ansible.builtin.git:
-    repo: "{{ item.repo }}"
-    dest: /tmp/{{ item.name }}.git
-    depth: 1
-    force: true
-    version: "{{ item.version | default('HEAD') }}"
-  loop: "{{ bspwm_projects }}"
+- name: Build and install BSPWM projects
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: bspwm_tmp
 
-- name: Build BSPWM projects
-  community.general.make:
-    chdir: /tmp/{{ item.name }}.git
-  loop: "{{ bspwm_projects }}"
+    - name: Clone BSPWM git repositories
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ bspwm_tmp.path }}/{{ item.name }}"
+        depth: 1
+        version: "{{ item.version | default('HEAD') }}"
+      loop: "{{ bspwm_projects }}"
 
-- name: Install BSPWM projects
-  community.general.make:
-    chdir: /tmp/{{ item.name }}.git
-    target: install
-  loop: "{{ bspwm_projects }}"
-  register: bspwm_make_install
-  failed_when:
-    - bspwm_make_install.failed
-    # Reinstalling a running binary yields "cp: cannot create regular file ... Text file busy"
-    - "'Text file busy' not in (bspwm_make_install.stderr | default(''))"
-  become: true
+    - name: Build BSPWM projects
+      community.general.make:
+        chdir: "{{ bspwm_tmp.path }}/{{ item.name }}"
+      loop: "{{ bspwm_projects }}"
+
+    - name: Install BSPWM projects
+      community.general.make:
+        chdir: "{{ bspwm_tmp.path }}/{{ item.name }}"
+        target: install
+      loop: "{{ bspwm_projects }}"
+      register: bspwm_make_install
+      failed_when:
+        - bspwm_make_install.failed
+        # Reinstalling a running binary yields "cp: cannot create regular file ... Text file busy"
+        - "'Text file busy' not in (bspwm_make_install.stderr | default(''))"
+      become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ bspwm_tmp.path }}"
+        state: absent
+      when: bspwm_tmp.path is defined
+      become: true
 
 - name: Install bspwm.desktop file
   ansible.builtin.copy:

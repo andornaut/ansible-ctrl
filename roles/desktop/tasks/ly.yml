@@ -67,7 +67,7 @@
                   - --overwrite
               become: true
           always:
-            - name: Remove the zig temporary directory
+            - name: Remove the temporary directory for zig
               ansible.builtin.file:
                 path: "{{ desktop_zig_tmp.path }}"
                 state: absent
