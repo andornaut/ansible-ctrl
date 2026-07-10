@@ -8,10 +8,19 @@
     install_recommends: false
   become: true
 
-# malcontent's daemons run as dedicated system users declared in /usr/lib/sysusers.d.
-# The package's postinst is meant to create them, but it did not on every host here, and
-# without them each daemon dies at startup with 217/USER "Unknown user". systemd-sysusers
-# reads those declarations and is idempotent; getent exits non-zero if any user is absent.
+# CLEANUP (added 2026-07-09): remove once malcontent's postinst creates its own users,
+# then reconverge every host that sets desktop_install_parental_controls.
+#
+# Works around an Ubuntu packaging bug in malcontent 0.14.0-0ubuntu1.1. The package ships
+# /usr/lib/sysusers.d/malcontent-{webd,timerd,timer-extension-agent}.conf but its postinst
+# has no dh_installsysusers block, so the users are never created; compare colord, whose
+# postinst runs `systemd-sysusers colord-sysusers.conf`. The postinst then starts all five
+# units, and each daemon dies with 217/USER "Unknown user". The boot-time fallback does not
+# save it either: systemd-sysusers.service is gated on ConditionNeedsUpdate=|/etc, which
+# stays false because installing a package does not bump /usr's own mtime.
+#
+# systemd-sysusers reads those declarations and is idempotent; getent exits non-zero if any
+# of the users is absent, so a converged host runs nothing.
 - name: Check whether the malcontent service users exist
   ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
   register: desktop_malcontent_getent
