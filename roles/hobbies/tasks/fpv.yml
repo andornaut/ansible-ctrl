@@ -113,22 +113,6 @@
           Categories=Utility
       become: true
 
-    # CLEANUP (added 2026-07-09): remove once every host in hobbies has run this role
-    # at least once.
-    #
-    # Pre-versioned layout: the extract landed in "Betaflight Configurator" and a
-    # separate task renamed it to betaflight-configurator. The rename was guarded by
-    # creates, so after the first run it never fired again and both directories sat
-    # on disk. Superseded by the tag-stamped directory and the current symlink.
-    - name: Remove legacy Betaflight directories
-      ansible.builtin.file:
-        path: "/opt/betaflight/{{ item }}"
-        state: absent
-      loop:
-        - Betaflight Configurator
-        - betaflight-configurator
-      become: true
-
 - name: Install ExpressLRS Configurator
   tags: expresslrs
   block:

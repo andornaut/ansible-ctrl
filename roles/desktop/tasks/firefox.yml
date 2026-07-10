@@ -19,59 +19,6 @@
     mode: "0644"
   become: true
 
-# CLEANUP (added 2026-07-09): remove once every desktop host has run this role at
-# least once.
-#
-# Unconditional, not inside an install branch. These repair state that earlier versions
-# of this role left behind, and the host that has the state is not necessarily the host
-# whose branch would have cleaned it up: a host can still carry the apt branch's
-# "mozilla-firefox" pin and Mozilla repository despite taking the flatpak branch today.
-# A migration gated on `desktop_install_firefox_apt` never runs anywhere, because no
-# host in the desktop group sets it.
-- name: Remove superseded Firefox apt artifacts
-  become: true
-  block:
-    # Earlier versions wrote one pin file per install method and had each branch delete
-    # the other's: "mozilla-firefox" from the apt branch, "firefox-no-apt" from the
-    # flatpak branch, and "firefox-no-snap" before either. Left behind, any of them is a
-    # second record for firefox* racing the one above on filename order.
-    - name: Remove superseded Firefox apt pins
-      ansible.builtin.file:
-        path: /etc/apt/preferences.d/{{ item }}
-        state: absent
-      loop:
-        - firefox-no-apt
-        - firefox-no-snap
-        - mozilla-firefox
-
-    - name: Remove old Firefox PPA
-      ansible.builtin.apt_repository:
-        repo: ppa:mozillateam/firefox-next
-        state: absent
-        update_cache: false
-
-    - name: Remove old Firefox PPA file
-      ansible.builtin.file:
-        path: >-
-          /etc/apt/sources.list.d/ppa_mozillateam_firefox_next_{{ ansible_facts['distribution_release'] }}.list
-        state: absent
-
-    # Superseded by the .asc keyring the apt branch downloads below. The repository must
-    # go with the key: an apt source whose signed-by path does not exist fails every
-    # `apt update` on the host.
-    - name: Remove old Mozilla apt repository (with .gpg key path)
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg]
-          https://packages.mozilla.org/apt mozilla main
-        state: absent
-        update_cache: false
-
-    - name: Remove old Mozilla apt signing key (.gpg armored format)
-      ansible.builtin.file:
-        path: /etc/apt/keyrings/packages.mozilla.org.gpg
-        state: absent
-
 # Apt
 - name: Configure Firefox Apt installation method
   when: desktop_install_firefox_apt
@@ -135,26 +82,6 @@
 - name: Configure Firefox flatpak installation method
   when: not desktop_install_firefox_apt
   block:
-    # CLEANUP (added 2026-07-09): remove once every desktop host has run this branch of
-    # the role at least once. They all take it, since none sets
-    # desktop_install_firefox_apt.
-    #
-    # An earlier version of this role held the firefox package with dpkg_selections.
-    # dpkg keeps a hold whenever it retains a status record for the package, so a host
-    # that still has one would fail the purge below on the hold. Unhold before purging,
-    # and gate on `apt-mark showhold`, for the same reasons as in flatpak.yml.
-    - name: List held apt packages
-      ansible.builtin.command: apt-mark showhold
-      register: desktop_firefox_apt_holds
-      changed_when: false
-
-    - name: Unhold Firefox apt package
-      ansible.builtin.dpkg_selections:
-        name: firefox
-        selection: install
-      when: "'firefox' in desktop_firefox_apt_holds.stdout_lines"
-      become: true
-
     # The pin at the top of this file prevents an install; it cannot undo one.
     - name: Remove Firefox apt package
       ansible.builtin.apt:

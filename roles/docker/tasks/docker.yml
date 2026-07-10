@@ -25,16 +25,6 @@
         # Without this, the key is never refreshed if Docker rotates it.
         force: true
 
-    # CLEANUP (added 2026-07-09): remove once every host in dev, homeautomation, and
-    # webservers has run this role at least once.
-    #
-    # Written by earlier versions of this role, which let apt_repository derive the
-    # filename. Leaving it in place configures the repository twice.
-    - name: Remove the legacy Docker repository file
-      ansible.builtin.file:
-        path: /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
-        state: absent
-
     - name: Add Docker repository
       ansible.builtin.apt_repository:
         repo: >-
