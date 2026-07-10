@@ -8,3 +8,13 @@
 # Ubuntu >= 26.04, and forcing it true on an older release just fails the install.
 # Flatpak games use the Vulkan layer extension in games_flatpak_extensions regardless.
 games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"
+
+# Home directory of games_user, from the passwd database (the getent lookup runs
+# first in tasks/main.yml). Used to build the absolute paths that the flatpak
+# grant and Heroic's config.json require.
+games_user_home: "{{ ansible_facts['getent_passwd'][games_user][4] }}"
+
+# Heroic Games Launcher config file (per-user flatpak). tasks/heroic.yml enforces
+# the install + wine-prefix paths inside it so they cannot drift from
+# games_heroic_dir and the flatpak grant.
+games_heroic_config_file: "{{ games_user_home }}/.var/app/com.heroicgameslauncher.hgl/config/heroic/config.json"

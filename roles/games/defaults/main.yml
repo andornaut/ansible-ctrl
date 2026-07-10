@@ -29,12 +29,25 @@ games_flatpak_extensions:
   - org.freedesktop.Platform.VulkanLayer.MangoHud//{{ games_flatpak_runtime_branch }}
   - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
 
+# Base directory for Heroic's game installs and wine prefixes. Kept under a
+# per-launcher subdir of ~/.local/games so Heroic, Lutris and Steam installs do
+# not collide. The Heroic flatpak is granted access to exactly this path in
+# games_flatpak_overrides, and the same path is written into Heroic's config.json
+# by tasks/heroic.yml. Games installed outside a granted path show as "not
+# available" ("game folder appears to have moved") because the sandbox, which can
+# only stat paths it is granted, cannot see them.
+games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
+
 # `flatpak override --user` arguments, keyed by application ID. The "default" key
 # applies to every app in games_flatpak_apps; a per-application key is merged on top.
 games_flatpak_overrides:
   # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
   default:
     - --env=XCURSOR_THEME=Adwaita
+  com.heroicgameslauncher.hgl:
+    # Grant the sandbox access to the game install + wine-prefix location. Without
+    # this Heroic cannot stat installed games and reports them as not available.
+    - "--filesystem={{ games_heroic_dir }}"
   com.valvesoftware.Steam:
     # Read-write access to the PipeWire socket for microphone input.
     - --filesystem=xdg-run/pipewire-0
