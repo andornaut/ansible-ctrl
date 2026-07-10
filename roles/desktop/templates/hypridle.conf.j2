@@ -27,19 +27,13 @@ listener {
 }
 
 {% if desktop_suspend_inactive_managed and desktop_suspend_inactive_seconds | int > 0 %}
-# Idle suspend. logind's IdleAction is not used here: hypridle never calls SetIdleHint, so
-# logind would never learn that the session went idle. hypridle runs the suspend itself
-# instead. bspwm has no equivalent, which is why idle.yml rejects the variable there.
+# Idle suspend: hypridle runs the suspend itself (logind's IdleAction can't fire because
+# nothing here calls SetIdleHint).
 #
-# KNOWN ISSUE: this file is usually a symlink into the dotfiles repository, which every host
-# shares, so a per-host desktop_suspend_inactive_minutes lands in a file that is committed
-# once for all of them. Two niri hosts with different values would rewrite this block on
-# every converge and fight over it in git. desktop_screen_*_minutes already has the same
-# problem in this file and in the bspwm session script. It is latent while every host uses
-# the same values, and there is only one niri host at most. The fix is to stop rendering
-# per-host policy into dotfiles: move these timeouts to a hypridle drop-in the role owns
-# outright (~/.config/hypr/hypridle.conf.d/, sourced from the repository copy), or template
-# a user unit that hypridle reads, so the repository file carries no host-specific values.
+# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so per-host timeouts
+# (desktop_suspend_inactive_minutes, desktop_screen_*_minutes) get committed once for all
+# hosts, and two niri hosts with different values would fight over it. Latent while hosts
+# share values. Fix: render per-host policy into a role-owned hypridle drop-in, not the repo.
 listener {
     timeout = {{ desktop_suspend_inactive_seconds }} # {{ desktop_suspend_inactive_minutes }}min
     on-timeout = systemctl suspend

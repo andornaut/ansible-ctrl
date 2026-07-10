@@ -1,16 +1,13 @@
 ---
-# Classify one path that idle.yml writes, which may be a symlink into a dotfiles
-# repository.
+# Classify one path idle.yml writes, which may be a symlink into a dotfiles repo.
 #
 # Required vars:
 #   idle_dotfile_path (str): the path to classify
-#
 # Sets desktop_idle_dotfile_exists (bool): whether the path resolves to a real file.
 #
-# A dangling symlink has to be told apart from an absent path. `stat` with follow: true
-# reports both as absent, but writing to them differs: creating an absent path is correct,
-# while lineinfile and replace abort on a dangling link. Fail instead, because a dangling
-# link means the repository has not been applied on the host.
+# A dangling symlink must be told apart from an absent path: both stat as absent, but
+# creating an absent path is fine while lineinfile/replace abort on a dangling link. Fail
+# on one, because it means the dotfiles repo has not been applied.
 
 - name: Stat the link at {{ idle_dotfile_path }}
   ansible.builtin.stat:

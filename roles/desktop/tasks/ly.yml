@@ -37,10 +37,9 @@
                 state: directory
               register: desktop_zig_tmp
 
-            # The ziglang.org origin serves this ~55MB tarball at ~50KB/s (~20 minutes), because its
-            # bandwidth is donated. The Zig project publishes https://ziglang.org/download/community-mirrors.txt
-            # and asks tooling to fetch from a mirror instead. Mirrors host the tarball under its basename.
-            # Verify the origin's shasum, since mirrors are third parties.
+            # ziglang.org serves this tarball slowly (donated bandwidth) and asks tooling to use a
+            # mirror from https://ziglang.org/download/community-mirrors.txt. Mirrors host it under
+            # its basename; verify the origin's shasum since mirrors are third parties.
             - name: Download zig compiler archive
               ansible.builtin.get_url:
                 url: "{{ desktop_zig_mirror }}/{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].tarball | basename }}"
@@ -118,9 +117,8 @@
 
     - name: Configure ly
       block:
-        # "zig build installnoconf" writes config.ini.example but not config.ini,
-        # so that upgrades leave an existing config alone. Seed it once, otherwise
-        # the lineinfile tasks below have no file to edit on a fresh host.
+        # installnoconf writes config.ini.example but not config.ini, so seed it once or the
+        # lineinfile tasks below have nothing to edit on a fresh host.
         - name: Seed ly configuration from the example
           ansible.builtin.copy:
             src: /etc/ly/config.ini.example
@@ -183,14 +181,10 @@
       block:
         # CLEANUP (added 2026-07-10): remove once every host that runs ly has converged.
         #
-        # ly shipped a non-templated ly.service until late 2025, and some hosts also carry a
-        # hand-written copy under /etc that shadows it. The current release installs only
-        # ly@.service, but "zig build installnoconf" leaves the superseded unit behind. Both
-        # copies hard-code tty2 and claim the display-manager.service alias, so on a host
-        # that still has one, `systemctl restart ly` starts a second greeter on the tty that
-        # ly@tty2.service already owns instead of failing as it does on a clean host.
-        #
-        # No daemon_reload here: the next task issues one before it touches any unit.
+        # The current release installs only ly@.service, but installnoconf leaves a superseded
+        # ly.service behind (and some hosts carry a hand-written /etc copy). Both hard-code
+        # tty2, so a stray one starts a second greeter on ly@tty2's tty. No daemon_reload
+        # here: the next task issues one first.
         - name: Find the superseded ly units
           ansible.builtin.stat:
             path: "{{ item }}"
@@ -199,13 +193,11 @@
             - /etc/systemd/system/ly.service
             - /usr/lib/systemd/system/ly.service
 
-        # Stop it while systemd can still see the unit. Once the files are gone a greeter
-        # started from ly.service would keep running on tty2 with nothing left to manage it.
-        #
-        # masked: false because main.yml masks ly on a host where desktop_install_ly is
-        # false, and a masked unit cannot be stopped. Masking writes the /dev/null symlink
-        # that stat finds above, so a host flipped to ly arrives here with one in place. The
-        # module applies masked before enabled before state, so one call unmasks then stops.
+        # Stop it while systemd can still see the unit, before the files are removed.
+        # masked: false because a host flipped from another DM arrives with ly.service masked
+        # (main.yml masks it when desktop_install_ly is false), and a masked unit can't be
+        # stopped. The module applies masked, then enabled, then state, so one call unmasks
+        # and stops.
         - name: Stop the superseded ly unit
           ansible.builtin.systemd_service:
             name: ly.service
