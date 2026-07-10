@@ -35,35 +35,31 @@ desktop_parental_controls_web_filter_args: >-
      + (desktop_parental_controls_web_blocked_hosts | list)
      + (desktop_parental_controls_web_allowed_hosts | map('regex_replace', '^', '~') | list) }}
 
-# Idle timeouts in the units each daemon expects. hypridle and dconf take seconds;
-# xscreensaver takes H:MM:SS.
+# Idle timeouts in the units each daemon expects. hypridle, dconf and xset take seconds.
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"
 desktop_screen_lock_seconds: "{{ desktop_screen_lock_minutes | int * 60 }}"
 desktop_screen_off_seconds: "{{ desktop_screen_off_minutes | int * 60 }}"
-# GNOME's screensaver lock-delay and xscreensaver's lockTimeout both count from the moment
-# the screen blanks, not from the moment the session went idle, so each is the gap between
-# the two timeouts rather than the lock timeout itself.
+# GNOME's screensaver lock-delay counts from the moment the screen blanks, not from the
+# moment the session went idle, so it is the gap between the two timeouts rather than the
+# lock timeout itself. The X screensaver's cycle is the same quantity under bspwm: it is how
+# long after blanking that xss-lock starts the locker.
 desktop_screen_lock_delay_seconds: >-
   {{ (desktop_screen_lock_minutes | int - desktop_screen_blank_minutes | int) * 60 }}
-desktop_screen_blank_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_blank_minutes | int // 60, desktop_screen_blank_minutes | int % 60) }}
-desktop_screen_off_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_off_minutes | int // 60, desktop_screen_off_minutes | int % 60) }}
-desktop_screen_lock_delay_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_lock_delay_seconds | int // 3600,
-                           desktop_screen_lock_delay_seconds | int % 3600 // 60) }}
+# Idle-suspend timeout, applied to mains and battery alike: none of the three mechanisms
+# (logind's IdleActionSec, GNOME's sleep-inactive-{ac,battery}-timeout, hypridle's listener)
+# distinguishes the power source. An unset desktop_suspend_inactive_minutes leaves the
+# host's existing suspend policy alone; 0 disables idle suspend; N suspends after N minutes.
+desktop_suspend_inactive_managed: "{{ desktop_suspend_inactive_minutes is not none }}"
+desktop_suspend_inactive_seconds: "{{ desktop_suspend_inactive_minutes | default(0, true) | int * 60 }}"
+desktop_suspend_inactive_action: >-
+  {{ (desktop_suspend_inactive_seconds | int > 0) | ternary("'suspend'", "'nothing'") }}
 
 # Session configuration files that idle.yml writes. Each may be a symlink into a dotfiles
 # repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
 # replace) may write them.
 desktop_bspwm_session_script: "{{ desktop_user_home }}/.config/bspwm/desktop"
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
-# xscreensaver reads ~/.xscreensaver and reloads it whenever it changes, so writing it
-# needs no handler. `#` starts a comment there, which is what blockinfile's default marker
-# uses. xscreensaver-settings rewrites the whole file, dropping the markers; the block is
-# reinserted on the next run and, being last, wins over anything the GUI wrote.
-desktop_xscreensaver_conf: "{{ desktop_user_home }}/.xscreensaver"
-desktop_xscreensaver_autostart: "{{ desktop_user_home }}/.config/autostart/xscreensaver.desktop"
+desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.desktop"
 
 # Platform key into https://ziglang.org/download/index.json. Zig spells these with
 # the kernel architecture names that Ansible reports, so no mapping is needed here
