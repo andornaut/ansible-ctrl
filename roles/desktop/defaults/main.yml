@@ -74,6 +74,36 @@ desktop_chrome_family_policies:
   ForceYouTubeRestrict: 1
   DnsOverHttpsMode: "off"
 
+# Web filtering for desktop_user, enforced by the nss-malcontent name service module
+# rather than by the browser. "none" leaves it disabled and touches nothing;
+# "block-list" allows every domain except those listed; "allow-list" blocks every
+# domain except those listed, which is strict enough that a missing CDN or login
+# domain breaks a site outright.
+#
+# Enabling it installs libnss-malcontent and inserts that module into the hosts lookup
+# chain in /etc/nsswitch.conf, which is a system-wide change. It only filters users who
+# have a compiled list; the module defers for everyone else. DnsOverHttpsMode: "off"
+# above is what keeps Chrome resolving through it.
+#
+# Firefox is handled by malcontent itself, which blocks the use-application-dns.net canary
+# domain so that Firefox disables DNS-over-HTTPS rather than resolving past the module.
+# That check runs before the per-user list is opened, so the canary is blocked for *every*
+# user on the host, not just the filtered one, and every user's Firefox turns DoH off.
+desktop_parental_controls_web_filter_type: none
+# Filter lists to compile into desktop_user's blocklist, as {id: HTTPS URI}. The id is a
+# free-form label. Each list must be a plain newline-separated list of bare hostnames;
+# `#` comments and blank lines are ignored. Hosts-file lines ("0.0.0.0 example.com") are
+# not accepted, and one malformed line aborts the whole update, leaving the previous
+# list in place and an error in /var/lib/malcontent-webd/update-error.
+desktop_parental_controls_web_block_lists: {}
+desktop_parental_controls_web_allow_lists: {}
+# Individual hostnames added alongside the fetched lists. Matching is exact: neither
+# these nor the lists match subdomains, so name each host that must be covered.
+desktop_parental_controls_web_blocked_hosts: []
+desktop_parental_controls_web_allowed_hosts: []
+# Force safe search in the search engines malcontent knows how to rewrite.
+desktop_parental_controls_web_force_safe_search: true
+
 # Target desktop user account. Defaults to the remote user running the play;
 # override per host. This is NOT applied to every task in the role: only the
 # few that must act as a specific user (flatpak method:user

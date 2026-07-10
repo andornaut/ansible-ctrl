@@ -1,9 +1,7 @@
 ---
 - name: Install malcontent
   ansible.builtin.apt:
-    name:
-      - malcontent
-      - malcontent-gui
+    name: "{{ ['malcontent', 'malcontent-gui'] + (['libnss-malcontent'] if desktop_parental_controls_web_filter_enabled else []) }}"
     state: latest
     install_recommends: false
   become: true
@@ -87,3 +85,78 @@
     dest: /etc/opt/chrome/policies/managed/family.json
     mode: "0644"
   become: true
+
+# Web filtering. malcontent enforces it in the name service switch rather than in the
+# browser: nss-malcontent sinkholes a blocked hostname for the users that have a compiled
+# filter list, and defers to the next module for everyone else. So the nsswitch edit is
+# system-wide while the policy stays per-user.
+- name: Configure malcontent web filtering for {{ desktop_user }}
+  when: desktop_parental_controls_web_filter_enabled
+  become: true
+  block:
+    # The module has to see a name before the resolvers that would answer it, so it goes
+    # directly after `files`. The negative lookahead makes a second run match nothing,
+    # which is what keeps this idempotent; `replace` would otherwise insert on every run.
+    - name: Insert the malcontent NSS module into the hosts lookup chain
+      ansible.builtin.replace:
+        path: /etc/nsswitch.conf
+        regexp: '^(hosts:\s+files)(?!\s+malcontent\b)(\s.*)$'
+        replace: '\1 malcontent\2'
+
+    # A hosts line that does not begin with `files` matches nothing above, and `replace`
+    # reports no change rather than failing. Left alone that silently disables filtering,
+    # so read the line back instead of trusting the substitution.
+    - name: Read back the hosts lookup chain
+      ansible.builtin.slurp:
+        src: /etc/nsswitch.conf
+      register: desktop_nsswitch
+
+    - name: Assert that the malcontent NSS module is in the hosts lookup chain
+      ansible.builtin.assert:
+        that:
+          - desktop_nsswitch.content | b64decode is search('^hosts:\s+files\s+malcontent\s', multiline=True)
+        fail_msg: >-
+          The hosts line in /etc/nsswitch.conf does not start with `files malcontent`.
+          nss-malcontent must precede the resolvers that would answer a blocked name.
+        success_msg: nss-malcontent precedes the resolvers in the hosts lookup chain
+
+    - name: Read the current web filter for {{ desktop_user }}
+      ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
+      register: desktop_web_filter_before
+      changed_when: false
+
+    # set-web-filter overwrites the whole filter, so it is safe to run every time and
+    # reports nothing useful about whether anything moved. The re-read below is what
+    # decides, because recompiling means downloading every filter list again.
+    - name: Set the web filter for {{ desktop_user }}
+      ansible.builtin.command: >-
+        malcontent-client set-web-filter --no-interactive
+        --filter-type {{ desktop_parental_controls_web_filter_type }}
+        {{ '--force-safe-search' if desktop_parental_controls_web_force_safe_search else '' }}
+        {{ desktop_user }} {{ desktop_parental_controls_web_filter_args | join(' ') }}
+      changed_when: false
+
+    - name: Recompile the filter lists if the web filter moved
+      ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
+      register: desktop_web_filter_after
+      changed_when: desktop_web_filter_after.stdout != desktop_web_filter_before.stdout
+      notify: Recompile the malcontent web filter lists
+
+# Leaving an enforced filter behind after the flag is turned off would be worse than never
+# having set one, because nothing on the host would say why a domain fails to resolve. The
+# nsswitch entry is left in place: with no compiled list the module defers on every lookup.
+- name: Disable malcontent web filtering for {{ desktop_user }}
+  when: not desktop_parental_controls_web_filter_enabled
+  become: true
+  block:
+    - name: Read the current web filter for {{ desktop_user }}
+      ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
+      register: desktop_web_filter_current
+      changed_when: false
+
+    - name: Clear the web filter for {{ desktop_user }}
+      ansible.builtin.command: >-
+        malcontent-client set-web-filter --no-interactive --filter-type none {{ desktop_user }}
+      changed_when: true
+      notify: Recompile the malcontent web filter lists
+      when: "'not enabled' not in desktop_web_filter_current.stdout"
