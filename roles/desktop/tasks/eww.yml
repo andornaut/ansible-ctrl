@@ -83,9 +83,20 @@
 
 - name: Configure eww service
   block:
+    # eww is installed under /usr/local, so its unit belongs in
+    # /usr/local/lib/systemd/user. /etc/systemd/user is reserved for the
+    # administrator and outranks it, so a copy left there silently shadows this one
+    # and every change to the unit becomes a no-op.
+    - name: Create the local systemd user unit directory
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/user
+        state: directory
+        mode: "0755"
+      become: true
+
     - name: Install eww.service
       ansible.builtin.copy:
-        dest: /etc/systemd/user/eww.service
+        dest: /usr/local/lib/systemd/user/eww.service
         mode: "0644"
         content: |
           [Unit]
@@ -118,6 +129,26 @@
           WantedBy=graphical-session.target
       notify: Restart eww
       become: true
+
+    - name: Remove eww.service from the administrator unit directory
+      ansible.builtin.file:
+        path: /etc/systemd/user/eww.service
+        state: absent
+      register: desktop_eww_stale_unit
+      become: true
+
+    # The enable symlink records an absolute path, so it still points into
+    # /etc/systemd/user after the unit moves, and systemctl enable will not rewrite
+    # an already-enabled unit.
+    - name: Re-enable eww.service against its new unit path
+      ansible.builtin.command: systemctl --user reenable eww.service
+      when: desktop_eww_stale_unit.changed
+      changed_when: true
+      notify: Restart eww
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
 
     - name: Enable eww service
       ansible.builtin.systemd_service:
