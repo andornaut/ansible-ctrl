@@ -63,6 +63,24 @@
       notify: Restart eww
       become: true
 
+# eww's systray resolves StatusNotifierItem icons through a freshly constructed GTK
+# IconTheme, which searches only the hicolor fallback and ignores gtk-icon-theme-name.
+# update-notifier publishes an item whose IconName is system-software-update-symbolic,
+# which hicolor does not ship, so eww fails to load it and logs a warning on every
+# start. Yaru is the only theme packaged for Ubuntu that provides the icon, so copy it
+# into hicolor where eww looks. The Yaru file is a symlink to software-updater-symbolic,
+# so the link target is copied rather than the link.
+- name: Install system-software-update-symbolic into the hicolor icon theme
+  ansible.builtin.copy:
+    src: /usr/share/icons/Yaru/scalable/apps/software-updater-symbolic.svg
+    dest: /usr/share/icons/hicolor/scalable/apps/system-software-update-symbolic.svg
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Update hicolor icon cache
+  become: true
+
 - name: Configure eww service
   block:
     - name: Install eww.service

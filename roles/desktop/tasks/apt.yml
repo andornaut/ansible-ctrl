@@ -2,6 +2,12 @@
 - name: Install common system packages
   ansible.builtin.apt:
     name:
+      # adwaita-icon-theme supplies the Adwaita cursor theme, and
+      # gnome-themes-extra pulls in gnome-themes-extra-data, which supplies the
+      # Adwaita GTK widget theme. Both are selected by gtk-cursor-theme-name and
+      # gtk-theme-name in the dotfiles:
+      # https://github.com/andornaut/dotfiles/blob/master/$HOME/.config/gtk-3.0/settings.ini
+      - adwaita-icon-theme
       - desktop-file-utils
       - file-roller
       # gnome-keyring is only a Recommends of ubuntu-desktop-minimal, which
@@ -24,6 +30,10 @@
       # xdotool is X11-only, but the shell functions in ~/.bashrc are sourced on every
       # desktop, GNOME included, so it cannot live in the bspwm role.
       - xdotool
+      # yaru-theme-icon is the icon theme selected by /etc/gtk-3.0/settings.ini, and
+      # the only theme packaged for Ubuntu that ships system-software-update-symbolic,
+      # which eww.yml copies into the hicolor theme.
+      - yaru-theme-icon
       - zenity
     state: latest
     install_recommends: false

@@ -17,6 +17,13 @@
   become: true
   changed_when: true
 
+# hicolor ships an icon-theme.cache, which GTK reads in preference to scanning the
+# directory, so a newly added icon stays invisible until the cache is rebuilt.
+- name: Update hicolor icon cache
+  ansible.builtin.command: gtk-update-icon-cache --force /usr/share/icons/hicolor
+  become: true
+  changed_when: true
+
 - name: Update GRUB
   ansible.builtin.command: update-grub
   become: true
