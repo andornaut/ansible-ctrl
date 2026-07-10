@@ -2,32 +2,6 @@
 - name: Remove system packages replaced by flatpak
   become: true
   block:
-    # CLEANUP (added 2026-07-09): remove once every desktop host has run this role at
-    # least once.
-    #
-    # An earlier version of this role held these packages with dpkg_selections. dpkg
-    # keeps a hold for every package it still has a status record for, so `apt-mark
-    # showhold` still lists snapd on any desktop host that has not yet run a newer
-    # version of this role. apt refuses to remove a held package, so the purge
-    # below would fail if one were ever reinstalled, and nothing else would revoke a
-    # hold that this role no longer sets. Unhold before purging, not after: the purge is
-    # what the residual hold would otherwise block.
-    #
-    # Driven off `apt-mark showhold` rather than looping dpkg_selections over the whole
-    # list: dpkg reports "not present" for a package it has no status record for, which
-    # dpkg_selections reads as a state change it then cannot make, so those items report
-    # `changed` on every run forever. Names dpkg has never heard of make it fail outright.
-    - name: List held apt packages
-      ansible.builtin.command: apt-mark showhold
-      register: desktop_flatpak_apt_holds
-      changed_when: false
-
-    - name: Unhold packages replaced by flatpak
-      ansible.builtin.dpkg_selections:
-        name: "{{ item }}"
-        selection: install
-      loop: "{{ desktop_flatpak_apt_holds.stdout_lines | intersect(desktop_flatpak_pinned_packages) }}"
-
     - name: Remove snap and applications, clean cache, and autoremove
       ansible.builtin.apt:
         name: "{{ desktop_flatpak_pinned_packages }}"

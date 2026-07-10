@@ -8,13 +8,18 @@
         mode: "0644"
       become: true
 
-    - name: Remove old Insync apt source files
+    # CLEANUP (added 2026-07-09): remove once every desktop host that sets
+    # desktop_install_insync has run this role at least once.
+    #
+    # Written by an earlier version of this role, which let apt_repository derive the
+    # filename from the URL. Leaving it in place configures the repository twice. Only
+    # the derived name belongs here: the task below writes insync.list, so listing that
+    # one too would delete the file it then recreates, leaving both tasks reporting
+    # changed and refreshing the apt cache on every run.
+    - name: Remove the legacy Insync apt source file
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /etc/apt/sources.list.d/apt_insync_io_ubuntu.list
         state: absent
-      loop:
-        - /etc/apt/sources.list.d/apt_insync_io_ubuntu.list
-        - /etc/apt/sources.list.d/insync.list
       become: true
 
     - name: Add Insync apt repository

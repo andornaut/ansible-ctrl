@@ -12,14 +12,6 @@
     mode: "0755"
   become: true
 
-# CLEANUP (added 2026-07-09): remove once every host in dev has run this role at
-# least once. Superseded by the per-binary AppArmor profile created below.
-- name: Remove global AppArmor user namespace restriction disablement workaround
-  ansible.builtin.file:
-    path: /etc/sysctl.d/20-apparmor-donotrestrict.conf
-    state: absent
-  become: true
-
 - name: Create AppArmor profile for Cursor
   ansible.builtin.copy:
     dest: /etc/apparmor.d/usr.local.bin.cursor

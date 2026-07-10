@@ -44,18 +44,3 @@
             executable: /bin/bash
           register: hobbies_orcaslicer_override
           changed_when: "'CHANGED' in hobbies_orcaslicer_override.stdout"
-
-    # CLEANUP (added 2026-07-09): remove once every host in hobbies has run this role
-    # at least once.
-    #
-    # OrcaSlicer is installed as a user flatpak only. Earlier revisions of this role
-    # dropped an AppImage in /usr/local/bin; remove it so the two cannot diverge.
-    # Runs last so a failed flatpak install never leaves the host with neither, and
-    # sits outside the become_user block above because the file is root-owned:
-    # become_user is inherited independently of become, so a task nested there would
-    # escalate to hobbies_user rather than root.
-    - name: Remove OrcaSlicer AppImage
-      ansible.builtin.file:
-        path: /usr/local/bin/OrcaSlicer
-        state: absent
-      become: true
