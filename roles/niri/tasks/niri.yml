@@ -104,3 +104,10 @@
         scope: user
         state: started
       when: ansible_service_mgr == 'systemd'
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ niri_tmp.path }}"
+        state: absent
+      when: niri_tmp.path is defined
+      become: true

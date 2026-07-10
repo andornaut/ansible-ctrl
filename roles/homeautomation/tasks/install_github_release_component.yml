@@ -9,40 +9,49 @@
 # Optional vars:
 #   github_component_dest (str): Destination directory on the target host
 #     (defaults to the Home Assistant custom_components/ directory)
-- name: Create a temporary directory for {{ github_component_name }}
-  ansible.builtin.tempfile:
-    state: directory
-  register: homeautomation_github_component_tmp
+- name: Install the latest GitHub release of {{ github_component_name }}
+  block:
+    - name: Create a temporary directory for {{ github_component_name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: homeautomation_github_component_tmp
 
-- name: Get releases of {{ github_component_name }}
-  ansible.builtin.uri:
-    url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
-    return_content: true
-  register: homeautomation_github_component_releases
+    - name: Get releases of {{ github_component_name }}
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
+        return_content: true
+      register: homeautomation_github_component_releases
 
-- name: Set version fact for {{ github_component_name }}
-  ansible.builtin.set_fact:
-    homeautomation_github_component_version: >-
-      {{ (homeautomation_github_component_releases.json
-      | selectattr('prerelease', 'equalto', false)
-      | selectattr('draft', 'equalto', false)
-      | list | first).tag_name }}
+    - name: Set version fact for {{ github_component_name }}
+      ansible.builtin.set_fact:
+        homeautomation_github_component_version: >-
+          {{ (homeautomation_github_component_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
 
-- name: Download and unarchive {{ github_component_name }}
-  ansible.builtin.unarchive:
-    src: >-
-      https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
-      homeautomation_github_component_version }}.tar.gz
-    dest: "{{ homeautomation_github_component_tmp.path }}"
-    remote_src: true
-    extra_opts:
-      - --strip-components
-      - 1
+    - name: Download and unarchive {{ github_component_name }}
+      ansible.builtin.unarchive:
+        src: >-
+          https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
+          homeautomation_github_component_version }}.tar.gz
+        dest: "{{ homeautomation_github_component_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
 
-- name: Install files for {{ github_component_name }}
-  ansible.builtin.copy:
-    src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
-    dest: "{{ github_component_dest | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}"
-    remote_src: true
-    mode: "0644"
-  become: true
+    - name: Install files for {{ github_component_name }}
+      ansible.builtin.copy:
+        src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
+        dest: "{{ github_component_dest | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}"
+        remote_src: true
+        mode: "0644"
+      become: true
+  always:
+    - name: Remove the temporary directory for {{ github_component_name }}
+      ansible.builtin.file:
+        path: "{{ homeautomation_github_component_tmp.path }}"
+        state: absent
+      when: homeautomation_github_component_tmp.path is defined
+      become: true
