@@ -6,7 +6,12 @@
 
 #include <tunables/global>
 #
-#Mar 29 19:12:57 tron kernel: audit: type=1107 audit(1711753977.760:3624): pid=1079 uid=103 auid=4294967295 ses=4294967295 subj=unconfined msg='apparmor="DENIED" operation="dbus_method_call" bus="system" path="/org/bluez/hci0/dev_90_CE_B8_E9_C2_F9" interface="org.freedesktop.DBus.Properties" method="PropertiesChanged" mask="receive" label="docker-ble-policy" peer_label="unconfined" exe="/usr/bin/dbus-broker" sauid=103 hostname=? addr=? terminal=?
+# The dbus Properties rule below silences kernel audit denials of the form:
+# apparmor="DENIED" operation="dbus_method_call" bus="system"
+# path="/org/bluez/hci0/dev_XX_XX_XX_XX_XX_XX"
+# interface="org.freedesktop.DBus.Properties" method="PropertiesChanged"
+# mask="receive" label="docker-ble-policy" peer_label="unconfined"
+# exe="/usr/bin/dbus-broker"
 
 profile docker-ble-policy flags=(attach_disconnected,mediate_deleted) {
 

@@ -11,7 +11,7 @@
     - letsencrypt
 
 - name: Configure Let's Encrypt auto-renewal
-  hosts: tron
+  hosts: localhost
   tasks:
     - name: Setup renewal cron job
       ansible.builtin.cron:

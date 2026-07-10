@@ -1,8 +1,8 @@
 ---
-# Nuvoton NCT6687D Super I/O driver for MSI boards (e.g. nomnomnom). The
-# mainline kernel binds these chips to nct6683, which misreports fans, so
-# blacklist it and use this out-of-tree fork to expose the fan pwm/hwmon that
-# CoolerControl manages. https://github.com/Fred78290/nct6687d
+# Nuvoton NCT6687D Super I/O driver for MSI boards. The mainline kernel binds
+# these chips to nct6683, which misreports fans, so blacklist it and use this
+# out-of-tree fork to expose the fan pwm/hwmon that CoolerControl manages.
+# https://github.com/Fred78290/nct6687d
 - name: Install nct6687d fan control driver
   become: true
   block:

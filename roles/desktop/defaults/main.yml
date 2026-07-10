@@ -6,7 +6,7 @@
 
 desktop_eww_bar: bar
 # Extra kernel parameters written to GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves
-# the line unset; set per host (e.g. the Thinkpad touchpad scrolling fix).
+# the line unset; set per host (e.g. a laptop touchpad scrolling fix).
 desktop_grub_cmdline_linux_default: ""
 desktop_install_firefox_apt: false
 desktop_install_insync: false
@@ -63,8 +63,8 @@ desktop_chrome_family_policies:
   DnsOverHttpsMode: "off"
 
 # Target desktop user account. Defaults to the remote user running the play;
-# override per host (e.g. nomnomnom). This is NOT applied to every task in the
-# role: only the few that must act as a specific user (flatpak method:user
+# override per host. This is NOT applied to every task in the role: only the
+# few that must act as a specific user (flatpak method:user
 # installs via become_user) or read from that user's home use it. It is not a
 # blanket privilege-escalation setting.
 desktop_user: "{{ ansible_facts['user_id'] }}"
