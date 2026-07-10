@@ -27,24 +27,6 @@
         dest: /etc/apt/preferences.d/flatpak-replacements
         mode: "0644"
 
-- name: Remove snap directories
-  become: true
-  block:
-    - name: Find user snap directories
-      ansible.builtin.find:
-        paths: /home
-        patterns: snap
-        depth: 2
-        file_type: directory
-        recurse: true
-      register: desktop_snap_directories_result
-
-    - name: Remove the discovered snap directories
-      ansible.builtin.file:
-        path: "{{ item.path | default(item) }}"
-        state: absent
-      loop: "{{ desktop_snap_directories_result.files + ['/root/snap', '/var/cache/snapd'] }}"
-
 - name: Configure flatpak
   block:
     - name: Install flatpak packages
