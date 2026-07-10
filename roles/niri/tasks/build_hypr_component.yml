@@ -1,0 +1,79 @@
+---
+# Build and install one hyprwm component from its latest stable GitHub release, using the
+# shared cmake commands in vars/main.yml. Every component lives at github.com/hyprwm/{name}
+# and tags its releases with the name that `.name` reports, so the name is the only
+# required parameter.
+#
+# Required vars:
+#   hypr_component_name (str): repository name under github.com/hyprwm/, e.g. "hyprlock"
+#
+# Optional vars:
+#   hypr_component_build_target (str): passed to `cmake --build` as `--target <value>`.
+#     Omit to build cmake's default target.
+#   hypr_component_build_become (bool): build as root, default false.
+#
+# Callers must wrap the include in a tagged block rather than tagging the include itself;
+# see the comment in hypr.yml.
+#
+# Anything that must follow the install (relocating and enabling a systemd user unit, say)
+# belongs at the call site: this file returns once the component is installed and its build
+# tree is gone.
+- name: Build and install {{ hypr_component_name }}
+  block:
+    - name: Create a temporary directory for {{ hypr_component_name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: niri_hypr_component_tmp
+
+    - name: Get latest release of {{ hypr_component_name }}
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: "hyprwm/{{ hypr_component_name }}"
+        github_release_fact: niri_hypr_component_release
+
+    - name: Set version fact for {{ hypr_component_name }}
+      ansible.builtin.set_fact:
+        niri_hypr_component_version: "{{ niri_hypr_component_release.name }}"
+
+    - name: Download and unarchive {{ hypr_component_name }}
+      ansible.builtin.unarchive:
+        src: "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
+          {{ niri_hypr_component_version }}.tar.gz"
+        dest: "{{ niri_hypr_component_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Configure the build of {{ hypr_component_name }}
+      ansible.builtin.command:
+        cmd: "{{ niri_hypr_cmake_configure }}"
+        chdir: "{{ niri_hypr_component_tmp.path }}"
+      changed_when: true
+
+    # niri_hypr_cmake_build interpolates $(nproc), so it needs a shell.
+    - name: Build {{ hypr_component_name }} # noqa: command-instead-of-shell
+      ansible.builtin.shell:
+        cmd: "{{ niri_hypr_cmake_build }}{{ niri_hypr_component_target_arg }}"
+        chdir: "{{ niri_hypr_component_tmp.path }}"
+      vars:
+        niri_hypr_component_target_arg: >-
+          {{ ' --target ' ~ hypr_component_build_target if hypr_component_build_target | default('') else '' }}
+      changed_when: true
+      become: "{{ hypr_component_build_become | default(false) | bool }}"
+
+    - name: Install {{ hypr_component_name }}
+      ansible.builtin.command:
+        cmd: "{{ niri_hypr_cmake_install }}"
+        chdir: "{{ niri_hypr_component_tmp.path }}"
+      changed_when: true
+      become: true
+  always:
+    # A build that ran under become leaves root-owned directories in the tree, which the
+    # connecting user cannot unlink.
+    - name: Remove the temporary directory for {{ hypr_component_name }}
+      ansible.builtin.file:
+        path: "{{ niri_hypr_component_tmp.path }}"
+        state: absent
+      when: niri_hypr_component_tmp.path is defined
+      become: true
