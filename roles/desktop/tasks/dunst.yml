@@ -53,3 +53,10 @@
         chdir: "{{ desktop_dunst_tmp.path }}"
         target: install
       become: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_dunst_tmp.path }}"
+        state: absent
+      when: desktop_dunst_tmp.path is defined
+      become: true

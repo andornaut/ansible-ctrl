@@ -62,6 +62,18 @@
         mode: "0755"
       notify: Restart eww
       become: true
+  always:
+    # A release build leaves close to 1GB of cargo output behind, and /tmp is a
+    # tmpfs sized at half of RAM, so a few runs exhaust it and the build then
+    # fails writing rmeta. Remove the tree whether or not the build succeeded.
+    # Some builds in this role run under become and leave root-owned artifacts,
+    # so remove as root for consistency with the rest of them.
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_eww_tmp.path }}"
+        state: absent
+      when: desktop_eww_tmp.path is defined
+      become: true
 
 # eww's systray resolves StatusNotifierItem icons through a freshly constructed GTK
 # IconTheme, which searches only the hicolor fallback and ignores gtk-icon-theme-name.

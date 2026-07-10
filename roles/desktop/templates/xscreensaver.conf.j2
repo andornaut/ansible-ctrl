@@ -8,7 +8,10 @@ lock:		True
 lockTimeout:	{{ desktop_screen_lock_delay_time }}
 splash:		False
 dpmsEnabled:	True
-dpmsQuiet:	True
+# dpmsQuickOff powers the monitor down the moment the screen blanks, ignoring the three
+# timeouts below. It must be set, not merely left out: the block is appended to a file the
+# role does not own, so an existing True above it would otherwise stand.
+dpmsQuickOff:	False
 dpmsStandby:	{{ desktop_screen_off_time }}
 dpmsSuspend:	{{ desktop_screen_off_time }}
 dpmsOff:	{{ desktop_screen_off_time }}

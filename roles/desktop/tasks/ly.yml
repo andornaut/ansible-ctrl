@@ -66,6 +66,13 @@
                   - 1
                   - --overwrite
               become: true
+          always:
+            - name: Remove the zig temporary directory
+              ansible.builtin.file:
+                path: "{{ desktop_zig_tmp.path }}"
+                state: absent
+              when: desktop_zig_tmp.path is defined
+              become: true
 
     - name: Install ly display manager
       block:
@@ -99,6 +106,15 @@
             chdir: "{{ desktop_ly_tmp.path }}"
           become: true
           changed_when: true
+      always:
+        # zig builds as root and creates root-owned zig-out and zig-pkg
+        # directories, which the connecting user cannot unlink.
+        - name: Remove the temporary directory
+          ansible.builtin.file:
+            path: "{{ desktop_ly_tmp.path }}"
+            state: absent
+          when: desktop_ly_tmp.path is defined
+          become: true
 
     - name: Configure ly
       block:

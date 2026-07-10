@@ -22,47 +22,56 @@
     install_recommends: false
   become: true
 
-- name: Create a temporary directory
-  ansible.builtin.tempfile:
-    state: directory
-  register: desktop_rofi_tmp
+- name: Build and install rofi
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: desktop_rofi_tmp
 
-# Fork of rofi that supports Wayland:
-# https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
-- name: Get latest rofi release
-  ansible.builtin.include_tasks: get_latest_github_release.yml
-  vars:
-    github_release_repo: lbonn/rofi
-    github_release_fact: desktop_rofi_release
+    # Fork of rofi that supports Wayland:
+    # https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
+    - name: Get latest rofi release
+      ansible.builtin.include_tasks: get_latest_github_release.yml
+      vars:
+        github_release_repo: lbonn/rofi
+        github_release_fact: desktop_rofi_release
 
-- name: Set rofi version fact
-  ansible.builtin.set_fact:
-    desktop_rofi_version: "{{ desktop_rofi_release.tag_name }}"
+    - name: Set rofi version fact
+      ansible.builtin.set_fact:
+        desktop_rofi_version: "{{ desktop_rofi_release.tag_name }}"
 
-- name: Download and unarchive rofi
-  ansible.builtin.unarchive:
-    src: "https://github.com/lbonn/rofi/releases/download/{{ desktop_rofi_version }}/rofi-{{ desktop_rofi_version }}.tar.xz"
-    dest: "{{ desktop_rofi_tmp.path }}"
-    remote_src: true
-    extra_opts:
-      - --strip-components
-      - 1
+    - name: Download and unarchive rofi
+      ansible.builtin.unarchive:
+        src: "https://github.com/lbonn/rofi/releases/download/{{ desktop_rofi_version }}/rofi-{{ desktop_rofi_version }}.tar.xz"
+        dest: "{{ desktop_rofi_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
 
-- name: Configure rofi build
-  ansible.builtin.command:
-    cmd: meson setup build
-    chdir: "{{ desktop_rofi_tmp.path }}"
-  changed_when: true
+    - name: Configure rofi build
+      ansible.builtin.command:
+        cmd: meson setup build
+        chdir: "{{ desktop_rofi_tmp.path }}"
+      changed_when: true
 
-- name: Build rofi
-  ansible.builtin.command:
-    cmd: ninja -C build
-    chdir: "{{ desktop_rofi_tmp.path }}"
-  changed_when: true
+    - name: Build rofi
+      ansible.builtin.command:
+        cmd: ninja -C build
+        chdir: "{{ desktop_rofi_tmp.path }}"
+      changed_when: true
 
-- name: Install rofi
-  ansible.builtin.command:
-    cmd: ninja -C build install
-    chdir: "{{ desktop_rofi_tmp.path }}"
-  become: true
-  changed_when: true
+    - name: Install rofi
+      ansible.builtin.command:
+        cmd: ninja -C build install
+        chdir: "{{ desktop_rofi_tmp.path }}"
+      become: true
+      changed_when: true
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_rofi_tmp.path }}"
+        state: absent
+      when: desktop_rofi_tmp.path is defined
+      become: true
