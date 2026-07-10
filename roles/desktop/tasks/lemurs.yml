@@ -53,6 +53,13 @@
             mode: "0755"
             remote_src: true
           become: true
+      always:
+        - name: Remove the temporary directory
+          ansible.builtin.file:
+            path: "{{ desktop_lemurs_tmp.path }}"
+            state: absent
+          when: desktop_lemurs_tmp.path is defined
+          become: true
 
     - name: Configure lemurs
       block:
