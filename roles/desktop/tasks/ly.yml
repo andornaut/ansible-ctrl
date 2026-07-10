@@ -181,6 +181,49 @@
 
     - name: Configure system integration
       block:
+        # CLEANUP (added 2026-07-10): remove once every host that runs ly has converged.
+        #
+        # ly shipped a non-templated ly.service until late 2025, and some hosts also carry a
+        # hand-written copy under /etc that shadows it. The current release installs only
+        # ly@.service, but "zig build installnoconf" leaves the superseded unit behind. Both
+        # copies hard-code tty2 and claim the display-manager.service alias, so on a host
+        # that still has one, `systemctl restart ly` starts a second greeter on the tty that
+        # ly@tty2.service already owns instead of failing as it does on a clean host.
+        #
+        # No daemon_reload here: the next task issues one before it touches any unit.
+        - name: Find the superseded ly units
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          register: desktop_ly_superseded_units
+          loop:
+            - /etc/systemd/system/ly.service
+            - /usr/lib/systemd/system/ly.service
+
+        # Stop it while systemd can still see the unit. Once the files are gone a greeter
+        # started from ly.service would keep running on tty2 with nothing left to manage it.
+        #
+        # masked: false because main.yml masks ly on a host where desktop_install_ly is
+        # false, and a masked unit cannot be stopped. Masking writes the /dev/null symlink
+        # that stat finds above, so a host flipped to ly arrives here with one in place. The
+        # module applies masked before enabled before state, so one call unmasks then stops.
+        - name: Stop the superseded ly unit
+          ansible.builtin.systemd_service:
+            name: ly.service
+            state: stopped
+            enabled: false
+            masked: false
+          become: true
+          when: desktop_ly_superseded_units.results | selectattr('stat.exists') | list | length > 0
+
+        - name: Remove the superseded ly units
+          ansible.builtin.file:
+            path: "{{ item.item }}"
+            state: absent
+          become: true
+          loop: "{{ desktop_ly_superseded_units.results | selectattr('stat.exists') | list }}"
+          loop_control:
+            label: "{{ item.item }}"
+
         - name: Prevent TTY conflicts
           ansible.builtin.systemd_service:
             name: getty@tty2.service
