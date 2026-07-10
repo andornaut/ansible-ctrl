@@ -1,0 +1,72 @@
+---
+# Enforce Heroic's install + wine-prefix paths so they stay under games_heroic_dir
+# and cannot drift from the flatpak filesystem grant. config.json is owned and
+# rewritten by Heroic, so only these keys are merged; the rest is left intact.
+#
+# config.json only exists after Heroic has run once. On a fresh host the file is
+# absent: this warns and makes no change (Heroic writes it, using the app default
+# install path, on first launch; the next converge moves it under games_heroic_dir).
+- name: Check whether Heroic is running for games_user
+  ansible.builtin.command:
+    cmd: pgrep -u {{ games_user }} -f heroic-run
+  register: games_heroic_running
+  changed_when: false
+  # pgrep exits 0 (found) or 1 (none); any other rc is a real error (e.g. pgrep
+  # missing). Fail loudly on those rather than reading them as "not running",
+  # which would let the rewrite below clobber a running Heroic's config.
+  failed_when: games_heroic_running.rc not in [0, 1]
+  # Read-only; run it in --check too so the fail-guard below previews accurately.
+  check_mode: false
+
+- name: Read Heroic config.json
+  ansible.builtin.slurp:
+    src: "{{ games_heroic_config_file }}"
+  register: games_heroic_config_raw
+  failed_when: false
+  changed_when: false
+
+- name: Warn when Heroic config.json is absent
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: {{ games_heroic_config_file }} does not exist yet (Heroic has not
+      run on this host), so its install and wine-prefix paths were not enforced.
+      Launch Heroic once, then re-run.
+  when: games_heroic_config_raw.content is not defined
+
+- name: Enforce Heroic install and wine-prefix paths
+  when: games_heroic_config_raw.content is defined
+  vars:
+    games_heroic_config: "{{ games_heroic_config_raw.content | b64decode | from_json }}"
+    games_heroic_settings: "{{ games_heroic_config.defaultSettings | default({}) }}"
+    games_heroic_desired:
+      defaultInstallPath: "{{ games_heroic_dir }}/"
+      defaultWinePrefix: "{{ games_heroic_dir }}/Prefixes"
+      defaultWinePrefixDir: "{{ games_heroic_dir }}/Prefixes"
+      winePrefix: "{{ games_heroic_dir }}/Prefixes/shared"
+    games_heroic_current: >-
+      {{ games_heroic_settings | dict2items
+         | selectattr('key', 'in', games_heroic_desired.keys() | list)
+         | items2dict }}
+  block:
+    # Writing while Heroic runs is pointless: it rewrites config.json on exit and
+    # would revert the change. Fail with an actionable message. Guarded on a change
+    # actually being needed so idempotent converges stay green with Heroic open.
+    - name: Fail when a path change is needed while Heroic is running
+      ansible.builtin.fail:
+        msg: >-
+          Heroic is running (pid {{ games_heroic_running.stdout_lines | join(', ') }})
+          and config.json needs updating; it would overwrite the change on exit.
+          Close Heroic on this host and re-run.
+      when:
+        - games_heroic_current != games_heroic_desired
+        - games_heroic_running.rc == 0
+
+    - name: Rewrite config.json with the enforced paths
+      when: games_heroic_current != games_heroic_desired
+      ansible.builtin.copy:
+        dest: "{{ games_heroic_config_file }}"
+        content: >-
+          {{ games_heroic_config
+             | combine({'defaultSettings': games_heroic_settings | combine(games_heroic_desired)})
+             | to_nice_json }}
+        mode: "0644"
