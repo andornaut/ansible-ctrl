@@ -7,7 +7,7 @@ Configures a Linux desktop environment and common applications on Ubuntu.
 ```bash
 make desktop
 
-ansible-playbook --ask-become-pass desktop.yml --tags webbrowser
+ansible-playbook --ask-become-pass desktop.yml --tags browser
 ```
 
 ## Tags
@@ -15,6 +15,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags webbrowser
 | Tag | Description |
 | --- | --- |
 | [alacritty](https://alacritty.org/) | Terminal emulator |
+| browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.mozilla.org/firefox/) (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`; omitted and any existing install removed when `desktop_install_firefox: false`), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control (Cloudsmith apt repo) |
 | [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources) |
 | display-manager | Display manager ([lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly)), tiling only |
@@ -33,7 +34,6 @@ ansible-playbook --ask-become-pass desktop.yml --tags webbrowser
 | parental-controls | [malcontent](https://gitlab.freedesktop.org/pwithnall/malcontent) OARS filter, web filter and Chrome SafeSearch policies (`desktop_install_parental_controls`) |
 | [pavolume](https://github.com/andornaut/pavolume) | PulseAudio volume controller, tiling only |
 | [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source), tiling only |
-| webbrowser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.mozilla.org/firefox/) (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`; omitted and any existing install removed when `desktop_install_firefox: false`), then points `xdg-settings` at `desktop_default_browser` |
 
 ## Variables
 
