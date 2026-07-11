@@ -26,10 +26,10 @@
       desktop_default_browser must be "firefox" or "google-chrome", and cannot be
       "firefox" when desktop_install_firefox is false.
     success_msg: Default browser "{{ desktop_default_browser }}" is valid
-  # Tagged to match chrome.yml, firefox.yml and default_browser.yml: a `--tags webbrowser`
+  # Tagged to match chrome.yml, firefox.yml and default_browser.yml: a `--tags browser`
   # run that reconfigures or removes a browser must still validate the pairing first,
   # otherwise default_browser.yml fails opaquely on a removed Firefox.
-  tags: webbrowser
+  tags: browser
 
 - name: Install common system packages
   ansible.builtin.import_tasks: apt.yml
@@ -102,7 +102,7 @@
 
     - name: Configure Google Chrome
       ansible.builtin.import_tasks: chrome.yml
-      tags: webbrowser
+      tags: browser
 
     - name: Configure CoolerControl
       ansible.builtin.import_tasks: coolercontrol.yml
@@ -139,14 +139,14 @@
 
     - name: Configure Firefox
       ansible.builtin.import_tasks: firefox.yml
-      tags: webbrowser
+      tags: browser
 
     # After chrome.yml and firefox.yml, which install the .desktop files it selects
-    # between. Shares the webbrowser tag with them, so that `--tags webbrowser`
+    # between. Shares the browser tag with them, so that `--tags browser`
     # still repoints the default browser after switching install methods.
     - name: Configure the default browser
       ansible.builtin.import_tasks: default_browser.yml
-      tags: webbrowser
+      tags: browser
 
     - name: Configure fonts
       ansible.builtin.import_tasks: fonts.yml
