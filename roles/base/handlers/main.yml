@@ -1,0 +1,21 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  become: true
+
+- name: Update font cache
+  ansible.builtin.command: fc-cache
+  changed_when: false
+  become: true
+
+- name: Apply keyboard changes
+  ansible.builtin.command: udevadm trigger --subsystem-match=input --action=change
+  changed_when: false
+  become: true
+
+- name: Restart systemd-journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted
+  become: true

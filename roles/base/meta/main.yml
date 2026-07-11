@@ -1,0 +1,8 @@
+---
+galaxy_info:
+  role_name: base
+  author: andornaut
+  description: Base packages and configurations for Ubuntu
+  license: MIT
+  min_ansible_version: "2.18"
+  galaxy_tags: []

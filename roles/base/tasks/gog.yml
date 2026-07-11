@@ -1,0 +1,16 @@
+---
+- name: Get the latest version of gog
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/andornaut/gog/releases/latest
+    return_content: true
+  register: base_gog_version
+
+- name: Install gog
+  ansible.builtin.unarchive:
+    src: "https://github.com/andornaut/gog/releases/download/\
+      {{ base_gog_version.json.tag_name }}/gog_{{ ansible_facts['system'] | lower }}_{{ base_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include: ["gog"]
+    mode: "0755"
+  become: true

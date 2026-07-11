@@ -1,0 +1,16 @@
+---
+- name: Install disk-cleanup
+  ansible.builtin.copy:
+    src: disk-cleanup
+    dest: /usr/local/sbin/disk-cleanup
+    mode: "0755"
+  become: true
+
+- name: Weekly run disk-cleanup
+  ansible.builtin.cron:
+    name: disk-cleanup
+    cron_file: /etc/cron.d/ansible-role-base
+    user: root
+    special_time: weekly
+    job: /usr/local/sbin/disk-cleanup
+  become: true
