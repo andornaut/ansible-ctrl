@@ -21,8 +21,18 @@
   ansible.builtin.assert:
     that:
       - desktop_default_browser in ["firefox", "google-chrome"]
-    fail_msg: desktop_default_browser must be "firefox" or "google-chrome".
+      - not (desktop_default_browser == "firefox" and not desktop_install_firefox)
+    fail_msg: >-
+      desktop_default_browser must be "firefox" or "google-chrome", and cannot be
+      "firefox" when desktop_install_firefox is false.
     success_msg: Default browser "{{ desktop_default_browser }}" is valid
+  # Tagged to match default_browser.yml (and firefox.yml's removal): a `--tags firefox`
+  # or `--tags chrome` run that reconfigures or removes a browser must still validate the
+  # pairing first, otherwise default_browser.yml fails opaquely on a removed Firefox.
+  tags:
+    - chrome
+    - default-browser
+    - firefox
 
 - name: Install common system packages
   ansible.builtin.import_tasks: apt.yml

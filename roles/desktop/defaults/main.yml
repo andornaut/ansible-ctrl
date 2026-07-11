@@ -8,6 +8,11 @@ desktop_eww_bar: bar
 # Extra kernel parameters written to GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves
 # the line unset; set per host (e.g. a laptop touchpad scrolling fix).
 desktop_grub_cmdline_linux_default: ""
+# Whether to install Firefox. When false, firefox.yml removes any existing install
+# (flatpak and apt) and holds the apt pin at -1 so it cannot return. Hosts that want
+# Firefox set this true in host_vars. desktop_install_firefox_apt only chooses the
+# install method (Mozilla apt repo vs Flathub flatpak) and applies only when this is true.
+desktop_install_firefox: false
 desktop_install_firefox_apt: false
 desktop_install_insync: false
 # Out-of-tree DKMS Super I/O drivers for CPU/case fan control. Enable the one

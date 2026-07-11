@@ -5,23 +5,27 @@
 # filename ordering that nothing here controls. A single idempotent record has no
 # sibling to be outranked by.
 #
-# This is also why neither branch below has to remove the Mozilla repository or its
+# This is also why none of the branches below has to remove the Mozilla repository or its
 # signing key: Pin-Priority -1 blocks an install from that repository exactly as it
 # blocks one from Ubuntu's. Note -1 also blocks firefox as a dependency of another
 # package, and dist-upgrade removes it rather than skipping it if it is ever installed.
+#
+# When desktop_install_firefox is false the pin also holds at -1, and the removal block
+# at the end of this file purges any copy already present. Only the apt install method
+# (desktop_install_firefox and desktop_install_firefox_apt) raises it to 1000.
 - name: Pin Firefox to the chosen install method
   ansible.builtin.copy:
     content: |
       Package: firefox*
-      Pin: {{ 'origin packages.mozilla.org' if desktop_install_firefox_apt else 'release a=*' }}
-      Pin-Priority: {{ 1000 if desktop_install_firefox_apt else -1 }}
+      Pin: {{ 'origin packages.mozilla.org' if (desktop_install_firefox and desktop_install_firefox_apt) else 'release a=*' }}
+      Pin-Priority: {{ 1000 if (desktop_install_firefox and desktop_install_firefox_apt) else -1 }}
     dest: /etc/apt/preferences.d/firefox
     mode: "0644"
   become: true
 
 # Apt
 - name: Configure Firefox Apt installation method
-  when: desktop_install_firefox_apt
+  when: desktop_install_firefox and desktop_install_firefox_apt
   block:
     - name: Remove Firefox flatpak if using apt
       become: true
@@ -80,7 +84,7 @@
 
 # Flatpak
 - name: Configure Firefox flatpak installation method
-  when: not desktop_install_firefox_apt
+  when: desktop_install_firefox and not desktop_install_firefox_apt
   block:
     # The pin at the top of this file prevents an install; it cannot undo one.
     - name: Remove Firefox apt package
@@ -102,3 +106,30 @@
         - name: Configure Firefox cursor theme
           ansible.builtin.command: flatpak override --user --env=XCURSOR_THEME=Adwaita org.mozilla.firefox
           changed_when: true
+
+# Removal
+# desktop_install_firefox: false converges the host to no Firefox rather than merely
+# skipping the install: Ansible would otherwise leave a copy installed by an earlier run
+# in place. The pin above stays at Pin-Priority -1 so apt cannot bring it back. The
+# flatpak removal runs as desktop_user because the install (method: user) was per-user.
+- name: Remove Firefox
+  when: not desktop_install_firefox
+  block:
+    - name: Remove Firefox flatpak
+      become: true
+      become_user: "{{ desktop_user }}"
+      community.general.flatpak:
+        name: org.mozilla.firefox
+        method: user
+        state: absent
+      register: desktop_firefox_flatpak_removal
+      failed_when:
+        - desktop_firefox_flatpak_removal is failed
+        - "'Executable \\'flatpak\\' was not found' not in desktop_firefox_flatpak_removal.msg"
+
+    - name: Remove Firefox apt package
+      ansible.builtin.apt:
+        name: firefox
+        purge: true
+        state: absent
+      become: true
