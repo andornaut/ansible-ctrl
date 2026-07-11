@@ -1,0 +1,16 @@
+---
+- name: Get the latest version of mrs
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/andornaut/mrs/releases/latest
+    return_content: true
+  register: base_mrs_version
+
+- name: Install mrs
+  ansible.builtin.unarchive:
+    src: "https://github.com/andornaut/mrs/releases/download/\
+      {{ base_mrs_version.json.tag_name }}/mrs_{{ ansible_facts['system'] | lower }}_{{ base_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include: ["mrs"]
+    mode: "0755"
+  become: true

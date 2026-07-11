@@ -1,0 +1,37 @@
+---
+# Purge a set of unwanted apt packages and negatively pin them so apt cannot bring them
+# back. Run under a `become: true` block, which propagates into these tasks.
+#
+# Usage:
+#   ansible.builtin.include_tasks: purge-and-pin.yml
+#   vars:
+#     purge_pin_name: snap                 # /etc/apt/preferences.d/no-<name>, and the label
+#     purge_pin_packages:                  # packages to purge and pin
+#       - package1
+#       - package2
+#
+# A negative pin is stronger than a dpkg hold in two ways worth knowing: apt will not
+# install these even to satisfy another package's Recommends or Depends, and
+# `apt dist-upgrade` removes any that are somehow installed rather than leaving them alone.
+# It also holds regardless of dpkg state, including the "un" state of a package the host
+# never had, where dpkg would discard a hold.
+#
+# autoremove and clean are deliberately omitted: disk-cleanup already runs
+# `apt-get autoremove --purge` weekly, and sweeping orphans here would remove unrelated
+# packages as a side effect.
+- name: "Purge apt packages: {{ purge_pin_name }}"
+  ansible.builtin.apt:
+    name: "{{ purge_pin_packages }}"
+    purge: true
+    state: absent
+
+# apt_preferences(5) accepts several names on one Package: line, so this is one record
+# rather than one per package.
+- name: "Pin apt packages: {{ purge_pin_name }}"
+  ansible.builtin.copy:
+    content: |
+      Package: {{ purge_pin_packages | join(' ') }}
+      Pin: release a=*
+      Pin-Priority: -1
+    dest: "/etc/apt/preferences.d/no-{{ purge_pin_name }}"
+    mode: "0644"

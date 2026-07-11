@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Free up disk space. Requires root. Run weekly via /etc/cron.d/ansible-role-base.
+set -euo pipefail
+
+# Remove the downloaded .deb package cache.
+apt-get clean
+
+# Remove orphaned packages and old kernels, purging their config.
+apt-get autoremove --purge --yes
+
+# Vacuum journald logs (also enforced continuously by journald.conf).
+journalctl --vacuum-size=500M --vacuum-time=4weeks
+
+# Remove unused Docker images, containers, networks, and build cache.
+# --all removes all unused images; volumes are preserved to avoid data loss.
+if command -v docker >/dev/null 2>&1; then
+    docker system prune --all --force
+fi
+
+# Remove flatpak runtimes and extensions no longer referenced by any app.
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak uninstall --unused --assumeyes
+fi

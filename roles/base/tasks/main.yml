@@ -1,0 +1,183 @@
+---
+- name: Configure apt network timeouts and retries
+  # Bound apt fetches so a stalled mirror connection cannot hang indefinitely
+  # (e.g. holding the lists lock and blocking unattended/cron apt runs).
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99network-timeouts
+    content: |
+      Acquire::http::Timeout "60";
+      Acquire::https::Timeout "60";
+      Acquire::Retries "1";
+    mode: "0644"
+  become: true
+
+# Imported ahead of the apt tasks below so the negative pin is in place before anything
+# has a chance to pull snapd back in as a recommended dependency.
+- name: Import snap tasks
+  ansible.builtin.import_tasks: snap.yml
+
+# Imported early for the same reason as snap: pin cloud-init out before any apt install
+# runs, so a Recommends cannot pull it back in mid-run.
+- name: Import cloud-init tasks
+  ansible.builtin.import_tasks: cloud-init.yml
+
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - acpi
+      # Installs `setfacl` for:
+      # https://github.com/georchestra/ansible/issues/55#issuecomment-588313638
+      - acl
+      - atool
+      - atop
+      - autoconf
+      - autoconf-archive
+      - autotools-dev
+      - bash
+      - build-essential
+      - ca-certificates
+      - cifs-utils
+      - cmake
+      - coreutils
+      - curl
+      - dnsutils
+      - elinks
+      - exfat-fuse
+      - exuberant-ctags
+      - fakeroot
+      - fonts-font-awesome
+      - fonts-inconsolata
+      - fonts-roboto
+      - gcc
+      - git
+      - highlight
+      - htop
+      - i2c-tools
+      - iftop
+      - iotop
+      - iperf
+      - irssi
+      - libfontconfig
+      - libfreetype6
+      - libfreetype6-dev
+      - linux-firmware
+      - lm-sensors
+      - make
+      - mercurial
+      - nethogs
+      - net-tools
+      - nmap
+      - openconnect
+      - openvpn
+      - perl
+      - powertop
+      - rsync
+      - screen
+      - smartmontools
+      - smbclient
+      - software-properties-common
+      - sox
+      - ssh
+      - sysstat
+      - tmux
+      - tree
+      - unrar
+      - unzip
+      - update-manager-core
+      - vim
+      - wget
+      - whois
+      - zip
+    state: present
+    update_cache: true
+  become: true
+
+- name: Install system packages (Ubuntu 24.x only)
+  ansible.builtin.apt:
+    name:
+      - ntpdate
+    state: present
+  become: true
+  when: ansible_facts["distribution_version"] is version('25', '<')
+
+- name: Install exfat packages
+  ansible.builtin.apt:
+    name:
+      - exfatprogs
+    install_recommends: false
+    state: present
+  become: true
+
+- name: Install fuse2 library
+  ansible.builtin.apt:
+    # Renamed to libfuse2t64 by the 64-bit time_t transition on Ubuntu 24.04+.
+    name: "{{ 'libfuse2t64' if ansible_facts['distribution_version'] is version('24.04', '>=') else 'libfuse2' }}"
+    state: present
+  become: true
+
+- name: Enable universe and multiverse repositories
+  ansible.builtin.apt_repository:
+    repo: "{{ item }}"
+  loop:
+    - universe
+    - multiverse
+  # Ubuntu 24.04+ uses the deb822 sources format with no legacy sources.list, where
+  # these components are enabled by default and the shorthand repo name is invalid.
+  when: ansible_facts["distribution_version"] is version('24.04', '<')
+  become: true
+
+# https://askubuntu.com/a/1254303
+- name: Disable ssh motd news/advertisement
+  ansible.builtin.lineinfile:
+    create: true
+    line: 'ENABLED=0'
+    path: /etc/default/motd-news
+    regexp: '^ENABLED\s*='
+    mode: "0644"
+  become: true
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+  become: true
+
+- name: Re-map capslock key to escape key
+  ansible.builtin.lineinfile:
+    line: 'XKBOPTIONS="caps:escape"'
+    path: /etc/default/keyboard
+    regexp: '^XKBOPTIONS\s*='
+    mode: "0644"
+  become: true
+  notify: Apply keyboard changes
+  when: base_remap_capslock_to_escape
+
+- name: Install cache-command
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/andornaut/cache-command/master/cache-command
+    dest: /usr/local/bin/
+    mode: "0755"
+  become: true
+
+- name: Make Vim the default editor
+  community.general.alternatives:
+    name: editor
+    path: /etc/alternatives/vim
+  become: true
+
+- name: Import gog tasks
+  ansible.builtin.import_tasks: gog.yml
+
+- name: Import mrs tasks
+  ansible.builtin.import_tasks: mrs.yml
+
+- name: Import storage-space-alert tasks
+  ansible.builtin.import_tasks: storage-space-alert.yml
+
+- name: Import disk-cleanup tasks
+  ansible.builtin.import_tasks: disk-cleanup.yml
+
+- name: Import systemd tasks
+  ansible.builtin.import_tasks: systemd.yml
+
+- name: Import telemetry tasks
+  ansible.builtin.import_tasks: telemetry.yml
