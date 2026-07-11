@@ -38,6 +38,12 @@ games_flatpak_extensions:
 # only stat paths it is granted, cannot see them.
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
+# Base directory for Lutris's game installs, kept under its own ~/.local/games subdir
+# like Heroic (see games_heroic_dir). Written into Lutris's system.yml as
+# system.game_path by tasks/lutris.yml. No flatpak override is needed here: the Lutris
+# flatpak already ships `home` filesystem access (Heroic does not, hence its grant).
+games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
+
 # How often the token-refresh --user timer (in tasks/heroic.yml) exercises the Epic
 # (legendary) and GOG (gogdl) OAuth refresh tokens so the Heroic store logins do not
 # lapse while Heroic is closed. A systemd OnUnitActiveSec value (validated with

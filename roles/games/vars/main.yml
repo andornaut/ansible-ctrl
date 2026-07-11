@@ -22,3 +22,13 @@ games_user_uid: "{{ ansible_facts['getent_passwd'][games_user][1] }}"
 # template also derives its config dir from config_file.
 games_heroic_app_id: com.heroicgameslauncher.hgl
 games_heroic_config_file: "{{ games_user_home }}/.var/app/{{ games_heroic_app_id }}/config/heroic/config.json"
+
+# Lutris flatpak application id and the two candidate config directories under its
+# per-user data. Lutris (settings.py) uses XDG_CONFIG_HOME/lutris (config/lutris) but
+# falls back to XDG_DATA_HOME/lutris (data/lutris) when the former does not exist:
+#   if not os.path.exists(CONFIG_DIR): CONFIG_DIR = DATA_DIR
+# config/lutris is the deprecated location; a fresh flatpak install uses data/lutris.
+# tasks/lutris.yml mirrors this to find where system.yml (holding system.game_path) lives.
+games_lutris_app_id: net.lutris.Lutris
+games_lutris_config_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/config/lutris"
+games_lutris_data_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/data/lutris"
