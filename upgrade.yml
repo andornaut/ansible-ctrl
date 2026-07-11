@@ -1,11 +1,6 @@
---- # noqa: run-once[play]
+---
 - name: Upgrade all packages
   hosts: all
-  # Upgrade durations vary widely per host, so let each host run ahead rather
-  # than wait at a task barrier. Output from different hosts interleaves.
-  # run-once[play] is suppressed above (play-level noqa must sit on line 1):
-  # the rule guards run_once under strategy free, and this play has no run_once.
-  strategy: free
   tasks:
     - name: Apt autoremove, clean, and dist-upgrade
       ansible.builtin.apt:
