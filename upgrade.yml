@@ -9,13 +9,13 @@
   tasks:
     - name: Apt autoremove, clean, and dist-upgrade
       ansible.builtin.apt:
-        autoclean: true
         autoremove: true
         clean: true
         purge: true
         update_cache: true
         upgrade: dist
       become: true
+      register: apt_result
 
     - name: Gather package facts
       ansible.builtin.package_facts:
@@ -32,3 +32,19 @@
       register: flatpak_user_result
       changed_when: "'Nothing to do.' not in flatpak_user_result.stdout"
       when: "'flatpak' in ansible_facts.packages"
+
+    - name: Check whether a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: upgrade_reboot_required
+
+    - name: Report upgrade summary
+      vars:
+        fp_sys: "{{ 'skipped' if flatpak_system_result.skipped | default(false) else ('changed' if flatpak_system_result.changed else 'no change') }}"
+        fp_usr: "{{ 'skipped' if flatpak_user_result.skipped | default(false) else ('changed' if flatpak_user_result.changed else 'no change') }}"
+      ansible.builtin.debug:
+        msg:
+          - "apt: {{ 'changed' if apt_result.changed else 'no change' }}"
+          - "flatpak system: {{ fp_sys }}"
+          - "flatpak user: {{ fp_usr }}"
+          - "reboot required: {{ upgrade_reboot_required.stat.exists }}"
