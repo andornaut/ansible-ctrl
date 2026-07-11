@@ -91,10 +91,27 @@ desktop_install_parental_controls: false
 desktop_parental_controls_oars: {}
 # Chrome managed policies written to /etc/opt/chrome/policies/managed/family.json
 # when desktop_install_parental_controls is true. Override per host to adjust.
+# Beyond SafeSearch/YouTube these lock the common in-browser bypass paths: SafeSites
+# adult filter, enhanced Safe Browsing, no incognito/guest profile, no proxy override,
+# no devtools, and an extension allowlist limited to uBlock Origin (MV2) / uBlock Origin
+# Lite (MV3). A non-sudo user can still install a flatpak browser, so a pfSense egress
+# lockdown (force DNS through the firewall, block Tor/VPN) is what makes these hold.
 desktop_chrome_family_policies:
   ForceGoogleSafeSearch: true
   ForceYouTubeRestrict: 1
   DnsOverHttpsMode: "off"
+  SafeSitesFilterBehavior: 1
+  SafeBrowsingProtectionLevel: 2
+  IncognitoModeAvailability: 1
+  BrowserGuestModeEnabled: false
+  DeveloperToolsAvailability: 2
+  ProxySettings:
+    ProxyMode: "direct"
+  ExtensionInstallBlocklist:
+    - "*"
+  ExtensionInstallAllowlist:
+    - cjpalhdlnbpafiamejdnhcphjbkeiagm  # uBlock Origin
+    - ddkjiahejlhfcafbddmgiahcphecmpfh  # uBlock Origin Lite
 
 # Web filtering for desktop_user, enforced by the nss-malcontent name service module
 # rather than by the browser. "none" leaves it disabled and touches nothing;
