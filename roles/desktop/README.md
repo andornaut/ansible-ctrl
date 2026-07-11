@@ -23,7 +23,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags firefox
 | [dunst](https://dunst-project.org/) | Notification daemon (built from source), tiling only |
 | [eww](https://github.com/elkowar/eww) | Widget daemon (built with Cargo), tiling only |
 | [file-roller](https://gitlab.gnome.org/GNOME/file-roller) | Default handler for archive MIME types |
-| [firefox](https://www.mozilla.org/firefox/) | Web browser (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`) |
+| [firefox](https://www.mozilla.org/firefox/) | Web browser (Flathub flatpak, or the Mozilla apt repo when `desktop_install_firefox_apt`); omitted and any existing install removed when `desktop_install_firefox: false` |
 | [flatpak](https://flatpak.org/) | Flatpak runtime and Flathub apps |
 | fonts | System fonts (Hack, DejaVu, Source Code Pro, etc.) |
 | gnome | GNOME Shell and gdm3 (`ubuntu-desktop-minimal`), gnome only |
