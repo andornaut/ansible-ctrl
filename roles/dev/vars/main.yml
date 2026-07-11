@@ -11,3 +11,7 @@ dev_arch: >-
 # Home directory of dev_user, resolved from the passwd database (a getent lookup
 # runs in tasks/main.yml).
 dev_user_home: "{{ ansible_facts['getent_passwd'][dev_user][4] }}"
+
+# PATH for the ai-maintainer cron environment, built from the standard system PATH plus
+# the directory holding dev_ai_maintainer_script_path so cron can find the wrapper.
+dev_ai_maintainer_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_maintainer_script_path | dirname }}"

@@ -19,10 +19,6 @@ See [defaults/main.yml](./defaults/main.yml).
 | --- | --- | --- |
 | `base_timezone` | `America/Toronto` | System timezone |
 | `base_remap_capslock_to_escape` | `false` | Remap Caps Lock to Escape in `/etc/default/keyboard` |
-| `base_arch` | derived | GoReleaser arch name (`amd64`/`arm64`) selecting the `gog` and `mrs` release assets |
-| `base_cloud_init_packages` | `cloud-init`, `cloud-init-base` | Packages purged and negatively pinned |
-| `base_snap_packages` | `snapd`, `gnome-software-plugin-snap` | Packages purged and negatively pinned |
-| `base_telemetry_packages` | `apport`, `whoopsie`, `kerneloops`, ... | Packages purged and negatively pinned |
 
 ## Notes
 

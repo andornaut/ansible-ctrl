@@ -1,29 +1,3 @@
 ---
-# GoReleaser architecture name, used to select the gog and mrs release assets. Ansible
-# reports the kernel names (x86_64, aarch64); GoReleaser keeps x86_64 as-is but spells
-# aarch64 as arm64.
-base_arch: >-
-  {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
-
 base_remap_capslock_to_escape: false
-
-# Purged and then negatively pinned by tasks/cloud-init.yml, so apt cannot bring them back.
-base_cloud_init_packages:
-  - cloud-init
-  - cloud-init-base
-
-# Purged and then negatively pinned by tasks/snap.yml, so apt cannot bring them back.
-base_snap_packages:
-  - gnome-software-plugin-snap
-  - snapd
-
-# Purged and then negatively pinned by tasks/telemetry.yml, so apt cannot bring them back.
-base_telemetry_packages:
-  - apport
-  - kerneloops
-  - popularity-contest
-  - ubuntu-insights
-  - ubuntu-report
-  - whoopsie
-
 base_timezone: America/Toronto

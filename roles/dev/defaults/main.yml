@@ -16,9 +16,6 @@ dev_ai_maintainer_src_base_dir: "{{ dev_user_home }}/src/github.com/andornaut/ai
 dev_ai_maintainer_agent_command: "claude"
 dev_ai_maintainer_agent_flags: "--dangerously-skip-permissions"
 
-# PATH for cron environment (must include directories for agent command and other tools)
-dev_ai_maintainer_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_maintainer_script_path | dirname }}"
-
 # Cron schedule (default: weekly on Sunday at 3 AM)
 dev_ai_maintainer_cron_minute: "0"
 dev_ai_maintainer_cron_hour: "3"
