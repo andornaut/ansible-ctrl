@@ -1,10 +1,22 @@
 SHELL := /bin/bash
 
+# Arguments after `--` are forwarded verbatim to ansible-playbook, e.g.:
+#   make desktop -- --limit tron --tags alacritty
+# (make rejects bare --flags, so the `--` separator is required.)
+ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
+
+# Swallow the forwarded tokens (e.g. --limit, tron) as no-op goals so make
+# does not error with "No rule to make target". Real targets have explicit
+# rules, which take precedence over this pattern.
+%:
+	@:
+
+PLAYBOOKS := base desktop dev docker games hobbies homeautomation \
+             msmtp nas ai_maintainer rsnapshot upgrade webservers
+
 .DEFAULT_GOAL := help
 
-.PHONY: help clean requirements \
-        base desktop dev docker games hobbies msmtp \
-        homeautomation nas ai_maintainer rsnapshot upgrade webservers
+.PHONY: help clean requirements $(PLAYBOOKS)
 
 help:
 	@echo "Available targets:"
@@ -26,6 +38,9 @@ help:
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
+	@echo ""
+	@echo "Forward extra ansible-playbook arguments after --, e.g.:"
+	@echo "  make desktop -- --limit tron --tags alacritty"
 
 clean:
 	rm -rf .ansible/roles .ansible/collections
@@ -34,41 +49,5 @@ requirements:
 	ansible-galaxy role install -r requirements.yml
 	ansible-galaxy collection install -r requirements.yml
 
-base: requirements
-	ansible-playbook --ask-become-pass base.yml
-
-desktop: requirements
-	ansible-playbook --ask-become-pass desktop.yml
-
-dev: requirements
-	ansible-playbook --ask-become-pass dev.yml
-
-docker: requirements
-	ansible-playbook --ask-become-pass docker.yml
-
-games: requirements
-	ansible-playbook --ask-become-pass games.yml
-
-hobbies: requirements
-	ansible-playbook --ask-become-pass hobbies.yml
-
-homeautomation: requirements
-	ansible-playbook --ask-become-pass homeautomation.yml
-
-msmtp: requirements
-	ansible-playbook --ask-become-pass msmtp.yml
-
-nas: requirements
-	ansible-playbook --ask-become-pass nas.yml
-
-ai_maintainer: requirements
-	ansible-playbook --ask-become-pass ai_maintainer.yml
-
-rsnapshot: requirements
-	ansible-playbook --ask-become-pass rsnapshot.yml
-
-upgrade: requirements
-	ansible-playbook --ask-become-pass upgrade.yml
-
-webservers: requirements
-	ansible-playbook --ask-become-pass webservers.yml
+$(PLAYBOOKS): %: requirements
+	ansible-playbook --ask-become-pass $*.yml $(ARGS)
