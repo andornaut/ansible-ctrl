@@ -21,3 +21,9 @@
   become: true
   become_user: "{{ games_user }}"
   tags: heroic
+
+- name: Configure Lutris
+  ansible.builtin.import_tasks: lutris.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: lutris

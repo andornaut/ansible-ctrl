@@ -1,0 +1,73 @@
+---
+# Set Lutris's default game install directory so installs land under games_lutris_dir,
+# matching the per-launcher layout under ~/.local/games (Heroic, Lutris and Steam each
+# get their own subdir so installs do not collide). Lutris stores this as
+# system.game_path in system.yml, its system-wide default game options. The flatpak
+# already has `home` filesystem access, so no override grant is needed (unlike Heroic).
+#
+# Lutris keeps system.yml (and lutris.conf, games/) in its active config dir, which is
+# config/lutris when that exists and data/lutris otherwise (see games_lutris_config_dir /
+# games_lutris_data_dir). We resolve the same dir Lutris would, then merge game_path into
+# system.yml there. system.yml holds only default game options, so unlike Heroic's
+# config.json it is safe to create when absent; Lutris merges its own keys on top. Only
+# game_path is enforced; any other keys already present are preserved.
+- name: Check for the deprecated Lutris config directory
+  ansible.builtin.stat:
+    path: "{{ games_lutris_config_dir }}"
+  register: games_lutris_config_dir_stat
+  changed_when: false
+
+- name: Check for the Lutris data directory
+  ansible.builtin.stat:
+    path: "{{ games_lutris_data_dir }}"
+  register: games_lutris_data_dir_stat
+  changed_when: false
+
+# Mirror Lutris: config/lutris if it exists, else data/lutris. Empty when neither does
+# (Lutris has never run on this host), which the tasks below warn on and skip.
+- name: Resolve the active Lutris config directory
+  ansible.builtin.set_fact:
+    games_lutris_active_dir: >-
+      {{ games_lutris_config_dir if games_lutris_config_dir_stat.stat.exists
+         else (games_lutris_data_dir if games_lutris_data_dir_stat.stat.exists else '') }}
+
+- name: Warn when Lutris has never run
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: neither {{ games_lutris_config_dir }} nor {{ games_lutris_data_dir }}
+      exists (Lutris has not run on this host), so its default install path was not
+      set. Launch Lutris once, then re-run.
+  when: games_lutris_active_dir | length == 0
+
+- name: Enforce the Lutris default install path
+  when: games_lutris_active_dir | length > 0
+  vars:
+    games_lutris_config_file: "{{ games_lutris_active_dir }}/system.yml"
+  block:
+    - name: Read Lutris system.yml
+      ansible.builtin.slurp:
+        src: "{{ games_lutris_config_file }}"
+      register: games_lutris_config_raw
+      failed_when: false
+      changed_when: false
+
+    - name: Write system.yml with the enforced default install path
+      vars:
+        games_lutris_config: >-
+          {{ (games_lutris_config_raw.content | b64decode | from_yaml) or {}
+             if games_lutris_config_raw.content is defined else {} }}
+        # default({}, true) so a null `system:` key (present but empty) becomes {} rather
+        # than None, which would make the combine below fail with a NoneType error.
+        games_lutris_system: "{{ games_lutris_config.system | default({}, true) }}"
+        games_lutris_desired:
+          game_path: "{{ games_lutris_dir }}"
+        # Merge once and reuse for the change test and the written content.
+        games_lutris_merged: "{{ games_lutris_system | combine(games_lutris_desired) }}"
+      # Rewrite only when game_path actually differs. system.yml is machine-managed by
+      # Lutris (no user comments), so re-serialising the whole file via to_nice_yaml is
+      # acceptable; every existing key is preserved through the combine above.
+      when: games_lutris_merged != games_lutris_system
+      ansible.builtin.copy:
+        dest: "{{ games_lutris_config_file }}"
+        content: "{{ games_lutris_config | combine({'system': games_lutris_merged}) | to_nice_yaml }}"
+        mode: "0644"
