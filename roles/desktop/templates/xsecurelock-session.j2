@@ -54,4 +54,14 @@ export XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
 # notifier that exits immediately is enough to take the other branch: the CYCLE handler only
 # checks that no locker is running. Nothing warns or dims during the grace, which is the
 # intent; the screen is simply blank, as the X server left it.
+#
+# -s names the logind session rather than letting xss-lock look it up. Left to itself it calls
+# GetSessionByPID(getpid()), which only resolves for a process inside the session's cgroup
+# scope. Started by dex that holds, but a human restarting this script from tmux or from an
+# editor's terminal lands under user@.service instead, and the resulting xss-lock silently
+# ignores logind: no Lock signal, so the session's lock keybinding does nothing, and no idle
+# hint, so idle suspend never fires. The environment carries the id in either case.
+if [ -n "${XDG_SESSION_ID:-}" ]; then
+    exec xss-lock -n /bin/true -s "$XDG_SESSION_ID" -l -- xsecurelock
+fi
 exec xss-lock -n /bin/true -l -- xsecurelock
