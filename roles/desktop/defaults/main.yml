@@ -64,6 +64,20 @@ desktop_xscreensaver_dialog_theme: borderlessblack
 # unset value writes no suspend listener, which is the same as 0.
 desktop_suspend_inactive_minutes: ~
 
+# GTK themes installed on every desktop and made available both to the session and to
+# flatpak applications. Each name is a directory under /usr/share/themes, supplied by one
+# of desktop_gtk_theme_packages. A sandbox can only use a theme it can see, so this list is
+# also what theme.yml copies into desktop_gtk_themes_dir.
+desktop_gtk_themes:
+  - Adwaita
+  - Adwaita-dark
+  - Yaru-purple
+  - Yaru-purple-dark
+# The theme the session and flatpak applications use. Must be one of desktop_gtk_themes;
+# theme.yml fails fast if it is not, because GTK answers an unresolvable theme name by
+# silently falling back to Adwaita (light), discarding any dark preference with it.
+desktop_gtk_theme: Adwaita-dark
+
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are
 # intentionally excluded so they keep opening in their proper handlers.
