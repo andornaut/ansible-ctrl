@@ -1,8 +1,12 @@
 ---
 # Renewal re-runs this playbook rather than calling certbot: the certificates are issued by
 # community.crypto.acme_certificate in letsencrypt.yml, which reissues one once it is within
-# letsencrypt_nginx_remaining_days of expiry. --tags letsencrypt keeps the nightly run to the
-# certificate path instead of reapplying the whole playbook (packages, nginx config, Docker).
+# letsencrypt_nginx_remaining_days of expiry.
+#
+# --tags letsencrypt does not narrow that run: webservers.yml tags the play itself
+# [nginx, letsencrypt], so every task in the role inherits both and the nightly run reapplies
+# the whole role. The tag is what selects the play at all, and what makes the run reconcile
+# this very cron job. Narrowing it to the certificate tasks would mean untagging the play.
 #
 # state is derived rather than gated with `when` so that clearing the flag removes the job
 # from a host that used to run it, instead of leaving it behind.
