@@ -89,6 +89,17 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
 - The unlock prompt is configured entirely through `XSECURELOCK_*` environment variables, which the session script
   exports before it execs `xss-lock`. There are no X resources and no dotfiles involved, so changes take effect at the
   next login. Only the password echo is set; the colours and the font are left at `xsecurelock`'s defaults.
+- **`XSECURELOCK_FORCE_GRAB=1` is a security setting, not a preference.** `xsecurelock` cannot lock while another
+  window holds the keyboard or pointer grab, which a fullscreen game or an open context menu does. It exits,
+  `xss-lock` sees the locker exit, and the session stays unlocked with nothing said about it: upstream warns this
+  "could leave a workstation open for days" when locking is automatic. Forcing the grab unmaps the offending client
+  windows, takes the grab and maps them back. The price is that a fullscreen window that held the grab is left
+  unresponsive afterwards (alt-tab recovers it) and the window manager may rearrange windows. Hosts in this group run
+  Steam and RetroArch fullscreen, so the failure mode is not hypothetical.
+- `XSECURELOCK_DISCARD_FIRST_KEYPRESS=1` is `xsecurelock`'s default, set explicitly because it is load-bearing: the
+  key that dismisses the blank screen is swallowed rather than typed into the password field, so that nobody learns
+  to type a password at a black screen. During the blank-to-lock grace that black screen is the live session, not the
+  locker.
 - Idle **suspend** is a separate policy from idle locking, driven by `desktop_suspend_inactive_minutes`. `logind`
   cannot detect idleness itself: something must call `SetIdleHint`. GNOME uses `gnome-settings-daemon`
   (`sleep-inactive-{ac,battery}-{type,timeout}`); niri uses a `hypridle` listener that runs `systemctl suspend`
