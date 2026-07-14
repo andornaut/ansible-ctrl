@@ -50,23 +50,24 @@ desktop_parental_controls_web_filter_args: >-
      + (desktop_parental_controls_web_blocked_hosts | list)
      + (desktop_parental_controls_web_allowed_hosts | map('regex_replace', '^', '~') | list) }}
 
-# Idle timeouts in the units each daemon expects. hypridle and dconf take seconds;
-# xscreensaver takes H:MM:SS.
+# Idle timeouts in the units each daemon expects: hypridle, dconf and xset all take seconds.
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"
 desktop_screen_lock_seconds: "{{ desktop_screen_lock_minutes | int * 60 }}"
 desktop_screen_off_seconds: "{{ desktop_screen_off_minutes | int * 60 }}"
-# GNOME's screensaver lock-delay and xscreensaver's lockTimeout both count from the moment
-# the screen blanks, not from the moment the session went idle, so each is the gap between
-# the two timeouts rather than the lock timeout itself.
+# GNOME's screensaver lock-delay counts from the moment the screen blanks, not from the
+# moment the session went idle, so it is the gap between the two timeouts rather than the
+# lock timeout itself.
 desktop_screen_lock_delay_seconds: >-
   {{ (desktop_screen_lock_minutes | int - desktop_screen_blank_minutes | int) * 60 }}
-desktop_screen_blank_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_blank_minutes | int // 60, desktop_screen_blank_minutes | int % 60) }}
-desktop_screen_off_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_off_minutes | int // 60, desktop_screen_off_minutes | int % 60) }}
-desktop_screen_lock_delay_time: >-
-  {{ '%d:%02d:00' | format(desktop_screen_lock_delay_seconds | int // 3600,
-                           desktop_screen_lock_delay_seconds | int % 3600 // 60) }}
+# The same gap, as the cycle argument to `xset s`: xss-lock starts the locker one cycle after
+# the X server blanks. Floored at a second because `xset s <timeout> 0` disables cycling
+# altogether, and a host that locks as soon as it blanks would then never lock at all.
+desktop_xsecurelock_grace_seconds: "{{ [1, desktop_screen_lock_delay_seconds | int] | max }}"
+# xsecurelock blanks and powers the monitor down on a clock of its own, which starts when it
+# locks, so this is what remains of the power-off timeout by then. Floored for the same
+# reason: upstream calls a zero timeout nonsensical, since a key release wakes the screen.
+desktop_xsecurelock_blank_seconds: >-
+  {{ [1, (desktop_screen_off_minutes | int - desktop_screen_lock_minutes | int) * 60] | max }}
 # Idle-suspend timeout, applied to mains and battery alike: none of the three mechanisms
 # (logind's IdleActionSec, GNOME's sleep-inactive-{ac,battery}-timeout, hypridle's listener)
 # distinguishes the power source. An unset desktop_suspend_inactive_minutes leaves the
@@ -80,15 +81,22 @@ desktop_suspend_inactive_action: >-
 # repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
 # replace) may write them.
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
-# xscreensaver reads ~/.xscreensaver and reloads it whenever it changes, so writing it
-# needs no handler. `#` starts a comment there, which is what blockinfile's default marker
-# uses. xscreensaver-settings rewrites the whole file, dropping the markers; the block is
-# reinserted on the next run and, being last, wins over anything the GUI wrote.
+desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.desktop"
+
+# The role's own files, which no dotfiles repository shares, so these are templated. The
+# session script holds the timeouts and the xsecurelock environment; the saver is what a
+# locked screen displays.
+desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
+desktop_xsecurelock_saver: /usr/local/bin/xsecurelock-saver
+# The PAM service xsecurelock authenticates against. It is compiled into the Ubuntu package
+# rather than configurable, and the package ships no PAM file of its own, so this names the
+# stack Ubuntu already has rather than one the role installs.
+desktop_xsecurelock_pam_service: /etc/pam.d/common-auth
+
+# CLEANUP (added 2026-07-14): remove with the "Remove the xscreensaver configuration" block
+# in idle.yml, once every bspwm host in the desktop group has run this role.
 desktop_xscreensaver_conf: "{{ desktop_user_home }}/.xscreensaver"
 desktop_xscreensaver_autostart: "{{ desktop_user_home }}/.config/autostart/xscreensaver.desktop"
-# The unlock dialog's appearance is X resources, not xscreensaver preferences, and only
-# `xrdb` puts them where an Xt program will find them. `!` starts a comment in an X resource
-# file; `#` is a cpp directive, and xrdb runs the file through cpp.
 desktop_xresources: "{{ desktop_user_home }}/.Xresources"
 
 # Platform key into https://ziglang.org/download/index.json. Zig spells these with
