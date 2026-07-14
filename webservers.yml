@@ -1,4 +1,9 @@
 ---
+# The renewal cron job that re-runs this playbook is set by the role, on the host whose
+# host_vars sets letsencrypt_nginx_install_renewal_cron. It used to be a second play here,
+# against localhost, which no tag selected: the nightly run passes --tags letsencrypt and so
+# never reconciled it, and only a full run did. Being in the role, it is now reconciled by
+# the run it schedules.
 - name: Apply letsencrypt_nginx role
   hosts: webservers
   roles:
@@ -9,19 +14,3 @@
   tags:
     - nginx
     - letsencrypt
-
-- name: Configure Let's Encrypt auto-renewal
-  hosts: localhost
-  tasks:
-    - name: Create the Let's Encrypt renewal cron job
-      ansible.builtin.cron:
-        name: "Let's Encrypt certificate renewal"
-        cron_file: ansible-role-letsencrypt_nginx
-        user: root
-        minute: "11"
-        hour: "22"
-        job: >-
-          cd {{ playbook_dir }} &&
-          ansible-playbook webservers.yml --tags letsencrypt
-          >> /var/log/ansible-role-letsencrypt_nginx.log 2>&1
-      become: true
