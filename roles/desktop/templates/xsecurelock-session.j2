@@ -10,6 +10,11 @@
 # xsecurelock is configured through the environment, which it reads from this process.
 set -eu
 
+# `xset s blank` is not the default everywhere and xscreensaver used to turn it off (it drew
+# its own blank screen), which sticks in the server. Without it the screensaver still
+# activates on the timeout, and xss-lock still locks one cycle later, but the screen does not
+# go black in between: the desktop stays on display for the whole grace period.
+xset s blank
 xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }}
 xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }}
 
