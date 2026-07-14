@@ -50,10 +50,6 @@ desktop_xsecurelock_password_prompt: asterisks
 desktop_xsecurelock_background_color: "#000000"
 desktop_xsecurelock_foreground_color: "#cccccc"
 desktop_xsecurelock_font: Hack
-# Whether a locked screen says so, rather than being black like a blanked one. Only the
-# locked screen has grabbed the keyboard, and the two must be told apart before typing a
-# password into either. See the notes in README.md.
-desktop_xsecurelock_show_locked_indicator: true
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables

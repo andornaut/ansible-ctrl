@@ -71,13 +71,29 @@
     state: started
   become: true
 
-- name: Set malcontent OARS app filter for {{ desktop_user }}
-  ansible.builtin.command: >-
-    malcontent-client set-app-filter --no-interactive {{ desktop_user }}
-    {{ desktop_parental_controls_oars.items() | map('join', '=') | join(' ') }}
-  become: true
-  changed_when: true
+- name: Configure the malcontent OARS app filter for {{ desktop_user }}
   when: desktop_parental_controls_oars | length > 0
+  become: true
+  block:
+    - name: Read the current OARS app filter for {{ desktop_user }}
+      ansible.builtin.command: malcontent-client get-app-filter --no-interactive {{ desktop_user }}
+      register: desktop_app_filter_before
+      changed_when: false
+
+    # set-app-filter overwrites the whole filter, so it is safe to run every time and reports
+    # nothing useful about whether anything moved. Reading the filter either side of it is what
+    # decides, the same shape as the web filter below. The alternative, comparing the OARS dict
+    # against the command's prose output, would mean parsing it.
+    - name: Set the OARS app filter for {{ desktop_user }}
+      ansible.builtin.command: >-
+        malcontent-client set-app-filter --no-interactive {{ desktop_user }}
+        {{ desktop_parental_controls_oars.items() | map('join', '=') | join(' ') }}
+      changed_when: false
+
+    - name: Report whether the OARS app filter moved
+      ansible.builtin.command: malcontent-client get-app-filter --no-interactive {{ desktop_user }}
+      register: desktop_app_filter_after
+      changed_when: desktop_app_filter_after.stdout != desktop_app_filter_before.stdout
 
 - name: Deploy Chrome family policy
   ansible.builtin.copy:

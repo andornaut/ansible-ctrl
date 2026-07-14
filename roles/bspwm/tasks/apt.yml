@@ -23,10 +23,6 @@
       - xbacklight
       - xorg
       - xsecurelock
-      # Nothing but the locked-screen indicator uses xterm, and only as a drawing surface:
-      # -into reparents it into the window xsecurelock hands to its saver module, which no
-      # other X client installed here can do. See the desktop role's xsecurelock-saver.j2.
-      - xterm
       - xss-lock
       # Build dependencies for the projects in bspwm_projects, which are
       # compiled from source by bspwm.yml.
