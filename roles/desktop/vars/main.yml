@@ -86,10 +86,6 @@ desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.
 # The session script holds the timeouts and the xsecurelock environment. It is the role's own
 # file, shared with no dotfiles repository, so it is templated rather than written as a block.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
-# The PAM service xsecurelock authenticates against. It is compiled into the Ubuntu package
-# rather than configurable, and the package ships no PAM file of its own, so this names the
-# stack Ubuntu already has rather than one the role installs.
-desktop_xsecurelock_pam_service: /etc/pam.d/common-auth
 
 # CLEANUP (added 2026-07-14): remove with the "Remove the xscreensaver configuration" block
 # in idle.yml, once every bspwm host in the desktop group has run this role.

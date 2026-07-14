@@ -7,7 +7,12 @@
 # grace period. Neither may be zero: `xset s <timeout> 0` disables cycling, and the session
 # would blank but never lock.
 #
-# xsecurelock is configured through the environment, which it reads from this process.
+# xsecurelock is configured through the environment, which it reads from this process. What is
+# not set here is left at its default, including the prompt's colours and font.
+#
+# Authentication needs nothing configured and nothing setuid: xsecurelock authenticates
+# against the PAM service compiled into the Ubuntu package, which is common-auth, and pam_unix
+# reaches /etc/shadow through the unix_chkpwd helper.
 set -eu
 
 # `xset s blank` is not the default everywhere and xscreensaver used to turn it off (it drew
@@ -18,9 +23,6 @@ xset s blank
 xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }}
 xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }}
 
-XSECURELOCK_AUTH_BACKGROUND_COLOR='{{ desktop_xsecurelock_background_color }}'
-XSECURELOCK_AUTH_FOREGROUND_COLOR='{{ desktop_xsecurelock_foreground_color }}'
-XSECURELOCK_FONT='{{ desktop_xsecurelock_font }}'
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
 # The prompt is the username and the password field, nothing else: the date, the time and the
 # hostname are all things the person typing already knows.
@@ -32,8 +34,7 @@ XSECURELOCK_SHOW_HOSTNAME=0
 # desktop_screen_off_minutes says.
 XSECURELOCK_BLANK_TIMEOUT={{ desktop_xsecurelock_blank_seconds }}
 XSECURELOCK_BLANK_DPMS_STATE=off
-export XSECURELOCK_AUTH_BACKGROUND_COLOR XSECURELOCK_AUTH_FOREGROUND_COLOR \
-    XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT XSECURELOCK_FONT \
+export XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
     XSECURELOCK_PASSWORD_PROMPT XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME
 
 # -l holds a logind sleep inhibitor until the locker has taken the screen, so a suspend locks
