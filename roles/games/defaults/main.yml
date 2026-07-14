@@ -44,12 +44,19 @@ games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 # lands before the machine suspends.
 games_heroic_token_refresh_interval: "3h"
 
+# Cursor theme for the flatpak applications this role installs. A sandbox cannot see the
+# host's cursor themes, so unless XCURSOR_THEME names one the runtime ships, the pointer is
+# drawn at the wrong size:
+# https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+# Held here rather than read from the desktop role, which sets the same value for the same
+# reason: games installs its own flatpaks and declares no dependency on desktop.
+games_cursor_theme: Adwaita
+
 # `flatpak override --user` arguments, keyed by application ID. The "default" key
 # applies to every app in games_flatpak_apps; a per-application key is merged on top.
 games_flatpak_overrides:
-  # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
   default:
-    - --env=XCURSOR_THEME=Adwaita
+    - --env=XCURSOR_THEME={{ games_cursor_theme }}
   com.heroicgameslauncher.hgl:
     # Grant the sandbox access to the game install + wine-prefix location. Without
     # this Heroic cannot stat installed games and reports them as not available.
