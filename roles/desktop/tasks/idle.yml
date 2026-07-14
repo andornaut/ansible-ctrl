@@ -150,24 +150,23 @@
             mode: "0644"
 
 # CLEANUP (added 2026-07-14): remove once every bspwm host in the desktop group has run this
-# role. Undoes the xscreensaver configuration that xsecurelock replaced. The preferences and
-# the resource file are shared dotfiles, so only the managed blocks go; the autostart entry
-# was written by the role, so the whole file goes and the daemon stops being started.
+# role. Undoes the xscreensaver configuration that xsecurelock replaced.
+#
+# The preferences and the autostart entry were the role's own files, so both go. .Xresources
+# is a shared dotfile that the role only ever appended to, so only the managed block goes;
+# removing the file would take the session's colours and fonts with it.
 - name: Remove the xscreensaver configuration
   when: desktop_environment == "bspwm"
   become: true
   become_user: "{{ desktop_user }}"
   block:
-    - name: Stat the xscreensaver preferences
-      ansible.builtin.stat:
-        path: "{{ desktop_xscreensaver_conf }}"
-      register: desktop_xscreensaver_conf_stat
-
-    - name: Remove the xscreensaver preferences block
-      when: desktop_xscreensaver_conf_stat.stat.exists
-      ansible.builtin.blockinfile:
-        path: "{{ desktop_xscreensaver_conf }}"
+    - name: Remove the xscreensaver preferences and autostart entry
+      ansible.builtin.file:
+        path: "{{ item }}"
         state: absent
+      loop:
+        - "{{ desktop_xscreensaver_conf }}"
+        - "{{ desktop_xscreensaver_autostart }}"
 
     - name: Stat the Xresources file
       ansible.builtin.stat:
@@ -179,11 +178,6 @@
       ansible.builtin.blockinfile:
         path: "{{ desktop_xresources }}"
         marker: "! {mark} ANSIBLE MANAGED BLOCK"
-        state: absent
-
-    - name: Remove the xscreensaver autostart entry
-      ansible.builtin.file:
-        path: "{{ desktop_xscreensaver_autostart }}"
         state: absent
 
 - name: Configure niri idle timeouts
