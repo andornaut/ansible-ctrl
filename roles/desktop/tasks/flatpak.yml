@@ -48,9 +48,8 @@
             flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
             method: user
 
-        # GTK themes are not installed here as org.gtk.Gtk3theme extensions: flathub carries
-        # only some of them, under names that do not always match the host's. theme.yml
-        # copies the host's own themes into ~/.themes and points the sandboxes at that.
+        # No org.gtk.Gtk3theme extensions: flathub carries only some themes, under names that
+        # do not always match the host's. theme.yml copies the host's own into ~/.themes.
         - name: Install flatpak applications
           community.general.flatpak:
             name: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
