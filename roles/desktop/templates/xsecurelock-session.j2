@@ -24,10 +24,13 @@ xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }
 xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }}
 
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
-# The prompt is the username and the password field, nothing else: the date, the time and the
-# hostname are all things the person typing already knows.
+# The prompt is the username and the password field, nothing else: the date, the time, the
+# hostname and the keyboard layout are all things the person typing already knows. The layout
+# is worth a word, since xsecurelock shows it by default for a reason: it is a hint when a
+# password keeps failing because the wrong layout is active. These hosts have one layout.
 XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
+XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
 # xsecurelock powers the monitor down on a clock of its own, which starts when it locks, so
 # this is what is left of the power-off timeout once the lock timeout has elapsed. Without it
 # the monitor would go dark ten minutes after locking (the upstream default) whatever
@@ -35,7 +38,8 @@ XSECURELOCK_SHOW_HOSTNAME=0
 XSECURELOCK_BLANK_TIMEOUT={{ desktop_xsecurelock_blank_seconds }}
 XSECURELOCK_BLANK_DPMS_STATE=off
 export XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
-    XSECURELOCK_PASSWORD_PROMPT XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME
+    XSECURELOCK_PASSWORD_PROMPT XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME \
+    XSECURELOCK_SHOW_KEYBOARD_LAYOUT
 
 # -l holds a logind sleep inhibitor until the locker has taken the screen, so a suspend locks
 # first and cannot flash the desktop on resume. xss-lock also answers logind's Lock signal,
