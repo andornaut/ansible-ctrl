@@ -28,6 +28,15 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
+# logind reloads its configuration in place (CanReload=yes), so the idle-action drop-in takes
+# effect without a restart. Restarting it would be needless risk on a host with a live
+# graphical session.
+- name: Reload systemd-logind
+  ansible.builtin.systemd_service:
+    name: systemd-logind
+    state: reloaded
+  become: true
+
 # Oneshot with RemainAfterExit, so restart rather than start; it refetches every filter
 # list, so only a changed filter fires it.
 - name: Recompile the malcontent web filter lists

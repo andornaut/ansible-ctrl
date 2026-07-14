@@ -40,4 +40,18 @@ export XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
 # -l holds a logind sleep inhibitor until the locker has taken the screen, so a suspend locks
 # first and cannot flash the desktop on resume. xss-lock also answers logind's Lock signal,
 # which is what the session's `loginctl lock-session` keybinding sends.
-exec xss-lock -l -- xsecurelock
+#
+# -n is what makes the cycle a grace period, and it is required even though there is nothing
+# to notify. xss-lock only waits for the screensaver's CYCLE event when a notifier is
+# configured; without one it starts the locker the moment the screensaver activates:
+#
+#     else if (!notifier.cmd || xss_event->forced || get_cycle_time(connection) <= 0) {
+#         start_child(&locker);
+#     } else if (!locker.pid)
+#         start_child(&notifier);
+#
+# So `xss-lock -- xsecurelock` locks at the blank timeout and ignores the cycle entirely. A
+# notifier that exits immediately is enough to take the other branch: the CYCLE handler only
+# checks that no locker is running. Nothing warns or dims during the grace, which is the
+# intent; the screen is simply blank, as the X server left it.
+exec xss-lock -n /bin/true -l -- xsecurelock
