@@ -47,7 +47,6 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, `{id: HTTPS URI}` filter lists, custom hostnames, safe search |
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
-| `desktop_xsecurelock_background_color`, `_foreground_color`, `_font` | Appearance of the unlock prompt |
 | `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone. **Not supported under bspwm**: setting it there fails the play |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
@@ -83,12 +82,13 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
   `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` closes the window entirely, at the cost of
   the no-password return period.
 - `xsecurelock` authenticates through PAM under the service name compiled into the Ubuntu package, which is
-  `common-auth`, and it ships no PAM file of its own. Nothing is setuid: `pam_unix` reaches `/etc/shadow` through the
-  `unix_chkpwd` helper. The `idle` tag asserts that the service file exists, because without it the screen would lock
-  and never unlock.
+  `common-auth`, and it ships no PAM file of its own. Nothing needs configuring and nothing is setuid: `pam_unix`
+  reaches `/etc/shadow` through the `unix_chkpwd` helper. Contrast `xscreensaver`, whose `xscreensaver-auth` had to
+  end up setuid root and whose Makefile only *warned* when it could not manage that, which is why the role used to
+  assert the mode.
 - The unlock prompt is configured entirely through `XSECURELOCK_*` environment variables, which the session script
   exports before it execs `xss-lock`. There are no X resources and no dotfiles involved, so changes take effect at the
-  next login.
+  next login. Only the password echo is set; the colours and the font are left at `xsecurelock`'s defaults.
 - Idle **suspend** is a separate policy from idle locking, driven by `desktop_suspend_inactive_minutes`. `logind`
   cannot detect idleness itself: something must call `SetIdleHint`. GNOME uses `gnome-settings-daemon`
   (`sleep-inactive-{ac,battery}-{type,timeout}`); niri uses a `hypridle` listener that runs `systemctl suspend`
@@ -100,14 +100,15 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
   converge and fight over it in git. It is latent only because every host currently uses the same values. The fix is
   the one the bspwm side already took: render per-host policy into a file the role owns outright
   (`/usr/local/bin/xsecurelock-session`) and leave the dotfiles copy free of host-specific values.
-- The session files the `idle` tag writes (`.config/autostart/xss-lock.desktop`, `.config/hypr/hypridle.conf`) may be
-  symlinks into a dotfiles repository, which rules out `template` and `copy`: on a no-op run their action plugin
-  re-runs the `file` module against the resolved link target, and `file` expands environment variables in that path,
-  corrupting it for a repository whose tree lives under a directory named `$HOME`. `blockinfile`, `lineinfile` and
-  `replace` resolve the link themselves and write through it, so those files are wrapped in an `ANSIBLE MANAGED
-  BLOCK` rather than templated. A *dangling* link is a separate problem, and `stat` reports it as existing unless it
-  too follows, so `idle_check_dotfile.yml` classifies each path first and fails with a clear message rather than
-  orphaning the link. The session script is the role's own file under `/usr/local`, so it is templated normally.
+- `.config/hypr/hypridle.conf`, which the `idle` tag writes on niri hosts, may be a symlink into a dotfiles
+  repository, which rules out `template` and `copy`: on a no-op run their action plugin re-runs the `file` module
+  against the resolved link target, and `file` expands environment variables in that path, corrupting it for a
+  repository whose tree lives under a directory named `$HOME`. `blockinfile`, `lineinfile` and `replace` resolve the
+  link themselves and write through it, so it is wrapped in an `ANSIBLE MANAGED BLOCK` rather than templated. A
+  *dangling* link is a separate problem, and `stat` reports it as existing unless it too follows, so
+  `idle_check_dotfile.yml` classifies the path first and fails with a clear message rather than orphaning the link.
+  The two files the bspwm side writes (the session script and the `xss-lock` autostart entry) are the role's own, and
+  no dotfiles repository has a copy of either to symlink over them, so both are templated normally.
 - Nothing reloads the idle configuration under bspwm: the session script sets the X timeouts and execs `xss-lock`
   once, at login, so a timeout change takes effect at the next one.
 - Web filtering is enforced in the name service switch, not in the browser. `nss-malcontent` sinkholes a blocked

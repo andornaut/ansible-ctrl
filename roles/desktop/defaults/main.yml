@@ -42,14 +42,10 @@ desktop_zig_mirror: https://ziglang.freetls.fastly.net
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# Appearance of the xsecurelock unlock prompt on a bspwm session. The prompt is what the
-# password field echoes as it is typed: "asterisks" (one per character, so the length is
-# visible), "cursor" (a block that stays put), "time" or "disco". The colours are X11 colour
-# names or #rrggbb, and the font is an Xft pattern.
+# What the xsecurelock password field echoes as it is typed on a bspwm session: "asterisks"
+# (one per character, so the length is visible), "cursor" (a block that stays put), "time" or
+# "disco". The rest of the prompt's appearance is left at xsecurelock's defaults.
 desktop_xsecurelock_password_prompt: asterisks
-desktop_xsecurelock_background_color: "#000000"
-desktop_xsecurelock_foreground_color: "#cccccc"
-desktop_xsecurelock_font: Hack
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables

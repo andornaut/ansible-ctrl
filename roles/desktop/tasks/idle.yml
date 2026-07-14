@@ -90,23 +90,6 @@
 - name: Configure bspwm idle timeouts
   when: desktop_environment == "bspwm"
   block:
-    # xsecurelock authenticates through PAM under the service name the Ubuntu package was
-    # built with, and ships no PAM configuration of its own. Without the service file every
-    # unlock attempt fails, so assert rather than trust, as the setuid xscreensaver-auth
-    # helper this replaced was asserted.
-    - name: Stat the xsecurelock PAM service
-      ansible.builtin.stat:
-        path: "{{ desktop_xsecurelock_pam_service }}"
-      register: desktop_xsecurelock_pam
-
-    - name: Assert that the xsecurelock PAM service exists
-      ansible.builtin.assert:
-        that: desktop_xsecurelock_pam.stat.exists
-        fail_msg: >-
-          {{ desktop_xsecurelock_pam_service }} is missing, and it is the PAM service
-          xsecurelock authenticates against. The screen would lock and never unlock.
-        success_msg: xsecurelock can authenticate against {{ desktop_xsecurelock_pam_service }}
-
     # Owned by the role rather than written into the dotfiles: it carries per-host policy
     # (the timeouts), and the dotfiles repository is shared across hosts.
     - name: Install the xsecurelock session script
@@ -118,25 +101,24 @@
         mode: "0755"
       become: true
 
+    # Templated, not written as a managed block: unlike the files idle_check_dotfile.yml
+    # guards, this one is the role's own and no dotfiles repository has a copy of it to
+    # symlink over. It must stay an autostart entry rather than become a systemd --user unit,
+    # though: those run under user@.service, outside the logind session scope, and xss-lock
+    # that cannot identify its session ignores the Lock signal the session's keybinding sends.
     - name: Configure the xss-lock autostart entry
       become: true
       become_user: "{{ desktop_user }}"
       block:
-        - name: Check the xss-lock autostart entry
-          ansible.builtin.include_tasks: idle_check_dotfile.yml
-          vars:
-            idle_dotfile_path: "{{ desktop_xss_lock_autostart }}"
-
         - name: Create the autostart directory
           ansible.builtin.file: # noqa: risky-file-permissions
             path: "{{ desktop_xss_lock_autostart | dirname }}"
             state: directory
 
-        - name: Configure the xss-lock autostart entry
-          ansible.builtin.blockinfile:
-            path: "{{ desktop_xss_lock_autostart }}"
-            block: "{{ lookup('ansible.builtin.template', 'xss-lock.desktop.j2') }}"
-            create: true
+        - name: Install the xss-lock autostart entry
+          ansible.builtin.template:
+            src: xss-lock.desktop.j2
+            dest: "{{ desktop_xss_lock_autostart }}"
             mode: "0644"
 
 # CLEANUP (added 2026-07-14): remove once every bspwm host in the desktop group has run this
