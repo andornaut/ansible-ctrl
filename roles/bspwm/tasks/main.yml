@@ -7,11 +7,11 @@
     - bspwm
     - x11
 
-- name: Build and install xscreensaver
-  ansible.builtin.import_tasks: xscreensaver.yml
+- name: Remove the source-built xscreensaver
+  ansible.builtin.import_tasks: xscreensaver_cleanup.yml
   tags:
     - bspwm
-    - xscreensaver
+    - x11
 
 - name: Build and install BSPWM
   ansible.builtin.import_tasks: bspwm.yml
