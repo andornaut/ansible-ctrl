@@ -2,18 +2,16 @@
 - name: Install common system packages
   ansible.builtin.apt:
     name:
-      # adwaita-icon-theme supplies the Adwaita cursor theme, and
-      # gnome-themes-extra pulls in gnome-themes-extra-data, which supplies the
-      # Adwaita GTK widget theme. Both are selected by gtk-cursor-theme-name and
-      # gtk-theme-name in the dotfiles:
+      # adwaita-icon-theme supplies the Adwaita cursor theme, selected by
+      # gtk-cursor-theme-name in the dotfiles:
       # https://github.com/andornaut/dotfiles/blob/master/$HOME/.config/gtk-3.0/settings.ini
+      # The GTK widget themes are installed by theme.yml instead, which also selects one.
       - adwaita-icon-theme
       - desktop-file-utils
       - file-roller
       # gnome-keyring is only a Recommends of ubuntu-desktop-minimal, which
       # gnome.yml installs with recommends disabled, so it must be listed here.
       - gnome-keyring
-      - gnome-themes-extra
       - gvfs-backends
       - imagemagick
       - jq
