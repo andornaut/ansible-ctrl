@@ -4,9 +4,8 @@
     that:
       - desktop_gtk_theme in desktop_gtk_themes
     fail_msg: >-
-      desktop_gtk_theme ("{{ desktop_gtk_theme }}") must be one of desktop_gtk_themes,
-      which are the only themes this role installs and copies where flatpak applications
-      can find them.
+      desktop_gtk_theme ("{{ desktop_gtk_theme }}") must be one of desktop_gtk_themes, the
+      only themes this role installs.
     success_msg: GTK theme "{{ desktop_gtk_theme }}" is valid
 
 - name: Install GTK theme packages
@@ -17,14 +16,9 @@
     update_cache: true
   become: true
 
-# GTK 3 and GTK 4 read settings.ini from each XDG_CONFIG_DIRS entry (/etc/xdg) before
-# XDG_CONFIG_HOME, so this sets the host-wide default while leaving ~/.config free to
-# override it. /etc/gtk-3.0/settings.ini is read earlier still, but it is a dpkg conffile of
-# libgtk-3-0t64, and editing it would prompt on every upgrade of that package.
-#
-# GNOME ignores both files: gnome-settings-daemon publishes the same settings over XSettings,
-# which outranks any settings.ini. The dconf keys below are what it reads. bspwm and niri run
-# no settings daemon, so for them these files are the only host-side mechanism.
+# /etc/xdg rather than /etc/gtk-3.0, which GTK reads first but which is a dpkg conffile of
+# libgtk-3-0t64. Only bspwm and niri read these: GNOME takes the dconf keys below instead,
+# served over XSettings, which outranks any settings.ini.
 - name: Configure the system GTK theme
   become: true
   block:
@@ -53,11 +47,9 @@
   become: true
   become_user: "{{ desktop_user }}"
   block:
-    # Set on every desktop, not just GNOME: xdg-desktop-portal-gtk serves these keys to
-    # applications that ask the settings portal for the system appearance, which is how
-    # sandboxed and Electron applications (browsers included) decide whether to render dark.
-    # dconf writes to the invoking user's database, so this runs as desktop_user, and
-    # XDG_RUNTIME_DIR points the module at that user's session bus, which is not set when
+    # Set on every desktop, not just GNOME: xdg-desktop-portal-gtk serves these keys as the
+    # system appearance, which is how browsers and Electron apps decide whether to render
+    # dark. XDG_RUNTIME_DIR points dconf at desktop_user's session bus, which is not set when
     # Ansible escalates to a user it did not log in as.
     - name: Configure the GNOME appearance
       community.general.dconf:
@@ -78,8 +70,8 @@
         state: directory
         mode: "0755"
 
-    # Copied rather than symlinked: a symlink into /usr/share/themes resolves inside the
-    # sandbox, where /usr is the flatpak runtime and the theme is not there.
+    # Copied, not symlinked: inside the sandbox a link into /usr/share/themes resolves against
+    # the flatpak runtime, which does not have the theme.
     - name: Copy the GTK themes where flatpak applications can find them
       ansible.builtin.copy:
         src: /usr/share/themes/{{ item }}
@@ -88,18 +80,15 @@
         mode: preserve
       loop: "{{ desktop_gtk_themes }}"
 
-    # A global override (no application argument) covers every flatpak this user runs,
-    # including the ones the games role installs, so neither role has to know the other's
-    # application list.
+    # Global (no application argument), so it also covers the flatpaks the games role
+    # installs, which neither role has to know about.
     #
-    # GTK_THEME is set rather than left to the settings portal because the portal only
-    # carries the theme *name*: a sandbox handed a name it cannot resolve falls back to
-    # Adwaita (light) and drops the application's dark preference along with it. Naming the
-    # theme that is mounted at ~/.themes keeps that from depending on what the host session
-    # happens to publish, which under bspwm and niri is nothing at all.
+    # GTK_THEME rather than the settings portal, which carries only the theme name: handed a
+    # name it cannot resolve, GTK falls back to Adwaita (light) and drops the application's
+    # dark preference with it. Naming the theme mounted at ~/.themes cannot miss.
     #
-    # `flatpak override` rewrites the override file unconditionally and reports nothing, so
-    # compare `--show` output either side of it to report changes honestly.
+    # `flatpak override` rewrites the file unconditionally and reports nothing, so compare
+    # `--show` either side of it to report changes honestly.
     - name: Apply the flatpak theme override
       ansible.builtin.shell:
         cmd: |
