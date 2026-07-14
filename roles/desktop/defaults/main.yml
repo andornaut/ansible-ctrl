@@ -77,6 +77,11 @@ desktop_gtk_themes:
 # theme.yml fails fast if it is not, because GTK answers an unresolvable theme name by
 # silently falling back to Adwaita (light), discarding any dark preference with it.
 desktop_gtk_theme: Adwaita-dark
+# Cursor theme for flatpak applications. A sandbox cannot see the host's cursor themes, so
+# unless XCURSOR_THEME names one the runtime ships, the pointer is drawn at the wrong size:
+# https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+# The session's own cursor is gtk-cursor-theme-name in the dotfiles, not this.
+desktop_cursor_theme: Adwaita
 
 # Archive MIME types associated with file-roller as the default handler. Limited
 # to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are

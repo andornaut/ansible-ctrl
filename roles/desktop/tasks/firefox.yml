@@ -104,7 +104,9 @@
             method: user
 
         - name: Configure Firefox cursor theme
-          ansible.builtin.command: flatpak override --user --env=XCURSOR_THEME=Adwaita org.mozilla.firefox
+          ansible.builtin.command: >-
+            flatpak override --user --env=XCURSOR_THEME={{ desktop_cursor_theme | quote }}
+            org.mozilla.firefox
           changed_when: true
 
 # Removal

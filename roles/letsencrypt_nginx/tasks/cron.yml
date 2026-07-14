@@ -1,0 +1,31 @@
+---
+# Renewal re-runs this playbook rather than calling certbot: the certificates are issued by
+# community.crypto.acme_certificate in letsencrypt.yml, which reissues one once it is within
+# letsencrypt_nginx_remaining_days of expiry. --tags letsencrypt keeps the nightly run to the
+# certificate path instead of reapplying the whole playbook (packages, nginx config, Docker).
+#
+# state is derived rather than gated with `when` so that clearing the flag removes the job
+# from a host that used to run it, instead of leaving it behind.
+- name: Configure the certificate renewal cron job
+  ansible.builtin.cron:
+    name: Let's Encrypt certificate renewal
+    cron_file: ansible-role-letsencrypt_nginx
+    user: root
+    hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
+    minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
+    job: >-
+      cd {{ letsencrypt_nginx_renewal_cron_directory }} &&
+      ansible-playbook webservers.yml --tags letsencrypt
+      >> {{ letsencrypt_nginx_renewal_cron_log }} 2>&1
+    state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"
+  become: true
+
+# CLEANUP (added 2026-07-14): remove after the webservers group has converged. The role was
+# renamed from letsencrypt-nginx to letsencrypt_nginx, and ansible.builtin.cron keys a job on
+# its cron_file, so the old file was orphaned rather than rewritten: the controller ran both,
+# a minute apart from each other, and the older one reapplied the entire playbook nightly.
+- name: Remove the cron job orphaned by the role rename
+  ansible.builtin.file:
+    path: /etc/cron.d/ansible-role-letsencrypt-nginx
+    state: absent
+  become: true
