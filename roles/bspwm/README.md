@@ -28,16 +28,19 @@ See [defaults/main.yml](./defaults/main.yml).
 - BSPWM and the [baskerville](https://github.com/baskerville) tools listed in `bspwm_projects` are built from
   source into `/usr/local/bin`.
 - This role owns only the X11 tools that have a Wayland replacement in the [niri](../niri/) role: `scrot` (grim
-  and slurp), `xscreensaver` (hypridle and hyprlock), `xbacklight` (brightnessctl), plus `dex` and `xorg`. Tools
-  both sessions share live in the [desktop](../desktop/) role.
-- `xscreensaver` blanks, locks and powers down the display on its own timers, which the desktop role writes to
-  `~/.xscreensaver`. It supersedes `xss-lock`, `i3lock`, `xautolock` and `gnome-screensaver`, all of which this
-  role purges.
-- `xscreensaver` is **built from source** (`xscreensaver.yml`), because Ubuntu ships 6.08, an October 2023 build.
-  Only `utils/` and `driver/` are compiled: `make` at the top level also builds several hundred screen hacks that
-  are never run. `make -C driver install` still installs the PAM configuration, the app-defaults file and the
-  systemd unit. `xscreensaver-auth` must end up setuid root, and its Makefile only *warns* when it cannot do that,
-  so the role asserts the mode afterwards.
+  and slurp), `xsecurelock` and `xss-lock` (hypridle and hyprlock), `xbacklight` (brightnessctl), plus `dex` and
+  `xorg`. Tools both sessions share live in the [desktop](../desktop/) role.
+- Locking is three programs, not one. The X server blanks the screen and powers the monitor down on its own
+  `xset` timers; `xss-lock` watches the X screensaver extension and `logind`, and starts `xsecurelock` on either.
+  The [desktop](../desktop/) role writes all three timeouts into the session script that starts `xss-lock`.
+- `xterm` is installed for one reason: it is the drawing surface for the locked-screen indicator. `-into`
+  reparents it into a window it did not create, which is what an `xsecurelock` saver module has to do, and no
+  other X client installed here can.
+- This role used to build [xscreensaver](https://www.jwz.org/xscreensaver/) from source, because Ubuntu ships a
+  2023 build. It was replaced because its unlock dialog cannot see ordinary key events: the daemon holds the
+  keyboard grab, so the dialog snoops XInput2 **raw** events, which carry no modifier state (it recovers case by
+  polling `XQueryPointer`, racing fast typing) and never auto-repeat. `xsecurelock` inverts that: the grabbing
+  process reads real `KeyPress` events and pipes the decoded text to a separate auth child.
 
 ## Configuration files
 

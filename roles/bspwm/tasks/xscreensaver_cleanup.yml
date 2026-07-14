@@ -1,0 +1,32 @@
+---
+# CLEANUP (added 2026-07-14): remove this file, its import in main.yml and the matching block
+# in the desktop role's idle.yml, once every bspwm host in the desktop group has run this
+# role. xsecurelock replaced xscreensaver, which this role used to build from source into
+# /usr/local; nothing starts it any more, so the build is removed rather than left to rot.
+#
+# `make install` wrote outside /usr/local as well (the PAM stack and the app-defaults file),
+# and the packaged xscreensaver was purged before that build, so none of this is dpkg's to
+# clean up.
+- name: Remove the source-built xscreensaver
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/X11/app-defaults/XScreenSaver
+    - /etc/X11/app-defaults/XScreenSaver-nogl
+    - /etc/pam.d/xscreensaver
+    - /usr/local/bin/xscreensaver
+    - /usr/local/bin/xscreensaver-command
+    - /usr/local/bin/xscreensaver-demo
+    - /usr/local/bin/xscreensaver-settings
+    - /usr/local/lib/systemd/user/xscreensaver.service
+    - /usr/local/libexec/xscreensaver
+    - /usr/local/share/man/man1/xscreensaver-command.1
+    - /usr/local/share/man/man1/xscreensaver-demo.1
+    - /usr/local/share/man/man1/xscreensaver-settings.1
+    - /usr/local/share/man/man1/xscreensaver.1
+    - /usr/local/share/man/man6/xscreensaver-auth.6
+    - /usr/local/share/man/man6/xscreensaver-gfx.6
+    - /usr/local/share/man/man6/xscreensaver-systemd.6
+    - /usr/local/share/xscreensaver
+  become: true
