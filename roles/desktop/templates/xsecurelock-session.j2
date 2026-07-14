@@ -31,15 +31,31 @@ XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
 XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
 XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
+XSECURELOCK_AUTH_SOUNDS=0
+# xsecurelock cannot lock while another window holds the keyboard or pointer grab: a fullscreen
+# game, or even an open context menu. It exits, xss-lock sees the locker exit, and the session
+# stays unlocked with nothing said about it, which upstream notes "could leave a workstation
+# open for days" when locking is automatic. Forcing the grab unmaps the client windows holding
+# one, takes the grab, and maps them back. 1 touches client windows only; 2 also touches the
+# root window's other descendants and is likelier to upset the window manager. The cost is that
+# a fullscreen window that owned the grab is left unresponsive afterwards (alt-tab recovers it),
+# and the window manager may rearrange windows.
+XSECURELOCK_FORCE_GRAB=1
+# The default, set explicitly because it is a security property and not a preference: the key
+# that dismisses the blank screen is discarded rather than typed into the password field, so
+# that nobody learns to type their password at a black screen. A black screen is not
+# necessarily this locker: during the blank-to-lock grace period it is the session itself, with
+# whatever window had focus still listening.
+XSECURELOCK_DISCARD_FIRST_KEYPRESS=1
 # xsecurelock powers the monitor down on a clock of its own, which starts when it locks, so
 # this is what is left of the power-off timeout once the lock timeout has elapsed. Without it
 # the monitor would go dark ten minutes after locking (the upstream default) whatever
 # desktop_screen_off_minutes says.
 XSECURELOCK_BLANK_TIMEOUT={{ desktop_xsecurelock_blank_seconds }}
 XSECURELOCK_BLANK_DPMS_STATE=off
-export XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
-    XSECURELOCK_PASSWORD_PROMPT XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME \
-    XSECURELOCK_SHOW_KEYBOARD_LAYOUT
+export XSECURELOCK_AUTH_SOUNDS XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
+    XSECURELOCK_DISCARD_FIRST_KEYPRESS XSECURELOCK_FORCE_GRAB XSECURELOCK_PASSWORD_PROMPT \
+    XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME XSECURELOCK_SHOW_KEYBOARD_LAYOUT
 
 # -l holds a logind sleep inhibitor until the locker has taken the screen, so a suspend locks
 # first and cannot flash the desktop on resume. xss-lock also answers logind's Lock signal,
