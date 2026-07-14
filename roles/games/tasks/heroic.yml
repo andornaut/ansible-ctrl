@@ -1,7 +1,8 @@
 ---
 # Enforce Heroic's install + wine-prefix paths so they stay under games_heroic_dir
-# and cannot drift from the flatpak filesystem grant. config.json is owned and
-# rewritten by Heroic, so only these keys are merged; the rest is left intact.
+# and cannot drift from the flatpak filesystem grant, plus its close behaviour.
+# config.json is owned and rewritten by Heroic, so only these keys are merged; the
+# rest is left intact.
 #
 # config.json only exists after Heroic has run once. On a fresh host the file is
 # absent: this warns and makes no change (Heroic writes it, using the app default
@@ -29,11 +30,11 @@
   ansible.builtin.debug:
     msg: >-
       WARNING: {{ games_heroic_config_file }} does not exist yet (Heroic has not
-      run on this host), so its install and wine-prefix paths were not enforced.
-      Launch Heroic once, then re-run.
+      run on this host), so its settings were not enforced. Launch Heroic once,
+      then re-run.
   when: games_heroic_config_raw.content is not defined
 
-- name: Enforce Heroic install and wine-prefix paths
+- name: Enforce Heroic settings
   when: games_heroic_config_raw.content is defined
   vars:
     games_heroic_config: "{{ games_heroic_config_raw.content | b64decode | from_json }}"
@@ -43,6 +44,12 @@
       defaultWinePrefix: "{{ games_heroic_dir }}/Prefixes"
       defaultWinePrefixDir: "{{ games_heroic_dir }}/Prefixes"
       winePrefix: "{{ games_heroic_dir }}/Prefixes/shared"
+      # Closing the window quits Heroic rather than hiding it in the tray. Its close
+      # handler hides only when exitToTray and not noTrayIcon, and the tray icon is
+      # governed by noTrayIcon alone, so this keeps the icon while Heroic runs.
+      # Absent from the factory defaults (so already falsy); pinned here to revert an
+      # accidental toggle of Settings > General > "Exit to System Tray".
+      exitToTray: false
     # True when applying the desired keys would actually change the settings.
     games_heroic_change_needed: >-
       {{ (games_heroic_settings | combine(games_heroic_desired)) != games_heroic_settings }}
@@ -50,7 +57,7 @@
     # Writing while Heroic runs is pointless: it rewrites config.json on exit and
     # would revert the change. Fail with an actionable message. Guarded on a change
     # actually being needed so idempotent converges stay green with Heroic open.
-    - name: Fail when a path change is needed while Heroic is running
+    - name: Fail when a settings change is needed while Heroic is running
       ansible.builtin.fail:
         msg: >-
           Heroic is running (pid {{ games_heroic_running.stdout_lines | join(', ') }})
@@ -60,7 +67,7 @@
         - games_heroic_change_needed | bool
         - games_heroic_running.rc == 0
 
-    - name: Rewrite config.json with the enforced paths
+    - name: Rewrite config.json with the enforced settings
       when: games_heroic_change_needed | bool
       ansible.builtin.copy:
         dest: "{{ games_heroic_config_file }}"

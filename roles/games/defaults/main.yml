@@ -44,12 +44,10 @@ games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 # lands before the machine suspends.
 games_heroic_token_refresh_interval: "3h"
 
-# Cursor theme for the flatpak applications this role installs. A sandbox cannot see the
-# host's cursor themes, so unless XCURSOR_THEME names one the runtime ships, the pointer is
-# drawn at the wrong size:
+# Cursor theme for the flatpak applications this role installs, which cannot see the host's
+# and otherwise draw the pointer at the wrong size. Duplicates desktop_cursor_theme, since
+# games installs its own flatpaks and depends on no other role.
 # https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
-# Held here rather than read from the desktop role, which sets the same value for the same
-# reason: games installs its own flatpaks and declares no dependency on desktop.
 games_cursor_theme: Adwaita
 
 # `flatpak override --user` arguments, keyed by application ID. The "default" key
@@ -64,3 +62,8 @@ games_flatpak_overrides:
   com.valvesoftware.Steam:
     # Read-write access to the PipeWire socket for microphone input.
     - --filesystem=xdg-run/pipewire-0
+    # Make closing the window quit Steam instead of hiding it in the system tray.
+    # Steam exposes no setting for this on Linux (ValveSoftware/steam-for-linux#3083,
+    # #4843); this undocumented env var is the only lever, and is what Linux Mint ships
+    # in its steam.desktop. Best-effort: some clients ignore it (#5307).
+    - --env=STEAM_FRAME_FORCE_CLOSE=1
