@@ -47,7 +47,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, `{id: HTTPS URI}` filter lists, custom hostnames, safe search |
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
-| `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone. **Not supported under bspwm**: setting it there fails the play |
+| `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone; 0 disables it. Under bspwm it must be 0 or at least `desktop_screen_blank_minutes` |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
 [vars/main.yml](./vars/main.yml) holds values derived from those defaults (the target user's home directory and
@@ -92,9 +92,16 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
 - Idle **suspend** is a separate policy from idle locking, driven by `desktop_suspend_inactive_minutes`. `logind`
   cannot detect idleness itself: something must call `SetIdleHint`. GNOME uses `gnome-settings-daemon`
   (`sleep-inactive-{ac,battery}-{type,timeout}`); niri uses a `hypridle` listener that runs `systemctl suspend`
-  itself. **bspwm has nothing**: `xss-lock` answers `logind`'s `Lock` signal, which is what the session's
-  `loginctl lock-session` keybinding sends, but it never calls `SetIdleHint`, so `logind`'s `IdleAction` could never
-  fire. Setting the variable on a bspwm host fails the play rather than writing a drop-in that does nothing.
+  itself. Under bspwm it is `logind` that suspends, and `xss-lock` that tells it when it may: `xss-lock` sets the
+  session's idle hint as the X screensaver activates and clears it on the next input, and the role writes
+  `IdleAction` and `IdleActionSec` into `/etc/systemd/logind.conf.d/`.
+- `IdleActionSec` counts from the idle **hint**, not from the last input, and the hint is set when the screen blanks.
+  So the drop-in gets `desktop_suspend_inactive_minutes` *minus* `desktop_screen_blank_minutes`, and the variable
+  keeps meaning "suspend this long after the last input" on every desktop. It follows that the value must be 0 or at
+  least the blank timeout, which the `idle` tag asserts. Two further consequences of `logind` being the mechanism:
+  the policy is host-wide rather than per-session, so an idle `ssh` login also has to be idle before the host
+  suspends; and the drop-in is applied with `systemctl reload systemd-logind`, which is safe on a live session
+  (`CanReload=yes`) where a restart would not be.
 - **Known issue**: `desktop_suspend_inactive_minutes` is rendered into `.config/hypr/hypridle.conf`, a symlink into
   the shared dotfiles repository. Two niri hosts with different values would rewrite that managed block on every
   converge and fight over it in git. It is latent only because every host currently uses the same values. The fix is

@@ -52,9 +52,13 @@ desktop_xsecurelock_password_prompt: asterisks
 # idle suspend; N suspends after N minutes. Set it per host.
 #
 # Each desktop environment enforces it through whatever already tracks session idleness:
-# dconf on GNOME, logind's IdleAction under bspwm, a hypridle listener under niri. None of
-# them tells mains from battery, so the timeout applies to both. Locking is a separate
-# policy: the screen still locks at desktop_screen_lock_minutes either way.
+# dconf on GNOME, logind's IdleAction under bspwm (fed by xss-lock's idle hint), a hypridle
+# listener under niri. None of them tells mains from battery, so the timeout applies to both.
+# Locking is a separate policy: the screen still locks at desktop_screen_lock_minutes either
+# way.
+#
+# Under bspwm it must be 0 or at least desktop_screen_blank_minutes, because logind starts
+# counting when the screen blanks rather than at the last input; idle.yml asserts it.
 #
 # niri is the exception to "unset leaves it alone": hypridle.conf is generated whole, so an
 # unset value writes no suspend listener, which is the same as 0.
