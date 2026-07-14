@@ -15,10 +15,15 @@ set -eu
 
 [ -n "${XSCREENSAVER_WINDOW:-}" ] || exit 1
 
+# -fn is passed even though -fa selects the font that is actually drawn: a loose `*font`
+# resource in the user's X resources binds to xterm's `font`, which takes a core X font name
+# and not the `xft:` spec that urxvt reads there. xterm warns and falls back on every start
+# without this.
 exec xterm -into "$XSCREENSAVER_WINDOW" \
     -b 0 -bw 0 +sb \
     -bg '{{ desktop_xsecurelock_background_color }}' \
     -fg '{{ desktop_xsecurelock_foreground_color }}' \
+    -fn fixed \
     -fa '{{ desktop_xsecurelock_font }}' -fs 24 \
     -e sh -c 'printf "\033[?25l"
               while :; do
