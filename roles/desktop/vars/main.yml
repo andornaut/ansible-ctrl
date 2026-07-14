@@ -76,6 +76,14 @@ desktop_suspend_inactive_managed: "{{ desktop_suspend_inactive_minutes is not no
 desktop_suspend_inactive_seconds: "{{ desktop_suspend_inactive_minutes | default(0, true) | int * 60 }}"
 desktop_suspend_inactive_action: >-
   {{ (desktop_suspend_inactive_seconds | int > 0) | ternary("'suspend'", "'nothing'") }}
+# The same policy as logind reads it, for bspwm. IdleActionSec is measured from the moment the
+# session was marked idle, which is when xss-lock saw the X screensaver activate, so it gets
+# the suspend timeout less the blank timeout. Floored at a minute: the assert in idle.yml
+# rejects a suspend timeout shorter than the blank timeout, but equal ones are allowed.
+desktop_suspend_idle_action: >-
+  {{ (desktop_suspend_inactive_seconds | int > 0) | ternary('suspend', 'ignore') }}
+desktop_suspend_idle_action_seconds: >-
+  {{ [60, desktop_suspend_inactive_seconds | int - desktop_screen_blank_seconds | int] | max }}
 
 # Session configuration files that idle.yml writes. Each may be a symlink into a dotfiles
 # repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
@@ -86,6 +94,8 @@ desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.
 # The session script holds the timeouts and the xsecurelock environment. It is the role's own
 # file, shared with no dotfiles repository, so it is templated rather than written as a block.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
+# Idle suspend under bspwm, which logind performs rather than the session.
+desktop_logind_idle_action_conf: /etc/systemd/logind.conf.d/50-desktop-idle-action.conf
 
 # CLEANUP (added 2026-07-14): remove with the "Remove the xscreensaver configuration" block
 # in idle.yml, once every bspwm host in the desktop group has run this role.

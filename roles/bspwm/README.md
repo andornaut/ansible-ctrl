@@ -17,7 +17,7 @@ ansible-playbook --ask-become-pass desktop.yml --tags bspwm
 | Tag | Description |
 | --- | --- |
 | bspwm | Everything in this role |
-| x11 | X11 packages and build dependencies only, skipping the source builds |
+| x11 | X11 packages and build dependencies, and the removal of the xscreensaver that xsecurelock replaced, but not the source builds |
 
 ## Variables
 

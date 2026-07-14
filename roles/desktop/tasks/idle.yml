@@ -22,8 +22,9 @@
 - name: Validate idle timeouts
   ansible.builtin.assert:
     that:
-      # A zero blank timeout writes `timeout: 0:00:00` (xscreensaver off) or GNOME
-      # idle-delay 0; either way the session never blanks and never locks.
+      # A zero blank timeout writes `xset s 0` (the X screensaver off, so xss-lock is never
+      # told to lock) or GNOME idle-delay 0; either way the session never blanks and never
+      # locks.
       - desktop_screen_blank_minutes | int > 0
       - desktop_screen_lock_minutes | int >= desktop_screen_blank_minutes | int
       - desktop_screen_off_minutes | int >= desktop_screen_lock_minutes | int
@@ -198,17 +199,49 @@
 # Idle suspend needs something to call logind's SetIdleHint; logind can't detect idle itself.
 #   gnome   gnome-settings-daemon, via the dconf keys above
 #   niri    a hypridle listener that runs `systemctl suspend`
-#   bspwm   nothing: xss-lock answers logind's Lock signal but never sets the idle hint, so
-#           IdleAction can't fire
-# So fail rather than write a drop-in that silently does nothing.
-- name: Reject idle suspend under bspwm
+#   bspwm   xss-lock sets the idle hint when the X screensaver activates and clears it on the
+#           next input, and the drop-in below tells logind what to do about it
+#
+# An unset desktop_suspend_inactive_minutes writes nothing at all, leaving whatever policy the
+# host already has; 0 writes IdleAction=ignore, which states the policy rather than assuming
+# logind's default is still what it was.
+- name: Configure bspwm idle suspend
   when:
     - desktop_environment == "bspwm"
     - desktop_suspend_inactive_managed
-  ansible.builtin.fail:
-    msg: >-
-      desktop_suspend_inactive_minutes is set to
-      "{{ desktop_suspend_inactive_minutes }}" on this bspwm host, and bspwm cannot
-      idle-suspend: nothing in an xss-lock session tells logind that the session is
-      idle, so logind's IdleAction would never fire. Unset the variable, or move the host
-      to GNOME or niri.
+  become: true
+  block:
+    # The drop-in gets the suspend timeout less the blank timeout, because logind counts from
+    # the idle hint rather than from the last input, so a suspend timeout shorter than the
+    # blank timeout has no sensible value to render.
+    - name: Assert that idle suspend outlasts screen blanking
+      ansible.builtin.assert:
+        that:
+          - desktop_suspend_inactive_minutes | int == 0
+            or desktop_suspend_inactive_minutes | int >= desktop_screen_blank_minutes | int
+        fail_msg: >-
+          desktop_suspend_inactive_minutes ({{ desktop_suspend_inactive_minutes }}) must be 0
+          or at least desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}) on a
+          bspwm host: logind starts counting when xss-lock marks the session idle, which is
+          when the screen blanks.
+        success_msg: >-
+          {{ (desktop_suspend_inactive_minutes | int > 0)
+             | ternary('Suspends after ' ~ desktop_suspend_inactive_minutes ~ 'm idle',
+                       'Idle suspend disabled') }}
+
+    - name: Create the logind drop-in directory
+      ansible.builtin.file:
+        path: "{{ desktop_logind_idle_action_conf | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure the logind idle action
+      ansible.builtin.template:
+        src: logind-idle-action.conf.j2
+        dest: "{{ desktop_logind_idle_action_conf }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd-logind
