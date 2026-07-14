@@ -47,8 +47,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, `{id: HTTPS URI}` filter lists, custom hostnames, safe search |
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
-| `desktop_xsecurelock_background_color`, `_foreground_color`, `_font` | Appearance of the unlock prompt and of the locked-screen indicator |
-| `desktop_xsecurelock_show_locked_indicator` | Whether a locked screen says "Locked" rather than being black like a blanked one |
+| `desktop_xsecurelock_background_color`, `_foreground_color`, `_font` | Appearance of the unlock prompt |
 | `desktop_suspend_inactive_minutes` | Idle suspend, in minutes. Unset (default) leaves the host's policy alone. **Not supported under bspwm**: setting it there fails the play |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
@@ -79,13 +78,10 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
   after locking whatever the policy says.
 - **A blanked screen is not a locked one.** `xscreensaver` grabbed the keyboard as soon as it blanked; the X server's
   blanking does not, so during the grace period a keystroke both wakes the screen and lands in whatever window has
-  focus. Type a password at a black screen too early and it goes into the focused application. This is why
-  `desktop_xsecurelock_show_locked_indicator` exists: a locked screen says "Locked" and a merely blanked one shows
-  nothing. Setting `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` removes the window entirely.
-- The indicator is an `xsecurelock` **saver module**: any executable that draws into the window named by
-  `$XSCREENSAVER_WINDOW`. It is an `xterm` because `-into` reparents it into a window it did not create and nothing
-  else installed can; it is not a usable terminal, since the locker holds the keyboard and pointer. The unlock prompt
-  itself only appears on a keystroke, in `xsecurelock` as in `xscreensaver`, so it cannot serve as the indicator.
+  focus. Type a password at a black screen too early and it goes into the focused application. The two states look
+  identical, since `xsecurelock` blanks as well and its prompt only appears once a key is pressed. Setting
+  `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` closes the window entirely, at the cost of
+  the no-password return period.
 - `xsecurelock` authenticates through PAM under the service name compiled into the Ubuntu package, which is
   `common-auth`, and it ships no PAM file of its own. Nothing is setuid: `pam_unix` reaches `/etc/shadow` through the
   `unix_chkpwd` helper. The `idle` tag asserts that the service file exists, because without it the screen would lock
@@ -111,8 +107,7 @@ Role vars outrank `host_vars`, so overriding them there has no effect: override 
   `replace` resolve the link themselves and write through it, so those files are wrapped in an `ANSIBLE MANAGED
   BLOCK` rather than templated. A *dangling* link is a separate problem, and `stat` reports it as existing unless it
   too follows, so `idle_check_dotfile.yml` classifies each path first and fails with a clear message rather than
-  orphaning the link. The session script and the saver are the role's own files under `/usr/local`, so they are
-  templated normally.
+  orphaning the link. The session script is the role's own file under `/usr/local`, so it is templated normally.
 - Nothing reloads the idle configuration under bspwm: the session script sets the X timeouts and execs `xss-lock`
   once, at login, so a timeout change takes effect at the next one.
 - Web filtering is enforced in the name service switch, not in the browser. `nss-malcontent` sinkholes a blocked

@@ -16,8 +16,8 @@
 # under a `$HOME`-named directory is corrupted when the file module expands that path.
 # blockinfile, lineinfile and replace write through the link instead, so the role renders
 # into managed blocks. A dangling link is unresolvable, so idle_check_dotfile.yml fails on
-# one first. The session script and the saver are the role's own files under /usr/local, not
-# dotfiles, so they are templated.
+# one first. The session script is the role's own file under /usr/local, not a dotfile, so it
+# is templated.
 
 - name: Validate idle timeouts
   ansible.builtin.assert:
@@ -107,16 +107,6 @@
           xsecurelock authenticates against. The screen would lock and never unlock.
         success_msg: xsecurelock can authenticate against {{ desktop_xsecurelock_pam_service }}
 
-    - name: Install the xsecurelock locked-screen indicator
-      when: desktop_xsecurelock_show_locked_indicator
-      ansible.builtin.template:
-        src: xsecurelock-saver.j2
-        dest: "{{ desktop_xsecurelock_saver }}"
-        owner: root
-        group: root
-        mode: "0755"
-      become: true
-
     # Owned by the role rather than written into the dotfiles: it carries per-host policy
     # (the timeouts), and the dotfiles repository is shared across hosts.
     - name: Install the xsecurelock session script
@@ -167,6 +157,15 @@
       loop:
         - "{{ desktop_xscreensaver_conf }}"
         - "{{ desktop_xscreensaver_autostart }}"
+
+    # The locked-screen indicator that shipped with the first xsecurelock version of this
+    # role, and was dropped again the same day. Only a host that ran that version has it.
+    - name: Remove the xsecurelock locked-screen indicator
+      ansible.builtin.file:
+        path: "{{ desktop_xsecurelock_saver }}"
+        state: absent
+      become: true
+      become_user: root
 
     - name: Stat the Xresources file
       ansible.builtin.stat:
