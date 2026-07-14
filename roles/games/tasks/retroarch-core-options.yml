@@ -1,0 +1,22 @@
+---
+# The inner half of the core-options loop: retroarch.yml includes this once per core, with
+# games_retroarch_core set to that core's {key: <buildbot core name>, value: {<option>: <value>}}.
+# The file is named for what the core calls itself at runtime, which is what RetroArch looks up, so
+# the key is resolved through games_retroarch_core_library_names.
+#
+# lineinfile rather than a template, unlike the .cfg overrides: RetroArch writes every option a
+# core exposes into the .opt file, not just the ones that differ from a default, so writing it
+# whole would drop every option this role has no opinion on. create: true so a core that has never
+# been run still gets its options; retroarch.yml creates the directory.
+- name: Enforce the core options for {{ games_retroarch_core.key }}
+  ansible.builtin.lineinfile:
+    path: "{{ games_retroarch_core_config_dir }}/{{ library_name }}/{{ library_name }}.opt"
+    regexp: '^{{ item.key }} = '
+    line: '{{ item.key }} = "{{ item.value }}"'
+    create: true
+    mode: "0644"
+  loop: "{{ games_retroarch_core.value | dict2items | sort(attribute='key') }}"
+  loop_control:
+    label: "{{ item.key }}"
+  vars:
+    library_name: "{{ games_retroarch_core_library_names[games_retroarch_core.key] }}"

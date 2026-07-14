@@ -51,9 +51,10 @@
     group: root
   become: true
 
+# parental_controls.yml owns the contents: Chrome merges every file it finds here.
 - name: Create Chrome managed policies directory
   ansible.builtin.file:
-    path: /etc/opt/chrome/policies/managed
+    path: "{{ desktop_chrome_policies_dir }}"
     state: directory
     mode: "0755"
   become: true

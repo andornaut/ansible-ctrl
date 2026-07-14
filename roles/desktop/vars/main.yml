@@ -36,19 +36,51 @@ desktop_malcontent_users:
   - malcontent-timerd
   - malcontent-webd
 
+# The malcontent CLI, which parental_controls.yml looks for even when the controls are turned
+# off, to lift what an earlier run enforced.
+desktop_malcontent_client: /usr/bin/malcontent-client
+# The managed policy directory, created by chrome.yml, whose contents parental_controls.yml
+# owns: Chrome merges every file it finds there, so a stray one is policy (see that file).
+desktop_chrome_policies_dir: /etc/opt/chrome/policies/managed
+desktop_chrome_family_policy_path: "{{ desktop_chrome_policies_dir }}/family.json"
+
 # Whether any web filtering is configured for desktop_user. "none" is malcontent's own
-# spelling for the disabled filter type, so it doubles as the feature flag.
+# spelling for the disabled filter type, so it doubles as the feature flag. It cannot be true
+# without desktop_install_parental_controls: parental_controls.yml asserts the two agree.
 desktop_parental_controls_web_filter_enabled: "{{ desktop_parental_controls_web_filter_type != 'none' }}"
-# Positional arguments to `malcontent-client set-web-filter`. Lists are `id=uri` pairs and
-# individual hostnames are bare; a `~` prefix moves either onto the allow list. Order does
-# not matter to malcontent, and idempotency is decided by diffing `get-web-filter` output
-# rather than by comparing this string.
-desktop_parental_controls_web_filter_args: >-
+
+# Arguments to `malcontent-client set-app-filter`, which overwrites the whole filter, so the
+# one task both enforces and lifts it: no OARS pairs is an empty filter. The installation
+# permissions are stated either way rather than left to the command's defaults (user repository
+# allowed, system repository disallowed), because they apply whether or not a pair is given,
+# and lifting the filter has to restore the system repository that an unfiltered account has.
+desktop_parental_controls_app_filter_args: >-
+  {{ ['--allow-user-installation']
+     + (['--disallow-system-installation'] if desktop_parental_controls_oars | length > 0
+        else ['--allow-system-installation'])
+     + [desktop_user]
+     + (desktop_parental_controls_oars.items() | map('join', '=') | list) }}
+
+# The filter lists and hostnames compiled into desktop_user's web filter. Lists are `id=uri`
+# pairs and individual hostnames are bare; a `~` prefix moves either onto the allow list.
+desktop_parental_controls_web_filter_entries: >-
   {{ (desktop_parental_controls_web_block_lists.items() | map('join', '=') | list)
      + (desktop_parental_controls_web_allow_lists.items() | map('join', '=')
         | map('regex_replace', '^', '~') | list)
      + (desktop_parental_controls_web_blocked_hosts | list)
      + (desktop_parental_controls_web_allowed_hosts | map('regex_replace', '^', '~') | list) }}
+# Arguments to `malcontent-client set-web-filter`, which likewise overwrites the whole filter,
+# so the one task enforces and lifts it. A lifted filter takes the type alone: the entries are
+# what the daemon compiles into a list, and safe search is a setting of the filter rather than
+# of the list, so neither may be passed when clearing. Order does not matter to malcontent, and
+# idempotency is decided by diffing `get-web-filter` output rather than by comparing this list.
+desktop_parental_controls_web_filter_args: >-
+  {{ ['--filter-type', desktop_parental_controls_web_filter_type]
+     + (['--force-safe-search'] if desktop_parental_controls_web_filter_enabled
+        and desktop_parental_controls_web_force_safe_search else [])
+     + [desktop_user]
+     + (desktop_parental_controls_web_filter_entries
+        if desktop_parental_controls_web_filter_enabled else []) }}
 
 # Idle timeouts in the units each daemon expects: hypridle, dconf and xset all take seconds.
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"
@@ -68,27 +100,25 @@ desktop_xsecurelock_grace_seconds: "{{ [1, desktop_screen_lock_delay_seconds | i
 # reason: upstream calls a zero timeout nonsensical, since a key release wakes the screen.
 desktop_xsecurelock_blank_seconds: >-
   {{ [1, (desktop_screen_off_minutes | int - desktop_screen_lock_minutes | int) * 60] | max }}
-# Idle-suspend timeout, applied to mains and battery alike: none of the three mechanisms
-# (logind's IdleActionSec, GNOME's sleep-inactive-{ac,battery}-timeout, hypridle's listener)
-# distinguishes the power source. An unset desktop_suspend_inactive_minutes leaves the
-# host's existing suspend policy alone; 0 disables idle suspend; N suspends after N minutes.
+# Idle-suspend timeout, applied to mains and battery alike: no mechanism here distinguishes the
+# power source. An unset desktop_suspend_inactive_minutes leaves the host's existing suspend
+# policy alone; 0 disables idle suspend; N suspends after N minutes.
 desktop_suspend_inactive_managed: "{{ desktop_suspend_inactive_minutes is not none }}"
 desktop_suspend_inactive_seconds: "{{ desktop_suspend_inactive_minutes | default(0, true) | int * 60 }}"
 desktop_suspend_inactive_action: >-
   {{ (desktop_suspend_inactive_seconds | int > 0) | ternary("'suspend'", "'nothing'") }}
-# The same policy as logind reads it, for bspwm. IdleActionSec is measured from the moment the
-# session was marked idle, which is when xss-lock saw the X screensaver activate, so it gets
-# the suspend timeout less the blank timeout. Floored at a minute: the assert in idle.yml
-# rejects a suspend timeout shorter than the blank timeout, but equal ones are allowed.
+# The same policy as logind reads it, for bspwm: IdleActionSec counts from the idle hint, which
+# xss-lock sets when the screen blanks, so it gets the suspend timeout less the blank timeout
+# (README.md). The floor is a backstop the assert in idle.yml already makes unreachable.
 desktop_suspend_idle_action: >-
   {{ (desktop_suspend_inactive_seconds | int > 0) | ternary('suspend', 'ignore') }}
 desktop_suspend_idle_action_seconds: >-
   {{ [60, desktop_suspend_inactive_seconds | int - desktop_screen_blank_seconds | int] | max }}
 
-# Session configuration files that idle.yml writes. Each may be a symlink into a dotfiles
-# repository, so only modules that resolve the link themselves (blockinfile, lineinfile,
-# replace) may write them.
+# May be a symlink into a dotfiles repository, so only modules that resolve the link
+# themselves (blockinfile, lineinfile, replace) may write it.
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
+# The role's own file, which no dotfiles repository has a copy of, so it is templated.
 desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.desktop"
 
 # The session script holds the timeouts and the xsecurelock environment. It is the role's own
