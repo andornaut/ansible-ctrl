@@ -49,3 +49,13 @@
   # apt-mark prints a line per package it changes and nothing at all when there is none.
   changed_when: bspwm_xscreensaver_apt_mark.stdout | length > 0
   become: true
+
+# xterm was installed for the locked-screen indicator that the first xsecurelock version of
+# this role shipped, and it was dropped the same day. Nothing else here wants a terminal in
+# /usr/bin, and only a host that ran that version has it.
+- name: Remove xterm
+  ansible.builtin.apt:
+    name: xterm
+    state: absent
+    purge: true
+  become: true

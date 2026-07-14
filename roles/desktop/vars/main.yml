@@ -83,11 +83,9 @@ desktop_suspend_inactive_action: >-
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
 desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.desktop"
 
-# The role's own files, which no dotfiles repository shares, so these are templated. The
-# session script holds the timeouts and the xsecurelock environment; the saver is what a
-# locked screen displays.
+# The session script holds the timeouts and the xsecurelock environment. It is the role's own
+# file, shared with no dotfiles repository, so it is templated rather than written as a block.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
-desktop_xsecurelock_saver: /usr/local/bin/xsecurelock-saver
 # The PAM service xsecurelock authenticates against. It is compiled into the Ubuntu package
 # rather than configurable, and the package ships no PAM file of its own, so this names the
 # stack Ubuntu already has rather than one the role installs.
@@ -98,6 +96,7 @@ desktop_xsecurelock_pam_service: /etc/pam.d/common-auth
 desktop_xscreensaver_conf: "{{ desktop_user_home }}/.xscreensaver"
 desktop_xscreensaver_autostart: "{{ desktop_user_home }}/.config/autostart/xscreensaver.desktop"
 desktop_xresources: "{{ desktop_user_home }}/.Xresources"
+desktop_xsecurelock_saver: /usr/local/bin/xsecurelock-saver
 
 # Platform key into https://ziglang.org/download/index.json. Zig spells these with
 # the kernel architecture names that Ansible reports, so no mapping is needed here
