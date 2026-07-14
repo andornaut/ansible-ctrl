@@ -12,23 +12,19 @@ desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
 # Ansible escalates to a user it did not log in as.
 desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 
-# Apt packages supplying desktop_gtk_themes: gnome-themes-extra ships Adwaita and
-# Adwaita-dark, yaru-theme-gtk the Yaru accent themes in light and dark. Both are packaged
-# on every supported Ubuntu release.
+# Packages supplying desktop_gtk_themes: gnome-themes-extra ships Adwaita and Adwaita-dark,
+# yaru-theme-gtk the Yaru accents in light and dark.
 desktop_gtk_theme_packages:
   - gnome-themes-extra
   - yaru-theme-gtk
-# GTK has no dark switch of its own: a theme is either dark or it is not, and
-# gtk-application-prefer-dark-theme only selects the dark variant of a theme that ships one.
-# Every dark theme in desktop_gtk_themes is its own directory whose name ends in -dark, so
-# both the GTK flag and GNOME's colour scheme follow from the name.
+# Each dark theme is its own directory ending in -dark, so the name is the only dark setting
+# there is. gtk-application-prefer-dark-theme merely picks the dark variant of a theme that
+# ships one, and GNOME reads the colour scheme instead.
 desktop_gtk_theme_prefer_dark: "{{ desktop_gtk_theme.endswith('-dark') }}"
 desktop_gtk_theme_color_scheme: "{{ 'prefer-dark' if desktop_gtk_theme_prefer_dark else 'default' }}"
-# Where theme.yml copies desktop_gtk_themes so that flatpak applications can use them.
-# A sandbox cannot see the host's /usr/share/themes (flatpak refuses to share any path under
-# /usr) and its XDG_DATA_HOME points at ~/.var/app/<id>/data, but GTK also searches
-# $HOME/.themes, which is bindable, so that is the one path a theme can reach a sandbox by
-# without being packaged as an org.gtk.Gtk3theme extension.
+# The only path by which a theme reaches a flatpak sandbox short of packaging it as an
+# org.gtk.Gtk3theme extension: flatpak refuses to share /usr, and the sandbox's XDG_DATA_HOME
+# is ~/.var/app/<id>/data, but GTK also searches $HOME/.themes, which can be bound in.
 desktop_gtk_themes_dir: "{{ desktop_user_home }}/.themes"
 
 # System users malcontent's daemons run as, declared by the package in
