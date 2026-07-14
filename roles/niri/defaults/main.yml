@@ -1,4 +1,4 @@
 ---
 # Target niri user account whose per-user config (electron-flags.conf) is written.
-# Defaults to the remote user running the play; override per host.
-niri_user: "{{ ansible_facts['user_id'] }}"
+# Defaults to primary_user from the inventory; override per host.
+niri_user: "{{ primary_user }}"
