@@ -10,6 +10,11 @@
 #
 # This is system-wide where GNOME's and niri's mechanisms are per-session: logind suspends
 # only when every session on the host is idle, an ssh login included.
+#
+# IdleAction=ignore takes no timeout: logind never reads one, and writing it would state a
+# delay for an action that is not going to happen.
 [Login]
 IdleAction={{ desktop_suspend_idle_action }}
+{% if desktop_suspend_idle_action == 'suspend' %}
 IdleActionSec={{ desktop_suspend_idle_action_seconds }}
+{% endif %}

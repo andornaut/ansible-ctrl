@@ -10,6 +10,9 @@
       # mangohud is the performance overlay for native games. Flatpak games load
       # the Vulkan layer extension installed by flatpak.yml instead.
       - mangohud
+      # retroarch.yml copies the ~600MB BIOS set out of the ROM library with rsync, which
+      # compares size and mtime rather than checksumming every file across the network.
+      - rsync
       # Configures udev rules to support gamepads, etc.
       - steam-devices
     state: latest

@@ -3,10 +3,9 @@
 # in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
 # value from the variable it is derived from.
 
-# gamescope wraps games in a micro-compositor for scaling and framerate control.
-# This is a platform probe, not a preference: the apt package only exists on
-# Ubuntu >= 26.04, and forcing it true on an older release just fails the install.
-# Flatpak games use the Vulkan layer extension in games_flatpak_extensions regardless.
+# The gamescope apt package only exists on Ubuntu >= 26.04. A platform probe, not a preference:
+# forcing it true on an older release just fails the install. Flatpak games use the Vulkan layer
+# extension in games_flatpak_extensions regardless.
 games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"
 
 # Sandboxed flatpak games cannot see the host's mangohud or gamescope binaries, so the
@@ -16,26 +15,148 @@ games_flatpak_extensions:
   - org.freedesktop.Platform.VulkanLayer.MangoHud//{{ games_flatpak_runtime_branch }}
   - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
 
-# Home directory and uid of games_user, from the passwd database (the getent lookup
-# runs first in tasks/main.yml). The home builds absolute paths for the flatpak
-# grant and Heroic's config.json; the uid locates the user systemd manager runtime
-# dir (/run/user/<uid>) for the token-refresh --user timer.
+# Home directory and uid of games_user, from the passwd database (the getent lookup runs first in
+# tasks/main.yml). The home builds absolute paths; the uid locates the user systemd manager
+# runtime dir (/run/user/<uid>) for Heroic's token-refresh --user timer.
 games_user_home: "{{ ansible_facts['getent_passwd'][games_user][4] }}"
 games_user_uid: "{{ ansible_facts['getent_passwd'][games_user][1] }}"
 
-# Heroic Games Launcher flatpak application id, and its per-user config file.
-# tasks/heroic.yml enforces the install + wine-prefix paths inside config.json so
-# they cannot drift from games_heroic_dir and the flatpak grant; the token-refresh
-# template also derives its config dir from config_file.
+# Heroic Games Launcher flatpak application id, and its per-user config file. tasks/heroic.yml
+# enforces the install + wine-prefix paths inside config.json so they cannot drift from
+# games_heroic_dir and the flatpak grant.
 games_heroic_app_id: com.heroicgameslauncher.hgl
 games_heroic_config_file: "{{ games_user_home }}/.var/app/{{ games_heroic_app_id }}/config/heroic/config.json"
 
-# Lutris flatpak application id and the two candidate config directories under its
-# per-user data. Lutris (settings.py) uses XDG_CONFIG_HOME/lutris (config/lutris) but
-# falls back to XDG_DATA_HOME/lutris (data/lutris) when the former does not exist:
-#   if not os.path.exists(CONFIG_DIR): CONFIG_DIR = DATA_DIR
-# config/lutris is the deprecated location; a fresh flatpak install uses data/lutris.
-# tasks/lutris.yml mirrors this to find where system.yml (holding system.game_path) lives.
+# Lutris flatpak application id and the two candidate config directories under its per-user data.
+# Lutris (settings.py) uses XDG_CONFIG_HOME/lutris (config/lutris) but falls back to
+# XDG_DATA_HOME/lutris (data/lutris) when the former does not exist, which a fresh flatpak install
+# does. tasks/lutris.yml mirrors this to find where system.yml lives.
 games_lutris_app_id: net.lutris.Lutris
 games_lutris_config_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/config/lutris"
 games_lutris_data_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/data/lutris"
+
+# RetroArch flatpak application id, and the per-user tree it keeps everything in: cores,
+# BIOS (system/), playlists, saves, states and retroarch.cfg. The thumbnail cache is the one
+# thing it keeps outside that tree (games_retroarch_thumbnails_dir, in the library).
+games_retroarch_app_id: org.libretro.RetroArch
+games_retroarch_config_dir: "{{ games_user_home }}/.var/app/{{ games_retroarch_app_id }}/config/retroarch"
+
+# The subdirectories of that tree the role writes to. Named here rather than spelled out at each
+# use, because the tasks, the playlist generator and the *_directory keys of
+# games_retroarch_required_settings all have to point at the same place: a host that overrode
+# playlist_directory to a path the generator does not write to would find an empty playlist list.
+games_retroarch_cache_dir: "{{ games_retroarch_config_dir }}/cache"
+games_retroarch_core_config_dir: "{{ games_retroarch_config_dir }}/config"
+games_retroarch_cores_dir: "{{ games_retroarch_config_dir }}/cores"
+games_retroarch_playlists_dir: "{{ games_retroarch_config_dir }}/playlists"
+games_retroarch_system_dir: "{{ games_retroarch_config_dir }}/system"
+
+# Where the downloaded core archives are kept, which is not under RetroArch's tree: they are this
+# role's working state, not something RetroArch reads. They are kept rather than fetched to a
+# temporary directory because that is what lets get_url compare the current build against the one
+# already installed and report honestly whether a core changed (~41MB for the set).
+games_retroarch_core_archives_dir: "{{ games_user_home }}/.cache/libretro-cores"
+
+# Core metadata (<core>_libretro.info), which the playlist generator reads two fields out of:
+# display_name, for the playlist's core label, and supported_extensions, which it validates each
+# system's extensions against. RetroArch reads the same files from inside the sandbox
+# (/app/share/libretro/info); this is where a --user flatpak install exposes them on the host,
+# which is the only side the generator runs on.
+#
+# savestate_features lives here too, and is what decides whether a core can rewind or take
+# preemptive frames, but nothing reads it: games_retroarch_core_overrides records those decisions
+# by hand, and its comments give the grep.
+games_retroarch_info_dir: >-
+  {{ games_user_home }}/.local/share/flatpak/app/{{ games_retroarch_app_id
+  }}/current/active/files/share/libretro/info
+
+# The libretro buildbot names its directories after the kernel architecture (x86_64, aarch64),
+# unlike the roles that build apt repo lines and map to the Debian names.
+games_retroarch_arch: "{{ ansible_facts['architecture'] }}"
+
+# The cores the systems table calls for. Sorted so the install loop reports in a stable order, and
+# it is the same list the prune keeps: a core absent from here is a core no system can launch.
+games_retroarch_cores: "{{ games_retroarch_systems.values() | map(attribute='core') | unique | sort }}"
+
+# The cores that have an override, core options, or both. Both dicts are keyed by the buildbot core
+# name, so this is the set of directories to create under config/, once resolved through
+# games_retroarch_core_library_names.
+games_retroarch_configured_cores: >-
+  {{ (games_retroarch_core_overrides.keys() | list + games_retroarch_core_options.keys() | list)
+     | unique | sort }}
+
+# The cores already on disk, and of those the ones no system runs anymore. From the find in
+# tasks/retroarch.yml, which runs before anything is fetched: the first decides which cores have to
+# be extracted even though their archive did not change, the second what to delete, both the core and
+# the archive it came from.
+games_retroarch_installed_core_names: >-
+  {{ games_retroarch_installed_cores.files | map(attribute='path') | map('basename')
+     | map('regex_replace', '_libretro\.so$', '') | list }}
+games_retroarch_dropped_cores: "{{ games_retroarch_installed_core_names | difference(games_retroarch_cores) }}"
+
+# What the installed cores report about themselves (files/retroarch-probe-cores.py, run by
+# tasks/retroarch.yml): buildbot core name -> {library_name, valid_extensions, block_extract}. None of
+# the three is in the core's .info file, and all three are properties of the build rather than of the
+# core, so none can be written down here: two hosts on different nightlies of the PS2 core report
+# "LRPS2 (alpha)" and "LRPS2", and either name hardcoded is silently wrong on the other host.
+#
+# Only defined once that task has run. Reading it earlier is an undefined-variable error naming the
+# register, which is the right failure: there is no value that could stand in for it.
+games_retroarch_cores_probed: "{{ games_retroarch_core_probe.stdout | from_json }}"
+
+# Just the names, which is what the tasks writing config/<library_name>/ need.
+games_retroarch_core_library_names: >-
+  {{ dict(games_retroarch_cores_probed.keys()
+          | zip(games_retroarch_cores_probed.values() | map(attribute='library_name'))) }}
+
+# Only the host whose mount is writable downloads missing thumbnails; the rest read the cache it
+# fills. RetroArch defaults this on, and a host that mounts the library read-only would then retry a
+# download it can never save every time the game is scrolled past. It is derived per host, so it
+# cannot live in games_retroarch_required_settings with the static keys.
+#
+# games_retroarch_thumbnails_writable is a fact set by tasks/retroarch.yml, not a var derived here:
+# it probes the mount, so it cannot exist before that stat runs, and a var defaulting to false in the
+# meantime would silently turn the downloader off on the host that fills the cache if anything ever
+# read the settings earlier. As a fact, reading it too early is an undefined-variable error that
+# names it.
+games_retroarch_thumbnails_settings:
+  network_on_demand_thumbnails: "{{ games_retroarch_thumbnails_writable | bool | ternary('true', 'false') }}"
+
+# The retroarch.cfg keys this role enforces, in ascending order of specificity: the role's own set,
+# then the two keys that describe this host's hardware (the panel's refresh rate, the bindings of
+# whichever pad it has), then what this host's mount of the thumbnail cache allows, then any per-host
+# additions. host_vars can therefore set one key without restating a dict, and can still override a
+# controller binding.
+#
+# The refresh rate and the pad have variables of their own rather than being keys a host is expected
+# to know to put in games_retroarch_extra_settings: the role asserts both, so they are inputs, and
+# tasks/retroarch.yml asserts the pad names a known model before anything reads this, so the lookup
+# cannot miss.
+games_retroarch_settings: >-
+  {{ games_retroarch_required_settings
+     | combine({"video_refresh_rate": games_retroarch_video_refresh_rate})
+     | combine(games_retroarch_controllers[games_retroarch_controller])
+     | combine(games_retroarch_thumbnails_settings)
+     | combine(games_retroarch_extra_settings) }}
+
+# Input to files/retroarch-generate-playlists.py, passed in the environment because it carries the
+# whole systems table.
+#
+# The generator runs on the host, where a core needing a library only the flatpak runtime carries
+# would not load, so it is handed what the cores said in the sandbox rather than asking them itself:
+# valid_extensions and block_extract are what it validates each system's extensions against, and the
+# cores it could not have checked are exactly the ones whose extensions are most likely to be wrong.
+games_retroarch_generator_config:
+  library_dir: "{{ games_retroarch_library_dir }}"
+  playlist_dir: "{{ games_retroarch_playlists_dir }}"
+  cores_dir: "{{ games_retroarch_cores_dir }}"
+  info_dir: "{{ games_retroarch_info_dir }}"
+  cores: "{{ games_retroarch_cores_probed }}"
+  systems: "{{ games_retroarch_systems }}"
+
+# Input to files/retroarch-fetch-thumbnails.py. The systems table is not in it: the fetcher reads
+# the playlists the generator just wrote, which already name every system and every game, and it
+# takes the content's path from them too.
+games_retroarch_thumbnails_config:
+  playlist_dir: "{{ games_retroarch_playlists_dir }}"
+  thumbnails_dir: "{{ games_retroarch_thumbnails_dir }}"

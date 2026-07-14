@@ -1,178 +1,232 @@
 ---
-- name: Install malcontent
-  ansible.builtin.apt:
-    name: "{{ ['malcontent', 'malcontent-gui'] + (['libnss-malcontent'] if desktop_parental_controls_web_filter_enabled else []) }}"
-    state: latest
-    install_recommends: false
-  become: true
+# This file runs whether or not the controls are installed, because turning
+# desktop_install_parental_controls off has to lift what an earlier run enforced. Leaving an
+# enforced filter behind would be worse than never having set one: nothing on the host would
+# say why an application is hidden or a domain fails to resolve.
+- name: Validate the parental controls configuration
+  ansible.builtin.assert:
+    that:
+      - desktop_parental_controls_web_filter_type in ["none", "block-list", "allow-list"]
+      - desktop_install_parental_controls or desktop_parental_controls_oars | length == 0
+      - desktop_install_parental_controls or desktop_parental_controls_web_filter_type == "none"
+    fail_msg: >-
+      desktop_parental_controls_web_filter_type must be "none", "block-list" or "allow-list".
+      With desktop_install_parental_controls false this role lifts the filters an earlier run
+      set, so desktop_parental_controls_oars must be empty and the filter type "none": remove
+      the host's desktop_parental_controls_* settings rather than leave them describing a
+      policy that nothing enforces.
+    success_msg: Parental controls configuration is valid
 
-# CLEANUP (added 2026-07-09): remove once malcontent's postinst creates its own users,
-# then reconverge every host that sets desktop_install_parental_controls.
-#
-# Works around an Ubuntu packaging bug in malcontent 0.14.0-0ubuntu1.1. The package ships
-# /usr/lib/sysusers.d/malcontent-{webd,timerd,timer-extension-agent}.conf but its postinst
-# has no dh_installsysusers block, so the users are never created; compare colord, whose
-# postinst runs `systemd-sysusers colord-sysusers.conf`. The postinst then starts all five
-# units, and each daemon dies with 217/USER "Unknown user". The boot-time fallback does not
-# save it either: systemd-sysusers.service is gated on ConditionNeedsUpdate=|/etc, which
-# stays false because installing a package does not bump /usr's own mtime.
-#
-# systemd-sysusers reads those declarations and is idempotent; getent exits non-zero if any
-# of the users is absent, so a converged host runs nothing.
-- name: Check whether the malcontent service users exist
-  ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
-  register: desktop_malcontent_getent
-  changed_when: false
-  failed_when: false
+# malcontent accepts either, and both fail silently: a block list with nothing in it reports
+# that filtering is on while enforcing nothing, and an allow list with nothing in it sinkholes
+# every hostname the user looks up.
+- name: Validate the web filter entries
+  ansible.builtin.assert:
+    that:
+      - desktop_parental_controls_web_filter_type != "block-list"
+        or (desktop_parental_controls_web_block_lists | length)
+        + (desktop_parental_controls_web_blocked_hosts | length) > 0
+      - desktop_parental_controls_web_filter_type != "allow-list"
+        or (desktop_parental_controls_web_allow_lists | length)
+        + (desktop_parental_controls_web_allowed_hosts | length) > 0
+    fail_msg: >-
+      A "{{ desktop_parental_controls_web_filter_type }}" web filter with no filter lists and
+      no hostnames of its own enforces nothing if it blocks by default, and sinkholes every
+      hostname {{ desktop_user }} looks up if it allows by default. Populate
+      desktop_parental_controls_web_block_lists or _blocked_hosts (or the allow-list
+      equivalents), or set the filter type to "none".
+    success_msg: The web filter entries are valid
+  when: desktop_parental_controls_web_filter_enabled
 
-- name: Create the missing malcontent service users # noqa: command-instead-of-module
-  ansible.builtin.command: systemd-sysusers
-  when: desktop_malcontent_getent.rc != 0
-  changed_when: true
-  become: true
-
-# Each daemon claims a D-Bus name its policy grants to one of those users, and dbus
-# resolves policy users when it loads its configuration. A dbus that started before the
-# users existed rejects the claim, and the daemon exits 72/OSFILE with "Lost D-Bus name".
-- name: Reload dbus so its policies resolve the new users
-  ansible.builtin.systemd_service:
-    name: dbus.service
-    state: reloaded
-  when: desktop_malcontent_getent.rc != 0
-  become: true
-
-- name: Start the malcontent daemons now that their users exist
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: restarted
-  loop:
-    - malcontent-timerd.service
-    - malcontent-webd.service
-  when: desktop_malcontent_getent.rc != 0
-  become: true
-
-# Part of the same packaging bug: the postinst starts malcontent-webd-update alongside the
-# daemons, so on a host whose service users did not exist yet it died 217/USER. Restarting
-# the daemons does not clear it, and its own timer only fires weekly, so the unit sits
-# failed until then.
-#
-# This is not gated on the getent check above, because a host that reached that state
-# before this task existed now has its users and skips the whole workaround. The unit is a
-# oneshot with RemainAfterExit=yes and is enabled WantedBy=multi-user.target, so it is
-# active on any host where it has already succeeded, and starting it is a no-op there.
-#
-# The unit is only a D-Bus client: it calls UpdateFilters on org.freedesktop.MalcontentWeb1
-# and exits, which is why it can run under PrivateNetwork. malcontent-webd does the fetching
-# and writes /var/lib/malcontent-webd/filter-lists, one per user who has a web filter set by
-# `malcontent-client set-web-filter`. Failures land in /var/lib/malcontent-webd/update-error.
-- name: Compile the malcontent web filter lists
-  ansible.builtin.systemd_service:
-    name: malcontent-webd-update.service
-    state: started
-  become: true
-
-- name: Configure the malcontent OARS app filter for {{ desktop_user }}
-  when: desktop_parental_controls_oars | length > 0
+- name: Install parental controls
+  when: desktop_install_parental_controls
   become: true
   block:
-    - name: Read the current OARS app filter for {{ desktop_user }}
+    - name: Install malcontent
+      ansible.builtin.apt:
+        name: "{{ ['malcontent', 'malcontent-gui'] + (['libnss-malcontent'] if desktop_parental_controls_web_filter_enabled else []) }}"
+        state: latest
+        install_recommends: false
+
+    # CLEANUP (added 2026-07-09): remove this task and the three below, along with the web
+    # filter compilation that follows them, once malcontent's postinst creates its own users,
+    # then reconverge every host that sets desktop_install_parental_controls.
+    #
+    # Works around an Ubuntu packaging bug in malcontent 0.14.0-0ubuntu1.1. The package ships
+    # /usr/lib/sysusers.d/malcontent-{webd,timerd,timer-extension-agent}.conf but its postinst
+    # has no dh_installsysusers block, so the users are never created; compare colord, whose
+    # postinst runs `systemd-sysusers colord-sysusers.conf`. The postinst then starts all five
+    # units, and each daemon dies with 217/USER "Unknown user". The boot-time fallback does not
+    # save it either: systemd-sysusers.service is gated on ConditionNeedsUpdate=|/etc, which
+    # stays false because installing a package does not bump /usr's own mtime.
+    #
+    # systemd-sysusers reads those declarations and is idempotent; getent exits non-zero if any
+    # of the users is absent, so a converged host runs nothing. check_mode: false because the
+    # three tasks below read the result: skipped, it would carry no rc for them to branch on.
+    - name: Check whether the malcontent service users exist
+      ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
+      register: desktop_malcontent_getent
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: Create the missing malcontent service users # noqa: command-instead-of-module
+      ansible.builtin.command: systemd-sysusers
+      when: desktop_malcontent_getent.rc != 0
+      changed_when: true
+
+    # Each daemon claims a D-Bus name its policy grants to one of those users, and dbus
+    # resolves policy users when it loads its configuration. A dbus that started before the
+    # users existed rejects the claim, and the daemon exits 72/OSFILE with "Lost D-Bus name".
+    - name: Reload dbus so its policies resolve the new users
+      ansible.builtin.systemd_service:
+        name: dbus.service
+        state: reloaded
+      when: desktop_malcontent_getent.rc != 0
+
+    - name: Start the malcontent daemons now that their users exist
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - malcontent-timerd.service
+        - malcontent-webd.service
+      when: desktop_malcontent_getent.rc != 0
+
+    # Part of the same packaging bug: the postinst starts malcontent-webd-update alongside the
+    # daemons, so on a host whose service users did not exist yet it died 217/USER. Restarting
+    # the daemons does not clear it, and its own timer only fires weekly, so the unit sits
+    # failed until then.
+    #
+    # This is not gated on the getent check above, because a host that reached that state
+    # before this task existed now has its users and skips the whole workaround. The unit is a
+    # oneshot with RemainAfterExit=yes and is enabled WantedBy=multi-user.target, so it is
+    # active on any host where it has already succeeded, and starting it is a no-op there.
+    #
+    # The unit is only a D-Bus client: it calls UpdateFilters on org.freedesktop.MalcontentWeb1
+    # and exits, which is why it can run under PrivateNetwork. malcontent-webd does the fetching
+    # and writes /var/lib/malcontent-webd/filter-lists, one per user who has a web filter set by
+    # `malcontent-client set-web-filter`. Failures land in /var/lib/malcontent-webd/update-error.
+    - name: Compile the malcontent web filter lists
+      ansible.builtin.systemd_service:
+        name: malcontent-webd-update.service
+        state: started
+
+    - name: Deploy Chrome family policy
+      ansible.builtin.copy:
+        content: "{{ desktop_chrome_family_policies | to_nice_json }}\n"
+        dest: "{{ desktop_chrome_family_policy_path }}"
+        mode: "0644"
+
+    # Web filtering. malcontent enforces it in the name service switch rather than in the
+    # browser: nss-malcontent sinkholes a blocked hostname for the users that have a compiled
+    # filter list, and defers to the next module for everyone else. So the nsswitch edit is
+    # system-wide while the policy stays per-user, and it is left in place when the filter is
+    # lifted: with no compiled list the module defers on every lookup.
+    - name: Insert the malcontent NSS module into the hosts lookup chain
+      when: desktop_parental_controls_web_filter_enabled
+      block:
+        # The module has to see a name before the resolvers that would answer it, so it goes
+        # directly after `files`. The negative lookahead makes a second run match nothing,
+        # which is what keeps this idempotent; `replace` would otherwise insert on every run.
+        - name: Add malcontent to the hosts lookup chain
+          ansible.builtin.replace:
+            path: /etc/nsswitch.conf
+            regexp: '^(hosts:\s+files)(?!\s+malcontent\b)(\s.*)$'
+            replace: '\1 malcontent\2'
+
+        # A hosts line that does not begin with `files` matches nothing above, and `replace`
+        # reports no change rather than failing. Left alone that silently disables filtering,
+        # so read the line back instead of trusting the substitution.
+        - name: Read back the hosts lookup chain
+          ansible.builtin.slurp:
+            src: /etc/nsswitch.conf
+          register: desktop_nsswitch
+
+        - name: Assert that the malcontent NSS module is in the hosts lookup chain
+          ansible.builtin.assert:
+            that:
+              - desktop_nsswitch.content | b64decode is search('^hosts:\s+files\s+malcontent\s', multiline=True)
+            fail_msg: >-
+              The hosts line in /etc/nsswitch.conf does not start with `files malcontent`.
+              nss-malcontent must precede the resolvers that would answer a blocked name.
+            success_msg: nss-malcontent precedes the resolvers in the hosts lookup chain
+
+# Chrome enumerates every file in the managed policy directory, whatever it is named, sorts them
+# by name and merges them, later files winning. A family.json.bak beside family.json is
+# therefore not a backup but a second policy, and one that outranks the file it was copied from.
+# So the role owns the directory rather than the one file: anything it did not deploy is swept,
+# which is also how the policy is lifted, since with the controls turned off there is nothing it
+# deploys. (The malcontent packages are not removed to match: without a filter they enforce
+# nothing, and libnss-malcontent has to outlive the nsswitch entry above.)
+#
+# find reports no files rather than failing when the directory does not exist, which is the case
+# on a host whose Chrome install chrome.yml has not reached yet.
+- name: Find Chrome managed policies the role did not deploy
+  ansible.builtin.find:
+    paths: "{{ desktop_chrome_policies_dir }}"
+    excludes: "{{ ['family.json'] if desktop_install_parental_controls else [] }}"
+  register: desktop_chrome_policies_found
+
+- name: Remove Chrome managed policies the role did not deploy
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ desktop_chrome_policies_found.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true
+
+# The filters are state held by malcontent's daemons rather than files, so enforcing one and
+# lifting it are the same operation: set-app-filter and set-web-filter overwrite the whole
+# filter, and an empty filter is how it is cleared. Both argument lists are derived from the
+# feature settings in vars/main.yml, so these tasks need no branch of their own. They are
+# guarded on the client being installed, because a host that never enabled the controls has
+# nothing to clear and no command with which to clear it.
+- name: Check whether the malcontent client is installed
+  ansible.builtin.stat:
+    path: "{{ desktop_malcontent_client }}"
+  register: desktop_malcontent_client_stat
+
+- name: Apply the malcontent filters for {{ desktop_user }}
+  when: desktop_malcontent_client_stat.stat.exists
+  become: true
+  block:
+    - name: Read the current app filter for {{ desktop_user }}
       ansible.builtin.command: malcontent-client get-app-filter --no-interactive {{ desktop_user }}
       register: desktop_app_filter_before
       changed_when: false
 
-    # set-app-filter overwrites the whole filter, so it is safe to run every time and reports
-    # nothing useful about whether anything moved. Reading the filter either side of it is what
-    # decides, the same shape as the web filter below. The alternative, comparing the OARS dict
-    # against the command's prose output, would mean parsing it.
-    - name: Set the OARS app filter for {{ desktop_user }}
+    # set-app-filter reports nothing useful about whether anything moved. Reading the filter
+    # either side of it is what decides, the same shape as the web filter below. The
+    # alternative, comparing the OARS dict against the command's prose output, would mean
+    # parsing it.
+    - name: Set the app filter for {{ desktop_user }}
       ansible.builtin.command: >-
-        malcontent-client set-app-filter --no-interactive {{ desktop_user }}
-        {{ desktop_parental_controls_oars.items() | map('join', '=') | join(' ') }}
+        malcontent-client set-app-filter --no-interactive
+        {{ desktop_parental_controls_app_filter_args | join(' ') }}
       changed_when: false
 
-    - name: Report whether the OARS app filter moved
+    - name: Report whether the app filter moved
       ansible.builtin.command: malcontent-client get-app-filter --no-interactive {{ desktop_user }}
       register: desktop_app_filter_after
       changed_when: desktop_app_filter_after.stdout != desktop_app_filter_before.stdout
-
-- name: Deploy Chrome family policy
-  ansible.builtin.copy:
-    content: "{{ desktop_chrome_family_policies | to_nice_json }}\n"
-    dest: /etc/opt/chrome/policies/managed/family.json
-    mode: "0644"
-  become: true
-
-# Web filtering. malcontent enforces it in the name service switch rather than in the
-# browser: nss-malcontent sinkholes a blocked hostname for the users that have a compiled
-# filter list, and defers to the next module for everyone else. So the nsswitch edit is
-# system-wide while the policy stays per-user.
-- name: Configure malcontent web filtering for {{ desktop_user }}
-  when: desktop_parental_controls_web_filter_enabled
-  become: true
-  block:
-    # The module has to see a name before the resolvers that would answer it, so it goes
-    # directly after `files`. The negative lookahead makes a second run match nothing,
-    # which is what keeps this idempotent; `replace` would otherwise insert on every run.
-    - name: Insert the malcontent NSS module into the hosts lookup chain
-      ansible.builtin.replace:
-        path: /etc/nsswitch.conf
-        regexp: '^(hosts:\s+files)(?!\s+malcontent\b)(\s.*)$'
-        replace: '\1 malcontent\2'
-
-    # A hosts line that does not begin with `files` matches nothing above, and `replace`
-    # reports no change rather than failing. Left alone that silently disables filtering,
-    # so read the line back instead of trusting the substitution.
-    - name: Read back the hosts lookup chain
-      ansible.builtin.slurp:
-        src: /etc/nsswitch.conf
-      register: desktop_nsswitch
-
-    - name: Assert that the malcontent NSS module is in the hosts lookup chain
-      ansible.builtin.assert:
-        that:
-          - desktop_nsswitch.content | b64decode is search('^hosts:\s+files\s+malcontent\s', multiline=True)
-        fail_msg: >-
-          The hosts line in /etc/nsswitch.conf does not start with `files malcontent`.
-          nss-malcontent must precede the resolvers that would answer a blocked name.
-        success_msg: nss-malcontent precedes the resolvers in the hosts lookup chain
 
     - name: Read the current web filter for {{ desktop_user }}
       ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
       register: desktop_web_filter_before
       changed_when: false
 
-    # set-web-filter overwrites the whole filter, so it is safe to run every time and
-    # reports nothing useful about whether anything moved. The re-read below is what
-    # decides, because recompiling means downloading every filter list again.
     - name: Set the web filter for {{ desktop_user }}
       ansible.builtin.command: >-
         malcontent-client set-web-filter --no-interactive
-        --filter-type {{ desktop_parental_controls_web_filter_type }}
-        {{ '--force-safe-search' if desktop_parental_controls_web_force_safe_search else '' }}
-        {{ desktop_user }} {{ desktop_parental_controls_web_filter_args | join(' ') }}
+        {{ desktop_parental_controls_web_filter_args | join(' ') }}
       changed_when: false
 
+    # The re-read is what decides, because recompiling means downloading every filter list
+    # again. Clearing the filter fires the handler too: it is what drops the compiled list.
     - name: Recompile the filter lists if the web filter moved
       ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
       register: desktop_web_filter_after
       changed_when: desktop_web_filter_after.stdout != desktop_web_filter_before.stdout
       notify: Recompile the malcontent web filter lists
-
-# Leaving an enforced filter behind after the flag is turned off would be worse than never
-# having set one, because nothing on the host would say why a domain fails to resolve. The
-# nsswitch entry is left in place: with no compiled list the module defers on every lookup.
-- name: Disable malcontent web filtering for {{ desktop_user }}
-  when: not desktop_parental_controls_web_filter_enabled
-  become: true
-  block:
-    - name: Read the current web filter for {{ desktop_user }}
-      ansible.builtin.command: malcontent-client get-web-filter --no-interactive {{ desktop_user }}
-      register: desktop_web_filter_current
-      changed_when: false
-
-    - name: Clear the web filter for {{ desktop_user }}
-      ansible.builtin.command: >-
-        malcontent-client set-web-filter --no-interactive --filter-type none {{ desktop_user }}
-      changed_when: true
-      notify: Recompile the malcontent web filter lists
-      when: "'not enabled' not in desktop_web_filter_current.stdout"

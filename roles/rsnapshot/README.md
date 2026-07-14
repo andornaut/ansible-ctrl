@@ -12,12 +12,12 @@ make rsnapshot
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `rsnapshot_hosts` | `[]` | Hosts, directories, and backup scripts to snapshot. Required |
-| `rsnapshot_directory` | `/var/backups/rsnapshot/` | Snapshot root |
-| `rsnapshot_retention` | 7 daily, 4 weekly, 12 monthly | Snapshots kept per interval. A null value omits both the `retain` line and the cron job |
-| `rsnapshot_sudo` | `false` | Run the remote rsync via `sudo`, for directories the SSH user cannot read |
+| Variable | Purpose |
+| --- | --- |
+| `rsnapshot_hosts` | Hosts, directories, and backup scripts to snapshot. Required |
+| `rsnapshot_directory` | Snapshot root |
+| `rsnapshot_retention` | Snapshots kept per interval. A null value omits both the `retain` line and the cron job |
+| `rsnapshot_sudo` | Run the remote rsync via `sudo`, for directories the SSH user cannot read |
 
 Each entry in `rsnapshot_hosts` takes a `name`, an optional `local` and `user`, a list of `directories` (trailing
 slash required by rsnapshot), and a list of `scripts`.
@@ -43,8 +43,8 @@ rsnapshot_retention:
 ## Notes
 
 - Backups run from cron as root, one job per retention interval.
-- Remote hosts are pulled over SSH. Hosts marked `local: true`, or named `localhost`, are read from the
-  filesystem directly.
+- Remote hosts are pulled over SSH. Hosts marked `local: true`, or named `localhost`, are read from the filesystem
+  directly.
 - `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as scripts.
 - Snapshots are stored under `rsnapshot_directory` as `{interval}.{n}/`, where `.0` is the most recent.
   Directories land in `{host}/` and script output in `{host}_{script}/`.
