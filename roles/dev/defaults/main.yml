@@ -1,7 +1,7 @@
 ---
 # Target dev user account that user-level tools (Claude Code, agy, ai-maintainer)
-# install for. Defaults to the remote user running the play; override per host.
-dev_user: "{{ ansible_facts['user_id'] }}"
+# install for. Defaults to primary_user from the inventory; override per host.
+dev_user: "{{ primary_user }}"
 
 # VirtualBox and its DKMS kernel modules. Secure Boot refuses to load those
 # modules unless the machine owner key is enrolled, so enable this only on

@@ -157,12 +157,12 @@ desktop_parental_controls_web_allowed_hosts: []
 # Force safe search in the search engines malcontent knows how to rewrite.
 desktop_parental_controls_web_force_safe_search: true
 
-# Target desktop user account. Defaults to the remote user running the play;
+# Target desktop user account. Defaults to primary_user from the inventory;
 # override per host. This is NOT applied to every task in the role: only the
 # few that must act as a specific user (flatpak method:user
 # installs via become_user) or read from that user's home use it. It is not a
 # blanket privilege-escalation setting.
-desktop_user: "{{ ansible_facts['user_id'] }}"
+desktop_user: "{{ primary_user }}"
 
 # Apt packages to replace with flatpak equivalents
 desktop_flatpak_replacements:

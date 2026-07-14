@@ -1,4 +1,22 @@
 ---
+# desktop_user names the account this role's user-scoped tasks act on, so a wrong value acts
+# on the wrong account. It used to default to ansible_facts["user_id"], which is whoever
+# ansible happens to be running as on the target, and so became root whenever ansible itself
+# ran as root, as the nightly cert-renewal cron does. It now defaults to primary_user, which
+# is inventory data and does not depend on the invocation. This assert is the backstop.
+# tags: always so a --tags run cannot skip it.
+- name: Validate desktop_user
+  ansible.builtin.assert:
+    that:
+      - desktop_user != "root"
+    fail_msg: >-
+      desktop_user resolved to "root", which would write user-scoped state to /root.
+      Set primary_user in the inventory (or desktop_user in host_vars) to the target
+      account. If ansible was run as root and a stale fact cache is to blame, clear
+      .ansible/fact_cache/.
+    success_msg: 'desktop_user "{{ desktop_user }}" is valid'
+  tags: always
+
 - name: Resolve home directory for {{ desktop_user }}
   ansible.builtin.getent:
     database: passwd
