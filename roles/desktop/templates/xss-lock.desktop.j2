@@ -1,0 +1,9 @@
+[Desktop Entry]
+# Managed by the desktop role (tasks/idle.yml). Started by `dex --autostart` in the bspwm
+# session. The script it runs sets the idle timeouts with xset and then execs xss-lock, so
+# there is nothing to reload: changing the timeouts takes effect at the next login.
+Exec={{ desktop_xsecurelock_session }}
+TryExec={{ desktop_xsecurelock_session }}
+Name=xss-lock
+Comment=Blank, lock and power down an idle X session
+Type=Application

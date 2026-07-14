@@ -1,12 +1,12 @@
 ---
-# X11 tools that have a true Wayland replacement in the niri role: scrot -> grim and
-# slurp, xscreensaver -> hypridle and hyprlock, xbacklight -> brightnessctl. The X11 tools
-# that both sessions use (niri runs them as XWayland clients) are installed by the desktop
-# role's apt_tiling.yml, and xdotool by its apt.yml.
+# X11 tools that have a true Wayland replacement in the niri role: scrot -> grim and slurp,
+# xsecurelock and xss-lock -> hypridle and hyprlock, xbacklight -> brightnessctl. The X11
+# tools that both sessions use (niri runs them as XWayland clients) are installed by the
+# desktop role's apt_tiling.yml, and xdotool by its apt.yml.
 #
-# xscreensaver blanks, locks and powers down the display on its own timers, which the
-# desktop role writes to ~/.xscreensaver. It is built from source by xscreensaver.yml
-# rather than installed here, because Ubuntu ships a build from October 2023.
+# xss-lock watches the X screensaver extension and logind and starts xsecurelock on either,
+# while the X server itself blanks the screen and powers the monitor down. The desktop role
+# writes all three timeouts into the session script that starts xss-lock.
 - name: Install X11 system packages and build dependencies
   ansible.builtin.apt:
     name:
@@ -22,6 +22,12 @@
       - scrot
       - xbacklight
       - xorg
+      - xsecurelock
+      # Nothing but the locked-screen indicator uses xterm, and only as a drawing surface:
+      # -into reparents it into the window xsecurelock hands to its saver module, which no
+      # other X client installed here can do. See the desktop role's xsecurelock-saver.j2.
+      - xterm
+      - xss-lock
       # Build dependencies for the projects in bspwm_projects, which are
       # compiled from source by bspwm.yml.
       - libasound2-dev

@@ -42,14 +42,18 @@ desktop_zig_mirror: https://ziglang.freetls.fastly.net
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# What xscreensaver draws once a bspwm session blanks, written as its `mode` resource.
-# "blank" is a black screen; "random" runs the screen hacks, some of which display images
-# from the user's home directory. The hacks are not built, so only "blank" works.
-desktop_xscreensaver_mode: blank
-# Colour scheme for xscreensaver's unlock dialog, one of the themes compiled into
-# xscreensaver-auth: aquablack, blue, borderless, borderlessblack, darkgray, default,
-# greenblack, white, wine. "default" is the light grey one with 3D bevels.
-desktop_xscreensaver_dialog_theme: borderlessblack
+# Appearance of the xsecurelock unlock prompt on a bspwm session. The prompt is what the
+# password field echoes as it is typed: "asterisks" (one per character, so the length is
+# visible), "cursor" (a block that stays put), "time" or "disco". The colours are X11 colour
+# names or #rrggbb, and the font is an Xft pattern.
+desktop_xsecurelock_password_prompt: asterisks
+desktop_xsecurelock_background_color: "#000000"
+desktop_xsecurelock_foreground_color: "#cccccc"
+desktop_xsecurelock_font: Hack
+# Whether a locked screen says so, rather than being black like a blanked one. Only the
+# locked screen has grabbed the keyboard, and the two must be told apart before typing a
+# password into either. See the notes in README.md.
+desktop_xsecurelock_show_locked_indicator: true
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables
