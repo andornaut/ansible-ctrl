@@ -22,7 +22,9 @@ XSECURELOCK_AUTH_BACKGROUND_COLOR='{{ desktop_xsecurelock_background_color }}'
 XSECURELOCK_AUTH_FOREGROUND_COLOR='{{ desktop_xsecurelock_foreground_color }}'
 XSECURELOCK_FONT='{{ desktop_xsecurelock_font }}'
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
-XSECURELOCK_SHOW_DATETIME=1
+# The prompt is the username and the password field, nothing else: the date, the time and the
+# hostname are all things the person typing already knows.
+XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
 # xsecurelock powers the monitor down on a clock of its own, which starts when it locks, so
 # this is what is left of the power-off timeout once the lock timeout has elapsed. Without it
