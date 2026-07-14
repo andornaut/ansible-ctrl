@@ -1,4 +1,22 @@
 ---
+# games_user names the account this role's user-scoped tasks act on, so a wrong value acts
+# on the wrong account. It used to default to ansible_facts["user_id"], which is whoever
+# ansible happens to be running as on the target, and so became root whenever ansible itself
+# ran as root, as the nightly cert-renewal cron does. It now defaults to primary_user, which
+# is inventory data and does not depend on the invocation. This assert is the backstop.
+# tags: always so a --tags run cannot skip it.
+- name: Validate games_user
+  ansible.builtin.assert:
+    that:
+      - games_user != "root"
+    fail_msg: >-
+      games_user resolved to "root", which would write user-scoped state to /root.
+      Set primary_user in the inventory (or games_user in host_vars) to the target
+      account. If ansible was run as root and a stale fact cache is to blame, clear
+      .ansible/fact_cache/.
+    success_msg: 'games_user "{{ games_user }}" is valid'
+  tags: always
+
 # Populates ansible_facts['getent_passwd'][games_user] so games_user_home (and the
 # paths derived from it) resolve. tags: always so it still runs under --tags
 # flatpak/heroic, both of which depend on games_user_home.

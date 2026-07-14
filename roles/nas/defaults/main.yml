@@ -15,5 +15,5 @@ nas_raid_fs_type: btrfs
 nas_raid_group: root
 nas_raid_mount_directory: /media/nas
 # Account whose home directory holds the LUKS key file (see nas_key_file).
-# Defaults to the remote user running the play; override per host.
-nas_user: "{{ ansible_facts['user_id'] }}"
+# Defaults to primary_user from the inventory; override per host.
+nas_user: "{{ primary_user }}"

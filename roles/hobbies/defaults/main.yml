@@ -1,9 +1,9 @@
 ---
-# Target hobbies user account. Defaults to the remote user running the play;
+# Target hobbies user account. Defaults to primary_user from the inventory;
 # override per host. Used to run per-user flatpak installs (OrcaSlicer) via
 # become_user (method: user, never root) and to derive hobbies_user_home. Not a
 # blanket privilege-escalation setting.
-hobbies_user: "{{ ansible_facts['user_id'] }}"
+hobbies_user: "{{ primary_user }}"
 
 # KiCad major version. Selects the release PPA (ppa:kicad/kicad-{version}-releases)
 # and the per-user plugin directory (~/.local/share/kicad/{version}/scripting/plugins).
