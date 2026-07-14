@@ -40,3 +40,11 @@
     - configuration
     - letsencrypt
     - nginx
+
+# Tagged letsencrypt so that the nightly run, which passes --tags letsencrypt, reconciles the
+# very cron job that launched it.
+- name: Configure certificate renewal
+  ansible.builtin.import_tasks: cron.yml
+  tags:
+    - cron
+    - letsencrypt

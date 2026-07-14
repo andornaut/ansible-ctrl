@@ -57,7 +57,8 @@
             method: user
 
         - name: Configure cursor theme for flatpak applications
-          ansible.builtin.command: flatpak override --user --env=XCURSOR_THEME=Adwaita {{ item }}
+          ansible.builtin.command: >-
+            flatpak override --user --env=XCURSOR_THEME={{ desktop_cursor_theme | quote }} {{ item }}
           loop: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
           changed_when: true
 
