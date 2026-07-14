@@ -11,13 +11,14 @@
 # script this writes: the X server blanks and powers down on `xset s`/`xset dpms`, and
 # xss-lock starts xsecurelock one `xset s` cycle after the blank.
 #
-# The config files may be symlinks into a dotfiles repo, which rules out template/copy:
-# their no-op path re-runs the file module against the resolved target, and a repo tree
-# under a `$HOME`-named directory is corrupted when the file module expands that path.
-# blockinfile, lineinfile and replace write through the link instead, so the role renders
-# into managed blocks. A dangling link is unresolvable, so idle_check_dotfile.yml fails on
-# one first. The session script is the role's own file under /usr/local, not a dotfile, so it
-# is templated.
+# A config file that may be a symlink into a dotfiles repo rules out template/copy: their
+# no-op path re-runs the file module against the resolved target, and a repo tree under a
+# `$HOME`-named directory is corrupted when the file module expands that path. blockinfile,
+# lineinfile and replace write through the link instead, so the role renders into managed
+# blocks. A dangling link is unresolvable, so idle_check_dotfile.yml fails on one first. That
+# applies to hypridle.conf (and to the .Xresources block the cleanup below removes). The
+# session script and the xss-lock autostart entry are the role's own files, which no dotfiles
+# repo has a copy of, so they are templated.
 
 - name: Validate idle timeouts
   ansible.builtin.assert:
@@ -125,9 +126,11 @@
 # CLEANUP (added 2026-07-14): remove once every bspwm host in the desktop group has run this
 # role. Undoes the xscreensaver configuration that xsecurelock replaced.
 #
-# The preferences and the autostart entry were the role's own files, so both go. .Xresources
-# is a shared dotfile that the role only ever appended to, so only the managed block goes;
-# removing the file would take the session's colours and fonts with it.
+# The autostart entry was the role's own file, and the preferences file holds nothing but
+# settings for a program that is now purged, so both go; on a host where either is a dotfiles
+# symlink, the file module unlinks the link and leaves the repository copy. .Xresources is a
+# shared dotfile that the role only ever appended to, so only the managed block goes; removing
+# the file would take the session's colours and fonts with it.
 - name: Remove the xscreensaver configuration
   when: desktop_environment == "bspwm"
   become: true
@@ -150,13 +153,13 @@
       become: true
       become_user: root
 
-    - name: Stat the Xresources file
-      ansible.builtin.stat:
-        path: "{{ desktop_xresources }}"
-      register: desktop_xresources_stat
+    - name: Check the Xresources file
+      ansible.builtin.include_tasks: idle_check_dotfile.yml
+      vars:
+        idle_dotfile_path: "{{ desktop_xresources }}"
 
     - name: Remove the xscreensaver unlock dialog block
-      when: desktop_xresources_stat.stat.exists
+      when: desktop_idle_dotfile_exists
       ansible.builtin.blockinfile:
         path: "{{ desktop_xresources }}"
         marker: "! {mark} ANSIBLE MANAGED BLOCK"
@@ -179,11 +182,16 @@
 
     # CLEANUP (added 2026-07-09): remove once every niri desktop host has run this role.
     # Converts a fully-templated hypridle.conf (pre-managed-block) into managed-block form.
+    #
+    # The lookahead matches the whole file only while it carries no marker anywhere, so the
+    # conversion happens once and a later hand-edit above or below the block is left alone.
+    # Anchoring the lookahead at the start instead would empty the file (block and edit both)
+    # the next time anything preceded the marker.
     - name: Empty the templated hypridle configuration
       when: desktop_idle_dotfile_exists
       ansible.builtin.replace:
         path: "{{ desktop_hypridle_conf }}"
-        regexp: '\A(?!# BEGIN ANSIBLE MANAGED BLOCK)[\s\S]+\Z'
+        regexp: '\A(?![\s\S]*# BEGIN ANSIBLE MANAGED BLOCK)[\s\S]+\Z'
         replace: ''
 
     # eww closes all of its windows when the monitor it is on is powered off, so the
@@ -212,17 +220,20 @@
   become: true
   block:
     # The drop-in gets the suspend timeout less the blank timeout, because logind counts from
-    # the idle hint rather than from the last input, so a suspend timeout shorter than the
-    # blank timeout has no sensible value to render.
+    # the idle hint rather than from the last input. A suspend timeout that does not outlast
+    # the blank timeout has no value to render: the difference is zero or negative, and logind
+    # reads IdleActionSec=0 as "no idle action" and would not suspend at all. Rejected rather
+    # than floored, so that the host suspends desktop_suspend_inactive_minutes after the last
+    # input exactly, as it does under the other two desktops.
     - name: Assert that idle suspend outlasts screen blanking
       ansible.builtin.assert:
         that:
           - desktop_suspend_inactive_minutes | int == 0
-            or desktop_suspend_inactive_minutes | int >= desktop_screen_blank_minutes | int
+            or desktop_suspend_inactive_minutes | int > desktop_screen_blank_minutes | int
         fail_msg: >-
           desktop_suspend_inactive_minutes ({{ desktop_suspend_inactive_minutes }}) must be 0
-          or at least desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}) on a
-          bspwm host: logind starts counting when xss-lock marks the session idle, which is
+          or greater than desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}) on
+          a bspwm host: logind starts counting when xss-lock marks the session idle, which is
           when the screen blanks.
         success_msg: >-
           {{ (desktop_suspend_inactive_minutes | int > 0)
@@ -244,4 +255,35 @@
         owner: root
         group: root
         mode: "0644"
+      notify: Reload systemd-logind
+
+# Not a one-shot migration: this is the bspwm mechanism's off switch, and it stays. A host that
+# changes desktop_environment away from bspwm keeps whatever an earlier run wrote, and the
+# logind drop-in is not inert like the other two (which only an X session reads): logind
+# applies it to every session on the host, so a niri or GNOME host would keep suspending to a
+# policy nothing manages any more, on top of the one its own desktop sets.
+#
+# The hypridle block has no such switch, and needs none: hypridle is built by the niri role and
+# runs nowhere else, so its configuration is dead text under bspwm or GNOME, and hypridle.conf
+# may be a shared dotfile that removing the block from would take the niri hosts' policy with.
+- name: Remove the bspwm idle configuration
+  when: desktop_environment != "bspwm"
+  become: true
+  block:
+    - name: Remove the xsecurelock session script
+      ansible.builtin.file:
+        path: "{{ desktop_xsecurelock_session }}"
+        state: absent
+
+    - name: Remove the xss-lock autostart entry
+      ansible.builtin.file:
+        path: "{{ desktop_xss_lock_autostart }}"
+        state: absent
+      become: true
+      become_user: "{{ desktop_user }}"
+
+    - name: Remove the logind idle action
+      ansible.builtin.file:
+        path: "{{ desktop_logind_idle_action_conf }}"
+        state: absent
       notify: Reload systemd-logind

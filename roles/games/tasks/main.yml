@@ -1,10 +1,7 @@
 ---
-# games_user names the account this role's user-scoped tasks act on, so a wrong value acts
-# on the wrong account. It used to default to ansible_facts["user_id"], which is whoever
-# ansible happens to be running as on the target, and so became root whenever ansible itself
-# ran as root, as the nightly cert-renewal cron does. It now defaults to primary_user, which
-# is inventory data and does not depend on the invocation. This assert is the backstop.
-# tags: always so a --tags run cannot skip it.
+# Backstop against games_user resolving to root, which would write user-scoped state to /root.
+# It defaults to primary_user (inventory data) rather than to a fact describing whoever ansible
+# runs as. tags: always so a --tags run cannot skip it.
 - name: Validate games_user
   ansible.builtin.assert:
     that:
@@ -15,6 +12,22 @@
       account. If ansible was run as root and a stale fact cache is to blame, clear
       .ansible/fact_cache/.
     success_msg: 'games_user "{{ games_user }}" is valid'
+  tags: always
+
+# The ROM library path is site data, so it has no default and host_vars/ must set it. Asserted
+# rather than left to fail on its own: the first thing to dereference it is a flatpak override
+# argument, whose undefined-variable error names neither the role nor the fix. tags: always so a
+# --tags run cannot skip it.
+- name: Validate games_retroarch_library_dir
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_library_dir is defined
+      - games_retroarch_library_dir | length > 0
+    fail_msg: >-
+      games_retroarch_library_dir is not set. It is the path this host mounts the ROM
+      library at, which is site-specific, so the role has no default for it. Set it in
+      host_vars/ for this host.
+    success_msg: 'games_retroarch_library_dir "{{ games_retroarch_library_dir | default("") }}" is set'
   tags: always
 
 # Populates ansible_facts['getent_passwd'][games_user] so games_user_home (and the
@@ -45,3 +58,9 @@
   become: true
   become_user: "{{ games_user }}"
   tags: lutris
+
+- name: Configure RetroArch
+  ansible.builtin.import_tasks: retroarch.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: retroarch

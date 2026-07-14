@@ -12,11 +12,11 @@ ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 	@:
 
 PLAYBOOKS := base desktop dev docker games hobbies homeautomation \
-             msmtp nas ai_maintainer rsnapshot upgrade webservers
+             msmtp nas rsnapshot upgrade webservers
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean requirements $(PLAYBOOKS)
+.PHONY: help clean requirements ai_maintainer $(PLAYBOOKS)
 
 help:
 	@echo "Available targets:"
@@ -25,7 +25,6 @@ help:
 	@echo "  requirements          - Install required Ansible roles and collections"
 	@echo ""
 	@echo "Playbook targets:"
-	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
 	@echo "  base                  - Configure base system"
 	@echo "  desktop               - Configure desktop environment"
 	@echo "  dev                   - Configure development tools"
@@ -39,6 +38,10 @@ help:
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
 	@echo ""
+	@echo "Tag targets:"
+	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
+	@echo "                          (dev.yml --tags ai_maintainer; there is no ai_maintainer role)"
+	@echo ""
 	@echo "Forward extra ansible-playbook arguments after --, e.g.:"
 	@echo "  make desktop -- --limit tron --tags alacritty"
 
@@ -51,3 +54,7 @@ requirements:
 
 $(PLAYBOOKS): %: requirements
 	ansible-playbook --ask-become-pass $*.yml $(ARGS)
+
+# A tag in the dev role, gated on the ai_maintainer group, rather than a playbook of its own.
+ai_maintainer: requirements
+	ansible-playbook --ask-become-pass dev.yml --tags ai_maintainer $(ARGS)

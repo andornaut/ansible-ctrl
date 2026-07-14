@@ -22,26 +22,22 @@ games_flatpak_apps:
 # uninstall it first.
 games_flatpak_runtime_branch: "25.08"
 
-# Base directory for Heroic's game installs and wine prefixes. Kept under a
-# per-launcher subdir of ~/.local/games so Heroic, Lutris and Steam installs do
-# not collide. The Heroic flatpak is granted access to exactly this path in
-# games_flatpak_overrides, and the same path is written into Heroic's config.json
-# by tasks/heroic.yml. Games installed outside a granted path show as "not
-# available" ("game folder appears to have moved") because the sandbox, which can
-# only stat paths it is granted, cannot see them.
+# Base directory for Heroic's game installs and wine prefixes. Kept under a per-launcher subdir of
+# ~/.local/games so Heroic, Lutris and Steam installs do not collide. The Heroic flatpak is granted
+# access to exactly this path in games_flatpak_overrides, and the same path is written into
+# Heroic's config.json by tasks/heroic.yml: games installed outside a granted path show as "not
+# available", because the sandbox can only stat paths it is granted.
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
-# Base directory for Lutris's game installs, kept under its own ~/.local/games subdir
-# like Heroic (see games_heroic_dir). Written into Lutris's system.yml as
-# system.game_path by tasks/lutris.yml. No flatpak override is needed here: the Lutris
-# flatpak already ships `home` filesystem access (Heroic does not, hence its grant).
+# Base directory for Lutris's game installs, kept under its own ~/.local/games subdir like Heroic.
+# Written into Lutris's system.yml as system.game_path by tasks/lutris.yml. No flatpak override is
+# needed: the Lutris flatpak already ships `home` filesystem access (Heroic does not).
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
-# How often the token-refresh --user timer (in tasks/heroic.yml) exercises the Epic
-# (legendary) and GOG (gogdl) OAuth refresh tokens so the Heroic store logins do not
-# lapse while Heroic is closed. A systemd OnUnitActiveSec value (validated with
-# systemd-analyze). Kept under the hosts' 4h idle-suspend threshold so a refresh
-# lands before the machine suspends.
+# How often the token-refresh --user timer (tasks/heroic.yml) exercises the Epic (legendary) and
+# GOG (gogdl) OAuth refresh tokens, so the Heroic store logins do not lapse while Heroic is closed.
+# A systemd OnUnitActiveSec value (validate with systemd-analyze). Kept under the hosts' 4h
+# idle-suspend threshold so a refresh lands before the machine suspends.
 games_heroic_token_refresh_interval: "3h"
 
 # Cursor theme for the flatpak applications this role installs, which cannot see the host's
@@ -67,3 +63,479 @@ games_flatpak_overrides:
     # #4843); this undocumented env var is the only lever, and is what Linux Mint ships
     # in its steam.desktop. Best-effort: some clients ignore it (#5307).
     - --env=STEAM_FRAME_FORCE_CLOSE=1
+  org.libretro.RetroArch:
+    # Read access to the ROM library. The flatpak already ships a blanket `host` grant, so this
+    # changes nothing today; it is here so the library keeps working if upstream ever narrows that
+    # grant, and so the dependency is visible rather than incidental.
+    - "--filesystem={{ games_retroarch_library_dir }}:ro"
+    # Write access to the thumbnail cache, which sits inside that library. The longer path wins over
+    # the read-only grant above, so this opens the one directory RetroArch has to write to there and
+    # leaves the ROMs read-only. Only takes effect where the mount itself is writable.
+    - "--filesystem={{ games_retroarch_thumbnails_dir }}"
+
+# games_retroarch_library_dir, the ROM library, has no default: where a host mounts it is site
+# data, and this repo is public. Set it per host in host_vars/; tasks/main.yml asserts it is set.
+# The role only writes to games_retroarch_thumbnails_dir within it, so a read-only mount is enough
+# for every host but the one that keeps the thumbnails current.
+
+# BIOS set, copied into RetroArch's system directory by tasks/retroarch.yml rather than pointed at
+# in place: cores treat the system directory as writable scratch space (Dolphin and PPSSPP keep
+# their own state under it), so it has to be local.
+games_retroarch_bios_dir: "{{ games_retroarch_library_dir }}/_BIOS/retroarch-system-folder"
+
+# The playlist browser's box art, kept in the library because it is the one thing RetroArch writes
+# that every host can share (README.md). Owned by the library, not by this role, which points
+# RetroArch at it and never creates it: it must exist, be group-owned by the library's group and be
+# setgid for the network share to serve it, which is the library's setup to get right (the play
+# checks only that it exists). Nothing else RetroArch writes may move here: the rest is written on
+# every launch, and the library is read-only on most hosts.
+games_retroarch_thumbnails_dir: "{{ games_retroarch_library_dir }}/_Thumbnails"
+
+# Libretro cores are not packaged for apt or flatpak: RetroArch's in-app Core Updater fetches them
+# from the buildbot, one manual download per core per host. Install them from the same source
+# declaratively instead.
+games_retroarch_buildbot_url: https://buildbot.libretro.com/nightly/linux/{{ games_retroarch_arch }}/latest
+
+# ROM library subdirectory -> the core that runs it and the extensions that are launchable entries
+# in it. The cores are the desktop (x64) column of
+# https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores, and the extensions the
+# "ROM formats by system" table of the library's own AGENTS.md.
+#
+# Multi-disc games need no extension of their own: their discs live in a dot-prefixed directory the
+# generator skips, and the .m3u beside it is the entry. The 3DO is the exception (visible
+# directory, no .m3u, Opera swaps discs itself), which the generator handles by pointing at disc 1.
+games_retroarch_systems:
+  Atari - 2600:
+    core: stella
+    extensions: [zip]
+  Atari - 7800:
+    core: prosystem
+    extensions: [a78]
+  Atari - Jaguar:
+    core: virtualjaguar
+    extensions: [rom, j64]
+  Atari - Lynx:
+    core: mednafen_lynx
+    extensions: [lnx, lyx]
+  # Beetle PCE, not the Fast variant: Fast is Mednafen's deliberately low-accuracy PCE module and
+  # has no SuperGrafx support. The full core covers HuCard, CD and SuperGrafx.
+  NEC - PC Engine - TurboGrafx 16:
+    core: mednafen_pce
+    extensions: [zip]
+  NEC - PC Engine CD - TurboGrafx-CD:
+    core: mednafen_pce
+    extensions: [chd, m3u]
+  Nintendo - Game Boy:
+    core: gambatte
+    extensions: [zip]
+  Nintendo - Game Boy Advance:
+    core: mgba
+    extensions: [zip]
+  Nintendo - Game Boy Color:
+    core: gambatte
+    extensions: [zip]
+  # No zip here, unlike the other cartridge systems: Dolphin is the one core in this table that
+  # sets block_extract, so RetroArch hands it the archive unopened and it segfaults. The library's
+  # GameCube titles are stored as the .rvz Dolphin reads natively. The playlist generator fails the
+  # play rather than emit an entry like that again.
+  Nintendo - GameCube:
+    core: dolphin
+    extensions: [iso, rvz]
+  Nintendo - Nintendo 64:
+    core: mupen64plus_next
+    extensions: [zip]
+  Nintendo - Nintendo DS:
+    core: melondsds
+    extensions: [nds]
+  Nintendo - Nintendo Entertainment System:
+    core: mesen
+    extensions: [zip]
+  # snes9x rather than a bsnes-family core, which is the more accurate line: the handheld this
+  # library is shared with cannot afford bsnes (it schedules the SA-1 and SuperFX coprocessors
+  # cycle-accurately), so this is the one system where the desktop gives up accuracy to run the
+  # same core everywhere. The gap is timing edge cases, not visible behaviour, and snes9x keeps
+  # rewind and MSU-1, which bsnes does not.
+  Nintendo - Super Nintendo Entertainment System:
+    core: snes9x
+    extensions: [zip]
+  # Retro8 reimplements the PICO-8 runtime, so cartridges play without the (paid) official binary.
+  # Cartridges are PNGs with the game steganographed into them, hence the compound ".p8.png"
+  # suffix, which the generator matches whole so the label keeps no ".p8" tail. A bare "png" is
+  # deliberately not listed: it would turn any cover art dropped into this directory into a
+  # playlist entry that hands Retro8 a plain picture.
+  Pico-8:
+    core: retro8
+    extensions: [p8.png]
+  Sega - 32X:
+    core: picodrive
+    extensions: [zip]
+  Sega - Dreamcast:
+    core: flycast
+    extensions: [chd, m3u]
+  Sega - Game Gear:
+    core: genesis_plus_gx
+    extensions: [zip]
+  Sega - Master System - Mark III:
+    core: genesis_plus_gx
+    extensions: [zip]
+  Sega - Mega Drive - Genesis:
+    core: genesis_plus_gx
+    extensions: [zip]
+  Sega - Mega-CD - Sega CD:
+    core: genesis_plus_gx
+    extensions: [chd, m3u]
+  Sega - Saturn:
+    core: mednafen_saturn
+    extensions: [chd, m3u]
+  Sony - PlayStation:
+    core: mednafen_psx_hw
+    extensions: [chd, m3u]
+  Sony - PlayStation 2:
+    core: pcsx2
+    extensions: [chd, iso, m3u]
+  Sony - PlayStation Portable:
+    core: ppsspp
+    extensions: [iso, cso]
+  The 3DO Company - 3DO:
+    core: opera
+    extensions: [chd]
+
+# The gamepad this host has, naming a key of games_retroarch_controllers. No default, and
+# tasks/retroarch.yml asserts it: RetroArch's hotkey bindings are *physical* device indices, not
+# RetroPad IDs, so they differ per pad and a guessed value binds real but wrong buttons. README.md
+# gives the grep that reads the indices out of the pad's autoconfig profile.
+games_retroarch_controller: ""
+
+# This host's panel refresh rate, as its actual mode (RetroArch's own "Estimate Screen Refresh Rate"
+# reports it). No default, and tasks/retroarch.yml asserts it: RetroArch derives the audio
+# resampling ratio from it, so its 60.0 default mistimes every core on a panel that is not 60Hz,
+# heard as drift rather than seen as tearing. Folded into games_retroarch_settings as
+# video_refresh_rate.
+games_retroarch_video_refresh_rate: ""
+
+# Rewind and fast-forward on the pad, per controller model. The right stick is the primary binding
+# (up rewinds, down fast-forwards) and is free on almost every console here; the dual-analog ones
+# unbind it in games_retroarch_core_overrides and fall back to L3/R3, or looking around would scrub
+# the game. Deliberately not a Hotkey-Enable combo (Select+L and the like): Hotkey Enable gates
+# *every* hotkey, so binding it would mean holding Select to use the right stick too. See README.md.
+games_retroarch_controllers:
+  # Microsoft_X-Box_Series_XS_pad.cfg. The Xbox One and 360 pads share these indices; the Xbox One
+  # BT profile is the odd one out at axis 3, and 8BitDo's Ultimate at buttons 13/14.
+  xbox-series-x:
+    input_rewind_axis: "-4"
+    input_hold_fast_forward_axis: "+4"
+    input_rewind_btn: "9"
+    input_hold_fast_forward_btn: "10"
+
+# retroarch.cfg keys this role owns. Every other key in the file is left alone, so settings changed
+# in the app still persist (config_save_on_exit stays on); only these snap back on the next run.
+# Merged with games_retroarch_extra_settings, so a host can add or override a single key without
+# restating the dict.
+games_retroarch_required_settings:
+  # Drivers, per the til notes' driver table, with two deviations:
+  #
+  # input_driver udev rather than the notes' "x", which only works under an X11 video context,
+  # while the games hosts run both X11 and Wayland sessions. udev reads /dev/input directly, which
+  # the distro grants no access to for anything but a joystick, hence the uaccess rule
+  # tasks/retroarch.yml installs. Without it the mouse and keyboard are unreadable here. README.md.
+  #
+  # audio pipewire rather than pulse: the hosts run PipeWire, and RetroArch has had a native driver
+  # for it since 1.20. pulse reaches the same server through the pipewire-pulse shim, which is a
+  # buffer and a hop that buy nothing. Fall back to pulse if this ever xruns; the driver is young.
+  audio_driver: pipewire
+  camera_driver: video4linux2
+  input_driver: udev
+  location_driver: "null"
+  menu_driver: ozone
+  microphone_driver: pipewire
+  midi_driver: alsa
+  record_driver: ffmpeg
+  video_driver: glcore
+
+  # Gamepads are a separate driver from the rest of input. udev pairs with the steam-devices udev
+  # rules (apt.yml) and RetroArch's bundled autoconfig profiles, which is what binds an Xbox
+  # controller on plug-in without any per-host setup.
+  input_joypad_driver: udev
+  input_autodetect_enable: "true"
+  input_max_users: "8"
+
+  # Silence the "not configured in port N" toast RetroArch raises for a device autoconfig could
+  # not match to a joypad profile. A keyboard trips it on every launch (its HID interface has no
+  # joypad profile), yet works through the built-in keyboard driver regardless, so the failure is
+  # noise. The success notification stays on.
+  notification_show_autoconfig_fails: "false"
+
+  # Let a core select its own video driver, which the per-core overrides below rely on: Beetle PSX
+  # HW, Flycast and Mupen64Plus-Next want vulkan while everything else stays on glcore.
+  #
+  # glcore stays the global rather than vulkan, which looks like the obvious upgrade and is not: a
+  # core matches the frontend's preferred renderer, so a vulkan global would silently move PPSSPP
+  # and Dolphin onto their Vulkan backends too, which is where their libretro bugs live. slang
+  # shaders work on glcore and vulkan alike, so nothing is lost.
+  driver_switch_enable: "true"
+
+  # Run fullscreen. RetroArch defaults to a window, where the compositor owns frame pacing.
+  # windowed_fullscreen makes that borderless rather than an exclusive mode switch, which is the
+  # pair that is correct under both X11 and Wayland (Wayland has no exclusive fullscreen).
+  video_fullscreen: "true"
+  video_windowed_fullscreen: "true"
+
+  # Threaded video is a no-op for the hardware-rendered cores and, for the software ones, buys
+  # speed by breaking frame pacing and audio sync. Off is already the default; pin it so no host
+  # drifts into it.
+  video_threaded: "false"
+
+  # Core options belong in config/<library_name>/<library_name>.opt, which is what
+  # games_retroarch_core_options writes. RetroArch's default, but the whole scheme silently moves
+  # to one shared retroarch-core-options.cfg if it is ever flipped on.
+  global_core_options: "false"
+
+  # RetroArch's built-in image viewer claims every .png ahead of the core the playlist asks for.
+  # PICO-8 cartridges are .p8.png files, so with this on, launching one displays the cartridge
+  # label instead of running the game. Turning it off is what lets Retro8 receive the cartridge.
+  builtin_imageviewer_enable: "false"
+
+  # Directories. Local, except the thumbnail cache: everything else here is written on every launch,
+  # and the library is read-only on the hosts that mount it over the network. A cache directory is
+  # what stops cores littering the content directories with temp files when they crash before
+  # cleaning up, and it clears a copy/load error in Dolphin.
+  #
+  # network_on_demand_thumbnails, which decides whether this host fills the shared cache or only
+  # reads it, is not here: it is derived per host from the mount, in games_retroarch_thumbnails_settings.
+  cache_directory: "{{ games_retroarch_cache_dir }}"
+  playlist_directory: "{{ games_retroarch_playlists_dir }}"
+  savefile_directory: "{{ games_retroarch_config_dir }}/saves"
+  savestate_directory: "{{ games_retroarch_config_dir }}/states"
+  system_directory: "{{ games_retroarch_system_dir }}"
+  thumbnails_directory: "{{ games_retroarch_thumbnails_dir }}"
+  # Where the in-app file browser opens, so loading content that has no playlist entry yet does not
+  # start from /.
+  rgui_browser_directory: "{{ games_retroarch_library_dir }}"
+
+  # Refuse to launch a core whose required firmware is missing rather than booting a black screen
+  # or corrupt state. This library leans on the BIOS set tasks/retroarch.yml copies into the system
+  # directory, so a missing file is worth catching at load. Off by default.
+  check_firmware_before_loading: "true"
+
+  # Rewind and fast-forward. The keyboard bindings live here because they are the same on every
+  # host and are never taken away; the gamepad ones cannot be, and come from
+  # games_retroarch_controllers instead.
+  rewind_enable: "true"
+  input_rewind: "r"
+  input_hold_fast_forward: "l"
+
+  # RetroArch's default rewind buffer is 20MB, sized for a handheld. It is the buffer, not the CPU,
+  # that decides how far back you can go: the ring holds deltas between savestates, so a core with
+  # a big state fills it quickly (states here run from 1KB to 5.5MB). 256MB is nothing on these
+  # hosts, so buy the window.
+  rewind_buffer_size: "268435456"
+  rewind_granularity: "1"
+
+  # Savestates never overwrite: each save takes the next slot and the last 100 are kept, so a
+  # misfired save cannot clobber an earlier one. RetroArch defaults to a single overwriting slot.
+  savestate_auto_index: "true"
+  savestate_max_keep: "100"
+
+  # Input latency. Preemptive frames run the core ahead of the display and show the result the
+  # moment the input is known, hiding the 1-3 frames of lag the original hardware had. It is the
+  # cheaper half of a pair: run-ahead re-runs every frame, preemptive frames only re-run when the
+  # controller state changes, for the same latency win. The two are mutually exclusive, hence
+  # run_ahead_enabled staying off.
+  #
+  # Off globally and turned on per core, the opposite of rewind: RetroArch permits preemptive
+  # frames only on a core whose .info declares savestate_features = "deterministic", and it puts
+  # the refusal on screen at every launch of the others. Most of the cores here lack it, so a
+  # global setting buys nothing on those and a nagging message on all of them. List the ones that
+  # have it:
+  #
+  #   grep -l 'savestate_features = "deterministic"' {{ games_retroarch_info_dir }}/*.info
+  #
+  # One frame is the conservative setting: more is only free until it exceeds a game's own internal
+  # lag, past which the picture jitters, and that threshold is per-game.
+  preemptive_frames_enable: "false"
+  run_ahead_enabled: "false"
+  run_ahead_frames: "1"
+
+  # Double rather than triple buffering: one less frame queued between the core and the screen.
+  # These GPUs will not miss a deadline running 2D consoles, so the frame triple buffering keeps in
+  # reserve only buys latency. Raise back to 3 if pacing hiccups.
+  video_max_swapchain_images: "2"
+
+  # The three preconditions of vrr_runloop_enable, which a host turns on in host_vars when its
+  # panel does VRR. vsync, a swap interval above 1, BFI and VRR sync are separate ways of syncing
+  # video to audio, and stacking them is what breaks frame pacing.
+  #
+  # Each already defaults to the value VRR sync needs, so pinning them changes nothing today. They
+  # are pinned because they are preconditions rather than preferences: all three sit one click from
+  # the VRR toggle in Video > Synchronization, and the symptom of a conflict is audio drift with
+  # nothing visibly wrong. games_retroarch_extra_settings is combined over this dict and wins, so
+  # pinning cannot protect the invariant alone: tasks/retroarch.yml asserts the combination.
+  #
+  # BFI is the one a host might genuinely want, being what a fixed-refresh panel wants in place of
+  # VRR sync. Such a host sets BFI in extra_settings and leaves vrr_runloop_enable off, which the
+  # assert allows.
+  video_vsync: "true"
+  video_swap_interval: "1"
+  video_black_frame_insertion: "0"
+
+  # Keyboard: player 1, then the hotkeys.
+  input_player1_up: up
+  input_player1_down: down
+  input_player1_left: left
+  input_player1_right: right
+  input_player1_a: x
+  input_player1_b: z
+  input_player1_x: s
+  input_player1_y: a
+  input_player1_l: q
+  input_player1_r: w
+  input_player1_start: enter
+  input_player1_select: rshift
+  input_exit_emulator: escape
+  input_fps_toggle: f3
+  input_load_state: f4
+  input_menu_toggle: f1
+  input_pause_toggle: p
+  input_reset: h
+  input_save_state: f2
+  input_screenshot: f8
+  input_state_slot_decrease: f6
+  input_state_slot_increase: f7
+  input_toggle_fullscreen: f
+
+  # Controller: bind player 1 to the first pad, map its left stick to the d-pad, and open
+  # the menu by holding Start (combo 4) so a controller-only session never needs a keyboard.
+  input_player1_joypad_index: "0"
+  input_player1_analog_dpad_mode: "1"
+  input_menu_toggle_gamepad_combo: "4"
+
+  # Mouse: player 1 on the first mouse, with the lightgun on its buttons (left = trigger,
+  # right = offscreen shot), which is what the lightgun games on this library expect.
+  input_player1_mouse_index: "0"
+  input_player1_gun_trigger_mbtn: "1"
+  input_player1_gun_offscreen_shot_mbtn: "2"
+
+  # Drive the menu with the mouse too, which RetroArch turns off by default: ozone hovers and clicks
+  # on the same events the lightgun binds above read. The pointer is derived from raw evdev deltas
+  # rather than from the display server, so the desktop cursor moves under RetroArch's own at the
+  # same time; harmless fullscreen, which video_fullscreen pins. The keyboard needs no key of its
+  # own: menu_unified_controls is off, so the menu keeps its built-in arrows/Enter/Backspace
+  # alongside the player 1 binds. Neither works without the uaccess rule (see input_driver above).
+  menu_mouse_enable: "true"
+
+  # Trim the menu's top-row tabs to the ones this setup uses. Explore, Image Viewer, Netplay and
+  # Video are all on by default and none is wired up here; contentless-cores defaults to 2 (show),
+  # and 0 hides the standalone cores that have no content to launch.
+  content_show_explore: "false"
+  content_show_images: "false"
+  content_show_netplay: "false"
+  content_show_video: "false"
+  content_show_contentless_cores: "0"
+
+  # Show the boxart panel beside the playlist, which the role already keeps a thumbnail cache for.
+  # Off by default (0).
+  menu_left_thumbnails: "1"
+
+  # Playlists are regenerated every run by retroarch-generate-playlists.py, so an in-app rename is
+  # clobbered on the next run. Disable renaming (on by default) so no edit is made that will not
+  # stick.
+  playlist_entry_rename: "false"
+
+# Per-host additions to games_retroarch_required_settings. Set in host_vars/ to override a
+# single key; the two are combined, so nothing has to be restated.
+games_retroarch_extra_settings: {}
+
+# Per-core overrides, keyed by the buildbot core name that games_retroarch_systems uses. RetroArch
+# keeps the file under config/<library_name>/, a name only the built core knows, so
+# tasks/retroarch.yml asks each installed core for its name and resolves the directory per host:
+# nothing here has to know it.
+#
+# Every key here is an exception to a global (README.md): rewind_enable off where RetroArch would
+# refuse rewind anyway, the right-stick axes unbound on the dual-analog consoles, where the stick is
+# a camera or C-stick and would otherwise run the game at 3x whenever the player looks right,
+# preemptive_frames_enable on for the cheap cores that declare "deterministic" savestates, and
+# video_driver vulkan for the cores that want it while the global stays glcore.
+games_retroarch_core_overrides:
+  # Beetle PSX HW's OpenGL renderer is the one the libretro docs say leaves "all games" with
+  # "graphical glitches and rendering issues of varying severity"; its Vulkan renderer is the
+  # stable one. The core's own renderer option follows the frontend driver, so switching the driver
+  # here is the whole change. The DualShock's right stick is the camera, so the axes go; rewind
+  # stays, reachable on L3/R3 and the keyboard.
+  mednafen_psx_hw:
+    input_hold_fast_forward_axis: "nul"
+    input_rewind_axis: "nul"
+    video_driver: vulkan
+  # The C-stick, likewise. Rewind is impossible here ("basic" savestates), so only fast-forward is
+  # left to reach, on L3/R3 and the keyboard.
+  dolphin:
+    input_hold_fast_forward_axis: "nul"
+    input_rewind_axis: "nul"
+    rewind_enable: "false"
+  # The Dreamcast pad has one stick, so the right stick stays bound. Only the renderer changes.
+  flycast:
+    video_driver: vulkan
+  # The PS2 is the one core that takes L3/R3 back: its games use the stick clicks, so the global
+  # binding would steal them. Rewind is impossible here anyway ("basic"), which leaves the keyboard
+  # as the only fast-forward.
+  pcsx2:
+    input_hold_fast_forward_axis: "nul"
+    input_hold_fast_forward_btn: "nul"
+    input_rewind_axis: "nul"
+    input_rewind_btn: "nul"
+    rewind_enable: "false"
+
+  # The preemptive-frames opt-ins: every core declaring "deterministic" savestates, less Beetle PSX
+  # HW and Beetle Saturn, which are expensive enough that re-running a frame on every input change
+  # costs real framerate. These are the 2D cores, where the latency is felt and a re-run is cheap.
+  mednafen_pce:
+    preemptive_frames_enable: "true"
+  gambatte:
+    preemptive_frames_enable: "true"
+  genesis_plus_gx:
+    preemptive_frames_enable: "true"
+  mesen:
+    preemptive_frames_enable: "true"
+  mgba:
+    preemptive_frames_enable: "true"
+  picodrive:
+    preemptive_frames_enable: "true"
+  snes9x:
+    preemptive_frames_enable: "true"
+  stella:
+    preemptive_frames_enable: "true"
+
+  # ParaLLEl-RDP, the accurate N64 renderer that games_retroarch_core_options selects, is
+  # Vulkan-only (it needs VK_EXT_external_memory_host, and upstream has ruled out an OpenGL port).
+  # The core only requests a Vulkan context when its rdp-plugin option is "parallel", so the option
+  # and this driver have to be set together or ParaLLEl-RDP silently does not engage. Set here
+  # rather than left to driver_switch_enable, because hot-switching this core to vulkan mid-session
+  # crashes it (mupen64plus-libretro-nx#370); an override is applied before video init.
+  #
+  # The N64 has a single analog stick, so the right stick stays free for rewind/fast-forward.
+  mupen64plus_next:
+    video_driver: vulkan
+  # The Jaguar declares no savestates, so rewind is impossible. It has no analog stick either, so
+  # the right stick and L3/R3 stay bound for fast-forward.
+  virtualjaguar:
+    rewind_enable: "false"
+
+# Core options, keyed by the same buildbot core name as games_retroarch_core_overrides but a
+# different file: config/<library_name>/<library_name>.opt, where RetroArch keeps them as long as
+# global_core_options stays false. Only the keys named here are enforced. These are the core's own
+# settings rather than RetroArch's, so they are namespaced per core and are not discoverable from
+# retroarch.cfg; README.md gives the command that reads them out of the .so.
+games_retroarch_core_options:
+  # The default FM synthesis is MAME's, which is fast and approximate. Nuked is cycle-accurate and
+  # is the reason a Mega Drive sounds like the hardware. ym2612 is the Mega Drive's chip;
+  # ym2413_core is the Master System's FM add-on, a separate chip.
+  genesis_plus_gx:
+    genesis_plus_gx_ym2612: "nuked (ym2612)"
+    genesis_plus_gx_ym2413_core: nuked
+
+  # ParaLLEl-RDP and ParaLLEl-RSP are low-level emulations of the N64's actual graphics hardware,
+  # where the default GLideN64 is a high-level reimplementation that guesses at what each game
+  # meant. ParaLLEl is what renders the framebuffer effects (Zelda's lens of truth, Mario's
+  # paintings) correctly rather than approximately. Vulkan-only, hence the video_driver override.
+  mupen64plus_next:
+    mupen64plus-rdp-plugin: parallel
+    mupen64plus-rsp-plugin: parallel

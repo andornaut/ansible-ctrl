@@ -6,8 +6,7 @@ Manages encrypted BTRFS RAID arrays on Ubuntu.
 
 ```bash
 make nas
-
-ansible-playbook --ask-become-pass nas.yml --tags backupnas
+make nas -- --tags backupnas
 ```
 
 ## Tags

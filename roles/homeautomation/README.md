@@ -9,8 +9,7 @@ Provisions [Home Assistant](https://www.home-assistant.io/) and the related serv
 
 ```bash
 make homeautomation
-
-ansible-playbook --ask-become-pass homeautomation.yml --tags frigate
+make homeautomation -- --tags frigate
 ```
 
 ## Tags
@@ -33,15 +32,27 @@ ansible-playbook --ask-become-pass homeautomation.yml --tags frigate
 
 See [defaults/main.yml](./defaults/main.yml).
 
-## Container ports
+## Networking
 
-All containers are reachable from the Docker host via `{container_name}.internal` DNS, maintained by
-[docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). Host-networked containers bind directly to the
-host.
+Containers use one of two network modes:
 
-For bridge-networked containers, the port below is the container's **internal** port, which is what `.internal`
-DNS reaches. Most publish no host port at all; uncomment their port mappings in the task files if host-port
-access is needed. The exception is openwebui, which publishes host port 3000.
+- **Host networking**, for containers that need mDNS or LAN broadcast discovery: homeassistant, govee2mqtt,
+  esphome, otbr, and the Matter server. They bind directly to the host.
+- **The `homeautomation_default` (`br-ha`) bridge** for everything else, where containers reach each other by
+  container name via Docker's DNS. Those that need to reach a host-networked service use
+  `extra_hosts: ["host.docker.internal:host-gateway"]`.
+
+Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
+[docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
+resolves to its bridge IP, so use the container's **internal** port, which is not always the published one:
+openwebui listens on 8080 and publishes host port 3000. Most publish no host port at all; uncomment their port
+mappings in the task files if host-port access is needed.
+
+Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then
+[docker_homeassistant.yml](./tasks/docker_homeassistant.yml) creates the bridge network, then
+[docker_llm.yml](./tasks/docker_llm.yml) (Frigate may depend on llama.cpp). The rest run in any order.
+
+### Container ports
 
 | Container | Network | Port | Protocol | Description |
 | --- | --- | --- | --- | --- |
@@ -53,33 +64,25 @@ access is needed. The exception is openwebui, which publishes host port 3000.
 | matterjs | host | 5580 | HTTP/WS | Web UI and WebSocket API |
 | pythonmatterserver | host | 5580 | HTTP/WS | Web UI and WebSocket API (legacy) |
 | mosquitto | bridge | 1883 | MQTT | MQTT broker |
-| frigate | bridge | 5000 | HTTP | Frigate web UI (unauthenticated) |
-| frigate | bridge | 8971 | HTTP | Frigate web UI (authenticated) |
+| frigate | bridge | 5000 | HTTP | Web UI (unauthenticated) |
+| frigate | bridge | 8971 | HTTP | Web UI (authenticated) |
 | frigate | bridge | 8554 | RTSP | RTSP streams |
 | frigate | bridge | 8555 | WebRTC | WebRTC streams |
 | llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
 | openwebui | bridge | 8080 | HTTP | Web UI, published on host port 3000 |
-| hamcp | bridge | 8086 | HTTP | MCP server (FastMCP) |
+| hamcp | bridge | 8086 | HTTP | MCP server |
 | piper | bridge | 10200 | Wyoming | Text-to-speech |
 | whisper | bridge | 10300 | Wyoming | Speech-to-text |
 
-## Notes
+### Matter and Thread
 
-- Containers use one of two network modes. Host networking is for containers requiring mDNS or LAN broadcast
-  discovery (homeassistant, govee2mqtt, esphome, otbr, matterjs, pythonmatterserver). Everything else joins the
-  `homeautomation_default` (`br-ha`) bridge, where containers reach each other by container name via Docker's DNS.
-- Bridge-networked containers that need to reach host-networked services use
-  `extra_hosts: ["host.docker.internal:host-gateway"]`.
 - Enable exactly one Matter server, `homeautomation_install_matterjs` or the superseded
   `homeautomation_install_legacy_pythonmatterserver`. The role asserts that both are not enabled at once.
-- The Matter server runs with `network_mode: host`. It discovers Thread devices via the `_matter._tcp` mDNS
-  records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter
-  server never resolves any node and all Matter devices show as unavailable. This is also why Avahi cannot run
-  alongside Matter/Thread: OTBR and the host-networked Matter server already run mDNS on the host, and a second
-  responder conflicts.
-- Task ordering: `docker_prerequisites.yml` installs docker_etc_hosts, then `docker_homeassistant.yml` creates
-  the shared bridge network, then `docker_llm.yml` (Frigate may depend on llama.cpp). Remaining containers run in
-  any order.
+- **The Matter server must use host networking.** It discovers Thread devices via the `_matter._tcp` mDNS records
+  OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge, so a bridged Matter server never
+  resolves any node and every Matter device shows as unavailable.
+- **Avahi cannot run alongside Matter/Thread**, because OTBR and the host-networked Matter server already run mDNS
+  on the host and a second responder conflicts.
 
 ## Operations
 
@@ -114,23 +117,11 @@ letsencrypt_nginx_websites:
 
 1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
 1. Set `homeautomation_install_hamcp: true` and `homeautomation_hamcp_token` in host vars
-1. Run `ansible-playbook --ask-become-pass homeautomation.yml --tags hamcp`
-1. Verify the container is running with `docker logs hamcp`
+1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs hamcp`
 
-Clients connect to `http://hamcp.internal:8086/mcp`, the container's internal port on the bridge network, not a
-host-mapped port. Configured for VSCode in this project's `.vscode/mcp.json`, which auto-starts when the project
-is opened, and under `mcpServers` in `~/.claude.json` for Claude Code:
-
-```json
-{
-  "servers": {
-    "ha-mcp": {
-      "type": "http",
-      "url": "http://hamcp.internal:8086/mcp"
-    }
-  }
-}
-```
+Clients connect to `http://hamcp.internal:8086/mcp`: the container's internal port on the bridge network, not a
+host-mapped port. It is configured for VSCode in this project's `.vscode/mcp.json`, and under `mcpServers` in
+`~/.claude.json` for Claude Code.
 
 ## Documentation
 

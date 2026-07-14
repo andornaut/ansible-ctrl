@@ -190,10 +190,12 @@
       ansible.builtin.import_tasks: lact.yml
       tags: lact
 
+    # No `when`, unlike the feature flags above: the file branches on
+    # desktop_install_parental_controls itself, because turning the flag off has to lift the
+    # filters an earlier run enforced rather than merely stop reasserting them.
     - name: Configure parental controls
       ansible.builtin.import_tasks: parental_controls.yml
       tags: parental-controls
-      when: desktop_install_parental_controls
 
 - name: Configure tiling window manager applications
   when: desktop_environment != "gnome"

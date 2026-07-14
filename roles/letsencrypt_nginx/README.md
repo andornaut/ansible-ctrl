@@ -6,16 +6,15 @@ Provisions NGINX as a Docker container with Let's Encrypt HTTPS certificates.
 
 ```bash
 make webservers
-
-ansible-playbook --ask-become-pass webservers.yml --tags nginx
+make webservers -- --tags nginx
 ```
 
 ## Tags
 
 | Tag | Description |
 | --- | --- |
-| configuration | Regenerate [NGINX](https://nginx.org/) configuration files |
-| docker | Manage the NGINX [Docker](https://docs.docker.com/) container |
+| configuration | Regenerate NGINX configuration files |
+| docker | Manage the NGINX Docker container |
 | [letsencrypt](https://letsencrypt.org/) | Obtain and renew HTTPS certificates |
 | nginx | Full NGINX setup (apt, www, basicauth, configuration) |
 | www | Set up web root directories and clone site repos |
@@ -35,8 +34,8 @@ The `nginx` container runs with `network_mode: host`, binding directly to the ho
 
 ## Notes
 
-- Cloning private GitHub repos requires a git credential helper on the target host, configured as root because
-  the git tasks use `become: true`. Generate a token at
+- Cloning private GitHub repos requires a git credential helper on the target host, configured as root because the
+  git tasks use `become: true`. Generate a token at
   [github.com/settings/tokens](https://github.com/settings/tokens) with the `repo` scope only.
 
   ```bash

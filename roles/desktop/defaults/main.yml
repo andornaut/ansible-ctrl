@@ -36,9 +36,8 @@ desktop_install_lemurs: false
 desktop_zig_mirror: https://ziglang.freetls.fastly.net
 
 # Idle timeouts in minutes: the screen blanks, then the session locks, then the monitor
-# powers off. They must not decrease in that order; idle.yml fails fast if they do. Only
-# X11 tells blanking apart from powering the monitor down, so bspwm honours all three,
-# niri ignores the blank timeout, and GNOME ignores the power-off timeout. See idle.yml.
+# powers off. They must not decrease in that order; idle.yml asserts it. Which of the three
+# a desktop can honour differs: see README.md.
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
@@ -49,16 +48,13 @@ desktop_xsecurelock_password_prompt: asterisks
 
 # Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
 # already has, so adding a host to the desktop group never silently changes it; 0 disables
-# idle suspend; N suspends after N minutes. Set it per host.
+# idle suspend; N suspends after N minutes. Set it per host. Locking is a separate policy: the
+# screen still locks at desktop_screen_lock_minutes either way. No mechanism tells mains from
+# battery, so the timeout applies to both.
 #
-# Each desktop environment enforces it through whatever already tracks session idleness:
-# dconf on GNOME, logind's IdleAction under bspwm (fed by xss-lock's idle hint), a hypridle
-# listener under niri. None of them tells mains from battery, so the timeout applies to both.
-# Locking is a separate policy: the screen still locks at desktop_screen_lock_minutes either
-# way.
-#
-# Under bspwm it must be 0 or at least desktop_screen_blank_minutes, because logind starts
-# counting when the screen blanks rather than at the last input; idle.yml asserts it.
+# Under bspwm it must be 0 or greater than desktop_screen_blank_minutes (idle.yml asserts it),
+# because logind counts from the moment the screen blanks rather than from the last input. See
+# README.md.
 #
 # niri is the exception to "unset leaves it alone": hypridle.conf is generated whole, so an
 # unset value writes no suspend listener, which is the same as 0.
@@ -97,12 +93,19 @@ desktop_file_roller_mime_types:
   - application/zstd
   - application/x-zstd-compressed-tar
 
-# Parental controls (malcontent OARS filter + Chrome SafeSearch).
-# Set desktop_install_parental_controls: true per host to enable.
+# Parental controls (malcontent OARS filter + Chrome SafeSearch). Set
+# desktop_install_parental_controls: true per host to enable. When false, the role lifts
+# whatever an earlier run enforced rather than merely ceasing to reassert it, so turning the
+# flag off is enough to undo it. Turn it off by removing the host's
+# desktop_parental_controls_* settings entirely: the role asserts that none of them is left
+# describing a policy that nothing enforces. See README.md.
 desktop_install_parental_controls: false
 # OARS content rating ceilings. Apps rated above the given level are hidden in
 # gnome-software. Levels: none < mild < moderate < intense.
 # Example: sex-nudity: mild blocks anything rated moderate or intense.
+# Setting any of them also disallows flatpak installation from the system repository, which is
+# malcontent's own default for a filtered account. Emptying this dict clears the filter and
+# restores that permission.
 desktop_parental_controls_oars: {}
 # Chrome managed policies written to /etc/opt/chrome/policies/managed/family.json
 # when desktop_install_parental_controls is true. Override per host to adjust.
@@ -128,21 +131,16 @@ desktop_chrome_family_policies:
     - cjpalhdlnbpafiamejdnhcphjbkeiagm  # uBlock Origin
     - ddkjiahejlhfcafbddmgiahcphecmpfh  # uBlock Origin Lite
 
-# Web filtering for desktop_user, enforced by the nss-malcontent name service module
-# rather than by the browser. "none" leaves it disabled and touches nothing;
-# "block-list" allows every domain except those listed; "allow-list" blocks every
-# domain except those listed, which is strict enough that a missing CDN or login
-# domain breaks a site outright.
+# Web filtering for desktop_user, enforced by the nss-malcontent name service module rather
+# than by the browser (README.md). "none" disables it, clearing any filter an earlier run set;
+# "block-list" allows every domain except those listed; "allow-list" blocks every domain except
+# those listed, which is strict enough that a missing CDN or login domain breaks a site
+# outright. Either list type must have entries: the role asserts it, because malcontent accepts
+# an empty allow list and sinkholes every hostname the user looks up.
 #
-# Enabling it installs libnss-malcontent and inserts that module into the hosts lookup
-# chain in /etc/nsswitch.conf, which is a system-wide change. It only filters users who
-# have a compiled list; the module defers for everyone else. DnsOverHttpsMode: "off"
-# above is what keeps Chrome resolving through it.
-#
-# Firefox is handled by malcontent itself, which blocks the use-application-dns.net canary
-# domain so that Firefox disables DNS-over-HTTPS rather than resolving past the module.
-# That check runs before the per-user list is opened, so the canary is blocked for *every*
-# user on the host, not just the filtered one, and every user's Firefox turns DoH off.
+# Enabling it inserts the module into the hosts lookup chain in /etc/nsswitch.conf, which is a
+# system-wide change. DnsOverHttpsMode: "off" above is what keeps Chrome resolving through it;
+# Firefox is kept off DoH by malcontent's own block of the use-application-dns.net canary.
 desktop_parental_controls_web_filter_type: none
 # Filter lists to compile into desktop_user's blocklist, as {id: HTTPS URI}. The id is a
 # free-form label. Each list must be a plain newline-separated list of bare hostnames;

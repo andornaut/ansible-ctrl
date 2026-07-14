@@ -6,8 +6,7 @@ Installs development tools and programming languages on Ubuntu.
 
 ```bash
 make dev
-
-ansible-playbook --ask-become-pass dev.yml --tags rust
+make dev -- --tags rust
 ```
 
 ## Tags
@@ -30,8 +29,7 @@ ansible-playbook --ask-become-pass dev.yml --tags rust
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform with DKMS |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
-Untagged apt packages (gh, git, [git-delta](https://github.com/dandavison/delta), jq, meld, wireshark, etc.) are
-installed by [tasks/apt.yml](./tasks/apt.yml) on every run.
+The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, and are installed on every run.
 
 ## Variables
 
@@ -42,10 +40,10 @@ directory it operates on.
 
 - Cursor is granted unprivileged user namespaces by a dedicated AppArmor profile, rather than by disabling the
   restriction globally.
-- The `ai_maintainer` tag runs only on hosts in the `ai_maintainer` inventory group. It installs a Sunday 3 AM
-  cron job that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer) to merge dependabot PRs, update
-  dependencies, and fix test and CI failures across `~/src/github.com/andornaut/`. The script is symlinked from a
-  local checkout when present, and downloaded otherwise.
+- The `ai_maintainer` tag runs only on hosts in the `ai_maintainer` inventory group. It installs a weekly cron job
+  that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer) to merge dependabot PRs, update
+  dependencies, and fix test and CI failures. The script is symlinked from a local checkout when present, and
+  downloaded otherwise.
 
 ## Operations
 

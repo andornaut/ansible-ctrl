@@ -1,0 +1,25 @@
+---
+# udev reads its rules at load and applies them to a device as the device appears, so a rule
+# installed now reaches a mouse that is already plugged in only if the rules are reloaded and the
+# devices re-triggered. Two handlers rather than one, because they are two commands; they run in the
+# order they are defined here, not the order they are notified in, and the reload has to come first.
+- name: Reload the udev rules
+  ansible.builtin.command:
+    argv:
+      - udevadm
+      - control
+      - --reload-rules
+  changed_when: false
+  become: true
+
+# --action=change re-runs the rules against the devices that are already present, which is what puts
+# the ACL on the mouse and keyboard of the active seat without a re-login.
+- name: Apply the udev rules to the input devices
+  ansible.builtin.command:
+    argv:
+      - udevadm
+      - trigger
+      - --subsystem-match=input
+      - --action=change
+  changed_when: false
+  become: true

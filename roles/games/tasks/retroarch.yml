@@ -1,0 +1,504 @@
+---
+# RetroArch is a flatpak (flatpak.yml), so everything it owns lives under
+# ~/.var/app/org.libretro.RetroArch/config/retroarch: cores, BIOS, settings, per-core
+# overrides and playlists. The one exception is the thumbnail cache
+# (games_retroarch_thumbnails_dir), which is shared through the library; the library is
+# otherwise only read.
+
+# RetroArch rewrites the whole of retroarch.cfg, and its core options, when it exits
+# (config_save_on_exit), so a run under a live app converges everything below and is then undone the
+# moment the app is closed, with nothing to show for it. It must be closed while this runs
+# (README.md), which is what this asserts. Checked first, being the one precondition the operator can
+# fix on the spot.
+#
+# --exact matches the process name, not the command line: `pgrep -f retroarch` would match the
+# `ansible-playbook --tags retroarch` that is running this. Scoped to games_user, whose config this
+# is: another account's RetroArch cannot touch it.
+- name: Check whether RetroArch is running
+  ansible.builtin.command:
+    argv:
+      - pgrep
+      - --exact
+      - --euid
+      - "{{ games_user }}"
+      - retroarch
+  register: games_retroarch_pgrep
+  changed_when: false
+  # pgrep exits 1 when nothing matches, which is the case this asks for.
+  failed_when: false
+  # The assert below reads rc, which a skipped probe never sets, so --check would fail on the
+  # undefined variable rather than report the guard.
+  check_mode: false
+
+- name: Validate that RetroArch is not running
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_pgrep.rc != 0
+    fail_msg: >-
+      RetroArch is running as {{ games_user }}. It rewrites retroarch.cfg and its core options when
+      it exits (config_save_on_exit), so everything this role converges would be undone the moment
+      you close it. Close RetroArch and run again.
+    success_msg: RetroArch is not running
+
+# input_driver is udev (defaults/main.yml), which reads /dev/input/event* directly rather than taking
+# input from the display server, and the distro's own rules put an ACL on the joysticks alone. Without
+# this rule the pad works while the mouse and keyboard are unreadable: no pointer in the menu, and the
+# lightgun binds dead in game. It grants every process in the seat's session the ability to read raw
+# keystrokes, which is the trade RetroArch's udev driver asks for: README.md.
+#
+# become_user: root, because main.yml imports this file as games_user.
+- name: Grant the desktop session read access to the mouse and keyboard
+  ansible.builtin.copy:
+    src: 70-retroarch-input.rules
+    dest: /etc/udev/rules.d/70-retroarch-input.rules
+    mode: "0644"
+  become: true
+  become_user: root
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the input devices
+
+# An unmounted library looks like an empty directory, and the tasks below would then sync
+# nothing and generate nothing while reporting success.
+- name: Check that the ROM library is mounted
+  ansible.builtin.stat:
+    path: "{{ games_retroarch_bios_dir }}"
+  register: games_retroarch_bios_stat
+
+- name: Validate the ROM library
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_bios_stat.stat.isdir | default(false)
+    fail_msg: >-
+      {{ games_retroarch_bios_dir }} is not a directory: the ROM library at
+      {{ games_retroarch_library_dir }} is missing or its mount is down. Nothing was
+      changed.
+    success_msg: "ROM library found at {{ games_retroarch_library_dir }}"
+
+# The thumbnail cache is part of the library, like _BIOS: the role points RetroArch at it and never
+# creates it, so a library that is missing it is a library that is not set up, and the play says so
+# rather than converging into a browser with no box art on any host.
+- name: Check the shared thumbnail cache
+  ansible.builtin.stat:
+    path: "{{ games_retroarch_thumbnails_dir }}"
+  register: games_retroarch_thumbnails_stat
+
+# Which host fills the shared cache and which only read it, asked of the mount rather than answered
+# by naming a host: that is site data and this repo is public. The stat runs as games_user, whom this
+# file runs as, so it answers for the user RetroArch runs as too.
+#
+# A fact set here rather than a var derived in vars/main.yml, because it cannot have a value before
+# the stat above: as a var it would have to default to false until then, and anything that read
+# games_retroarch_settings earlier would silently configure the host that holds the writable mount to
+# stop downloading thumbnails, leaving the shared cache to go stale with no error anywhere. Read too
+# early, a fact raises an undefined-variable error that names it. default(false) covers only the
+# missing-directory case, which the assert immediately below rejects.
+- name: Record whether this host can write the shared thumbnail cache
+  ansible.builtin.set_fact:
+    games_retroarch_thumbnails_writable: >-
+      {{ games_retroarch_thumbnails_stat.stat.writeable | default(false) | bool }}
+
+# Missing, or not a directory: RetroArch cannot create it (the flatpak grant makes the library
+# read-only around it), so every thumbnail download would fail to save, on every host, with no
+# error. Checked everywhere, because every host reads the cache. The cache also has to be setgid and
+# in the library's group for the network share to serve it, but that is the library's own setup to
+# get right, not the play's to police: see README.md.
+- name: Validate the shared thumbnail cache
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_thumbnails_stat.stat.isdir | default(false)
+    fail_msg: >-
+      {{ games_retroarch_thumbnails_dir }} is not a directory. It is the shared box art cache, and
+      the library owns it the way it owns _BIOS: the role points RetroArch at it and never creates
+      it. Create it in the library, group it with the library, and set the setgid bit (2775).
+    success_msg: >-
+      Shared thumbnail cache found at {{ games_retroarch_thumbnails_dir }}
+      ({{ games_retroarch_thumbnails_writable | ternary('writable: this host fills it',
+      'read-only: this host reads it') }})
+
+# The pad's bindings are physical device indices, so a guess is not a near-miss, it is a different
+# button. Hardware the role cannot see: assert rather than default.
+#
+# First of the asserts that read host data, because games_retroarch_settings folds this pad's
+# bindings in: an unknown pad raises an undefined-key error out of the settings dict, and the
+# asserts below would hit it before this one could explain it.
+- name: Validate games_retroarch_controller
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_controller | length > 0
+      - games_retroarch_controller in games_retroarch_controllers
+    fail_msg: >-
+      games_retroarch_controller is "{{ games_retroarch_controller | default('') }}", which is not
+      one of {{ games_retroarch_controllers.keys() | list }}. It names the gamepad this host has,
+      whose physical button and axis indices the rewind bindings are built from. Set it in
+      host_vars/, and add the pad to games_retroarch_controllers if it is not there yet.
+    success_msg: 'games_retroarch_controller "{{ games_retroarch_controller }}" is known'
+
+# The panel's refresh rate is host data the role cannot invent, and getting it wrong is silent:
+# RetroArch derives the audio resampling ratio from it, so its 60.0 default mistimes every core
+# on a non-60Hz panel, heard as drift rather than seen as tearing.
+#
+# | float rather than | length: a refresh rate is naturally unquoted (239.97), and | length
+# raises "object of type float has no len()" on it. | float yields 0.0 for anything that is not
+# a number, so it also rejects a non-numeric value.
+- name: Validate the display refresh rate
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_video_refresh_rate | float > 0
+    fail_msg: >-
+      games_retroarch_video_refresh_rate is "{{ games_retroarch_video_refresh_rate | default('') }}",
+      which is not a refresh rate. It is this host's panel refresh rate, which the role has no way to
+      know, and RetroArch's 60.0 default mistimes every core on a panel that is not 60Hz. Set it in
+      host_vars/ to the panel's actual mode (RetroArch's own "Estimate Screen Refresh Rate" reports
+      it).
+    success_msg: 'games_retroarch_video_refresh_rate "{{ games_retroarch_video_refresh_rate }}" is set'
+
+# vsync, a swap interval above 1, BFI and vrr_runloop_enable are four separate ways of syncing
+# video to audio, and stacking them paces worse than any one alone. The other three are pinned in
+# games_retroarch_required_settings, so this can only fire for a host that overrode one via
+# games_retroarch_extra_settings, which wins the combine. Fail rather than converge: the symptom
+# is audio drift with nothing visibly wrong in the config.
+#
+# Coerced before comparing, because YAML delivers both "1" and 1: a bare `in ["0", "1"]` rejects
+# the integer form of the value it is asking for. No default() on any of them: all three are
+# pinned, and combine() can override a key but never remove one.
+#
+# The last condition closes the other door into the same conflict. RetroArch applies a per-core
+# override on top of the global config at runtime, and retroarch-core-override.cfg.j2 writes
+# whatever keys the dict holds without constraining them, so one of the three set on a core stacks
+# it for that core while the global config still reads correctly. The key is rejected outright
+# rather than checked for a value: a core that wants BFI or a swap interval is evidence that VRR
+# sync is the wrong choice for the host, not something to grant for one core.
+- name: Validate the VRR sync preconditions
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_settings.video_vsync | bool
+      - games_retroarch_settings.video_swap_interval | string in ["0", "1"]
+      - games_retroarch_settings.video_black_frame_insertion | string == "0"
+      - games_retroarch_core_overrides.values() | map("list") | flatten
+        | intersect(["video_vsync", "video_swap_interval", "video_black_frame_insertion"])
+        | length == 0
+    fail_msg: >-
+      This host sets vrr_runloop_enable, but one of its preconditions is overridden: video_vsync on,
+      video_swap_interval 1 (or 0 for auto) and video_black_frame_insertion 0 all have to hold in
+      the global config, and no per-core override may set any of the three at all. The failed
+      assertion above names the one that does not. Drop the override (from
+      games_retroarch_extra_settings or games_retroarch_core_overrides), or turn vrr_runloop_enable
+      off and sync that way instead.
+    success_msg: vrr_runloop_enable is set and its preconditions hold
+  when: games_retroarch_settings.vrr_runloop_enable | default("false") | bool
+
+- name: Create the directories this role writes to
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ games_retroarch_config_dir }}"
+    - "{{ games_retroarch_cache_dir }}"
+    - "{{ games_retroarch_core_archives_dir }}"
+    - "{{ games_retroarch_cores_dir }}"
+    - "{{ games_retroarch_playlists_dir }}"
+    - "{{ games_retroarch_system_dir }}"
+
+# Which cores are already here, asked before anything is fetched, because it answers two questions:
+# which of them no system runs anymore (the prune below), and which of them are missing and have to
+# be extracted even though their archive did not change (the install below).
+- name: Find the installed libretro cores
+  ansible.builtin.find:
+    paths: "{{ games_retroarch_cores_dir }}"
+    patterns: "*_libretro.so"
+  register: games_retroarch_installed_cores
+
+# Every run fetches the current build. The buildbot ships nightlies and nothing else, so there is no
+# release to pin to and no in-place upgrade: a core installed once and never refetched falls years
+# behind and gets no upstream fix, which is how a core comes to report a name its own newer build no
+# longer uses. This is also what repairs a core the flatpak runtime can no longer load after a runtime
+# upgrade, the replacement being built against the current one.
+#
+# get_url rather than unarchive's own download: the buildbot ignores If-Modified-Since (it answers 200
+# with the body, never 304), so the ~41MB across 21 cores is fetched either way, but get_url compares
+# what it fetched against what is on disk and reports changed only when the binary really moved.
+# unarchive re-extracts on every run and reports changed every time, which would make "the cores
+# changed" mean nothing.
+- name: Download the libretro cores
+  ansible.builtin.get_url:
+    url: "{{ games_retroarch_buildbot_url }}/{{ item }}_libretro.so.zip"
+    dest: "{{ games_retroarch_core_archives_dir }}/{{ item }}_libretro.so.zip"
+    force: true
+    mode: "0644"
+  loop: "{{ games_retroarch_cores }}"
+  register: games_retroarch_core_archives
+
+# Extracted only when the archive moved, or when the core is missing: an unconditional unarchive
+# rewrites all 21 cores every run and reports it. The missing case covers a core deleted by hand to
+# force a rebuild, and the first run on a new host.
+- name: Install the libretro cores
+  ansible.builtin.unarchive:
+    src: "{{ item.dest }}"
+    dest: "{{ games_retroarch_cores_dir }}"
+    remote_src: true
+  loop: "{{ games_retroarch_core_archives.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.changed or item.item not in games_retroarch_installed_core_names
+
+# The cores directory is owned, not merely added to: a core that no system is associated with
+# would otherwise linger in RetroArch's "Load Core" list, inviting a game to be launched on the
+# wrong one. Cores are a download, so removing one costs only the next fetch.
+- name: Remove libretro cores that no system is associated with
+  ansible.builtin.file:
+    path: "{{ games_retroarch_cores_dir }}/{{ item }}_libretro.so"
+    state: absent
+  loop: "{{ games_retroarch_dropped_cores }}"
+
+# The archive cache is the role's own directory, so nothing else would ever clean it: the archive of
+# a dropped core would sit there for as long as the host lives.
+- name: Remove the archives of the libretro cores that were dropped
+  ansible.builtin.file:
+    path: "{{ games_retroarch_core_archives_dir }}/{{ item }}_libretro.so.zip"
+    state: absent
+  loop: "{{ games_retroarch_dropped_cores }}"
+
+# rsync rather than ansible.builtin.copy: the BIOS set is ~600MB over ~2000 files, and copy
+# checksums every one of them on every run, which on a host that mounts the library over the
+# network means reading the whole set back across it. rsync compares size and mtime instead.
+# No --delete: cores keep their own state alongside the BIOS in this directory (Dolphin's Sys
+# tree, Mupen64plus, palettes), and it is not in the library.
+- name: Copy the BIOS set into the RetroArch system directory
+  ansible.builtin.command:
+    argv:
+      - rsync
+      - --recursive
+      - --times
+      - --itemize-changes
+      - --chmod=D755,F644
+      - "{{ games_retroarch_bios_dir }}/"
+      - "{{ games_retroarch_system_dir }}/"
+  register: games_retroarch_bios_sync
+  changed_when: games_retroarch_bios_sync.stdout | length > 0
+
+# One key per task rather than a templated retroarch.cfg: the file holds ~3400 keys, of which the
+# role has an opinion on those in games_retroarch_required_settings, and RetroArch rewrites all of
+# them on exit. Owning only the listed keys leaves settings changed in the app alone, and still
+# snaps the managed ones back. create: true so a host where RetroArch has never started still
+# converges.
+- name: Enforce the RetroArch settings
+  ansible.builtin.lineinfile:
+    path: "{{ games_retroarch_config_dir }}/retroarch.cfg"
+    regexp: '^{{ item.key }} = '
+    line: '{{ item.key }} = "{{ item.value }}"'
+    create: true
+    mode: "0644"
+  loop: "{{ games_retroarch_settings | dict2items | sort(attribute='key') }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+# CLEANUP (added 2026-07-14): remove once every host in the games group has run this role.
+# thumbnails_directory used to be config/thumbnails, which RetroArch's on-demand downloader filled
+# per host, an image at a time, to ~750MB of the same files on each of them. It now points at
+# games_retroarch_thumbnails_dir in the library, where the cache is shared; the library's copy was
+# seeded from this one, so the local tree is dead weight rather than the only copy.
+#
+# Guarded on the path this deletes not being the path in use, rather than assuming they differ: a
+# host that pointed games_retroarch_thumbnails_dir back at the local directory (the obvious override
+# for a host with no library mount) would otherwise have the cache it just configured deleted on
+# every run, and re-download it in full.
+- name: Remove the per-host RetroArch thumbnail cache
+  when: games_retroarch_thumbnails_dir != games_retroarch_config_dir ~ "/thumbnails"
+  ansible.builtin.file:
+    path: "{{ games_retroarch_config_dir }}/thumbnails"
+    state: absent
+
+# RetroArch keeps a core's override and core options under config/<library_name>/, where
+# library_name is the name the built core reports at runtime. It is a third name for the same core,
+# matching neither the buildbot name this role keys everything by (dolphin) nor the .info file's
+# corename (Dolphin): it is dolphin-emu, and only the core itself knows it. It is a property of the
+# *build*, not of the core (the PS2 core reported "LRPS2 (alpha)" until upstream dropped the
+# "(alpha)"), so two hosts on different nightlies want different directories and a name written down
+# here would be wrong on one of them, silently: the file lands where RetroArch never looks.
+#
+# So ask each core, and resolve the directory from the answer. Asked inside the sandbox, because a
+# core can need a library only the flatpak runtime carries (LRPS2 wants libaio) and would not load on
+# the host at all, which is also where RetroArch loads it.
+#
+# Loading each core is the load check too, which is why there is no separate one: the cores were all
+# refetched above, so a core that still will not load is a broken build rather than a stale one, and
+# the play says which and stops rather than leaving a dud in RetroArch's core list.
+- name: Ask the installed cores what they are
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - run
+      - --command=python3
+      - "{{ games_retroarch_app_id }}"
+      # The program on stdin ("python3 -"), rather than ansible.builtin.script: script runs what it
+      # transfers directly, and this has to run through flatpak. sys.argv[1:] is unaffected.
+      - "-"
+      - "{{ games_retroarch_cores_dir }}"
+    stdin: "{{ lookup('ansible.builtin.file', 'retroarch-probe-cores.py') }}"
+  register: games_retroarch_core_probe
+  changed_when: false
+  # It only reads the cores, so it is safe under --check, and it has to run there: everything below
+  # resolves its configuration directory from the answer, and a skipped probe hands them an empty
+  # one. The assert that follows would then fail a --check run on every host, reporting that no core
+  # is installed.
+  check_mode: false
+
+# The keys are checked against the systems table rather than against the cores that answered: an
+# override for a core no system runs is a dead entry either way, and this says so in the vocabulary
+# the dicts are written in.
+- name: Validate the per-core configuration keys
+  ansible.builtin.assert:
+    that:
+      - games_retroarch_configured_cores | difference(games_retroarch_cores) | length == 0
+    fail_msg: >-
+      {{ games_retroarch_configured_cores | difference(games_retroarch_cores) }} is configured in
+      games_retroarch_core_overrides or games_retroarch_core_options but is not a core any system in
+      games_retroarch_systems runs, so nothing would ever load it. Both dicts are keyed by the
+      buildbot core name, as games_retroarch_systems is. This host runs {{ games_retroarch_cores }}.
+    success_msg: Every configured core is one a system runs
+
+# One directory per core, holding both its .cfg override and its .opt core options. The two are
+# configured independently, hence the union of the dicts rather than either one.
+- name: Create the per-core configuration directories
+  ansible.builtin.file:
+    path: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_core_library_names[item] }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ games_retroarch_configured_cores | sort }}"
+
+# Owned outright, unlike retroarch.cfg: an override file only carries the keys that differ from
+# the global config, so there is nothing else in it to preserve.
+- name: Write the per-core overrides
+  ansible.builtin.template:
+    src: retroarch-core-override.cfg.j2
+    dest: "{{ games_retroarch_core_config_dir }}/{{ library_name }}/{{ library_name }}.cfg"
+    mode: "0644"
+  loop: "{{ games_retroarch_core_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  vars:
+    library_name: "{{ games_retroarch_core_library_names[item.key] }}"
+    games_retroarch_core_override: "{{ item.value }}"
+
+# A core dropped from games_retroarch_core_overrides would otherwise keep the override written for
+# it last time, so the override outlives the reason for it silently. So would one whose build renamed
+# itself: the override is rewritten under the new name and the file under the old one is orphaned,
+# which is what a core upgrade leaves behind.
+#
+# `contains` matches only the files carrying this role's ansible_managed header, so an override
+# saved from inside the app is left alone. read_whole_file is required: without it, find applies
+# `contains` with re.match, which anchors at the start of each line, and the header line begins
+# with "# ", so nothing matches and the prune silently does nothing.
+- name: Find the core overrides this role has written
+  ansible.builtin.find:
+    paths: "{{ games_retroarch_core_config_dir }}"
+    patterns: "*.cfg"
+    recurse: true
+    contains: Ansible managed
+    read_whole_file: true
+  register: games_retroarch_written_overrides
+
+- name: Remove the core overrides of cores that are no longer overridden
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ games_retroarch_written_overrides.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: >-
+    item.path | basename | regex_replace('\.cfg$', '')
+    not in games_retroarch_core_overrides.keys() | map('extract', games_retroarch_core_library_names) | list
+
+# games_retroarch_core_options is a dict of dicts (core -> option -> value), so enforcing it is a
+# loop over a loop, which a single task cannot express. subelements() does not apply: it flattens
+# a dict whose values are lists, not a dict whose values are dicts.
+- name: Enforce the RetroArch core options
+  ansible.builtin.include_tasks: retroarch-core-options.yml
+  loop: "{{ games_retroarch_core_options | dict2items }}"
+  loop_control:
+    loop_var: games_retroarch_core
+    label: "{{ games_retroarch_core.key }}"
+
+# Pruning an override, or swapping a core out of the systems table, leaves config/<library_name>/
+# standing and empty. Only empty ones go: a directory RetroArch still keeps something of its own
+# in (a remap, options for a core the role has no opinion on) is not ours to remove.
+#
+# Last, once both the overrides and the core options have been written, because "empty" is only the
+# right question after everything that fills a directory has had its turn. Run any earlier, it
+# deletes the directory of a core that has options but no override, and the lineinfile that follows
+# recreates it with whatever permissions the umask gives it.
+#
+# find rather than the file module, because ansible.builtin.find cannot answer "is it empty": it
+# reports a directory's nlink, which is 2 both for an empty directory and for one holding only
+# files. GNU find's -empty tests what we mean.
+- name: Remove the per-core configuration directories that are now empty
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ games_retroarch_core_config_dir }}"
+      - -mindepth
+      - "1"
+      - -maxdepth
+      - "1"
+      - -type
+      - d
+      - -empty
+      - -print
+      - -delete
+  register: games_retroarch_empty_core_dirs
+  changed_when: games_retroarch_empty_core_dirs.stdout | length > 0
+
+# script rather than copy + command: it transfers the generator, runs it and cleans up after itself,
+# so no temporary directory of the role's own is involved. The configuration goes in the environment
+# rather than in a file for the same reason: it is the last thing the generator needs from the
+# outside, and a file for it would bring the temporary directory back.
+#
+# Prints one line per playlist it rewrote and nothing when they are all current, so stdout is the
+# change report. Skipped systems are reported on stderr.
+- name: Generate the RetroArch playlists
+  ansible.builtin.script:
+    cmd: retroarch-generate-playlists.py
+  environment:
+    RETROARCH_GENERATOR_CONFIG: "{{ games_retroarch_generator_config | to_json }}"
+  register: games_retroarch_playlists
+  changed_when: games_retroarch_playlists.stdout | length > 0
+
+# The generator's skips (a system in the table with no directory in the library, or one whose content
+# matched no extension) go to stderr, which ansible does not print for a task that succeeded. Surface
+# them: a skip is the "something is wrong" signal the play otherwise swallows.
+- name: Report the systems the playlist generator skipped
+  ansible.builtin.debug:
+    msg: "{{ games_retroarch_playlists.stderr_lines }}"
+  when: games_retroarch_playlists.stderr | length > 0
+
+# After the playlists, which it reads: a game gets its box art in the same run that puts it in a
+# playlist, so RetroArch's on-demand downloader is a fallback for what is added between runs rather
+# than the only thing that ever fills the cache. Which it cannot do: it asks the server for the
+# library's filename, and the library and the repository disagree about where a leading article goes
+# ("The Lion King" against "Lion King, The"), so those 404 forever, however many times the game is
+# scrolled past. See the script and README.md.
+#
+# Only on the host whose mount is writable, which is the host that fills the shared cache; the rest
+# read it. Prints one line per thumbnail written, so stdout is the change report; games that end the
+# run with no box art at all are reported on stderr.
+- name: Fetch the missing RetroArch thumbnails
+  ansible.builtin.script:
+    cmd: retroarch-fetch-thumbnails.py
+  environment:
+    RETROARCH_THUMBNAILS_CONFIG: "{{ games_retroarch_thumbnails_config | to_json }}"
+  register: games_retroarch_thumbnails
+  changed_when: games_retroarch_thumbnails.stdout | length > 0
+  when: games_retroarch_thumbnails_writable | bool
+
+# The games it could find no box art for go to stderr, which ansible does not print for a task that
+# succeeded. Surface them: the list is what asks a human to name the game the No-Intro way or supply
+# the art by hand. The script itself exits non-zero, and fails the play, only if the repository could
+# not be reached at all.
+- name: Report the games with no box art
+  ansible.builtin.debug:
+    msg: "{{ games_retroarch_thumbnails.stderr_lines }}"
+  when:
+    - games_retroarch_thumbnails_writable | bool
+    - games_retroarch_thumbnails.stderr | length > 0

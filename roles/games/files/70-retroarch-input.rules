@@ -1,0 +1,24 @@
+# Ansible managed (games role)
+#
+# RetroArch's input driver is udev: it reads /dev/input/event* directly instead of taking input from
+# the display server, and the distro's own rules (70-uaccess.rules) grant the seat user an ACL on
+# joysticks alone. The mouse and keyboard stay root-owned, so RetroArch has a working gamepad, no
+# pointer and no keys. Tag them for uaccess as well.
+#
+# All of this sorts after 60-input-id.rules, which classifies each device (ID_INPUT_MOUSE etc.), and
+# before 73-seat-late.rules, which turns the uaccess tag into the ACL.
+
+# A KVM / virtual-HID device (IM Networks 09eb:0131, behind a virtual USB hub) presents a mouse that
+# advertises buttons but, while idle, emits nothing. It enumerates ahead of a real USB mouse, so it
+# takes pointer 0, and RetroArch reads menu clicks and the lightgun from the device at
+# input_player1_mouse_index, which defaults to 0: the cursor moves (RetroArch aggregates motion
+# across all mice) while every click lands on the dead device. Selecting by index cannot fix it
+# reliably, because the pointer list is built in enumeration order, which is not stable. Drop this
+# device's mouse classification instead, so a real mouse is pointer 0. Harmless on a host without it.
+# Matched by USB id, not a host name: the repo is public. README.md.
+SUBSYSTEM=="input", ATTRS{idVendor}=="09eb", ATTRS{idProduct}=="0131", ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_MOUSE}="0"
+
+# uaccess for the mouse and keyboard. After the rule above, so the suppressed device is skipped here
+# too: RetroArch would ignore it regardless, and it needs no ACL.
+SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="1", TAG+="uaccess"
+SUBSYSTEM=="input", ENV{ID_INPUT_KEYBOARD}=="1", TAG+="uaccess"

@@ -1,0 +1,4 @@
+{{ ansible_managed | comment }}
+{% for key, value in games_retroarch_core_override | dictsort %}
+{{ key }} = "{{ value }}"
+{% endfor %}

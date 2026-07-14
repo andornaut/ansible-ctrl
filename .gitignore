@@ -1,4 +1,5 @@
 .ansible/
 .vscode/mcp.json
+__pycache__/
 host_vars/
 hosts

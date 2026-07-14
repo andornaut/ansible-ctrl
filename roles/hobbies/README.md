@@ -6,8 +6,7 @@ Installs 3D printing, electronics, and FPV tools on Ubuntu.
 
 ```bash
 make hobbies
-
-ansible-playbook --ask-become-pass hobbies.yml --tags kicad
+make hobbies -- --tags kicad
 ```
 
 ## Tags
@@ -15,11 +14,11 @@ ansible-playbook --ask-become-pass hobbies.yml --tags kicad
 | Tag | Description |
 | --- | --- |
 | [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator |
-| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool (deb) |
+| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool |
 | fpv | betaflight and expresslrs |
 | [freerouting](https://github.com/freerouting/freerouting) | PCB autorouter for KiCad; a subset of `kicad` |
 | [kicad](https://www.kicad.org/) | Electronics schematic and PCB design, with plugins |
-| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer) | 3D printer slicer (user flatpak from flathub) |
+| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer) | 3D printer slicer (user flatpak) |
 
 ## Variables
 
@@ -34,9 +33,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 - betaflight installs the latest portable build to `/opt/betaflight/<tag>`, exposed as `/opt/betaflight/current`,
   with `betaflight-configurator` on PATH.
-- freerouting installs the self-contained linux-x64 build to `/opt/freerouting`. The `freerouting` wrapper on
-  PATH passes `-da` to disable analytics.
-- kicad is a git-master build, for KiCad 10 support. It installs the
+- freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
+- kicad is a git-master build. It installs the
   [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, and
-  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization via splinter-keyboard's
-  `npm run panelize`.
+  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization.

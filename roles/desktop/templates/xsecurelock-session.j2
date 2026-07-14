@@ -19,9 +19,14 @@ set -eu
 # its own blank screen), which sticks in the server. Without it the screensaver still
 # activates on the timeout, and xss-lock still locks one cycle later, but the screen does not
 # go black in between: the desktop stays on display for the whole grace period.
-xset s blank
-xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }}
-xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }}
+#
+# A failing xset must not take xss-lock down with it (`set -e` would): a server missing the
+# DPMS extension would cost the session its locker, keybinding and all, over a monitor that
+# does not power down. Losing the timers degrades idle locking; losing xss-lock removes
+# locking altogether.
+xset s blank || true
+xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }} || true
+xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} || true
 
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
 # The prompt is the username and the password field, nothing else: the date, the time, the

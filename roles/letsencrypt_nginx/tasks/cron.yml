@@ -23,13 +23,3 @@
       >> {{ letsencrypt_nginx_renewal_cron_log }} 2>&1
     state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"
   become: true
-
-# CLEANUP (added 2026-07-14): remove after the webservers group has converged. The role was
-# renamed from letsencrypt-nginx to letsencrypt_nginx, and ansible.builtin.cron keys a job on
-# its cron_file, so the old file was orphaned rather than rewritten: the controller ran both,
-# a minute apart from each other, and the older one reapplied the entire playbook nightly.
-- name: Remove the cron job orphaned by the role rename
-  ansible.builtin.file:
-    path: /etc/cron.d/ansible-role-letsencrypt-nginx
-    state: absent
-  become: true
