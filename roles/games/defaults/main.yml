@@ -191,6 +191,21 @@ games_retroarch_systems:
   Sega - Saturn:
     core: mednafen_saturn
     extensions: [chd, m3u]
+  # FinalBurn Neo runs the Neo Geo arcade romsets: MAME/FBNeo-format .zip files named by short arcade
+  # ID (mslug.zip), passed whole as the launchable entry (fbneo sets no block_extract). They diverge
+  # from the library's No-Intro naming, so the playlist label reads "mslug" and the No-Intro-keyed
+  # thumbnail fetcher cannot match, leaving box art to be supplied by hand (README's Thumbnails). The
+  # BIOS is neogeo.zip, which rides in the BIOS set's fbneo/ subdirectory.
+  SNK - Neo Geo:
+    core: fbneo
+    extensions: [zip]
+  # Neo Geo CD via NeoCD. extensions is [chd], not [chd, m3u] like the other disc systems: Neo Geo CD
+  # games are all single-disc, and neocd does not list m3u among its supported extensions, so the
+  # playlist generator would reject an m3u entry. The core also needs the Neo Geo CD BIOS in the
+  # system directory, which the cartridge fbneo BIOS set does not include (README's BIOS section).
+  SNK - Neo Geo CD:
+    core: neocd
+    extensions: [chd]
   Sony - PlayStation:
     core: mednafen_psx_hw
     extensions: [chd, m3u]
@@ -486,6 +501,8 @@ games_retroarch_core_overrides:
   # The preemptive-frames opt-ins: every core declaring "deterministic" savestates, less Beetle PSX
   # HW and Beetle Saturn, which are expensive enough that re-running a frame on every input change
   # costs real framerate. These are the 2D cores, where the latency is felt and a re-run is cheap.
+  fbneo:
+    preemptive_frames_enable: "true"
   mednafen_pce:
     preemptive_frames_enable: "true"
   gambatte:
