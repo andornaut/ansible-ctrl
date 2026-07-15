@@ -33,6 +33,10 @@ desktop run is unchanged by their absence:
     The library is still scanned at "library_dir", but every path written into a playlist (each
     item's "path", and "scan_content_dir") has its "library_dir" prefix rewritten to this, so the
     entries resolve on the device even though the generator ran against a different mount.
+  * "emit_system_dirs" (default {}): per-system rename of the directory under emit_library_dir, for a
+    target whose per-system folders are not named as the library's are. The Retroid's ES-DE tree uses
+    short names ("snes", "genesis") where the library uses No-Intro names ("Super Nintendo...", "Sega -
+    Mega Drive - Genesis"); a system absent from the map keeps its library name.
 
 "cores" is what the cores themselves reported, collected by files/retroarch-probe-cores.py inside
 the flatpak sandbox. It is not gathered here, because this runs on the host, where a core needing
@@ -281,6 +285,7 @@ def main():
     systems = sorted(config["systems"].items())
     # The library as the target sees it, and the core file's tail; both default to a same-host run.
     emit_library_dir = config.get("emit_library_dir", library_dir)
+    emit_system_dirs = config.get("emit_system_dirs", {})
     core_suffix = config.get("core_filename_suffix", "_libretro.so")
 
     # An unmounted network share looks like an empty directory, and regenerating from that would
@@ -317,7 +322,7 @@ def main():
         core = spec["core"]
         db_name = "%s.lpl" % system
         core_path = os.path.join(cores_dir, "%s%s" % (core, core_suffix))
-        emit_system_dir = os.path.join(emit_library_dir, system)
+        emit_system_dir = os.path.join(emit_library_dir, emit_system_dirs.get(system, system))
         # Falls back to the core's file name when the .info is missing, which costs only a
         # cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)

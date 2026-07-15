@@ -18,19 +18,24 @@ sdcard_uuid: ""
 sdcard_root: "/storage/{uuid}"
 app_files: "/storage/emulated/0/Android/data/{package}/files"
 
-# Where each managed tree lands on the device. cores stays on the sdcard unless Android refuses to
-# load an executable .so from external storage, in which case set cores to "{app_files}/cores" and
-# re-run (README).
+# Where each managed tree lands on the device. These are the adb-pushed trees (plain data, so the
+# noexec sdcard mount is fine). Cores and their .info are NOT here: the sdcard and emulated storage
+# are mounted noexec, so RetroArch cannot dlopen a core .so from them, and the only exec-capable
+# volume (app-private /data/user/0) is not adb-writable on a non-rooted device. Cores come from the
+# in-app Core Updater (README); cores_ref below is where they land, used only to build core_path.
 device_dirs:
-  cores: "{sdcard_root}/RETROARCH/cores"
   system: "{sdcard_root}/BIOS"
   playlists: "{sdcard_root}/RETROARCH/playlists"
   thumbnails: "{sdcard_root}/RETROARCH/thumbnails"
   saves: "{sdcard_root}/RETROARCH/saves"
   states: "{sdcard_root}/RETROARCH/states"
   cache: "{sdcard_root}/RETROARCH/cache"
-  info: "{sdcard_root}/RETROARCH/info"
   roms: "{sdcard_root}/ROMS"
+
+# App-private cores dir, the one exec-capable location RetroArch can dlopen from. Not pushed (adb
+# cannot write app-private storage); only used to build each playlist's core_path so entries resolve
+# against cores installed by the in-app Core Updater.
+cores_ref: "/data/user/0/{package}/cores"
 
 # Cores come from the Android buildbot, keyed by ABI (arm64-v8a for the 865), not the kernel arch
 # the desktop uses. The files land as <core>_libretro_android.so, which is also what the playlist
@@ -124,9 +129,10 @@ settings_drop:
   - input_hold_fast_forward
 
 # retroarch.cfg directory keys, remapped from the base's templated flatpak paths to the device dirs
-# above. Every value is resolved from device_dirs by sync.py.
+# above. Every value is resolved from device_dirs by sync.py. libretro_directory and libretro_info_path
+# are deliberately absent: cores and their .info live in the app-private dir the in-app Core Updater
+# writes (see cores_ref), so the sync leaves whatever the device already has for those two keys.
 directory_settings:
-  libretro_directory: cores
   system_directory: system
   playlist_directory: playlists
   thumbnails_directory: thumbnails
@@ -134,17 +140,94 @@ directory_settings:
   savestate_directory: states
   cache_directory: cache
   rgui_browser_directory: roms
-  libretro_info_path: info
 
-# The Retroid pad's rewind/fast-forward indices. These are PHYSICAL device indices and are wrong
-# until derived on the device from its autoconfig profile (README, "Derive the pad indices"). Left as
-# the RetroPad-ID guesses so a first sync is obviously-unconfigured rather than subtly-wrong; sync.py
-# folds this entry into the managed settings the way the role folds games_retroarch_controllers.
+# Maps each library system (No-Intro directory name) to the device's ES-DE short name. Used two ways:
+# the playlist generator takes it as emit_system_dirs (RetroArch playlist paths), and --roms mirrors
+# each library directory onto ROMS/<short name>. The device's ES-DE tree uses the North-America
+# variants (genesis/segacd/sega32xna/tg16/tg-cd). A library system absent here is not synced (PortMaster
+# is intentionally omitted: it is a separate launcher, not an ES-DE ROM system). GameCube and PS2 are
+# here for the ROM mirror even though they left the RetroArch table (standalone emulators run them; the
+# generator only ever looks up systems in its own table, so the extra entries are inert for playlists).
+rom_dir_names:
+  Atari - 2600: atari2600
+  Atari - 7800: atari7800
+  Atari - Jaguar: atarijaguar
+  Atari - Lynx: atarilynx
+  NEC - PC Engine - TurboGrafx 16: tg16
+  NEC - PC Engine CD - TurboGrafx-CD: tg-cd
+  Nintendo - Game Boy: gb
+  Nintendo - Game Boy Advance: gba
+  Nintendo - Game Boy Color: gbc
+  Nintendo - GameCube: gc
+  Nintendo - Nintendo 64: n64
+  Nintendo - Nintendo DS: nds
+  Nintendo - Nintendo Entertainment System: nes
+  Nintendo - Super Nintendo Entertainment System: snes
+  Pico-8: pico8
+  Sega - 32X: sega32xna
+  Sega - Dreamcast: dreamcast
+  Sega - Game Gear: gamegear
+  Sega - Master System - Mark III: mastersystem
+  Sega - Mega Drive - Genesis: genesis
+  Sega - Mega-CD - Sega CD: segacd
+  Sega - Saturn: saturn
+  Sony - PlayStation: psx
+  Sony - PlayStation 2: ps2
+  Sony - PlayStation Portable: psp
+  The 3DO Company - 3DO: 3do
+
+# ES-DE launches its own choice of emulator per system, independent of the RetroArch playlists. This
+# pins each system (keyed by the ES-DE short name above) to the core the games role prefers, written as
+# the per-system <alternativeEmulator> in ROMS' gamelist.xml. Labels must match an ES-DE <command label>
+# for that system exactly (taken from ES-DE's bundled es_systems.xml). Most already equal the ES-DE
+# default; the ones that do not are atarilynx (default Handy), saturn (default Beetle Saturn), psx
+# (default Beetle PSX, non-HW), and gc (default is the libretro Dolphin that crashes on Android, so the
+# standalone). pico8 is omitted: the library carries .p8.png carts but which Pico-8 runtime is installed
+# is not knowable here, so ES-DE's default stands.
+esde_cores:
+  atari2600: Stella
+  atari7800: ProSystem
+  atarijaguar: Virtual Jaguar
+  atarilynx: Beetle Lynx
+  tg16: Beetle PCE
+  tg-cd: Beetle PCE
+  gb: Gambatte
+  gba: mGBA
+  gbc: Gambatte
+  gc: Dolphin (Standalone)
+  n64: Mupen64Plus-Next
+  nds: melonDS DS
+  nes: Mesen
+  snes: Snes9x - Current
+  sega32xna: PicoDrive
+  dreamcast: Flycast
+  gamegear: Genesis Plus GX
+  mastersystem: Genesis Plus GX
+  genesis: Genesis Plus GX
+  segacd: Genesis Plus GX
+  saturn: YabaSanshiro
+  psx: Beetle PSX HW
+  ps2: AetherSX2 (Standalone)
+  psp: PPSSPP
+  3do: Opera
+
+# ES-DE's per-system gamelists (holding <alternativeEmulator>) live on internal storage, separate from
+# the ROMs and media on the sdcard. The package is force-stopped before writing them, since ES-DE
+# rewrites gamelist.xml on exit and would otherwise clobber the pushed emulator choices.
+esde_gamelists_dir: "/storage/emulated/0/ES-DE/gamelists"
+esde_package: org.es_de.frontend
+
+# The Retroid pad's rewind/fast-forward binds. The button values are Android keycodes (the "Retroid
+# Pocket Controller" reports BTN_THUMBL/BTN_THUMBR, i.e. KEYCODE_BUTTON_THUMBL/THUMBR): L3=106 rewinds,
+# R3=107 fast-forwards, both as holds. The right-stick axes stay nul on purpose: this pad's right stick
+# is Z/RZ and several systems here (N64, PSP, DS, Dreamcast) use it in-game, so an axis bind would
+# rewind by accident. sync.py folds this entry into the managed settings the way the role folds
+# games_retroarch_controllers.
 controller:
   input_rewind_axis: "nul"
   input_hold_fast_forward_axis: "nul"
-  input_rewind_btn: "nul"
-  input_hold_fast_forward_btn: "nul"
+  input_rewind_btn: "106"
+  input_hold_fast_forward_btn: "107"
 
 # --- Per-core override transforms (over games_retroarch_core_overrides) ---
 
