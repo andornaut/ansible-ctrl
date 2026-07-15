@@ -1,7 +1,6 @@
 ---
 - name: Configure apt network timeouts and retries
-  # Bound apt fetches so a stalled mirror connection cannot hang indefinitely
-  # (e.g. holding the lists lock and blocking unattended/cron apt runs).
+  # Bound apt fetches so a stalled mirror cannot hang and hold the lists lock.
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/99network-timeouts
     content: |
@@ -11,13 +10,11 @@
     mode: "0644"
   become: true
 
-# Imported ahead of the apt tasks below so the negative pin is in place before anything
-# has a chance to pull snapd back in as a recommended dependency.
+# Pin snapd and cloud-init out before any apt install below can pull them back in as a
+# Recommends.
 - name: Import snap tasks
   ansible.builtin.import_tasks: snap.yml
 
-# Imported early for the same reason as snap: pin cloud-init out before any apt install
-# runs, so a Recommends cannot pull it back in mid-run.
 - name: Import cloud-init tasks
   ansible.builtin.import_tasks: cloud-init.yml
 
@@ -121,8 +118,7 @@
   loop:
     - universe
     - multiverse
-  # Ubuntu 24.04+ uses the deb822 sources format with no legacy sources.list, where
-  # these components are enabled by default and the shorthand repo name is invalid.
+  # Pre-24.04 only: the deb822 format enables these by default and rejects the shorthand.
   when: ansible_facts["distribution_version"] is version('24.04', '<')
   become: true
 

@@ -2,12 +2,8 @@
 - name: Remove snap
   become: true
   block:
-    # Purging snapd also removes ubuntu-server-minimal, which hard-depends on it, so the
-    # two cannot coexist. That metapackage is a leaf (ubuntu-server does not depend on
-    # it) and nothing it pulls in is orphaned by its removal, because ubuntu-server,
-    # ubuntu-standard, and the Recommends of docker-ce/man-db/rsyslog hold those
-    # packages in place. The only cost is that a release upgrade will no longer add
-    # newly-introduced server defaults on its own.
+    # Purging snapd also removes ubuntu-server-minimal (hard-dependency); nothing else is
+    # orphaned. See README.
     - name: Purge and pin snap packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
@@ -29,20 +25,16 @@
         state: absent
       loop: "{{ base_snap_directories_result.files + ['/root/snap', '/var/cache/snapd'] }}"
 
-    # snapd enables its user services by symlinking them into the per-user
-    # ~/.config/systemd/user/*.wants directories. Purging snapd deletes the units but
-    # leaves those symlinks behind, dangling. They are not harmless: a .wants entry is
-    # resolved by unit name rather than through the link, so the dependency outlives the
-    # unit and systemd reports it as not-found at every login.
+    # Purging snapd leaves dangling .wants symlinks in per-user ~/.config/systemd/user;
+    # resolved by unit name, they outlive the units and systemd reports not-found at login.
     - name: Find user systemd unit directories
       ansible.builtin.find:
         paths: /home
         file_type: directory
       register: base_home_directories_result
 
-    # Both patterns are needed: `snap.*` matches the per-snap units (snap.foo.bar.service),
-    # while snapd's own user units are snapd.session-agent.service and .socket, which the
-    # first glob does not match because it requires a literal dot after "snap".
+    # snap.* matches the per-snap units; snapd.* matches snapd's own session-agent units,
+    # which snap.* misses (it requires a literal dot after "snap").
     - name: Find leftover snap enable symlinks
       ansible.builtin.find:
         paths: "{{ (base_home_directories_result.files | map(attribute='path') | list + ['/root'])

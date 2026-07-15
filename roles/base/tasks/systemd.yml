@@ -1,5 +1,5 @@
 ---
-# Configures the default timeouts for starting of units (Default: 90s)
+# Unit start timeout (Default: 90s)
 - name: Configure Systemd DefaultTimeoutStartSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -8,7 +8,7 @@
   become: true
   notify: Reload systemd
 
-# Configures the default timeouts for stopping of units (Default: 90s)
+# Unit stop timeout (Default: 90s)
 - name: Configure Systemd DefaultTimeoutStopSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -17,7 +17,7 @@
   become: true
   notify: Reload systemd
 
-# Default time to sleep between automatic restarts of units (Default: 100s)
+# Delay between automatic unit restarts (Default: 100s)
 - name: Configure Systemd DefaultRestartSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -26,8 +26,7 @@
   become: true
   notify: Reload systemd
 
-# Units which are started more than burst times within an interval time span are not permitted to start any more.
-# DefaultStartLimitBurst (Default: 5)
+# Max unit starts per interval before systemd refuses further starts (Default: 5)
 - name: Configure Systemd DefaultStartLimitBurst
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -36,7 +35,7 @@
   become: true
   notify: Reload systemd
 
-# DefaultStartLimitIntervalSec (Default: 10s)
+# Start-limit interval span (Default: 10s)
 - name: Configure Systemd DefaultStartLimitIntervalSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -54,8 +53,8 @@
   become: true
   notify: Restart systemd-journald
 
-# Cap journal retention by age. Combined with SystemMaxUse, journald vacuums
-# logs whenever either limit is reached, whichever comes first (Default: none).
+# Cap journal retention by age; with SystemMaxUse, whichever limit hits first wins
+# (Default: none).
 - name: Configure journald MaxRetentionSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf
