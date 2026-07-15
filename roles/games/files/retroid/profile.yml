@@ -46,11 +46,14 @@ info_zip_url: "https://buildbot.libretro.com/assets/frontend/info.zip"
 
 # GameCube (libretro Dolphin crashes on load on Android) and PS2 (LRPS2 is x86-only) run in the
 # standalone Dolphin and NetherSX2 apps via ES-DE, not as libretro playlist entries. Pico-8: Retro8's
-# cart is a .p8.png and there is no Flip 2 cores-table entry for it.
+# cart is a .p8.png and there is no Flip 2 cores-table entry for it. SNK - Neo Geo (arcade, fbneo) is
+# dropped too: the library holds no arcade romsets, so there is nothing to sync. Neo Geo CD, which has
+# content, stays and runs on neocd (core_probe / rom_dir_names / esde_cores below).
 systems_remove:
   - Nintendo - GameCube
   - Sony - PlayStation 2
   - Pico-8
+  - SNK - Neo Geo
 
 # Saturn moves off Beetle Saturn (no dynarec, interprets both SH-2s, too slow on an 865) to
 # YabaSanshiro. Same library directory and extensions, different core.
@@ -59,9 +62,9 @@ systems_set:
     core: yabasanshiro
     extensions: [chd, m3u]
 
-# Flip 2-only systems the desktop library does not carry (Arcade/Neo Geo via fbneo) are intentionally
-# not added here: they need romsets the No-Intro console library does not hold. Add them, plus an
-# fbneo entry to core_probe below, if the library gains an Arcade/Neo Geo directory.
+# Arcade Neo Geo (fbneo) stays removed above until the library gains an arcade romset directory; its
+# romsets are named unlike the No-Intro console library and would need their own handling. Neo Geo CD
+# needs no transform here: it carries over from the desktop table (neocd, .chd) and is mapped below.
 
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
@@ -173,6 +176,7 @@ rom_dir_names:
   Sega - Mega Drive - Genesis: genesis
   Sega - Mega-CD - Sega CD: segacd
   Sega - Saturn: saturn
+  SNK - Neo Geo CD: neogeocd
   Sony - PlayStation: psx
   Sony - PlayStation 2: ps2
   Sony - PlayStation Portable: psp
@@ -205,6 +209,7 @@ esde_cores:
   genesis: Genesis Plus GX
   segacd: Genesis Plus GX
   saturn: YabaSanshiro
+  neogeocd: NeoCD
   psx: Beetle PSX HW
   # This label is not in ES-DE's bundle: it comes from the GlazedBelmont custom_systems, whose
   # es_find_rules.xml AETHERSX2-TURNIP entry must target the installed package (xyz.aethersx2.tturnip,
@@ -318,6 +323,10 @@ core_probe:
   yabasanshiro:
     library_name: YabaSanshiro
     valid_extensions: [cue, iso, chd, ccd, mds, bin, m3u, zip]
+    block_extract: false
+  neocd:
+    library_name: NeoCD
+    valid_extensions: [cue, chd]
     block_extract: false
   mednafen_psx_hw:
     library_name: Beetle PSX HW
