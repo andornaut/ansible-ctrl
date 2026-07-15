@@ -16,9 +16,8 @@
         install_recommends: false
         update_cache: true
 
-# Optional convenience for browsing the JLCPCB catalog and looking up LCSC part
-# numbers (not used by the fab pipeline). Per-user plugin, so no become. Pinned to
-# the latest release tag; update: true re-checks it out on re-run so it advances.
+# JLCPCB catalog / LCSC part lookup. Per-user plugin, so no become. Pinned to the latest
+# release tag; update: true re-checks it out on re-run so it advances.
 - name: Install kicad-jlcpcb-tools plugin
   tags: kicad
   block:
@@ -38,11 +37,9 @@
         version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
         update: true
 
-# PCB panelizer for splinter-keyboard's `npm run panelize`. KiCad 10 support is only
-# in KiKit + pcbnewTransition git master (no PyPI release has it yet). Dedicated venv
-# isolates the unstable git-master pin; --system-site-packages exposes KiCad's pcbnew
-# (a C extension from the kicad apt package, not pip-installable). The consumer
-# (panelize.sh) runs with PYTHONNOUSERSITE=1 so a stale ~/.local copy cannot shadow it.
+# PCB panelizer. KiCad 10 support is only in KiKit + pcbnewTransition git master (no PyPI
+# release yet). Dedicated venv isolates the git-master pin; --system-site-packages exposes
+# KiCad's pcbnew (a C extension from the kicad apt package, not pip-installable).
 - name: Install KiKit panelizer into a dedicated venv
   tags: kicad
   become: true
@@ -53,13 +50,9 @@
         state: present
 
     - name: Install KiKit and pcbnewTransition into /opt/kikit
-      # state: latest tracks master HEAD. Switch to plain 'kikit' once upstream
-      # ships a KiCad 10 PyPI release.
-      #
-      # --ignore-installed makes the venv install its own copies of every pip
-      # dependency (shapely, numpy, ...) instead of borrowing system site-packages;
-      # only pcbnew (not a pip package) is borrowed. Keeps the venv self-contained.
-      # (pip's resolver warnings about unrelated system packages are harmless.)
+      # state: latest tracks master HEAD; switch to plain 'kikit' once upstream ships a KiCad
+      # 10 PyPI release. --ignore-installed makes the venv build its own copies of every pip
+      # dependency instead of borrowing system site-packages; only pcbnew is borrowed.
       ansible.builtin.pip:
         name:
           - git+https://github.com/yaqwsx/pcbnewTransition.git
@@ -84,11 +77,8 @@
         validate_certs: true
       register: hobbies_freerouting_releases
 
-    # Pick the most recent linux-x64.zip across all stable releases rather than
-    # betting the newest stable release has the asset (freerouting cuts releases
-    # frequently and a fresh tag may briefly lack built assets). Match on the
-    # plain 'linux-x64' substring (unique to the zip asset) to avoid regex-escape
-    # differences across Jinja versions.
+    # Newest linux-x64.zip across all stable releases: a fresh tag may briefly lack built
+    # assets. Match the 'linux-x64' substring to avoid regex-escape differences across Jinja.
     - name: Set Freerouting download URL fact
       ansible.builtin.set_fact:
         hobbies_freerouting_download_url: >-
@@ -125,9 +115,8 @@
         force: true
       become: true
 
-    # Wrapper (not a symlink) so we can default -da to opt out of upstream's
-    # analytics phone-home; callers can still pass routing args, e.g.
-    # freerouting -de board.dsn -do board.ses -mp 100
+    # Wrapper (not a symlink) to default -da, opting out of upstream's analytics phone-home;
+    # callers can still pass routing args, e.g. freerouting -de board.dsn -do board.ses -mp 100
     - name: Install freerouting launcher wrapper onto PATH
       ansible.builtin.copy:
         dest: /usr/local/bin/freerouting
