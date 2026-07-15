@@ -47,9 +47,7 @@
         - option: Environment
           value: DISPLAY=:0
 
-    # xwayland-satellite is installed under /usr/local, so its unit belongs in
-    # /usr/local/lib/systemd/user rather than the administrator's /etc/systemd/user,
-    # which outranks it and would shadow future changes.
+    # Binary lives under /usr/local, so its unit belongs in /usr/local/lib/systemd/user.
     - name: Create the local systemd user unit directory
       ansible.builtin.file:
         path: /usr/local/lib/systemd/user

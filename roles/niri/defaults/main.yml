@@ -1,4 +1,3 @@
 ---
-# Target niri user account whose per-user config (electron-flags.conf) is written.
-# Defaults to primary_user from the inventory; override per host.
+# Account whose per-user config is written. Defaults to primary_user; override per host.
 niri_user: "{{ primary_user }}"

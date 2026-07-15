@@ -1,23 +1,16 @@
 ---
-# Build and install one hyprwm component from its latest stable GitHub release, using the
-# shared cmake commands in vars/main.yml. Every component lives at github.com/hyprwm/{name}
-# and tags its releases with the name that `.name` reports, so the name is the only
-# required parameter.
+# Build and install one github.com/hyprwm/{name} component from its latest stable release,
+# using the shared cmake commands in vars/main.yml. Returns once installed and cleaned up;
+# post-install steps (relocating/enabling a systemd unit) belong at the call site.
 #
 # Required vars:
 #   hypr_component_name (str): repository name under github.com/hyprwm/, e.g. "hyprlock"
 #
 # Optional vars:
-#   hypr_component_build_target (str): passed to `cmake --build` as `--target <value>`.
-#     Omit to build cmake's default target.
+#   hypr_component_build_target (str): passed to `cmake --build --target`. Omit for default.
 #   hypr_component_build_become (bool): build as root, default false.
 #
-# Callers must wrap the include in a tagged block rather than tagging the include itself;
-# see the comment in hypr.yml.
-#
-# Anything that must follow the install (relocating and enabling a systemd user unit, say)
-# belongs at the call site: this file returns once the component is installed and its build
-# tree is gone.
+# Callers must wrap the include in a tagged block (see hypr.yml).
 - name: Build and install {{ hypr_component_name }}
   block:
     - name: Create a temporary directory for {{ hypr_component_name }}
@@ -69,8 +62,7 @@
       changed_when: true
       become: true
   always:
-    # A build that ran under become leaves root-owned directories in the tree, which the
-    # connecting user cannot unlink.
+    # A become build leaves root-owned dirs the connecting user cannot unlink.
     - name: Remove the temporary directory for {{ hypr_component_name }}
       ansible.builtin.file:
         path: "{{ niri_hypr_component_tmp.path }}"

@@ -26,8 +26,8 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- This role owns only the Wayland-only utilities. Their X11 counterparts belong to the [bspwm](../bspwm/) role,
-  and tools both sessions share live in the [desktop](../desktop/) role.
+- Owns only the Wayland-only utilities. X11 counterparts live in [bspwm](../bspwm/); tools both sessions share
+  live in [desktop](../desktop/).
 - X11 applications such as Steam need `xwayland-run` in their desktop entry:
 
   ```ini
