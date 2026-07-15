@@ -29,7 +29,7 @@
     user: root
     minute: "30"
     hour: "3"
-    weekday: "1"  # Monday at 3:30 AM
+    weekday: "1"  # Monday
     job: /usr/bin/rsnapshot weekly
   when: rsnapshot_retention.weekly is not none
   become: true
@@ -42,7 +42,7 @@
     user: root
     minute: "50"
     hour: "5"
-    day: "1"  # 1st of month at 5:50 AM
+    day: "1"  # 1st of month
     job: /usr/bin/rsnapshot monthly
   when: rsnapshot_retention.monthly is not none
   become: true
