@@ -128,5 +128,5 @@ host-mapped port. It is configured for VSCode in this project's `.vscode/mcp.jso
 | Document | Contents |
 | --- | --- |
 | [docs/hardware.md](docs/hardware.md) | Device setup, Matter pairing, firmware flashing |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Frigate, MemryX, Coral.ai, entity cleanup |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | EnvisaLink credentials, Frigate, MemryX, Coral.ai, entity cleanup |
 | [docs/references.md](docs/references.md) | Integrations, custom cards, LLM and voice links |

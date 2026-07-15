@@ -8,6 +8,37 @@ Runbooks for the [homeautomation](../README.md) role.
 
 Debug with `tcpdump port 5353 -i any` on the host, and `apk add tcpdump && tcpdump port 5353` inside the container.
 
+## EnvisaLink alarm rejects credentials
+
+Log shows `pyenvisalink ... Password is incorrect`, `envisalink` setup aborts, and the alarm panel and zone
+sensors disappear (Watchman flags them as missing).
+
+- Keep `envisalink_password` in `secrets.yaml` at **10 characters or fewer**: the module truncates to 10, and a
+  longer value passes the web-UI login but fails over the TPI.
+- Put the password in `envisalink_password`, not `envisalink_username`/`user_name`.
+- `envisalink` is a YAML integration: `docker restart homeassistant` to re-read secrets (a reload will not).
+
+Probe the TPI (port 4025) to see which value the module accepts. It replies `5051…` on success, `5050…` on
+rejection; this tests the full password and every shorter prefix:
+
+```bash
+docker exec -i homeassistant python3 - <<'PY'
+import socket, time, yaml
+HOST, PORT = "envisalink.example.com", 4025
+pw = yaml.safe_load(open("/config/secrets.yaml"))["envisalink_password"]
+cks = lambda s: ("%02X" % (sum(map(ord, s)) & 0xFF))[-2:]
+for L in range(len(pw), 3, -1):
+    c = pw[:L]
+    s = socket.create_connection((HOST, PORT), timeout=6); s.settimeout(4)
+    try: s.recv(256)  # 505 login prompt
+    except socket.timeout: pass
+    s.sendall(("005" + c + cks("005" + c) + "\r\n").encode())
+    r = s.recv(256).decode("ascii", "replace"); s.close()
+    print(f"len={L:2d} -> {'ACCEPT' if '5051' in r else 'reject'}")
+    time.sleep(1)
+PY
+```
+
 ## Frigate restart loop with MemryX
 
 `docker logs frigate` shows:
