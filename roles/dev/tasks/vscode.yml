@@ -1,9 +1,8 @@
 ---
 - name: Install Visual Studio Code
   ansible.builtin.apt:
-    # The code.visualstudio.com/sha/download redirector completes its TLS
-    # handshake and then stalls without sending a body. This is the URL that
-    # Microsoft documents for scripted installs.
+    # Microsoft's documented scripted-install URL. The code.visualstudio.com/sha
+    # redirector stalls after the TLS handshake without sending a body.
     deb: https://update.code.visualstudio.com/latest/linux-deb-x64/stable
     update_cache: true
   become: true

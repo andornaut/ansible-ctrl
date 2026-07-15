@@ -38,9 +38,8 @@
         state: present
         update_cache: true
 
-    # bubblewrap provides Cowork's sandbox isolation backend; the KVM/QEMU
-    # backend is non-functional on Linux in this build, so without bubblewrap
-    # Cowork falls back to running with no isolation.
+    # bubblewrap is Cowork's sandbox backend on Linux; without it Cowork runs
+    # with no isolation.
     - name: Install Claude Desktop (Cowork) and sandbox backend
       ansible.builtin.apt:
         name:

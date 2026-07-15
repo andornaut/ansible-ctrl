@@ -42,10 +42,9 @@
   become: true
   notify: Update initramfs
 
-# The virtualbox-dkms postinst builds vboxdrv once and never retries. A kernel
-# upgrade that lands before its headers leaves the module unregistered, and the
-# service then fails with "No suitable module for running kernel found" until
-# DKMS is driven by hand. Reconcile that state on every run instead.
+# The virtualbox-dkms postinst builds vboxdrv once and never retries, so a kernel
+# upgrade that outpaces its headers leaves the module unregistered. Reconcile on
+# every run instead of relying on the postinst.
 - name: Reconcile the virtualbox DKMS module
   become: true
   block:
@@ -89,11 +88,9 @@
       when: "'installed' not in dev_virtualbox_dkms.stdout"
       changed_when: true
 
-    # Secure Boot rejects a DKMS module signed with a MOK the firmware does not
-    # trust. Enrolling one needs an interactive reboot, so report that case
-    # instead of aborting. Every other modprobe error is still fatal. Asking
-    # modprobe is authoritative; probing mokutil would guess, and would treat a
-    # missing mokutil as "Secure Boot off".
+    # Secure Boot rejects a DKMS module signed with an untrusted MOK, and
+    # enrolling one needs an interactive reboot. Report that case (authoritative
+    # from modprobe's own error) instead of aborting; every other error is fatal.
     - name: Load the virtualbox kernel modules
       community.general.modprobe:
         name: "{{ item }}"

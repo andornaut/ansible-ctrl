@@ -9,8 +9,8 @@
   ansible.builtin.set_fact:
     dev_go_version: "{{ dev_go_releases.json[0].version }}"
 
-# unarchive extracts before it can compare anything, so the installed version gates
-# the download and the extract instead. `go version` prints e.g. "go version go1.25.1 linux/amd64".
+# unarchive can't compare versions before extracting, so the installed version
+# (from `go version`) gates the download and extract instead.
 - name: Get installed Go version
   ansible.builtin.command:
     cmd: /usr/local/go/bin/go version
@@ -44,8 +44,8 @@
         dest: "{{ dev_go_tmp.path }}/go.tar.gz"
         mode: "0644"
 
-    # The tarball unpacks into a "go" directory, so the old tree must go first:
-    # unarchive merges into it rather than replacing it.
+    # unarchive merges into an existing "go" directory rather than replacing it,
+    # so remove the old tree first.
     - name: Remove old Go installation
       ansible.builtin.file:
         path: /usr/local/go
