@@ -2,31 +2,17 @@
 - name: Disable telemetry and crash reporting
   become: true
   block:
-    # Ubuntu enables several reporters by default: apport traps crashes and writes them
-    # to /var/crash, whoopsie uploads them to Canonical, kerneloops uploads kernel
-    # oopses, ubuntu-report sends a hardware and installation survey, and
-    # popularity-contest reports which packages are installed.
-    #
-    # ubuntu-server and ubuntu-server-minimal Depend on apport, so the negative pin makes
-    # `apt dist-upgrade` remove them rather than reinstall apport. That is already the case
-    # on every host here: snap.yml's purge of snapd removed ubuntu-server-minimal for the
-    # same reason, and ubuntu-server with it. Desktop metapackages only Recommend these, so
-    # nothing else is disturbed.
+    # apport/whoopsie/kerneloops/ubuntu-report/popularity-contest are default reporters.
+    # ubuntu-server* Depend on apport, so the pin makes dist-upgrade drop them (already
+    # gone via the snapd purge); desktop metapackages only Recommend them.
     - name: Purge and pin telemetry packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: telemetry
         purge_pin_packages: "{{ base_telemetry_packages }}"
 
-    # ubuntu-insights keeps per-user state that purging the package does not touch:
-    # consent files in ~/.config/ubuntu-insights and queued and uploaded reports in
-    # ~/.cache/ubuntu-insights. Sweep every home rather than one user's, because any
-    # account that logged in before the purge has its own copy.
-    #
-    # depth 3 is what bounds the scan: the targets sit at <home>/.cache/ubuntu-insights,
-    # three levels below /home. recurse descends into dotted directories on its own, so
-    # `hidden` is not needed here; that option only decides whether hidden entries are
-    # themselves returned, and ubuntu-insights is not hidden.
+    # ubuntu-insights leaves per-user state (~/.config, ~/.cache) that purge doesn't touch.
+    # Sweep every home; depth 3 reaches <home>/.cache/ubuntu-insights.
     - name: Find leftover ubuntu-insights user state
       ansible.builtin.find:
         depth: 3
@@ -46,16 +32,9 @@
       loop_control:
         label: "{{ item.path }}"
 
-    # update-notifier-crash.service is `static`, so it cannot be disabled, only masked,
-    # and `set -e` plus an unguarded `which whoopsie` makes it exit non-zero once whoopsie
-    # is purged. The .path unit is what triggers it, on PathChanged=/var/crash/, and it is
-    # pulled into graphical-session.target by update-notifier itself, so masking only the
-    # service would leave the trigger armed and merely move the failure to the triggered
-    # job. Mask both. Masking in /etc/systemd/user covers every user on the host.
-    #
-    # No handler: Reload systemd reloads the system manager, which never reads
-    # /etc/systemd/user. A per-user manager picks the mask up when it next loads units,
-    # so a session already running needs `systemctl --user daemon-reload`.
+    # update-notifier-crash.service is static (mask, not disable) and fails once whoopsie is
+    # purged. Mask both it and its triggering .path unit; masking in /etc/systemd/user covers
+    # every user. No handler: it affects only per-user managers, which pick it up on next load.
     - name: Mask update-notifier-crash units for all users
       ansible.builtin.file:
         dest: "/etc/systemd/user/{{ item }}"

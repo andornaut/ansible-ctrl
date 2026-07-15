@@ -1,25 +1,22 @@
 ---
-# Role-internal values, not operator knobs. They live here rather than in defaults/ so
-# role vars outrank host_vars: a host cannot desync base_arch from the fact it derives
-# from, nor partially override the package sets the role is defined to purge.
+# Role-internal values in vars/ (not defaults/) so they outrank host_vars: a host cannot
+# desync base_arch from its fact or override the purge sets.
 
-# GoReleaser architecture name, used to select the gog and mrs release assets. Ansible
-# reports the kernel names (x86_64, aarch64); GoReleaser keeps x86_64 as-is but spells
-# aarch64 as arm64.
+# GoReleaser arch name for the gog/mrs release assets: keeps x86_64, maps aarch64 to arm64.
 base_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# Purged and then negatively pinned by tasks/cloud-init.yml, so apt cannot bring them back.
+# Purged and negatively pinned by tasks/cloud-init.yml.
 base_cloud_init_packages:
   - cloud-init
   - cloud-init-base
 
-# Purged and then negatively pinned by tasks/snap.yml, so apt cannot bring them back.
+# Purged and negatively pinned by tasks/snap.yml.
 base_snap_packages:
   - gnome-software-plugin-snap
   - snapd
 
-# Purged and then negatively pinned by tasks/telemetry.yml, so apt cannot bring them back.
+# Purged and negatively pinned by tasks/telemetry.yml.
 base_telemetry_packages:
   - apport
   - kerneloops
