@@ -23,6 +23,17 @@ the environment (games_retroarch_generator_config):
       }
     }
 
+Two optional keys let another host build these playlists for a device it does not itself mount,
+which is what the Retroid sync (files/retroid/) needs. Both default to today's behaviour, so a
+desktop run is unchanged by their absence:
+
+  * "core_filename_suffix" (default "_libretro.so"): the tail of a core's file, "_libretro_android.so"
+    on Android, used to build core_path;
+  * "emit_library_dir" (default = "library_dir"): the library root as it will be seen on the target.
+    The library is still scanned at "library_dir", but every path written into a playlist (each
+    item's "path", and "scan_content_dir") has its "library_dir" prefix rewritten to this, so the
+    entries resolve on the device even though the generator ran against a different mount.
+
 "cores" is what the cores themselves reported, collected by files/retroarch-probe-cores.py inside
 the flatpak sandbox. It is not gathered here, because this runs on the host, where a core needing
 a library only the runtime carries (LRPS2 wants libaio) will not load: asking from here would
@@ -162,8 +173,13 @@ def disc_entry(directory, extensions):
     return next((disc for disc in discs if "(Disc 1)" in disc), discs[0])
 
 
-def system_items(system_dir, extensions, core_path, core_name, db_name):
-    """Build the playlist items for one system directory."""
+def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
+    """Build the playlist items for one system directory.
+
+    The directory is scanned at system_dir but each item's path is written relative to
+    emit_system_dir, which differs only when a playlist is being built for another host's mount
+    (the Retroid sync). When they are equal the rewrite is a no-op.
+    """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
         # Dot-prefixed entries are the hidden per-game directories holding the discs of a
@@ -185,6 +201,9 @@ def system_items(system_dir, extensions, core_path, core_name, db_name):
             # load either way, and taking the path as it stands means never opening ~700
             # archives across a network-mounted library.
             path = entry.path
+
+        # Rewrite the scanned path onto the target's mount. path is always under system_dir.
+        path = emit_system_dir + path[len(system_dir):]
 
         items.append(
             {
@@ -260,6 +279,9 @@ def main():
     info_dir = config["info_dir"]
     probed = config["cores"]
     systems = sorted(config["systems"].items())
+    # The library as the target sees it, and the core file's tail; both default to a same-host run.
+    emit_library_dir = config.get("emit_library_dir", library_dir)
+    core_suffix = config.get("core_filename_suffix", "_libretro.so")
 
     # An unmounted network share looks like an empty directory, and regenerating from that would
     # replace every playlist with an empty one.
@@ -294,11 +316,14 @@ def main():
 
         core = spec["core"]
         db_name = "%s.lpl" % system
-        core_path = os.path.join(cores_dir, "%s_libretro.so" % core)
+        core_path = os.path.join(cores_dir, "%s%s" % (core, core_suffix))
+        emit_system_dir = os.path.join(emit_library_dir, system)
         # Falls back to the core's file name when the .info is missing, which costs only a
         # cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
-        items = system_items(system_dir, spec["extensions"], core_path, core_name, db_name)
+        items = system_items(
+            system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name
+        )
 
         # An existing playlist is never replaced by an empty one: a system directory that
         # scans to nothing means the extension list is wrong or the mount is half up, and
@@ -317,8 +342,9 @@ def main():
             "left_thumbnail_mode": THUMBNAIL_MODE,
             "thumbnail_match_mode": THUMBNAIL_MODE,
             "sort_mode": SORT_MODE,
-            # Set so that RetroArch's in-app "Refresh Playlist" rescans the right directory.
-            "scan_content_dir": system_dir,
+            # Set so that RetroArch's in-app "Refresh Playlist" rescans the right directory, and it
+            # is the marker prune_playlists proves ownership by, so it takes the target's mount.
+            "scan_content_dir": emit_system_dir,
             "scan_file_exts": "",
             "scan_dat_file_path": "",
             "scan_search_recursively": True,
@@ -344,7 +370,7 @@ def main():
             handle.write(content)
         changed.append("%s (%d)" % (system, len(items)))
 
-    changed.extend(prune_playlists(playlist_dir, library_dir, config["systems"]))
+    changed.extend(prune_playlists(playlist_dir, emit_library_dir, config["systems"]))
 
     for entry in changed:
         print(entry)

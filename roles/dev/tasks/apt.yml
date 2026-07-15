@@ -2,6 +2,7 @@
 - name: Install system packages
   ansible.builtin.apt:
     name:
+      - adb
       - gh
       - git
       - git-delta

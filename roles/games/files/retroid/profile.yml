@@ -1,0 +1,251 @@
+# Retroid Pocket Flip 2 (Snapdragon 865, stock Android + ES-DE) profile for sync.py.
+#
+# sync.py reads the games role's own defaults/main.yml as the source of truth (the systems table,
+# the ~78 retroarch.cfg keys, the per-core overrides and options, the controller table) and applies
+# the transforms below. Only the divergences live here; everything shared stays in the role.
+#
+# The reasoning for each divergence is in ../../../../til/docs/retro-games.md (the "Retroid Pocket
+# Mini / Flip 2" and "Cores" sections). See README.md for the run procedure and the two things that
+# have to be verified on the device (the core library_names and the pad indices).
+
+package: com.retroarch.aarch64
+
+# Removable sdcard mount. uuid is discovered at run time (adb shell ls /storage/) unless pinned to
+# a value here. The app files dir is where RetroArch keeps retroarch.cfg and the per-core config/
+# overrides; sync.py discovers the real retroarch.cfg path on the device rather than trusting this,
+# because a RetroArch granted all-files-access may keep it under /storage/emulated/0/RetroArch/.
+sdcard_uuid: ""
+sdcard_root: "/storage/{uuid}"
+app_files: "/storage/emulated/0/Android/data/{package}/files"
+
+# Where each managed tree lands on the device. cores stays on the sdcard unless Android refuses to
+# load an executable .so from external storage, in which case set cores to "{app_files}/cores" and
+# re-run (README).
+device_dirs:
+  cores: "{sdcard_root}/RETROARCH/cores"
+  system: "{sdcard_root}/BIOS"
+  playlists: "{sdcard_root}/RETROARCH/playlists"
+  thumbnails: "{sdcard_root}/RETROARCH/thumbnails"
+  saves: "{sdcard_root}/RETROARCH/saves"
+  states: "{sdcard_root}/RETROARCH/states"
+  cache: "{sdcard_root}/RETROARCH/cache"
+  info: "{sdcard_root}/RETROARCH/info"
+  roms: "{sdcard_root}/ROMS"
+
+# Cores come from the Android buildbot, keyed by ABI (arm64-v8a for the 865), not the kernel arch
+# the desktop uses. The files land as <core>_libretro_android.so, which is also what the playlist
+# core_path must name (games_retroarch_generator core_filename_suffix).
+buildbot_url: "https://buildbot.libretro.com/nightly/android/latest/{abi}"
+core_abi: arm64-v8a
+core_suffix: _libretro_android.so
+info_zip_url: "https://buildbot.libretro.com/assets/frontend/info.zip"
+
+# --- Systems table transforms (over games_retroarch_systems) ---
+
+# GameCube (libretro Dolphin crashes on load on Android) and PS2 (LRPS2 is x86-only) leave RetroArch
+# entirely: they run in the standalone Dolphin and NetherSX2 apps through ES-DE, so they are not
+# libretro playlist entries. Pico-8 is dropped: Retro8's cart is a .p8.png and there is no Flip 2
+# entry for it in the cores table.
+systems_remove:
+  - Nintendo - GameCube
+  - Sony - PlayStation 2
+  - Pico-8
+
+# Saturn moves off Beetle Saturn (no dynarec, interprets both SH-2s, too slow on an 865) to
+# YabaSanshiro. Same library directory and extensions, different core.
+systems_set:
+  Sega - Saturn:
+    core: yabasanshiro
+    extensions: [chd, m3u]
+
+# Flip 2-only systems the desktop library does not carry (Arcade/Neo Geo via fbneo) are intentionally
+# not added here: they need romsets the No-Intro console library does not hold. Add them, plus an
+# fbneo entry to core_probe below, if the library gains an Arcade/Neo Geo directory.
+
+# --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
+
+# Android drivers replace the desktop-Linux ones. video gl (GLES; glcore is not an Android driver),
+# audio audiotrack, input/joypad android. menu ozone is kept from the base. Per-core vulkan still
+# applies to Flycast and Beetle PSX HW (Adreno Vulkan is fine); it is dropped for N64 below.
+#
+# rewind_buffer_size drops from the desktop's 256MB to 64MB: the big buffer was explicitly sized for
+# a desktop, and the 865 is the handheld the base comment says the 20MB default is for.
+#
+# video_refresh_rate is the panel's actual mode; set it to what RetroArch's "Estimate Screen Refresh
+# Rate" reports on the device (the base leaves it host-supplied, asserted).
+settings_override:
+  video_driver: gl
+  audio_driver: audiotrack
+  input_driver: android
+  input_joypad_driver: android
+  rewind_buffer_size: "67108864"
+  video_refresh_rate: "60.000000"
+  network_on_demand_thumbnails: "true"
+
+# Base keys not managed on the device, removed from its retroarch.cfg if present. The mouse, lightgun
+# and menu-mouse keys read a pointer the handheld has no equivalent for; windowed_fullscreen is a
+# desktop windowing concept; the player-1 keyboard binds and keyboard-only hotkeys are moot without a
+# keyboard (rewind/fast-forward reach the pad through the controller entry instead).
+settings_drop:
+  # Desktop-Linux driver names that name nothing on Android; dropped so RetroArch keeps its own
+  # Android defaults rather than failing to init the subsystem on an invalid driver.
+  - camera_driver
+  - microphone_driver
+  - midi_driver
+  - video_windowed_fullscreen
+  - input_player1_mouse_index
+  - input_player1_gun_trigger_mbtn
+  - input_player1_gun_offscreen_shot_mbtn
+  - menu_mouse_enable
+  - input_player1_up
+  - input_player1_down
+  - input_player1_left
+  - input_player1_right
+  - input_player1_a
+  - input_player1_b
+  - input_player1_x
+  - input_player1_y
+  - input_player1_l
+  - input_player1_r
+  - input_player1_start
+  - input_player1_select
+  - input_exit_emulator
+  - input_fps_toggle
+  - input_load_state
+  - input_menu_toggle
+  - input_pause_toggle
+  - input_reset
+  - input_save_state
+  - input_screenshot
+  - input_state_slot_decrease
+  - input_state_slot_increase
+  - input_toggle_fullscreen
+  - input_rewind
+  - input_hold_fast_forward
+
+# retroarch.cfg directory keys, remapped from the base's templated flatpak paths to the device dirs
+# above. Every value is resolved from device_dirs by sync.py.
+directory_settings:
+  libretro_directory: cores
+  system_directory: system
+  playlist_directory: playlists
+  thumbnails_directory: thumbnails
+  savefile_directory: saves
+  savestate_directory: states
+  cache_directory: cache
+  rgui_browser_directory: roms
+  libretro_info_path: info
+
+# The Retroid pad's rewind/fast-forward indices. These are PHYSICAL device indices and are wrong
+# until derived on the device from its autoconfig profile (README, "Derive the pad indices"). Left as
+# the RetroPad-ID guesses so a first sync is obviously-unconfigured rather than subtly-wrong; sync.py
+# folds this entry into the managed settings the way the role folds games_retroarch_controllers.
+controller:
+  input_rewind_axis: "nul"
+  input_hold_fast_forward_axis: "nul"
+  input_rewind_btn: "nul"
+  input_hold_fast_forward_btn: "nul"
+
+# --- Per-core override transforms (over games_retroarch_core_overrides) ---
+
+# Dolphin and PCSX2 are gone with their systems. Mupen64Plus-Next loses its vulkan override: the
+# desktop set it for ParaLLEl-RDP, which no Adreno driver can run (it needs VK_KHR_8bit_storage), so
+# the Flip 2 stays on GLideN64 HLE and the OpenGL/GLES path. Everything else (Beetle PSX HW and
+# Flycast vulkan, Virtual Jaguar rewind-off, the preemptive-frames opt-ins) carries over unchanged.
+core_overrides_remove:
+  - dolphin
+  - pcsx2
+  - mupen64plus_next
+
+# --- Per-core option transforms (over games_retroarch_core_options) ---
+
+# N64 swaps the ParaLLEl RDP/RSP plugins for GLideN64 HLE. Beetle PSX HW is pinned to the Vulkan
+# renderer (it silently falls back to software at 1x otherwise) at 2x internal resolution (an 845
+# collapsed at 4x, and the core has no dynarec). Genesis Plus GX's Nuked FM options carry over from
+# the base unchanged.
+core_options_set:
+  mupen64plus_next:
+    mupen64plus-rdp-plugin: gliden64
+    mupen64plus-rsp-plugin: hle
+  mednafen_psx_hw:
+    beetle_psx_hw_renderer: hardware_vk
+    beetle_psx_hw_internal_resolution: 2x
+
+# Static core metadata, standing in for files/retroarch-probe-cores.py, which cannot dlopen an ARM
+# .so from the x86 controller. library_name names the per-core config/<library_name>/ directory and
+# must match the core's runtime name exactly (README, "Verify the core names"); valid_extensions and
+# block_extract feed the playlist generator's validation. No Android core here sets block_extract
+# (Dolphin, the only one that did, is gone). Keyed by buildbot core name.
+core_probe:
+  stella:
+    library_name: Stella
+    valid_extensions: [a26, bin, zip]
+    block_extract: false
+  prosystem:
+    library_name: ProSystem
+    valid_extensions: [a78, bin, zip]
+    block_extract: false
+  virtualjaguar:
+    library_name: Virtual Jaguar
+    valid_extensions: [j64, jag, rom, zip]
+    block_extract: false
+  mednafen_lynx:
+    library_name: Beetle Lynx
+    valid_extensions: [lnx, lyx, o, zip]
+    block_extract: false
+  mednafen_pce:
+    library_name: Beetle PCE
+    valid_extensions: [pce, sgx, cue, ccd, chd, toc, m3u, zip]
+    block_extract: false
+  gambatte:
+    library_name: Gambatte
+    valid_extensions: [gb, gbc, dmg, zip]
+    block_extract: false
+  mgba:
+    library_name: mGBA
+    valid_extensions: [gb, gbc, gba, zip]
+    block_extract: false
+  mupen64plus_next:
+    library_name: Mupen64Plus-Next
+    valid_extensions: [n64, v64, z64, bin, u1, ndd, zip]
+    block_extract: false
+  melondsds:
+    library_name: melonDS DS
+    valid_extensions: [nds, dsi, zip]
+    block_extract: false
+  mesen:
+    library_name: Mesen
+    valid_extensions: [nes, fds, unif, unf, zip]
+    block_extract: false
+  snes9x:
+    library_name: Snes9x
+    valid_extensions: [smc, sfc, swc, fig, bs, st, zip]
+    block_extract: false
+  picodrive:
+    library_name: PicoDrive
+    valid_extensions: [bin, gen, smd, md, 32x, cue, iso, sms, 68k, chd, m3u, zip]
+    block_extract: false
+  flycast:
+    library_name: Flycast
+    valid_extensions: [chd, cdi, iso, elf, cue, gdi, lst, dat, bin, m3u]
+    block_extract: false
+  genesis_plus_gx:
+    library_name: Genesis Plus GX
+    valid_extensions: [mdx, md, smd, gen, bin, cue, iso, sms, gg, sg, 68k, sgd, chd, m3u, zip]
+    block_extract: false
+  yabasanshiro:
+    library_name: YabaSanshiro
+    valid_extensions: [cue, iso, chd, ccd, mds, bin, m3u, zip]
+    block_extract: false
+  mednafen_psx_hw:
+    library_name: Beetle PSX HW
+    valid_extensions: [cue, toc, m3u, ccd, exe, pbp, chd]
+    block_extract: false
+  ppsspp:
+    library_name: PPSSPP
+    valid_extensions: [iso, cso, pbp, elf, prx, chd]
+    block_extract: false
+  opera:
+    library_name: Opera
+    valid_extensions: [iso, bin, chd, cue]
+    block_extract: false
