@@ -290,3 +290,13 @@ Both cores configured this way trade CPU for accuracy: Nuked FM synthesis on Gen
 on Mupen64Plus-Next. ParaLLEl is Vulkan-only and the core requests a Vulkan context only when its `rdp-plugin`
 option is `parallel`, so the core option and the `video_driver` override must be set together or it silently does
 not engage.
+
+### Handheld sync (Retroid Pocket Flip 2)
+
+[files/retroid/](./files/retroid/) mirrors this same managed config onto a Retroid Pocket Flip 2 (Snapdragon 865,
+stock Android + ES-DE), which Ansible cannot reach. `sync.py` reads this role's `defaults/main.yml` as the source of
+truth, applies the Android divergences in `files/retroid/profile.yml` (ARM cores from the Android buildbot, Android
+drivers and directories, the Saturn/N64/GameCube/PS2 core changes), and reconciles the result onto the device over
+`adb` with the role's own ownership semantics (own the named keys, prune the dropped cores and playlists). It reuses
+`retroarch-generate-playlists.py` unchanged via its `core_filename_suffix`/`emit_library_dir` config keys. Not wired
+into any playbook; run by hand. See [files/retroid/README.md](./files/retroid/README.md).
