@@ -86,10 +86,15 @@ ansible-playbook --ask-vault-pass --ask-become-pass desktop.yml
 ## Operations
 
 ```bash
-# Lint, the same check pull requests run via .github/workflows/lint.yml
+# Lint, one of the checks pull requests run via .github/workflows/lint.yml
 python3 -m venv /tmp/ansible-lint-venv \
     && /tmp/ansible-lint-venv/bin/pip install ansible-lint \
     && /tmp/ansible-lint-venv/bin/ansible-lint
+
+# Syntax-check every playbook, the other pull-request check. The real inventory is
+# gitignored, so parse against the committed CI inventory.
+for pb in *.yml; do [ "$pb" = requirements.yml ] && continue; \
+    ansible-playbook --syntax-check -i tests/inventory.ini "$pb"; done
 
 # Upgrade all collections, which `make requirements` does not do
 ansible-galaxy collection install --upgrade -r requirements.yml

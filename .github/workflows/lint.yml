@@ -25,9 +25,53 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+
+      - name: Cache Ansible collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: collections-${{ hashFiles('requirements.yml') }}
+          restore-keys: collections-
 
       - name: Install ansible-lint
         run: pip install ansible-lint
 
+      # Install the collections the roles use so ansible-lint's syntax-check can
+      # validate their module arguments; without them those modules are unknown.
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
       - name: Run ansible-lint
         run: ansible-lint
+
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible-core
+        run: pip install ansible-core
+
+      # roles are local, but the playbooks use community.*/ansible.posix modules;
+      # install the collections so FQCN references resolve during the parse.
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      # The real inventory is gitignored, so parse against tests/inventory.ini,
+      # which just supplies a resolvable member for every targeted group.
+      - name: Syntax-check every playbook
+        run: |
+          status=0
+          for pb in *.yml; do
+            [ "$pb" = requirements.yml ] && continue
+            echo "== $pb =="
+            ansible-playbook --syntax-check -i tests/inventory.ini "$pb" || status=1
+          done
+          exit $status
