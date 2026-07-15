@@ -206,7 +206,10 @@ esde_cores:
   segacd: Genesis Plus GX
   saturn: YabaSanshiro
   psx: Beetle PSX HW
-  ps2: AetherSX2 (Standalone)
+  # This label is not in ES-DE's bundle: it comes from the GlazedBelmont custom_systems, whose
+  # es_find_rules.xml AETHERSX2-TURNIP entry must target the installed package (xyz.aethersx2.tturnip,
+  # NetherSX2-Turnip from the Obtainium pack), not the .custom fork it ships with. See README.
+  ps2: AetherSX2-Turnip (Standalone)
   psp: PPSSPP
   3do: Opera
 
