@@ -1,25 +1,20 @@
 ---
-# desktop_environment is required and has no default: set it per host to
-# "niri" or "bspwm" (tiling window managers with lemurs/ly, plus dunst, eww,
-# rofi, pavolume) or "gnome" (GNOME Shell with gdm3). The matching window
-# manager role is applied by desktop.yml. The role fails fast if it is unset.
+# desktop_environment is required and has no default: set it per host to "niri" or "bspwm"
+# (tiling WMs, with lemurs/ly, dunst, eww, rofi, pavolume) or "gnome" (GNOME Shell with gdm3).
+# desktop.yml applies the matching WM role. The role fails fast if it is unset.
 
 desktop_eww_bar: bar
-# Extra kernel parameters written to GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves
-# the line unset; set per host (e.g. a laptop touchpad scrolling fix).
+# Extra kernel parameters for GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves the line unset.
 desktop_grub_cmdline_linux_default: ""
-# Whether to install Firefox. When false, firefox.yml removes any existing install
-# (flatpak and apt) and holds the apt pin at -1 so it cannot return. Hosts that want
-# Firefox set this true in host_vars. desktop_install_firefox_apt only chooses the
-# install method (Mozilla apt repo vs Flathub flatpak) and applies only when this is true.
+# Whether to install Firefox. When false, firefox.yml removes any existing install and holds the
+# apt pin at -1. desktop_install_firefox_apt chooses the method (Mozilla apt repo vs Flathub
+# flatpak) and applies only when desktop_install_firefox is true.
 desktop_install_firefox: false
 desktop_install_firefox_apt: false
 desktop_install_insync: false
-# Out-of-tree DKMS Super I/O drivers for CPU/case fan control. Enable the one
-# matching the board's chip (they expose the pwm/fan hwmon that CoolerControl
-# manages). See it87.yml and nct6687d.yml.
-# it87: ITE IT8696E/IT8883 on Gigabyte AM5 boards (the mainline it87 driver does
-# not support these chips).
+# Out-of-tree DKMS Super I/O drivers for fan control. Enable the one matching the board's chip;
+# they expose the pwm/fan hwmon CoolerControl manages. See it87.yml and nct6687d.yml.
+# it87: ITE IT8696E/IT8883 on Gigabyte AM5 boards (unsupported by the mainline it87 driver).
 desktop_install_it87: false
 desktop_it87_repo: https://github.com/frankcrawford/it87.git
 desktop_it87_version: master
@@ -35,49 +30,39 @@ desktop_install_lemurs: false
 # Must be one of https://ziglang.org/download/community-mirrors.txt
 desktop_zig_mirror: https://ziglang.freetls.fastly.net
 
-# Idle timeouts in minutes: the screen blanks, then the session locks, then the monitor
-# powers off. They must not decrease in that order; idle.yml asserts it. Which of the three
-# a desktop can honour differs: see README.md.
+# Idle timeouts in minutes: the screen blanks, then the session locks, then the monitor powers
+# off. They must not decrease in that order (idle.yml asserts it). Which each desktop honours
+# differs; see README.md.
 desktop_screen_blank_minutes: 10
 desktop_screen_lock_minutes: 20
 desktop_screen_off_minutes: 60
-# What the xsecurelock password field echoes as it is typed on a bspwm session: "asterisks"
-# (one per character, so the length is visible), "cursor" (a block that stays put), "time" or
-# "disco". The rest of the prompt's appearance is left at xsecurelock's defaults.
+# What the xsecurelock password field echoes on a bspwm session: "asterisks" (length visible),
+# "cursor", "time" or "disco". The rest of the prompt is left at xsecurelock's defaults.
 desktop_xsecurelock_password_prompt: asterisks
 
-# Idle suspend, in minutes. Unset (the default) leaves whatever suspend policy the host
-# already has, so adding a host to the desktop group never silently changes it; 0 disables
-# idle suspend; N suspends after N minutes. Set it per host. Locking is a separate policy: the
-# screen still locks at desktop_screen_lock_minutes either way. No mechanism tells mains from
-# battery, so the timeout applies to both.
-#
-# Under bspwm it must be 0 or greater than desktop_screen_blank_minutes (idle.yml asserts it),
-# because logind counts from the moment the screen blanks rather than from the last input. See
-# README.md.
-#
-# niri is the exception to "unset leaves it alone": hypridle.conf is generated whole, so an
-# unset value writes no suspend listener, which is the same as 0.
+# Idle suspend, in minutes. Unset (the default) leaves the host's suspend policy alone; 0
+# disables idle suspend; N suspends after N minutes. Locking is separate: the screen still locks
+# at desktop_screen_lock_minutes either way. The timeout applies to mains and battery alike.
+# Under bspwm it must be 0 or greater than desktop_screen_blank_minutes (idle.yml asserts it);
+# under niri unset writes no suspend listener, the same as 0. See README.md.
 desktop_suspend_inactive_minutes: ~
 
-# GTK themes to install, as directory names under /usr/share/themes. theme.yml copies each
-# into ~/.themes as well, the only place a flatpak sandbox can find them.
+# GTK themes to install, as directory names under /usr/share/themes. theme.yml also copies each
+# into ~/.themes, the only place a flatpak sandbox can find them.
 desktop_gtk_themes:
   - Adwaita
   - Adwaita-dark
   - Yaru-purple
   - Yaru-purple-dark
-# The theme the session and flatpak applications use; must be one of desktop_gtk_themes. Dark
-# is not a separate setting: theme.yml derives it, and GNOME's colour scheme, from the name.
+# The theme the session and flatpak applications use; must be one of desktop_gtk_themes. Dark is
+# not a separate setting: theme.yml derives it (and GNOME's colour scheme) from the name.
 desktop_gtk_theme: Adwaita-dark
 # Cursor theme for flatpak applications, which cannot see the host's and otherwise draw the
 # pointer at the wrong size. The session's own cursor is set in the dotfiles.
-# https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
 desktop_cursor_theme: Adwaita
 
-# Archive MIME types associated with file-roller as the default handler. Limited
-# to genuine archive formats; container-like types (deb, rpm, iso, apk, jar) are
-# intentionally excluded so they keep opening in their proper handlers.
+# Archive MIME types associated with file-roller as the default handler. Genuine archive formats
+# only; container-like types (deb, rpm, iso, apk, jar) are excluded so they keep their handlers.
 desktop_file_roller_mime_types:
   - application/zip
   - application/x-7z-compressed
@@ -93,27 +78,21 @@ desktop_file_roller_mime_types:
   - application/zstd
   - application/x-zstd-compressed-tar
 
-# Parental controls (malcontent OARS filter + Chrome SafeSearch). Set
-# desktop_install_parental_controls: true per host to enable. When false, the role lifts
-# whatever an earlier run enforced rather than merely ceasing to reassert it, so turning the
-# flag off is enough to undo it. Turn it off by removing the host's
-# desktop_parental_controls_* settings entirely: the role asserts that none of them is left
-# describing a policy that nothing enforces. See README.md.
+# Parental controls (malcontent OARS filter + Chrome SafeSearch). Set true per host to enable.
+# When false, the role lifts whatever an earlier run enforced, so turning the flag off undoes it.
+# Turn it off by removing the host's desktop_parental_controls_* settings entirely: the role
+# asserts none is left describing a policy nothing enforces. See README.md.
 desktop_install_parental_controls: false
-# OARS content rating ceilings. Apps rated above the given level are hidden in
-# gnome-software. Levels: none < mild < moderate < intense.
-# Example: sex-nudity: mild blocks anything rated moderate or intense.
-# Setting any of them also disallows flatpak installation from the system repository, which is
-# malcontent's own default for a filtered account. Emptying this dict clears the filter and
-# restores that permission.
+# OARS content rating ceilings. Apps rated above the level are hidden in gnome-software. Levels:
+# none < mild < moderate < intense (e.g. sex-nudity: mild blocks moderate or intense). Setting
+# any also disallows flatpak installation from the system repository; emptying the dict clears
+# the filter and restores that permission.
 desktop_parental_controls_oars: {}
-# Chrome managed policies written to /etc/opt/chrome/policies/managed/family.json
-# when desktop_install_parental_controls is true. Override per host to adjust.
-# Beyond SafeSearch/YouTube these lock the common in-browser bypass paths: SafeSites
-# adult filter, enhanced Safe Browsing, no incognito/guest profile, no proxy override,
-# no devtools, and an extension allowlist limited to uBlock Origin (MV2) / uBlock Origin
-# Lite (MV3). A non-sudo user can still install a flatpak browser, so a pfSense egress
-# lockdown (force DNS through the firewall, block Tor/VPN) is what makes these hold.
+# Chrome managed policies written to family.json when the controls are on. Beyond SafeSearch and
+# YouTube these lock common in-browser bypass paths (SafeSites, enhanced Safe Browsing, no
+# incognito/guest, no proxy override, no devtools, extensions limited to uBlock Origin). A
+# non-sudo user can still install a flatpak browser, so a pfSense egress lockdown is what makes
+# these hold.
 desktop_chrome_family_policies:
   ForceGoogleSafeSearch: true
   ForceYouTubeRestrict: 1
@@ -131,36 +110,30 @@ desktop_chrome_family_policies:
     - cjpalhdlnbpafiamejdnhcphjbkeiagm  # uBlock Origin
     - ddkjiahejlhfcafbddmgiahcphecmpfh  # uBlock Origin Lite
 
-# Web filtering for desktop_user, enforced by the nss-malcontent name service module rather
-# than by the browser (README.md). "none" disables it, clearing any filter an earlier run set;
-# "block-list" allows every domain except those listed; "allow-list" blocks every domain except
-# those listed, which is strict enough that a missing CDN or login domain breaks a site
-# outright. Either list type must have entries: the role asserts it, because malcontent accepts
-# an empty allow list and sinkholes every hostname the user looks up.
-#
-# Enabling it inserts the module into the hosts lookup chain in /etc/nsswitch.conf, which is a
-# system-wide change. DnsOverHttpsMode: "off" above is what keeps Chrome resolving through it;
-# Firefox is kept off DoH by malcontent's own block of the use-application-dns.net canary.
+# Web filtering for desktop_user, enforced by the nss-malcontent module, not the browser
+# (README.md). "none" disables it; "block-list" allows every domain except those listed;
+# "allow-list" blocks every domain except those listed (strict enough that a missing CDN or
+# login domain breaks a site). Either list type must have entries, or malcontent sinkholes every
+# hostname (the role asserts it). Enabling inserts the module into /etc/nsswitch.conf, a
+# system-wide change. DnsOverHttpsMode: "off" keeps Chrome resolving through it; Firefox is kept
+# off DoH by malcontent's own block of the use-application-dns.net canary.
 desktop_parental_controls_web_filter_type: none
-# Filter lists to compile into desktop_user's blocklist, as {id: HTTPS URI}. The id is a
-# free-form label. Each list must be a plain newline-separated list of bare hostnames;
-# `#` comments and blank lines are ignored. Hosts-file lines ("0.0.0.0 example.com") are
-# not accepted, and one malformed line aborts the whole update, leaving the previous
-# list in place and an error in /var/lib/malcontent-webd/update-error.
+# Filter lists to compile into desktop_user's blocklist, as {id: HTTPS URI}; id is a free-form
+# label. Each list must be plain newline-separated bare hostnames (`#` comments and blank lines
+# ignored); hosts-file lines are not accepted, and one malformed line aborts the whole update,
+# leaving the previous list and an error in /var/lib/malcontent-webd/update-error.
 desktop_parental_controls_web_block_lists: {}
 desktop_parental_controls_web_allow_lists: {}
-# Individual hostnames added alongside the fetched lists. Matching is exact: neither
-# these nor the lists match subdomains, so name each host that must be covered.
+# Individual hostnames added alongside the fetched lists. Matching is exact: neither these nor
+# the lists match subdomains, so name each host that must be covered.
 desktop_parental_controls_web_blocked_hosts: []
 desktop_parental_controls_web_allowed_hosts: []
 # Force safe search in the search engines malcontent knows how to rewrite.
 desktop_parental_controls_web_force_safe_search: true
 
-# Target desktop user account. Defaults to primary_user from the inventory;
-# override per host. This is NOT applied to every task in the role: only the
-# few that must act as a specific user (flatpak method:user
-# installs via become_user) or read from that user's home use it. It is not a
-# blanket privilege-escalation setting.
+# Target desktop user account. Defaults to primary_user from the inventory; override per host.
+# Applied only to the tasks that must act as a specific user (flatpak method:user installs, or
+# reads from that user's home), not as a blanket privilege-escalation setting.
 desktop_user: "{{ primary_user }}"
 
 # Apt packages to replace with flatpak equivalents
