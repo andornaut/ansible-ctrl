@@ -415,6 +415,15 @@
   register: games_retroarch_empty_core_dirs
   changed_when: games_retroarch_empty_core_dirs.stdout | length > 0
 
+# The generator reads the arcade romset name map on the target, but ansible.builtin.script below
+# transfers only the generator itself, so the map has to be copied over first. It lands in RetroArch's
+# config tree, local like everything else the generator reads.
+- name: Copy the arcade romset name map for the playlist generator
+  ansible.builtin.copy:
+    src: fbneo-arcade-names.json
+    dest: "{{ games_retroarch_arcade_names_dest }}"
+    mode: "0644"
+
 # script rather than copy + command: it transfers the generator, runs it and cleans up, so no temp
 # directory of the role's own. The config goes in the environment for the same reason: a file for it
 # would bring the temp directory back.

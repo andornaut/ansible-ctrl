@@ -58,6 +58,9 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROLE_DEFAULTS = os.path.normpath(os.path.join(HERE, "..", "..", "defaults", "main.yml"))
 GENERATOR = os.path.normpath(os.path.join(HERE, "..", "retroarch-generate-playlists.py"))
+# Arcade romset -> full title map, read straight from the role (both this and the generator run on
+# the same host), so device playlists get the same readable labels the desktop does.
+ARCADE_NAMES = os.path.normpath(os.path.join(HERE, "..", "fbneo-arcade-names.json"))
 # A rendered stand-in for the sdcard UUID when --dry-run runs with no device attached.
 DRY_RUN_UUID = "SDCARD"
 
@@ -121,6 +124,7 @@ def build_model(defaults, profile):
         "options": options,
         "probe": {core: probe[core] for core in cores},
         "library_names": {core: probe[core]["library_name"] for core in cores},
+        "arcade_name_cores": defaults.get("games_retroarch_arcade_name_cores", ["fbneo"]),
     }
 
 
@@ -399,6 +403,9 @@ def generate_playlists(model, library_dir, dirs, profile, cores_ref, info_dir, p
         "info_dir": info_dir,
         "cores": model["probe"],
         "systems": model["systems"],
+        # Arcade labels: same map and same core list the desktop uses.
+        "arcade_names_path": ARCADE_NAMES,
+        "arcade_name_cores": model["arcade_name_cores"],
     }
     result = subprocess.run(
         [sys.executable, GENERATOR],

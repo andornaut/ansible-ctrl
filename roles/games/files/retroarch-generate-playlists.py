@@ -36,6 +36,15 @@ Retroid sync, files/retroid/); absent, a same-host run is unchanged:
     short names ("snes") where the library uses No-Intro names ("Super Nintendo..."); a system
     absent from the map keeps its library name.
 
+Two more keys give arcade systems readable labels (both host-agnostic, so the desktop sets them too):
+
+  * "arcade_names_path" (default none): a JSON file mapping romset shortname -> full title
+    (files/fbneo-arcade-names.json). A system whose core is in "arcade_name_cores" labels each
+    file by its title ("Metal Slug - Super Vehicle-001") instead of its MAME id ("mslug"); the
+    file on disk is untouched. Absent, every label stays the filename.
+  * "arcade_name_cores" (default []): the cores that the map applies to (fbneo). Off this set the
+    lookup never runs, so a console filename can never collide with a romset id.
+
 "cores" is what the cores reported, collected by files/retroarch-probe-cores.py inside the
 flatpak sandbox. Not gathered here: this runs on the host, where a core needing a library only
 the runtime carries (LRPS2 wants libaio) will not load, leaving exactly those cores unchecked.
@@ -169,11 +178,14 @@ def disc_entry(directory, extensions):
     return next((disc for disc in discs if "(Disc 1)" in disc), discs[0])
 
 
-def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
+def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, db_name, names):
     """Build the playlist items for one system directory.
 
     Scanned at system_dir, but each item's path is written under emit_system_dir, which differs
     only when building for another host's mount (the Retroid sync). Equal, the rewrite is a no-op.
+
+    names maps a romset shortname to its full title, for arcade systems whose files are named by
+    MAME id (mslug.zip); empty for every other system, where the lookup is a no-op.
     """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
@@ -191,6 +203,10 @@ def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, 
             label = content_label(entry.name, extensions)
             if label is None:
                 continue
+            # Arcade romsets are named by short MAME id; show the full title as the label while the
+            # path stays the romset file. The board-id suffix the title carries ("(NGM-2650)") is
+            # hidden by label_display_mode 3, as "(USA)" is on a console. A no-op off arcade systems.
+            label = names.get(label, label)
             # A .zip is listed by its own path, not "archive.zip#rom.sfc" as RetroArch's scanner
             # writes it: the frontend resolves a bare archive to the ROM inside on load either way,
             # and taking the path as-is means never opening archives across a network-mounted library.
@@ -275,6 +291,14 @@ def main():
     emit_library_dir = config.get("emit_library_dir", library_dir)
     emit_system_dirs = config.get("emit_system_dirs", {})
     core_suffix = config.get("core_filename_suffix", "_libretro.so")
+    # Arcade romset -> full title map, applied only to systems whose core is listed in
+    # arcade_name_cores (fbneo), whose files are named by short MAME id. Both absent by default, so
+    # off arcade systems the lookup never happens and labels stay the filename.
+    arcade_name_cores = set(config.get("arcade_name_cores", []))
+    arcade_names = {}
+    if config.get("arcade_names_path"):
+        with open(config["arcade_names_path"], encoding="utf-8") as handle:
+            arcade_names = json.load(handle)
 
     # An unmounted network share looks like an empty directory, and regenerating from that would
     # replace every playlist with an empty one.
@@ -314,8 +338,9 @@ def main():
         # Falls back to the core's file name when the .info is missing, which costs only a
         # cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
+        names = arcade_names if core in arcade_name_cores else {}
         items = system_items(
-            system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name
+            system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name, names
         )
 
         # An existing playlist is never replaced by an empty one: a system directory that

@@ -139,6 +139,11 @@ games_retroarch_settings: >-
 # The generator runs on the host, where a core needing a library only the flatpak runtime carries
 # would not load, so it is handed what the cores reported in the sandbox rather than probing them
 # itself: valid_extensions and block_extract validate each system's extensions.
+# Where tasks/retroarch.yml copies files/fbneo-arcade-names.json on the target, so the generator (run
+# there via ansible.builtin.script, which transfers only itself) can read it. Local to the host, like
+# the rest of RetroArch's tree.
+games_retroarch_arcade_names_dest: "{{ games_retroarch_config_dir }}/fbneo-arcade-names.json"
+
 games_retroarch_generator_config:
   library_dir: "{{ games_retroarch_library_dir }}"
   playlist_dir: "{{ games_retroarch_playlists_dir }}"
@@ -146,6 +151,9 @@ games_retroarch_generator_config:
   info_dir: "{{ games_retroarch_info_dir }}"
   cores: "{{ games_retroarch_cores_probed }}"
   systems: "{{ games_retroarch_systems }}"
+  # Arcade romset -> full title map and the cores it applies to, so arcade playlists show real names.
+  arcade_names_path: "{{ games_retroarch_arcade_names_dest }}"
+  arcade_name_cores: "{{ games_retroarch_arcade_name_cores }}"
 
 # Input to files/retroarch-fetch-thumbnails.py. The systems table is not in it: the fetcher reads
 # the playlists the generator just wrote, which already name every system and every game, and it
