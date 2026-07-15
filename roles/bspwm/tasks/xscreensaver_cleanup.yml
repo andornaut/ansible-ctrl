@@ -1,12 +1,9 @@
 ---
-# CLEANUP (added 2026-07-14): remove this file, its import in main.yml and the matching block
-# in the desktop role's idle.yml, once every bspwm host in the desktop group has run this
-# role. xsecurelock replaced xscreensaver, which this role used to build from source into
-# /usr/local; nothing starts it any more, so the build is removed rather than left to rot.
-#
-# `make install` wrote outside /usr/local as well (the PAM stack and the app-defaults file),
-# and the packaged xscreensaver was purged before that build, so none of this is dpkg's to
-# clean up.
+# CLEANUP (added 2026-07-14): remove this file, its import in main.yml, and the matching
+# block in the desktop role's idle.yml once every bspwm host in the desktop group has run
+# this role. This role used to build xscreensaver from source into /usr/local (plus a PAM
+# file and app-defaults outside it); xsecurelock replaced it, and dpkg does not own the
+# build, so it is removed here.
 - name: Remove the source-built xscreensaver
   ansible.builtin.file:
     path: "{{ item }}"
@@ -31,14 +28,8 @@
     - /usr/local/share/xscreensaver
   become: true
 
-# The build dependencies the source build installed, less the ones other roles still ask for.
-# They are marked automatic rather than removed: most are pulled in by packages that are still
-# wanted (libgtk-3-dev needs libgdk-pixbuf-2.0-dev, the new xterm needs xbitmaps), so apt is
-# left to work out what is genuinely orphaned. In practice that is only what was xscreensaver's
-# alone: intltool, libcap-dev, libgle-dev, libxmu-dev, libxt-dev, libxxf86vm-dev and
-# xutils-dev. Nothing autoremoves here, for the reason purge-and-pin.yml gives in the base
-# role: disk-cleanup already runs `apt-get autoremove --purge` weekly, and sweeping orphans
-# from a role would take unrelated packages with them.
+# Mark the build dependencies auto rather than removing them: most are shared with packages
+# still wanted, so let apt's weekly autoremove --purge (see the base role) sweep true orphans.
 - name: Mark the xscreensaver build dependencies as automatically installed
   ansible.builtin.command:
     cmd: >-
@@ -50,9 +41,8 @@
   changed_when: bspwm_xscreensaver_apt_mark.stdout | length > 0
   become: true
 
-# xterm was installed for the locked-screen indicator that the first xsecurelock version of
-# this role shipped, and it was dropped the same day. Nothing else here wants a terminal in
-# /usr/bin, and only a host that ran that version has it.
+# xterm was pulled in by an earlier xsecurelock version of this role and is no longer used;
+# only hosts that ran that version have it.
 - name: Remove xterm
   ansible.builtin.apt:
     name: xterm
