@@ -2,22 +2,16 @@
 - name: Remove cloud-init
   become: true
   block:
-    # cloud-init is the first-boot provisioning agent the Ubuntu Server installer seeds;
-    # nothing here uses it, and after install it sits inert behind
-    # /etc/cloud/cloud-init.disabled. It arrives as a Recommends of the desktop and server
-    # metapackages (via cloud-init-base), so purging alone would let a later dist-upgrade
-    # pull it back; the pin prevents that. Purging both packages drags nothing else out:
-    # the metapackages only Recommend it.
+    # cloud-init (first-boot provisioning) is unused. A Recommends of the server/desktop
+    # metapackages, so the pin is what stops dist-upgrade pulling it back.
     - name: Purge and pin cloud-init packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: cloud-init
         purge_pin_packages: "{{ base_cloud_init_packages }}"
 
-    # The installer's drop-ins under /etc/cloud/cloud.cfg.d/ (subiquity/curtin) and the
-    # runtime state in /var/lib/cloud are not owned by the packages, so purge leaves them.
-    # /etc/netplan is left untouched: subiquity wrote a static config there and disabled
-    # cloud-init networking, so nothing regenerates it.
+    # Not package-owned, so purge leaves them. /etc/netplan is left alone: subiquity wrote
+    # a static config there and nothing regenerates it.
     - name: Remove leftover cloud-init directories
       ansible.builtin.file:
         path: "{{ item }}"
