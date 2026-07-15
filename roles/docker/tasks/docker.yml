@@ -22,7 +22,7 @@
         url: https://download.docker.com/linux/ubuntu/gpg
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
-        # Without this, the key is never refreshed if Docker rotates it.
+        # Refetch so a rotated upstream key is picked up.
         force: true
 
     - name: Add Docker repository

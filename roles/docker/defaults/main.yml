@@ -1,11 +1,9 @@
 ---
-# User added to the "docker" group so that the docker CLI works without sudo.
-# Defaults to primary_user from the inventory; override per host.
+# Account added to the "docker" group so the docker CLI works without sudo.
 docker_user: "{{ primary_user }}"
 
 docker_install_kubernetes: false
-# Docker Registry binds host port 5000, which is also the port Frigate publishes by
-# default (homeautomation_frigate_port_http_unauthenticated). Setting this back to false
-# stops the role installing and starting the registry, but does not uninstall an existing
-# one: purging it would destroy /var/lib/docker-registry. Remove it by hand instead.
+# Registry binds host port 5000, which Frigate also publishes by default. Set per host.
+# Setting back to false stops installing/starting it but does not remove an existing one:
+# purging the package would destroy /var/lib/docker-registry. Remove by hand.
 docker_install_registry: false

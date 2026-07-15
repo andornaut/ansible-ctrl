@@ -2,17 +2,16 @@
 - name: Install Kubernetes tools
   become: true
   block:
-    # The /releases endpoint is ordered by creation date, not by version, so its
-    # first entry can be a patch release of an older branch.
+    # Use /releases/latest: /releases is ordered by date, so its first entry can be a
+    # patch of an older branch.
     - name: Get latest helm release
       ansible.builtin.uri:
         url: https://api.github.com/repos/helm/helm/releases/latest
         return_content: true
       register: docker_helm_release
 
-    # unarchive downloads before it can compare anything and has no checksum short
-    # circuit, so the installed version gates the task instead. `helm version --short`
-    # prints e.g. "v3.16.2+g13654a5".
+    # unarchive has no version/checksum short circuit, so gate on the installed version.
+    # `helm version --short` prints e.g. "v3.16.2+g13654a5".
     - name: Get installed helm version
       ansible.builtin.command:
         cmd: helm version --short
@@ -38,9 +37,8 @@
         return_content: true
       register: docker_kubectl_version
 
-    # Both upstreams publish a sidecar digest. get_url compares it against the installed
-    # binary and downloads only on a mismatch, so a new release is picked up without
-    # refetching ~160MB of unchanged binaries on every play.
+    # checksum: makes get_url download only on a digest mismatch, so unchanged binaries
+    # are not refetched every play. Applies to minikube below too.
     - name: Install kubectl binary
       ansible.builtin.get_url:
         url: "https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/{{ docker_arch }}/kubectl"
