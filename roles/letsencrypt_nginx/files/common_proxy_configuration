@@ -19,10 +19,7 @@ proxy_set_header X-Scheme $scheme;
 
 # Timeouts
 proxy_connect_timeout 5s;
-# By default, the connection will be closed if the proxied server
-# does not transmit any data within 60 seconds. This timeout can
-# be increased with the proxy_read_timeout directive
-# proxy_read_timeout 60s;
+# Raised from the 60s default for slow and streaming upstreams
 proxy_read_timeout 300s;
 proxy_send_timeout 30s;
 

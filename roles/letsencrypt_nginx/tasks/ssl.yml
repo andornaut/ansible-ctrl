@@ -16,7 +16,6 @@
 
     - name: Create keys
       community.crypto.openssl_privatekey:
-        # Only create keys if they don't exist
         path: "{{ item }}"
         mode: "0640"
         owner: root
@@ -24,25 +23,6 @@
       loop:
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/private.pem"
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem"
-      register: letsencrypt_nginx_create_keys
-
-# - name: Manage CSR directory
-#   block:
-#     - name: Delete CSR directory if keys have changed
-#       ansible.builtin.file:
-#         path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr"
-#         state: absent
-#       when: letsencrypt_nginx_create_keys is changed
-
-#     - name: Create CSR directory if keys have changed
-#       ansible.builtin.file:
-#         path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr"
-#         state: directory
-#         mode: "0750"
-#         owner: root
-#         group: root
-#       when: letsencrypt_nginx_create_keys is changed
-#   become: true
 
 - name: Create CSRs
   community.crypto.openssl_csr:
@@ -59,8 +39,7 @@
   loop: "{{ letsencrypt_nginx_websites }}"
   when: not item.use_selfsigned_certificate | default(false)
   become: true
-  # Each website entry holds a Cloudflare API token and basicauth credentials,
-  # which the default callback would otherwise print as the loop item.
+  # Loop items hold a Cloudflare API token and basicauth credentials.
   no_log: true
 
 - name: Create self-signed certificate
