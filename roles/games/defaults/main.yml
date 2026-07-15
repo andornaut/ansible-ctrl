@@ -10,6 +10,11 @@ games_flatpak_apps:
   - com.valvesoftware.Steam
   - net.davidotek.pupgui2
   - net.lutris.Lutris
+  # Not a launcher like the rest: installed for its dolphin-tool CLI, which converts the GameCube
+  # disc images between .iso and .rvz offline. apt has no dolphin-emu on Ubuntu 24.04 (dropped from
+  # the official repos), so the flatpak is the packaged source. Run it with
+  #   flatpak run --command=dolphin-tool org.DolphinEmu.dolphin-emu convert ...
+  - org.DolphinEmu.dolphin-emu
   - org.libretro.RetroArch
   - org.openjkdf2.OpenJKDF2
 
@@ -59,6 +64,12 @@ games_flatpak_overrides:
     # setting for this on Linux (ValveSoftware/steam-for-linux#3083, #4843); this undocumented env
     # var is the only lever. Best-effort: some clients ignore it (#5307).
     - --env=STEAM_FRAME_FORCE_CLOSE=1
+  org.DolphinEmu.dolphin-emu:
+    # dolphin-tool writes the converted .rvz beside its source in the GameCube directory, so it needs
+    # read-write there. The flatpak ships a blanket host:ro grant, enough to read a source image but
+    # not to write the output; this opens just that one system directory for writing and leaves the
+    # rest of the library alone.
+    - "--filesystem={{ games_retroarch_library_dir }}/Nintendo - GameCube"
   org.libretro.RetroArch:
     # Read access to the ROM library. The flatpak already ships a blanket `host` grant, so this
     # changes nothing today; it keeps the library working if upstream ever narrows that grant.
