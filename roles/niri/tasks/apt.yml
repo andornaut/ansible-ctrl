@@ -1,9 +1,7 @@
 ---
-# Wayland-only utilities used by the niri session, mirroring the X11 tools that
-# the bspwm role installs: brightnessctl replaces xbacklight, grim and slurp
-# replace scrot, and wl-clipboard replaces xclip and xsel. The xss-lock/i3lock and
-# feh-as-wallpaper equivalents (hypridle, hyprlock, hyprpaper) are built from
-# source by hypr.yml.
+# Wayland-only utilities for the niri session; X11 equivalents live in the bspwm role.
+# The idle/lock/wallpaper equivalents (hypridle, hyprlock, hyprpaper) are built from
+# source in hypr.yml.
 - name: Install Wayland system packages
   ansible.builtin.apt:
     name:

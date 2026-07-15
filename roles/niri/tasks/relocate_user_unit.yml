@@ -1,26 +1,20 @@
 ---
-# Move systemd user units out of the administrator's directory and re-assert the enable
-# symlinks of the ones that carry an [Install] section.
+# Remove shadowing systemd user units from /etc/systemd/user and re-assert enable symlinks.
+# /etc/systemd/user outranks /usr/local/lib/systemd/user, so a stray copy there shadows the
+# installed unit and every later change is a no-op.
 #
 # Required vars:
 #   niri_relocate_units (list[str]): unit filenames to remove from /etc/systemd/user
 #
 # Optional vars:
-#   niri_relocate_enable_units (list[str]): units to re-enable, default []. Only units
-#     with an [Install] section belong here: `reenable` on a unit without one warns and
-#     changes nothing (niri.service and niri-shutdown.target are both in that category).
+#   niri_relocate_enable_units (list[str]): units to re-enable, default []. Only units with
+#     an [Install] section; `reenable` on one without warns and does nothing.
 #
-# /etc/systemd/user is the administrator's directory and outranks
-# /usr/local/lib/systemd/user, so a copy written there by an earlier version of this role
-# shadows the installed unit and every later change to it is a no-op.
+# `reenable` (not `enable`) so the enable symlink's absolute path is repointed away from the
+# emptied directory; it is idempotent, so an interrupted run still converges.
 #
-# The enable symlink stores an absolute path into the directory emptied below, and
-# `systemctl enable` will not overwrite a symlink whose target differs. `reenable` does,
-# and is idempotent, so it asserts the end state: a run interrupted between the two tasks
-# still converges on the next run.
-#
-# become_user and XDG_RUNTIME_DIR are both required. sudo's env_reset drops the latter,
-# and without it `systemctl --user` targets the escalated user's manager, not niri_user's.
+# become_user + XDG_RUNTIME_DIR are both required: sudo's env_reset drops the latter, so
+# without it `systemctl --user` targets the escalated user's manager, not niri_user's.
 
 # CLEANUP (added 2026-07-09): remove the caller's include, and this file, once every niri
 # host has run this role at least once.

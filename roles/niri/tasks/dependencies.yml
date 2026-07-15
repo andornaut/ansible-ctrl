@@ -44,7 +44,7 @@
           - gcc-14
           - libmagic-dev
           - libpugixml-dev
-          # Must not be installed, b/c it conflicts with v2.1.0 which is installed from source
+          # Conflicts with the libsdbus built from source below; keep it out.
           # - libsdbus-c++-dev
           - libspng-dev
         state: latest
@@ -97,7 +97,7 @@
         state: directory
         mode: "0755"
 
-    # Workaround: Install into /usr instead of the default of /usr/local
+    # Pin the install prefix so hypridle finds libsdbus:
     # https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
     - name: Build libsdbus (1/2)
       ansible.builtin.command:
