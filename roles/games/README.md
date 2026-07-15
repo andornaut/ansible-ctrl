@@ -119,8 +119,9 @@ the library instead, so the ROM directory to core association lives in `games_re
 re-running the `retroarch` tag.
 
 - **Multi-disc games** follow the library's own `AGENTS.md`: the discs sit in a dot-prefixed directory the generator
-  skips, and the `.m3u` beside it is the launchable entry. The 3DO is the exception (a visible directory and no
-  `.m3u`, because Opera swaps discs itself), handled by pointing at disc 1.
+  skips, and the `.m3u` beside it is the launchable entry. The 3DO and GameCube are the exceptions (a visible
+  directory and no `.m3u`, because Opera and Dolphin swap discs themselves). The table below maps each system to
+  its layout.
 - **The generator owns the playlist directory.** A `.lpl` whose system has left `games_retroarch_systems` is
   deleted, so it cannot keep being offered after the core prune removes the core it points at. Only `.lpl` files
   directly in the directory and written by the generator are touched: RetroArch's favourites and history live in
@@ -130,6 +131,23 @@ re-running the `retroarch` tag.
 - **`games_retroarch_systems` is validated against the cores** before anything is written; a system declaring
   content its core cannot launch fails the play (e.g. a `zip` extension on Dolphin, which sets `block_extract` and
   is handed the archive unopened).
+
+Which layout a system uses is decided by whether its core reads an `.m3u`: the cores that do get a hidden folder
+and an `.m3u` (only the `.m3u` is offered and disc-swap is automatic); the cores that do not get a visible folder
+and no `.m3u`. All discs of a game share one container format (all `.chd`, or all `.rvz` on GameCube).
+
+| System | Core | Multi-disc layout |
+| --- | --- | --- |
+| PlayStation | Beetle PSX HW | hidden `.Game/` + `.m3u`, `.chd` |
+| PlayStation 2 | LRPS2 | hidden `.Game/` + `.m3u`, `.chd` |
+| Saturn | Beetle Saturn | hidden `.Game/` + `.m3u`, `.chd` |
+| Dreamcast | Flycast | hidden `.Game/` + `.m3u`, `.chd` |
+| Mega-CD / Sega CD | Genesis Plus GX | hidden `.Game/` + `.m3u`, `.chd` |
+| TurboGrafx-CD | Beetle PCE | hidden `.Game/` + `.m3u`, `.chd` |
+| 3DO | Opera | visible `Game/`, no `.m3u`, `.chd` |
+| GameCube | Dolphin | visible `Game/`, no `.m3u`, `.rvz` |
+| PSP | PPSSPP | single-UMD, no multi-disc |
+| Cartridge systems | (various) | single file, no multi-disc |
 
 A `.zip` is listed by its own path, not as `archive.zip#rom.sfc`: RetroArch resolves the archive on load, so the
 generator never opens every archive across a network mount.
