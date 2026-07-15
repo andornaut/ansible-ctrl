@@ -6,9 +6,7 @@ msmtp_port: 587
 # msmtp_password_INSECURE:
 msmtp_send_all_email_to: admin@{{ msmtp_domain }}
 msmtp_relay_config_path: /etc/msmtprc-relay
-# msmtpd accepts mail without authentication, so it must only ever listen on a
-# loopback address.
+# msmtpd accepts unauthenticated mail, so it must only ever listen on loopback.
 msmtp_relay_interface: 127.0.0.1
-# Unprivileged, so msmtpd needs no CAP_NET_BIND_SERVICE once the systemd override
-# takes it off DynamicUser. Nothing outside the host ever connects to it.
+# Unprivileged, so msmtpd needs no CAP_NET_BIND_SERVICE. Nothing outside the host connects.
 msmtp_relay_port: 8025
