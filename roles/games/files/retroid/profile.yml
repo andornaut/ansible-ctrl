@@ -62,9 +62,11 @@ systems_set:
     core: yabasanshiro
     extensions: [chd, m3u]
 
-# Arcade Neo Geo (fbneo) stays removed above until the library gains an arcade romset directory; its
-# romsets are named unlike the No-Intro console library and would need their own handling. Neo Geo CD
-# needs no transform here: it carries over from the desktop table (neocd, .chd) and is mapped below.
+# Arcade Neo Geo (fbneo) stays removed above until the library gains an arcade romset directory (its
+# romsets are named unlike the No-Intro console library and need their own handling). Re-enabling it
+# is more than dropping it from systems_remove: fbneo also needs a core_probe entry and
+# rom_dir_names / esde_cores mappings, or the sync aborts with "core_probe is missing an entry". Neo
+# Geo CD needs no transform: it carries over from the desktop table (neocd, .chd) and is mapped below.
 
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
