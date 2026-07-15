@@ -42,12 +42,12 @@ rsnapshot_retention:
 
 ## Notes
 
-- Backups run from cron as root, one job per retention interval.
-- Remote hosts are pulled over SSH. Hosts marked `local: true`, or named `localhost`, are read from the filesystem
-  directly.
-- `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as scripts.
-- Snapshots are stored under `rsnapshot_directory` as `{interval}.{n}/`, where `.0` is the most recent.
-  Directories land in `{host}/` and script output in `{host}_{script}/`.
+- Cron runs one job per retention interval as root.
+- Remote hosts are pulled over SSH; hosts marked `local: true` or named `localhost` are read from the local
+  filesystem.
+- `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as `scripts`.
+- Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{host}/`,
+  script output in `{host}_{script}/`.
 - Unchanged files are hard-linked between snapshots, so `du` over the whole root overstates disk usage.
 
 ## Operations
