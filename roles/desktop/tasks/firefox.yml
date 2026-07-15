@@ -1,18 +1,9 @@
 ---
-# One pin record, written unconditionally, rather than one file per install method.
-# Two records for the same package in preferences.d collide, and apt resolves the
-# collision by taking the first specific-form record it reads, which is a function of
-# filename ordering that nothing here controls. A single idempotent record has no
-# sibling to be outranked by.
-#
-# This is also why none of the branches below has to remove the Mozilla repository or its
-# signing key: Pin-Priority -1 blocks an install from that repository exactly as it
-# blocks one from Ubuntu's. Note -1 also blocks firefox as a dependency of another
-# package, and dist-upgrade removes it rather than skipping it if it is ever installed.
-#
-# When desktop_install_firefox is false the pin also holds at -1, and the removal block
-# at the end of this file purges any copy already present. Only the apt install method
-# (desktop_install_firefox and desktop_install_firefox_apt) raises it to 1000.
+# One pin record, written unconditionally, rather than one file per install method (two records
+# for the same package collide, and apt's resolution depends on filename ordering nothing here
+# controls). Pin-Priority -1 blocks an install from the Mozilla repo as it does from Ubuntu's, so
+# no branch has to remove that repo or its key; it also blocks firefox as a dependency and makes
+# dist-upgrade remove any installed copy. Only the apt method raises it to 1000.
 - name: Pin Firefox to the chosen install method
   ansible.builtin.copy:
     content: |
@@ -23,7 +14,6 @@
     mode: "0644"
   become: true
 
-# Apt
 - name: Configure Firefox Apt installation method
   when: desktop_install_firefox and desktop_install_firefox_apt
   block:
@@ -82,7 +72,6 @@
             update_cache: true
           become: true
 
-# Flatpak
 - name: Configure Firefox flatpak installation method
   when: desktop_install_firefox and not desktop_install_firefox_apt
   block:
@@ -109,11 +98,9 @@
             org.mozilla.firefox
           changed_when: true
 
-# Removal
-# desktop_install_firefox: false converges the host to no Firefox rather than merely
-# skipping the install: Ansible would otherwise leave a copy installed by an earlier run
-# in place. The pin above stays at Pin-Priority -1 so apt cannot bring it back. The
-# flatpak removal runs as desktop_user because the install (method: user) was per-user.
+# desktop_install_firefox: false converges the host to no Firefox, purging any copy an earlier
+# run installed. The pin above stays at -1 so apt cannot bring it back. The flatpak removal runs
+# as desktop_user because the install (method: user) was per-user.
 - name: Remove Firefox
   when: not desktop_install_firefox
   block:

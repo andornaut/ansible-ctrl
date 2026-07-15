@@ -10,14 +10,9 @@
         purge: true
         state: absent
 
-    # dpkg discards a hold for a package it has no record of (state "un"), which is the
-    # case for the ones it never knew, so a hold could not keep them uninstalled. A
-    # negative pin does, regardless of dpkg state. apt_preferences(5) takes several
-    # names on one Package: line, so this is one record rather than one per package.
-    #
-    # A negative pin is stronger than a hold in two ways worth knowing: apt will not
-    # install these even to satisfy another package's dependency, and `apt dist-upgrade`
-    # removes any of them that is somehow installed rather than leaving it alone.
+    # A negative pin, not a dpkg hold: dpkg discards a hold for a package it has no record of,
+    # and a pin also refuses to install these to satisfy another package's dependency and makes
+    # dist-upgrade remove any that is somehow installed. One Package: line takes several names.
     - name: Pin packages replaced by flatpak
       ansible.builtin.copy:
         content: |

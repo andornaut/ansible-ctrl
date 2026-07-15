@@ -1,59 +1,49 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
+# Values derived from defaults/main.yml, not operator knobs. Here rather than in defaults/ so
+# role vars outrank host_vars and a host cannot desync a derived value from its source.
 
-# Home directory of desktop_user, resolved from the passwd database (a getent
-# lookup runs in tasks/main.yml). Used only where a task needs the literal home
-# path (e.g. locating per-user flatpak exports when setting the default browser).
+# Home directory and UID of desktop_user, from the getent lookup in tasks/main.yml. The UID
+# feeds XDG_RUNTIME_DIR=/run/user/<uid>, which locates the user's session bus when Ansible
+# escalates to a user it did not log in as.
 desktop_user_home: "{{ ansible_facts['getent_passwd'][desktop_user][4] }}"
-# UID of desktop_user, from the same getent lookup. `systemctl --user` locates the
-# target user's bus through XDG_RUNTIME_DIR=/run/user/<uid>, which is not set when
-# Ansible escalates to a user it did not log in as.
 desktop_user_uid: "{{ ansible_facts['getent_passwd'][desktop_user][1] }}"
 
-# Packages supplying desktop_gtk_themes: gnome-themes-extra ships Adwaita and Adwaita-dark,
-# yaru-theme-gtk the Yaru accents in light and dark.
+# Packages supplying desktop_gtk_themes: gnome-themes-extra ships Adwaita/Adwaita-dark,
+# yaru-theme-gtk the Yaru accents.
 desktop_gtk_theme_packages:
   - gnome-themes-extra
   - yaru-theme-gtk
-# Each dark theme is its own directory ending in -dark, so the name is the only dark setting
-# there is. gtk-application-prefer-dark-theme merely picks the dark variant of a theme that
-# ships one, and GNOME reads the colour scheme instead.
+# Each dark theme is its own -dark directory, so the name is the only dark setting. GNOME reads
+# the colour scheme instead.
 desktop_gtk_theme_prefer_dark: "{{ desktop_gtk_theme.endswith('-dark') }}"
 desktop_gtk_theme_color_scheme: "{{ 'prefer-dark' if desktop_gtk_theme_prefer_dark else 'default' }}"
-# The only path by which a theme reaches a flatpak sandbox short of packaging it as an
-# org.gtk.Gtk3theme extension: flatpak refuses to share /usr, and the sandbox's XDG_DATA_HOME
-# is ~/.var/app/<id>/data, but GTK also searches $HOME/.themes, which can be bound in.
+# Where a theme reaches a flatpak sandbox: flatpak will not share /usr, but GTK also searches
+# $HOME/.themes, which can be bound in (theme.yml copies the themes there).
 desktop_gtk_themes_dir: "{{ desktop_user_home }}/.themes"
 
-# System users malcontent's daemons run as, declared by the package in
-# /usr/lib/sysusers.d. The names are not all derivable from the unit names: the timer
-# extension agent's unit is malcontent-timer-extension-agent but its user is
-# malcontent-timer-ext-agent.
+# System users malcontent's daemons run as (declared in /usr/lib/sysusers.d). Not all derivable
+# from the unit names: malcontent-timer-extension-agent runs as malcontent-timer-ext-agent.
 desktop_malcontent_users:
   - malcontent-timer-ext-agent
   - malcontent-timerd
   - malcontent-webd
 
-# The malcontent CLI, which parental_controls.yml looks for even when the controls are turned
-# off, to lift what an earlier run enforced.
+# The malcontent CLI, which parental_controls.yml looks for even when the controls are off, to
+# lift what an earlier run enforced.
 desktop_malcontent_client: /usr/bin/malcontent-client
-# The managed policy directory, created by chrome.yml, whose contents parental_controls.yml
-# owns: Chrome merges every file it finds there, so a stray one is policy (see that file).
+# The managed policy directory, created by chrome.yml, whose contents parental_controls.yml owns
+# (Chrome merges every file there, so a stray one is policy).
 desktop_chrome_policies_dir: /etc/opt/chrome/policies/managed
 desktop_chrome_family_policy_path: "{{ desktop_chrome_policies_dir }}/family.json"
 
-# Whether any web filtering is configured for desktop_user. "none" is malcontent's own
-# spelling for the disabled filter type, so it doubles as the feature flag. It cannot be true
-# without desktop_install_parental_controls: parental_controls.yml asserts the two agree.
+# Whether any web filtering is configured. "none" is malcontent's disabled filter type, so it
+# doubles as the feature flag; parental_controls.yml asserts it agrees with the install flag.
 desktop_parental_controls_web_filter_enabled: "{{ desktop_parental_controls_web_filter_type != 'none' }}"
 
-# Arguments to `malcontent-client set-app-filter`, which overwrites the whole filter, so the
-# one task both enforces and lifts it: no OARS pairs is an empty filter. The installation
-# permissions are stated either way rather than left to the command's defaults (user repository
-# allowed, system repository disallowed), because they apply whether or not a pair is given,
-# and lifting the filter has to restore the system repository that an unfiltered account has.
+# Arguments to `malcontent-client set-app-filter`, which overwrites the whole filter, so one task
+# enforces and lifts it (no OARS pairs is an empty filter). The installation permissions are
+# stated either way, so lifting the filter restores the system repository an unfiltered account
+# has.
 desktop_parental_controls_app_filter_args: >-
   {{ ['--allow-user-installation']
      + (['--disallow-system-installation'] if desktop_parental_controls_oars | length > 0
@@ -69,11 +59,9 @@ desktop_parental_controls_web_filter_entries: >-
         | map('regex_replace', '^', '~') | list)
      + (desktop_parental_controls_web_blocked_hosts | list)
      + (desktop_parental_controls_web_allowed_hosts | map('regex_replace', '^', '~') | list) }}
-# Arguments to `malcontent-client set-web-filter`, which likewise overwrites the whole filter,
-# so the one task enforces and lifts it. A lifted filter takes the type alone: the entries are
-# what the daemon compiles into a list, and safe search is a setting of the filter rather than
-# of the list, so neither may be passed when clearing. Order does not matter to malcontent, and
-# idempotency is decided by diffing `get-web-filter` output rather than by comparing this list.
+# Arguments to `malcontent-client set-web-filter`, which likewise overwrites the whole filter. A
+# lifted filter takes the type alone: entries and safe search may not be passed when clearing.
+# Idempotency is decided by diffing `get-web-filter` output, not this list.
 desktop_parental_controls_web_filter_args: >-
   {{ ['--filter-type', desktop_parental_controls_web_filter_type]
      + (['--force-safe-search'] if desktop_parental_controls_web_filter_enabled
@@ -82,49 +70,42 @@ desktop_parental_controls_web_filter_args: >-
      + (desktop_parental_controls_web_filter_entries
         if desktop_parental_controls_web_filter_enabled else []) }}
 
-# Idle timeouts in the units each daemon expects: hypridle, dconf and xset all take seconds.
+# Idle timeouts in seconds (hypridle, dconf and xset all take seconds).
 desktop_screen_blank_seconds: "{{ desktop_screen_blank_minutes | int * 60 }}"
 desktop_screen_lock_seconds: "{{ desktop_screen_lock_minutes | int * 60 }}"
 desktop_screen_off_seconds: "{{ desktop_screen_off_minutes | int * 60 }}"
-# GNOME's screensaver lock-delay counts from the moment the screen blanks, not from the
-# moment the session went idle, so it is the gap between the two timeouts rather than the
-# lock timeout itself.
+# GNOME's screensaver lock-delay counts from blank time, not from idle, so it is the gap between
+# the blank and lock timeouts.
 desktop_screen_lock_delay_seconds: >-
   {{ (desktop_screen_lock_minutes | int - desktop_screen_blank_minutes | int) * 60 }}
-# The same gap, as the cycle argument to `xset s`: xss-lock starts the locker one cycle after
-# the X server blanks. Floored at a second because `xset s <timeout> 0` disables cycling
-# altogether, and a host that locks as soon as it blanks would then never lock at all.
+# The same gap, as the `xset s` cycle. Floored at 1s because `xset s <timeout> 0` disables
+# cycling, and a host that locks as soon as it blanks would then never lock.
 desktop_xsecurelock_grace_seconds: "{{ [1, desktop_screen_lock_delay_seconds | int] | max }}"
-# xsecurelock blanks and powers the monitor down on a clock of its own, which starts when it
-# locks, so this is what remains of the power-off timeout by then. Floored for the same
-# reason: upstream calls a zero timeout nonsensical, since a key release wakes the screen.
+# What remains of the power-off timeout once xsecurelock locks (it powers the monitor down on its
+# own clock, started at lock time). Floored at 1s: upstream rejects a zero timeout.
 desktop_xsecurelock_blank_seconds: >-
   {{ [1, (desktop_screen_off_minutes | int - desktop_screen_lock_minutes | int) * 60] | max }}
-# Idle-suspend timeout, applied to mains and battery alike: no mechanism here distinguishes the
-# power source. An unset desktop_suspend_inactive_minutes leaves the host's existing suspend
-# policy alone; 0 disables idle suspend; N suspends after N minutes.
+# Idle-suspend timeout, applied to mains and battery alike. Unset desktop_suspend_inactive_minutes
+# leaves the host's policy alone; 0 disables idle suspend; N suspends after N minutes.
 desktop_suspend_inactive_managed: "{{ desktop_suspend_inactive_minutes is not none }}"
 desktop_suspend_inactive_seconds: "{{ desktop_suspend_inactive_minutes | default(0, true) | int * 60 }}"
 desktop_suspend_inactive_action: >-
   {{ (desktop_suspend_inactive_seconds | int > 0) | ternary("'suspend'", "'nothing'") }}
-# The same policy as logind reads it, for bspwm: IdleActionSec counts from the idle hint, which
-# xss-lock sets when the screen blanks, so it gets the suspend timeout less the blank timeout
-# (README.md). The floor is a backstop the assert in idle.yml already makes unreachable.
+# The bspwm policy as logind reads it: IdleActionSec counts from the idle hint (set at blank
+# time), so it gets the suspend timeout less the blank timeout. The floor is a backstop the
+# assert in idle.yml makes unreachable.
 desktop_suspend_idle_action: >-
   {{ (desktop_suspend_inactive_seconds | int > 0) | ternary('suspend', 'ignore') }}
 desktop_suspend_idle_action_seconds: >-
   {{ [60, desktop_suspend_inactive_seconds | int - desktop_screen_blank_seconds | int] | max }}
 
-# May be a symlink into a dotfiles repository, so only modules that resolve the link
-# themselves (blockinfile, lineinfile, replace) may write it.
+# May be a dotfiles-repo symlink, so only modules that resolve the link (blockinfile, lineinfile,
+# replace) may write it.
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
-# The role's own file, which no dotfiles repository has a copy of, so it is templated.
+# Role-owned files, not dotfiles, so templated. The session script holds the timeouts and the
+# xsecurelock environment; the logind drop-in is the bspwm idle-suspend policy.
 desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.desktop"
-
-# The session script holds the timeouts and the xsecurelock environment. It is the role's own
-# file, shared with no dotfiles repository, so it is templated rather than written as a block.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
-# Idle suspend under bspwm, which logind performs rather than the session.
 desktop_logind_idle_action_conf: /etc/systemd/logind.conf.d/50-desktop-idle-action.conf
 
 # CLEANUP (added 2026-07-14): remove with the "Remove the xscreensaver configuration" block
@@ -134,18 +115,16 @@ desktop_xscreensaver_autostart: "{{ desktop_user_home }}/.config/autostart/xscre
 desktop_xresources: "{{ desktop_user_home }}/.Xresources"
 desktop_xsecurelock_saver: /usr/local/bin/xsecurelock-saver
 
-# Platform key into https://ziglang.org/download/index.json. Zig spells these with
-# the kernel architecture names that Ansible reports, so no mapping is needed here
-# (unlike dev_arch/docker_arch, which translate to the Debian names apt expects).
+# Platform key into ziglang.org's index.json. Zig uses the kernel architecture names Ansible
+# reports, so no mapping is needed (unlike dev_arch/docker_arch, which map to Debian names).
 desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
 
-# The packages flatpak.yml purges and then pins, so apt cannot bring them back. Snap is
-# not among them: the base role purges and pins snapd on every host, not just desktops.
-# Override desktop_flatpak_replacements instead.
+# The packages flatpak.yml purges and pins. Snap is not among them: the base role handles snapd
+# on every host. Override desktop_flatpak_replacements instead.
 desktop_flatpak_pinned_packages: "{{ desktop_flatpak_replacements.keys() | list }}"
 
-# The .desktop id that identifies desktop_default_browser to xdg-settings. Firefox
-# exports a different id depending on which install method firefox.yml took.
+# The .desktop id identifying desktop_default_browser to xdg-settings. Firefox exports a
+# different id depending on which install method firefox.yml took.
 desktop_default_browser_desktop_id: >-
   {{ {'google-chrome': 'google-chrome.desktop',
       'firefox': 'firefox.desktop' if desktop_install_firefox_apt else 'org.mozilla.firefox.desktop'}[desktop_default_browser] }}

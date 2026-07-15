@@ -1,10 +1,8 @@
 ---
-# desktop_user names the account this role's user-scoped tasks act on, so a wrong value acts
-# on the wrong account. It used to default to ansible_facts["user_id"], which is whoever
-# ansible happens to be running as on the target, and so became root whenever ansible itself
-# ran as root, as the nightly cert-renewal cron does. It now defaults to primary_user, which
-# is inventory data and does not depend on the invocation. This assert is the backstop.
-# tags: always so a --tags run cannot skip it.
+# desktop_user names the account this role's user-scoped tasks act on. It defaults to
+# primary_user (inventory data), not a fact describing who ansible runs as, which would resolve
+# to root under the cert-renewal cron. This assert is the backstop; tags: always so a --tags
+# run cannot skip it.
 - name: Validate desktop_user
   ansible.builtin.assert:
     that:
@@ -44,9 +42,8 @@
       desktop_default_browser must be "firefox" or "google-chrome", and cannot be
       "firefox" when desktop_install_firefox is false.
     success_msg: Default browser "{{ desktop_default_browser }}" is valid
-  # Tagged to match chrome.yml, firefox.yml and default_browser.yml: a `--tags browser`
-  # run that reconfigures or removes a browser must still validate the pairing first,
-  # otherwise default_browser.yml fails opaquely on a removed Firefox.
+  # Tagged browser to match chrome/firefox/default_browser: a `--tags browser` run must
+  # validate the pairing first, or default_browser.yml fails opaquely on a removed Firefox.
   tags: browser
 
 - name: Install common system packages
@@ -190,9 +187,8 @@
       ansible.builtin.import_tasks: lact.yml
       tags: lact
 
-    # No `when`, unlike the feature flags above: the file branches on
-    # desktop_install_parental_controls itself, because turning the flag off has to lift the
-    # filters an earlier run enforced rather than merely stop reasserting them.
+    # No `when`, unlike the feature flags above: the file runs even when the flag is off, to
+    # lift the filters a previous run enforced. It branches on the flag itself.
     - name: Configure parental controls
       ansible.builtin.import_tasks: parental_controls.yml
       tags: parental-controls

@@ -17,34 +17,13 @@
         state: directory
       register: desktop_eww_tmp
 
-    # Install from main branch because the latest stable release (v0.6.0, Aug 2024) is stale
+    # Build from main: the latest stable release is stale.
     - name: Clone eww repository (main branch)
       ansible.builtin.git:
         repo: https://github.com/elkowar/eww.git
         dest: "{{ desktop_eww_tmp.path }}"
         version: master
         depth: 1
-
-    # - name: Get releases of eww
-    #   ansible.builtin.uri:
-    #     url: https://api.github.com/repos/elkowar/eww/releases
-    #     return_content: true
-    #   register: desktop_eww_releases
-
-    # - name: Set eww version to latest stable release
-    #   ansible.builtin.set_fact:
-    #     desktop_eww_version: >-
-    #       {{ (desktop_eww_releases.json | selectattr('prerelease', 'equalto', false)
-    #       | selectattr('draft', 'equalto', false) | list | first).tag_name }}
-
-    # - name: Download and unarchive eww {{ desktop_eww_version }}
-    #   ansible.builtin.unarchive:
-    #     src: "https://github.com/elkowar/eww/archive/refs/tags/{{ desktop_eww_version }}.tar.gz"
-    #     dest: "{{ desktop_eww_tmp.path }}"
-    #     remote_src: true
-    #     extra_opts:
-    #       - --strip-components
-    #       - 1
 
     - name: Build eww
       ansible.builtin.command:
@@ -63,9 +42,8 @@
       notify: Restart eww
       become: true
   always:
-    # A release build leaves close to 1GB of cargo output behind, and /tmp is a
-    # tmpfs sized at half of RAM, so a few runs exhaust it and the next build
-    # fails writing rmeta.
+    # A release build leaves ~1GB of cargo output, and /tmp is a tmpfs at half of RAM, so a few
+    # leaked runs exhaust it.
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ desktop_eww_tmp.path }}"
@@ -73,13 +51,10 @@
       when: desktop_eww_tmp.path is defined
       become: true
 
-# eww's systray resolves StatusNotifierItem icons through a freshly constructed GTK
-# IconTheme, which searches only the hicolor fallback and ignores gtk-icon-theme-name.
-# update-notifier publishes an item whose IconName is system-software-update-symbolic,
-# which hicolor does not ship, so eww fails to load it and logs a warning on every
-# start. Yaru is the only theme packaged for Ubuntu that provides the icon, so copy it
-# into hicolor where eww looks. The Yaru file is a symlink to software-updater-symbolic,
-# so the link target is copied rather than the link.
+# eww's systray resolves StatusNotifierItem icons through the hicolor fallback only, ignoring
+# gtk-icon-theme-name. update-notifier publishes system-software-update-symbolic, which hicolor
+# does not ship, so eww logs a warning every start. Copy it from Yaru (the only Ubuntu-packaged
+# theme that has it) into hicolor. The Yaru file is a symlink, so remote_src copies the target.
 - name: Install system-software-update-symbolic into the hicolor icon theme
   ansible.builtin.copy:
     src: /usr/share/icons/Yaru/scalable/apps/software-updater-symbolic.svg
@@ -93,10 +68,9 @@
 
 - name: Configure eww service
   block:
-    # eww is installed under /usr/local, so its unit belongs in
-    # /usr/local/lib/systemd/user. /etc/systemd/user is reserved for the
-    # administrator and outranks it, so a copy left there silently shadows this one
-    # and every change to the unit becomes a no-op.
+    # eww is under /usr/local, so its unit belongs in /usr/local/lib/systemd/user.
+    # /etc/systemd/user is reserved for the administrator and outranks it, so a copy left there
+    # would silently shadow this one.
     - name: Create the local systemd user unit directory
       ansible.builtin.file:
         path: /usr/local/lib/systemd/user
@@ -119,14 +93,9 @@
 
           [Service]
           Type=exec
-          # The daemon does not exit on SIGTERM once its windows are mapped, so the
-          # unit would sit deactivating until TimeoutStopSec elapsed and systemd
-          # resorted to SIGKILL. The incoming daemon then found the outgoing one
-          # still holding the IPC socket, printed "Eww server already running",
-          # declined to serve, and lingered tailing logs, leaving systemd reporting
-          # the unit active while the old daemon served the old config. `eww kill`
-          # shuts the daemon down cleanly, so stop through it, and bound the stop and
-          # clear any surviving server as backstops.
+          # The daemon does not exit on SIGTERM once its windows are mapped, so stop it through
+          # `eww kill` (ExecStop) instead. TimeoutStopSec and ExecStartPre kill are backstops
+          # against a surviving server that would refuse to serve ("Eww server already running").
           TimeoutStopSec=5
           ExecStartPre=-/usr/local/bin/eww kill
           ExecStart=/usr/local/bin/eww daemon --no-daemonize --logs

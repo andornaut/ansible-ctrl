@@ -30,10 +30,9 @@ listener {
 # Idle suspend: hypridle runs the suspend itself (logind's IdleAction can't fire because
 # nothing here calls SetIdleHint).
 #
-# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so per-host timeouts
-# (desktop_suspend_inactive_minutes, desktop_screen_*_minutes) get committed once for all
-# hosts, and two niri hosts with different values would fight over it. Latent while hosts
-# share values. Fix: render per-host policy into a role-owned hypridle drop-in, not the repo.
+# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so per-host timeouts get
+# committed for all hosts, and two niri hosts with different values would fight over it. See
+# the role README.
 listener {
     timeout = {{ desktop_suspend_inactive_seconds }} # {{ desktop_suspend_inactive_minutes }}min
     on-timeout = systemctl suspend
