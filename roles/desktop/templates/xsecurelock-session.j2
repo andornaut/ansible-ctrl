@@ -1,91 +1,57 @@
 #!/bin/sh
-# Managed by the desktop role (tasks/idle.yml). Started by the autostart entry it writes, so
-# it runs once per X session. Timeouts come from desktop_screen_*_minutes.
+# Managed by the desktop role (tasks/idle.yml). Run once per X session by the autostart entry.
+# Timeouts come from desktop_screen_*_minutes; see the role README.
 #
-# The clock is the X server's: `xset s <timeout> <cycle>` blanks the screen after <timeout>,
-# and xss-lock starts the locker one <cycle> later, which makes <cycle> the blank-to-lock
-# grace period. Neither may be zero: `xset s <timeout> 0` disables cycling, and the session
-# would blank but never lock.
+# `xset s <timeout> <cycle>` blanks after <timeout>; xss-lock starts the locker one <cycle>
+# later, so <cycle> is the blank-to-lock grace period. Neither may be zero (`xset s ... 0`
+# disables cycling, so the session blanks but never locks).
 #
-# xsecurelock is configured through the environment, which it reads from this process. What is
-# not set here is left at its default, including the prompt's colours and font.
-#
-# Authentication needs nothing configured and nothing setuid: xsecurelock authenticates
-# against the PAM service compiled into the Ubuntu package, which is common-auth, and pam_unix
-# reaches /etc/shadow through the unix_chkpwd helper.
+# xsecurelock reads its config from this process's environment; unset values keep its defaults.
+# It authenticates against the common-auth PAM service; nothing setuid is needed.
 set -eu
 
-# `xset s blank` is not the default everywhere and xscreensaver used to turn it off (it drew
-# its own blank screen), which sticks in the server. Without it the screensaver still
-# activates on the timeout, and xss-lock still locks one cycle later, but the screen does not
-# go black in between: the desktop stays on display for the whole grace period.
-#
-# A failing xset must not take xss-lock down with it (`set -e` would): a server missing the
-# DPMS extension would cost the session its locker, keybinding and all, over a monitor that
-# does not power down. Losing the timers degrades idle locking; losing xss-lock removes
-# locking altogether.
+# Force `xset s blank`: not the default everywhere, and without it the screen stays lit through
+# the grace period. xset failures must not abort (`set -e`): a server without DPMS would
+# otherwise cost the session xss-lock, and with it the lock keybinding.
 xset s blank || true
 xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }} || true
 xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} || true
 
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
-# The prompt is the username and the password field, nothing else: the date, the time, the
-# hostname and the keyboard layout are all things the person typing already knows. The layout
-# is worth a word, since xsecurelock shows it by default for a reason: it is a hint when a
-# password keeps failing because the wrong layout is active. These hosts have one layout.
+# Show only the username and password field. Keyboard layout is hidden because these hosts have
+# one layout (xsecurelock shows it by default as a hint when a password keeps failing).
 XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
 XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
 XSECURELOCK_AUTH_SOUNDS=0
-# xsecurelock cannot lock while another window holds the keyboard or pointer grab: a fullscreen
-# game, or even an open context menu. It exits, xss-lock sees the locker exit, and the session
-# stays unlocked with nothing said about it, which upstream notes "could leave a workstation
-# open for days" when locking is automatic. Forcing the grab unmaps the client windows holding
-# one, takes the grab, and maps them back. 1 touches client windows only; 2 also touches the
-# root window's other descendants and is likelier to upset the window manager. The cost is that
-# a fullscreen window that owned the grab is left unresponsive afterwards (alt-tab recovers it),
-# and the window manager may rearrange windows.
+# xsecurelock cannot lock while another window holds the keyboard/pointer grab (a fullscreen
+# game, an open menu); without this it exits and the session stays unlocked silently. Forcing
+# the grab unmaps the offending client windows, locks, and remaps them (1 = client windows
+# only). Cost: a fullscreen window that held the grab is left unresponsive (alt-tab recovers it).
 XSECURELOCK_FORCE_GRAB=1
-# The default, set explicitly because it is a security property and not a preference: the key
-# that dismisses the blank screen is discarded rather than typed into the password field, so
-# that nobody learns to type their password at a black screen. A black screen is not
-# necessarily this locker: during the blank-to-lock grace period it is the session itself, with
-# whatever window had focus still listening.
+# Security property, not a preference: the keypress that dismisses the blank screen is discarded
+# rather than typed into the password field, so nobody learns to type a password at a black
+# screen (during the grace period the black screen is the session, not the locker).
 XSECURELOCK_DISCARD_FIRST_KEYPRESS=1
-# xsecurelock powers the monitor down on a clock of its own, which starts when it locks, so
-# this is what is left of the power-off timeout once the lock timeout has elapsed. Without it
-# the monitor would go dark ten minutes after locking (the upstream default) whatever
-# desktop_screen_off_minutes says.
+# xsecurelock powers the monitor down on its own clock, started at lock time, so this is what
+# remains of the power-off timeout. Without it the monitor darkens 10min after locking (upstream
+# default) regardless of desktop_screen_off_minutes.
 XSECURELOCK_BLANK_TIMEOUT={{ desktop_xsecurelock_blank_seconds }}
 XSECURELOCK_BLANK_DPMS_STATE=off
 export XSECURELOCK_AUTH_SOUNDS XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
     XSECURELOCK_DISCARD_FIRST_KEYPRESS XSECURELOCK_FORCE_GRAB XSECURELOCK_PASSWORD_PROMPT \
     XSECURELOCK_SHOW_DATETIME XSECURELOCK_SHOW_HOSTNAME XSECURELOCK_SHOW_KEYBOARD_LAYOUT
 
-# -l holds a logind sleep inhibitor until the locker has taken the screen, so a suspend locks
-# first and cannot flash the desktop on resume. xss-lock also answers logind's Lock signal,
-# which is what the session's `loginctl lock-session` keybinding sends.
+# -l holds a logind sleep inhibitor until the locker has the screen, so suspend locks before it
+# can flash the desktop on resume. xss-lock also answers logind's Lock signal (the session's
+# `loginctl lock-session` keybinding).
 #
-# -n is what makes the cycle a grace period, and it is required even though there is nothing
-# to notify. xss-lock only waits for the screensaver's CYCLE event when a notifier is
-# configured; without one it starts the locker the moment the screensaver activates:
+# -n /bin/true is required to make <cycle> a grace period: without a notifier xss-lock starts
+# the locker at the blank timeout and ignores the cycle. The notifier may exit immediately.
 #
-#     else if (!notifier.cmd || xss_event->forced || get_cycle_time(connection) <= 0) {
-#         start_child(&locker);
-#     } else if (!locker.pid)
-#         start_child(&notifier);
-#
-# So `xss-lock -- xsecurelock` locks at the blank timeout and ignores the cycle entirely. A
-# notifier that exits immediately is enough to take the other branch: the CYCLE handler only
-# checks that no locker is running. Nothing warns or dims during the grace, which is the
-# intent; the screen is simply blank, as the X server left it.
-#
-# -s names the logind session rather than letting xss-lock look it up. Left to itself it calls
-# GetSessionByPID(getpid()), which only resolves for a process inside the session's cgroup
-# scope. Started by dex that holds, but a human restarting this script from tmux or from an
-# editor's terminal lands under user@.service instead, and the resulting xss-lock silently
-# ignores logind: no Lock signal, so the session's lock keybinding does nothing, and no idle
-# hint, so idle suspend never fires. The environment carries the id in either case.
+# -s names the logind session. Without it xss-lock calls GetSessionByPID, which only resolves
+# inside the session's cgroup scope; a restart from tmux or an editor terminal lands under
+# user@.service, and xss-lock then silently ignores logind (no Lock signal, no idle hint).
 if [ -n "${XDG_SESSION_ID:-}" ]; then
     exec xss-lock -n /bin/true -s "$XDG_SESSION_ID" -l -- xsecurelock
 fi

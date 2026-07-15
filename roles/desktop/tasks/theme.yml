@@ -48,9 +48,8 @@
   become_user: "{{ desktop_user }}"
   block:
     # Set on every desktop, not just GNOME: xdg-desktop-portal-gtk serves these keys as the
-    # system appearance, which is how browsers and Electron apps decide whether to render
-    # dark. XDG_RUNTIME_DIR points dconf at desktop_user's session bus, which is not set when
-    # Ansible escalates to a user it did not log in as.
+    # system appearance, which is how browsers and Electron apps decide whether to render dark.
+    # XDG_RUNTIME_DIR points dconf at desktop_user's session bus.
     - name: Configure the GNOME appearance
       community.general.dconf:
         key: "{{ item.key }}"
@@ -80,15 +79,10 @@
         mode: preserve
       loop: "{{ desktop_gtk_themes }}"
 
-    # Global (no application argument), so it also covers the flatpaks the games role
-    # installs, which neither role has to know about.
-    #
-    # GTK_THEME rather than the settings portal, which carries only the theme name: handed a
-    # name it cannot resolve, GTK falls back to Adwaita (light) and drops the application's
-    # dark preference with it. Naming the theme mounted at ~/.themes cannot miss.
-    #
-    # `flatpak override` rewrites the file unconditionally and reports nothing, so compare
-    # `--show` either side of it to report changes honestly.
+    # Global (no application argument), so it also covers the flatpaks the games role installs.
+    # GTK_THEME rather than the settings portal: handed a name it cannot resolve, GTK falls back
+    # to Adwaita (light); naming the theme mounted at ~/.themes cannot miss. `flatpak override`
+    # rewrites the file unconditionally and reports nothing, so compare `--show` either side.
     - name: Apply the flatpak theme override
       ansible.builtin.shell:
         cmd: |
