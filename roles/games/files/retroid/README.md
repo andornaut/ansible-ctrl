@@ -132,3 +132,12 @@ syncing to different hardware.
   on-device file manager.
 - **GameCube and PS2** are not libretro playlists here (the libretro Dolphin core crashes on Android
   and LRPS2 is x86-only); they run in the standalone Dolphin and NetherSX2 apps through ES-DE.
+- **PS2 uses NetherSX2-Turnip** (`xyz.aethersx2.tturnip`, the `NetherSX2-…-Turnip` build from the
+  Obtainium Emulation Pack), for the Turnip Adreno driver. Two device-side edits `sync.py` does not
+  manage, so a re-copy of the GlazedBelmont custom_systems reverts them:
+  - `ES-DE/custom_systems/es_find_rules.xml`: the `AETHERSX2-TURNIP` entry ships pointing at a
+    different fork (`xyz.aethersx2.custom`); repoint it to
+    `xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity`.
+  - Emulator settings (renderer, resolution, controls, BIOS path) live in app-private storage, so
+    adb cannot port them from the old app; set them by hand in NetherSX2-Turnip. The PS2 BIOS is
+    seeded into the app's `bios/` folder from the sdcard `BIOS/pcsx2/bios/` set.
