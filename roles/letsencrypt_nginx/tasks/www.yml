@@ -23,9 +23,7 @@
         owner: root
         group: root
       loop: "{{ letsencrypt_nginx_websites }}"
-      # Each website entry holds a Cloudflare API token and basicauth
-      # credentials, which the default callback would otherwise print as the
-      # loop item.
+      # Loop items hold a Cloudflare API token and basicauth credentials.
       no_log: true
 
     - name: Clone Git repositories
@@ -33,12 +31,10 @@
         repo: "{{ item.repo }}"
         dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}"
         version: "{{ item.version | default('HEAD') }}"
-        update: true # Always update to latest
+        update: true
         depth: 1
       loop: "{{ letsencrypt_nginx_websites }}"
       register: letsencrypt_nginx_git_clone
       when: item.repo is defined
-      # Each website entry holds a Cloudflare API token and basicauth
-      # credentials, which the default callback would otherwise print as the
-      # loop item.
+      # Loop items hold a Cloudflare API token and basicauth credentials.
       no_log: true

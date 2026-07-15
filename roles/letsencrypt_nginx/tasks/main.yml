@@ -1,7 +1,4 @@
 ---
-# - ansible.builtin.debug:
-#     var: letsencrypt_nginx_websites
-
 - name: Set up packages, web roots, and basic authentication
   tags:
     - letsencrypt
@@ -41,8 +38,7 @@
     - letsencrypt
     - nginx
 
-# Tagged letsencrypt so that the nightly run, which passes --tags letsencrypt, reconciles the
-# very cron job that launched it.
+# Tagged letsencrypt so the nightly renewal run reconciles its own cron job.
 - name: Configure certificate renewal
   ansible.builtin.import_tasks: cron.yml
   tags:

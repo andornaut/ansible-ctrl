@@ -12,19 +12,12 @@ letsencrypt_nginx_remaining_days: 30
 letsencrypt_nginx_hidden_patterns: []
 letsencrypt_nginx_websites: []
 
-# Certificates are renewed by letsencrypt.yml when fewer than letsencrypt_nginx_remaining_days
-# remain, and only while the playbook is running: nothing renews them on the host itself. So
-# exactly one machine, the ansible controller, re-runs this playbook on a schedule. It is the
-# only host with a checkout, hence a feature flag rather than a task that runs everywhere.
-# Enable it in that host's host_vars.
+# Renewal re-runs this playbook: letsencrypt.yml reissues any cert within
+# letsencrypt_nginx_remaining_days of expiry. Only the controller has a checkout, so enable
+# this in the controller's host_vars; the nightly run reapplies the whole role.
 letsencrypt_nginx_install_renewal_cron: false
-# The cron job runs ansible-playbook as root, because a cron job cannot answer a become
-# password prompt. No role may derive a target user from ansible_facts["user_id"] for that
-# reason (see AGENTS.md); each asserts it did not resolve to root.
 letsencrypt_nginx_renewal_cron_hour: "22"
 letsencrypt_nginx_renewal_cron_minute: "11"
-# Directory the cron job runs ansible-playbook from, i.e. the repository checkout on the
-# controller. Defaults to the checkout the current run was launched from, which is the same
-# machine whenever the flag above is set on the controller.
+# Directory ansible-playbook runs from; defaults to the current run's checkout.
 letsencrypt_nginx_renewal_cron_directory: "{{ playbook_dir }}"
 letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log

@@ -23,8 +23,7 @@
   when:
     - not item.use_selfsigned_certificate | default(false)
   become: true
-  # The loop items contain Cloudflare API tokens, and the challenge data
-  # includes the ACME account key.
+  # Loop items hold Cloudflare API tokens; the challenge data holds the ACME account key.
   no_log: true
 
 - name: Create DNS challenge TXT record
@@ -54,10 +53,8 @@
 
 - name: Pause to allow DNS to update
   ansible.builtin.pause:
-    # Pause for slightly longer than the DNS TTL to ensure that it has propagated to (potential) intermediaries.
+    # Longer than the 60s DNS TTL so the record propagates to intermediaries.
     seconds: 300
-#  when:
-#    - dns_record.changed
 
 - name: Create HTTP challenge resource directories
   ansible.builtin.file:
@@ -96,9 +93,6 @@
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
 
-# - ansible.builtin.debug:
-#     var: letsencrypt_nginx_challenge_http_resources
-
 - name: Complete Let's Encrypt challenge
   community.crypto.acme_certificate:
     account_email: "{{ letsencrypt_nginx_account_email }}"
@@ -128,9 +122,5 @@
     - item.changed
     - not item.item.use_selfsigned_certificate | default(false)
   become: true
-  # `data` carries the challenge results, which embed the Cloudflare API token
-  # from the originating website entry.
+  # `data` carries the challenge results, which embed the Cloudflare API token.
   no_log: true
-
-# - ansible.builtin.debug:
-#     var: letsencrypt_nginx_complete_challenge

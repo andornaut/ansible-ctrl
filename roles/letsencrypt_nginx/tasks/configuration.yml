@@ -14,7 +14,7 @@
     patterns: "*.conf"
     file_type: file
     use_regex: false
-    recurse: false # Don't look in subdirectories
+    recurse: false
   register: letsencrypt_nginx_find_conf_files
   become: true
 
@@ -46,7 +46,7 @@
     mode: "0640"
     owner: root
     group: root
-    force: true # Overwrite if exists
+    force: true
   become: true
 
 - name: Check if SSL certificates exist
@@ -58,8 +58,7 @@
   loop: "{{ letsencrypt_nginx_websites }}"
   register: letsencrypt_nginx_check_crts
   become: true
-  # Each website entry holds a Cloudflare API token and basicauth credentials,
-  # which the default callback would otherwise print as the loop item.
+  # Loop items hold a Cloudflare API token and basicauth credentials.
   no_log: true
 
 - name: Generate site configurations
@@ -71,10 +70,9 @@
     mode: "0640"
     owner: root
     group: root
-    force: true # Overwrite if exists
+    force: true
   loop: "{{ letsencrypt_nginx_check_crts.results }}"
   become: true
-  # Each result embeds its originating website entry as `item.item`, so the loop
-  # item carries the Cloudflare API token and basicauth credentials.
+  # item.item is the originating website entry: a Cloudflare API token and basicauth credentials.
   no_log: true
   notify: Restart nginx
