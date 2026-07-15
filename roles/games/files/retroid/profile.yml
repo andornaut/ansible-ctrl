@@ -92,6 +92,11 @@ settings_override:
   fastforward_ratio: "5.000000"
   video_refresh_rate: "60.000000"
   network_on_demand_thumbnails: "true"
+  # Auto frame delay: the 865 has headroom, so RetroArch delays running the core to present each frame
+  # closer to vsync, cutting input latency, and backs the delay off automatically if it would drop a
+  # frame (it needs video_threaded off, which the base pins). Complements the per-core preemptive
+  # frames; it is an Android-side latency tweak the desktop does not set.
+  video_frame_delay_auto: "true"
 
 # Base keys not managed on the device, removed from its retroarch.cfg if present. The mouse, lightgun
 # and menu-mouse keys read a pointer the handheld has no equivalent for; windowed_fullscreen is a
