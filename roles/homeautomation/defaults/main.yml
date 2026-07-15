@@ -80,7 +80,7 @@ homeautomation_homeassistant_required_volumes:
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
 homeautomation_llamacpp_models:
-  - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+  - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
