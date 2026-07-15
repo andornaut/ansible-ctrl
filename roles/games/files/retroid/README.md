@@ -15,12 +15,31 @@ the role converges a desktop:
 - **`retroarch.cfg`**: sets only the keys the role owns (drivers remapped to Android, directories
   pointed at the sdcard, rewind buffer sized for a handheld), removes the keys dropped for Android
   (mouse/lightgun, keyboard binds), and leaves every other line the device has alone.
-- **playlists**: regenerated with device paths and the `_libretro_android.so` core suffix (reusing
-  `../retroarch-generate-playlists.py`), with stale managed `.lpl` pruned.
-- **cores**: the arm64-v8a set the table needs, fetched from the Android buildbot; dropped cores removed.
+- **playlists**: regenerated with device paths (the ES-DE short-name ROM dirs, mapped from the
+  library's No-Intro names by `profile.yml`'s `rom_dir_names`) and the `_libretro_android.so` core
+  suffix (reusing `../retroarch-generate-playlists.py`), with stale managed `.lpl` pruned. Each
+  `core_path` points at the app-private cores dir the in-app Core Updater fills.
+- **cores**: not managed here. The sdcard and emulated storage are mounted `noexec`, so RetroArch can
+  load a core `.so` only from its app-private dir, which `adb` cannot write; install them with the
+  in-app Core Updater (Gotchas).
 - **per-core overrides/options**: `config/<library_name>/<name>.cfg` and `.opt`, with the Android
   diffs (N64 on GLideN64 HLE not ParaLLEl, Beetle PSX HW pinned to the Vulkan renderer at 2x).
-- **BIOS + thumbnails**: additive push from the library.
+- **BIOS**: additive push from the library.
+- **thumbnails**: additive push, off by default (`--push-thumbnails`). ES-DE is the frontend here and
+  scrapes its own media; RetroArch's thumbnail cache and the playlists above are seen only when
+  browsing inside RetroArch directly.
+- **ES-DE emulators**: pins each system's `<alternativeEmulator>` (in its `gamelist.xml`) to the core
+  the role prefers (`profile.yml` `esde_cores`), so ES-DE launches our core rather than its default
+  (e.g. Saturn on YabaSanshiro not Beetle Saturn, NES on Mesen, PSX on Beetle PSX HW).
+- **ROM library** (`--roms` only): mirrors each library system onto `ROMS/<short name>`, deleting
+  device games the library dropped and resending only what is missing (`adb push --sync`). Off by
+  default: it is hundreds of GB over USB and takes hours, but resumes if interrupted (just re-run).
+
+The frontend on this device is ES-DE, which launches games with `%EXTRA_CONFIGFILE%` pointed at the
+synced `retroarch.cfg` and cores from the app-private dir, so the managed `retroarch.cfg`, per-core
+overrides, BIOS, and ES-DE emulator choices all take effect on every ES-DE launch. The playlists are
+RetroArch-frontend only. RetroArch and ES-DE are force-stopped for the run and should be reopened
+after.
 
 Divergences and the reasoning behind them: the "Retroid Pocket Mini / Flip 2" and "Cores" sections of
 [`../../../../til/docs/retro-games.md`](../../../../til/docs/retro-games.md).
@@ -41,27 +60,36 @@ Divergences and the reasoning behind them: the "Retroid Pocket Mini / Flip 2" an
 # Preview: build the bundle and print every device write, touching nothing (works with no device).
 ./sync.py --library-dir /path/to/rom-library --dry-run
 
-# Real sync.
+# Config sync: retroarch.cfg, playlists, per-core overrides, BIOS, ES-DE emulator choices (minutes).
 ./sync.py --library-dir /path/to/rom-library
+
+# Config sync plus the full ROM library mirror (hours; resumable, so re-run to finish if interrupted).
+./sync.py --library-dir /path/to/rom-library --roms
 ```
 
-Useful flags: `--serial <id>` (pick a device when several are attached), `--skip-cores`,
-`--skip-bios`, `--skip-thumbnails` (the two large pushes) for a config-only reconcile.
+Useful flags: `--serial <id>` (pick a device when several are attached), `--skip-bios` for a
+faster config-only reconcile, `--roms` to also mirror the ROM library (the long transfer),
+`--push-thumbnails` to also send RetroArch's thumbnail cache (off by default; ES-DE uses its own media).
 
 ## Two things to verify on the device (once)
 
 The sync cannot derive these from the desktop; both are called out because a wrong value fails
-silently.
+silently. (The panel refresh rate is a third, but the Flip 2's is 60Hz and already the shipped value;
+see below.)
 
 ### Verify the core names
 
-Per-core overrides live in `config/<library_name>/`, and `<library_name>` is the core's **runtime**
-name, which is not in the `.info` file and can differ per build. `profile.yml`'s `core_probe` hardcodes
-the well-known names; confirm them against what RetroArch actually created after the cores have loaded
-once:
+Per-core overrides live under `rgui_config_directory` in `config/<library_name>/`, and
+`<library_name>` is the core's **runtime** name, which is not in the `.info` file and can differ per
+build. Stock Android RetroArch points `rgui_config_directory` at `/storage/emulated/0/RetroArch/config`
+(not the app files dir). `profile.yml`'s `core_probe` hardcodes the well-known names; confirm them
+against what RetroArch actually created after the cores have loaded once:
 
 ```bash
-adb shell ls "/storage/emulated/0/Android/data/com.retroarch.aarch64/files/config"
+# read the config dir RetroArch is using, then list it
+adb shell 'sed -n "s/^rgui_config_directory = \"\(.*\)\"/\1/p" \
+  /storage/emulated/0/Android/data/com.retroarch.aarch64/files/retroarch.cfg'
+adb shell ls "/storage/emulated/0/RetroArch/config"
 ```
 
 Any override directory `sync.py` created that does not match a name in that listing is being ignored:
@@ -70,32 +98,39 @@ fix the `library_name` in `core_probe` and re-run.
 ### Derive the pad indices
 
 `profile.yml`'s `controller` block binds rewind/fast-forward on the pad, but the axis/button values are
-**physical device indices** and differ per pad, so they ship as `nul` (unbound) until derived here.
-Read them from the pad's autoconfig profile on the device:
+**physical device indices** and differ per pad, so they ship as `nul` (unbound) until derived here. The
+pad's autoconfig profile lives in app-private storage `adb` cannot read, so bind the two hotkeys in
+RetroArch itself (Settings > Input > Hotkeys: **Rewind** and **Fast-Forward Hold**), close RetroArch,
+then read the resolved values back out of `retroarch.cfg`:
 
 ```bash
-adb shell 'grep -E "input_(r_y_minus_axis|r_y_plus_axis|l3_btn|r3_btn)" \
-  /storage/emulated/0/Android/data/com.retroarch.aarch64/files/autoconfig/android/*.cfg'
+adb shell 'grep -E "input_(rewind|hold_fast_forward)_(btn|axis)" \
+  /storage/emulated/0/Android/data/com.retroarch.aarch64/files/retroarch.cfg'
 ```
 
-Map right-stick-up/down to `input_rewind_axis`/`input_hold_fast_forward_axis` and L3/R3 to
-`input_rewind_btn`/`input_hold_fast_forward_btn`, set them in `profile.yml`, and re-run.
+Copy the four values into `profile.yml`'s `controller` block and re-run.
 
 ### Set the panel refresh rate
 
-`profile.yml`'s `settings_override.video_refresh_rate` ships as a `60.000000` placeholder. RetroArch
-derives its audio resampling ratio from this, so a value that does not match the panel is heard as
-audio drift. Set it to what the device's "Settings > Video > Output > Estimated Screen Framerate"
-reports (the Flip 2 panel is not necessarily 60Hz), then re-run.
+`profile.yml`'s `settings_override.video_refresh_rate` is `60.000000`. RetroArch derives its audio
+resampling ratio from this, so a value that does not match the panel is heard as audio drift. The Flip
+2's panel is a single 60.000Hz mode (`adb shell dumpsys display | grep fps`), so the shipped value is
+already correct for it; re-derive it from "Settings > Video > Output > Estimated Screen Framerate" only
+if syncing to different hardware.
 
 ## Gotchas
 
-- **Cores won't load from the sdcard**: newer Android can refuse to `dlopen` an executable `.so` from
-  external storage. If cores fail to load, set `device_dirs.cores` in `profile.yml` to
-  `"{app_files}/cores"` and re-run.
+- **Cores come from the in-app Core Updater, not this sync**: the sdcard and emulated storage are
+  mounted `noexec`, so RetroArch cannot `dlopen` a core `.so` from either the sdcard or the app files
+  dir. The only exec-capable location is the app-private cores dir (`/data/user/0/<package>/cores`),
+  which `adb` cannot write on a non-rooted device. Install the table's cores with RetroArch > Online
+  Updater > Core Downloader; the generated playlists point their `core_path` there
+  (`profile.yml`'s `cores_ref`). Until a core is installed, its playlist entries show but will not
+  launch.
 - **`retroarch.cfg` push fails under `/Android/data`**: `adb push` cannot always write another app's
-  scoped storage. If the discovered cfg path is under `/Android/data` and the push is denied, grant
-  RetroArch all-files access (its config then lives under `/storage/emulated/0/RetroArch/`, which
-  `sync.py` discovers), or copy the staged cfg in with an on-device file manager.
+  scoped storage (it works on the Flip 2's stock RetroArch). If the discovered cfg path is under
+  `/Android/data` and the push is denied, grant RetroArch all-files access (its config then lives under
+  `/storage/emulated/0/RetroArch/`, which `sync.py` discovers), or copy the staged cfg in with an
+  on-device file manager.
 - **GameCube and PS2** are not libretro playlists here (the libretro Dolphin core crashes on Android
   and LRPS2 is x86-only); they run in the standalone Dolphin and NetherSX2 apps through ES-DE.
