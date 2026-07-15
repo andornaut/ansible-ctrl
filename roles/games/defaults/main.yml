@@ -192,10 +192,11 @@ games_retroarch_systems:
     core: mednafen_saturn
     extensions: [chd, m3u]
   # FinalBurn Neo runs the Neo Geo arcade romsets: MAME/FBNeo-format .zip files named by short arcade
-  # ID (mslug.zip), passed whole as the launchable entry (fbneo sets no block_extract). They diverge
-  # from the library's No-Intro naming, so the playlist label reads "mslug" and the No-Intro-keyed
-  # thumbnail fetcher cannot match, leaving box art to be supplied by hand (README's Thumbnails). The
-  # BIOS is neogeo.zip, which rides in the BIOS set's fbneo/ subdirectory.
+  # ID (mslug.zip). fbneo sets block_extract and is handed the .zip whole, which it opens itself (the
+  # romset is many files in one archive); the playlist generator allows this because fbneo lists .zip
+  # among its own extensions. They diverge from the library's No-Intro naming, so the playlist label
+  # reads "mslug" and the No-Intro-keyed thumbnail fetcher cannot match, leaving box art to be
+  # supplied by hand (README's Thumbnails). The BIOS is neogeo.zip, in the BIOS set's fbneo/ subdir.
   SNK - Neo Geo:
     core: fbneo
     extensions: [zip]
