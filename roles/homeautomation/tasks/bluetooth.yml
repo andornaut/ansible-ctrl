@@ -26,10 +26,3 @@
     mode: "0644"
   become: true
   notify: Load docker-ble-policy
-# Shouldn't need to reload if we're loading the new profile above
-# - name: Reload apparmor.service
-#   ansible.builtin.systemd_service:
-#     name: apparmor.service
-#     state: restarted
-#   when: homeautomation_apparmor_policy.changed
-#   become: true

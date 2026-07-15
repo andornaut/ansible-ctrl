@@ -44,11 +44,10 @@ homeautomation_frigate_tmpfs_size_mb: 128
 # ha-mcp
 homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
 homeautomation_hamcp_env: {}
-# host.docker.internal is mapped to host-gateway via extra_hosts in docker_hamcp.yml,
-# which allows this bridge-networked container to reach the host-networked Home Assistant
+# host.docker.internal (mapped to host-gateway in docker_hamcp.yml) lets this
+# bridge-networked container reach the host-networked Home Assistant.
 homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
-# Long-lived access token for Home Assistant API authentication
-# Generate at: Home Assistant -> Profile -> Security -> Long-lived access tokens -> Create token
+# Home Assistant long-lived access token (Profile > Security).
 homeautomation_hamcp_token: ""
 homeautomation_install_hamcp: false
 
@@ -81,11 +80,7 @@ homeautomation_homeassistant_required_volumes:
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
 homeautomation_llamacpp_models:
-  # Qwen3.5-9B: Multimodal model supporting text and vision (images/video). Superior reasoning, coding, and
-  # long-context processing (262K tokens). Supports 201 languages, agent/tool calling, and vision-language tasks.
   - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
-  # Gemma 4 E4B: Google's multimodal model (text + images). 26B total params, 4B active (MoE).
-  # Strong reasoning and coding. 256K context window.
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models

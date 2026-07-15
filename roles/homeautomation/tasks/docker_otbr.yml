@@ -18,15 +18,14 @@
       - "{{ homeautomation_otbr_required_volumes.data }}:/data"
     otbr_volumes: "{{ homeautomation_common_volumes + otbr_base_volumes }}"
 
-    # Build device list: always include /dev/net/tun, add physical device if present
     otbr_devices: "{{ ['/dev/net/tun'] + homeautomation_otbr_devices_resolved }}"
 
     otbr_base_env:
       - AUTOFLASH_FIRMWARE=0
       - BACKBONE_IF={{ homeautomation_otbr_backbone_if }}
       - BAUDRATE=460800
-      # For network sockets: Use /tmp/ttyOTBR (pseudo-TTY created by socat service)
-      # For physical devices: Use the resolved device path (e.g., /dev/ttyUSB0)
+      # Physical device: resolved path (e.g. /dev/ttyUSB0).
+      # Network socket: /tmp/ttyOTBR, the pseudo-TTY socat creates.
       - >-
         DEVICE={{ homeautomation_otbr_devices_resolved[0]
         if homeautomation_otbr_devices_resolved else '/tmp/ttyOTBR' }}
@@ -38,7 +37,7 @@
       # enable-check.sh); OTBR_WEB_PORT alone is not enough.
       - OTBR_WEB=1
       - OTBR_WEB_PORT={{ homeautomation_otbr_web_port }}
-    # Network socket configuration: NETWORK_DEVICE triggers socat to bridge TCP socket to /tmp/ttyOTBR
+    # NETWORK_DEVICE makes socat bridge the TCP socket to /tmp/ttyOTBR.
     otbr_network_env:
       - NETWORK_DEVICE={{ homeautomation_otbr_device }}
     otbr_env: >-
@@ -61,7 +60,7 @@
           devices: "{{ otbr_devices }}"
           environment: "{{ otbr_env }}"
           logging: "{{ homeautomation_default_logging }}"
-          # Required for mDNS and physical interface access to work correctly
+          # Required for host mDNS and physical interface access.
           network_mode: host
           restart: unless-stopped
           volumes: "{{ otbr_volumes }}"

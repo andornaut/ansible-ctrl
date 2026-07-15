@@ -1,5 +1,5 @@
 ---
-# Use Avahi to make mDNS avaiable for Google Cast in Home Assistant without having to set --network_mode=host
+# Avahi reflects mDNS (Google Cast discovery) to bridged Home Assistant without host networking.
 # https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24
 - name: Install Avahi system packages
   ansible.builtin.apt:
