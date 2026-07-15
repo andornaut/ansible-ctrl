@@ -24,12 +24,11 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- BSPWM and the [baskerville](https://github.com/baskerville) tools listed in `bspwm_projects` are built from
-  source into `/usr/local/bin`.
-- This role owns only the X11 tools that have a Wayland replacement in the [niri](../niri/) role: `scrot` (grim
-  and slurp), `xsecurelock` and `xss-lock` (hypridle and hyprlock), `xbacklight` (brightnessctl), plus `dex` and
-  `xorg`. Tools both sessions share live in the [desktop](../desktop/) role.
-- Locking is three programs, not one. The X server blanks the screen and powers the monitor down on its own `xset`
-  timers; `xss-lock` watches the X screensaver extension and `logind`, and starts `xsecurelock` on either. The
-  [desktop](../desktop/README.md#idle-locking-and-suspend) role writes all three timeouts into the session script
-  that starts `xss-lock`.
+- BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects` are built from source into
+  `/usr/local/bin`.
+- This role owns the X11 tools that the [niri](../niri/) role replaces with Wayland equivalents (`scrot`,
+  `xsecurelock`, `xss-lock`, `xbacklight`), plus `dex` and `xorg`. Tools both sessions share live in the
+  [desktop](../desktop/) role.
+- Locking uses three programs: the X server blanks and powers off the monitor on `xset` timers, `xss-lock` watches
+  the X screensaver extension and `logind` and starts `xsecurelock`. The
+  [desktop](../desktop/README.md#idle-locking-and-suspend) role writes all three timeouts into the session script.
