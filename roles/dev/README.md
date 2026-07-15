@@ -38,12 +38,11 @@ directory it operates on.
 
 ## Notes
 
-- Cursor is granted unprivileged user namespaces by a dedicated AppArmor profile, rather than by disabling the
-  restriction globally.
+- Cursor gets unprivileged user namespaces via a dedicated AppArmor profile, not by disabling the restriction
+  globally.
 - The `ai_maintainer` tag runs only on hosts in the `ai_maintainer` inventory group. It installs a weekly cron job
-  that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer) to merge dependabot PRs, update
-  dependencies, and fix test and CI failures. The script is symlinked from a local checkout when present, and
-  downloaded otherwise.
+  that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer). The script is symlinked from a local
+  checkout (`dev_ai_maintainer_project_script_path`) when present, downloaded otherwise.
 
 ## Operations
 

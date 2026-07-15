@@ -1,17 +1,13 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
+# Derived values, not operator knobs. In vars/ (not defaults/) so role vars outrank
+# host_vars and a host cannot desync a derived value from its source.
 
-# Debian architecture name, used by the apt repositories. Ansible reports the kernel
-# names (x86_64, aarch64), which Debian spells differently (amd64, arm64).
+# Debian arch for apt repositories, mapped from the kernel name Ansible reports.
 dev_arch: >-
   {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# Home directory of dev_user, resolved from the passwd database (a getent lookup
-# runs in tasks/main.yml).
+# dev_user home from passwd (getent runs in tasks/main.yml).
 dev_user_home: "{{ ansible_facts['getent_passwd'][dev_user][4] }}"
 
-# PATH for the ai-maintainer cron environment, built from the standard system PATH plus
-# the directory holding dev_ai_maintainer_script_path so cron can find the wrapper.
+# System PATH plus the script's directory, so cron can find the ai-maintainer wrapper.
 dev_ai_maintainer_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_maintainer_script_path | dirname }}"
