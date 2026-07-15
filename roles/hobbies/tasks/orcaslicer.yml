@@ -1,12 +1,9 @@
 ---
-# Workaround for Devices tab crash: https://github.com/OrcaSlicer/OrcaSlicer/issues/10756#issuecomment-4527372832
 - name: Install OrcaSlicer
   tags: orcaslicer
   block:
-    # The flatpak and flatpak_remote modules both resolve the flatpak executable and
-    # fail if it is absent. The desktop role installs it too, but package installs
-    # stay scoped to their own role, so hobbies.yml can run on a host that has never
-    # had the desktop role applied.
+    # flatpak/flatpak_remote modules need the flatpak binary. Install it here (not via the
+    # desktop role) so hobbies.yml runs on a host that never had the desktop role applied.
     - name: Install flatpak package
       ansible.builtin.apt:
         name: flatpak
@@ -29,8 +26,10 @@
             name: com.orcaslicer.OrcaSlicer
             method: user
 
-        # `flatpak override` rewrites the per-user override file unconditionally and
-        # reports nothing, so compare `--show` output either side of it.
+        # WebKit env works around the Devices-tab crash:
+        # https://github.com/OrcaSlicer/OrcaSlicer/issues/10756
+        # `flatpak override` rewrites the override file unconditionally and reports nothing;
+        # diff `--show` either side to detect a real change.
         - name: Configure OrcaSlicer WebKit environment
           ansible.builtin.shell:
             cmd: |

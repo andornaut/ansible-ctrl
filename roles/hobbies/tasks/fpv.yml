@@ -1,7 +1,7 @@
 ---
-# Recent Betaflight releases are PWA-only (https://app.betaflight.com).
-# This installs the latest release with a Linux portable build (10.10.0).
-# The portable zip requires a wrapper script to set LD_LIBRARY_PATH.
+# Recent Betaflight releases are PWA-only (https://app.betaflight.com); install the latest
+# release that still ships a Linux portable build. The portable zip needs a wrapper to set
+# LD_LIBRARY_PATH.
 - name: Install Betaflight Configurator
   tags: betaflight
   block:
@@ -24,10 +24,8 @@
       loop_control:
         label: "{{ item.tag_name }}"
 
-    # Use a [.] character class rather than an escaped \. : this is a folded block
-    # scalar, so YAML passes backslashes through untouched and Jinja does not treat
-    # \\ as an escape, which leaves the regex matching a literal backslash and
-    # selecting nothing. Same reason the freerouting asset match avoids escapes.
+    # Match with a [.] class, not \. : in a folded scalar YAML passes backslashes through and
+    # Jinja does not treat \\ as an escape, so \. matches a literal backslash and selects nothing.
     - name: Set Betaflight Configurator download URL fact
       ansible.builtin.set_fact:
         hobbies_betaflight_download_url: >-
@@ -35,9 +33,9 @@
           | selectattr('name', 'search', 'linux64-portable[.]zip$')
           | map(attribute='browser_download_url') | first }}
 
-    # The zip's top-level directory is literally "Betaflight Configurator", space
-    # included. Extract each release into its own tag-stamped directory and expose
-    # it as /opt/betaflight/current, so the space never reaches a launcher path.
+    # The zip's top-level dir is literally "Betaflight Configurator" (with a space). Extract
+    # each release into its own tag-stamped dir, exposed as /opt/betaflight/current, so the
+    # space never reaches a launcher path.
     - name: Set Betaflight Configurator install path facts
       ansible.builtin.set_fact:
         hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}"
@@ -50,8 +48,7 @@
         mode: "0755"
       become: true
 
-    # creates is evaluated by the action plugin, so an already-installed release
-    # skips the download entirely rather than refetching the zip every play.
+    # creates is evaluated before download, so an already-installed release skips the fetch.
     - name: Download and extract Betaflight Configurator
       ansible.builtin.unarchive:
         src: "{{ hobbies_betaflight_download_url }}"
@@ -61,13 +58,9 @@
       become: true
       register: hobbies_betaflight_unarchive
 
-    # The zip ships some files as 0600 (including the two binaries at 0700), which
-    # leaves them unreadable by the non-root user who launches the app. The capital
-    # X grants execute only where it is already set, so libraries land at 0644 and
-    # the binaries at 0755.
-    #
-    # Not a handler: the symlink below must point at a tree whose permissions are
-    # already fixed, and handlers do not flush until the end of the play.
+    # The zip ships some files 0600 (binaries 0700), unreadable by the launching user. Capital
+    # X grants execute only where already set: libraries 0644, binaries 0755. Not a handler:
+    # the symlink below needs permissions already fixed, and handlers flush only at play end.
     - name: Set Betaflight Configurator permissions # noqa: no-handler
       ansible.builtin.file:
         path: "{{ hobbies_betaflight_app_dir }}"
@@ -85,8 +78,8 @@
         force: true
       become: true
 
-    # Wrapper (not a symlink) so the app runs with its bundled libraries on
-    # LD_LIBRARY_PATH and with its own directory as the working directory.
+    # Wrapper (not a symlink) so the app runs with its bundled libraries on LD_LIBRARY_PATH
+    # and its own directory as the working directory.
     - name: Install Betaflight Configurator launcher wrapper onto PATH
       ansible.builtin.copy:
         dest: /usr/local/bin/betaflight-configurator
