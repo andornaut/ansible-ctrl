@@ -29,8 +29,9 @@ What it owns, mirroring the role's ownership semantics:
   * ES-DE emulators: each system's <alternativeEmulator> in its gamelist.xml is pinned to the core the
     role prefers (profile.yml esde_cores), so ES-DE launches our core, not its default.
   * ROM library (--roms only): each library system is mirrored onto ROMS/<short name>, deleting device
-    games the library dropped and resending only what is missing (adb push --sync), so the long
-    transfer resumes after an interruption. Off by default; it is hundreds of GB over USB.
+    games the library dropped and pushing only the files missing or a different size on the device, so
+    the long transfer resumes after an interruption and a converged re-run pushes nothing. Off by
+    default; it is hundreds of GB over USB.
 
 Cores are NOT managed here: the sdcard and emulated storage are mounted noexec, so RetroArch can only
 dlopen a core from the app-private dir the in-app Core Updater fills, which adb cannot write. Install
@@ -183,26 +184,6 @@ class Device:
 
     def push(self, local, remote):
         self._write(["push", local, remote], "push %s -> %s" % (local, remote))
-
-    def push_sync(self, local, remote, attempts=3):
-        """Push only files newer than or absent on the device (adb push --sync); returns success.
-
-        Bypasses _write because it must return a bool rather than raise (a partial push is normal and
-        resumable), but mirrors _write's resilience: on failure it waits for the device to re-enumerate
-        and retries, and --sync makes each retry resend only what did not land, so recovering from a
-        mid-transfer disconnect is cheap.
-        """
-        if self.dry_run:
-            print("  [dry-run] push --sync %s -> %s" % (local, remote))
-            return True
-        for attempt in range(1, attempts + 1):
-            if self._run(["push", "--sync", local, remote], check=False, capture=False).returncode == 0:
-                return True
-            if attempt < attempts:
-                print("  push --sync failed (attempt %d/%d), retrying" % (attempt, attempts),
-                      file=sys.stderr)
-                self.wait()
-        return False
 
     def wait(self, timeout=60):
         """Block until the device is back on adb, up to timeout seconds (best-effort).
@@ -482,24 +463,47 @@ PRESERVE_IN_ROMS = {"systeminfo.txt"}
 
 
 def device_rom_files(device, root):
-    """Relative paths of every file under root on the device, recursive and including hidden entries.
+    """Map every file under root on the device to its size in bytes, recursive and including hidden.
 
     Uses find rather than list_dir's `ls -1`: `ls -1` omits dotfiles, so hidden multi-disc directories
     (.game/) and anything nested in a subdirectory would be invisible to the prune below and a renamed
-    disc would accumulate beside its replacement. find sees them.
+    disc would accumulate beside its replacement. find sees them. Each file's size comes from stat so
+    mirror_roms can decide what to push by size (see there); the tab separator keeps ROM names, which
+    contain spaces, parseable.
     """
     prefix = root.rstrip("/") + "/"
-    out = device.read_shell("find %s -type f 2>/dev/null" % shq(root))
-    return [line[len(prefix):] for line in out.splitlines() if line.startswith(prefix)]
+    out = device.read_shell("find %s -type f -exec stat -c '%%s\t%%n' {} + 2>/dev/null" % shq(root))
+    sizes = {}
+    for line in out.splitlines():
+        size, tab, path = line.partition("\t")
+        if tab and size.isdigit() and path.startswith(prefix):
+            sizes[path[len(prefix):]] = int(size)
+    # Both the prune and the size comparison in mirror_roms rely on this, so an empty result must mean an
+    # empty directory, not a stat that silently failed: if `stat` is unavailable and only stderr got the
+    # errors, the caller would keep stale games and re-push everything, reporting success. Confirm the
+    # directory really is empty with a plain find before trusting an empty map, and fail loudly if not.
+    if not sizes and device.read_shell("find %s -type f 2>/dev/null" % shq(root)).strip():
+        sys.exit("Could not read file sizes under %s: `find -exec stat -c` returned nothing for a "
+                 "non-empty directory. The device's toybox `stat` likely lacks `-c`, which the "
+                 "size-based ROM mirror needs." % root)
+    return sizes
 
 
 def library_rom_files(src):
-    """Relative paths of every file under a library system directory, matching device_rom_files."""
-    files = set()
+    """Map every file under a library system directory to its size in bytes, matching
+    device_rom_files."""
+    files = {}
     for dirpath, _, names in os.walk(src):
         rel = os.path.relpath(dirpath, src)
         for name in names:
-            files.add(name if rel == "." else os.path.join(rel, name))
+            key = name if rel == "." else os.path.join(rel, name)
+            try:
+                files[key] = os.path.getsize(os.path.join(dirpath, name))
+            except OSError as error:
+                # A broken symlink or unreadable entry is not a pushable game: warn and skip it rather
+                # than let one bad file abort the whole mirror (mirror_roms only catches adb errors).
+                # Leaving it out of the map also keeps the prune from acting on a phantom.
+                print("  skip unreadable %s: %s" % (key, error), file=sys.stderr)
     return files
 
 
@@ -507,13 +511,16 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
     """Mirror each library system directory onto ROMS/<short name>, replacing what the device has.
 
     Per system: delete the device files the library no longer carries (renamed or removed games), then
-    push the library with --sync, which skips bytes already on the device. So the first run is a full
-    copy, a re-run after an interruption resumes, and a renamed file replaces its old version rather
-    than accumulating beside it. The prune is recursive and sees hidden entries, so multi-disc .game/
-    directories and files nested in subdirectories are handled; device-managed metadata (PRESERVE_IN
-    _ROMS) is left alone, and a directory the prune empties out (a multi-disc game dropped from the
-    library) is rmdir'd so no hollow .dir lingers. Systems whose library directory is missing are
-    skipped, not emptied.
+    push only the files that are missing or a different size on the device. The push set is decided here
+    by size rather than delegated to `adb push --sync`: --sync also compares mtime, and the exFAT sdcard
+    rounds mtimes, so files that already match re-transfer on every run and the mirror never converges (a
+    full re-mirror re-sent ~140GB of already-correct data). A partially-transferred file has the wrong
+    size and so is re-sent, which keeps a re-run resumable, and a converged re-run pushes nothing.
+
+    The prune is recursive and sees hidden entries, so multi-disc .game/ directories and files nested in
+    subdirectories are handled; device-managed metadata (PRESERVE_IN_ROMS) is left alone, and a directory
+    the prune empties out (a multi-disc game dropped from the library) is rmdir'd so no hollow .dir
+    lingers. Systems whose library directory is missing are skipped, not emptied.
     """
     failed = []
     for lib_name, dev_name in sorted(rom_dir_names.items()):
@@ -528,24 +535,37 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
         try:
             device.mkdirs(dst)
             wanted = library_rom_files(src)
-            for rel in device_rom_files(device, dst):
+            have = device_rom_files(device, dst)
+            for rel in have:
                 if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
                     continue
                 device.rm("%s/%s" % (dst, rel))
-            print("Mirroring %s -> %s" % (lib_name, dev_name))
-            ok = device.push_sync(src + "/.", dst)
+            need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
+            if need:
+                print("Mirroring %s -> %s (%d file(s))" % (lib_name, dev_name, len(need)))
+                # adb push creates a file's parent, but a nested disc dir is a fresh mkdir on first sync;
+                # create the unique parents up front so each push lands in an existing directory.
+                parents = sorted({os.path.dirname("%s/%s" % (dst, rel)) for rel in need} - {dst})
+                if parents:
+                    device.mkdirs(*parents)
+                for rel in need:
+                    device.push(os.path.join(src, rel), "%s/%s" % (dst, rel))
+            else:
+                print("%s -> %s: up to date" % (lib_name, dev_name))
             # A game dropped from the library leaves its hidden .dir behind once the prune removes the
             # discs inside it (device_rom_files lists files, not dirs). rmdir the dirs left empty so the
             # tree stays an exact mirror; -mindepth 1 keeps the system dir itself, -depth clears nested.
             device.read_shell("find %s -mindepth 1 -depth -type d -empty -exec rmdir {} + 2>/dev/null"
                               % shq(dst))
+            ok = True
         except subprocess.CalledProcessError:
             ok = False
         if not ok:
             failed.append(dev_name)
     if failed:
-        sys.exit("%d system(s) did not fully mirror (transfer errors). Re-run to resume (--sync resends "
-                 "only what is missing): %s" % (len(failed), ", ".join(failed)))
+        sys.exit("%d system(s) did not fully mirror (transfer errors). Re-run to resume (it pushes only "
+                 "the files missing or a different size on the device): %s"
+                 % (len(failed), ", ".join(failed)))
 
 
 # --------------------------------------------------------------------------- ES-DE cores
@@ -597,7 +617,7 @@ def main():
     parser.add_argument("--roms", action="store_true",
                         help="also mirror the ROM library onto the device's ES-DE ROMS tree (the long "
                              "transfer; off by default). Deletes device games the library dropped and "
-                             "resumes with adb push --sync")
+                             "pushes only files missing or a different size on the device (resumable)")
     parser.add_argument("--push-thumbnails", action="store_true",
                         help="push the RetroArch thumbnail cache (off by default: ES-DE, the frontend "
                              "here, uses its own scraped media, so RetroArch's cache is only seen when "
@@ -722,7 +742,7 @@ def main():
     print("Configuring ES-DE preferred cores...")
     configure_esde_cores(device, profile["esde_gamelists_dir"], profile["esde_cores"])
     if args.roms:
-        print("Mirroring ROM library (the long transfer; resumable with --sync)...")
+        print("Mirroring ROM library (the long transfer; resumable, pushes only changed files)...")
         mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
 
     print("Done. RetroArch and ES-DE were stopped for the sync; reopen whichever you use.")

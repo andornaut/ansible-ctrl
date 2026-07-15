@@ -30,8 +30,10 @@ the role converges a desktop:
   the role prefers (`profile.yml` `esde_cores`), so ES-DE launches our core rather than its default
   (e.g. Saturn on YabaSanshiro not Beetle Saturn, NES on Mesen, PSX on Beetle PSX HW).
 - **ROM library** (`--roms` only): mirrors each library system onto `ROMS/<short name>`, deleting
-  device games the library dropped and resending only what is missing (`adb push --sync`). Off by
-  default: it is hundreds of GB over USB and takes hours, but resumes if interrupted (just re-run).
+  device games the library dropped and pushing only the files missing or a different size on the
+  device. Off by default: it is hundreds of GB over USB and takes hours, but resumes if interrupted
+  (just re-run), and a re-run once converged pushes nothing. Not `adb push --sync`: `--sync` compares
+  mtime too, and the exFAT sdcard rounds mtimes, so already-correct files re-transfer every run.
 
 ES-DE launches games with `%EXTRA_CONFIGFILE%` pointed at the synced `retroarch.cfg` and cores from
 the app-private dir, so the managed `retroarch.cfg`, per-core overrides, BIOS, and ES-DE emulator
