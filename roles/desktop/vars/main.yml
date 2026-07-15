@@ -108,13 +108,6 @@ desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
 desktop_logind_idle_action_conf: /etc/systemd/logind.conf.d/50-desktop-idle-action.conf
 
-# CLEANUP (added 2026-07-14): remove with the "Remove the xscreensaver configuration" block
-# in idle.yml, once every bspwm host in the desktop group has run this role.
-desktop_xscreensaver_conf: "{{ desktop_user_home }}/.xscreensaver"
-desktop_xscreensaver_autostart: "{{ desktop_user_home }}/.config/autostart/xscreensaver.desktop"
-desktop_xresources: "{{ desktop_user_home }}/.Xresources"
-desktop_xsecurelock_saver: /usr/local/bin/xsecurelock-saver
-
 # Platform key into ziglang.org's index.json. Zig uses the kernel architecture names Ansible
 # reports, so no mapping is needed (unlike dev_arch/docker_arch, which map to Debian names).
 desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"

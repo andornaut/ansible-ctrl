@@ -280,22 +280,6 @@
   loop_control:
     label: "{{ item.key }}"
 
-# CLEANUP (added 2026-07-14): remove once every host in the games group has run this role.
-# thumbnails_directory used to be config/thumbnails, which RetroArch's on-demand downloader filled
-# per host, an image at a time, to ~750MB of the same files on each of them. It now points at
-# games_retroarch_thumbnails_dir in the library, where the cache is shared; the library's copy was
-# seeded from this one, so the local tree is dead weight rather than the only copy.
-#
-# Guarded on the path this deletes not being the path in use, rather than assuming they differ: a
-# host that pointed games_retroarch_thumbnails_dir back at the local directory (the obvious override
-# for a host with no library mount) would otherwise have the cache it just configured deleted on
-# every run, and re-download it in full.
-- name: Remove the per-host RetroArch thumbnail cache
-  when: games_retroarch_thumbnails_dir != games_retroarch_config_dir ~ "/thumbnails"
-  ansible.builtin.file:
-    path: "{{ games_retroarch_config_dir }}/thumbnails"
-    state: absent
-
 # RetroArch keeps a core's override and core options under config/<library_name>/, where
 # library_name is the name the built core reports at runtime: a third name matching neither the
 # buildbot name this role keys by (dolphin) nor the .info corename (Dolphin), but dolphin-emu, known
