@@ -18,11 +18,27 @@ What it owns, mirroring the role's ownership semantics:
 
   * retroarch.cfg: only the enumerated keys are set (updated in place, appended if new) and the
     dropped keys removed; every other line the device has is preserved.
-  * playlists: regenerated with device paths, and stale managed .lpl (ones whose scan_content_dir is
+  * playlists: regenerated with device paths (the device's ES-DE short-name ROM dirs, and each
+    core_path under the app-private cores dir), and stale managed .lpl (ones whose scan_content_dir is
     inside the device ROM dir, for a system no longer in the table) removed. Hand-built playlists are
     left alone.
-  * cores: the arm64-v8a set the table needs, and dropped cores removed.
-  * BIOS / thumbnails: additive push from the library, no deletes.
+  * BIOS: additive push from the library, no deletes.
+  * thumbnails: additive push from the library, off by default (--push-thumbnails). The frontend here
+    is ES-DE, which scrapes its own media; RetroArch's thumbnail cache is seen only when browsing
+    inside RetroArch itself. The generated playlists are likewise RetroArch-only, but still pushed.
+  * ES-DE emulators: each system's <alternativeEmulator> in its gamelist.xml is pinned to the core the
+    role prefers (profile.yml esde_cores), so ES-DE launches our core, not its default.
+  * ROM library (--roms only): each library system is mirrored onto ROMS/<short name>, deleting device
+    games the library dropped and resending only what is missing (adb push --sync), so the long
+    transfer resumes after an interruption. Off by default; it is hundreds of GB over USB.
+
+Cores are NOT managed here: the sdcard and emulated storage are mounted noexec, so RetroArch can only
+dlopen a core from the app-private dir the in-app Core Updater fills, which adb cannot write. Install
+the cores the table needs with that updater; the generated playlists point their core_path at it, and
+ES-DE is pointed at the same cores by name.
+
+RetroArch and ES-DE are force-stopped for the run, since both rewrite what they own (retroarch.cfg,
+gamelist.xml) on exit; reopen whichever is used afterwards.
 
 The device library_names and the pad indices are the two things this cannot derive; see README.md.
 """
@@ -35,7 +51,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.error
 import urllib.request
 import zipfile
 
@@ -103,7 +118,6 @@ def build_model(defaults, profile):
         "settings": settings,
         "overrides": overrides,
         "options": options,
-        "cores": cores,
         "probe": {core: probe[core] for core in cores},
         "library_names": {core: probe[core]["library_name"] for core in cores},
     }
@@ -169,6 +183,34 @@ class Device:
 
     def push(self, local, remote):
         self._write(["push", local, remote], "push %s -> %s" % (local, remote))
+
+    def push_sync(self, local, remote, attempts=3):
+        """Push only files newer than or absent on the device (adb push --sync); returns success.
+
+        Used for the ROM mirror: a multi-hour transfer over USB drops the occasional connection, and
+        --sync makes a retry resend only what did not land, so a transient failure is cheap to recover
+        from. Returns True/False rather than raising so one glitchy system does not abort the whole run.
+        """
+        if self.dry_run:
+            print("  [dry-run] push --sync %s -> %s" % (local, remote))
+            return True
+        for attempt in range(1, attempts + 1):
+            if self._run(["push", "--sync", local, remote], check=False, capture=False).returncode == 0:
+                return True
+            print("  push --sync failed (attempt %d/%d)" % (attempt, attempts), file=sys.stderr)
+        return False
+
+    def stop_app(self, package):
+        """Force-stop an app so it cannot rewrite what the sync pushes.
+
+        RetroArch (config_save_on_exit) and ES-DE (rewrites gamelist.xml) both persist their in-memory
+        state on exit, which would clobber the pushed retroarch.cfg / gamelists. Stopping them first is
+        more reliable than asking the operator to.
+        """
+        if self.dry_run:
+            print("  [dry-run] force-stop %s" % package)
+            return
+        self._run(["shell", "am force-stop %s" % shq(package)], check=False, capture=True)
 
     def push_text(self, text, remote):
         if self.dry_run:
@@ -241,6 +283,24 @@ def discover_cfg(device, ctx):
     return "%s/retroarch.cfg" % ctx["app_files"]
 
 
+def override_config_dir(existing_cfg, cfg_path):
+    """Where RetroArch reads per-core overrides from: rgui_config_directory if the device set it, else
+    the config/ dir beside retroarch.cfg.
+
+    RetroArch keeps per-core config/<library_name>/ overrides under its "Config Directory", which stock
+    Android RetroArch points at /storage/emulated/0/RetroArch/config rather than the app files dir. An
+    override pushed beside retroarch.cfg when rgui_config_directory names somewhere else is read from
+    neither place and is silently ignored, so follow the device's own setting.
+    """
+    for line in (existing_cfg or "").splitlines():
+        match = CFG_LINE.match(line)
+        if match and match.group(1) == "rgui_config_directory":
+            value = match.group(2).strip().strip('"')
+            if value:
+                return value
+    return "%s/config" % os.path.dirname(cfg_path)
+
+
 # --------------------------------------------------------------------------- cfg merge
 
 
@@ -279,41 +339,7 @@ def override_text(pairs):
     return header + body
 
 
-# --------------------------------------------------------------------------- cores / info
-
-
-def fetch_cores(profile, cores, cores_dir):
-    """Download and unzip the arm64-v8a build of each core into cores_dir.
-
-    A core with no Android nightly, or a zip whose member is named unexpectedly, is collected rather
-    than raised on: one missing core must not abort the whole sync with a traceback after most of the
-    set has already downloaded. The failures are reported together and stop the run before any device
-    write, so the device is never left with a partial core set.
-    """
-    os.makedirs(cores_dir, exist_ok=True)
-    base = profile["buildbot_url"].format(abi=profile["core_abi"])
-    suffix = profile["core_suffix"]
-    failed = []
-    for core in cores:
-        name = "%s%s" % (core, suffix)
-        url = "%s/%s.zip" % (base, name)
-        print("  fetch %s" % url)
-        try:
-            with urllib.request.urlopen(url, timeout=120) as response:
-                data = response.read()
-            with zipfile.ZipFile(io_bytes(data)) as archive:
-                # The buildbot names the member after the zip, but read whichever .so it holds rather
-                # than assuming, so a naming change degrades to a clear error not a KeyError.
-                member = next((n for n in archive.namelist() if n.endswith(".so")), None)
-                if member is None:
-                    raise KeyError("no .so in archive")
-                with open(os.path.join(cores_dir, name), "wb") as handle:
-                    handle.write(archive.read(member))
-        except (urllib.error.URLError, OSError, zipfile.BadZipFile, KeyError) as error:
-            failed.append("%s (%s)" % (core, error))
-    if failed:
-        sys.exit("could not fetch %d core(s) for %s:\n  %s"
-                 % (len(failed), profile["core_abi"], "\n  ".join(failed)))
+# --------------------------------------------------------------------------- info
 
 
 def fetch_info(profile, info_dir):
@@ -343,14 +369,17 @@ def io_bytes(data):
 # --------------------------------------------------------------------------- generation
 
 
-def generate_playlists(model, library_dir, dirs, profile, info_dir, playlist_dir):
+def generate_playlists(model, library_dir, dirs, profile, cores_ref, info_dir, playlist_dir):
     """Run the shared generator with an Android config, into playlist_dir."""
     os.makedirs(playlist_dir, exist_ok=True)
     config = {
         "library_dir": library_dir,
         "emit_library_dir": dirs["roms"],
+        # The device's per-system ROM folders are ES-DE short names, not the library's No-Intro ones.
+        "emit_system_dirs": profile.get("rom_dir_names") or {},
         "playlist_dir": playlist_dir,
-        "cores_dir": dirs["cores"],
+        # core_path points at the app-private cores dir, the only place RetroArch can dlopen from.
+        "cores_dir": cores_ref,
         "core_filename_suffix": profile["core_suffix"],
         "info_dir": info_dir,
         "cores": model["probe"],
@@ -409,21 +438,102 @@ def stale_playlists(device, dirs, systems):
     return stale
 
 
-def dropped_cores(device, dirs, model, suffix, known_cores):
-    """Device cores this role once managed but no longer runs, to remove.
+# --------------------------------------------------------------------------- ROM library
 
-    Scoped to known_cores (every core any version of the role's table names) so a core the user
-    installed in-app for an unmanaged system is never deleted: the device cores directory is shared
-    with RetroArch's own Core Updater, unlike the desktop's role-owned one.
+
+# Files that live alongside ROMs but are not games and are not this sync's to delete: the Retroid
+# firmware/frontend drops a systeminfo.txt in each system directory, and a mirror that pruned by
+# "not in the library" would wrongly take it (and any similar per-system metadata) with it.
+PRESERVE_IN_ROMS = {"systeminfo.txt"}
+
+
+def device_rom_files(device, root):
+    """Relative paths of every file under root on the device, recursive and including hidden entries.
+
+    Uses find rather than list_dir's `ls -1`: `ls -1` omits dotfiles, so hidden multi-disc directories
+    (.game/) and anything nested in a subdirectory would be invisible to the prune below and a renamed
+    disc would accumulate beside its replacement. find sees them.
     """
-    keep = {"%s%s" % (core, suffix) for core in model["cores"]}
-    dropped = []
-    for name in device.list_dir(dirs["cores"]):
-        if not name.endswith(suffix) or name in keep:
+    prefix = root.rstrip("/") + "/"
+    out = device.read_shell("find %s -type f 2>/dev/null" % shq(root))
+    return [line[len(prefix):] for line in out.splitlines() if line.startswith(prefix)]
+
+
+def library_rom_files(src):
+    """Relative paths of every file under a library system directory, matching device_rom_files."""
+    files = set()
+    for dirpath, _, names in os.walk(src):
+        rel = os.path.relpath(dirpath, src)
+        for name in names:
+            files.add(name if rel == "." else os.path.join(rel, name))
+    return files
+
+
+def mirror_roms(device, library_dir, roms_root, rom_dir_names):
+    """Mirror each library system directory onto ROMS/<short name>, replacing what the device has.
+
+    Per system: delete the device files the library no longer carries (renamed or removed games), then
+    push the library with --sync, which skips bytes already on the device. So the first run is a full
+    copy, a re-run after an interruption resumes, and a renamed file replaces its old version rather
+    than accumulating beside it. The prune is recursive and sees hidden entries, so multi-disc .game/
+    directories and files nested in subdirectories are handled; device-managed metadata (PRESERVE_IN
+    _ROMS) is left alone. Systems whose library directory is missing are skipped, not emptied.
+    """
+    failed = []
+    for lib_name, dev_name in sorted(rom_dir_names.items()):
+        src = os.path.join(library_dir, lib_name)
+        if not os.path.isdir(src):
+            print("  skip %s: no library directory" % lib_name)
             continue
-        if name[: -len(suffix)] in known_cores:
-            dropped.append(name)
-    return dropped
+        dst = "%s/%s" % (roms_root, dev_name)
+        device.mkdirs(dst)
+        wanted = library_rom_files(src)
+        for rel in device_rom_files(device, dst):
+            if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
+                continue
+            device.rm("%s/%s" % (dst, rel))
+        print("Mirroring %s -> %s" % (lib_name, dev_name))
+        if not device.push_sync(src + "/.", dst):
+            failed.append(dev_name)
+    if failed:
+        sys.exit("%d system(s) did not fully mirror (transfer errors). Re-run to resume (--sync resends "
+                 "only what is missing): %s" % (len(failed), ", ".join(failed)))
+
+
+# --------------------------------------------------------------------------- ES-DE cores
+
+
+ALT_EMULATOR = re.compile(r"<alternativeEmulator>.*?</alternativeEmulator>\s*", re.DOTALL)
+XML_DECL = re.compile(r"(<\?xml[^>]*\?>\s*)")
+
+
+def set_alt_emulator(existing, label):
+    """Return gamelist.xml text with the per-system <alternativeEmulator> set to label.
+
+    ES-DE writes <alternativeEmulator> as a second root element ahead of <gameList> (not valid single
+    -root XML, so this is done as text, not with a parser). An existing block is replaced, otherwise
+    the block is inserted after the XML declaration, and a missing gamelist is created with an empty
+    <gameList/> that ES-DE fills on its next scan while keeping the emulator choice.
+    """
+    block = "<alternativeEmulator>\n\t<label>%s</label>\n</alternativeEmulator>\n" % label
+    if not existing:
+        return '<?xml version="1.0"?>\n%s<gameList />\n' % block
+    if ALT_EMULATOR.search(existing):
+        return ALT_EMULATOR.sub(lambda _: block, existing, count=1)
+    if XML_DECL.search(existing):
+        return XML_DECL.sub(lambda m: m.group(1) + block, existing, count=1)
+    return block + existing
+
+
+def configure_esde_cores(device, gamelists_dir, esde_cores):
+    """Pin each system's ES-DE emulator to the games role's preferred core via its gamelist.xml."""
+    for system, label in sorted(esde_cores.items()):
+        system_dir = "%s/%s" % (gamelists_dir, system)
+        path = "%s/gamelist.xml" % system_dir
+        updated = set_alt_emulator(device.pull_text(path), label)
+        device.mkdirs(system_dir)
+        print("ES-DE %s -> %s" % (system, label))
+        device.push_text(updated, path)
 
 
 # --------------------------------------------------------------------------- main
@@ -435,9 +545,15 @@ def main():
     parser.add_argument("--profile", default=os.path.join(HERE, "profile.yml"))
     parser.add_argument("--serial", default="", help="adb device serial (adb -s)")
     parser.add_argument("--dry-run", action="store_true", help="build and plan, no device writes")
-    parser.add_argument("--skip-cores", action="store_true", help="do not fetch/push cores")
     parser.add_argument("--skip-bios", action="store_true", help="do not push the BIOS set")
-    parser.add_argument("--skip-thumbnails", action="store_true", help="do not push the thumbnail cache")
+    parser.add_argument("--roms", action="store_true",
+                        help="also mirror the ROM library onto the device's ES-DE ROMS tree (the long "
+                             "transfer; off by default). Deletes device games the library dropped and "
+                             "resumes with adb push --sync")
+    parser.add_argument("--push-thumbnails", action="store_true",
+                        help="push the RetroArch thumbnail cache (off by default: ES-DE, the frontend "
+                             "here, uses its own scraped media, so RetroArch's cache is only seen when "
+                             "browsing inside RetroArch itself)")
     args = parser.parse_args()
 
     if not os.path.isdir(args.library_dir):
@@ -463,6 +579,12 @@ def main():
     else:
         sys.exit("no device reachable over adb (check the cable and `adb devices`).")
 
+    # Stop the apps that persist state on exit before writing anything they own, so neither RetroArch
+    # (retroarch.cfg) nor ES-DE (gamelist.xml) overwrites the pushed result.
+    if online:
+        device.stop_app(profile["package"])
+        device.stop_app(profile["esde_package"])
+
     ctx, dirs = resolve_dirs(profile, uuid)
     # The directory keys can only be resolved once the sdcard uuid is known, so they are folded into
     # the managed settings here rather than in build_model.
@@ -470,11 +592,13 @@ def main():
         model["settings"][key] = dirs[name]
 
     cfg_path = discover_cfg(device, ctx) if online else "%s/retroarch.cfg" % ctx["app_files"]
-    config_dir = "%s/config" % os.path.dirname(cfg_path)
-    suffix = profile["core_suffix"]
+    existing_cfg = device.pull_text(cfg_path) if online else None
+    config_dir = override_config_dir(existing_cfg, cfg_path)
+    cores_ref = profile["cores_ref"].format(package=profile["package"])
 
     print("Device sdcard: %s" % ctx["sdcard_root"])
     print("retroarch.cfg: %s" % cfg_path)
+    print("overrides:     %s" % config_dir)
 
     staging = tempfile.mkdtemp(prefix="retroid-sync-")
     try:
@@ -482,11 +606,10 @@ def main():
         playlist_dir = os.path.join(staging, "playlists")
         config_stage = os.path.join(staging, "config")
 
-        # Cores + .info. In dry-run with no network wanted, the generator still validates against the
-        # profile's static extensions, so info is best-effort: fall back to the host's flatpak info.
-        if not args.skip_cores and not args.dry_run:
-            print("Fetching cores (%s)..." % profile["core_abi"])
-            fetch_cores(profile, model["cores"], os.path.join(staging, "cores"))
+        # .info drives the generator's extension validation. Best-effort in a dry run (no network):
+        # fall back to the host's flatpak info set. Cores themselves are neither fetched nor pushed:
+        # the sdcard and emulated storage are noexec, so RetroArch can only dlopen a core from the
+        # app-private dir the in-app Core Updater fills; cores_ref points playlists at that dir.
         if not args.dry_run:
             print("Fetching core info...")
             fetch_info(profile, info_dir)
@@ -494,7 +617,7 @@ def main():
             info_dir = host_info_dir()
 
         print("Generating playlists...")
-        generate_playlists(model, args.library_dir, dirs, profile, info_dir, playlist_dir)
+        generate_playlists(model, args.library_dir, dirs, profile, cores_ref, info_dir, playlist_dir)
 
         print("Writing per-core overrides and options...")
         write_overrides(model, config_stage)
@@ -506,8 +629,7 @@ def main():
         # allowed to write on Android 11+. Attempt it, but treat a denial as the documented manual
         # fallback rather than a crash, and carry on with the sdcard content either way.
         print("Reconciling retroarch.cfg...")
-        existing = device.pull_text(cfg_path) if online else None
-        merged = merge_cfg(existing, model["settings"], set(profile["settings_drop"]))
+        merged = merge_cfg(existing_cfg, model["settings"], set(profile["settings_drop"]))
         try:
             device.mkdirs(os.path.dirname(cfg_path), config_dir)
             device.push_text(merged, cfg_path)
@@ -522,12 +644,8 @@ def main():
                 file=sys.stderr,
             )
 
-        # Push the staged sdcard trees. The trailing "/." copies contents into the existing dir
+        # Push the staged playlists. The trailing "/." copies contents into the existing dir
         # (require_adb checks adb is new enough for this).
-        if not args.skip_cores:
-            device.push(os.path.join(staging, "cores") + "/.", dirs["cores"])
-        if not args.dry_run and os.path.isdir(info_dir):
-            device.push(info_dir + "/.", dirs["info"])
         device.push(playlist_dir + "/.", dirs["playlists"])
 
         bios_src = os.path.join(args.library_dir, "_BIOS", "retroarch-system-folder")
@@ -535,26 +653,30 @@ def main():
             print("Pushing BIOS set...")
             device.push(bios_src + "/.", dirs["system"])
         thumbs_src = os.path.join(args.library_dir, "_Thumbnails")
-        if not args.skip_thumbnails and os.path.isdir(thumbs_src):
+        if args.push_thumbnails and os.path.isdir(thumbs_src):
             print("Pushing thumbnail cache...")
             device.push(thumbs_src + "/.", dirs["thumbnails"])
 
-        # Deletes: dropped cores and stale managed playlists. Dropped cores are scoped to cores the
-        # role has ever named (the desktop table's cores plus this Android set), so a user's own
-        # in-app core for an unmanaged system is never removed.
+        # Remove stale managed playlists (a system that left the table). Cores are never touched: they
+        # live in the app-private dir adb cannot reach, and are the in-app Core Updater's to manage.
         if online:
-            known_cores = {spec["core"] for spec in defaults["games_retroarch_systems"].values()}
-            known_cores |= set(model["cores"])
-            for name in dropped_cores(device, dirs, model, suffix, known_cores):
-                print("Removing dropped core %s" % name)
-                device.rm("%s/%s" % (dirs["cores"], name))
             for name in stale_playlists(device, dirs, model["systems"]):
                 print("Removing stale playlist %s" % name)
                 device.rm("%s/%s" % (dirs["playlists"], name))
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
-    print("Done. Close RetroArch on the device before this run, and reopen it after.")
+    # ES-DE emulator choices and (optionally) the ROM library. These need no staging, so they run
+    # outside the temp dir's lifetime; the ROM mirror in particular is a multi-hour transfer. Run them
+    # under --dry-run too (Device prints the planned writes) so a preview of the destructive --roms
+    # deletes and pushes is not silently skipped for want of a device.
+    print("Configuring ES-DE preferred cores...")
+    configure_esde_cores(device, profile["esde_gamelists_dir"], profile["esde_cores"])
+    if args.roms:
+        print("Mirroring ROM library (the long transfer; resumable with --sync)...")
+        mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
+
+    print("Done. RetroArch and ES-DE were stopped for the sync; reopen whichever you use.")
 
 
 def host_info_dir():
