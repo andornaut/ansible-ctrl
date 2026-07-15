@@ -87,8 +87,8 @@
           retries: 3
           start_period: 120s
         logging: "{{ homeautomation_default_logging }}"
-        # Host networking required for mDNS device discovery (Google Cast, Bluetooth),
-        # and direct LAN access. Cannot use bridge networking for these protocols.
+        # Host networking required for mDNS discovery (Google Cast, Bluetooth)
+        # and direct LAN access, which the bridge cannot provide.
         network_mode: host
         restart: unless-stopped
         security_opt:

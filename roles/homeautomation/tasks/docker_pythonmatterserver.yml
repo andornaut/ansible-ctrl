@@ -34,10 +34,10 @@
             - NET_ADMIN
             - NET_RAW
           logging: "{{ homeautomation_default_logging }}"
-          # Host networking is required so the server can see the _matter._tcp
-          # mDNS advertisements OTBR publishes on the LAN. On the bridge network
-          # those multicasts don't reach it, so Thread nodes never resolve and
-          # all Matter devices show as unavailable.
+          # Host networking is required to see the _matter._tcp mDNS OTBR
+          # advertises on the LAN; those multicasts don't cross the bridge, so a
+          # bridged server never resolves Thread nodes and all Matter devices
+          # show unavailable.
           network_mode: host
           restart: unless-stopped
           security_opt:

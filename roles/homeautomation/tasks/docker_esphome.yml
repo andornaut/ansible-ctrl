@@ -25,9 +25,8 @@
             - ESPHOME_DASHBOARD_USE_PING=true
           image: "{{ homeautomation_esphome_docker_image }}"
           logging: "{{ homeautomation_default_logging }}"
-          # Host networking required for mDNS-based ESP device discovery on the
-          # LAN. mDNS multicast does not cross the Docker bridge, so a bridged
-          # container cannot discover LAN devices.
+          # Host networking required for mDNS ESP device discovery; the
+          # multicast does not cross the Docker bridge.
           network_mode: host
           # ports:
           #   - "6052:6052"
