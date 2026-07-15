@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """Fill the shared thumbnail cache for every entry in the generated playlists.
 
-RetroArch's own on-demand downloader only fetches what is scrolled past, so a game never browsed
-has no thumbnail on any host. It stays on where the mount is writable, as the fallback for a game
-added between runs, but this is what keeps the cache complete.
+RetroArch's own on-demand downloader fetches only what is scrolled past, so a game never browsed
+has no thumbnail on any host. That downloader stays on where the mount is writable, as a fallback
+for a game added between runs; this keeps the cache complete.
 
-The library and the repository both name a game to the No-Intro standard, so the ordinary case is
-an exact match on the playlist label, and a game that does not match exactly is worth knowing
-about: it usually means the library has named it in a way the standard does not. Two things still
-need resolving beyond that, and neither is a naming disagreement:
+Library and repository both name a game to the No-Intro standard, so the ordinary case is an exact
+match on the playlist label; a game that does not match exactly usually means the library named it
+in a way the standard does not. Two cases still need resolving, neither a naming disagreement:
 
-  * A dump the repository has never heard of: a translation, a fix, a homebrew re-release. Its
-    (Region) and (Tag) suffixes match no published release, but the game underneath them does, and
-    the base game's art is the right art for it.
-  * A Pico-8 cart, which is already a picture of itself. The repository carries no Pico-8 art at
-    all, and none of it could: the .p8.png in the library *is* the label image.
+  * A dump the repository does not carry (a translation, fix, homebrew re-release): its (Region)
+    and (Tag) suffixes match no published release, but the game underneath does, and the base
+    game's art is right for it.
+  * A Pico-8 cart, already a picture of itself: the repository carries no Pico-8 art (the .p8.png
+    in the library is the label image).
 
-Prints one line per thumbnail written, so stdout is the change report. Games that end the run with
-no box art go to stderr.
+Prints one line per thumbnail written, so stdout is the change report. Games that end with no box
+art go to stderr.
 """
 
 import gzip
@@ -34,9 +33,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 HOST = "thumbnails.libretro.com"
 
-# The three thumbnail types RetroArch looks for, named as the repository names them. Box art is
-# first because it is the one a missing thumbnail is reported against: it is what the browser
-# shows, and a game with no title screen or gameplay snap still looks right without them.
+# The three thumbnail types RetroArch looks for, named as the repository names them. Box art first
+# because it is the one a missing thumbnail is reported against: it is what the browser shows, and
+# a game with no title screen or gameplay snap still looks right.
 BOXART = "Named_Boxarts"
 TYPES = (BOXART, "Named_Titles", "Named_Snaps")
 
@@ -61,8 +60,7 @@ REGIONS = frozenset((
     "switzerland", "ireland",
 ))
 
-# Enough for the largest directory listing (the Genesis box art index runs to ~1400 entries), which
-# is the slowest request this makes.
+# Enough for the largest directory listing, the slowest request this makes.
 TIMEOUT = 60
 
 WORKERS = 8
@@ -78,8 +76,8 @@ def name_key(name):
     """Return the filename a label is cached under, matched case-insensitively.
 
     The sanitizing is what RetroArch and the repository both do, so this is an exact match on the
-    name. Only the case is given away, because a No-Intro name capitalizes an interior article
-    ("Sonic The Hedgehog") and it is not worth failing over.
+    name. Case is folded because a No-Intro name capitalizes an interior article ("Sonic The
+    Hedgehog") and it is not worth failing over.
     """
     return INVALID.sub("_", name).lower()
 
@@ -87,11 +85,10 @@ def name_key(name):
 def title_key(name):
     """Return a key for the game underneath a dump's (Region) and (Tag) suffixes.
 
-    The looser of the two keys, and the one that answers for a dump the repository does not carry:
-    a translation, a fix, a homebrew re-release. The box art of "Final Fantasy Tactics - The War of
-    the Lions (USA)" is the right art for the copy of it tagged "(Wolt fast fix by Nexus)", and
-    there is no other name that copy could be asking for. Punctuation goes too, which is the other
-    way a re-release drifts ("Fix-It Felix Jr." against "Fix It Felix Jr.").
+    The looser of the two keys, answering for a dump the repository does not carry (a translation,
+    fix, homebrew re-release): the box art of "Final Fantasy Tactics ... (USA)" is right for a copy
+    tagged "(Wolt fast fix by Nexus)". Punctuation is stripped too, the other way a re-release
+    drifts ("Fix-It Felix Jr." against "Fix It Felix Jr.").
     """
     return re.sub(r"[^a-z0-9]", "", name.split(" (")[0].lower())
 
@@ -118,12 +115,10 @@ def regions_of(name):
 def disambiguate(label, candidates):
     """Choose among several dumps sharing a title, or None if none shares the label's region.
 
-    A title key deliberately matches every regional dump of a game, so it often returns more than
-    one name. Within a single region they all carry the same box art (a revision, a disc, a
-    re-release under a slightly different spelling), so once the field is narrowed to the label's
-    own region the choice is only which name to fetch that one cover under, and any of them is
-    right. It never crosses regions: a dump the label shares no region with is dropped, and if that
-    leaves nothing the match is declined rather than hand a USA cover to a Japanese dump.
+    A title key matches every regional dump of a game, so it often returns more than one name.
+    Within one region they carry the same box art, so the choice is only which name to fetch that
+    cover under. It never crosses regions: a dump sharing no region with the label is dropped, and
+    if that leaves nothing the match is declined rather than hand a USA cover to a Japanese dump.
     """
     want = regions_of(label)
     if not want:
@@ -151,14 +146,13 @@ def fetch(path):
     """Return the body the repository publishes at a path, or None when it publishes nothing there.
 
     404 is an answer, and the common one: the repository carries no art for this game, or none for
-    this system at all. Anything else is the repository failing to answer, which is not the same
-    thing and is recorded rather than returned: a run that fetched nothing because it could not
-    reach the server must not look like a run that had nothing to fetch. Retried once on a fresh
-    connection first, a dropped keep-alive being the ordinary way this fails.
+    this system. Anything else is a failure to answer, recorded rather than returned: a run that
+    fetched nothing because it could not reach the server must not look like one that had nothing
+    to fetch. Retried once on a fresh connection, a dropped keep-alive being the ordinary failure.
 
-    The connection is kept: a handshake costs more than the transfer it carries here (~430ms), and a
-    first run makes one request per thumbnail. gzip because the listings are HTML indexes and
-    compress about 12x; the thumbnails are PNG and ignore it.
+    The connection is kept: a handshake costs more than the transfer it carries here, and a first
+    run makes one request per thumbnail. gzip because the listings are HTML indexes and compress
+    well; the thumbnails are PNG and ignore it.
     """
     for attempt in (1, 2):
         connection = getattr(CONNECTIONS, "connection", None)
@@ -203,11 +197,9 @@ def listing(system, kind):
 def index(names):
     """Return the two lookups a name is resolved through, in descending order of confidence.
 
-    Both are built over the whole listing before anything is looked up, so that a title key
-    matching more than one published name is resolved deliberately rather than to whichever of them
-    happened to be seen first: within the label's region any of them carries the same cover, and a
-    name from another region is never offered at all. That is what stops two regional dumps of one
-    game from being given each other's art.
+    Built over the whole listing before anything is looked up, so a title key matching more than one
+    published name is resolved deliberately rather than to whichever was seen first. That stops two
+    regional dumps of one game from being given each other's art.
     """
     names_by, titles = {}, {}
     for name in names:
@@ -247,13 +239,13 @@ def install(source, destination):
 def missing_slots(playlist_dir, thumbnails_dir):
     """Return (system, kind, label, content path, destination) for every thumbnail not yet cached.
 
-    The system comes from each item's db_name, which is what RetroArch looks the thumbnail up by,
-    rather than from the playlist's filename: they are the same for a generated playlist, but a
-    collection built by hand in RetroArch (which the generator leaves alone) names its own system
-    per item, and its filename is not one the repository publishes anything under.
+    The system comes from each item's db_name, which RetroArch looks the thumbnail up by, not the
+    playlist's filename: they match for a generated playlist, but a hand-built collection (left
+    alone by the generator) names its own system per item, under a filename the repository does not
+    publish.
 
-    Read the way the generator reads them, and for the same reason: a playlist RetroArch scanned
-    itself is not necessarily valid UTF-8, and one unreadable file is not worth abandoning the rest.
+    Read the way the generator reads them, for the same reason: a playlist RetroArch scanned itself
+    is not necessarily valid UTF-8, and one unreadable file is not worth abandoning the rest.
     """
     slots = []
     for playlist in sorted(os.listdir(playlist_dir)):
@@ -281,23 +273,20 @@ def missing_slots(playlist_dir, thumbnails_dir):
 def main():
     config = json.loads(os.environ["RETROARCH_THUMBNAILS_CONFIG"])
 
-    # The cache is served over the network, and the share only carries what is in the library's
-    # group and group-readable. The directories below the cache inherit the group from its setgid
-    # bit, but not the mode: created under a 027 umask they come out unreadable to the group, and
-    # the art goes invisible to every host that mounts the library. Set here rather than inherited
-    # from whatever invoked the play.
+    # The cache is served over the network; the share carries only what is group-readable and in
+    # the library's group. Directories below the cache inherit the group from its setgid bit but
+    # not the mode: under a 027 umask they come out group-unreadable, and the art goes invisible to
+    # every host mounting the library. Set here, not inherited from whatever invoked the play.
     os.umask(0o022)
 
     slots = missing_slots(config["playlist_dir"], config["thumbnails_dir"])
     downloads = []
 
     # A system whose content files are themselves PNGs is its own box art: a Pico-8 cart is a
-    # picture of its label with the code hidden in the pixels, so the file already in the library is
-    # the image. Asked of the content's own path rather than of a flag in the systems table, because
-    # that is where the answer already is.
-    #
-    # Its title screen and gameplay snap are not asked of the repository at all: it publishes no
-    # Pico-8 directory, so those are a request that 404s on every run, forever, for every cart.
+    # picture of its label with the code hidden in the pixels, so the library file is the image.
+    # Decided from the content's own path rather than a flag in the systems table, where the answer
+    # already is. Its title screen and gameplay snap are not requested: the repository publishes no
+    # Pico-8 directory, so those would 404 on every run for every cart.
     for slot in slots:
         system, kind, label, path, destination = slot
         if path.lower().endswith(".png"):
@@ -336,9 +325,8 @@ def main():
                 if kind == BOXART:
                     unresolved.add((system, label))
                 continue
-            # A looser match took a name the library does not use, so say which, once. It is the art
-            # of the dump before it was translated or patched, and that is a judgement to be able to
-            # see rather than one to make silently.
+            # A looser match took a name the library does not use, so say which: it is the art of
+            # the dump before it was translated or patched, a judgement worth seeing.
             print("%s: %s%s" % (system, label, (" as %s" % name) if loosely else ""))
 
     # Fail rather than report a converged cache: a repository that cannot be reached resolves every
