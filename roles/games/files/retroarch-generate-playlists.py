@@ -89,7 +89,8 @@ def validate_system(info_dir, probed, core, extensions):
     """Return the reasons a core cannot launch the extensions its system declares.
 
     Turns breakage that otherwise only shows when a human clicks a game into a failed run: a zip
-    extension on a core that sets block_extract segfaults RetroArch at load.
+    extension on a core that sets block_extract yet cannot open the archive itself segfaults
+    RetroArch at load.
     """
     accepted = accepted_extensions(info_dir, probed, core)
 
@@ -99,10 +100,12 @@ def validate_system(info_dir, probed, core, extensions):
         # far as the core is concerned.
         effective = extension.rsplit(".", 1)[-1].lower()
         if effective == "zip":
-            # No core lists zip among its own extensions: RetroArch unpacks the archive and hands
-            # over what is inside, unless the core sets block_extract, which gets the archive
-            # untouched and cannot open it.
-            if probed[core]["block_extract"]:
+            # RetroArch normally unpacks a .zip and hands the core what is inside. A core that sets
+            # block_extract is handed the archive unopened: that breaks a core expecting the
+            # extracted ROM (Dolphin), but is exactly what an arcade core wants, since its romset is
+            # a multi-file .zip it opens itself and lists .zip among its own extensions. So reject
+            # zip + block_extract only when the core does not itself accept .zip.
+            if probed[core]["block_extract"] and "zip" not in accepted:
                 reasons.append(
                     '"zip" is not launchable by %s: the core sets block_extract, so RetroArch '
                     "hands it the archive unopened" % core
