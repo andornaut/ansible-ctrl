@@ -187,9 +187,10 @@ class Device:
     def push_sync(self, local, remote, attempts=3):
         """Push only files newer than or absent on the device (adb push --sync); returns success.
 
-        Used for the ROM mirror: a multi-hour transfer over USB drops the occasional connection, and
-        --sync makes a retry resend only what did not land, so a transient failure is cheap to recover
-        from. Returns True/False rather than raising so one glitchy system does not abort the whole run.
+        Bypasses _write because it must return a bool rather than raise (a partial push is normal and
+        resumable), but mirrors _write's resilience: on failure it waits for the device to re-enumerate
+        and retries, and --sync makes each retry resend only what did not land, so recovering from a
+        mid-transfer disconnect is cheap.
         """
         if self.dry_run:
             print("  [dry-run] push --sync %s -> %s" % (local, remote))
@@ -197,8 +198,25 @@ class Device:
         for attempt in range(1, attempts + 1):
             if self._run(["push", "--sync", local, remote], check=False, capture=False).returncode == 0:
                 return True
-            print("  push --sync failed (attempt %d/%d)" % (attempt, attempts), file=sys.stderr)
+            if attempt < attempts:
+                print("  push --sync failed (attempt %d/%d), retrying" % (attempt, attempts),
+                      file=sys.stderr)
+                self.wait()
         return False
+
+    def wait(self, timeout=60):
+        """Block until the device is back on adb, up to timeout seconds (best-effort).
+
+        A USB blip mid-mirror drops the device for a few seconds and adb re-enumerates it under a new
+        transport; waiting lets a retry land on the reconnected device instead of failing immediately.
+        """
+        if self.dry_run:
+            return
+        try:
+            subprocess.run(self._base() + ["wait-for-device"], timeout=timeout,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except subprocess.TimeoutExpired:
+            pass
 
     def stop_app(self, package):
         """Force-stop an app so it cannot rewrite what the sync pushes.
@@ -227,11 +245,27 @@ class Device:
     def rm(self, path):
         self._write(["shell", "rm -rf %s" % shq(path)], "rm -rf %s" % path)
 
-    def _write(self, args, description):
+    def _write(self, args, description, attempts=3):
+        """Run a device-mutating adb command, retrying across a transient disconnect.
+
+        Every write (mkdir, push, rm, push_text) goes through here, so a USB blip mid-run is survived
+        uniformly rather than aborting only where a caller happened to guard for it: on failure it waits
+        for the device to re-enumerate and retries, and re-raises only once the attempts are spent (a
+        genuinely denied write, e.g. adb refused another app's scoped storage, still surfaces).
+        """
         if self.dry_run:
             print("  [dry-run] %s" % description)
             return
-        self._run(args, check=True, capture=False)
+        for attempt in range(1, attempts + 1):
+            try:
+                self._run(args, check=True, capture=False)
+                return
+            except subprocess.CalledProcessError:
+                if attempt == attempts:
+                    raise
+                print("  %s failed (attempt %d/%d), retrying" % (description, attempt, attempts),
+                      file=sys.stderr)
+                self.wait()
 
 
 def shq(path):
@@ -486,14 +520,21 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             print("  skip %s: no library directory" % lib_name)
             continue
         dst = "%s/%s" % (roms_root, dev_name)
-        device.mkdirs(dst)
-        wanted = library_rom_files(src)
-        for rel in device_rom_files(device, dst):
-            if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
-                continue
-            device.rm("%s/%s" % (dst, rel))
-        print("Mirroring %s -> %s" % (lib_name, dev_name))
-        if not device.push_sync(src + "/.", dst):
+        # mkdir/rm/push each survive a transient disconnect on their own (Device retries and waits for
+        # re-enumeration). This catch is only for a persistent failure once those retries are spent, so
+        # one dead system is left for the next (resumable) run instead of aborting a several-hour mirror.
+        try:
+            device.mkdirs(dst)
+            wanted = library_rom_files(src)
+            for rel in device_rom_files(device, dst):
+                if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
+                    continue
+                device.rm("%s/%s" % (dst, rel))
+            print("Mirroring %s -> %s" % (lib_name, dev_name))
+            ok = device.push_sync(src + "/.", dst)
+        except subprocess.CalledProcessError:
+            ok = False
+        if not ok:
             failed.append(dev_name)
     if failed:
         sys.exit("%d system(s) did not fully mirror (transfer errors). Re-run to resume (--sync resends "
@@ -626,7 +667,9 @@ def main():
 
         # retroarch.cfg and the per-core overrides live in the app files dir, which adb may not be
         # allowed to write on Android 11+. Attempt it, but treat a denial as the documented manual
-        # fallback rather than a crash, and carry on with the sdcard content either way.
+        # fallback rather than a crash, and carry on with the sdcard content either way. A transient
+        # disconnect no longer lands here (Device._write retries through it), so this catches only a
+        # genuine permission denial, which is what the message describes.
         print("Reconciling retroarch.cfg...")
         merged = merge_cfg(existing_cfg, model["settings"], set(profile["settings_drop"]))
         try:
