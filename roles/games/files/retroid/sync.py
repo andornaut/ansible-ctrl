@@ -511,7 +511,9 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
     copy, a re-run after an interruption resumes, and a renamed file replaces its old version rather
     than accumulating beside it. The prune is recursive and sees hidden entries, so multi-disc .game/
     directories and files nested in subdirectories are handled; device-managed metadata (PRESERVE_IN
-    _ROMS) is left alone. Systems whose library directory is missing are skipped, not emptied.
+    _ROMS) is left alone, and a directory the prune empties out (a multi-disc game dropped from the
+    library) is rmdir'd so no hollow .dir lingers. Systems whose library directory is missing are
+    skipped, not emptied.
     """
     failed = []
     for lib_name, dev_name in sorted(rom_dir_names.items()):
@@ -532,6 +534,11 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
                 device.rm("%s/%s" % (dst, rel))
             print("Mirroring %s -> %s" % (lib_name, dev_name))
             ok = device.push_sync(src + "/.", dst)
+            # A game dropped from the library leaves its hidden .dir behind once the prune removes the
+            # discs inside it (device_rom_files lists files, not dirs). rmdir the dirs left empty so the
+            # tree stays an exact mirror; -mindepth 1 keeps the system dir itself, -depth clears nested.
+            device.read_shell("find %s -mindepth 1 -depth -type d -empty -exec rmdir {} + 2>/dev/null"
+                              % shq(dst))
         except subprocess.CalledProcessError:
             ok = False
         if not ok:
