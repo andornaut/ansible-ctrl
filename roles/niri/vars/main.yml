@@ -1,15 +1,12 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
-
-# Home directory of niri_user, resolved from the passwd database (a getent lookup
-# runs in tasks/main.yml).
+# Derived from niri_user, not operator knobs. In vars/ (not defaults/) so role vars
+# outrank host_vars: a host cannot desync a derived value from its source. The getent
+# lookup runs in tasks/main.yml.
 niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
 
-# Uid of niri_user, from the same lookup. Needed to reach that user's systemd manager:
-# sudo's env_reset drops XDG_RUNTIME_DIR, so `systemctl --user` must be told where the
-# bus lives, or it targets whichever user the play escalated to.
+# Uid is needed to reach niri_user's systemd manager: sudo's env_reset drops
+# XDG_RUNTIME_DIR, so `systemctl --user` must be told where the bus lives or it targets
+# the escalated user's manager.
 niri_user_uid: "{{ ansible_facts['getent_passwd'][niri_user][1] }}"
 
 niri_hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
