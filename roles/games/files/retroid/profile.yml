@@ -74,12 +74,20 @@ systems_set:
 #
 # video_refresh_rate is the panel's actual mode; set it to what RetroArch's "Estimate Screen Refresh
 # Rate" reports on the device (the base leaves it host-supplied, asserted).
+#
+# audio_latency 64ms is RetroArch's default; the device shipped 128ms, which is audibly laggy. If a
+# core crackles under audiotrack at 64, raise it (96 is the usual safe step).
+#
+# fastforward_ratio 5x caps fast-forward; the device shipped 0 (uncapped), which can run games far
+# past a usable speed. 0 restores uncapped if preferred.
 settings_override:
   video_driver: gl
   audio_driver: audiotrack
+  audio_latency: "64"
   input_driver: android
   input_joypad_driver: android
   rewind_buffer_size: "67108864"
+  fastforward_ratio: "5.000000"
   video_refresh_rate: "60.000000"
   network_on_demand_thumbnails: "true"
 
