@@ -1,12 +1,9 @@
 ---
-# Enforce Heroic's install + wine-prefix paths so they stay under games_heroic_dir
-# and cannot drift from the flatpak filesystem grant, plus its close behaviour.
-# config.json is owned and rewritten by Heroic, so only these keys are merged; the
-# rest is left intact.
-#
-# config.json only exists after Heroic has run once. On a fresh host the file is
-# absent: this warns and makes no change (Heroic writes it, using the app default
-# install path, on first launch; the next converge moves it under games_heroic_dir).
+# Enforce Heroic's install and wine-prefix paths so they stay under games_heroic_dir and match the
+# flatpak filesystem grant, plus its close behaviour. config.json is owned and rewritten by Heroic,
+# so only these keys are merged; the rest is left intact. It exists only after Heroic has run once;
+# on a fresh host it is absent, so this warns and makes no change (Heroic writes it on first launch,
+# the next converge moves it under games_heroic_dir).
 - name: Check whether Heroic is running for games_user
   ansible.builtin.command:
     cmd: pgrep -u {{ games_user }} -f heroic-run
@@ -44,11 +41,10 @@
       defaultWinePrefix: "{{ games_heroic_dir }}/Prefixes"
       defaultWinePrefixDir: "{{ games_heroic_dir }}/Prefixes"
       winePrefix: "{{ games_heroic_dir }}/Prefixes/shared"
-      # Closing the window quits Heroic rather than hiding it in the tray. Its close
-      # handler hides only when exitToTray and not noTrayIcon, and the tray icon is
-      # governed by noTrayIcon alone, so this keeps the icon while Heroic runs.
-      # Absent from the factory defaults (so already falsy); pinned here to revert an
-      # accidental toggle of Settings > General > "Exit to System Tray".
+      # Closing the window quits Heroic rather than hiding it in the tray. Its close handler hides
+      # only when exitToTray and not noTrayIcon, while the tray icon is governed by noTrayIcon alone,
+      # so this keeps the icon while Heroic runs. Pinned to revert an accidental toggle of
+      # Settings > General > "Exit to System Tray".
       exitToTray: false
     # True when applying the desired keys would actually change the settings.
     games_heroic_change_needed: >-
@@ -77,13 +73,12 @@
              | to_nice_json }}
         mode: "0644"
 
-# Keep the Epic (legendary) and GOG (gogdl) store logins from lapsing between Heroic
-# sessions. Heroic refreshes its own tokens while open; a systemd --user timer runs
-# the same refresh as games_user otherwise. It is user-scoped (no root, no linger):
-# without linger the user manager starts at login, so the timer's OnStartupSec fires
-# a catch-up run shortly after each login and OnUnitActiveSec keeps it going during
-# the session. On hosts where the user is not logged in at converge time it is only
-# enabled (symlinked) and starts on their next login.
+# Keep the Epic (legendary) and GOG (gogdl) store logins from lapsing between Heroic sessions. Heroic
+# refreshes its own tokens while open; a systemd --user timer runs the same refresh as games_user
+# otherwise. User-scoped (no root, no linger): without linger the user manager starts at login, so
+# OnStartupSec fires a catch-up run after each login and OnUnitActiveSec keeps it going during the
+# session. Where the user is not logged in at converge time it is only enabled (symlinked) and starts
+# on their next login.
 - name: Validate the token-refresh interval
   ansible.builtin.command:
     cmd: systemd-analyze timespan {{ games_heroic_token_refresh_interval | quote }}

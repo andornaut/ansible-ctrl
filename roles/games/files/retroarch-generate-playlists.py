@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Generate RetroArch playlists (.lpl) from the ROM library.
 
-RetroArch builds playlists with its in-app content scanner, which needs a display and has
-to be driven by hand on every host. This regenerates the same files from the library
-instead, so the ROM directory -> core association lives in the games role
-(games_retroarch_systems).
+RetroArch builds playlists with its in-app content scanner, which needs a display and must
+be driven by hand on every host. Regenerating from the library instead keeps the ROM
+directory -> core association in the games role (games_retroarch_systems).
 
-Configured by RETROARCH_GENERATOR_CONFIG, a JSON document that tasks/retroarch.yml puts in
-the environment (games_retroarch_generator_config):
+Configured by RETROARCH_GENERATOR_CONFIG, a JSON document tasks/retroarch.yml puts in the
+environment (games_retroarch_generator_config):
 
     {
       "library_dir":  "/path/to/rom-library",
@@ -23,39 +22,36 @@ the environment (games_retroarch_generator_config):
       }
     }
 
-Two optional keys let another host build these playlists for a device it does not itself mount,
-which is what the Retroid sync (files/retroid/) needs. Both default to today's behaviour, so a
-desktop run is unchanged by their absence:
+Optional keys let another host build playlists for a device it does not itself mount (the
+Retroid sync, files/retroid/); absent, a same-host run is unchanged:
 
-  * "core_filename_suffix" (default "_libretro.so"): the tail of a core's file, "_libretro_android.so"
-    on Android, used to build core_path;
-  * "emit_library_dir" (default = "library_dir"): the library root as it will be seen on the target.
-    The library is still scanned at "library_dir", but every path written into a playlist (each
-    item's "path", and "scan_content_dir") has its "library_dir" prefix rewritten to this, so the
-    entries resolve on the device even though the generator ran against a different mount.
-  * "emit_system_dirs" (default {}): per-system rename of the directory under emit_library_dir, for a
-    target whose per-system folders are not named as the library's are. The Retroid's ES-DE tree uses
-    short names ("snes", "genesis") where the library uses No-Intro names ("Super Nintendo...", "Sega -
-    Mega Drive - Genesis"); a system absent from the map keeps its library name.
+  * "core_filename_suffix" (default "_libretro.so"): the tail of a core's file
+    ("_libretro_android.so" on Android), used to build core_path;
+  * "emit_library_dir" (default = "library_dir"): the library root as the target sees it.
+    The library is still scanned at "library_dir", but every path written into a playlist
+    (each item's "path", and "scan_content_dir") has its "library_dir" prefix rewritten to
+    this, so entries resolve on the device though the generator ran against another mount;
+  * "emit_system_dirs" (default {}): per-system rename of the directory under emit_library_dir,
+    for a target whose per-system folders are named differently. The Retroid's ES-DE tree uses
+    short names ("snes") where the library uses No-Intro names ("Super Nintendo..."); a system
+    absent from the map keeps its library name.
 
-"cores" is what the cores themselves reported, collected by files/retroarch-probe-cores.py inside
-the flatpak sandbox. It is not gathered here, because this runs on the host, where a core needing
-a library only the runtime carries (LRPS2 wants libaio) will not load: asking from here would
-leave exactly those cores unchecked.
+"cores" is what the cores reported, collected by files/retroarch-probe-cores.py inside the
+flatpak sandbox. Not gathered here: this runs on the host, where a core needing a library only
+the runtime carries (LRPS2 wants libaio) will not load, leaving exactly those cores unchecked.
 
-Owns the playlist directory rather than only adding to it, so it does three things and not
-one:
+Owns the playlist directory, so it also:
 
-  * validates every system in the table against the core it names, and exits non-zero if a
-    system declares content its core cannot launch. Left unchecked that is invisible until
-    someone clicks a game and RetroArch segfaults;
-  * writes a playlist, but only when its content would change, printing one line per rewrite
-    so ansible's changed_when can key off stdout;
+  * validates every system against the core it names, exiting non-zero if a system declares
+    content its core cannot launch (otherwise invisible until someone clicks a game and
+    RetroArch segfaults);
+  * writes a playlist only when its content would change, printing one line per rewrite so
+    ansible's changed_when can key off stdout;
   * removes the playlists of systems that have left the table, but only ones it can prove it
-    wrote (their scan_content_dir points inside the library). A playlist built by hand in
-    RetroArch is not the role's to delete.
+    wrote (their scan_content_dir points inside the library); a hand-built playlist is not
+    the role's to delete.
 
-The library is only ever read, which is what lets a host mount it read-only.
+The library is only ever read, which lets a host mount it read-only.
 """
 
 import functools
@@ -63,31 +59,27 @@ import json
 import os
 import sys
 
-# Playlist fields RetroArch fills in itself when it scans, reproduced verbatim so that a
-# generated playlist is indistinguishable from a scanned one and RetroArch does not rewrite
-# it on load. label_display_mode 3 hides the (Region) and [tag] suffixes of the No-Intro
-# filenames in the UI while the full name is kept in "label", which is what the thumbnail
-# lookup matches on.
+# Playlist fields RetroArch fills in when it scans, reproduced verbatim so a generated playlist
+# is indistinguishable from a scanned one and RetroArch does not rewrite it on load.
+# label_display_mode 3 hides the (Region) and [tag] suffixes in the UI while "label" keeps the
+# full No-Intro name, which is what the thumbnail lookup matches on.
 PLAYLIST_VERSION = "1.5"
 LABEL_DISPLAY_MODE = 3
 THUMBNAIL_MODE = 0
 SORT_MODE = 0
 
 # RetroArch stores a CRC as "<hex>|crc" and accepts an all-zero one, meaning "not computed".
-# Hashing every ROM on a network-mounted library would cost minutes per run to populate a
-# field only used for DAT matching, which this library does not rely on: it names its files
-# to the No-Intro standard instead.
+# Hashing every ROM on a network-mounted library would cost minutes per run for a field only
+# used for DAT matching, which this library does not rely on: it names files to No-Intro.
 CRC32_UNKNOWN = "00000000|crc"
 
 
 def accepted_extensions(info_dir, probed, core):
-    """Return every extension a core will take.
+    """Return every extension a core will take, the union of two sources.
 
-    Both sources matter. The core's own valid_extensions, which the probe read from it, is the
-    narrower list and is not what RetroArch enforces: content given as an explicit path is not
-    filtered on extension at all, so Virtual Jaguar reports "j64|jag" yet loads this library's
-    .rom files. The .info carries the superset RetroArch goes by, so the union of the two is the
-    honest answer to "will this core take this file".
+    The core's own valid_extensions (from the probe) is narrower and not what RetroArch enforces:
+    content given as an explicit path is not filtered on extension at all, so Virtual Jaguar reports
+    "j64|jag" yet loads this library's .rom files. The .info carries the superset RetroArch goes by.
     """
     declared = set(core_info_field(info_dir, core, "supported_extensions").split("|"))
     return (set(probed[core]["valid_extensions"]) | declared) - {""}
@@ -96,9 +88,8 @@ def accepted_extensions(info_dir, probed, core):
 def validate_system(info_dir, probed, core, extensions):
     """Return the reasons a core cannot launch the extensions its system declares.
 
-    Turns a class of breakage that otherwise only shows up when a human clicks a game into a
-    failed play: GameCube was listed with a zip extension, Dolphin sets block_extract, and the
-    entries segfaulted RetroArch at load.
+    Turns breakage that otherwise only shows when a human clicks a game into a failed run: a zip
+    extension on a core that sets block_extract segfaults RetroArch at load.
     """
     accepted = accepted_extensions(info_dir, probed, core)
 
@@ -108,9 +99,9 @@ def validate_system(info_dir, probed, core, extensions):
         # far as the core is concerned.
         effective = extension.rsplit(".", 1)[-1].lower()
         if effective == "zip":
-            # No core lists zip among its own extensions, because RetroArch unpacks the archive
-            # and hands over what is inside. Unless the core sets block_extract, in which case it
-            # is given the archive untouched and cannot open it.
+            # No core lists zip among its own extensions: RetroArch unpacks the archive and hands
+            # over what is inside, unless the core sets block_extract, which gets the archive
+            # untouched and cannot open it.
             if probed[core]["block_extract"]:
                 reasons.append(
                     '"zip" is not launchable by %s: the core sets block_extract, so RetroArch '
@@ -128,9 +119,8 @@ def validate_system(info_dir, probed, core, extensions):
 def core_info_field(info_dir, core, field, default=""):
     """Return one field from a core's .info file, or default when it is missing.
 
-    Read from the .info rather than duplicated in the role's systems table, so it cannot drift
-    from the core actually installed. Memoised because several systems share a core (four of them
-    run on Genesis Plus GX), and each would otherwise reparse the same file.
+    Read from the .info rather than duplicated in the role's systems table, so it cannot drift from
+    the installed core. Memoised because several systems share a core and would each reparse the file.
     """
     path = os.path.join(info_dir, "%s_libretro.info" % core)
     try:
@@ -162,10 +152,9 @@ def content_label(name, extensions):
 def disc_entry(directory, extensions):
     """Return the disc a visible subdirectory of a system directory should launch.
 
-    Only 3DO uses these: its multi-disc games sit in a visible directory with no .m3u, because
-    Opera swaps discs itself, so the playlist points at disc 1. Every other system hides its
-    multi-disc directory behind a dot prefix and exposes an .m3u, and dot-prefixed directories
-    never reach this function.
+    Only 3DO uses these: its multi-disc games sit in a visible directory with no .m3u (Opera swaps
+    discs itself), so the playlist points at disc 1. Every other system hides its multi-disc
+    directory behind a dot prefix and exposes an .m3u; dot-prefixed directories never reach here.
     """
     discs = sorted(
         entry.path
@@ -180,9 +169,8 @@ def disc_entry(directory, extensions):
 def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
     """Build the playlist items for one system directory.
 
-    The directory is scanned at system_dir but each item's path is written relative to
-    emit_system_dir, which differs only when a playlist is being built for another host's mount
-    (the Retroid sync). When they are equal the rewrite is a no-op.
+    Scanned at system_dir, but each item's path is written under emit_system_dir, which differs
+    only when building for another host's mount (the Retroid sync). Equal, the rewrite is a no-op.
     """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
@@ -200,10 +188,9 @@ def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, 
             label = content_label(entry.name, extensions)
             if label is None:
                 continue
-            # A .zip is listed by its own path, not as "archive.zip#rom.sfc" as RetroArch's
-            # scanner writes it: the frontend resolves a bare archive to the ROM inside it on
-            # load either way, and taking the path as it stands means never opening ~700
-            # archives across a network-mounted library.
+            # A .zip is listed by its own path, not "archive.zip#rom.sfc" as RetroArch's scanner
+            # writes it: the frontend resolves a bare archive to the ROM inside on load either way,
+            # and taking the path as-is means never opening archives across a network-mounted library.
             path = entry.path
 
         # Rewrite the scanned path onto the target's mount. path is always under system_dir.
@@ -225,10 +212,9 @@ def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, 
 def is_generated_playlist(path, library_dir):
     """Whether this .lpl is one this generator wrote, rather than one the user built.
 
-    RetroArch lets you build your own playlists (Manual Scan, custom collections) and they land
-    in the same directory with nothing in the filename to tell them apart, so ownership is
-    established from the content: every playlist written here points its scan_content_dir at a
-    directory inside the ROM library, and anything else is somebody else's.
+    RetroArch's own playlists (Manual Scan, custom collections) land in the same directory with
+    nothing in the filename to tell them apart, so ownership comes from the content: a playlist
+    written here points scan_content_dir inside the ROM library, anything else does not.
 
     The answer decides whether a file is deleted, so every uncertainty resolves to "keep it".
     """
@@ -241,9 +227,9 @@ def is_generated_playlist(path, library_dir):
         return False
 
     scanned = playlist.get("scan_content_dir") or ""
-    # commonpath raises rather than returning a mismatch when the two paths are not both
-    # absolute, so a playlist with a relative scan_content_dir ("roms/snes", "~/roms") would
-    # otherwise take down the run that merely walked past it.
+    # commonpath raises rather than returning a mismatch when the paths are not both absolute,
+    # so a relative scan_content_dir ("roms/snes", "~/roms") would otherwise take down a run
+    # that merely walked past it.
     if not isinstance(scanned, str) or not os.path.isabs(scanned):
         return False
     return os.path.commonpath([scanned, library_dir]) == library_dir
@@ -252,12 +238,11 @@ def is_generated_playlist(path, library_dir):
 def prune_playlists(playlist_dir, library_dir, systems):
     """Remove the generated playlists of systems that games_retroarch_systems no longer lists.
 
-    Dropping a system otherwise leaves its .lpl behind while tasks/retroarch.yml deletes the core
-    that went with it, so the system goes on being offered in RetroArch with every entry pointing
-    at a core file that is no longer there.
+    Otherwise a dropped system leaves its .lpl behind while tasks/retroarch.yml deletes its core,
+    so RetroArch goes on offering the system with every entry pointing at a missing core file.
 
-    Only .lpl files directly in this directory are considered, and only ones this generator wrote:
-    RetroArch's own favourites and history live one level down in builtin/.
+    Only .lpl files directly in this directory, and only ones this generator wrote: RetroArch's own
+    favourites and history live one level down in builtin/.
     """
     removed = []
     for name in sorted(os.listdir(playlist_dir)):
@@ -299,8 +284,8 @@ def main():
     if unknown:
         sys.exit("no installed core reported itself as: %s" % ", ".join(unknown))
 
-    # Check the whole systems table before writing anything, and report the problems together:
-    # fixing them one failed run at a time is the worse experience.
+    # Check the whole table before writing anything, reporting problems together: fixing them one
+    # failed run at a time is worse.
     problems = [
         "%s: %s" % (system, reason)
         for system, spec in systems

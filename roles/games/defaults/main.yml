@@ -1,7 +1,6 @@
 ---
-# Target games user account. Defaults to primary_user from the inventory;
-# override per host. Flatpak apps install to this user via become_user
-# (method: user, never root). Not a blanket privilege-escalation setting.
+# Target games user account. Defaults to primary_user from the inventory; override per host.
+# Flatpak apps install to this user via become_user (method: user, never root).
 games_user: "{{ primary_user }}"
 
 # Flatpak applications installed and configured for games_user.
@@ -17,20 +16,18 @@ games_flatpak_apps:
 # The org.freedesktop.Platform version that every game runtime here accepts.
 # Verify after a runtime bump with:
 #   flatpak remote-info flathub com.valvesoftware.Steam | grep Runtime
-# Note that community.general.flatpak matches on application ID only, so changing
-# the branch will not replace an extension already installed on an older one;
-# uninstall it first.
+# community.general.flatpak matches on application ID only, so changing the branch does not
+# replace an extension already installed on an older one; uninstall it first.
 games_flatpak_runtime_branch: "25.08"
 
-# Base directory for Heroic's game installs and wine prefixes. Kept under a per-launcher subdir of
-# ~/.local/games so Heroic, Lutris and Steam installs do not collide. The Heroic flatpak is granted
-# access to exactly this path in games_flatpak_overrides, and the same path is written into
-# Heroic's config.json by tasks/heroic.yml: games installed outside a granted path show as "not
-# available", because the sandbox can only stat paths it is granted.
+# Base directory for Heroic's game installs and wine prefixes, under a per-launcher subdir of
+# ~/.local/games so Heroic, Lutris and Steam installs do not collide. Granted to the Heroic flatpak
+# in games_flatpak_overrides and written into Heroic's config.json by tasks/heroic.yml: the sandbox
+# can only stat paths it is granted, so games outside a granted path show as "not available".
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
-# Base directory for Lutris's game installs, kept under its own ~/.local/games subdir like Heroic.
-# Written into Lutris's system.yml as system.game_path by tasks/lutris.yml. No flatpak override is
+# Base directory for Lutris's game installs, under its own ~/.local/games subdir like Heroic.
+# Written into Lutris's system.yml as system.game_path by tasks/lutris.yml. No flatpak override
 # needed: the Lutris flatpak already ships `home` filesystem access (Heroic does not).
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
@@ -58,19 +55,17 @@ games_flatpak_overrides:
   com.valvesoftware.Steam:
     # Read-write access to the PipeWire socket for microphone input.
     - --filesystem=xdg-run/pipewire-0
-    # Make closing the window quit Steam instead of hiding it in the system tray.
-    # Steam exposes no setting for this on Linux (ValveSoftware/steam-for-linux#3083,
-    # #4843); this undocumented env var is the only lever, and is what Linux Mint ships
-    # in its steam.desktop. Best-effort: some clients ignore it (#5307).
+    # Make closing the window quit Steam instead of hiding it in the system tray. Steam exposes no
+    # setting for this on Linux (ValveSoftware/steam-for-linux#3083, #4843); this undocumented env
+    # var is the only lever. Best-effort: some clients ignore it (#5307).
     - --env=STEAM_FRAME_FORCE_CLOSE=1
   org.libretro.RetroArch:
     # Read access to the ROM library. The flatpak already ships a blanket `host` grant, so this
-    # changes nothing today; it is here so the library keeps working if upstream ever narrows that
-    # grant, and so the dependency is visible rather than incidental.
+    # changes nothing today; it keeps the library working if upstream ever narrows that grant.
     - "--filesystem={{ games_retroarch_library_dir }}:ro"
     # Write access to the thumbnail cache, which sits inside that library. The longer path wins over
-    # the read-only grant above, so this opens the one directory RetroArch has to write to there and
-    # leaves the ROMs read-only. Only takes effect where the mount itself is writable.
+    # the read-only grant above, opening the one directory RetroArch must write to and leaving the
+    # ROMs read-only. Only takes effect where the mount itself is writable.
     - "--filesystem={{ games_retroarch_thumbnails_dir }}"
 
 # games_retroarch_library_dir, the ROM library, has no default: where a host mounts it is site
@@ -84,11 +79,10 @@ games_flatpak_overrides:
 games_retroarch_bios_dir: "{{ games_retroarch_library_dir }}/_BIOS/retroarch-system-folder"
 
 # The playlist browser's box art, kept in the library because it is the one thing RetroArch writes
-# that every host can share (README.md). Owned by the library, not by this role, which points
-# RetroArch at it and never creates it: it must exist, be group-owned by the library's group and be
-# setgid for the network share to serve it, which is the library's setup to get right (the play
-# checks only that it exists). Nothing else RetroArch writes may move here: the rest is written on
-# every launch, and the library is read-only on most hosts.
+# that every host can share (README.md). Owned by the library, not this role, which points RetroArch
+# at it and never creates it: it must exist, be group-owned and setgid for the network share to
+# serve it (the play checks only that it exists). Nothing else RetroArch writes may move here: the
+# rest is written every launch, and the library is read-only on most hosts.
 games_retroarch_thumbnails_dir: "{{ games_retroarch_library_dir }}/_Thumbnails"
 
 # Libretro cores are not packaged for apt or flatpak: RetroArch's in-app Core Updater fetches them
@@ -135,9 +129,9 @@ games_retroarch_systems:
     core: gambatte
     extensions: [zip]
   # No zip here, unlike the other cartridge systems: Dolphin is the one core in this table that
-  # sets block_extract, so RetroArch hands it the archive unopened and it segfaults. The library's
-  # GameCube titles are stored as the .rvz Dolphin reads natively. The playlist generator fails the
-  # play rather than emit an entry like that again.
+  # sets block_extract, so RetroArch hands it the archive unopened and it segfaults. GameCube titles
+  # are stored as the .rvz Dolphin reads natively; the playlist generator fails rather than emit a
+  # zip entry.
   Nintendo - GameCube:
     core: dolphin
     extensions: [iso, rvz]
@@ -150,11 +144,10 @@ games_retroarch_systems:
   Nintendo - Nintendo Entertainment System:
     core: mesen
     extensions: [zip]
-  # snes9x rather than a bsnes-family core, which is the more accurate line: the handheld this
-  # library is shared with cannot afford bsnes (it schedules the SA-1 and SuperFX coprocessors
-  # cycle-accurately), so this is the one system where the desktop gives up accuracy to run the
-  # same core everywhere. The gap is timing edge cases, not visible behaviour, and snes9x keeps
-  # rewind and MSU-1, which bsnes does not.
+  # snes9x rather than a more accurate bsnes-family core: the handheld this library is shared with
+  # cannot afford bsnes (cycle-accurate SA-1 and SuperFX coprocessors), so the desktop runs the same
+  # core everywhere. The gap is timing edge cases, not visible behaviour, and snes9x keeps rewind
+  # and MSU-1, which bsnes does not.
   Nintendo - Super Nintendo Entertainment System:
     core: snes9x
     extensions: [zip]
@@ -220,7 +213,7 @@ games_retroarch_video_refresh_rate: ""
 # *every* hotkey, so binding it would mean holding Select to use the right stick too. See README.md.
 games_retroarch_controllers:
   # Microsoft_X-Box_Series_XS_pad.cfg. The Xbox One and 360 pads share these indices; the Xbox One
-  # BT profile is the odd one out at axis 3, and 8BitDo's Ultimate at buttons 13/14.
+  # BT profile differs at axis 3, and 8BitDo's Ultimate at buttons 13/14.
   xbox-series-x:
     input_rewind_axis: "-4"
     input_hold_fast_forward_axis: "+4"
@@ -239,9 +232,8 @@ games_retroarch_required_settings:
   # the distro grants no access to for anything but a joystick, hence the uaccess rule
   # tasks/retroarch.yml installs. Without it the mouse and keyboard are unreadable here. README.md.
   #
-  # audio pipewire rather than pulse: the hosts run PipeWire, and RetroArch has had a native driver
-  # for it since 1.20. pulse reaches the same server through the pipewire-pulse shim, which is a
-  # buffer and a hop that buy nothing. Fall back to pulse if this ever xruns; the driver is young.
+  # audio pipewire rather than pulse: the hosts run PipeWire natively; pulse only reaches the same
+  # server through the pipewire-pulse shim. Fall back to pulse if this ever xruns.
   audio_driver: pipewire
   camera_driver: video4linux2
   input_driver: udev
@@ -268,10 +260,9 @@ games_retroarch_required_settings:
   # Let a core select its own video driver, which the per-core overrides below rely on: Beetle PSX
   # HW, Flycast and Mupen64Plus-Next want vulkan while everything else stays on glcore.
   #
-  # glcore stays the global rather than vulkan, which looks like the obvious upgrade and is not: a
-  # core matches the frontend's preferred renderer, so a vulkan global would silently move PPSSPP
-  # and Dolphin onto their Vulkan backends too, which is where their libretro bugs live. slang
-  # shaders work on glcore and vulkan alike, so nothing is lost.
+  # glcore stays the global rather than vulkan: a core matches the frontend's preferred renderer, so
+  # a vulkan global would move PPSSPP and Dolphin onto their Vulkan backends too, where their
+  # libretro bugs live. slang shaders work on glcore and vulkan alike.
   driver_switch_enable: "true"
 
   # Run fullscreen. RetroArch defaults to a window, where the compositor owns frame pacing.
@@ -324,10 +315,9 @@ games_retroarch_required_settings:
   input_rewind: "r"
   input_hold_fast_forward: "l"
 
-  # RetroArch's default rewind buffer is 20MB, sized for a handheld. It is the buffer, not the CPU,
-  # that decides how far back you can go: the ring holds deltas between savestates, so a core with
-  # a big state fills it quickly (states here run from 1KB to 5.5MB). 256MB is nothing on these
-  # hosts, so buy the window.
+  # RetroArch's default rewind buffer is 20MB, sized for a handheld. The buffer, not the CPU,
+  # decides how far back you can go: the ring holds deltas between savestates, so a core with a big
+  # state fills it quickly. 256MB gives a wide window at negligible cost on these hosts.
   rewind_buffer_size: "268435456"
   rewind_granularity: "1"
 
@@ -342,16 +332,14 @@ games_retroarch_required_settings:
   # controller state changes, for the same latency win. The two are mutually exclusive, hence
   # run_ahead_enabled staying off.
   #
-  # Off globally and turned on per core, the opposite of rewind: RetroArch permits preemptive
-  # frames only on a core whose .info declares savestate_features = "deterministic", and it puts
-  # the refusal on screen at every launch of the others. Most of the cores here lack it, so a
-  # global setting buys nothing on those and a nagging message on all of them. List the ones that
-  # have it:
+  # Off globally and turned on per core, the opposite of rewind: RetroArch permits preemptive frames
+  # only on a core whose .info declares savestate_features = "deterministic", and puts the refusal on
+  # screen at every launch of the others. Most cores here lack it. List the ones that have it:
   #
   #   grep -l 'savestate_features = "deterministic"' {{ games_retroarch_info_dir }}/*.info
   #
-  # One frame is the conservative setting: more is only free until it exceeds a game's own internal
-  # lag, past which the picture jitters, and that threshold is per-game.
+  # One frame is conservative: more is only free until it exceeds a game's own internal lag, past
+  # which the picture jitters, and that threshold is per-game.
   preemptive_frames_enable: "false"
   run_ahead_enabled: "false"
   run_ahead_frames: "1"

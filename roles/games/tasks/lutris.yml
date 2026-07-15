@@ -1,16 +1,13 @@
 ---
-# Set Lutris's default game install directory so installs land under games_lutris_dir,
-# matching the per-launcher layout under ~/.local/games (Heroic, Lutris and Steam each
-# get their own subdir so installs do not collide). Lutris stores this as
-# system.game_path in system.yml, its system-wide default game options. The flatpak
-# already has `home` filesystem access, so no override grant is needed (unlike Heroic).
+# Set Lutris's default game install directory so installs land under games_lutris_dir, matching the
+# per-launcher layout under ~/.local/games (Heroic, Lutris, Steam each get a subdir so installs do not
+# collide). Lutris stores this as system.game_path in system.yml. The flatpak already has `home`
+# filesystem access, so no override grant is needed (unlike Heroic).
 #
-# Lutris keeps system.yml (and lutris.conf, games/) in its active config dir, which is
-# config/lutris when that exists and data/lutris otherwise (see games_lutris_config_dir /
-# games_lutris_data_dir). We resolve the same dir Lutris would, then merge game_path into
-# system.yml there. system.yml holds only default game options, so unlike Heroic's
-# config.json it is safe to create when absent; Lutris merges its own keys on top. Only
-# game_path is enforced; any other keys already present are preserved.
+# Lutris keeps system.yml in its active config dir: config/lutris if it exists, else data/lutris
+# (games_lutris_config_dir / games_lutris_data_dir). system.yml holds only default game options, so
+# unlike Heroic's config.json it is safe to create when absent; Lutris merges its own keys on top.
+# Only game_path is enforced; existing keys are preserved.
 - name: Check for the deprecated Lutris config directory
   ansible.builtin.stat:
     path: "{{ games_lutris_config_dir }}"

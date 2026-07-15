@@ -1,28 +1,26 @@
 # Retroid Pocket Flip 2 (Snapdragon 865, stock Android + ES-DE) profile for sync.py.
 #
-# sync.py reads the games role's own defaults/main.yml as the source of truth (the systems table,
-# the ~78 retroarch.cfg keys, the per-core overrides and options, the controller table) and applies
-# the transforms below. Only the divergences live here; everything shared stays in the role.
+# sync.py reads the games role's defaults/main.yml as the source of truth (systems table,
+# retroarch.cfg keys, per-core overrides and options, controller table) and applies the transforms
+# below. Only the divergences live here; everything shared stays in the role.
 #
-# The reasoning for each divergence is in ../../../../til/docs/retro-games.md (the "Retroid Pocket
-# Mini / Flip 2" and "Cores" sections). See README.md for the run procedure and the two things that
-# have to be verified on the device (the core library_names and the pad indices).
+# Per-divergence reasoning: ../../../../til/docs/retro-games.md ("Retroid Pocket Mini / Flip 2" and
+# "Cores" sections). Run procedure and the two device-verified values (core library_names, pad
+# indices): README.md.
 
 package: com.retroarch.aarch64
 
-# Removable sdcard mount. uuid is discovered at run time (adb shell ls /storage/) unless pinned to
-# a value here. The app files dir is where RetroArch keeps retroarch.cfg and the per-core config/
-# overrides; sync.py discovers the real retroarch.cfg path on the device rather than trusting this,
-# because a RetroArch granted all-files-access may keep it under /storage/emulated/0/RetroArch/.
+# Removable sdcard mount. uuid is discovered at run time (adb shell ls /storage/) unless pinned here.
+# app_files is where RetroArch keeps retroarch.cfg and the per-core config/ overrides; sync.py
+# discovers the real retroarch.cfg path rather than trusting this, because a RetroArch granted
+# all-files-access may keep it under /storage/emulated/0/RetroArch/.
 sdcard_uuid: ""
 sdcard_root: "/storage/{uuid}"
 app_files: "/storage/emulated/0/Android/data/{package}/files"
 
-# Where each managed tree lands on the device. These are the adb-pushed trees (plain data, so the
-# noexec sdcard mount is fine). Cores and their .info are NOT here: the sdcard and emulated storage
-# are mounted noexec, so RetroArch cannot dlopen a core .so from them, and the only exec-capable
-# volume (app-private /data/user/0) is not adb-writable on a non-rooted device. Cores come from the
-# in-app Core Updater (README); cores_ref below is where they land, used only to build core_path.
+# Where each managed tree lands on the device: the adb-pushed trees (plain data, noexec sdcard is
+# fine). Cores and their .info are not here (noexec, see cores_ref); the in-app Core Updater installs
+# them.
 device_dirs:
   system: "{sdcard_root}/BIOS"
   playlists: "{sdcard_root}/RETROARCH/playlists"
@@ -32,9 +30,8 @@ device_dirs:
   cache: "{sdcard_root}/RETROARCH/cache"
   roms: "{sdcard_root}/ROMS"
 
-# App-private cores dir, the one exec-capable location RetroArch can dlopen from. Not pushed (adb
-# cannot write app-private storage); only used to build each playlist's core_path so entries resolve
-# against cores installed by the in-app Core Updater.
+# App-private cores dir: the one exec-capable location RetroArch can dlopen from (noexec elsewhere).
+# Not pushed (adb cannot write app-private storage); only used to build each playlist's core_path.
 cores_ref: "/data/user/0/{package}/cores"
 
 # Cores come from the Android buildbot, keyed by ABI (arm64-v8a for the 865), not the kernel arch
@@ -47,10 +44,9 @@ info_zip_url: "https://buildbot.libretro.com/assets/frontend/info.zip"
 
 # --- Systems table transforms (over games_retroarch_systems) ---
 
-# GameCube (libretro Dolphin crashes on load on Android) and PS2 (LRPS2 is x86-only) leave RetroArch
-# entirely: they run in the standalone Dolphin and NetherSX2 apps through ES-DE, so they are not
-# libretro playlist entries. Pico-8 is dropped: Retro8's cart is a .p8.png and there is no Flip 2
-# entry for it in the cores table.
+# GameCube (libretro Dolphin crashes on load on Android) and PS2 (LRPS2 is x86-only) run in the
+# standalone Dolphin and NetherSX2 apps via ES-DE, not as libretro playlist entries. Pico-8: Retro8's
+# cart is a .p8.png and there is no Flip 2 cores-table entry for it.
 systems_remove:
   - Nintendo - GameCube
   - Sony - PlayStation 2
@@ -70,11 +66,11 @@ systems_set:
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
 # Android drivers replace the desktop-Linux ones. video gl (GLES; glcore is not an Android driver),
-# audio audiotrack, input/joypad android. menu ozone is kept from the base. Per-core vulkan still
-# applies to Flycast and Beetle PSX HW (Adreno Vulkan is fine); it is dropped for N64 below.
+# audio audiotrack, input/joypad android. menu ozone kept from the base. Per-core vulkan still
+# applies to Flycast and Beetle PSX HW (Adreno Vulkan is fine); dropped for N64 below.
 #
-# rewind_buffer_size drops from the desktop's 256MB to 64MB: the big buffer was explicitly sized for
-# a desktop, and the 865 is the handheld the base comment says the 20MB default is for.
+# rewind_buffer_size drops to 64MB: the desktop's 256MB was sized for a desktop, and the 865 is a
+# handheld.
 #
 # video_refresh_rate is the panel's actual mode; set it to what RetroArch's "Estimate Screen Refresh
 # Rate" reports on the device (the base leaves it host-supplied, asserted).
@@ -128,10 +124,9 @@ settings_drop:
   - input_rewind
   - input_hold_fast_forward
 
-# retroarch.cfg directory keys, remapped from the base's templated flatpak paths to the device dirs
-# above. Every value is resolved from device_dirs by sync.py. libretro_directory and libretro_info_path
-# are deliberately absent: cores and their .info live in the app-private dir the in-app Core Updater
-# writes (see cores_ref), so the sync leaves whatever the device already has for those two keys.
+# retroarch.cfg directory keys, remapped from the base's templated flatpak paths to device_dirs
+# above (resolved by sync.py). libretro_directory and libretro_info_path are deliberately absent:
+# cores and their .info live in the app-private dir (see cores_ref), so the sync leaves those two keys.
 directory_settings:
   system_directory: system
   playlist_directory: playlists
@@ -143,11 +138,10 @@ directory_settings:
 
 # Maps each library system (No-Intro directory name) to the device's ES-DE short name. Used two ways:
 # the playlist generator takes it as emit_system_dirs (RetroArch playlist paths), and --roms mirrors
-# each library directory onto ROMS/<short name>. The device's ES-DE tree uses the North-America
-# variants (genesis/segacd/sega32xna/tg16/tg-cd). A library system absent here is not synced (PortMaster
-# is intentionally omitted: it is a separate launcher, not an ES-DE ROM system). GameCube and PS2 are
-# here for the ROM mirror even though they left the RetroArch table (standalone emulators run them; the
-# generator only ever looks up systems in its own table, so the extra entries are inert for playlists).
+# each library directory onto ROMS/<short name>. The ES-DE tree uses the North-America short-name
+# variants. A library system absent here is not synced (PortMaster is omitted: a separate launcher,
+# not an ES-DE ROM system). GameCube and PS2 stay here for the ROM mirror though they left the
+# RetroArch table; the generator only looks up systems in its own table, so they are inert for playlists.
 rom_dir_names:
   Atari - 2600: atari2600
   Atari - 7800: atari7800
@@ -177,13 +171,10 @@ rom_dir_names:
   The 3DO Company - 3DO: 3do
 
 # ES-DE launches its own choice of emulator per system, independent of the RetroArch playlists. This
-# pins each system (keyed by the ES-DE short name above) to the core the games role prefers, written as
-# the per-system <alternativeEmulator> in ROMS' gamelist.xml. Labels must match an ES-DE <command label>
-# for that system exactly (taken from ES-DE's bundled es_systems.xml). Most already equal the ES-DE
-# default; the ones that do not are atarilynx (default Handy), saturn (default Beetle Saturn), psx
-# (default Beetle PSX, non-HW), and gc (default is the libretro Dolphin that crashes on Android, so the
-# standalone). pico8 is omitted: the library carries .p8.png carts but which Pico-8 runtime is installed
-# is not knowable here, so ES-DE's default stands.
+# pins each system (keyed by the ES-DE short name above) to the core the games role prefers, written
+# as the per-system <alternativeEmulator> in ROMS' gamelist.xml. Labels must match an ES-DE <command
+# label> for that system exactly (from ES-DE's bundled es_systems.xml). pico8 is omitted: which
+# Pico-8 runtime is installed is not knowable here, so ES-DE's default stands.
 esde_cores:
   atari2600: Stella
   atari7800: ProSystem
@@ -217,11 +208,11 @@ esde_cores:
 esde_gamelists_dir: "/storage/emulated/0/ES-DE/gamelists"
 esde_package: org.es_de.frontend
 
-# The Retroid pad's rewind/fast-forward binds. The button values are Android keycodes (the "Retroid
+# The Retroid pad's rewind/fast-forward binds. Button values are Android keycodes (the "Retroid
 # Pocket Controller" reports BTN_THUMBL/BTN_THUMBR, i.e. KEYCODE_BUTTON_THUMBL/THUMBR): L3=106 rewinds,
-# R3=107 fast-forwards, both as holds. The right-stick axes stay nul on purpose: this pad's right stick
-# is Z/RZ and several systems here (N64, PSP, DS, Dreamcast) use it in-game, so an axis bind would
-# rewind by accident. sync.py folds this entry into the managed settings the way the role folds
+# R3=107 fast-forwards, both as holds. The right-stick axes stay nul on purpose: this pad's right
+# stick is Z/RZ and several systems here (N64, PSP, DS, Dreamcast) use it in-game, so an axis bind
+# would rewind by accident. sync.py folds this into the managed settings like the role folds
 # games_retroarch_controllers.
 controller:
   input_rewind_axis: "nul"
@@ -231,10 +222,9 @@ controller:
 
 # --- Per-core override transforms (over games_retroarch_core_overrides) ---
 
-# Dolphin and PCSX2 are gone with their systems. Mupen64Plus-Next loses its vulkan override: the
-# desktop set it for ParaLLEl-RDP, which no Adreno driver can run (it needs VK_KHR_8bit_storage), so
-# the Flip 2 stays on GLideN64 HLE and the OpenGL/GLES path. Everything else (Beetle PSX HW and
-# Flycast vulkan, Virtual Jaguar rewind-off, the preemptive-frames opt-ins) carries over unchanged.
+# Dolphin and PCSX2 go with their systems. Mupen64Plus-Next loses its vulkan override: the desktop
+# set it for ParaLLEl-RDP, which no Adreno driver can run (needs VK_KHR_8bit_storage), so the Flip 2
+# stays on GLideN64 HLE and the OpenGL/GLES path.
 core_overrides_remove:
   - dolphin
   - pcsx2
@@ -243,9 +233,8 @@ core_overrides_remove:
 # --- Per-core option transforms (over games_retroarch_core_options) ---
 
 # N64 swaps the ParaLLEl RDP/RSP plugins for GLideN64 HLE. Beetle PSX HW is pinned to the Vulkan
-# renderer (it silently falls back to software at 1x otherwise) at 2x internal resolution (an 845
-# collapsed at 4x, and the core has no dynarec). Genesis Plus GX's Nuked FM options carry over from
-# the base unchanged.
+# renderer (silently falls back to software at 1x otherwise) at 2x internal resolution (an 845
+# collapsed at 4x, and the core has no dynarec).
 core_options_set:
   mupen64plus_next:
     mupen64plus-rdp-plugin: gliden64
@@ -257,8 +246,7 @@ core_options_set:
 # Static core metadata, standing in for files/retroarch-probe-cores.py, which cannot dlopen an ARM
 # .so from the x86 controller. library_name names the per-core config/<library_name>/ directory and
 # must match the core's runtime name exactly (README, "Verify the core names"); valid_extensions and
-# block_extract feed the playlist generator's validation. No Android core here sets block_extract
-# (Dolphin, the only one that did, is gone). Keyed by buildbot core name.
+# block_extract feed the playlist generator's validation. Keyed by buildbot core name.
 core_probe:
   stella:
     library_name: Stella

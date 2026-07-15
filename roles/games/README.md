@@ -189,16 +189,16 @@ same library, so a cache one host fills is valid on all of them.
   mode the protocol invents (CIFS: `uid=0`, `gid=0`, `dir_mode=0755`), so there is no reliable way to validate the
   real bits from most hosts anyway.
 - **Nothing else RetroArch writes may move here.** Saves, states, `system/`, and the cache are written on every
-  launch and a read-only mount would break them. The achievement badge cache (`cheevos/`) came along with the
-  thumbnails, so badges do not cache on a read-only host.
+  launch and a read-only mount would break them. The achievement badge cache (`cheevos/`) is also per-user, so
+  badges do not cache on a read-only host.
 
 [files/retroarch-fetch-thumbnails.py](./files/retroarch-fetch-thumbnails.py) fills the cache for every game in the
 generated playlists, on the writable host, right after the playlists are written. On-demand downloading only fetches
 what is scrolled past, so a game never browsed would have no thumbnail anywhere; the play keeps the cache complete.
 
 A thumbnail is looked up by playlist label, and both the library and the thumbnail repository name games to the
-**No-Intro standard**, so the ordinary case is an exact match. A mismatch is worth knowing about and the script
-names it on stderr. Two cases resolve beyond an exact match:
+**No-Intro standard**, so the ordinary case is an exact match. The script names a mismatch on stderr. Two cases
+resolve beyond an exact match:
 
 - **A dump the repository has never heard of** (translation, fix, homebrew): its `(Region)`/`(Tag)` suffixes match
   no release, but the base game does. Matched on the bare title, and only when exactly one release answers to it, so
@@ -218,8 +218,9 @@ name for the same core (the GameCube core is `dolphin` on the buildbot, `Dolphin
 `dolphin-emu`).
 
 `library_name` is a property of the build, not the core, which is why it is not written down in this role: the PS2
-core reported `LRPS2 (alpha)` until upstream dropped the `(alpha)`, so hosts on different nightlies want different
-directories. A hardcoded name would be right on one and silently wrong on the other. So the play asks the cores.
+core's reported name varies across nightlies (`LRPS2 (alpha)` vs `LRPS2`), so hosts on different builds want
+different directories. A hardcoded name would be right on one and silently wrong on the other, so the play asks the
+cores.
 [files/retroarch-probe-cores.py](./files/retroarch-probe-cores.py) dlopens each core **inside the flatpak sandbox**
 (the only place they all load: LRPS2 needs `libaio`, which only the runtime carries) and reports each core's
 `library_name`, `valid_extensions`, and `block_extract`. The playlist generator, which runs on the host, is handed
@@ -266,10 +267,9 @@ Hotkey-Enable combo is deliberately not used: it gates *every* hotkey, so bindin
 use the right stick too.
 
 **The gamepad bindings are per-controller, from `games_retroarch_controller` in `host_vars/`.** RetroArch's
-`input_*_btn` and `input_*_axis` are *physical* device indices, not RetroPad IDs, and differ per pad (the right
-stick's Y axis is 4 on an Xbox Series X pad, 3 on an Xbox One BT; L3/R3 are 9/10 on most Xbox pads, 13/14 on an
-8BitDo Ultimate). There is no portable value, so the role has no default and asserts the variable; a wrong value
-binds a different button rather than no-oping. Read the real indices from RetroArch's autoconfig profile for the pad
+`input_*_btn` and `input_*_axis` are *physical* device indices, not RetroPad IDs, and differ per pad. There is no
+portable value, so the role has no default and asserts the variable; a wrong value binds a different button rather
+than no-oping. Read the real indices from RetroArch's autoconfig profile for the pad
 and add an entry to `games_retroarch_controllers`:
 
 ```bash

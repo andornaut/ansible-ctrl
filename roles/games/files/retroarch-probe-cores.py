@@ -7,19 +7,17 @@
 Three things only the built core knows, none of them in its .info file:
 
   * library_name, the name RetroArch keeps the core's override and core options under
-    (config/<library_name>/). It is a property of the build rather than of the core: the PS2
-    core reported "LRPS2 (alpha)" until upstream dropped the "(alpha)", so it cannot be
-    written down in the role and has to be asked per host;
+    (config/<library_name>/). A property of the build, not the core (it has carried a version
+    qualifier like "(alpha)" that upstream later dropped), so it must be asked per host;
   * valid_extensions, what the core will open;
-  * block_extract, whether the core insists on being handed an archive unopened, which is what
-    decides whether a zip is a launchable playlist entry at all. GameCube was listed with a zip
-    extension, Dolphin sets block_extract, and the entries segfaulted RetroArch.
+  * block_extract, whether the core insists on being handed an archive unopened, which decides
+    whether a zip is a launchable playlist entry at all: a zip extension on a block_extract core
+    segfaults RetroArch.
 
-Run inside the flatpak sandbox (flatpak run --command=python3), which is where RetroArch loads
-these cores and the only place they all load: a core can need a library that only the runtime
-carries (LRPS2 wants libaio) and will not load on the host at all. A core that still will not
-load here is a broken build, not a stale one, so this exits non-zero and names it rather than
-leaving a dud in RetroArch's core list.
+Run inside the flatpak sandbox (flatpak run --command=python3), where RetroArch loads these cores
+and the only place they all load: a core can need a library only the runtime carries (LRPS2 wants
+libaio) and will not load on the host. A core that still will not load here is a broken build, so
+this exits non-zero and names it rather than leaving a dud in RetroArch's core list.
 
 Takes the cores directory as its sole argument.
 """

@@ -19,9 +19,7 @@ the role converges a desktop:
   library's No-Intro names by `profile.yml`'s `rom_dir_names`) and the `_libretro_android.so` core
   suffix (reusing `../retroarch-generate-playlists.py`), with stale managed `.lpl` pruned. Each
   `core_path` points at the app-private cores dir the in-app Core Updater fills.
-- **cores**: not managed here. The sdcard and emulated storage are mounted `noexec`, so RetroArch can
-  load a core `.so` only from its app-private dir, which `adb` cannot write; install them with the
-  in-app Core Updater (Gotchas).
+- **cores**: not managed here. Installed with the in-app Core Updater, not `adb` (Gotchas explain why).
 - **per-core overrides/options**: `config/<library_name>/<name>.cfg` and `.opt`, with the Android
   diffs (N64 on GLideN64 HLE not ParaLLEl, Beetle PSX HW pinned to the Vulkan renderer at 2x).
 - **BIOS**: additive push from the library.
@@ -35,11 +33,10 @@ the role converges a desktop:
   device games the library dropped and resending only what is missing (`adb push --sync`). Off by
   default: it is hundreds of GB over USB and takes hours, but resumes if interrupted (just re-run).
 
-The frontend on this device is ES-DE, which launches games with `%EXTRA_CONFIGFILE%` pointed at the
-synced `retroarch.cfg` and cores from the app-private dir, so the managed `retroarch.cfg`, per-core
-overrides, BIOS, and ES-DE emulator choices all take effect on every ES-DE launch. The playlists are
-RetroArch-frontend only. RetroArch and ES-DE are force-stopped for the run and should be reopened
-after.
+ES-DE launches games with `%EXTRA_CONFIGFILE%` pointed at the synced `retroarch.cfg` and cores from
+the app-private dir, so the managed `retroarch.cfg`, per-core overrides, BIOS, and ES-DE emulator
+choices take effect on every ES-DE launch (the playlists are RetroArch-frontend only). RetroArch and
+ES-DE are force-stopped for the run; reopen them after.
 
 Divergences and the reasoning behind them: the "Retroid Pocket Mini / Flip 2" and "Cores" sections of
 [`../../../../til/docs/retro-games.md`](../../../../til/docs/retro-games.md).
@@ -67,15 +64,14 @@ Divergences and the reasoning behind them: the "Retroid Pocket Mini / Flip 2" an
 ./sync.py --library-dir /path/to/rom-library --roms
 ```
 
-Useful flags: `--serial <id>` (pick a device when several are attached), `--skip-bios` for a
-faster config-only reconcile, `--roms` to also mirror the ROM library (the long transfer),
-`--push-thumbnails` to also send RetroArch's thumbnail cache (off by default; ES-DE uses its own media).
+Useful flags: `--serial <id>` (pick a device when several are attached), `--skip-bios` for a faster
+config-only reconcile, `--push-thumbnails` to also send RetroArch's thumbnail cache (off by default;
+ES-DE uses its own media).
 
 ## Two things to verify on the device (once)
 
-The sync cannot derive these from the desktop; both are called out because a wrong value fails
-silently. (The panel refresh rate is a third, but the Flip 2's is 60Hz and already the shipped value;
-see below.)
+The sync cannot derive these from the desktop, and a wrong value fails silently. (A third, the panel
+refresh rate, is already correct on this device; see below.)
 
 ### Verify the core names
 
@@ -115,8 +111,8 @@ Copy the four values into `profile.yml`'s `controller` block and re-run.
 `profile.yml`'s `settings_override.video_refresh_rate` is `60.000000`. RetroArch derives its audio
 resampling ratio from this, so a value that does not match the panel is heard as audio drift. The Flip
 2's panel is a single 60.000Hz mode (`adb shell dumpsys display | grep fps`), so the shipped value is
-already correct for it; re-derive it from "Settings > Video > Output > Estimated Screen Framerate" only
-if syncing to different hardware.
+already correct; re-derive it from "Settings > Video > Output > Estimated Screen Framerate" only when
+syncing to different hardware.
 
 ## Gotchas
 

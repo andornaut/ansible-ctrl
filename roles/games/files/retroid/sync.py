@@ -607,9 +607,8 @@ def main():
         config_stage = os.path.join(staging, "config")
 
         # .info drives the generator's extension validation. Best-effort in a dry run (no network):
-        # fall back to the host's flatpak info set. Cores themselves are neither fetched nor pushed:
-        # the sdcard and emulated storage are noexec, so RetroArch can only dlopen a core from the
-        # app-private dir the in-app Core Updater fills; cores_ref points playlists at that dir.
+        # fall back to the host's flatpak info set. Cores are neither fetched nor pushed (see module
+        # docstring); cores_ref points playlists at the app-private dir the Core Updater fills.
         if not args.dry_run:
             print("Fetching core info...")
             fetch_info(profile, info_dir)
@@ -657,8 +656,8 @@ def main():
             print("Pushing thumbnail cache...")
             device.push(thumbs_src + "/.", dirs["thumbnails"])
 
-        # Remove stale managed playlists (a system that left the table). Cores are never touched: they
-        # live in the app-private dir adb cannot reach, and are the in-app Core Updater's to manage.
+        # Remove stale managed playlists (a system that left the table). Cores are never touched
+        # (app-private, the Core Updater's to manage; see module docstring).
         if online:
             for name in stale_playlists(device, dirs, model["systems"]):
                 print("Removing stale playlist %s" % name)
