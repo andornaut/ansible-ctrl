@@ -1,17 +1,14 @@
 ---
-# The next task purges the host's MTA, so fail here on missing host_vars rather than
-# halfway through, which would leave the host with no MTA.
+# The next task purges the host's MTA, so fail here rather than leave it with none.
 - name: Validate required variables
   ansible.builtin.assert:
     that:
       - msmtp_domain is defined
       - msmtp_user is defined
       - msmtp_password_INSECURE is defined
-      # Exact loopback match, not a prefix: a "127."-prefixed name resolving to a LAN
-      # address would be an open relay (msmtpd accepts unauthenticated mail).
+      # msmtpd accepts unauthenticated mail, so the relay must stay on loopback.
       - msmtp_relay_interface in ['127.0.0.1', '::1']
-      # The systemd override clears CAP_NET_BIND_SERVICE, so a privileged port would
-      # crash-loop msmtpd on bind.
+      # The override clears CAP_NET_BIND_SERVICE, so a privileged port fails to bind.
       - msmtp_relay_port | int >= 1024
       - msmtp_relay_port | int <= 65535
     fail_msg: >-
@@ -30,9 +27,8 @@
     install_recommends: false
   become: true
 
-# msmtp-mta provides /usr/sbin/sendmail, which mailutils' mail(1) invokes by default.
-# state=present, not latest: this role applies to `all`, so latest would make every run a
-# partial apt upgrade of the fleet. upgrade.yml is where packages get upgraded.
+# msmtp-mta provides /usr/sbin/sendmail, which mailutils' mail(1) invokes.
+# present, not latest: this role runs on `all`, so latest would partial-upgrade the fleet.
 - name: Install system packages
   ansible.builtin.apt:
     name:
@@ -44,11 +40,9 @@
     update_cache: true
   become: true
 
-# msmtp's AppArmor profile for /usr/bin/msmtp only grants reads of the packaged config
-# paths, so where it is enforced msmtpd's "-C /etc/msmtprc-relay" is denied and mail
-# bounces. The profile reads this local include when enforced and ignores it otherwise, so
-# writing it unconditionally is safe. blockinfile, not copy: the file is the operator's, so
-# only the role's marker block is rewritten.
+# Where the msmtp profile is enforced, it denies msmtpd's read of /etc/msmtprc-relay and mail
+# bounces. The profile reads this local include when enforced, ignores it otherwise.
+# blockinfile, not copy: the file is the operator's, so only the marker block is managed.
 - name: Allow the relay config in the msmtp AppArmor profile
   ansible.builtin.blockinfile:
     path: /etc/apparmor.d/local/usr.bin.msmtp
@@ -67,9 +61,8 @@
     path: /etc/apparmor.d/disable/usr.bin.msmtp
   register: msmtp_apparmor_disabled
 
-# Unconditional (like the msmtpd restart below): gating on the include changing would let a
-# run that wrote the rule and then died never converge, leaving an enforced profile denying
-# msmtpd's relay-config reads.
+# Unconditional: gating on the include changing would let an interrupted run leave an
+# enforced profile denying msmtpd's relay-config reads.
 - name: Reload AppArmor so the relay rule is live before msmtpd restarts
   ansible.builtin.systemd_service:
     name: apparmor
@@ -77,11 +70,10 @@
   when: not msmtp_apparmor_disabled.stat.exists
   become: true
 
-# A profile disabled on disk can still be loaded in the kernel: the postinst creates the
-# disable symlink without unloading a resident profile, and a legacy copy under the bare
-# "/usr/bin/msmtp" name no longer matches the on-disk file so a bulk reload skips it. Either
-# way it keeps denying msmtpd's relay-config read. Unload any loaded msmtp profile (both
-# spellings, since removal is by name) so the kernel matches the disabled-on-disk state.
+# A profile disabled on disk can still be loaded in the kernel (the postinst symlinks the
+# disable without unloading a resident profile), where it keeps denying msmtpd's relay-config
+# read. Unload any loaded msmtp profile (both name spellings, since removal is by name) so the
+# kernel matches the disabled-on-disk state.
 - name: Unload a stale msmtp AppArmor profile left enforcing while disabled on disk
   ansible.builtin.shell:
     executable: /bin/bash
@@ -100,9 +92,8 @@
   when: msmtp_apparmor_disabled.stat.exists
   become: true
 
-# msmtpd runs as the "msmtp" user (from msmtp-mta) via the systemd override. msmtp rejects a
-# -C config holding secrets unless it is owned by the caller and unreadable by group/other,
-# so this is msmtp:msmtp 0600, not root:msmtp 0640.
+# msmtpd runs as "msmtp" via the systemd override. msmtp rejects a -C config with secrets
+# unless it is owned by the caller and unreadable by group/other, hence msmtp:msmtp 0600.
 - name: Copy msmtp relay config file
   ansible.builtin.template:
     src: msmtprc-relay
@@ -131,11 +122,9 @@
     mode: "0644"
   become: true
 
-# Restart msmtpd against the relay config before /etc/msmtprc below points clients at it, or
-# mail sent in between relays back into msmtpd. An ordering constraint, so not a handler.
-# Unconditional: gating on the templates changing would let a run that wrote them and then
-# died never converge (daemon_reload doesn't restart a running unit). msmtpd holds no queue,
-# so restarting every run is cheap.
+# Restart before /etc/msmtprc below points clients at msmtpd, or mail sent in between relays
+# back into msmtpd. An ordering constraint, so not a handler. Unconditional and queue-less, so
+# restarting every run is cheap and always converges.
 - name: Restart msmtpd before pointing clients at it
   ansible.builtin.systemd_service:
     name: msmtpd
@@ -144,8 +133,8 @@
     state: restarted
   become: true
 
-# Written before /etc/msmtprc, which references it via its "aliases" directive, so
-# clients are never pointed at a config whose aliases file does not exist yet.
+# Written before /etc/msmtprc, which references it, so clients never point at a config whose
+# aliases file is missing.
 - name: Copy /etc/aliases
   ansible.builtin.template:
     src: aliases
@@ -164,9 +153,8 @@
     mode: "0644"
   become: true
 
-# Holds no credentials, so it can stay world-readable: cron drops privileges to
-# the crontab owner before invoking sendmail, and Ubuntu's msmtp package is not
-# setgid, so unprivileged senders must be able to read this file.
+# World-readable and credential-free: cron drops to the crontab owner before invoking
+# sendmail and Ubuntu's msmtp is not setgid, so unprivileged senders must read this file.
 - name: Copy msmtp config file
   ansible.builtin.template:
     src: msmtprc
@@ -175,8 +163,3 @@
     group: root
     mode: "0644"
   become: true
-
-# The autoconf/automake/libtool/etc build packages an earlier version installed are
-# deliberately not removed: none is a leaf (removing autoconf drags out the whole debhelper
-# toolchain), the base role installs autoconf on every host anyway, and this role applies to
-# `all`, so purging here would fight the base role forever. Harmless where they sit.
