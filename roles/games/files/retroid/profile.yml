@@ -92,6 +92,10 @@ settings_override:
   fastforward_ratio: "5.000000"
   video_refresh_rate: "60.000000"
   network_on_demand_thumbnails: "true"
+  # Nintendo-layout pad: physical A is the east button, so make the east button confirm (RetroArch's
+  # default/"Japanese" orientation) to match ES-DE's A=OK/B=Back. The device ships this "true"
+  # (Western/south-confirms), which is inverted here since physical B is the south button.
+  menu_swap_ok_cancel_buttons: "false"
   # Auto frame delay: the 865 has headroom, so RetroArch delays running the core to present each frame
   # closer to vsync, cutting input latency, and backs the delay off automatically if it would drop a
   # frame (it needs video_threaded off, which the base pins). Complements the per-core preemptive
