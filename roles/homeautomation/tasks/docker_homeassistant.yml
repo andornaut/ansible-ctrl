@@ -59,8 +59,12 @@
         hostname: govee2mqtt-{{ ansible_facts['hostname'] }}
         image: "{{ homeautomation_govee2mqtt_docker_image }}"
         depends_on:
-          - homeassistant
-          - mosquitto
+          # Broker must be ready; HA need only have started (govee reads state
+          # over MQTT, so gating on HA's health just delays govee needlessly).
+          homeassistant:
+            condition: service_started
+          mosquitto:
+            condition: service_healthy
         environment: "{{ govee2mqtt_environment }}"
         logging: "{{ homeautomation_default_logging }}"
         # Host networking required for UDP broadcast-based Govee LAN device discovery
@@ -77,9 +81,11 @@
           - NET_ADMIN
           - NET_RAW
         depends_on:
-          - mosquitto
+          mosquitto:
+            condition: service_healthy
         devices: "{{ homeautomation_homeassistant_devices_resolved }}"
-        # Restart the container if the web server becomes unresponsive
+        # Gates govee2mqtt via depends_on. A healthcheck does not restart an
+        # unhealthy container (no autoheal watcher runs here); it only reports.
         healthcheck:
           test: ["CMD", "curl", "-sf", "http://localhost:{{ homeautomation_homeassistant_port }}/manifest.json"]
           interval: 30s
@@ -99,6 +105,14 @@
         # http://mosquitto.internal:1883
         container_name: mosquitto
         image: "{{ homeautomation_mosquitto_docker_image }}"
+        # Anonymous access is on, so no credentials. 1883 is the in-container
+        # listener (mosquitto.conf), not the published host port.
+        healthcheck:
+          test: ["CMD", "mosquitto_pub", "-h", "localhost", "-p", "1883", "-t", "healthcheck", "-m", "ping"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 30s
         logging: "{{ homeautomation_default_logging }}"
         ports:
           - "{{ homeautomation_mosquitto_port }}:1883"
