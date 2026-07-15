@@ -1,7 +1,6 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
+# Values derived from defaults/main.yml, not operator knobs. Here rather than in defaults/
+# so role vars outrank host_vars: a host cannot desync a derived value from its source.
 
 # The gamescope apt package only exists on Ubuntu >= 26.04. A platform probe, not a preference:
 # forcing it true on an older release just fails the install. Flatpak games use the Vulkan layer
@@ -51,21 +50,19 @@ games_retroarch_cores_dir: "{{ games_retroarch_config_dir }}/cores"
 games_retroarch_playlists_dir: "{{ games_retroarch_config_dir }}/playlists"
 games_retroarch_system_dir: "{{ games_retroarch_config_dir }}/system"
 
-# Where the downloaded core archives are kept, which is not under RetroArch's tree: they are this
-# role's working state, not something RetroArch reads. They are kept rather than fetched to a
-# temporary directory because that is what lets get_url compare the current build against the one
-# already installed and report honestly whether a core changed (~41MB for the set).
+# Downloaded core archives, outside RetroArch's tree: this role's working state, not something
+# RetroArch reads. Kept rather than fetched to a temp dir so get_url can compare the current
+# build against the installed one and report whether a core changed.
 games_retroarch_core_archives_dir: "{{ games_user_home }}/.cache/libretro-cores"
 
-# Core metadata (<core>_libretro.info), which the playlist generator reads two fields out of:
-# display_name, for the playlist's core label, and supported_extensions, which it validates each
-# system's extensions against. RetroArch reads the same files from inside the sandbox
-# (/app/share/libretro/info); this is where a --user flatpak install exposes them on the host,
-# which is the only side the generator runs on.
+# Core metadata (<core>_libretro.info). The playlist generator reads display_name (playlist core
+# label) and supported_extensions (validated against each system's extensions). Path is where a
+# --user flatpak install exposes the sandbox's /app/share/libretro/info on the host, the only side
+# the generator runs on.
 #
-# savestate_features lives here too, and is what decides whether a core can rewind or take
-# preemptive frames, but nothing reads it: games_retroarch_core_overrides records those decisions
-# by hand, and its comments give the grep.
+# savestate_features lives here too (whether a core can rewind or take preemptive frames) but
+# nothing reads it: games_retroarch_core_overrides records those decisions by hand, its comments
+# give the grep.
 games_retroarch_info_dir: >-
   {{ games_user_home }}/.local/share/flatpak/app/{{ games_retroarch_app_id
   }}/current/active/files/share/libretro/info
@@ -95,13 +92,13 @@ games_retroarch_installed_core_names: >-
 games_retroarch_dropped_cores: "{{ games_retroarch_installed_core_names | difference(games_retroarch_cores) }}"
 
 # What the installed cores report about themselves (files/retroarch-probe-cores.py, run by
-# tasks/retroarch.yml): buildbot core name -> {library_name, valid_extensions, block_extract}. None of
-# the three is in the core's .info file, and all three are properties of the build rather than of the
-# core, so none can be written down here: two hosts on different nightlies of the PS2 core report
-# "LRPS2 (alpha)" and "LRPS2", and either name hardcoded is silently wrong on the other host.
+# tasks/retroarch.yml): buildbot core name -> {library_name, valid_extensions, block_extract}. None
+# is in the .info file, and all three are properties of the build, so none can be hardcoded: two
+# hosts on different nightlies of the PS2 core report "LRPS2 (alpha)" and "LRPS2", either name
+# hardcoded is silently wrong on the other host.
 #
-# Only defined once that task has run. Reading it earlier is an undefined-variable error naming the
-# register, which is the right failure: there is no value that could stand in for it.
+# Only defined once that task has run; reading it earlier is an undefined-variable error naming the
+# register, which is the correct failure.
 games_retroarch_cores_probed: "{{ games_retroarch_core_probe.stdout | from_json }}"
 
 # Just the names, which is what the tasks writing config/<library_name>/ need.
@@ -110,28 +107,25 @@ games_retroarch_core_library_names: >-
           | zip(games_retroarch_cores_probed.values() | map(attribute='library_name'))) }}
 
 # Only the host whose mount is writable downloads missing thumbnails; the rest read the cache it
-# fills. RetroArch defaults this on, and a host that mounts the library read-only would then retry a
-# download it can never save every time the game is scrolled past. It is derived per host, so it
-# cannot live in games_retroarch_required_settings with the static keys.
+# fills. RetroArch defaults this on, so a read-only host would retry an unsaveable download every
+# time the game is scrolled past. Derived per host, so it cannot live in the static
+# games_retroarch_required_settings.
 #
-# games_retroarch_thumbnails_writable is a fact set by tasks/retroarch.yml, not a var derived here:
-# it probes the mount, so it cannot exist before that stat runs, and a var defaulting to false in the
-# meantime would silently turn the downloader off on the host that fills the cache if anything ever
-# read the settings earlier. As a fact, reading it too early is an undefined-variable error that
-# names it.
+# games_retroarch_thumbnails_writable is a fact set by tasks/retroarch.yml, not a var: it probes the
+# mount, so it cannot exist before that stat runs. A var defaulting to false meanwhile would
+# silently disable the downloader on the host that fills the cache; as a fact, reading it too early
+# is an undefined-variable error naming it.
 games_retroarch_thumbnails_settings:
   network_on_demand_thumbnails: "{{ games_retroarch_thumbnails_writable | bool | ternary('true', 'false') }}"
 
 # The retroarch.cfg keys this role enforces, in ascending order of specificity: the role's own set,
-# then the two keys that describe this host's hardware (the panel's refresh rate, the bindings of
-# whichever pad it has), then what this host's mount of the thumbnail cache allows, then any per-host
-# additions. host_vars can therefore set one key without restating a dict, and can still override a
-# controller binding.
+# then this host's hardware (panel refresh rate, pad bindings), then what its thumbnail-cache mount
+# allows, then per-host additions. host_vars can set one key without restating a dict, and can still
+# override a controller binding.
 #
-# The refresh rate and the pad have variables of their own rather than being keys a host is expected
-# to know to put in games_retroarch_extra_settings: the role asserts both, so they are inputs, and
-# tasks/retroarch.yml asserts the pad names a known model before anything reads this, so the lookup
-# cannot miss.
+# Refresh rate and pad have their own variables rather than being keys a host must know to put in
+# games_retroarch_extra_settings: the role asserts both, so they are inputs, and tasks/retroarch.yml
+# asserts the pad names a known model before this is read, so the lookup cannot miss.
 games_retroarch_settings: >-
   {{ games_retroarch_required_settings
      | combine({"video_refresh_rate": games_retroarch_video_refresh_rate})
@@ -143,9 +137,8 @@ games_retroarch_settings: >-
 # whole systems table.
 #
 # The generator runs on the host, where a core needing a library only the flatpak runtime carries
-# would not load, so it is handed what the cores said in the sandbox rather than asking them itself:
-# valid_extensions and block_extract are what it validates each system's extensions against, and the
-# cores it could not have checked are exactly the ones whose extensions are most likely to be wrong.
+# would not load, so it is handed what the cores reported in the sandbox rather than probing them
+# itself: valid_extensions and block_extract validate each system's extensions.
 games_retroarch_generator_config:
   library_dir: "{{ games_retroarch_library_dir }}"
   playlist_dir: "{{ games_retroarch_playlists_dir }}"
