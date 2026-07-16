@@ -178,7 +178,7 @@ def disc_entry(directory, extensions):
     return next((disc for disc in discs if "(Disc 1)" in disc), discs[0])
 
 
-def system_items(system_dir, emit_system_dir, extensions, core_path, core_name, db_name, names):
+def system_items(names, system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
     """Build the playlist items for one system directory.
 
     Scanned at system_dir, but each item's path is written under emit_system_dir, which differs
@@ -340,7 +340,7 @@ def main():
         core_name = core_info_field(info_dir, core, "display_name", default=core)
         names = arcade_names if core in arcade_name_cores else {}
         items = system_items(
-            system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name, names
+            names, system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name
         )
 
         # An existing playlist is never replaced by an empty one: a system directory that

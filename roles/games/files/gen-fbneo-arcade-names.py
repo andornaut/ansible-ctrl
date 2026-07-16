@@ -34,7 +34,9 @@ def main():
         dat = handle.read().decode("utf-8", errors="replace")
 
     names = {}
-    for block in dat.split("game (")[1:]:
+    # Split on the block-start "game (" only: it sits at column 0, so the leading newline anchors it
+    # and titles that contain the substring ("Spider-Man: The Videogame (US)") are not split mid-name.
+    for block in dat.split("\ngame (")[1:]:
         name = NAME_RE.search(block)
         rom = ROM_RE.search(block)
         if not (name and rom):
