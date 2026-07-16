@@ -133,17 +133,17 @@ games_retroarch_settings: >-
      | combine(games_retroarch_thumbnails_settings)
      | combine(games_retroarch_extra_settings) }}
 
+# Where tasks/retroarch.yml copies files/fbneo-arcade-names.json on the target, so the generator (run
+# there via ansible.builtin.script, which transfers only itself) can read it. Local to the host, like
+# the rest of RetroArch's tree.
+games_retroarch_arcade_names_dest: "{{ games_retroarch_config_dir }}/fbneo-arcade-names.json"
+
 # Input to files/retroarch-generate-playlists.py, passed in the environment because it carries the
 # whole systems table.
 #
 # The generator runs on the host, where a core needing a library only the flatpak runtime carries
 # would not load, so it is handed what the cores reported in the sandbox rather than probing them
 # itself: valid_extensions and block_extract validate each system's extensions.
-# Where tasks/retroarch.yml copies files/fbneo-arcade-names.json on the target, so the generator (run
-# there via ansible.builtin.script, which transfers only itself) can read it. Local to the host, like
-# the rest of RetroArch's tree.
-games_retroarch_arcade_names_dest: "{{ games_retroarch_config_dir }}/fbneo-arcade-names.json"
-
 games_retroarch_generator_config:
   library_dir: "{{ games_retroarch_library_dir }}"
   playlist_dir: "{{ games_retroarch_playlists_dir }}"
