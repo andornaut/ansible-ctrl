@@ -213,6 +213,15 @@ games_retroarch_systems:
   Sony - PlayStation 2:
     core: pcsx2
     extensions: [chd, iso, m3u]
+  # No m3u, unlike every other disc system here, and this is a core limitation rather than an
+  # oversight: ppsspp sets need_fullpath, so RetroArch hands it the .m3u path instead of expanding
+  # the playlist itself, and ppsspp's loader only knows elf|iso|cso|prx|pbp|chd. Loading one fails
+  # with "[LOADER] CPU_Init didn't recognize file" (RetroAchievements logs an "Extracted ... from
+  # playlist" line first, which is its own m3u parser and not the core loading anything). Adding m3u
+  # here would pass validate_system -- the generator unions the .info extensions, and RetroArch does
+  # not filter content given as an explicit path -- and emit a playlist entry that fails at launch.
+  # The only layout that works is one root .iso per disc, swapped by loading the other playlist
+  # entry, so the library carries no multi-disc PSP titles at all; its AGENTS.md has the same note.
   Sony - PlayStation Portable:
     core: ppsspp
     extensions: [iso, cso]
