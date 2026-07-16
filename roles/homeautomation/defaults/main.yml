@@ -79,8 +79,15 @@ homeautomation_homeassistant_required_volumes:
 # llama.cpp
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+# Router mode spawns a child server per model with no --ctx-size, so each would
+# default to 4096. These are inherited by the children: raise the per-request
+# context to 128k (native for both models below, no YaRN) and pin one slot so
+# the context is not divided across parallel slots. See README.
+homeautomation_llamacpp_env:
+  LLAMA_ARG_CTX_SIZE: "131072"
+  LLAMA_ARG_N_PARALLEL: "1"
 homeautomation_llamacpp_models:
-  - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+  - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
