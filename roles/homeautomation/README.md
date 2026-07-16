@@ -74,6 +74,17 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 | piper | bridge | 10200 | Wyoming | Text-to-speech |
 | whisper | bridge | 10300 | Wyoming | Speech-to-text |
 
+### llama.cpp models and context
+
+Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
+defaults to 4096 tokens. `homeautomation_llamacpp_env` sets vars the children inherit: `LLAMA_ARG_CTX_SIZE` for
+the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot (else it is split across slots).
+
+`LLAMA_ARG_CTX_SIZE` must stay at or below the smallest model's native training context or quality degrades
+without YaRN: Qwen3.5-9B is 262144, gemma-4-E4B is 131072, so 131072 is the shared ceiling. KV cache grows with
+context; at 128k these models exceed the 16GB GPU and spill to system RAM. Lower it if latency or memory is a
+problem.
+
 ### Matter and Thread
 
 - Enable exactly one Matter server, `homeautomation_install_matterjs` or the superseded
