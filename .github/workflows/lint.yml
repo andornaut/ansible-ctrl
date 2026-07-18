@@ -81,18 +81,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      # ShellCheck cannot parse Jinja2, so render the torrent role's templated
-      # scripts by replacing {{ ... }} expressions with a placeholder and
-      # stripping {% ... %} tags, then lint the rendered .sh files.
-      - name: Render templated scripts
+      # Lint every shell script under roles/, discovered by shebang rather than
+      # an enumerated list, so a new script in any role is covered automatically.
+      # A script is a file under templates/ or files/ whose FIRST line is a
+      # bash/sh shebang (checked on line 1 only, so a #! line deeper in a
+      # non-script file is not mistaken for one). ShellCheck cannot parse Jinja2,
+      # so scripts under templates/ are rendered first by replacing {{ ... }}
+      # expressions with a placeholder and stripping {% ... %} tags; scripts
+      # under files/ are linted as-is. The output name is the repo-relative path
+      # flattened (/ -> _), so scripts sharing a basename across roles cannot
+      # overwrite each other.
+      - name: Render shell scripts
         run: |
           mkdir -p .ci-shellcheck
-          for f in mvt synct unrart; do
-            sed -E \
-              -e 's/\{\{[^}]*\}\}/PLACEHOLDER/g' \
-              -e 's/\{%[^%]*%\}//g' \
-              "roles/torrent/templates/$f" > ".ci-shellcheck/$f.sh"
-          done
+          while IFS= read -r src; do
+            IFS= read -r firstline < "$src" || true
+            grep -qE '^#!.*\b(bash|sh)\b' <<< "$firstline" || continue
+            dest=".ci-shellcheck/${src//\//_}"
+            dest="${dest%.j2}.sh"
+            if [[ "$src" == */templates/* ]]; then
+              sed -E \
+                -e 's/\{\{[^}]*\}\}/PLACEHOLDER/g' \
+                -e 's/\{%[^%]*%\}//g' \
+                "$src" > "$dest"
+            else
+              cp "$src" "$dest"
+            fi
+          done < <(find roles/ -type f \( -path '*/templates/*' -o -path '*/files/*' \))
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master

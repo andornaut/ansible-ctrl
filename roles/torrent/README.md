@@ -62,6 +62,7 @@ controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (
 
 ## CI
 
-The templated scripts (`mvt`, `synct`, `unrart`) are ShellCheck'd in [.github/workflows/lint.yml](../../.github/workflows/lint.yml):
-the workflow renders the Jinja2 expressions to placeholders, then runs ShellCheck on the results. Suppress
-findings with `# shellcheck disable=...` comments in the templates.
+The templated scripts (`mvt`, `synct`, `unrart`) are ShellCheck'd in [.github/workflows/lint.yml](../../.github/workflows/lint.yml).
+The `shellcheck` job discovers every shell script under `roles/` by shebang, so these are covered along with the
+other roles' scripts. Scripts under `templates/` are rendered first (Jinja2 expressions to placeholders); scripts
+under `files/` are linted as-is. Suppress findings with `# shellcheck disable=...` comments in the templates.
