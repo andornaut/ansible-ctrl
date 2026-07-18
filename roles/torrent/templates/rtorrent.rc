@@ -1,0 +1,109 @@
+# See https://github.com/rakshasa/rtorrent/wiki/CONFIG-Template
+
+## Instance layout (base paths)
+method.insert = cfg.basedir,  private|const|string, (cat,"{{ torrent_root_directory }}/")
+method.insert = cfg.completed, private|const|string, (cat,"{{ torrent_completed_directory }}/")
+method.insert = cfg.download, private|const|string, (cat,"{{ torrent_incoming_directory }}/")
+method.insert = cfg.logs,     private|const|string, (cat,(cfg.basedir),"logs/")
+method.insert = cfg.logfile,  private|const|string, (cat,(cfg.logs),"rtorrent-",(system.time),".log")
+method.insert = cfg.session,  private|const|string, (cat,"{{ torrent_session_directory }}/")
+method.insert = cfg.watch,    private|const|string, (cat,"{{ torrent_watch_directory }}/")
+
+
+## Create instance directories
+## The role's "Create directories" task also makes these at provision time; recreating them
+## here self-heals a fresh or remounted root (e.g. a NAS mount) without re-running Ansible.
+execute.throw = sh, -c, (cat,\
+    "mkdir -p \"",(cfg.download),"\" ",\
+    "\"",(cfg.logs),"\" ",\
+    "\"",(cfg.session),"\" ",\
+    "\"",(cfg.watch),"\" ")
+
+
+## Listening port for incoming peer traffic; see torrent_port_range.
+network.port_range.set = {{ torrent_port_range }}
+network.port_random.set = yes
+
+# Support magnet links. DHT binds its own UDP port, ignoring network.port_range.
+dht.port.set = {{ torrent_dht_port }}
+dht.mode.set = auto
+protocol.pex.set = yes
+trackers.use_udp.set = yes
+
+## Rate limits (0 = unlimited). Peer counts and upload slots use rtorrent's defaults.
+throttle.global_down.max_rate.set_kb = {{ torrent_download_rate_kib }}
+throttle.global_up.max_rate.set_kb   = {{ torrent_upload_rate_kib }}
+
+protocol.encryption.set = allow_incoming,try_outgoing,enable_retry
+
+
+## Limits for file handle resources, this is optimized for
+## an `ulimit` of 1024 (a common default). You MUST leave
+## a ceiling of handles reserved for rTorrent's internal needs!
+network.http.max_open.set = 50
+network.max_open_files.set = 600
+network.max_open_sockets.set = 300
+
+
+## Memory resource usage (increase if you have a large number of items loaded,
+## and/or the available resources to spend)
+pieces.memory.max.set = {{ torrent_pieces_memory_max }}
+network.xmlrpc.size_limit.set = 4M
+
+
+## Basic operational settings (no need to change these)
+session.path.set = (cat, (cfg.session))
+directory.default.set = (cat, (cfg.download))
+log.execute = (cat, (cfg.logs), "execute.log")
+#log.xmlrpc = (cat, (cfg.logs), "xmlrpc.log")
+
+
+## Other operational settings (check & adapt)
+encoding.add = utf8
+system.umask.set = 0022
+system.cwd.set = (directory.default)
+network.http.dns_cache_timeout.set = 25
+schedule2 = monitor_diskspace, 15, 60, ((close_low_diskspace, 1000M))
+#pieces.hash.on_completion.set = no
+#view.sort_current = seeding, greater=d.ratio=
+#keys.layout.set = qwerty
+#network.http.capath.set = "/etc/ssl/certs"
+#network.http.ssl_verify_peer.set = 0
+#network.http.ssl_verify_host.set = 0
+
+
+## Some additional values and commands
+method.insert = system.startup_time, value|const, (system.time)
+method.insert = d.data_path, simple,\
+    "if=(d.is_multi_file),\
+        (cat, (d.directory), /),\
+        (cat, (d.directory), /, (d.name))"
+method.insert = d.session_file, simple, "cat=(session.path), (d.hash), .torrent"
+
+
+## Watch directories (add more as you like, but use unique schedule names)
+## Add & download straight away
+schedule2 = watch_start, 10, 10, ((load.start_verbose, (cat, (cfg.watch), "*.torrent")))
+
+# Move completed torrents to a fixed location
+# https://github.com/rakshasa/rtorrent/wiki/Common-Tasks-in-rTorrent#move-completed-torrents-to-a-fixed-location
+method.insert = d.get_finished_dir, simple, "cat={{ torrent_completed_directory }}/,$d.custom1="
+method.insert = d.move_to_complete, simple, "d.directory.set=$argument.1=; execute=mkdir,-p,$argument.1=; execute=mv,-u,$argument.0=,$argument.1=; d.save_full_session="
+method.set_key = event.download.finished,move_complete,"d.move_to_complete=$d.data_path=,$d.get_finished_dir="
+
+
+# Tied files
+# https://github.com/rakshasa/rtorrent/wiki/TORRENT-Watch-directories#tied-files
+schedule2 = tied_directory, 10, 10, start_tied=
+# Uncomment one of:
+# schedule2 = untied_directory, 10, 10, stop_untied=
+schedule2 = untied_directory, 10, 10, close_untied=
+#schedule2 = untied_directory, 10, 10, remove_untied=
+
+## Logging:
+##   Levels = critical error warn notice info debug
+##   Groups = connection_* dht_* peer_* rpc_* storage_* thread_* tracker_* torrent_*
+print = (cat, "Logging to ", (cfg.logfile))
+log.open_file = "log", (cfg.logfile)
+log.add_output = "info", "log"
+#log.add_output = "tracker_debug", "log"
