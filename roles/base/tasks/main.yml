@@ -126,7 +126,7 @@
 - name: Disable ssh motd news/advertisement
   ansible.builtin.lineinfile:
     create: true
-    line: 'ENABLED=0'
+    line: "ENABLED=0"
     path: /etc/default/motd-news
     regexp: '^ENABLED\s*='
     mode: "0644"
@@ -160,17 +160,21 @@
     path: /etc/alternatives/vim
   become: true
 
+- name: Import filectrl tasks
+  ansible.builtin.import_tasks: filectrl.yml
+  tags: filectrl
+
 - name: Import gog tasks
   ansible.builtin.import_tasks: gog.yml
 
 - name: Import mrs tasks
   ansible.builtin.import_tasks: mrs.yml
 
-- name: Import storage-space-alert tasks
-  ansible.builtin.import_tasks: storage-space-alert.yml
-
 - name: Import disk-cleanup tasks
   ansible.builtin.import_tasks: disk-cleanup.yml
+
+- name: Import storage-space-alert tasks
+  ansible.builtin.import_tasks: storage-space-alert.yml
 
 - name: Import systemd tasks
   ansible.builtin.import_tasks: systemd.yml
