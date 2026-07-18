@@ -18,7 +18,6 @@ make dev -- --tags rust
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
-| [filectrl](https://github.com/andornaut/filectrl) | File manager |
 | [go](https://go.dev/) | Go toolchain |
 | javascript | [Node.js](https://nodejs.org/) and [nvm](https://github.com/nvm-sh/nvm) |
 | [kilocode](https://github.com/Kilo-Org/kilocode) | Kilo Code CLI and VS Code extension |

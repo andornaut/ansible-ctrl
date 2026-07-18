@@ -1,20 +1,20 @@
 ---
-- name: Get latest filectrl release
-  ansible.builtin.include_tasks: get_latest_github_release.yml
-  vars:
-    github_release_repo: andornaut/filectrl
-    github_release_fact: dev_filectrl_release
+- name: Get the latest version of filectrl
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/andornaut/filectrl/releases/latest
+    return_content: true
+  register: base_filectrl_release
 
 - name: Set filectrl download URL fact
   ansible.builtin.set_fact:
-    dev_filectrl_download_url: >-
-      {{ dev_filectrl_release.assets
+    base_filectrl_download_url: >-
+      {{ base_filectrl_release.json.assets
       | selectattr('name', 'match', 'filectrl-linux')
       | map(attribute='browser_download_url') | first }}
 
 - name: Download filectrl binary
   ansible.builtin.get_url:
-    url: "{{ dev_filectrl_download_url }}"
+    url: "{{ base_filectrl_download_url }}"
     dest: /usr/local/bin/filectrl
     mode: "0755"
     force: true

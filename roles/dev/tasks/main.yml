@@ -63,10 +63,6 @@
   ansible.builtin.import_tasks: cursor.yml
   tags: cursor
 
-- name: Import filectrl tasks
-  ansible.builtin.import_tasks: filectrl.yml
-  tags: filectrl
-
 - name: Import kilocode tasks
   ansible.builtin.import_tasks: kilocode.yml
   tags: kilocode
