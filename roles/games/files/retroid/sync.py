@@ -22,16 +22,18 @@ What it owns, mirroring the role's ownership semantics:
     core_path under the app-private cores dir), and stale managed .lpl (ones whose scan_content_dir is
     inside the device ROM dir, for a system no longer in the table) removed. Hand-built playlists are
     left alone.
-  * BIOS: additive push from the library, no deletes.
-  * thumbnails: additive push from the library, off by default (--push-thumbnails). The frontend here
-    is ES-DE, which scrapes its own media; RetroArch's thumbnail cache is seen only when browsing
-    inside RetroArch itself. The generated playlists are likewise RetroArch-only, but still pushed.
+  * BIOS: additive push from the library (only files missing or a different size on the device), no deletes.
+  * thumbnails: mirrored from the library, on by default (--skip-thumbnails to skip): device thumbnails
+    the library dropped are deleted and only files missing or a different size are pushed. The frontend
+    here is ES-DE, which scrapes its own media; RetroArch's thumbnail cache is seen only when browsing
+    inside RetroArch itself (on-demand download is turned off in profile.yml, since the mirror owns this
+    tree). The generated playlists are likewise RetroArch-only, but still pushed.
   * ES-DE emulators: each system's <alternativeEmulator> in its gamelist.xml is pinned to the core the
     role prefers (profile.yml esde_cores), so ES-DE launches our core, not its default.
-  * ROM library (--roms only): each library system is mirrored onto ROMS/<short name>, deleting device
-    games the library dropped and pushing only the files missing or a different size on the device, so
-    the long transfer resumes after an interruption and a converged re-run pushes nothing. Off by
-    default; it is hundreds of GB over USB.
+  * ROM library (--skip-roms to skip): each library system is mirrored onto ROMS/<short name>, deleting
+    device games the library dropped and pushing only the files missing or a different size on the
+    device, so the long transfer resumes after an interruption and a converged re-run pushes nothing.
+    On by default; it is hundreds of GB over USB.
 
 Cores are NOT managed here: the sdcard and emulated storage are mounted noexec, so RetroArch can only
 dlopen a core from the app-private dir the in-app Core Updater fills, which adb cannot write. Install
@@ -469,14 +471,14 @@ def stale_playlists(device, dirs, systems):
 PRESERVE_IN_ROMS = {"systeminfo.txt"}
 
 
-def device_rom_files(device, root):
+def device_file_sizes(device, root):
     """Map every file under root on the device to its size in bytes, recursive and including hidden.
 
-    Uses find rather than list_dir's `ls -1`: `ls -1` omits dotfiles, so hidden multi-disc directories
-    (.game/) and anything nested in a subdirectory would be invisible to the prune below and a renamed
-    disc would accumulate beside its replacement. find sees them. Each file's size comes from stat so
-    mirror_roms can decide what to push by size (see there); the tab separator keeps ROM names, which
-    contain spaces, parseable.
+    Uses find rather than list_dir's `ls -1`: `ls -1` omits dotfiles, so hidden directories (a ROM
+    system's multi-disc .game/) and anything nested in a subdirectory would be invisible to the prune
+    in the mirror callers and stale files would accumulate. find sees them. Each file's size comes from
+    stat so a mirror can decide what to push by size (see mirror_roms); the tab separator keeps names,
+    which contain spaces, parseable.
     """
     prefix = root.rstrip("/") + "/"
     out = device.read_shell("find %s -type f -exec stat -c '%%s\t%%n' {} + 2>/dev/null" % shq(root))
@@ -485,9 +487,9 @@ def device_rom_files(device, root):
         size, tab, path = line.partition("\t")
         if tab and size.isdigit() and path.startswith(prefix):
             sizes[path[len(prefix):]] = int(size)
-    # Both the prune and the size comparison in mirror_roms rely on this, so an empty result must mean an
-    # empty directory, not a stat that silently failed: if `stat` is unavailable and only stderr got the
-    # errors, the caller would keep stale games and re-push everything, reporting success. Confirm the
+    # Both the prune and the size comparison in the mirror callers rely on this, so an empty result must
+    # mean an empty directory, not a stat that silently failed: if `stat` is unavailable and only stderr
+    # got the errors, the caller would keep stale files and re-push everything, reporting success. Confirm the
     # directory really is empty with a plain find before trusting an empty map, and fail loudly if not.
     if not sizes and device.read_shell("find %s -type f 2>/dev/null" % shq(root)).strip():
         sys.exit("Could not read file sizes under %s: `find -exec stat -c` returned nothing for a "
@@ -496,9 +498,8 @@ def device_rom_files(device, root):
     return sizes
 
 
-def library_rom_files(src):
-    """Map every file under a library system directory to its size in bytes, matching
-    device_rom_files."""
+def local_file_sizes(src):
+    """Map every file under a local directory to its size in bytes, matching device_file_sizes."""
     files = {}
     for dirpath, _, names in os.walk(src):
         rel = os.path.relpath(dirpath, src)
@@ -507,7 +508,7 @@ def library_rom_files(src):
             try:
                 files[key] = os.path.getsize(os.path.join(dirpath, name))
             except OSError as error:
-                # A broken symlink or unreadable entry is not a pushable game: warn and skip it rather
+                # A broken symlink or unreadable entry is not a pushable file: warn and skip it rather
                 # than let one bad file abort the whole mirror (mirror_roms only catches adb errors).
                 # Leaving it out of the map also keeps the prune from acting on a phantom.
                 print("  skip unreadable %s: %s" % (key, error), file=sys.stderr)
@@ -541,8 +542,8 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
         # one dead system is left for the next (resumable) run instead of aborting a several-hour mirror.
         try:
             device.mkdirs(dst)
-            wanted = library_rom_files(src)
-            have = device_rom_files(device, dst)
+            wanted = local_file_sizes(src)
+            have = device_file_sizes(device, dst)
             for rel in have:
                 if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
                     continue
@@ -560,7 +561,7 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             else:
                 print("%s -> %s: up to date" % (lib_name, dev_name))
             # A game dropped from the library leaves its hidden .dir behind once the prune removes the
-            # discs inside it (device_rom_files lists files, not dirs). rmdir the dirs left empty so the
+            # discs inside it (device_file_sizes lists files, not dirs). rmdir the dirs left empty so the
             # tree stays an exact mirror; -mindepth 1 keeps the system dir itself, -depth clears nested.
             device.read_shell("find %s -mindepth 1 -depth -type d -empty -exec rmdir {} + 2>/dev/null"
                               % shq(dst))
@@ -573,6 +574,44 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
         sys.exit("%d system(s) did not fully mirror (transfer errors). Re-run to resume (it pushes only "
                  "the files missing or a different size on the device): %s"
                  % (len(failed), ", ".join(failed)))
+
+
+def sync_tree(device, src, root, prune):
+    """Size-diff push a local tree onto device root: send only files missing or a different size there.
+
+    The push set is decided by size, not delegated to `adb push --sync` (which also compares mtime, and
+    the exFAT sdcard rounds mtimes, so already-correct files would re-transfer every run). A partial
+    transfer has the wrong size and is re-sent, so a run is resumable and a converged re-run pushes nothing.
+
+    Shared by the trees the role owns wholesale. With prune, device files no longer in src are deleted
+    and the dirs that empties are rmdir'd, so the device becomes an exact mirror (thumbnails); without it,
+    device-only files are left in place, an additive sync that never deletes (BIOS, whose system dir also
+    holds files the standalone emulators drop and carries no marker to tell those from library BIOS).
+    """
+    device.mkdirs(root)
+    wanted = local_file_sizes(src)
+    have = device_file_sizes(device, root)
+    if prune:
+        for rel in have:
+            if rel not in wanted:
+                device.rm("%s/%s" % (root, rel))
+    need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
+    if need:
+        print("  %d file(s) to push" % len(need))
+        # adb push creates a file's parent, but a nested dir is a fresh mkdir on the first sync; create
+        # the unique parents up front so each push lands in an existing directory.
+        parents = sorted({os.path.dirname("%s/%s" % (root, rel)) for rel in need} - {root})
+        if parents:
+            device.mkdirs(*parents)
+        for rel in need:
+            device.push(os.path.join(src, rel), "%s/%s" % (root, rel))
+    else:
+        print("  up to date")
+    if prune:
+        # rmdir the subdirs the prune emptied so the tree stays an exact mirror; -mindepth 1 keeps root
+        # itself, -depth clears nested dirs bottom-up.
+        device.read_shell("find %s -mindepth 1 -depth -type d -empty -exec rmdir {} + 2>/dev/null"
+                          % shq(root))
 
 
 # --------------------------------------------------------------------------- ES-DE cores
@@ -607,11 +646,18 @@ def configure_esde_cores(device, gamelists_dir, esde_cores):
         path = "%s/gamelist.xml" % system_dir
         updated = set_alt_emulator(device.pull_text(path), label)
         device.mkdirs(system_dir)
-        print("ES-DE %s -> %s" % (system, label))
+        print("%s -> %s" % (system, label))
         device.push_text(updated, path)
 
 
 # --------------------------------------------------------------------------- main
+
+
+def section(title, approach=None):
+    """Print a blank-line-separated section header. approach names the tree's sync strategy
+    (merge with prune / push always / push always + prune / push additive / merge), so the log reads
+    the same way the README's ownership table does."""
+    print("\n%s%s" % (title, " (%s)" % approach if approach else ""))
 
 
 def main():
@@ -621,14 +667,15 @@ def main():
     parser.add_argument("--serial", default="", help="adb device serial (adb -s)")
     parser.add_argument("--dry-run", action="store_true", help="build and plan, no device writes")
     parser.add_argument("--skip-bios", action="store_true", help="do not push the BIOS set")
-    parser.add_argument("--roms", action="store_true",
-                        help="also mirror the ROM library onto the device's ES-DE ROMS tree (the long "
-                             "transfer; off by default). Deletes device games the library dropped and "
-                             "pushes only files missing or a different size on the device (resumable)")
-    parser.add_argument("--push-thumbnails", action="store_true",
-                        help="push the RetroArch thumbnail cache (off by default: ES-DE, the frontend "
-                             "here, uses its own scraped media, so RetroArch's cache is only seen when "
-                             "browsing inside RetroArch itself)")
+    parser.add_argument("--skip-roms", action="store_true",
+                        help="do not mirror the ROM library onto the device's ES-DE ROMS tree (mirrored "
+                             "by default). The mirror deletes device games the library dropped and pushes "
+                             "only files missing or a different size (resumable)")
+    parser.add_argument("--skip-thumbnails", action="store_true",
+                        help="do not mirror the RetroArch thumbnail cache (mirrored by default: deletes "
+                             "device thumbnails the library dropped and pushes only changed files). "
+                             "ES-DE, the frontend here, uses its own scraped media, so RetroArch's cache "
+                             "is only seen when browsing inside RetroArch itself")
     args = parser.parse_args()
 
     if not os.path.isdir(args.library_dir):
@@ -685,15 +732,15 @@ def main():
         # fall back to the host's flatpak info set. Cores are neither fetched nor pushed (see module
         # docstring); cores_ref points playlists at the app-private dir the Core Updater fills.
         if not args.dry_run:
-            print("Fetching core info...")
+            section("Fetching core info")
             fetch_info(profile, info_dir)
         if not os.path.isdir(info_dir):
             info_dir = host_info_dir()
 
-        print("Generating playlists...")
+        section("Generating playlists")
         generate_playlists(model, args.library_dir, dirs, profile, cores_ref, info_dir, playlist_dir)
 
-        print("Writing per-core overrides and options...")
+        # Staged here, pushed under the overrides/options section below.
         write_overrides(model, config_stage)
 
         # The sdcard dirs are public storage; adb can always create them.
@@ -704,12 +751,13 @@ def main():
         # fallback rather than a crash, and carry on with the sdcard content either way. A transient
         # disconnect no longer lands here (Device._write retries through it), so this catches only a
         # genuine permission denial, which is what the message describes.
-        print("Reconciling retroarch.cfg...")
         merged = merge_cfg(existing_cfg, model["settings"], set(profile["settings_drop"]))
+        section("retroarch.cfg", "merge with prune")
         try:
             device.mkdirs(os.path.dirname(cfg_path), config_dir)
             device.push_text(merged, cfg_path)
             if os.path.isdir(config_stage):
+                section("overrides/options", "push always")
                 device.push(config_stage + "/.", config_dir)
         except subprocess.CalledProcessError:
             print(
@@ -720,39 +768,38 @@ def main():
                 file=sys.stderr,
             )
 
-        # Push the staged playlists. The trailing "/." copies contents into the existing dir
-        # (require_adb checks adb is new enough for this).
+        # Push the staged playlists (trailing "/." copies contents into the existing dir), then remove
+        # the stale managed .lpl of a system that left the table. Cores are never touched (app-private,
+        # the Core Updater's to manage; see module docstring).
+        section("playlists", "push always + prune")
         device.push(playlist_dir + "/.", dirs["playlists"])
-
-        bios_src = os.path.join(args.library_dir, "_BIOS", "retroarch-system-folder")
-        if not args.skip_bios and os.path.isdir(bios_src):
-            print("Pushing BIOS set...")
-            device.push(bios_src + "/.", dirs["system"])
-        thumbs_src = os.path.join(args.library_dir, "_Thumbnails")
-        if args.push_thumbnails and os.path.isdir(thumbs_src):
-            print("Pushing thumbnail cache...")
-            device.push(thumbs_src + "/.", dirs["thumbnails"])
-
-        # Remove stale managed playlists (a system that left the table). Cores are never touched
-        # (app-private, the Core Updater's to manage; see module docstring).
         if online:
             for name in stale_playlists(device, dirs, model["systems"]):
                 print("Removing stale playlist %s" % name)
                 device.rm("%s/%s" % (dirs["playlists"], name))
+
+        bios_src = os.path.join(args.library_dir, "_BIOS", "retroarch-system-folder")
+        if not args.skip_bios and os.path.isdir(bios_src):
+            section("BIOS", "push additive")
+            sync_tree(device, bios_src, dirs["system"], prune=False)
+        thumbs_src = os.path.join(args.library_dir, "_Thumbnails")
+        if not args.skip_thumbnails and os.path.isdir(thumbs_src):
+            section("thumbnails", "merge with prune")
+            sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
     # ES-DE emulator choices and (optionally) the ROM library. These need no staging, so they run
-    # outside the temp dir's lifetime; the ROM mirror in particular is a multi-hour transfer. Run them
-    # under --dry-run too (Device prints the planned writes) so a preview of the destructive --roms
-    # deletes and pushes is not silently skipped for want of a device.
-    print("Configuring ES-DE preferred cores...")
+    # outside the temp dir's lifetime. Run them under --dry-run too (Device prints the planned writes)
+    # so a preview of the destructive ROM-mirror deletes and pushes is not silently skipped for want of
+    # a device.
+    section("ES-DE emulators", "merge")
     configure_esde_cores(device, profile["esde_gamelists_dir"], profile["esde_cores"])
-    if args.roms:
-        print("Mirroring ROM library (the long transfer; resumable, pushes only changed files)...")
+    if not args.skip_roms:
+        section("ROM library", "merge with prune")
         mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
 
-    print("Done. RetroArch and ES-DE were stopped for the sync; reopen whichever you use.")
+    print("\nDone. RetroArch and ES-DE were stopped for the sync; reopen whichever you use.")
 
 
 def host_info_dir():
