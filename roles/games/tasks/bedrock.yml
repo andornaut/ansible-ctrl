@@ -63,6 +63,25 @@
         state: absent
       when: games_bedrock_tmp.path is defined
 
+# A desktop entry that runs `bedrock-on-linux play`, launching Minecraft directly instead of the
+# launcher GUI the flatpak's own entry opens. It reuses the flatpak-exported icon by name (the
+# exports are on the user's XDG_DATA_DIRS). `play` still requires the one-time setup (download a
+# Minecraft version) and Microsoft login done through the GUI; without them it exits with BOL's
+# own message rather than failing silently.
+- name: Install a direct-launch Minecraft (Bedrock) desktop entry
+  block:
+    - name: Create the user applications directory
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/share/applications"
+        state: directory
+        mode: "0755"
+
+    - name: Copy the Minecraft (Bedrock) desktop entry
+      ansible.builtin.copy:
+        src: minecraft-bedrock.desktop
+        dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
+        mode: "0644"
+
 # The graphics safety check (bol/gpu_safety.py) runs inside the sandbox, where the freedesktop
 # runtime ships no xrandr, so on an X11 session it cannot confirm a hardware RandR provider and
 # fail-closes even on a healthy GPU. Rather than disable the check (BOL_ALLOW_UNSAFE_GPU) or expose
