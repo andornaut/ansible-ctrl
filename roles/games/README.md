@@ -15,6 +15,7 @@ make games -- --tags retroarch
 | Tag | Description |
 | --- | --- |
 | apt | Native gaming packages |
+| bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle |
 | flatpak | Flatpak runtime, flathub remote, applications, extensions, and overrides |
 | heroic | Heroic install path and the store token-refresh timer |
 | lutris | Lutris default install path |
@@ -52,9 +53,9 @@ vars outrank `host_vars`, so override the default they derive from, not the deri
 
 - The role has no dependencies: it installs `flatpak` and adds the flathub remote for `games_user` itself, so it
   runs standalone on a host that has never had the [desktop](../desktop/) role applied.
-- Ansible replaces dict variables rather than merging them, so a `host_vars/` override of
-  `games_flatpak_overrides` must restate the `default` key; `flatpak.yml` dereferences it unguarded. Prefer
-  `games_retroarch_extra_settings` for RetroArch tweaks, which is combined with the required settings key by key.
+- Ansible replaces dict variables rather than merging them, so a `host_vars/` override of `games_flatpak_overrides`
+  must restate the `default` key; `flatpak.yml` dereferences it unguarded. Prefer `games_retroarch_extra_settings`
+  for RetroArch tweaks, which is combined with the required settings key by key.
 
 ## RetroArch
 
@@ -63,12 +64,15 @@ vars outrank `host_vars`, so override the default they derive from, not the deri
 is not running.
 
 Everything RetroArch owns lives under `~/.var/app/org.libretro.RetroArch/config/retroarch`, except the thumbnail
-cache, which is shared through the library (see [Thumbnails](#thumbnails)). Keeping every writable path (playlists,
-saves, states, `system/`, cache) under the per-user directory is what lets a host mount the library read-only over
-the network.
+cache (shared through the library, see [Thumbnails](#thumbnails)). Keeping every writable path (playlists, saves,
+states, `system/`, cache) under the per-user directory is what lets a host mount the library read-only.
 
 `retroarch.cfg` holds thousands of keys; the role owns only those in `games_retroarch_required_settings`. Settings
-changed in the app still persist, and the managed keys snap back on the next run.
+changed in the app persist, and the managed keys snap back on the next run.
+
+The convergence runs through four helper scripts under [files/](./files/) (probe cores, generate playlists, fetch
+thumbnails, regenerate the arcade name map). The role runs them, but each is standalone and can be run by hand to
+debug a single stage: [files/README.md](./files/README.md) is the operator quick start.
 
 ### Per-host settings
 
@@ -83,33 +87,30 @@ a guessed value would fail silently.
 
 `vrr_runloop_enable` is optional: turn it on in `games_retroarch_extra_settings` for a VRR panel, which also wants
 VRR enabled outside RetroArch (a compositor setting under Wayland; `Option "VariableRefresh"` in `xorg.conf.d` under
-X11, where it conflicts with `TearFree`). It cannot be combined with the other video-to-audio sync methods (vsync, a
+X11, where it conflicts with `TearFree`). It cannot combine with the other video-to-audio sync methods (vsync, a
 swap interval above 1, black frame insertion), and the play asserts those preconditions. On a fixed-refresh panel
 leave it off and use BFI instead.
 
 ### Input devices
 
-`input_driver` is `udev`, not `x`: the games hosts run both X11 and Wayland sessions, and the `x` driver only works
-under an X11 video context. RetroArch then reads `/dev/input/event*` directly and needs read access to those
-devices. The distro's `70-uaccess.rules` tags joysticks for `uaccess` but not the mouse or keyboard, so out of the
-box the gamepad works while the pointer (menu) and lightgun are dead.
+`input_driver` is `udev`, not `x`: the games hosts run both X11 and Wayland sessions, and `x` only works under an
+X11 video context. RetroArch then reads `/dev/input/event*` directly and needs read access. The distro's
+`70-uaccess.rules` tags joysticks for `uaccess` but not the mouse or keyboard, so the gamepad works while the
+pointer (menu) and lightgun are dead.
 
 [files/70-retroarch-input.rules](./files/70-retroarch-input.rules) tags the mouse and keyboard too; logind turns the
-tag into an ACL for whoever holds the active seat and drops it at logout, the same mechanism `steam-devices` uses
-for pads. The trade is that any process in the seat's session can then read raw keystrokes from every keyboard.
-Under X11 this changes nothing (any X client can already snoop the keyboard); under Wayland it is a real reduction
-in isolation, accepted here because these are single-user gaming hosts. Adding the user to the `input` group (the
-alternative in RetroArch's docs) is worse: a standing grant covering every session including SSH, not the seat
-alone.
+tag into an ACL for the active seat and drops it at logout, as `steam-devices` does for pads. The trade is that any
+process in the seat can then read raw keystrokes: a no-op under X11 (any client can already snoop), a real loss of
+isolation under Wayland, accepted on single-user gaming hosts. The `input`-group alternative is worse: a standing
+grant over every session including SSH.
 
-The same rules file also drops the mouse classification (`ID_INPUT_MOUSE`) of one device, an idle KVM / virtual-HID
-(USB id `09eb:0131`). RetroArch reads menu clicks and the lightgun from the mouse at `input_player1_mouse_index`, and
-selects it by position in a list built in device-enumeration order, not by a stable name. A virtual HID that
-advertises buttons but emits nothing takes a slot in that list, and if it sorts first it becomes index 0, the
-default: the cursor still moves (motion is aggregated across all mice) while every click lands on the dead device.
-Setting the index by hand does not fix it, the order not being stable across launches; removing the phantom from the
-mouse pool does, leaving a real mouse at index 0. The rule matches that one USB id, so it is a no-op on a host
-without the device; a host with a different idle virtual mouse adds its own id.
+The rules file also drops the `ID_INPUT_MOUSE` classification of one device, an idle KVM / virtual-HID (USB id
+`09eb:0131`). RetroArch reads menu clicks and the lightgun from `input_player1_mouse_index`, selected by
+enumeration order, not name. A virtual HID that emits nothing still takes a slot and, sorting first, becomes index 0
+(the default): the cursor moves (motion is aggregated across mice) while every click lands on the dead device.
+Setting the index by hand does not fix it (order is unstable across launches); dropping the phantom does, leaving a
+real mouse at index 0. The rule matches that one USB id, a no-op without the device; a different idle virtual mouse
+adds its own id.
 
 ### Playlists
 
@@ -120,12 +121,11 @@ re-running the `retroarch` tag.
 
 - **Multi-disc games** follow the library's own `AGENTS.md`: the discs sit in a dot-prefixed directory the generator
   skips, and the `.m3u` beside it is the launchable entry. The 3DO and GameCube are the exceptions (a visible
-  directory and no `.m3u`, because Opera and Dolphin swap discs themselves). The table below maps each system to
-  its layout.
+  directory and no `.m3u`, because Opera and Dolphin swap discs themselves). The table below maps each system.
 - **The generator owns the playlist directory.** A `.lpl` whose system has left `games_retroarch_systems` is
-  deleted, so it cannot keep being offered after the core prune removes the core it points at. Only `.lpl` files
-  directly in the directory and written by the generator are touched: RetroArch's favourites and history live in
-  `builtin/`, and hand-built playlists are not the role's to delete.
+  deleted, so it cannot keep being offered after the core prune. Only `.lpl` files directly in the directory and
+  written by the generator are touched: RetroArch's favourites and history live in `builtin/`, and hand-built
+  playlists are not the role's to delete.
 - **An existing playlist is never replaced by an empty one**, and the play asserts the library is mounted first: an
   unmounted network share otherwise looks exactly like an empty library.
 - **`games_retroarch_systems` is validated against the cores** before anything is written; a system declaring
@@ -158,19 +158,19 @@ Libretro cores are not packaged for apt or flatpak; RetroArch's in-app Core Upda
 buildbot one at a time. This role installs them from the same source declaratively and owns the cores directory:
 
 - **Every run installs the current build.** The buildbot ships nightlies only, so there is no release to pin and no
-  in-place upgrade. This is also what repairs a core the flatpak runtime can no longer load after a runtime upgrade:
-  the replacement is built against the current runtime.
+  in-place upgrade. This also repairs a core the flatpak runtime can no longer load after a runtime upgrade: the
+  replacement is built against the current runtime.
 - **Cores no system is associated with are removed**, so a superseded core cannot linger in "Load Core" and invite a
   game onto the wrong one.
 
 The download is `get_url` into `~/.cache/libretro-cores`, extracted only when the archive changed. The buildbot
-never answers `304`, so the archives are fetched every run either way, but `get_url` compares fetched against
-on-disk, so a run reports a core changed only when a binary really moved. Letting `unarchive` download instead
-re-extracts everything every run and reports everything changed, making "the cores changed" meaningless.
+never answers `304`, so archives are fetched every run either way, but `get_url` compares fetched against on-disk, so
+a run reports a core changed only when a binary really moved. Letting `unarchive` download instead re-extracts and
+reports everything changed every run, making "the cores changed" meaningless.
 
 Each core is then dlopened **inside the sandbox** to read its reported name (see
 [Per-core overrides](#per-core-overrides-and-core-options)), which doubles as the load check: freshly refetched, a
-core that still will not load is a broken build, and the play names it and stops. The core set is the desktop (x64)
+core that still will not load is a broken build, so the play names it and stops. The core set is the desktop (x64)
 column of the [til notes](https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores).
 
 **Swapping a core orphans that system's saves.** RetroArch sorts saves and states into per-core directories
@@ -182,11 +182,11 @@ DeSmuME's `.dsv` is not a melonDS `.sav`). Move battery saves by hand and delete
 
 The BIOS set is copied out of the library into RetroArch's `system/` directory rather than pointed at in place:
 cores treat that directory as writable scratch (Dolphin's `Sys` tree, PPSSPP's state), so it must be local and would
-not be writable on a read-only network mount anyway.
+not be writable on a read-only mount anyway.
 
-The copy is `rsync`, not `ansible.builtin.copy`: the set runs to thousands of files and `copy` checksums every one
-on every run, which over the network means reading the whole set back each time; `rsync` compares size and mtime. It
-runs without `--delete`, because the cores' own state lives in that directory alongside the BIOS.
+The copy is `rsync`, not `ansible.builtin.copy`: the set runs to thousands of files and `copy` checksums every one on
+every run, reading the whole set back over the network each time; `rsync` compares size and mtime. It runs without
+`--delete`, because the cores' own state lives in that directory alongside the BIOS.
 
 ### Thumbnails
 
@@ -197,15 +197,14 @@ writes that hosts can share: a thumbnail is looked up by playlist *label*, and t
 same library, so a cache one host fills is valid on all of them.
 
 - **Only the host whose mount is writable downloads into it.** `network_on_demand_thumbnails` is derived per host
-  from a stat of the directory: on a read-only mount it is turned off, or RetroArch retries an unsaveable download
-  every time a game is scrolled past. Those hosts read the cache; the writer fills it.
+  from a stat of the directory: turned off on a read-only mount, or RetroArch retries an unsaveable download every
+  time a game is scrolled past. Those hosts read the cache; the writer fills it.
 - **The library owns the directory, not this role**, as it owns the BIOS set: the play points RetroArch at it and
   never creates it. The playlist generator only looks inside the system directories `games_retroarch_systems` names.
 - **It must be setgid and in the library's group**: the share only serves what is group-readable in that group, and
-  the per-playlist directories RetroArch creates inherit the group from it. This is the library's own setup to get
-  right, not the play's to police (it checks only that the cache exists): a network client is served ownership and
-  mode the protocol invents (CIFS: `uid=0`, `gid=0`, `dir_mode=0755`), so there is no reliable way to validate the
-  real bits from most hosts anyway.
+  the per-playlist directories RetroArch creates inherit the group from it. This is the library's setup to get right,
+  not the play's to police (it checks only that the cache exists): a network client is served ownership and mode the
+  protocol invents (CIFS: `uid=0`, `gid=0`, `dir_mode=0755`), so the real bits can't be validated from most hosts.
 - **Nothing else RetroArch writes may move here.** Saves, states, `system/`, and the cache are written on every
   launch and a read-only mount would break them. The achievement badge cache (`cheevos/`) is also per-user, so
   badges do not cache on a read-only host.
@@ -214,19 +213,18 @@ same library, so a cache one host fills is valid on all of them.
 generated playlists, on the writable host, right after the playlists are written. On-demand downloading only fetches
 what is scrolled past, so a game never browsed would have no thumbnail anywhere; the play keeps the cache complete.
 
-A thumbnail is looked up by playlist label, and both the library and the thumbnail repository name games to the
-**No-Intro standard**, so the ordinary case is an exact match. The script names a mismatch on stderr. Two cases
-resolve beyond an exact match:
+Both the library and the thumbnail repository name games to the **No-Intro standard**, so the ordinary lookup by
+playlist label is an exact match. The script names a mismatch on stderr. Two cases resolve beyond an exact match:
 
 - **A dump the repository has never heard of** (translation, fix, homebrew): its `(Region)`/`(Tag)` suffixes match
   no release, but the base game does. Matched on the bare title, and only when exactly one release answers to it, so
   two regional dumps never get each other's art.
-- **A Pico-8 cart**, which is already a picture of itself: the `.p8.png` *is* the label art, and the repository
-  carries no Pico-8 art. The script copies the cart.
+- **A Pico-8 cart**, already a picture of itself: the `.p8.png` *is* the label art, and the repository carries no
+  Pico-8 art. The script copies the cart.
 
 Names resolve against the repository's directory listing rather than a guess, costing one request per system that
 still has a gap (a converged host makes none). A game the repository does not carry keeps its system re-listed every
-run, so art added upstream later is picked up; such games otherwise want art supplied by hand.
+run, so art added upstream later is picked up; otherwise such games want art supplied by hand.
 
 ### Per-core overrides and core options
 
@@ -238,14 +236,13 @@ name for the same core (the GameCube core is `dolphin` on the buildbot, `Dolphin
 `library_name` is a property of the build, not the core, which is why it is not written down in this role: the PS2
 core's reported name varies across nightlies (`LRPS2 (alpha)` vs `LRPS2`), so hosts on different builds want
 different directories. A hardcoded name would be right on one and silently wrong on the other, so the play asks the
-cores.
-[files/retroarch-probe-cores.py](./files/retroarch-probe-cores.py) dlopens each core **inside the flatpak sandbox**
-(the only place they all load: LRPS2 needs `libaio`, which only the runtime carries) and reports each core's
-`library_name`, `valid_extensions`, and `block_extract`. The playlist generator, which runs on the host, is handed
-that answer rather than probing again.
+cores. [files/retroarch-probe-cores.py](./files/retroarch-probe-cores.py) dlopens each core **inside the flatpak
+sandbox** (the only place they all load: LRPS2 needs `libaio`, which only the runtime carries) and reports each
+core's `library_name`, `valid_extensions`, and `block_extract`. The playlist generator, which runs on the host, is
+handed that answer rather than probing again.
 
 Override and option keys are asserted against `games_retroarch_systems`, so an override for a core no system runs
-fails the play. A core that renames itself across an upgrade orphans its old files, and the prune removes them.
+fails the play. A core that renames itself across an upgrade orphans its old files, which the prune removes.
 
 | | File | Written | Why |
 | --- | --- | --- | --- |
@@ -287,8 +284,8 @@ use the right stick too.
 **The gamepad bindings are per-controller, from `games_retroarch_controller` in `host_vars/`.** RetroArch's
 `input_*_btn` and `input_*_axis` are *physical* device indices, not RetroPad IDs, and differ per pad. There is no
 portable value, so the role has no default and asserts the variable; a wrong value binds a different button rather
-than no-oping. Read the real indices from RetroArch's autoconfig profile for the pad
-and add an entry to `games_retroarch_controllers`:
+than no-oping. Read the real indices from RetroArch's autoconfig profile for the pad and add an entry to
+`games_retroarch_controllers`:
 
 ```bash
 flatpak run --command=grep org.libretro.RetroArch -E '^input_(r_y_minus_axis|r_y_plus_axis|l3_btn|r3_btn)' \

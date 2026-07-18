@@ -49,18 +49,8 @@ Two more keys give arcade systems readable labels (both host-agnostic, so the de
 flatpak sandbox. Not gathered here: this runs on the host, where a core needing a library only
 the runtime carries (LRPS2 wants libaio) will not load, leaving exactly those cores unchecked.
 
-Owns the playlist directory, so it also:
-
-  * validates every system against the core it names, exiting non-zero if a system declares
-    content its core cannot launch (otherwise invisible until someone clicks a game and
-    RetroArch segfaults);
-  * writes a playlist only when its content would change, printing one line per rewrite so
-    ansible's changed_when can key off stdout;
-  * removes the playlists of systems that have left the table, but only ones it can prove it
-    wrote (their scan_content_dir points inside the library); a hand-built playlist is not
-    the role's to delete.
-
-The library is only ever read, which lets a host mount it read-only.
+Run-time behaviour (system validation, write-on-change, pruning only playlists it can prove it
+wrote) and the read-only-library property are in files/README.md.
 """
 
 import functools
@@ -181,11 +171,9 @@ def disc_entry(directory, extensions):
 def system_items(names, system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
     """Build the playlist items for one system directory.
 
-    Scanned at system_dir, but each item's path is written under emit_system_dir, which differs
-    only when building for another host's mount (the Retroid sync). Equal, the rewrite is a no-op.
-
-    names maps a romset shortname to its full title, for arcade systems whose files are named by
-    MAME id (mslug.zip); empty for every other system, where the lookup is a no-op.
+    Scanned at system_dir but written under emit_system_dir (see the module docstring's
+    emit_system_dirs), equal for a same-host run. names maps romset shortname -> full title for
+    arcade systems, empty elsewhere.
     """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
@@ -287,7 +275,8 @@ def main():
     info_dir = config["info_dir"]
     probed = config["cores"]
     systems = sorted(config["systems"].items())
-    # The library as the target sees it, and the core file's tail; both default to a same-host run.
+    # Target-mount overrides (library root, per-system dir renames, core file tail); all default to
+    # a same-host run.
     emit_library_dir = config.get("emit_library_dir", library_dir)
     emit_system_dirs = config.get("emit_system_dirs", {})
     core_suffix = config.get("core_filename_suffix", "_libretro.so")
