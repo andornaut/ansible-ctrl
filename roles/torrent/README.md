@@ -33,12 +33,12 @@ Installed to `/usr/local/bin/` on the controller:
 | Script | Purpose |
 | --- | --- |
 | [`mvt`](./templates/mvt) | Upload `*.torrent` files from local watch directories to the remote watch directory via scp |
-| [`synct`](./templates/synct) | Rsync completed downloads from the remote host to the local incoming directory; skips overlapping runs |
+| [`synct`](./templates/synct) | Rsync completed downloads from every remote torrent host to the local incoming directory; skips overlapping runs |
 | [`unrart`](./templates/unrart) | Extract archives (rar, zip, tar.gz, tar.bz2) in a directory up to 5 levels deep |
 
 ## Cron jobs
 
-Installed to `/etc/cron.d/ansible-torrent` on the controller:
+Installed to `/etc/cron.d/ansible-role-torrent` on the controller:
 
 | Job | Schedule |
 | --- | --- |
@@ -47,8 +47,9 @@ Installed to `/etc/cron.d/ansible-torrent` on the controller:
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml). Remote-host overrides (rate limits, directories) go in the host's
-`host_vars/`; controller-side overrides go in `host_vars/localhost.yml`.
+See [defaults/main.yml](./defaults/main.yml). Both remote-host overrides (rate limits, directories) and the
+controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (e.g. `host_vars/prime.yml`);
+the delegated tasks resolve plain variables from the play host, so a `localhost` host_vars file is never read.
 
 | Variable | Default | Description |
 | --- | --- | --- |
