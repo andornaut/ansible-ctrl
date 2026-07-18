@@ -91,7 +91,9 @@ settings_override:
   rewind_buffer_size: "67108864"
   fastforward_ratio: "5.000000"
   video_refresh_rate: "60.000000"
-  network_on_demand_thumbnails: "true"
+  # sync.py mirrors the thumbnail cache from the library and prunes what is not in it, so an on-demand
+  # download is redundant and would be deleted on the next sync; off keeps RetroArch from fetching them.
+  network_on_demand_thumbnails: "false"
   # Nintendo-layout pad: physical A is the east button, so make the east button confirm (RetroArch's
   # default/"Japanese" orientation) to match ES-DE's A=OK/B=Back. The device ships this "true"
   # (Western/south-confirms), which is inverted here since physical B is the south button.
@@ -156,8 +158,8 @@ directory_settings:
   rgui_browser_directory: roms
 
 # Maps each library system (No-Intro directory name) to the device's ES-DE short name. Used two ways:
-# the playlist generator takes it as emit_system_dirs (RetroArch playlist paths), and --roms mirrors
-# each library directory onto ROMS/<short name>. The ES-DE tree uses the North-America short-name
+# the playlist generator takes it as emit_system_dirs (RetroArch playlist paths), and the ROM mirror
+# copies each library directory onto ROMS/<short name>. The ES-DE tree uses the North-America short-name
 # variants. A library system absent here is not synced (PortMaster is omitted: a separate launcher,
 # not an ES-DE ROM system). GameCube and PS2 stay here for the ROM mirror though they left the
 # RetroArch table; the generator only looks up systems in its own table, so they are inert for playlists.
