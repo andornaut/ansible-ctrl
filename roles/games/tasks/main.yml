@@ -47,6 +47,13 @@
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
 
+# After flatpak.yml: relies on the flathub remote it adds for games_user to resolve the runtime.
+- name: Install BedrockOnLinux
+  ansible.builtin.import_tasks: bedrock.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: bedrock
+
 - name: Configure Heroic Games Launcher
   ansible.builtin.import_tasks: heroic.yml
   become: true
