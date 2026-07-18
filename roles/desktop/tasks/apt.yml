@@ -9,6 +9,10 @@
       - adwaita-icon-theme
       - desktop-file-utils
       - file-roller
+      # flameshot from apt, not flatpak: the sandboxed flatpak captures through the
+      # org.freedesktop.portal.Screenshot portal, which no backend implements on a
+      # minimal X11 WM, so capture times out. The apt build grabs X11 directly.
+      - flameshot
       # gnome-keyring is only a Recommends of ubuntu-desktop-minimal, which
       # gnome.yml installs with recommends disabled, so it must be listed here.
       - gnome-keyring
