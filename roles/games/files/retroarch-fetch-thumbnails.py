@@ -2,21 +2,13 @@
 """Fill the shared thumbnail cache for every entry in the generated playlists.
 
 RetroArch's own on-demand downloader fetches only what is scrolled past, so a game never browsed
-has no thumbnail on any host. That downloader stays on where the mount is writable, as a fallback
-for a game added between runs; this keeps the cache complete.
+has no thumbnail on any host; this keeps the cache complete. Matching is by playlist label against
+the repository's No-Intro names, with two fallbacks that are not naming disagreements: base-game
+art for a dump the repository does not carry (a translation, fix, homebrew re-release), and the
+cart itself for Pico-8. The resolution is in title_key, disambiguate, and main.
 
-Library and repository both name a game to the No-Intro standard, so the ordinary case is an exact
-match on the playlist label; a game that does not match exactly usually means the library named it
-in a way the standard does not. Two cases still need resolving, neither a naming disagreement:
-
-  * A dump the repository does not carry (a translation, fix, homebrew re-release): its (Region)
-    and (Tag) suffixes match no published release, but the game underneath does, and the base
-    game's art is right for it.
-  * A Pico-8 cart, already a picture of itself: the repository carries no Pico-8 art (the .p8.png
-    in the library is the label image).
-
-Prints one line per thumbnail written, so stdout is the change report. Games that end with no box
-art go to stderr.
+Prints one line per thumbnail written, so stdout is the change report; games that end with no box
+art go to stderr. See files/README.md for the operator summary.
 """
 
 import gzip
