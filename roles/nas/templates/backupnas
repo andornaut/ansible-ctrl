@@ -18,11 +18,11 @@ POSITIONAL_COUNT=0
 UNMOUNT_RETRY_SECS=30
 
 # Output helper functions
-error() { echo -e " \033[1;31m✗\033[0m  $@" >&2; exit 1; }
-header() { echo -e "\n\033[1m$@\033[0m\n"; }
-info() { echo -e " \033[1;34m•\033[0m  $@"; }
-ok() { echo -e " \033[1;32m✔\033[0m  ${@-OK}"; }
-warn() { echo -e " \033[1;33m!\033[0m  $@" >&2; }
+error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+header() { echo -e "\n\033[1m$*\033[0m\n"; }
+info() { echo -e " \033[1;34m•\033[0m  $*"; }
+ok() { echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+warn() { echo -e " \033[1;33m!\033[0m  $*" >&2; }
 
 # Report any command failure
 trap 'error "Command failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
@@ -144,9 +144,11 @@ DEVICE_NAME=$(basename "${DEVICE_PATH}")
 
 backup() {
     header "Starting backup..."
-    local startTime=$(date +%s)
+    local startTime
+    startTime=$(date +%s)
     if rsync --archive --exclude='rsnapshot/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
-        local endTime=$(date +%s)
+        local endTime
+        endTime=$(date +%s)
         local duration=$((endTime - startTime))
         ok "Backup complete in ${duration} seconds"
     else
@@ -156,9 +158,11 @@ backup() {
 
 backupRsnapshot() {
     header "Starting rsnapshot backup..."
-    local startTime=$(date +%s)
+    local startTime
+    startTime=$(date +%s)
     if rsync --archive --delete --human-readable --info=progress2 --stats "${sourceRsnapshotDir}/" "${rsnapshotDestDir}/"; then
-        local endTime=$(date +%s)
+        local endTime
+        endTime=$(date +%s)
         local duration=$((endTime - startTime))
         ok "Rsnapshot backup complete in ${duration} seconds"
     else
@@ -168,10 +172,11 @@ backupRsnapshot() {
 
 deleteOldRsnapshotBackups() {
     header "Deleting old rsnapshot backups..."
-    local oldRsnapshotBackups=$(find "${MOUNT_DIR}" -maxdepth 1 -type d -name 'rsnapshot.????-??-??' -printf '%f\n' | sort | head -n-${RETENTION_NUMBER})
+    local oldRsnapshotBackups
+    oldRsnapshotBackups=$(find "${MOUNT_DIR}" -maxdepth 1 -type d -name 'rsnapshot.????-??-??' -printf '%f\n' | sort | head -n-${RETENTION_NUMBER})
     if [[ -n "${oldRsnapshotBackups}" ]]; then
         echo "${oldRsnapshotBackups}" | while IFS= read -r dir; do
-            rm -rf -- "${MOUNT_DIR}/${dir}"
+            rm -rf -- "${MOUNT_DIR:?}/${dir}"
         done
         ok "Old rsnapshot backups deleted"
     else
@@ -210,7 +215,8 @@ unmountDevice() {
         error "Device ${DEVICE_PATH} does not exist"
     fi
 
-    local mountDirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
+    local mountDirs
+    mountDirs="$(findmnt -rno TARGET "${DEVICE_PATH}")" || true
     if [[ -n "${mountDirs}" ]]; then
         info "Unmounting: ${mountDirs}"
         while IFS= read -r dir; do
@@ -248,7 +254,7 @@ fi
 
 sourceRsnapshotDir="${SOURCE_DIR}/${RSNAPSHOT_SOURCE_RELATIVE_PATH}"
 [[ ! -d "${sourceRsnapshotDir}" ]] && { error "Rsnapshot source directory does not exist: ${sourceRsnapshotDir}"; }
-rsnapshotDestDir="${MOUNT_DIR}/rsnapshot.$(date -d @$(stat --format=%Y "${sourceRsnapshotDir}") +%Y-%m-%d)"
+rsnapshotDestDir="${MOUNT_DIR}/rsnapshot.$(date -d "@$(stat --format=%Y "${sourceRsnapshotDir}")" +%Y-%m-%d)"
 header "Backup configuration:"
 echo "Source base directory:           ${SOURCE_DIR}"
 echo "Source rsnapshot directory:      ${sourceRsnapshotDir}"
