@@ -47,9 +47,8 @@ Installed to `/etc/cron.d/ansible-role-torrent` on the controller:
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml). Both remote-host overrides (rate limits, directories) and the
-controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (e.g. `host_vars/prime.yml`);
-the delegated tasks resolve plain variables from the play host, so a `localhost` host_vars file is never read.
+See [defaults/main.yml](./defaults/main.yml). Both the remote-host overrides (rate limits, directories) and the
+controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (e.g. `host_vars/prime.yml`).
 
 | Variable | Default | Description |
 | --- | --- | --- |
