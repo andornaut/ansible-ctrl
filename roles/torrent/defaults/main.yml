@@ -1,0 +1,34 @@
+---
+torrent_root_directory: "{{ torrent_user_home }}/torrents"
+torrent_completed_directory: "{{ torrent_root_directory }}/completed"
+torrent_incoming_directory: "{{ torrent_root_directory }}/incoming"
+# rtorrent.rc, rtorrent.service and mvt must agree on these, so derive them once.
+torrent_session_directory: "{{ torrent_root_directory }}/session"
+torrent_watch_directory: "{{ torrent_root_directory }}/watch"
+# A private tmux socket. On the default socket the service and the user share a server:
+# KillMode=mixed would kill the user's other sessions on stop, ExecStartPre could kill a
+# session they created, and `tmux new-session -A` from a shell would start a second
+# rtorrent outside the unit. Attach with `tmux -L rtorrent attach -t rtorrent`.
+torrent_tmux_socket: rtorrent
+# torrent_local_incoming_directory:
+torrent_local_synct_log_file: /tmp/synct.log
+# torrent_local_watch_directories: []
+# The account rtorrent runs as and whose home holds .rtorrent.rc. Defaults to primary_user
+# (inventory data) so it means the same however ansible is invoked. Override in host_vars
+# where the target is a different account. torrent_user_home is derived in vars/main.yml.
+torrent_user: "{{ primary_user }}"
+torrent_group: "{{ torrent_user }}"
+# Local user that owns the cron jobs installed via delegate_to: localhost.
+torrent_local_user: "{{ primary_user }}"
+torrent_download_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
+torrent_upload_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
+# Max memory rtorrent uses to map piece data. Kept well under prime's small RAM.
+torrent_pieces_memory_max: 128M
+# Random peer port, chosen per start. Above 1024 (no privileges) and below the kernel's
+# ephemeral range (net.ipv4.ip_local_port_range, 32768-60999) so it cannot collide with an
+# outgoing socket. Nothing forwards it, so it need not be stable.
+torrent_port_range: 20000-20999
+# DHT's UDP port, which rtorrent would otherwise leave on the well-known 6881. It takes a
+# single value, so use the top of the peer range: same band by construction, and UDP, so it
+# cannot collide with the TCP port.
+torrent_dht_port: "{{ torrent_port_range.split('-') | last }}"

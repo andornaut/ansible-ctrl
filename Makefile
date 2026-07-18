@@ -12,7 +12,7 @@ ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 	@:
 
 PLAYBOOKS := base desktop dev docker games hobbies homeautomation \
-             msmtp nas rsnapshot upgrade webservers
+             msmtp nas rsnapshot torrent upgrade webservers
 
 .DEFAULT_GOAL := help
 
@@ -35,6 +35,7 @@ help:
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
+	@echo "  torrent               - Configure rtorrent host and controller scripts"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
 	@echo ""

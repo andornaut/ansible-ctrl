@@ -74,3 +74,27 @@ jobs:
             ansible-playbook --syntax-check -i tests/inventory.ini "$pb" || status=1
           done
           exit $status
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # ShellCheck cannot parse Jinja2, so render the torrent role's templated
+      # scripts by replacing {{ ... }} expressions with a placeholder and
+      # stripping {% ... %} tags, then lint the rendered .sh files.
+      - name: Render templated scripts
+        run: |
+          mkdir -p .ci-shellcheck
+          for f in mvt synct unrart; do
+            sed -E \
+              -e 's/\{\{[^}]*\}\}/PLACEHOLDER/g' \
+              -e 's/\{%[^%]*%\}//g' \
+              "roles/torrent/templates/$f" > ".ci-shellcheck/$f.sh"
+          done
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: .ci-shellcheck

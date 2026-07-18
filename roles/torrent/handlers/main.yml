@@ -1,0 +1,8 @@
+---
+# daemon_reload is handled by the always-run "Enable and start" task in main.yml,
+# which runs before handlers fire, so it is not repeated here.
+- name: Restart rtorrent
+  ansible.builtin.systemd_service:
+    name: rtorrent.service
+    state: restarted
+  become: true
