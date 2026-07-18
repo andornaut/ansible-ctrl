@@ -51,10 +51,15 @@ so the target runs `dev.yml --tags ai_maintainer`.
 | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
 | [niri](roles/niri/README.md) | Niri Wayland compositor and Wayland utilities |
 | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
+| [torrent](roles/torrent/README.md) | rtorrent service on the remote host, plus torrent scripts and cron jobs on the controller |
 
 [desktop.yml](desktop.yml) applies the desktop role to the whole `desktop` group, then applies bspwm or niri
 according to each host's `desktop_environment`. [upgrade.yml](upgrade.yml) uses no role: it runs apt dist-upgrade
 and flatpak upgrade.
+
+[torrent.yml](torrent.yml) applies the torrent role to the `torrent` group (the remote rtorrent host) and, in the
+same run, delegates the `mvt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost):
+[roles/torrent/README.md](roles/torrent/README.md).
 
 ## Inventory
 

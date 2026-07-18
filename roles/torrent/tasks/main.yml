@@ -1,0 +1,73 @@
+---
+# torrent_user names the account this role acts on, so a wrong value acts on the wrong
+# account. It defaults to primary_user (inventory data); this assert is the backstop
+# against it resolving to root. tags: always so a --tags run cannot skip it.
+- name: Validate torrent_user
+  ansible.builtin.assert:
+    that:
+      - torrent_user != "root"
+    fail_msg: >-
+      torrent_user resolved to "root", which would write user-scoped state to /root.
+      Set primary_user in the inventory (or torrent_user in host_vars) to the target account.
+    success_msg: 'torrent_user "{{ torrent_user }}" is valid'
+  tags: always
+
+- name: Resolve home directory for {{ torrent_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ torrent_user }}"
+  tags: always
+
+- name: Install system packages # noqa package-latest
+  ansible.builtin.apt:
+    name:
+      - irssi
+      - rtorrent
+      - tmux
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ torrent_user }}"
+    group: "{{ torrent_group }}"
+    mode: "0755"
+  loop:
+    - "{{ torrent_completed_directory }}"
+    - "{{ torrent_incoming_directory }}"
+    - "{{ torrent_session_directory }}"
+    - "{{ torrent_watch_directory }}"
+  become: true
+
+- name: Copy .rtorrent.rc
+  ansible.builtin.template:
+    src: rtorrent.rc
+    dest: "{{ torrent_user_home }}/.rtorrent.rc"
+    owner: "{{ torrent_user }}"
+    group: "{{ torrent_group }}"
+    mode: "0600"
+  become: true
+  notify: Restart rtorrent
+
+- name: Copy rtorrent.service
+  ansible.builtin.template:
+    src: rtorrent.service
+    dest: /etc/systemd/system/
+    mode: "0644"
+  become: true
+  notify: Restart rtorrent
+
+- name: Enable and start rtorrent.service Systemd unit
+  ansible.builtin.systemd_service:
+    name: rtorrent.service
+    daemon_reload: true
+    enabled: true
+    state: started
+  become: true
+
+- name: Import localhost tasks
+  ansible.builtin.import_tasks: localhost.yml
+  when: inventory_hostname != "localhost"

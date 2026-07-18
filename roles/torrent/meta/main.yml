@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  author: andornaut
+  description: Provision an rtorrent instance on Ubuntu and install companion scripts on the controller
+  license: MIT
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+  galaxy_tags:
+    - rtorrent
+    - torrent
+    - bittorrent
+    - systemd
+    - ubuntu

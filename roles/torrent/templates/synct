@@ -1,0 +1,59 @@
+#!/bin/bash
+
+set -euo pipefail
+
+QUIET=false
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS] [DST_DIR]
+
+Rsync completed downloads from the remote host to the local
+incoming directory.
+
+Arguments:
+  DST_DIR       Local destination directory (default: {{ torrent_local_incoming_directory }})
+
+Options:
+  -h, --help    Show this help message and exit
+  -q, --quiet   Suppress output
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help) usage ;;
+        -q|--quiet) QUIET=true; shift ;;
+        *) break ;;
+    esac
+done
+
+error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
+info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
+ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+
+src_host="{{ hostvars[inventory_hostname].ansible_host }}"
+src_dir="{{ torrent_root_directory }}/completed/"
+dst_dir="${1:-{{ torrent_local_incoming_directory }}}"
+
+header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
+
+if [[ ! -d "${dst_dir}" ]]; then
+    error "${dst_dir} does not exist (or is not a directory)"
+fi
+
+if ! pgrep -f "rsync.*${src_host}.*${src_dir}" | grep -qv $$; then
+    info "Starting sync on $(date)"
+    rsync \
+        --compress \
+        --copy-links \
+        --human-readable \
+        --progress \
+        --recursive \
+        --times \
+        --verbose \
+        -e ssh "${src_host}:${src_dir}" "${dst_dir}"
+    ok "Completed sync on $(date)"
+fi

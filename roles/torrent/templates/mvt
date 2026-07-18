@@ -1,0 +1,60 @@
+#!/bin/bash
+
+set -euo pipefail
+
+QUIET=false
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Upload .torrent files from local watch directories to the remote
+host's watch directory via scp.
+
+Options:
+  -h, --help    Show this help message and exit
+  -q, --quiet   Suppress output
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help) usage ;;
+        -q|--quiet) QUIET=true; shift ;;
+        *) break ;;
+    esac
+done
+
+header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
+info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
+# shellcheck disable=SC2120  # ok() is intentionally called with no args (defaults to "OK")
+ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+
+upload_torrent_files() {
+    local src="${1}"
+    local dst="${2}"
+    # Under `set -e` a failing `cd` would abandon the remaining watch directories.
+    [[ -d "${src}" ]] || { info "Skipping ${src}: not a directory"; return 0; }
+    cd "${src}"
+    for f in *.torrent; do
+        [[ -f "${f}" ]] || continue
+        info "Copying ${f} to ${dst}"
+        local -a scp_opts=()
+        "${QUIET}" && scp_opts+=(-q)
+        scp "${scp_opts[@]}" "${f}" "${dst}" && rm "${f}"
+    done
+    cd - >/dev/null
+}
+
+header "Uploading .torrent files to remote watch directories"
+
+{% for host in ansible_play_batch -%}
+{% if host != "localhost" -%}
+{% for watch_dir in torrent_local_watch_directories -%}
+upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ torrent_watch_directory }}/"
+{% endfor -%}
+{% endif -%}
+{% endfor -%}
+
+ok

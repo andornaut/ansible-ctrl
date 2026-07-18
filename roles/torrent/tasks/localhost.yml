@@ -1,0 +1,37 @@
+---
+- name: Install templated scripts
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: "0755"
+  loop:
+    - mvt
+    - synct
+    - unrart
+  become: true
+  delegate_to: localhost
+
+- name: Set crontab mvt schedule
+  ansible.builtin.cron:
+    name: mvt
+    cron_file: /etc/cron.d/ansible-torrent
+    user: "{{ torrent_local_user }}"
+    minute: "*/2"
+    # mvt skips any watch directory that does not exist, so no test -d guard is needed here.
+    job: /usr/local/bin/mvt --quiet
+  become: true
+  delegate_to: localhost
+
+- name: Set crontab synct schedule
+  ansible.builtin.cron:
+    name: synct
+    cron_file: /etc/cron.d/ansible-torrent
+    user: "{{ torrent_local_user }}"
+    minute: "*/2"
+    # unrart runs after a successful sync: synct is the only writer to incoming/, and extraction is cheap.
+    job: >-
+      test -d "{{ torrent_local_incoming_directory }}"
+      && /usr/local/bin/synct --quiet >> {{ torrent_local_synct_log_file }} 2>&1
+      && /usr/local/bin/unrart --quiet >> {{ torrent_local_synct_log_file }} 2>&1
+  become: true
+  delegate_to: localhost

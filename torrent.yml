@@ -1,0 +1,5 @@
+---
+- name: Configure torrent host
+  hosts: torrent
+  roles:
+    - torrent

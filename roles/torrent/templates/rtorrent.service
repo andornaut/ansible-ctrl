@@ -1,0 +1,43 @@
+# https://wiki.archlinux.org/index.php/RTorrent#With_screen
+[Unit]
+Description=rTorrent
+# Implies After=, and unlike a named mount unit it follows torrent_root_directory.
+RequiresMountsFor={{ torrent_root_directory }}
+After=network.target
+
+[Service]
+Type=forking
+# rtorrent is the tmux server's child, so systemd cannot guess the main pid. ExecStart
+# writes it before returning, which is when systemd reads this file.
+PIDFile={{ torrent_session_directory }}/rtorrent.pid
+# SIGTERM goes to rtorrent alone, which saves its session and exits; the tmux server on the
+# private socket then has no sessions left and exits too. systemd waits for the whole
+# cgroup, bounded by TimeoutStopSec, so nothing outlives the unit and the mount is not
+# pulled out mid-write.
+KillMode=mixed
+User={{ torrent_user }}
+Group={{ torrent_group }}
+WorkingDirectory={{ torrent_root_directory }}
+
+# Must run first: new-session fails with "duplicate session" if one outlived its rtorrent.
+# No wait needed, because rtorrent refuses to open a session another process holds and
+# exits 255, so a start that races a dying instance fails safely and Restart= retries.
+ExecStartPre=-/usr/bin/tmux -L {{ torrent_tmux_socket }} kill-session -t rtorrent
+
+# Only now is a lock without an rtorrent stale. `pidof` avoids a $(...) systemd would not
+# substitute.
+ExecStartPre=-/bin/sh -c 'pidof rtorrent >/dev/null || rm -f {{ torrent_session_directory }}/rtorrent.lock'
+
+# The pane's process is rtorrent itself, so pane_pid is the pid systemd must supervise.
+# Writing it here rather than from rtorrent.rc means the file exists, and is current, by
+# the time ExecStart returns.
+ExecStart=/bin/sh -c '/usr/bin/tmux -L {{ torrent_tmux_socket }} new-session -DXds rtorrent -n rtorrent rtorrent && /usr/bin/tmux -L {{ torrent_tmux_socket }} list-panes -t rtorrent -F "#{pane_pid}" > {{ torrent_session_directory }}/rtorrent.pid'
+
+# Saving the session is slow with many torrents.
+TimeoutStopSec=60
+
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
