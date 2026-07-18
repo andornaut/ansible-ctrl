@@ -11,10 +11,20 @@
   become: true
   delegate_to: localhost
 
+# CLEANUP (added 2026-07-18): remove once every torrent-group host has run this role.
+# The cron file was renamed to ansible-role-torrent; drop the old name so its jobs
+# do not run alongside the new file's.
+- name: Remove the pre-rename cron file
+  ansible.builtin.file:
+    path: /etc/cron.d/ansible-torrent
+    state: absent
+  become: true
+  delegate_to: localhost
+
 - name: Set crontab mvt schedule
   ansible.builtin.cron:
     name: mvt
-    cron_file: /etc/cron.d/ansible-torrent
+    cron_file: /etc/cron.d/ansible-role-torrent
     user: "{{ torrent_local_user }}"
     minute: "*/2"
     # mvt skips any watch directory that does not exist, so no test -d guard is needed here.
@@ -25,7 +35,7 @@
 - name: Set crontab synct schedule
   ansible.builtin.cron:
     name: synct
-    cron_file: /etc/cron.d/ansible-torrent
+    cron_file: /etc/cron.d/ansible-role-torrent
     user: "{{ torrent_local_user }}"
     minute: "*/2"
     # unrart runs after a successful sync: synct is the only writer to incoming/, and extraction is cheap.
