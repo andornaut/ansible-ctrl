@@ -25,7 +25,7 @@ make dev -- --tags rust
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby) and [ruby-install](https://github.com/postmodern/ruby-install) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
-| [virtualbox](https://www.virtualbox.org/) | Virtualization platform with DKMS |
+| [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo (`dev_virtualbox_version`) |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
 The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, and are installed on every run.
