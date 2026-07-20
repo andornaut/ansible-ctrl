@@ -1,30 +1,45 @@
 ---
-- name: Accept virtualbox-ext-pack license
-  ansible.builtin.debconf:
-    name: virtualbox-ext-pack
-    question: virtualbox-ext-pack/license
-    value: "true"
-    vtype: select
-  become: true
-
-- name: Accept virtualbox-ext-pack license seen
-  ansible.builtin.debconf:
-    name: virtualbox-ext-pack
-    question: virtualbox-ext-pack/license
-    value: "true"
-    vtype: seen
-  become: true
-
-- name: Install Virtualbox packages
+# Ubuntu's virtualbox packages are stuck at 7.0.x, whose vboxdrv does not build
+# on kernel 6.19+: the x86 virtualization symbols it uses moved into a KVM-private
+# module namespace that out-of-tree modules cannot import. Oracle's own repo
+# carries 7.2.x, which builds. Its virtualbox-{{ version }} package Conflicts with
+# every Ubuntu virtualbox package, so those are purged first.
+- name: Remove the distribution virtualbox packages
   ansible.builtin.apt:
     name:
-      # virtualbox-dkms only declares Depends: dkms, so the headers it builds
-      # against have to be requested explicitly.
-      - "linux-headers-{{ ansible_facts['kernel'] }}"
       - virtualbox
       - virtualbox-dkms
       - virtualbox-ext-pack
       - virtualbox-guest-additions-iso
+      - virtualbox-qt
+    state: absent
+    purge: true
+  become: true
+
+- name: Add the Oracle VirtualBox GPG key
+  ansible.builtin.get_url:
+    url: https://www.virtualbox.org/download/oracle_vbox_2016.asc
+    dest: /etc/apt/trusted.gpg.d/oracle-virtualbox.asc
+    mode: "0644"
+  become: true
+
+- name: Add the Oracle VirtualBox repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb https://download.virtualbox.org/virtualbox/debian
+      {{ ansible_facts['distribution_release'] }} contrib
+    filename: oracle-virtualbox
+    state: present
+  become: true
+
+- name: Install VirtualBox
+  ansible.builtin.apt:
+    name:
+      # Oracle's package builds vboxdrv from /usr/share/virtualbox/src/vboxhost
+      # in its postinst rather than via DKMS, so it declares no headers
+      # dependency and they have to be requested explicitly.
+      - "linux-headers-{{ ansible_facts['kernel'] }}"
+      - "virtualbox-{{ dev_virtualbox_version }}"
     state: latest
     install_recommends: false
     update_cache: true
@@ -42,55 +57,25 @@
   become: true
   notify: Update initramfs
 
-# The virtualbox-dkms postinst builds vboxdrv once and never retries, so a kernel
-# upgrade that outpaces its headers leaves the module unregistered. Reconcile on
-# every run instead of relying on the postinst.
-- name: Reconcile the virtualbox DKMS module
+- name: Reconcile the virtualbox kernel modules
   become: true
   block:
-    - name: Find the virtualbox DKMS source tree
-      ansible.builtin.find:
-        paths: /usr/src
-        patterns: virtualbox-*
-        file_type: directory
-      register: dev_virtualbox_dkms_source
-
-    - name: Assert that the virtualbox DKMS source tree exists
-      ansible.builtin.assert:
-        that: dev_virtualbox_dkms_source.matched > 0
-        fail_msg: virtualbox-dkms is installed but /usr/src/virtualbox-* is missing
-
-    - name: Resolve the virtualbox DKMS version
-      ansible.builtin.set_fact:
-        dev_virtualbox_dkms_version: >-
-          {{ dev_virtualbox_dkms_source.files
-             | map(attribute='path') | map('basename')
-             | map('regex_replace', '^virtualbox-', '')
-             | community.general.version_sort | last }}
-
-    - name: Check whether virtualbox is registered with DKMS for the running kernel
-      ansible.builtin.command: dkms status virtualbox/{{ dev_virtualbox_dkms_version }} -k {{ ansible_facts['kernel'] }}
-      register: dev_virtualbox_dkms
+    # The postinst builds the modules once and never retries, so a kernel upgrade
+    # leaves vboxdrv unbuilt. vboxconfig rebuilds for the running kernel.
+    - name: Check whether vboxdrv is built for the running kernel
+      ansible.builtin.command: modinfo -k {{ ansible_facts['kernel'] }} vboxdrv
+      register: dev_virtualbox_modinfo
       changed_when: false
+      failed_when: false
 
-    - name: Add the virtualbox module to the DKMS tree
-      ansible.builtin.command:
-        cmd: dkms add -m virtualbox -v {{ dev_virtualbox_dkms_version }}
-      register: dev_virtualbox_dkms_add
-      # rc 3 means the module is already in the tree, but not yet built.
-      changed_when: dev_virtualbox_dkms_add.rc == 0
-      failed_when: dev_virtualbox_dkms_add.rc not in [0, 3]
-      when: "'installed' not in dev_virtualbox_dkms.stdout"
-
-    - name: Build and install virtualbox via DKMS
-      ansible.builtin.command:
-        cmd: dkms install -m virtualbox -v {{ dev_virtualbox_dkms_version }} -k {{ ansible_facts['kernel'] }}
-      when: "'installed' not in dev_virtualbox_dkms.stdout"
+    - name: Build the virtualbox kernel modules
+      ansible.builtin.command: /sbin/vboxconfig
+      when: dev_virtualbox_modinfo.rc != 0
       changed_when: true
 
-    # Secure Boot rejects a DKMS module signed with an untrusted MOK, and
-    # enrolling one needs an interactive reboot. Report that case (authoritative
-    # from modprobe's own error) instead of aborting; every other error is fatal.
+    # Secure Boot rejects a module signed with an untrusted MOK, and enrolling one
+    # needs an interactive reboot. Report that case (authoritative from modprobe's
+    # own error) instead of aborting; every other error is fatal.
     - name: Load the virtualbox kernel modules
       community.general.modprobe:
         name: "{{ item }}"
@@ -117,14 +102,100 @@
       ansible.builtin.debug:
         msg: >-
           Secure Boot rejected the virtualbox kernel modules, so VirtualBox will not
-          run. Enroll the DKMS signing key with `sudo mokutil --import
+          run. Enroll the signing key with `sudo mokutil --import
           /var/lib/shim-signed/mok/MOK.der`, then reboot and complete the enrollment
           from the MOK Manager screen.
       when: not dev_virtualbox_modules_loaded | bool
 
-    - name: Ensure virtualbox.service is enabled and running
+    - name: Ensure vboxdrv.service is enabled and running
       ansible.builtin.systemd_service:
-        name: virtualbox
+        name: vboxdrv
         state: started
         enabled: true
       when: dev_virtualbox_modules_loaded | bool
+
+# The extension pack is not in the deb: it is a separate download that must match
+# the installed VirtualBox version exactly.
+- name: Reconcile the VirtualBox extension pack
+  become: true
+  block:
+    - name: Resolve the installed VirtualBox version
+      ansible.builtin.command: VBoxManage --version
+      register: dev_virtualbox_version_output
+      changed_when: false
+
+    - name: Resolve the installed extension packs
+      ansible.builtin.command: VBoxManage list extpacks
+      register: dev_virtualbox_extpacks
+      changed_when: false
+
+    - name: Set the extension pack version
+      ansible.builtin.set_fact:
+        # VBoxManage reports "7.2.12r174389"; the extension pack is versioned
+        # without the revision suffix.
+        dev_virtualbox_extpack_version: >-
+          {{ dev_virtualbox_version_output.stdout | trim | regex_replace('r.*$', '') }}
+
+    # VBoxManage derives the pack name from the file name and rejects the install
+    # if it does not match the name in the pack's own XML, so keep it verbatim.
+    - name: Set the extension pack file name
+      ansible.builtin.set_fact:
+        dev_virtualbox_extpack_file: >-
+          Oracle_VirtualBox_Extension_Pack-{{ dev_virtualbox_extpack_version }}.vbox-extpack
+
+    - name: Install the extension pack
+      when: dev_virtualbox_extpack_version not in dev_virtualbox_extpacks.stdout
+      block:
+        - name: Create a temporary directory for the extension pack
+          ansible.builtin.tempfile:
+            state: directory
+          register: dev_virtualbox_extpack_tmp
+
+        - name: Download the extension pack
+          ansible.builtin.get_url:
+            url: >-
+              https://download.virtualbox.org/virtualbox/{{ dev_virtualbox_extpack_version }}/{{ dev_virtualbox_extpack_file }}
+            dest: "{{ dev_virtualbox_extpack_tmp.path }}/{{ dev_virtualbox_extpack_file }}"
+            mode: "0644"
+
+        # --accept-license takes the SHA-256 of the pack's own licence text, which
+        # can change between releases, so read it out of the pack rather than
+        # pinning it. The pack carries a bad header after its first entry, so tar
+        # needs --ignore-zeros to reach the licence and always exits 2 even when
+        # the extraction is good: verify by checksumming the file, not by rc.
+        # unarchive cannot pass --ignore-zeros, so tar is called directly.
+        - name: Extract the extension pack license # noqa: command-instead-of-module
+          ansible.builtin.command:
+            cmd: >-
+              tar -xz --ignore-zeros -f {{ dev_virtualbox_extpack_file }}
+              -C {{ dev_virtualbox_extpack_tmp.path }} ./ExtPack-license.txt
+            chdir: "{{ dev_virtualbox_extpack_tmp.path }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Resolve the extension pack license hash
+          ansible.builtin.stat:
+            path: "{{ dev_virtualbox_extpack_tmp.path }}/ExtPack-license.txt"
+            checksum_algorithm: sha256
+          register: dev_virtualbox_extpack_license
+
+        - name: Assert that the extension pack license was extracted
+          ansible.builtin.assert:
+            that: dev_virtualbox_extpack_license.stat.exists
+            fail_msg: ExtPack-license.txt is missing from the downloaded extension pack
+
+        - name: Install the extension pack
+          ansible.builtin.command:
+            cmd: >-
+              VBoxManage extpack install --replace
+              --accept-license={{ dev_virtualbox_extpack_license.stat.checksum }}
+              {{ dev_virtualbox_extpack_file }}
+            chdir: "{{ dev_virtualbox_extpack_tmp.path }}"
+          changed_when: true
+      always:
+        - name: Remove the temporary extension pack directory
+          ansible.builtin.file:
+            path: "{{ dev_virtualbox_extpack_tmp.path }}"
+            state: absent
+          when: dev_virtualbox_extpack_tmp.path is defined
+          become: true

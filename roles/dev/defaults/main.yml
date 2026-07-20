@@ -5,6 +5,8 @@ dev_user: "{{ primary_user }}"
 # Secure Boot refuses to load the DKMS modules unless the machine owner key is
 # enrolled, so enable this only on hosts meant to run VMs.
 dev_install_virtualbox: false
+# Oracle publishes one apt package per minor series (virtualbox-7.2).
+dev_virtualbox_version: "7.2"
 
 # ai-maintainer cron job (see README).
 dev_ai_maintainer_src_base_dir: "{{ dev_user_home }}/src/github.com/andornaut/ai-maintainer"
