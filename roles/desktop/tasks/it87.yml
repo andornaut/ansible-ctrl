@@ -43,16 +43,36 @@
         content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
         mode: "0644"
 
-    - name: Load it87 at boot
+    # CLEANUP (added 2026-07-20): remove once the desktop hosts that ran the
+    # modules-load.d version of this role have converged on the unit below.
+    - name: Remove the modules-load.d entry superseded by it87.service
+      ansible.builtin.file:
+        path: /etc/modules-load.d/it87.conf
+        state: absent
+
+    # Probing the chip at systemd-modules-load time fails with ENODEV, so the
+    # module is loaded later, before CoolerControl reads the hwmon, and retried.
+    - name: Install the it87 load unit
       ansible.builtin.copy:
-        dest: /etc/modules-load.d/it87.conf
+        dest: /etc/systemd/system/it87.service
         content: |
-          # ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards
-          # Out-of-tree DKMS module: https://github.com/frankcrawford/it87
-          it87
+          [Unit]
+          Description=Load the it87 Super I/O driver
+          After=sysinit.target
+          Before=coolercontrold.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/bin/sh -c 'for _ in 1 2 3 4 5 6; do modprobe it87 && exit 0; sleep 5; done; exit 1'
+
+          [Install]
+          WantedBy=multi-user.target
         mode: "0644"
 
-    - name: Load the it87 module now
-      community.general.modprobe:
-        name: it87
-        state: present
+    - name: Enable and start it87.service
+      ansible.builtin.systemd_service:
+        name: it87.service
+        daemon_reload: true
+        enabled: true
+        state: started
