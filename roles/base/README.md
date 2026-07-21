@@ -18,9 +18,14 @@ See [defaults/main.yml](./defaults/main.yml).
 | Variable | Purpose |
 | --- | --- |
 | `base_timezone` | System timezone |
-| `base_remap_capslock_to_escape` | Remap Caps Lock to Escape in `/etc/default/keyboard` |
 
 ## Notes
+
+- **Caps Lock remap.** Applied unconditionally on every host, in two places. `XKBOPTIONS="caps:escape"` in
+  `/etc/default/keyboard` covers the console and X11/Wayland sessions; GNOME builds its XKB config from dconf
+  and ignores that file, so the same option is also written as a system-wide dconf default in
+  `/etc/dconf/db/local.d/`. The key is not locked, so a user who sets it in their own dconf database still
+  overrides it.
 
 - **Package purge and pin.** snap, cloud-init, and telemetry/crash-reporting are purged, then negatively pinned
   via `/etc/apt/preferences.d/no-<name>` ([tasks/purge-and-pin.yml](./tasks/purge-and-pin.yml)). A negative pin is
