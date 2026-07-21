@@ -14,6 +14,11 @@
   changed_when: false
   become: true
 
+- name: Update dconf database
+  ansible.builtin.command: dconf update
+  changed_when: false
+  become: true
+
 - name: Restart systemd-journald
   ansible.builtin.systemd_service:
     name: systemd-journald
