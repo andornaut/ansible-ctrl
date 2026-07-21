@@ -37,6 +37,8 @@
       - cmake
       - coreutils
       - curl
+      # `dconf update` compiles /etc/dconf/db/local.d into the system database.
+      - dconf-cli
       - dnsutils
       - elinks
       - exfat-fuse
@@ -75,6 +77,7 @@
       - software-properties-common
       - sox
       - ssh
+      - sshfs
       - sysstat
       - tmux
       - tree
@@ -145,7 +148,29 @@
     mode: "0644"
   become: true
   notify: Apply keyboard changes
-  when: base_remap_capslock_to_escape
+
+# GNOME builds its XKB config from dconf and never reads /etc/default/keyboard, so the remap has
+# to be repeated as a system-wide dconf default. Without a profile naming the local database,
+# db/local.d is not in the lookup path and is never read.
+- name: Re-map capslock key to escape key in GNOME sessions
+  become: true
+  notify: Update dconf database
+  block:
+    - name: Add the local database to the default dconf profile
+      ansible.builtin.copy:
+        dest: /etc/dconf/profile/user
+        content: |
+          user-db:user
+          system-db:local
+        mode: "0644"
+
+    - name: Set the GNOME xkb options
+      ansible.builtin.copy:
+        dest: /etc/dconf/db/local.d/00-keyboard
+        content: |
+          [org/gnome/desktop/input-sources]
+          xkb-options=['caps:escape']
+        mode: "0644"
 
 - name: Install cache-command
   ansible.builtin.get_url:
