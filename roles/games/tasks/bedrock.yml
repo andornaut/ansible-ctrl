@@ -63,22 +63,35 @@
         state: absent
       when: games_bedrock_tmp.path is defined
 
-# A desktop entry that runs `bedrock-on-linux play`, launching Minecraft directly instead of the
-# launcher GUI the flatpak's own entry opens. It reuses the flatpak-exported icon by name (the
-# exports are on the user's XDG_DATA_DIRS). `play` still requires the one-time setup (download a
-# Minecraft version) and Microsoft login done through the GUI; without them it exits with BOL's
-# own message rather than failing silently.
-- name: Install a direct-launch Minecraft (Bedrock) desktop entry
+# A launch script plus a desktop entry that runs it, launching Minecraft directly instead of the
+# launcher GUI the flatpak's own entry opens. The script focuses an existing window if the game is
+# already running, otherwise runs `login` then `play`. login/play still require the one-time setup
+# (download a Minecraft version) and Microsoft sign-in through the GUI; without them BOL exits with
+# its own message rather than failing silently. The desktop entry reuses the flatpak-exported icon
+# by name (the exports are on the user's XDG_DATA_DIRS).
+- name: Install the direct-launch Minecraft (Bedrock) script and desktop entry
   block:
+    - name: Create the user bin directory
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Copy the Minecraft (Bedrock) launch script
+      ansible.builtin.copy:
+        src: minecraft-bedrock-launch.sh
+        dest: "{{ games_user_home }}/.local/bin/minecraft-bedrock-launch.sh"
+        mode: "0755"
+
     - name: Create the user applications directory
       ansible.builtin.file:
         path: "{{ games_user_home }}/.local/share/applications"
         state: directory
         mode: "0755"
 
-    - name: Copy the Minecraft (Bedrock) desktop entry
-      ansible.builtin.copy:
-        src: minecraft-bedrock.desktop
+    - name: Install the Minecraft (Bedrock) desktop entry
+      ansible.builtin.template:
+        src: minecraft-bedrock.desktop.j2
         dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
         mode: "0644"
 
