@@ -156,6 +156,15 @@
   become: true
   notify: Update dconf database
   block:
+    - name: Create the dconf profile and database directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/dconf/profile
+        - /etc/dconf/db/local.d
+
     - name: Add the local database to the default dconf profile
       ansible.builtin.copy:
         dest: /etc/dconf/profile/user
