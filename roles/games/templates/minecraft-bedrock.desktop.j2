@@ -3,7 +3,7 @@ Type=Application
 Name=Minecraft Bedrock
 GenericName=Minecraft Bedrock
 Comment=Launch Minecraft Bedrock directly, skipping the BedrockOnLinux launcher
-Exec=/usr/bin/flatpak run --branch=master --arch=x86_64 --command=bedrock-on-linux io.github.wyze3306.BedrockOnLinux play
+Exec={{ games_user_home }}/.local/bin/minecraft-bedrock-launch.sh
 Icon=io.github.wyze3306.BedrockOnLinux
 Terminal=false
 Categories=Game;ActionGame;
