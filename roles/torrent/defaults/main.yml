@@ -22,8 +22,12 @@ torrent_group: "{{ torrent_user }}"
 torrent_local_user: "{{ primary_user }}"
 torrent_download_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
 torrent_upload_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
-# Max memory rtorrent uses to map piece data. Kept well under prime's small RAM.
-torrent_pieces_memory_max: 128M
+# Address space rtorrent maps piece data into, and the value rtorrent's stock rtorrent.rc
+# ships. This is file-backed page cache the kernel reclaims under pressure, not anonymous
+# memory, so on 64-bit it does not have to fit in physical RAM. Do not size it to the host's
+# RAM: libtorrent >= 0.16 rejects anything below 512M outright ("memory limit too low"), and
+# its compiled-in default on 64-bit is 32768M.
+torrent_pieces_memory_max: 1800M
 # Random peer port, chosen per start. Above 1024 (no privileges) and below the kernel's
 # ephemeral range (net.ipv4.ip_local_port_range, 32768-60999) so it cannot collide with an
 # outgoing socket. Nothing forwards it, so it need not be stable.
