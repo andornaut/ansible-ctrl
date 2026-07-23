@@ -122,6 +122,18 @@ games_retroarch_systems:
   Atari - Lynx:
     core: mednafen_lynx
     extensions: [lnx, lyx]
+  # FinalBurn Neo's arcade romsets other than the Neo Geo ones, in a single directory: an arcade set
+  # spans manufacturers, so there is no "Manufacturer - System Name" to name it after. The name is
+  # the playlist the libretro thumbnail repository publishes, and art is resolved by playlist name,
+  # so any other spelling fetches nothing. zip on a block_extract core is accepted for the same
+  # reason as SNK - Neo Geo: fbneo lists zip among its own extensions and opens the romset itself.
+  # fbneo is in games_retroarch_arcade_name_cores, so the label comes from the romset name map
+  # (dino.zip on disk reads "Cadillacs and Dinosaurs" in the playlist). No BIOS beyond the set
+  # already installed: a CPS3 romset carries its own BIOS ROM, and neogeo.zip covers the Neo Geo
+  # hardware fbneo also drives.
+  FBNeo - Arcade Games:
+    core: fbneo
+    extensions: [zip]
   # Beetle PCE, not the Fast variant: Fast is Mednafen's deliberately low-accuracy PCE module and
   # has no SuperGrafx support. The full core covers HuCard, CD and SuperGrafx.
   NEC - PC Engine - TurboGrafx 16:
@@ -194,9 +206,10 @@ games_retroarch_systems:
   # FinalBurn Neo runs the Neo Geo arcade romsets: MAME/FBNeo-format .zip files named by short arcade
   # ID (mslug.zip). fbneo sets block_extract and is handed the .zip whole, which it opens itself (the
   # romset is many files in one archive); the playlist generator allows this because fbneo lists .zip
-  # among its own extensions. They diverge from the library's No-Intro naming, so the playlist label
-  # reads "mslug" and the No-Intro-keyed thumbnail fetcher cannot match, leaving box art to be
-  # supplied by hand (README's Thumbnails). The BIOS is neogeo.zip, in the BIOS set's fbneo/ subdir.
+  # among its own extensions. The filenames diverge from the library's No-Intro naming, which is what
+  # games_retroarch_arcade_name_cores is for: fbneo is in it, so the label is the mapped arcade title
+  # ("Metal Slug - Super Vehicle-001", not "mslug"), and that label is what the thumbnail fetcher
+  # resolves against. The BIOS is neogeo.zip, in the BIOS set's fbneo/ subdir.
   SNK - Neo Geo:
     core: fbneo
     extensions: [zip]
@@ -207,6 +220,13 @@ games_retroarch_systems:
   SNK - Neo Geo CD:
     core: neocd
     extensions: [chd]
+  # Beetle NeoPop drives both the mono Neo Geo Pocket and the Color, and the library carries only
+  # Color, so this is one system rather than two. zip like the other cartridge systems: the core
+  # does not set block_extract, so RetroArch unpacks the archive and hands it the .ngc inside. No
+  # BIOS.
+  SNK - Neo Geo Pocket Color:
+    core: mednafen_ngp
+    extensions: [zip]
   Sony - PlayStation:
     core: mednafen_psx_hw
     extensions: [chd, m3u]
