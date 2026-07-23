@@ -59,11 +59,12 @@ systems_set:
     core: yabasanshiro
     extensions: [chd, m3u]
 
-# Both Neo Geo systems carry over from the desktop table and run on the Flip 2: arcade (fbneo, .zip
-# MAME romsets) and Neo Geo CD (neocd, .chd). Each needs a core_probe entry plus rom_dir_names /
-# esde_cores mappings below, or the sync aborts with "core_probe is missing an entry". fbneo romsets
-# use short MAME names, unlike the No-Intro console library, and its neogeo.zip BIOS rides in the
-# BIOS set already pushed to the device; the fbneo core must be installed on the device (Core Updater).
+# The four SNK/arcade systems carry over from the desktop table and all run on the Flip 2: Neo Geo
+# (fbneo) and FBNeo - Arcade Games (fbneo, the same core on the non-Neo-Geo romsets), Neo Geo CD
+# (neocd, .chd) and Neo Geo Pocket Color (mednafen_ngp). Each needs a core_probe entry plus
+# rom_dir_names / esde_cores mappings below, or the sync aborts with "core_probe is missing an entry".
+# fbneo romsets use short MAME names, unlike the No-Intro console library, and its neogeo.zip BIOS rides
+# in the BIOS set already pushed to the device; both cores must be installed on the device (Core Updater).
 
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
@@ -165,6 +166,9 @@ directory_settings:
 # RetroArch table; the generator only looks up systems in its own table, so they are inert for playlists.
 rom_dir_names:
   Atari - 2600: atari2600
+  # ES-DE's fbneo system, not its arcade one: arcade offers a dozen MAME emulators and assumes a MAME
+  # romset, while fbneo's only emulator is FinalBurn Neo, which is the romset version this library holds.
+  FBNeo - Arcade Games: fbneo
   Atari - 7800: atari7800
   Atari - Jaguar: atarijaguar
   Atari - Lynx: atarilynx
@@ -188,6 +192,9 @@ rom_dir_names:
   Sega - Saturn: saturn
   SNK - Neo Geo: neogeo
   SNK - Neo Geo CD: neogeocd
+  # ES-DE keeps the mono Neo Geo Pocket (ngp) and the Color (ngpc) as separate systems; the library
+  # carries only Color, and Beetle NeoPop drives both.
+  SNK - Neo Geo Pocket Color: ngpc
   Sony - PlayStation: psx
   Sony - PlayStation 2: ps2
   Sony - PlayStation Portable: psp
@@ -200,6 +207,7 @@ rom_dir_names:
 # Pico-8 runtime is installed is not knowable here, so ES-DE's default stands.
 esde_cores:
   atari2600: Stella
+  fbneo: FinalBurn Neo
   atari7800: ProSystem
   atarijaguar: Virtual Jaguar
   atarilynx: Beetle Lynx
@@ -222,6 +230,7 @@ esde_cores:
   saturn: YabaSanshiro
   neogeo: FinalBurn Neo
   neogeocd: NeoCD
+  ngpc: Beetle NeoPop
   psx: Beetle PSX HW
   # This label is not in ES-DE's bundle: it comes from the GlazedBelmont custom_systems, whose
   # es_find_rules.xml AETHERSX2-TURNIP entry must target the installed package (xyz.aethersx2.tturnip,
@@ -345,6 +354,10 @@ core_probe:
   neocd:
     library_name: NeoCD
     valid_extensions: [cue, chd]
+    block_extract: false
+  mednafen_ngp:
+    library_name: Beetle NeoPop
+    valid_extensions: [ngp, ngc, ngpc, npc, zip]
     block_extract: false
   mednafen_psx_hw:
     library_name: Beetle PSX HW
