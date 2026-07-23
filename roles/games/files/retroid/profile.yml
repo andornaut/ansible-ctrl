@@ -28,6 +28,10 @@ device_dirs:
   saves: "{sdcard_root}/RETROARCH/saves"
   states: "{sdcard_root}/RETROARCH/states"
   cache: "{sdcard_root}/RETROARCH/cache"
+  # RetroArch's own shader dir is app-private (/data/user/0/{package}/shaders), which adb cannot write.
+  # Shaders are plain text and PNGs, so noexec does not apply to them the way it does to cores: moving
+  # the dir to the sdcard is what lets the sync push a preset at all.
+  shaders: "{sdcard_root}/RETROARCH/shaders"
   roms: "{sdcard_root}/ROMS"
 
 # App-private cores dir: the one exec-capable location RetroArch can dlopen from (noexec elsewhere).
@@ -68,9 +72,14 @@ systems_set:
 
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
-# Android drivers replace the desktop-Linux ones. video gl (GLES; glcore is not an Android driver),
-# audio audiotrack, input/joypad android. menu ozone kept from the base. Per-core vulkan still
-# applies to Flycast and Beetle PSX HW (Adreno Vulkan is fine); dropped for N64 below.
+# Android drivers replace the desktop-Linux ones. video vulkan, audio audiotrack, input/joypad
+# android. menu ozone kept from the base.
+#
+# vulkan rather than the desktop's glcore, which is not compiled into the Android build (only gl and
+# vulkan are): slang shaders load under neither gl nor GLES, so vulkan is the only driver here that can
+# run the CRT preset in the shaders section below. Adreno Vulkan is sound, and Flycast and Beetle PSX HW
+# already ran on it. The two cores whose renderer cannot follow are pinned back to gl in
+# core_overrides_set.
 #
 # rewind_buffer_size drops to 64MB: the desktop's 256MB was sized for a desktop, and the 865 is a
 # handheld.
@@ -84,7 +93,7 @@ systems_set:
 # fastforward_ratio 5x caps fast-forward; the device shipped 0 (uncapped), which can run games far
 # past a usable speed. 0 restores uncapped if preferred.
 settings_override:
-  video_driver: gl
+  video_driver: vulkan
   audio_driver: audiotrack
   audio_latency: "64"
   input_driver: android
@@ -104,6 +113,12 @@ settings_override:
   # frame (it needs video_threaded off, which the base pins). Complements the per-core preemptive
   # frames; it is an Android-side latency tweak the desktop does not set.
   video_frame_delay_auto: "true"
+  # The two keys the per-core shader presets hang off: video_shader_enable is RetroArch's master shader
+  # toggle (off, and no preset loads at all; the device ships it off), and auto_shaders_enable is what
+  # makes it read config/<library_name>/<library_name>.slangp on core load. Both are pinned because the
+  # whole scheme in the shaders section below is silently inert if either is off.
+  video_shader_enable: "true"
+  auto_shaders_enable: "true"
 
 # Base keys not managed on the device, removed from its retroarch.cfg if present. The mouse, lightgun
 # and menu-mouse keys read a pointer the handheld has no equivalent for; windowed_fullscreen is a
@@ -156,6 +171,7 @@ directory_settings:
   savefile_directory: saves
   savestate_directory: states
   cache_directory: cache
+  video_shader_dir: shaders
   rgui_browser_directory: roms
 
 # Maps each library system (No-Intro directory name) to the device's ES-DE short name. Used two ways:
@@ -257,15 +273,52 @@ controller:
   input_rewind_btn: "106"
   input_hold_fast_forward_btn: "107"
 
+# --- Shaders ---
+
+# CRT Geom Deluxe: the geom-family CRT preset that adds halation, phosphor persistence, raster bloom and
+# real mask textures to the curvature and scanline model plain crt-geom already has. It ships only as a
+# slang preset (there is no GLSL port), which is what settles the video driver above.
+#
+# sync.py extracts the preset's file closure from the libretro pack (the same pack RetroArch's "Update
+# Slang Shaders" installs) into device_dirs.shaders, then writes a per-core auto preset for every core
+# the vulkan driver applies to. The pack carries ~5500 files and each one is a separate adb push, so only
+# the dozen the preset actually opens are pushed; installing the rest in-app afterwards is additive and
+# the sync will not prune it.
+#
+# params override the shader's own defaults, keyed by the #pragma parameter names in
+# crt/shaders/geom-deluxe/geom-deluxe-params.inc, and are appended to each generated preset. Masks come
+# out dim at 1080p on a handheld panel, so aperture_brightboost is the first knob to reach for; setting
+# halation and phosphor_amplitude to 0 turns off the expensive passes if the 865 cannot hold 60fps,
+# leaving roughly plain crt-geom with real masks.
+shaders:
+  zip_url: "https://buildbot.libretro.com/assets/frontend/shaders_slang.zip"
+  preset: crt/crt-geom-deluxe.slangp
+  params: {}
+
 # --- Per-core override transforms (over games_retroarch_core_overrides) ---
 
-# Dolphin and PCSX2 go with their systems. Mupen64Plus-Next loses its vulkan override: the desktop
-# set it for ParaLLEl-RDP, which no Adreno driver can run (needs VK_KHR_8bit_storage), so the Flip 2
-# stays on GLideN64 HLE and the OpenGL/GLES path.
+# Dolphin and PCSX2 go with their systems.
 core_overrides_remove:
   - dolphin
   - pcsx2
-  - mupen64plus_next
+
+# The two cores the global vulkan driver has to be taken back off, both hardware renderers whose
+# libretro build follows the frontend's driver. They get no shader preset as a consequence: slang needs
+# vulkan, so N64 and PSP are the two systems here that cannot have one.
+core_overrides_set:
+  # The desktop sets vulkan for ParaLLEl-RDP, which no Adreno driver can run (needs VK_KHR_8bit_storage),
+  # so the Flip 2 stays on GLideN64 HLE, an OpenGL/GLES renderer. Under the vulkan driver it does not
+  # merely lose the shader: it fails to load content at all (black screen or crash, still reported on
+  # current Adreno hardware). Pinned rather than left to driver_switch_enable, which switches the driver
+  # after the core is instantiated and is itself a crash trigger here.
+  mupen64plus_next:
+    video_driver: gl
+  # PPSSPP's own docs recommend Vulkan, and that holds for the standalone app, but the libretro core's
+  # Vulkan path on Android has a long unbroken run of crash reports (context-destroy crashes on load,
+  # wrong screen rotation, regressions on core updates). gl is what it runs on today and is the only
+  # thing verified here, so PSP keeps it and forgoes the shader.
+  ppsspp:
+    video_driver: gl
 
 # --- Per-core option transforms (over games_retroarch_core_options) ---
 
