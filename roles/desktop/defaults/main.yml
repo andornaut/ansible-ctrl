@@ -39,6 +39,10 @@ desktop_screen_off_minutes: 60
 # What the xsecurelock password field echoes on a bspwm session: "asterisks" (length visible),
 # "cursor", "time" or "disco". The rest of the prompt is left at xsecurelock's defaults.
 desktop_xsecurelock_password_prompt: asterisks
+# Background colour of the xsecurelock password prompt, as an X11 colour name or hex ("#RRGGBB").
+# Empty leaves xsecurelock's default (black). Only the active prompt is tinted; the idle-blank
+# and DPMS-off screens stay black.
+desktop_xsecurelock_background_color: ""
 
 # Idle suspend, in minutes. Unset (the default) leaves the host's suspend policy alone; 0
 # disables idle suspend; N suspends after N minutes. Locking is separate: the screen still locks
