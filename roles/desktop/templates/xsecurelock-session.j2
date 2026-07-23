@@ -24,6 +24,12 @@ XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
 XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
 XSECURELOCK_AUTH_SOUNDS=0
+{% if desktop_xsecurelock_background_color %}
+# Background colour of the password prompt. Only the active prompt is tinted; the idle-blank and
+# DPMS-off screens stay black. Unset (empty var) leaves xsecurelock's default.
+XSECURELOCK_BACKGROUND_COLOR='{{ desktop_xsecurelock_background_color }}'
+export XSECURELOCK_BACKGROUND_COLOR
+{% endif %}
 # xsecurelock cannot lock while another window holds the keyboard/pointer grab (a fullscreen
 # game, an open menu); without this it exits and the session stays unlocked silently. Forcing
 # the grab unmaps the offending client windows, locks, and remaps them (1 = client windows
