@@ -6,14 +6,22 @@
 # version is not already present. Install the launcher only: game files and Microsoft sign-in
 # are interactive per-user steps. The bundle's finish-args grant the access it needs to run.
 # Runtime resolution relies on the flathub remote added for games_user in flatpak.yml.
-- name: Resolve the latest BedrockOnLinux release
+# The repo also publishes the engine components it bundles (engine-*, vkd3d-*, winegdk-*, xcurl-*)
+# as full releases, so /releases/latest resolves to whichever of those was published most recently
+# rather than to an app version. List releases (newest first) and take the first vN.N.N tag.
+- name: Resolve the BedrockOnLinux releases
   ansible.builtin.uri:
-    url: https://api.github.com/repos/Wyze3306/BedrockOnLinux/releases/latest
-  register: games_bedrock_release
+    url: https://api.github.com/repos/Wyze3306/BedrockOnLinux/releases?per_page=100
+  register: games_bedrock_releases
 
 - name: Determine the latest BedrockOnLinux version
   ansible.builtin.set_fact:
-    games_bedrock_version: "{{ games_bedrock_release.json.tag_name | regex_replace('^v', '') }}"
+    games_bedrock_tag: "{{ games_bedrock_releases.json | rejectattr('draft') | rejectattr('prerelease')
+      | map(attribute='tag_name') | select('match', '^v[0-9]+[.][0-9]+[.][0-9]+$') | first }}"
+
+- name: Determine the latest BedrockOnLinux version number
+  ansible.builtin.set_fact:
+    games_bedrock_version: "{{ games_bedrock_tag | regex_replace('^v', '') }}"
 
 - name: Check whether the latest BedrockOnLinux version is installed
   ansible.builtin.shell:
@@ -30,7 +38,7 @@
 - name: Install the latest BedrockOnLinux from the release bundle
   when: games_bedrock_installed.rc != 0
   vars:
-    games_bedrock_release_base: "https://github.com/Wyze3306/BedrockOnLinux/releases/download/{{ games_bedrock_release.json.tag_name }}"
+    games_bedrock_release_base: "https://github.com/Wyze3306/BedrockOnLinux/releases/download/{{ games_bedrock_tag }}"
     games_bedrock_bundle_name: "BedrockOnLinux-{{ games_bedrock_version }}-x86_64.flatpak"
   block:
     - name: Create a temporary directory for the BedrockOnLinux bundle
