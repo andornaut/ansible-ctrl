@@ -18,6 +18,10 @@ applies the Android divergences in [`profile.yml`](profile.yml).
 - **Per-core overrides/options** - `config/<library_name>/<name>.cfg` and `.opt`, with the Android
   diffs (N64 on GLideN64 HLE, Beetle PSX HW on Vulkan at 2x).
 - **BIOS** - additive push from the library (only files missing or a different size; no deletes).
+- **Shaders** - the preset in `profile.yml`'s `shaders` block (CRT Geom Deluxe) and the files it needs,
+  extracted from the libretro slang pack and pushed additively (skip with `--skip-shaders`), plus a
+  per-core `config/<library_name>/<library_name>.slangp` for every core that can load it. See
+  [Shaders](#shaders).
 - **ES-DE emulators** - pins each system's `<alternativeEmulator>` to the core the role prefers
   (`profile.yml` `esde_cores`), so ES-DE launches our core rather than its default.
 - **Thumbnails** - mirrors RetroArch's cache (skip with `--skip-thumbnails`): deletes device thumbnails
@@ -64,6 +68,7 @@ Flag | Description
 `--serial <id>` | pick a device when several are attached
 `--skip-bios` | do not push the BIOS set
 `--skip-roms` | do not push ROMs
+`--skip-shaders` | do not fetch or push the shader files (the per-core presets are still written)
 `--skip-thumbnails` | do not mirror RetroArch's thumbnail cache
 
 ## Verify on the device (once)
@@ -100,6 +105,39 @@ Copy the four values into `profile.yml`'s `controller` block and re-run.
 The panel refresh rate (`video_refresh_rate`, `60.000000`) is already correct for the Flip 2's single
 60Hz mode. Re-derive it from "Settings > Video > Output > Estimated Screen Framerate" only for different
 hardware; RetroArch derives its audio resampling ratio from it, so a mismatch is heard as drift.
+
+## Shaders
+
+The preset is CRT Geom Deluxe, which adds halation, phosphor persistence, raster bloom and real mask
+textures to the curvature and scanlines plain `crt-geom` already has. It exists only as a slang preset,
+and that decides the video driver: the Android build ships `gl` and `vulkan` only (no `glcore`), `gl`
+loads GLSL, so **vulkan is the global driver here** and the cores whose renderer cannot follow are pinned
+back to `gl` in `profile.yml`'s `core_overrides_set`.
+
+Those pinned cores get no shader, because a slang preset under `gl` is only a load error:
+
+Core | Driver | Why
+--- | --- | ---
+Mupen64Plus-Next | `gl` | GLideN64 is an OpenGL renderer and fails to load content at all under vulkan. ParaLLEl-RDP is the Vulkan path and no Adreno driver can run it.
+PPSSPP | `gl` | The libretro core's Vulkan path on Android has a long run of crash reports. `gl` is what it runs on today.
+
+Everything else, including Flycast and Beetle PSX HW (already on vulkan), gets
+`config/<library_name>/<library_name>.slangp`: a one-line `#reference` to the pushed preset, so the pack
+keeps its relative paths.
+
+`sync.py` owns those preset files, so tune the shader in `profile.yml`'s `shaders.params` rather than by
+saving parameters in RetroArch, which the next sync overwrites. Keys are the `#pragma parameter` names in
+`crt/shaders/geom-deluxe/geom-deluxe-params.inc`:
+
+```yaml
+shaders:
+  params:
+    aperture_brightboost: "0.6"   # masks are dim at 1080p on a handheld panel
+    halation: "0"                 # with phosphor_amplitude 0, drops the expensive passes
+```
+
+The push is additive and only carries the files the preset opens (11 of the pack's ~5500), so installing
+the full pack later with Online Updater > Update Slang Shaders is not pruned back out.
 
 ## Gotchas
 

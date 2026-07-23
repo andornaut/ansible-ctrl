@@ -23,6 +23,10 @@ What it owns, mirroring the role's ownership semantics:
     inside the device ROM dir, for a system no longer in the table) removed. Hand-built playlists are
     left alone.
   * BIOS: additive push from the library (only files missing or a different size on the device), no deletes.
+  * shaders (--skip-shaders to skip the push): the configured preset's file closure (its passes, whatever
+    those include, its mask textures) extracted from the libretro slang pack and pushed additively, plus a
+    per-core auto preset for every core whose effective video driver can load slang. A core pinned back to
+    the gl driver gets none, since gl loads GLSL only and a slang preset there is just a load error.
   * thumbnails: mirrored from the library, on by default (--skip-thumbnails to skip): device thumbnails
     the library dropped are deleted and only files missing or a different size are pushed. The frontend
     here is ES-DE, which scrapes its own media; RetroArch's thumbnail cache is seen only when browsing
@@ -49,6 +53,7 @@ The device library_names and the pad indices are the two things this cannot deri
 import argparse
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -387,6 +392,133 @@ def io_bytes(data):
     return io.BytesIO(data)
 
 
+# --------------------------------------------------------------------------- shaders
+
+
+# Video drivers that load slang presets. Android's build has gl and vulkan only, and gl loads GLSL, so
+# vulkan is the sole slang-capable driver here; glcore is listed because the role's desktop global is
+# glcore and this predicate reads the same settings.
+SLANG_DRIVERS = {"vulkan", "glcore"}
+# The shader-pack files worth parsing for further references. Everything else a preset names (its mask
+# textures) is copied as-is.
+PARSEABLE_SHADERS = (".slangp", ".slang", ".inc", ".h")
+SHADER_PASS = re.compile(r"^shader\d+$")
+# #include pulls in source, #reference chains one preset onto another; both name a file the device needs.
+SHADER_DIRECTIVE = re.compile(r'^\s*#(?:include|reference)\s+"([^"]+)"')
+
+
+def preset_refs(text):
+    """The files a .slangp names: each shaderN pass, each declared texture, and any #reference target."""
+    refs = []
+    pairs = {}
+    for line in text.splitlines():
+        directive = SHADER_DIRECTIVE.match(line)
+        if directive:
+            refs.append(directive.group(1))
+            continue
+        match = CFG_LINE.match(line)
+        if match:
+            pairs[match.group(1)] = match.group(2).strip().strip('"')
+    refs.extend(value for key, value in pairs.items() if SHADER_PASS.match(key))
+    # textures = "aperture;slot;delta", each name then keyed to its own path.
+    for name in (pairs.get("textures") or "").split(";"):
+        if name.strip() in pairs:
+            refs.append(pairs[name.strip()])
+    return refs
+
+
+def include_refs(text):
+    """The files a .slang/.inc/.h #includes."""
+    return [match.group(1) for match in
+            (SHADER_DIRECTIVE.match(line) for line in text.splitlines()) if match]
+
+
+def resolve_preset(archive, preset):
+    """Every path in the shader pack that preset needs, resolved as RetroArch resolves them.
+
+    A preset's passes and textures are relative to the preset, and each source file's #includes are
+    relative to that file, so the walk carries the referring file's directory rather than a single root.
+    Missing references fail here rather than on the device, where a preset with a dangling pass silently
+    falls back to no shader at all.
+    """
+    members = set(archive.namelist())
+    needed = set()
+    queue = [(preset, "profile.yml")]
+    while queue:
+        path, referrer = queue.pop()
+        if path in needed:
+            continue
+        if path not in members:
+            sys.exit("the shader pack has no %s (referenced by %s)" % (path, referrer))
+        needed.add(path)
+        if not path.endswith(PARSEABLE_SHADERS):
+            continue
+        text = archive.read(path).decode("utf-8", "replace")
+        refs = preset_refs(text) if path.endswith(".slangp") else include_refs(text)
+        base = posixpath.dirname(path)
+        queue.extend((posixpath.normpath(posixpath.join(base, ref)), path) for ref in refs)
+    return needed
+
+
+def fetch_shaders(shaders, shader_dir):
+    """Extract the configured preset's file closure from the libretro slang pack into shader_dir.
+
+    The pack is the one RetroArch's "Update Slang Shaders" installs and carries ~5500 files. Only the
+    preset's closure is taken, because every file crosses to the device as its own `adb push`: the whole
+    pack is a several-minute transfer of shaders nothing here selects. Installing the rest in-app later is
+    additive, and the push (like BIOS) never prunes, so it survives the next sync.
+    """
+    url = shaders["zip_url"]
+    print("  fetch %s" % url)
+    with urllib.request.urlopen(url, timeout=300) as response:
+        data = response.read()
+    with zipfile.ZipFile(io_bytes(data)) as archive:
+        for path in sorted(resolve_preset(archive, shaders["preset"])):
+            target = os.path.join(shader_dir, *path.split("/"))
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "wb") as handle:
+                handle.write(archive.read(path))
+            print("  %s" % path)
+
+
+def slang_capable_cores(model):
+    """The cores that can load a slang preset: the ones whose effective video driver (the per-core
+    override where it sets one, else the global) is slang-capable."""
+    global_driver = model["settings"].get("video_driver")
+    return sorted(
+        core for core in model["probe"]
+        if (model["overrides"].get(core, {}).get("video_driver") or global_driver) in SLANG_DRIVERS
+    )
+
+
+def write_shader_presets(model, staging_config, shaders, device_shader_dir):
+    """Write config/<library_name>/<library_name>.slangp for every core that can load one.
+
+    RetroArch reads that path as the core's automatic shader preset (auto_shaders_enable), so the preset
+    rides the same per-core directory as the .cfg and .opt overrides and needs no global video_shader.
+    Cores pinned to a driver that cannot load slang are skipped rather than given a preset that would only
+    log a load error on every launch.
+
+    The file is a one-line #reference to the pushed preset, which is RetroArch's own "simple preset" form:
+    referencing keeps the pack's relative paths working (a copied preset would have to have every pass and
+    texture path rewritten) and leaves the shader's parameters at their defaults unless profile.yml
+    overrides them, which are appended as plain preset keys.
+    """
+    reference = "%s/%s" % (device_shader_dir, shaders["preset"])
+    params = shaders.get("params") or {}
+    body = "".join('%s = "%s"\n' % (key, params[key]) for key in sorted(params))
+    text = '# Ansible managed\n#reference "%s"\n%s' % (reference, body)
+    written = []
+    for core in slang_capable_cores(model):
+        library_name = model["library_names"].get(core, core)
+        directory = os.path.join(staging_config, library_name)
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, "%s.slangp" % library_name), "w", encoding="utf-8") as handle:
+            handle.write(text)
+        written.append(library_name)
+    return written
+
+
 # --------------------------------------------------------------------------- generation
 
 
@@ -667,6 +799,9 @@ def main():
     parser.add_argument("--serial", default="", help="adb device serial (adb -s)")
     parser.add_argument("--dry-run", action="store_true", help="build and plan, no device writes")
     parser.add_argument("--skip-bios", action="store_true", help="do not push the BIOS set")
+    parser.add_argument("--skip-shaders", action="store_true",
+                        help="do not fetch or push the shader files (the per-core presets that point at "
+                             "them are written either way, so use this only once the pack is on the device)")
     parser.add_argument("--skip-roms", action="store_true",
                         help="do not mirror the ROM library onto the device's ES-DE ROMS tree (mirrored "
                              "by default). The mirror deletes device games the library dropped and pushes "
@@ -727,6 +862,8 @@ def main():
         info_dir = os.path.join(staging, "info")
         playlist_dir = os.path.join(staging, "playlists")
         config_stage = os.path.join(staging, "config")
+        shader_stage = os.path.join(staging, "shaders")
+        shaders = profile.get("shaders") or {}
 
         # .info drives the generator's extension validation. Best-effort in a dry run (no network):
         # fall back to the host's flatpak info set. Cores are neither fetched nor pushed (see module
@@ -737,11 +874,24 @@ def main():
         if not os.path.isdir(info_dir):
             info_dir = host_info_dir()
 
+        # Fetched here for the same reason as the .info set (network, so not in a dry run), pushed with
+        # the other sdcard trees below. The per-core presets that point at it are staged either way, so a
+        # --dry-run still shows which cores get a shader and which are pinned to a driver that cannot.
+        if shaders and not args.skip_shaders and not args.dry_run:
+            section("Fetching shaders")
+            fetch_shaders(shaders, shader_stage)
+
         section("Generating playlists")
         generate_playlists(model, args.library_dir, dirs, profile, cores_ref, info_dir, playlist_dir)
 
         # Staged here, pushed under the overrides/options section below.
         write_overrides(model, config_stage)
+        if shaders:
+            presets = write_shader_presets(model, config_stage, shaders, dirs["shaders"])
+            skipped = sorted(set(model["library_names"].values()) - set(presets))
+            print("\nShader %s: %s" % (shaders["preset"], ", ".join(presets)))
+            if skipped:
+                print("  no shader (driver cannot load slang): %s" % ", ".join(skipped))
 
         # The sdcard dirs are public storage; adb can always create them.
         device.mkdirs(*dirs.values())
@@ -777,6 +927,10 @@ def main():
             for name in stale_playlists(device, dirs, model["systems"]):
                 print("Removing stale playlist %s" % name)
                 device.rm("%s/%s" % (dirs["playlists"], name))
+
+        if os.path.isdir(shader_stage):
+            section("shaders", "push additive")
+            sync_tree(device, shader_stage, dirs["shaders"], prune=False)
 
         bios_src = os.path.join(args.library_dir, "_BIOS", "retroarch-system-folder")
         if not args.skip_bios and os.path.isdir(bios_src):
