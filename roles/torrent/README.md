@@ -35,6 +35,7 @@ Installed to `/usr/local/bin/` on the controller:
 | [`mvt`](./templates/mvt) | Upload `*.torrent` files from local watch directories to the remote watch directory via scp |
 | [`synct`](./templates/synct) | Rsync completed downloads from every remote torrent host to the local incoming directory; skips overlapping runs |
 | [`unrart`](./templates/unrart) | Extract archives (rar, zip, tar.gz, tar.bz2) in a directory up to 5 levels deep |
+| [`orgt`](./templates/orgt) | Ask Claude to organize incoming entries into the media libraries; skips entries still present on a remote (synct would re-download them). Run manually; not on cron. |
 
 ## Cron jobs
 
@@ -62,7 +63,7 @@ controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (
 
 ## CI
 
-The templated scripts (`mvt`, `synct`, `unrart`) are ShellCheck'd in [.github/workflows/lint.yml](../../.github/workflows/lint.yml).
+The templated scripts (`mvt`, `orgt`, `synct`, `unrart`) are ShellCheck'd in [.github/workflows/lint.yml](../../.github/workflows/lint.yml).
 The `shellcheck` job discovers every shell script under `roles/` by shebang, so these are covered along with the
 other roles' scripts. Scripts under `templates/` are rendered first (Jinja2 expressions to placeholders); scripts
 under `files/` are linted as-is. Suppress findings with `# shellcheck disable=...` comments in the templates.
