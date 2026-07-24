@@ -1,0 +1,9 @@
+# Managed by Ansible (desktop role). Do not edit.
+# USB hubs/devices that reset their whole downstream tree when the kernel
+# autosuspends them (the port suspend times out, forcing a hub reset that drops
+# every input/audio device for several seconds). Pinning power/control "on"
+# stops the kernel from ever attempting the suspend. No ACTION filter, so the
+# attribute is re-asserted on change events too (udevadm trigger --action=change).
+{% for vid in desktop_usb_no_autosuspend_vendor_ids %}
+SUBSYSTEM=="usb", ATTR{idVendor}=="{{ vid }}", ATTR{power/control}="on"
+{% endfor %}

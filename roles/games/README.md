@@ -98,7 +98,7 @@ X11 video context. RetroArch then reads `/dev/input/event*` directly and needs r
 `70-uaccess.rules` tags joysticks for `uaccess` but not the mouse or keyboard, so the gamepad works while the
 pointer (menu) and lightgun are dead.
 
-[files/70-retroarch-input.rules](./files/70-retroarch-input.rules) tags the mouse and keyboard too; logind turns the
+[files/70-ansible-role-games-retroarch-input.rules](./files/70-ansible-role-games-retroarch-input.rules) tags the mouse and keyboard too; logind turns the
 tag into an ACL for the active seat and drops it at logout, as `steam-devices` does for pads. The trade is that any
 process in the seat can then read raw keystrokes: a no-op under X11 (any client can already snoop), a real loss of
 isolation under Wayland, accepted on single-user gaming hosts. The `input`-group alternative is worse: a standing
