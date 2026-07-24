@@ -22,6 +22,10 @@ desktop_it87_version: master
 desktop_install_nct6687d: false
 desktop_nct6687d_repo: https://github.com/Fred78290/nct6687d.git
 desktop_nct6687d_version: main
+# USB vendor IDs whose hubs/devices mishandle autosuspend and reset their downstream tree
+# (dropping input/audio for several seconds). Each gets power/control pinned "on" via a udev
+# rule. Empty disables the task. See usb_hub_autosuspend.yml.
+desktop_usb_no_autosuspend_vendor_ids: []
 # Web browser set as the xdg-settings default: "firefox" or "google-chrome".
 desktop_default_browser: firefox
 # Display manager settings

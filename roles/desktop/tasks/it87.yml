@@ -5,6 +5,7 @@
 # https://github.com/frankcrawford/it87
 - name: Install it87 fan control driver
   become: true
+  when: desktop_install_it87
   block:
     - name: Install it87 DKMS build prerequisites
       ansible.builtin.apt:
@@ -39,16 +40,21 @@
 
     - name: Configure it87 module options
       ansible.builtin.copy:
-        dest: /etc/modprobe.d/it87.conf
+        dest: /etc/modprobe.d/ansible-role-desktop-it87.conf
         content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
         mode: "0644"
 
     # CLEANUP (added 2026-07-20): remove once the desktop hosts that ran the
     # modules-load.d version of this role have converged on the unit below.
-    - name: Remove the modules-load.d entry superseded by it87.service
+    # CLEANUP (added 2026-07-24): the modprobe.d/it87.conf entry is the pre-marker
+    # name of the drop-in written above.
+    - name: Remove the superseded it87 drop-ins
       ansible.builtin.file:
-        path: /etc/modules-load.d/it87.conf
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /etc/modules-load.d/it87.conf
+        - /etc/modprobe.d/it87.conf
 
     # Probing the chip at systemd-modules-load time fails with ENODEV, so the
     # module is loaded later, before CoolerControl reads the hwmon, and retried.
@@ -76,3 +82,17 @@
         daemon_reload: true
         enabled: true
         state: started
+
+# Reconcile the disabled state: remove the managed drop-ins so the module options
+# do not persist after the driver is turned off. The DKMS module and it87.service
+# are left in place; a full teardown is out of scope.
+- name: Remove the it87 module options when disabled
+  become: true
+  when: not desktop_install_it87
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/modprobe.d/ansible-role-desktop-it87.conf
+    - /etc/modprobe.d/it87.conf
+    - /etc/modules-load.d/it87.conf
