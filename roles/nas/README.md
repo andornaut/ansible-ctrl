@@ -69,9 +69,9 @@ hand, before applying it.
 4. Add the mount points to `/etc/fstab`, as `<device> <mount point> <filesystem> <options>`:
 
    ```text
-   /dev/mapper/nas0 /media/nas btrfs defaults,noauto,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
+   /dev/mapper/nas0 /media/nas btrfs defaults,noauto,nofail,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
 
-   /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
+   /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,nofail,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
    ```
 
 ## Operations
