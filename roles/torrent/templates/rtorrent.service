@@ -19,6 +19,14 @@ User={{ torrent_user }}
 Group={{ torrent_group }}
 WorkingDirectory={{ torrent_root_directory }}
 
+# Refuse to start unless the data directories exist and are writable. RequiresMountsFor above
+# blocks a start when the array is unmounted; this also catches a mounted-but-read-only array
+# (btrfs drops to read-only on I/O error) and missing dirs, so rtorrent never starts only to
+# fail every write. A non-"-" ExecStartPre that exits non-zero aborts the start, and
+# Restart=on-failure then retries every RestartSec until the array is writable again.
+ExecStartPre=/usr/bin/test -w {{ torrent_completed_directory }}
+ExecStartPre=/usr/bin/test -w {{ torrent_incoming_directory }}
+
 # Must run first: new-session fails with "duplicate session" if one outlived its rtorrent.
 # No wait needed, because rtorrent refuses to open a session another process holds and
 # exits 255, so a start that races a dying instance fails safely and Restart= retries.

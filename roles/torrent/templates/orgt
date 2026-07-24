@@ -1,0 +1,113 @@
+#!/bin/bash
+
+set -euo pipefail
+
+QUIET=false
+DRY_RUN=false
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS] [INCOMING_DIR]
+
+Ask Claude to organize completed downloads in INCOMING_DIR
+(default: {{ torrent_local_incoming_directory }}) into the media
+libraries under its parent directory, following the AGENTS.md guides
+there.
+
+Entries that still exist in a remote torrent host's completed
+directory are skipped: synct would re-download them into the incoming
+directory, undoing the move.
+
+Options:
+  -h, --help     Show this help message and exit
+  -q, --quiet    Suppress this script's own output (Claude still prints)
+  --dry-run      List the entries that would be organized, then exit
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help) usage ;;
+        -q|--quiet) QUIET=true; shift ;;
+        --dry-run) DRY_RUN=true; shift ;;
+        *) break ;;
+    esac
+done
+
+error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
+info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
+ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+warn() { "${QUIET}" || echo -e " \033[1;33m!\033[0m  $*" >&2; }
+
+incoming_dir="${1:-{{ torrent_local_incoming_directory }}}"
+base_dir="$(dirname "${incoming_dir}")"
+
+[[ -d "${incoming_dir}" ]] || error "${incoming_dir} does not exist (or is not a directory)"
+command -v claude >/dev/null || error "claude is not installed"
+
+remote_entries="$(mktemp)"
+eligible="$(mktemp)"
+trap 'rm -f "${remote_entries}" "${eligible}"' EXIT
+
+# Collect the entry names present in every remote host's completed directory.
+# synct rsyncs completed/ into the incoming directory, so a name still present
+# there would be re-downloaded if we moved it out. If any remote cannot be
+# listed we cannot tell which of its entries are still downloading, so abort
+# rather than risk moving one out (synct would re-download it).
+list_remote_entries() {
+    local src_host="${1}"
+    local src_dir="${2}"
+    info "Listing ${src_host}:${src_dir}"
+    # src_dir is a rendered path; expanding it client-side is intended.
+    # shellcheck disable=SC2029
+    ssh "${src_host}" "ls -1 -- '${src_dir}'" >>"${remote_entries}" \
+        || error "Could not list ${src_host}:${src_dir}; refusing to organize"
+}
+
+header "Comparing ${incoming_dir} against remote completed directories"
+
+{% for host in ansible_play_batch -%}
+{% if host != "localhost" -%}
+list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/completed/"
+{% endif -%}
+{% endfor -%}
+
+# Eligible = incoming entries not present on any remote and not a guide file.
+while IFS= read -r entry; do
+    # Guide files and the .uncategorized holding directory are not downloads.
+    case "${entry}" in
+        AGENTS.md|CLAUDE.md|.uncategorized) continue ;;
+    esac
+    grep -Fxq -- "${entry}" "${remote_entries}" && continue
+    printf '%s\n' "${entry}" >>"${eligible}"
+done < <(ls -1 -- "${incoming_dir}")
+
+if [[ ! -s "${eligible}" ]]; then
+    ok "Nothing to organize"
+    exit 0
+fi
+
+info "$(wc -l <"${eligible}") entr(ies) to organize:"
+"${QUIET}" || sed 's/^/    /' "${eligible}"
+
+"${DRY_RUN}" && exit 0
+
+prompt="$(cat <<EOF
+Organize the completed downloads listed below into the correct media library
+under ${base_dir}. Before moving anything, read ${base_dir}/AGENTS.md and the
+AGENTS.md in each destination subdirectory, then follow their naming and layout
+conventions. Move (do not copy) each entry out of ${incoming_dir} to its
+destination. Only touch the entries in this list; leave everything else in
+${incoming_dir} untouched.
+
+Entries to organize:
+$(sed 's/^/- /' "${eligible}")
+EOF
+)"
+
+header "Asking Claude to organize the eligible entries"
+cd "${base_dir}"
+claude --dangerously-skip-permissions -p "${prompt}"
+ok "Done"
