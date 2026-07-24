@@ -76,6 +76,21 @@
   tags: virtualbox
   when: dev_install_virtualbox | bool
 
+# Reconcile the disabled state: drop the KVM blacklist so it does not keep KVM
+# disabled after VirtualBox is turned off. VirtualBox packages and modules are
+# left in place; a full teardown is out of scope.
+- name: Remove the VirtualBox KVM blacklist when disabled
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
+    - /etc/modprobe.d/blacklist-kvm.conf
+  become: true
+  when: not dev_install_virtualbox | bool
+  tags: virtualbox
+  notify: Update initramfs
+
 # ai-maintainer installs a cron job; only on hosts in the ai_maintainer group
 - name: Import ai-maintainer tasks
   ansible.builtin.import_tasks: ai_maintainer.yml

@@ -123,15 +123,19 @@
       ansible.builtin.import_tasks: coolercontrol.yml
       tags: coolercontrol
 
+    # Imported unconditionally: each file gates its install on the feature flag
+    # and reconciles the disabled state (removing its managed drop-ins) when off.
     - name: Install it87 fan control driver
       ansible.builtin.import_tasks: it87.yml
       tags: it87
-      when: desktop_install_it87
 
     - name: Install nct6687d fan control driver
       ansible.builtin.import_tasks: nct6687d.yml
       tags: nct6687d
-      when: desktop_install_nct6687d
+
+    - name: Pin USB autosuspend off for reset-prone hubs
+      ansible.builtin.import_tasks: usb_hub_autosuspend.yml
+      tags: usb-autosuspend
 
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml

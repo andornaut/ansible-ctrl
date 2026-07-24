@@ -1,0 +1,43 @@
+---
+# Gated inside this file (main.yml imports it unconditionally) so the removal
+# path runs when the vendor-id list is emptied, clearing the rule this role
+# previously installed. The file name carries the ansible-role marker so it is
+# identifiable as managed and safe to remove.
+- name: Pin USB autosuspend off for reset-prone hubs
+  become: true
+  when: desktop_usb_no_autosuspend_vendor_ids | length > 0
+  block:
+    - name: Install the USB no-autosuspend udev rule
+      ansible.builtin.template:
+        src: 50-ansible-role-desktop-usb-no-autosuspend.rules.j2
+        dest: /etc/udev/rules.d/50-ansible-role-desktop-usb-no-autosuspend.rules
+        mode: "0644"
+      notify:
+        - Reload the udev rules
+        - Apply the udev rules to the USB devices
+
+- name: Remove the USB no-autosuspend udev rule when disabled
+  become: true
+  when: desktop_usb_no_autosuspend_vendor_ids | length == 0
+  ansible.builtin.file:
+    path: /etc/udev/rules.d/50-ansible-role-desktop-usb-no-autosuspend.rules
+    state: absent
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the USB devices
+
+# CLEANUP (added 2026-07-24): remove once the desktop hosts that carried these
+# pre-marker rule names have converged on the ansible-role-prefixed name above.
+# The hand-written name predates the template; the unprefixed name predates the
+# ansible-role marker.
+- name: Remove the pre-marker udev rules superseded by the template
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/udev/rules.d/50-startech-hub-noautosuspend.rules
+    - /etc/udev/rules.d/50-usb-no-autosuspend.rules
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the USB devices

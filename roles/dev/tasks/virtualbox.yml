@@ -49,11 +49,20 @@
 
 - name: Blacklist KVM modules to prevent conflict with VirtualBox
   ansible.builtin.copy:
-    dest: /etc/modprobe.d/blacklist-kvm.conf
+    dest: /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
     content: |
       blacklist kvm_amd
       blacklist kvm
     mode: "0644"
+  become: true
+  notify: Update initramfs
+
+# CLEANUP (added 2026-07-24): remove once the dev hosts running VirtualBox have
+# converged on the ansible-role-prefixed drop-in name above.
+- name: Remove the pre-marker KVM blacklist drop-in
+  ansible.builtin.file:
+    path: /etc/modprobe.d/blacklist-kvm.conf
+    state: absent
   become: true
   notify: Update initramfs
 

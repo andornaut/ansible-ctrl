@@ -61,3 +61,27 @@
   ansible.builtin.command: update-grub
   become: true
   changed_when: true
+
+# udev reads its rules as devices appear, so a rule installed now reaches an already-plugged
+# hub only if the rules are reloaded and the devices re-triggered. Two handlers, run in the
+# order defined here (not the order notified), and the reload has to come first.
+- name: Reload the udev rules
+  ansible.builtin.command:
+    argv:
+      - udevadm
+      - control
+      - --reload-rules
+  changed_when: false
+  become: true
+
+# --action=change re-runs the rules against the USB devices already present, which re-asserts
+# power/control on the reset-prone hubs without a reboot.
+- name: Apply the udev rules to the USB devices
+  ansible.builtin.command:
+    argv:
+      - udevadm
+      - trigger
+      - --subsystem-match=usb
+      - --action=change
+  changed_when: false
+  become: true
