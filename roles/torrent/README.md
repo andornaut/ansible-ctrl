@@ -37,6 +37,37 @@ Installed to `/usr/local/bin/` on the controller:
 | [`unrart`](./templates/unrart) | Extract archives (rar, zip, tar.gz, tar.bz2) in a directory up to 5 levels deep |
 | [`orgt`](./templates/orgt) | Ask Claude to organize incoming entries into the media libraries; skips entries still present on a remote (synct would re-download them). Run manually; not on cron. |
 
+### orgt
+
+**Progress output.** `orgt` invokes `claude -p`, which prints nothing until the whole run ends, and a large batch
+can take tens of minutes. Run it with `--verbose` to see progress: that switches the invocation to
+`--output-format stream-json` (which `-p` only permits alongside `--verbose`) and pipes the events through `jq`,
+printing the session id and then one timestamped line per tool call plus Claude's narration. `--verbose` requires
+`jq`; the script checks for it up front. Two properties of that filter are load-bearing, because the pipe
+consumes Claude's stdout and anything the filter drops is gone:
+
+- The `result` event prints unclipped, keeping its own line breaks. It is the only complete copy of the run's
+  report, including which entries were deferred. Mid-run tool calls and narration are collapsed to one line and
+  clipped, being progress rather than the deliverable; for a `Bash` call the line shows the command (the paths it
+  moves) rather than its one-line description.
+- Lines that are not parseable JSON objects are dropped rather than parsed. `jq` exiting non-zero on one would
+  `SIGPIPE` Claude mid-batch, possibly between a move and its post-verify count.
+
+**Non-interactive contract.** The library guides under the media root require up-front sign-off before a batch
+that touches more than 10 items or spans more than one library, which no one can give inside `claude -p`: an
+unanswered question ends the run with nothing moved. The prompt therefore states that invoking the script *is*
+that sign-off, for exactly the entries listed in the run, and leaves every other safety rule (per-pass dry-run,
+collision detection, non-overwriting moves, post-verify counts, `HISTORY.md`) untouched. Anything that would
+otherwise stop and ask is deferred rather than guessed: that entry stays in the incoming directory and is
+reported at the end with the question that would have been asked. Preview the batch with `--dry-run` before
+committing to it.
+
+**Working directory.** The `claude` invocation runs from the library root (the incoming directory's parent), not
+from the incoming directory. Every destination library is a sibling of `incoming/`, so the root is the smallest
+cwd that covers them all without an `--add-dir` grant, and because sessions are bucketed by cwd, every run lands
+in the same place for `claude --resume`. A resume has to happen from that same directory, so the `--verbose`
+session line prints the `cd ... && claude --resume ...` command in full.
+
 ## Cron jobs
 
 Installed to `/etc/cron.d/ansible-role-torrent` on the controller:
