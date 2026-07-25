@@ -47,6 +47,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `desktop_screen_*_minutes` | Idle timeouts. The screen blanks, then the session locks, then the monitor powers off |
 | `desktop_suspend_inactive_minutes` | Idle suspend. Unset leaves the host's policy alone; 0 disables it |
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
+| `desktop_xsecurelock_auth_background_color` | Tints the password dialog box only, so a tinted box means keystrokes reach the password field. Empty (the default) leaves it black; the locked screen is black either way |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, filter lists, custom hostnames, safe search |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
