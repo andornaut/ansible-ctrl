@@ -58,7 +58,7 @@ according to each host's `desktop_environment`. [upgrade.yml](upgrade.yml) uses 
 and flatpak upgrade.
 
 [torrent.yml](torrent.yml) applies the torrent role to the `torrent` group (the remote rtorrent host) and, in the
-same run, delegates the `mvt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost):
+same run, delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost):
 [roles/torrent/README.md](roles/torrent/README.md).
 
 ## Inventory
