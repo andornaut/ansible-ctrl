@@ -68,12 +68,6 @@
           dest: /usr/local/bin/
       become: true
 
-    - name: Relocate the xwayland-satellite unit
-      ansible.builtin.include_tasks: relocate_user_unit.yml
-      vars:
-        niri_relocate_units: [xwayland-satellite.service]
-        niri_relocate_enable_units: [xwayland-satellite.service]
-
     - name: Enable xwayland-satellite.service
       ansible.builtin.systemd_service:
         name: xwayland-satellite.service

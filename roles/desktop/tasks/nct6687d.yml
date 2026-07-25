@@ -54,17 +54,6 @@
         content: "nct6687\n"
         mode: "0644"
 
-    # CLEANUP (added 2026-07-24): remove once the desktop hosts running this role
-    # have converged on the ansible-role-prefixed drop-in names above.
-    - name: Remove the pre-marker nct6687d drop-ins
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/modprobe.d/nct6683-blacklist.conf
-        - /etc/modprobe.d/nct6687.conf
-        - /etc/modules-load.d/nct6687.conf
-
     - name: Load the nct6687 module now
       community.general.modprobe:
         name: nct6687
@@ -84,6 +73,3 @@
     - /etc/modprobe.d/ansible-role-desktop-nct6683-blacklist.conf
     - /etc/modprobe.d/ansible-role-desktop-nct6687.conf
     - /etc/modules-load.d/ansible-role-desktop-nct6687.conf
-    - /etc/modprobe.d/nct6683-blacklist.conf
-    - /etc/modprobe.d/nct6687.conf
-    - /etc/modules-load.d/nct6687.conf

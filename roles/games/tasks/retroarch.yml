@@ -55,18 +55,6 @@
     - Reload the udev rules
     - Apply the udev rules to the input devices
 
-# CLEANUP (added 2026-07-24): remove once every games-group host has converged on
-# the ansible-role-prefixed rule name above.
-- name: Remove the pre-rename retroarch udev rule
-  ansible.builtin.file:
-    path: /etc/udev/rules.d/70-retroarch-input.rules
-    state: absent
-  become: true
-  become_user: root
-  notify:
-    - Reload the udev rules
-    - Apply the udev rules to the input devices
-
 # An unmounted library looks like an empty directory, and the tasks below would then sync
 # nothing and generate nothing while reporting success.
 - name: Check that the ROM library is mounted
