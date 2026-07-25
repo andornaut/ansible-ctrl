@@ -24,14 +24,12 @@ XSECURELOCK_SHOW_DATETIME=0
 XSECURELOCK_SHOW_HOSTNAME=0
 XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
 XSECURELOCK_AUTH_SOUNDS=0
-{% if desktop_xsecurelock_background_color %}
-# Background colour of the lock screen. BACKGROUND_COLOR paints the full-screen saver window;
-# AUTH_BACKGROUND_COLOR paints the dialog box around the password prompt (a separate window that
-# stays black otherwise). Both take the one value so the box matches the screen. Only shows once
-# the prompt is up; the idle-blank and DPMS-off screens stay black. Unset leaves the defaults.
-XSECURELOCK_BACKGROUND_COLOR='{{ desktop_xsecurelock_background_color }}'
-XSECURELOCK_AUTH_BACKGROUND_COLOR='{{ desktop_xsecurelock_background_color }}'
-export XSECURELOCK_BACKGROUND_COLOR XSECURELOCK_AUTH_BACKGROUND_COLOR
+{% if desktop_xsecurelock_auth_background_color %}
+# Tint only the password dialog box, not the screen. BACKGROUND_COLOR is left unset (black)
+# deliberately: it paints the main and saver windows, so the blank locked screen stays black and
+# a tinted box is the signal that keystrokes go to the password field.
+XSECURELOCK_AUTH_BACKGROUND_COLOR='{{ desktop_xsecurelock_auth_background_color }}'
+export XSECURELOCK_AUTH_BACKGROUND_COLOR
 {% endif %}
 # xsecurelock cannot lock while another window holds the keyboard/pointer grab (a fullscreen
 # game, an open menu); without this it exits and the session stays unlocked silently. Forcing
