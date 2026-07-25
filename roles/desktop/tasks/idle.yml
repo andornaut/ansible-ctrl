@@ -124,17 +124,6 @@
         path: "{{ desktop_hypridle_conf | dirname }}"
         state: directory
 
-    # CLEANUP (added 2026-07-09): remove once every niri desktop host has run this role.
-    # Converts a fully-templated hypridle.conf (pre-managed-block) into managed-block form. The
-    # lookahead matches the whole file only while it carries no marker anywhere, so this runs
-    # once and leaves later hand-edits above or below the block alone.
-    - name: Empty the templated hypridle configuration
-      when: desktop_idle_dotfile_exists
-      ansible.builtin.replace:
-        path: "{{ desktop_hypridle_conf }}"
-        regexp: '\A(?![\s\S]*# BEGIN ANSIBLE MANAGED BLOCK)[\s\S]+\Z'
-        replace: ''
-
     # eww closes all of its windows when the monitor it is on is powered off, so the
     # template reopens the bar on resume: https://github.com/elkowar/eww/issues/477
     - name: Configure hypridle

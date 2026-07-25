@@ -53,14 +53,6 @@
         hypr_component_name: hypridle
         hypr_component_build_target: hypridle
 
-    # The desktop role restarts hypridle on config changes, so a shadowed copy in
-    # /etc/systemd/user would fail at ExecStart. Relocate it first.
-    - name: Relocate the hypridle unit
-      ansible.builtin.include_tasks: relocate_user_unit.yml
-      vars:
-        niri_relocate_units: [hypridle.service]
-        niri_relocate_enable_units: [hypridle.service]
-
     - name: Enable hypridle.service
       ansible.builtin.systemd_service:
         name: hypridle.service
@@ -87,14 +79,6 @@
       vars:
         hypr_component_name: hyprpaper
         hypr_component_build_target: hyprpaper
-
-    # The shadowing unit points at /usr/bin/hyprpaper, but cmake installs to
-    # /usr/local/bin. Relocate it first.
-    - name: Relocate the hyprpaper unit
-      ansible.builtin.include_tasks: relocate_user_unit.yml
-      vars:
-        niri_relocate_units: [hyprpaper.service]
-        niri_relocate_enable_units: [hyprpaper.service]
 
     - name: Enable hyprpaper.service
       ansible.builtin.systemd_service:
