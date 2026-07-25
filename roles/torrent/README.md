@@ -15,7 +15,7 @@ make torrent
 
 The play targets the `torrent` group (the remote rtorrent host). The tasks in [tasks/localhost.yml](./tasks/localhost.yml)
 are delegated to the implicit `localhost` (the controller) and run only when the target is not localhost, installing
-the `mvt`, `synct`, and `unrart` scripts plus their cron jobs. A delegated task resolves plain variables from the
+the scripts and cron jobs below. A delegated task resolves plain variables from the
 play host, not the delegate, so the controller-side `torrent_local_*` vars live in the play host's `host_vars/`
 (e.g. `host_vars/prime.yml`), not a `localhost` host_vars file. Do not add `localhost` to the inventory: it would
 be swept into every `hosts: all` play.
@@ -39,34 +39,27 @@ Installed to `/usr/local/bin/` on the controller:
 
 ### orgt
 
-**Progress output.** `orgt` invokes `claude -p`, which prints nothing until the whole run ends, and a large batch
-can take tens of minutes. Run it with `--verbose` to see progress: that switches the invocation to
-`--output-format stream-json` (which `-p` only permits alongside `--verbose`) and pipes the events through `jq`,
-printing the session id and then one timestamped line per tool call plus Claude's narration. `--verbose` requires
-`jq`; the script checks for it up front. Two properties of that filter are load-bearing, because the pipe
-consumes Claude's stdout and anything the filter drops is gone:
+`claude -p` buffers its text output, so a run prints nothing until it ends, and a large batch takes tens of
+minutes. `--verbose` streams instead: `--output-format stream-json` (which `-p` only permits alongside
+`--verbose`) piped through `jq`, one line per tool call. It requires `jq`, checked up front. Two properties of
+that filter are load-bearing, because the pipe consumes Claude's stdout:
 
-- The `result` event prints unclipped, keeping its own line breaks. It is the only complete copy of the run's
-  report, including which entries were deferred. Mid-run tool calls and narration are collapsed to one line and
-  clipped, being progress rather than the deliverable; for a `Bash` call the line shows the command (the paths it
-  moves) rather than its one-line description.
-- Lines that are not parseable JSON objects are dropped rather than parsed. `jq` exiting non-zero on one would
-  `SIGPIPE` Claude mid-batch, possibly between a move and its post-verify count.
+- The `result` event prints unclipped, keeping its line breaks. It is the only full copy of the run's report,
+  including deferred entries. Tool calls and narration collapse to one clipped line; a `Bash` line shows the
+  command rather than its description, naming the paths being moved.
+- Lines that are not JSON objects are dropped. `jq` exiting on one would `SIGPIPE` Claude mid-batch, possibly
+  between a move and its post-verify count.
 
-**Non-interactive contract.** The library guides under the media root require up-front sign-off before a batch
-that touches more than 10 items or spans more than one library, which no one can give inside `claude -p`: an
-unanswered question ends the run with nothing moved. The prompt therefore states that invoking the script *is*
-that sign-off, for exactly the entries listed in the run, and leaves every other safety rule (per-pass dry-run,
-collision detection, non-overwriting moves, post-verify counts, `HISTORY.md`) untouched. Anything that would
-otherwise stop and ask is deferred rather than guessed: that entry stays in the incoming directory and is
-reported at the end with the question that would have been asked. Preview the batch with `--dry-run` before
-committing to it.
+The media-root guides require up-front sign-off for a batch over 10 items or spanning libraries, which nobody can
+give under `-p`: an unanswered question ends the run having moved nothing. The prompt states that invoking the
+script is that sign-off for exactly the listed entries, keeps every other safety rule (per-pass dry-run, collision
+detection, non-overwriting moves, post-verify counts, `HISTORY.md`), and defers anything it would otherwise ask
+about instead of guessing: that entry stays in the incoming directory and is reported at the end. Preview with
+`--dry-run`.
 
-**Working directory.** The `claude` invocation runs from the library root (the incoming directory's parent), not
-from the incoming directory. Every destination library is a sibling of `incoming/`, so the root is the smallest
-cwd that covers them all without an `--add-dir` grant, and because sessions are bucketed by cwd, every run lands
-in the same place for `claude --resume`. A resume has to happen from that same directory, so the `--verbose`
-session line prints the `cd ... && claude --resume ...` command in full.
+`claude` runs from the library root, not the incoming directory. Every destination is a sibling of `incoming/`, so
+the root is the smallest cwd covering them all without an `--add-dir` grant, and sessions bucket by cwd. A resume
+must run from that same directory, so `--verbose` prints the full `cd ... && claude --resume ...` command.
 
 ## Cron jobs
 
@@ -98,3 +91,6 @@ The templated scripts (`mvt`, `orgt`, `synct`, `unrart`) are ShellCheck'd in [.g
 The `shellcheck` job discovers every shell script under `roles/` by shebang, so these are covered along with the
 other roles' scripts. Scripts under `templates/` are rendered first (Jinja2 expressions to placeholders); scripts
 under `files/` are linted as-is. Suppress findings with `# shellcheck disable=...` comments in the templates.
+
+That render is a `sed` approximation, not a Jinja2 parse, so a template Jinja2 cannot render still passes CI. Bash
+that opens a Jinja tag is the trap: `${#var}` starts a comment, breaking the render at play time.
