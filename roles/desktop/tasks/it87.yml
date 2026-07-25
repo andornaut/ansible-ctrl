@@ -44,18 +44,6 @@
         content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
         mode: "0644"
 
-    # CLEANUP (added 2026-07-20): remove once the desktop hosts that ran the
-    # modules-load.d version of this role have converged on the unit below.
-    # CLEANUP (added 2026-07-24): the modprobe.d/it87.conf entry is the pre-marker
-    # name of the drop-in written above.
-    - name: Remove the superseded it87 drop-ins
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/modules-load.d/it87.conf
-        - /etc/modprobe.d/it87.conf
-
     # Probing the chip at systemd-modules-load time fails with ENODEV, so the
     # module is loaded later, before CoolerControl reads the hwmon, and retried.
     - name: Install the it87 load unit
@@ -94,5 +82,3 @@
     state: absent
   loop:
     - /etc/modprobe.d/ansible-role-desktop-it87.conf
-    - /etc/modprobe.d/it87.conf
-    - /etc/modules-load.d/it87.conf

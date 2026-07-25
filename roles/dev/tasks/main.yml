@@ -81,11 +81,8 @@
 # left in place; a full teardown is out of scope.
 - name: Remove the VirtualBox KVM blacklist when disabled
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
     state: absent
-  loop:
-    - /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
-    - /etc/modprobe.d/blacklist-kvm.conf
   become: true
   when: not dev_install_virtualbox | bool
   tags: virtualbox

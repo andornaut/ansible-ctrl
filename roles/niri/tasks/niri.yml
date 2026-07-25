@@ -81,14 +81,6 @@
           dest: /usr/local/lib/systemd/user/
       become: true
 
-    # Neither unit has an [Install] section, so neither has an enable symlink to re-assert.
-    - name: Relocate the niri units
-      ansible.builtin.include_tasks: relocate_user_unit.yml
-      vars:
-        niri_relocate_units:
-          - niri.service
-          - niri-shutdown.target
-
     - name: Configure electron flags for Wayland
       ansible.builtin.lineinfile:
         path: "{{ niri_user_home }}/.config/electron-flags.conf"
