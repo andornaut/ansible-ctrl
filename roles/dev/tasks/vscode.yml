@@ -1,9 +1,32 @@
 ---
+- name: Configure Visual Studio Code repository
+  become: true
+  block:
+    # Install via Microsoft's apt repo rather than the standalone .deb: the deb
+    # depends on libgtk-3-0 (>= 3.9.10), which noble satisfies only through the
+    # versioned Provides on libgtk-3-0t64. apt resolves that, but the apt module's
+    # deb pre-install check does not, so a direct deb install fails as unsatisfiable.
+    - name: Download Visual Studio Code GPG key
+      ansible.builtin.get_url:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        dest: /etc/apt/keyrings/microsoft-vscode.asc
+        mode: "0644"
+
+    - name: Add Visual Studio Code repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ dev_arch }}
+          signed-by=/etc/apt/keyrings/microsoft-vscode.asc]
+          https://packages.microsoft.com/repos/code stable main
+        state: present
+        update_cache: true
+
 - name: Install Visual Studio Code
   ansible.builtin.apt:
-    # Microsoft's documented scripted-install URL. The code.visualstudio.com/sha
-    # redirector stalls after the TLS handshake without sending a body.
-    deb: https://update.code.visualstudio.com/latest/linux-deb-x64/stable
+    name:
+      - code
+    state: latest
+    install_recommends: false
     update_cache: true
   become: true
 
