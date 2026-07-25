@@ -27,6 +27,15 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
+        # Split a bundled short group (-hq) into -h -q and reprocess. Matches a
+        # single dash followed by 2+ characters, so long options never reach it.
+        # Do not rewrite this using bash's parameter-length syntax: that opens a
+        # Jinja2 comment, and the template then fails to render.
+        -[!-]?*)
+            mapfile -t bundle < <(fold -w1 <<<"${1#-}")
+            shift
+            set -- "${bundle[@]/#/-}" "$@"
+            ;;
         # Without this, a typo falls through to the positional branch and is
         # read as the destination directory.
         -*) error "unknown option: $1" ;;

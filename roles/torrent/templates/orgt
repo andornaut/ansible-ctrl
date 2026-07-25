@@ -37,8 +37,17 @@ while [[ $# -gt 0 ]]; do
         -q|--quiet) QUIET=true; shift ;;
         -v|--verbose) VERBOSE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
-        # Without this, a typo or a bundled -qv falls through to the positional
-        # branch and is read as the incoming directory.
+        # Split a bundled short group (-qv) into -q -v and reprocess. Matches a
+        # single dash followed by 2+ characters, so long options never reach it.
+        # Do not rewrite this using bash's parameter-length syntax: that opens a
+        # Jinja2 comment, and the template then fails to render.
+        -[!-]?*)
+            mapfile -t bundle < <(fold -w1 <<<"${1#-}")
+            shift
+            set -- "${bundle[@]/#/-}" "$@"
+            ;;
+        # Without this, a typo falls through to the positional branch and is
+        # read as the incoming directory.
         -*) error "unknown option: $1" ;;
         *) break ;;
     esac
