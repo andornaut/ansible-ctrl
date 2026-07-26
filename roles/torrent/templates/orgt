@@ -29,7 +29,14 @@ EOF
     exit 0
 }
 
-error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+# ANSI escapes only when the stream is a terminal: redirected to a file or a pipe
+# the codes are noise. Stdout and stderr are tested separately because they can
+# be redirected independently.
+O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
+[[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
+[[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
+
+error() { printf ' %s✗%s  %s\n' "${E_RED}" "${E_OFF}" "$*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -53,10 +60,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
-info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
-ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
-warn() { "${QUIET}" || echo -e " \033[1;33m!\033[0m  $*" >&2; }
+header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
+info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
+ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
+warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 incoming_dir="${1:-{{ torrent_local_incoming_directory }}}"
 base_dir="$(dirname "${incoming_dir}")"
@@ -69,7 +76,10 @@ fi
 
 remote_entries="$(mktemp)"
 eligible="$(mktemp)"
-trap 'rm -f "${remote_entries}" "${eligible}"' EXIT
+# INT and TERM as well as EXIT: bash does not run an EXIT trap when a signal it
+# has not trapped kills the shell, and the ssh listing below is the likeliest
+# point to interrupt.
+trap 'rm -f "${remote_entries}" "${eligible}"' EXIT INT TERM
 
 # Collect the entry names present in every remote host's completed directory.
 # synct rsyncs completed/ into the incoming directory, so a name still present
@@ -95,14 +105,24 @@ list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory | def
 {% endfor -%}
 
 # Eligible = incoming entries not present on any remote and not a guide file.
-while IFS= read -r entry; do
+# The listing is NUL-separated bare names ('%f'), so an entry containing a
+# newline stays one entry instead of splitting into fragments that could each
+# look eligible. '[!.]*' skips dotfiles and sort gives the listing a stable order.
+while IFS= read -r -d '' entry; do
     # Guide files and the .uncategorized holding directory are not downloads.
     case "${entry}" in
         AGENTS.md|CLAUDE.md|.uncategorized) continue ;;
     esac
+    # The prompt and the eligible list are both one entry per line, so a name
+    # containing a newline cannot be passed on unambiguously. Leave it in place
+    # rather than hand Claude two fragments that each look like an entry.
+    if [[ "${entry}" == *$'\n'* ]]; then
+        warn "Skipping an entry whose name contains a newline: ${entry}"
+        continue
+    fi
     grep -Fxq -- "${entry}" "${remote_entries}" && continue
     printf '%s\n' "${entry}" >>"${eligible}"
-done < <(ls -1 -- "${incoming_dir}")
+done < <(find "${incoming_dir}" -maxdepth 1 -mindepth 1 -name '[!.]*' -printf '%f\0' | sort -z)
 
 if [[ ! -s "${eligible}" ]]; then
     ok "Nothing to organize"
