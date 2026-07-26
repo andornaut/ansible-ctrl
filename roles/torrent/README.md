@@ -33,9 +33,16 @@ Installed to `/usr/local/bin/` on the controller:
 | Script | Purpose |
 | --- | --- |
 | [`mvt`](./templates/mvt) | Upload `*.torrent` files from local watch directories to the remote watch directory via scp |
-| [`synct`](./templates/synct) | Rsync completed downloads from every remote torrent host to the local incoming directory; skips overlapping runs |
+| [`synct`](./templates/synct) | Rsync completed downloads from every remote torrent host to the local incoming directory; skips overlapping runs via `flock` |
 | [`unrart`](./templates/unrart) | Extract archives (rar, zip, tar.gz, tar.bz2) in a directory up to 5 levels deep |
 | [`orgt`](./templates/orgt) | Ask Claude to organize incoming entries into the media libraries; skips entries still present on a remote (synct would re-download them). Run manually; not on cron. |
+
+### mvt
+
+A `.torrent` file modified in the last 30 seconds is left for the next run: a client may still be writing it, and
+a successful `scp` deletes the local copy, so a truncated upload would be unrecoverable. A failed upload keeps the
+file, warns, and lets the remaining files and watch directories proceed; the script then exits non-zero so cron
+reports the run.
 
 ### orgt
 
@@ -83,7 +90,7 @@ controller-side `torrent_local_*` overrides go in the play host's `host_vars/` (
 | `torrent_port_range` | `20000-20999` | rtorrent peer port range; the top of the range is reused as the DHT UDP port |
 | `torrent_local_incoming_directory` | (required) | Controller directory for synced downloads |
 | `torrent_local_watch_directories` | (required) | Controller directories to watch for `.torrent` files |
-| `torrent_local_synct_log_file` | `/tmp/synct.log` | File the `synct` cron job appends its output to (not rotated) |
+| `torrent_local_synct_log_file` | `/tmp/synct.log` | File the `synct` cron job appends its output to (not rotated; `--quiet` reaches rsync, so it holds no progress output) |
 
 ## CI
 

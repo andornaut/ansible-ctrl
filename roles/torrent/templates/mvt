@@ -3,6 +3,10 @@
 set -euo pipefail
 
 QUIET=false
+# A .torrent file this new may still be being written. Uploading a truncated one
+# gives the remote watch directory a file rtorrent cannot load, and a successful
+# scp deletes the local copy, so nothing would be left to retry from.
+MIN_AGE_SECONDS=30
 
 usage() {
     cat <<EOF
@@ -11,6 +15,8 @@ Usage: $(basename "$0") [OPTIONS]
 Upload .torrent files from local watch directories to the remote
 host's watch directory via scp.
 
+Files modified in the last ${MIN_AGE_SECONDS} seconds are left for the next run.
+
 Options:
   -h, --help    Show this help message and exit
   -q, --quiet   Suppress output
@@ -18,7 +24,14 @@ EOF
     exit 0
 }
 
-error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+# ANSI escapes only when the stream is a terminal: under cron this output goes to
+# a log file or a mail spool, where the codes are noise. Stdout and stderr are
+# tested separately because cron redirects them independently.
+O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
+[[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
+[[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
+
+error() { printf ' %s✗%s  %s\n' "${E_RED}" "${E_OFF}" "$*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -40,25 +53,45 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
-info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
+header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
+info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 # shellcheck disable=SC2120  # ok() is intentionally called with no args (defaults to "OK")
-ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
+warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
+failed=false
+
+# Returns non-zero if any file in the source directory could not be uploaded.
 upload_torrent_files() {
     local src="${1}"
     local dst="${2}"
     # Under `set -e` a failing `cd` would abandon the remaining watch directories.
     [[ -d "${src}" ]] || { info "Skipping ${src}: not a directory"; return 0; }
-    cd "${src}"
-    for f in *.torrent; do
-        [[ -f "${f}" ]] || continue
-        info "Copying ${f} to ${dst}"
+    # Subshell: whatever happens below, the cd cannot leak back to the caller.
+    (
+        cd "${src}"
+        local rc=0
         local -a scp_opts=()
         "${QUIET}" && scp_opts+=(-q)
-        scp "${scp_opts[@]}" "${f}" "${dst}" && rm "${f}"
-    done
-    cd - >/dev/null
+        for f in *.torrent; do
+            [[ -f "${f}" ]] || continue
+            if (( $(date +%s) - $(stat -c %Y -- "${f}") < MIN_AGE_SECONDS )); then
+                info "Skipping ${f}: modified in the last ${MIN_AGE_SECONDS}s"
+                continue
+            fi
+            info "Copying ${f} to ${dst}"
+            if scp "${scp_opts[@]}" "${f}" "${dst}"; then
+                rm "${f}"
+            else
+                # Keep the file so the next run retries it. A failing scp is not
+                # fatal on its own: the remaining files and watch directories are
+                # still worth trying, and the caller reports the failure at the end.
+                warn "Failed to copy ${f} to ${dst}"
+                rc=1
+            fi
+        done
+        exit "${rc}"
+    )
 }
 
 header "Uploading .torrent files to remote watch directories"
@@ -66,9 +99,11 @@ header "Uploading .torrent files to remote watch directories"
 {% for host in ansible_play_batch -%}
 {% if host != "localhost" -%}
 {% for watch_dir in torrent_local_watch_directories -%}
-upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ torrent_watch_directory }}/"
+upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ torrent_watch_directory }}/" || failed=true
 {% endfor -%}
 {% endif -%}
 {% endfor -%}
 
+# Exit non-zero so cron reports the run, which a per-file warning alone would not.
+"${failed}" && error "Some .torrent files could not be uploaded"
 ok
