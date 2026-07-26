@@ -3,7 +3,6 @@
 set -euo pipefail
 
 COMMAND_PREFIX="nice -n19 ionice -c3"
-OUTPUT_REDIRECT="/dev/stdout"
 MAX_DEPTH=5
 DELETE_ARCHIVES=false
 QUIET=false
@@ -23,7 +22,14 @@ EOF
     exit 0
 }
 
-error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+# ANSI escapes only when the stream is a terminal: under cron this output goes to
+# a log file or a mail spool, where the codes are noise. Stdout and stderr are
+# tested separately because cron redirects them independently.
+O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
+[[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
+[[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
+
+error() { printf ' %s✗%s  %s\n' "${E_RED}" "${E_OFF}" "$*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -31,7 +37,6 @@ while [[ $# -gt 0 ]]; do
             usage
             ;;
         -q|--quiet)
-            OUTPUT_REDIRECT="/dev/null"
             QUIET=true
             shift
             ;;
@@ -59,54 +64,97 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
-info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
-ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
-warn() { "${QUIET}" || echo -e " \033[1;33m!\033[0m  $*" >&2; }
+header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
+info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
+ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
+warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
+
+# The extractors write their own output to fd 3. Do not point them at a
+# /dev/stdout path instead: `>` opens it with O_TRUNC, so `unrart >> log` would
+# empty the log on every archive.
+exec 3>&1
+if "${QUIET}"; then
+    exec 3>/dev/null
+fi
 
 trap 'exit' INT
 
 directory="${1:-{{ torrent_local_incoming_directory }}}"
+[[ -d "${directory}" ]] || error "${directory} does not exist (or is not a directory)"
+# Extraction runs from each archive's own directory, so anchor the search at an
+# absolute path: a relative one would not resolve after that cd.
+directory="$(cd "${directory}" && pwd)"
+
+# RAR sets are split across volumes (name.rar + name.r00, name.r01, ... or
+# name.part1.rar, name.part2.rar, ...), so deleting the extracted archive alone
+# leaves the rest behind. Match the set by comparing its stem as a literal
+# string: release names routinely contain '.' and '[', which find's -iregex and
+# -name would interpret.
+delete_rar_volumes() {
+    local archive_dir="${1}"
+    local archive="${2}"
+    local stem="${archive##*/}"
+    stem="${stem%.*}"
+    stem="${stem%.[Pp][Aa][Rr][Tt][0-9]*}"
+    local f base
+    for f in "${archive_dir}"/*; do
+        [[ -f "${f}" ]] || continue
+        base="${f##*/}"
+        [[ "${base}" == "${stem}".* ]] || continue
+        case "${base##*.}" in
+            [Rr][Aa][Rr]|[Rr][0-9][0-9]) rm -f "${f}" ;;
+        esac
+    done
+}
 
 extract() {
     local archive="$1"
     local archive_dir
     archive_dir="$(dirname "${archive}")"
-    cd "${archive_dir}"
 
     info "${archive}"
-    local rc=0
-    case "${archive,,}" in
-        *.rar)             ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >"${OUTPUT_REDIRECT}" || rc=$? ;;
-        *.tar.gz|*.tgz)    ${COMMAND_PREFIX} tar xzf "${archive}" >"${OUTPUT_REDIRECT}" || rc=$? ;;
-        *.tar.bz2|*.tbz2)  ${COMMAND_PREFIX} tar xjf "${archive}" >"${OUTPUT_REDIRECT}" || rc=$? ;;
-        *.zip)             ${COMMAND_PREFIX} unzip -n "${archive}" >"${OUTPUT_REDIRECT}" || rc=$? ;;
-    esac
-
-    # unrar returns 10 for minor warnings (e.g. file already exists with -o-)
-    if [[ "${rc}" -ne 0 && ("${archive,,}" != *.rar || "${rc}" -ne 10) ]]; then
-        error "Failed to extract ${archive} (exit code: ${rc})"
-    fi
-
-    if "${DELETE_ARCHIVES}"; then
-        # RAR archives are often split into multiple parts (.rar, .r00, .r01, ...),
-        # so delete all matching parts. Other formats are typically single files.
+    # The extractors unpack into the current directory, so run in a subshell:
+    # whatever happens below, the cd cannot leak back to the caller.
+    (
+        cd "${archive_dir}"
+        local rc=0
         case "${archive,,}" in
-            *.rar) find "${archive_dir}" -maxdepth 1 -iregex '.*\.r[0-9a-z]+' -delete ;;
-            *)     rm -f "${archive}" ;;
+            *.rar)             ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >&3 || rc=$? ;;
+            *.tar.gz|*.tgz)    ${COMMAND_PREFIX} tar xzf "${archive}" >&3 || rc=$? ;;
+            *.tar.bz2|*.tbz2)  ${COMMAND_PREFIX} tar xjf "${archive}" >&3 || rc=$? ;;
+            *.zip)             ${COMMAND_PREFIX} unzip -n "${archive}" >&3 || rc=$? ;;
         esac
-    fi
 
-    cd - >/dev/null
+        # unrar returns 10 for minor warnings (e.g. file already exists with -o-)
+        if [[ "${rc}" -ne 0 && ("${archive,,}" != *.rar || "${rc}" -ne 10) ]]; then
+            error "Failed to extract ${archive} (exit code: ${rc})"
+        fi
+
+        if "${DELETE_ARCHIVES}"; then
+            case "${archive,,}" in
+                *.rar) delete_rar_volumes "${archive_dir}" "${archive}" ;;
+                *)     rm -f "${archive}" ;;
+            esac
+        fi
+    )
 }
 
 header "Extracting archives in ${directory} (max depth: ${MAX_DEPTH})"
 
+# Collect the list before extracting anything: find streams its results, so an
+# archive unpacked into a directory it has not yet reached would otherwise join
+# the same pass. -print0 keeps a name containing a newline in one piece.
+archives=()
+mapfile -d '' -t archives < <(
+    find "${directory}" -maxdepth "${MAX_DEPTH}" \
+        -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)' -print0
+)
+
 count=0
-while read -r archive; do
+for archive in "${archives[@]}"; do
     extract "${archive}"
     count=$((count + 1))
-done < <(find "${directory}" -maxdepth "${MAX_DEPTH}" -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)')
+done
 
 if [[ "${count}" -eq 0 ]]; then
     warn "No archives found"

@@ -21,7 +21,14 @@ EOF
     exit 0
 }
 
-error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
+# ANSI escapes only when the stream is a terminal: under cron this output goes to
+# a log file or a mail spool, where the codes are noise. Stdout and stderr are
+# tested separately because cron redirects them independently.
+O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
+[[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
+[[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
+
+error() { printf ' %s✗%s  %s\n' "${E_RED}" "${E_OFF}" "$*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -43,9 +50,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-header() { "${QUIET}" || echo -e "\n\033[1m$*\033[0m\n"; }
-info() { "${QUIET}" || echo -e " \033[1;34m•\033[0m  $*"; }
-ok() { "${QUIET}" || echo -e " \033[1;32m✔\033[0m  ${*-OK}"; }
+header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
+info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
+ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
+warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 dst_dir="${1:-{{ torrent_local_incoming_directory }}}"
 
@@ -53,25 +61,37 @@ if [[ ! -d "${dst_dir}" ]]; then
     error "${dst_dir} does not exist (or is not a directory)"
 fi
 
+# --progress and --verbose emit a continuous stream of carriage-returned lines,
+# and the cron job appends to a log file that is not rotated, so --quiet has to
+# reach rsync too.
+rsync_opts=(--compress --copy-links --recursive --times)
+if "${QUIET}"; then
+    rsync_opts+=(--quiet)
+else
+    rsync_opts+=(--human-readable --progress --verbose)
+fi
+
 sync_host() {
     local src_host="${1}"
     local src_dir="${2}"
+    local lock_file
+    # One lock per host+dir, so a second host still syncs while this one is busy.
+    # The uid keeps the path from colliding with another user's lock file.
+    lock_file="${TMPDIR:-/tmp}/synct-$(id -u)-${src_host}${src_dir//\//_}.lock"
     header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
     # Skip while a prior rsync for this host+dir is still running, so overlapping
-    # cron runs do not stack. $$ is the script's own pid, never an rsync's.
-    if ! pgrep -f "rsync.*${src_host}.*${src_dir}" | grep -qv $$; then
+    # cron runs do not stack. flock holds the lock for the guarded subshell and
+    # releases it however that subshell ends, including a kill, which a pid check
+    # cannot see.
+    (
+        if ! flock -n 9; then
+            warn "Skipping ${src_host}:${src_dir}: a previous sync is still running"
+            exit 0
+        fi
         info "Starting sync on $(date)"
-        rsync \
-            --compress \
-            --copy-links \
-            --human-readable \
-            --progress \
-            --recursive \
-            --times \
-            --verbose \
-            -e ssh "${src_host}:${src_dir}" "${dst_dir}"
+        rsync "${rsync_opts[@]}" -e ssh "${src_host}:${src_dir}" "${dst_dir}"
         ok "Completed sync on $(date)"
-    fi
+    ) 9>"${lock_file}"
 }
 
 {% for host in ansible_play_batch -%}
