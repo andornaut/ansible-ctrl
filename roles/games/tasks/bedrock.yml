@@ -23,6 +23,13 @@
   ansible.builtin.set_fact:
     games_bedrock_version: "{{ games_bedrock_tag | regex_replace('^v', '') }}"
 
+# WORKAROUND (https://github.com/Wyze3306/BedrockOnLinux/issues/96): release assets since
+# v2.1.0 are built without appstream data, so the version column below stays empty (the
+# install never converges) and flatpak's parental-controls check blocks the bundle for a
+# games_user with a malcontent OARS filter. Until upstream ships a fixed asset, affected
+# hosts run a locally built bundle of the same version (scripts/build-flatpak.sh --release
+# at the tag, with the manifest's git source pinned to that tag), installed manually; this
+# check then reports the version as installed and the download below is skipped.
 - name: Check whether the latest BedrockOnLinux version is installed
   ansible.builtin.shell:
     cmd: |
