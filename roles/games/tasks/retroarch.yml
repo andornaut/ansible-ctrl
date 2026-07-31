@@ -105,7 +105,7 @@
     fail_msg: >-
       {{ games_retroarch_thumbnails_dir }} is not a directory. It is the shared box art cache, and
       the library owns it the way it owns _BIOS: the role points RetroArch at it and never creates
-      it. Create it in the library, group it with the library, and set the setgid bit (2775).
+      it. Create it in the library, group it with the library, and set the setgid bit (2755).
     success_msg: >-
       Shared thumbnail cache found at {{ games_retroarch_thumbnails_dir }}
       ({{ games_retroarch_thumbnails_writable | ternary('writable: this host fills it',
