@@ -182,13 +182,13 @@ directory_settings:
 # RetroArch table; the generator only looks up systems in its own table, so they are inert for playlists.
 rom_dir_names:
   Atari - 2600: atari2600
-  # ES-DE's fbneo system, not its arcade one: arcade offers a dozen MAME emulators and assumes a MAME
-  # romset, while fbneo's only emulator is FinalBurn Neo, which is the romset version this library holds.
-  # ES-DE therefore shows this as "FinalBurn Neo" even though the library directory and the desktop
-  # playlist are both named Arcade. Moving to ES-DE's arcade system would show "Arcade" here too, but
-  # only if its command list carries FinalBurn Neo to pin through esde_cores; verify on the device
-  # before switching, since the wrong emulator there means a MAME romset assumption.
-  Arcade: fbneo
+  # ES-DE's arcade system, so the name matches the library directory and the desktop playlist. Its
+  # command list carries fourteen emulators, most of them MAME, but esde_cores pins FinalBurn Neo as
+  # the <alternativeEmulator> in the gamelist, which is what actually launches. Verified against the
+  # ES-DE APK's assets/systems/android/es_systems.xml: arcade's <fullname> is "Arcade" and its
+  # commands include "FinalBurn Neo". The fbneo system remains the exact one (a single emulator) if
+  # the pin ever proves unreliable.
+  Arcade: arcade
   Atari - 7800: atari7800
   Atari - Jaguar: atarijaguar
   Atari - Lynx: atarilynx
@@ -227,7 +227,7 @@ rom_dir_names:
 # Pico-8 runtime is installed is not knowable here, so ES-DE's default stands.
 esde_cores:
   atari2600: Stella
-  fbneo: FinalBurn Neo
+  arcade: FinalBurn Neo
   atari7800: ProSystem
   atarijaguar: Virtual Jaguar
   atarilynx: Beetle Lynx
