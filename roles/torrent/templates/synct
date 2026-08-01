@@ -3,6 +3,11 @@
 set -euo pipefail
 
 QUIET=false
+# Bound a stalled transfer: a sync holds its host's lock for its whole duration, so
+# a hang blocks every later cron run. Without ConnectTimeout ssh waits out the
+# kernel's TCP connect timeout, which is longer than the interval cron fires at, and
+# once a transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
     cat <<EOF
@@ -53,7 +58,9 @@ done
 header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
+# Not gated on --quiet, unlike the others: a warning names what went wrong, and the
+# cron job passes --quiet, so gating it leaves the final error unexplained in the log.
+warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 dst_dir="${1:-{{ torrent_local_incoming_directory }}}"
 
@@ -79,23 +86,36 @@ sync_host() {
     # The uid keeps the path from colliding with another user's lock file.
     lock_file="${TMPDIR:-/tmp}/synct-$(id -u)-${src_host}${src_dir//\//_}.lock"
     header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
-    # Skip while a prior rsync for this host+dir is still running, so overlapping
-    # cron runs do not stack. flock holds the lock for the guarded subshell and
-    # releases it however that subshell ends, including a kill, which a pid check
-    # cannot see.
+    # flock holds the lock for the guarded subshell and releases it however that
+    # subshell ends, including a kill, which a pid check cannot see. A held lock
+    # means a prior sync for this host+dir is wedged rather than that runs overlap
+    # normally, so fail instead of skipping: the run is reported and the chained
+    # unrart does not see a half-synced incoming directory.
     (
-        if ! flock -n 9; then
-            warn "Skipping ${src_host}:${src_dir}: a previous sync is still running"
-            exit 0
-        fi
+        flock -n 9 || error "A previous sync of ${src_host}:${src_dir} is still running"
         info "Starting sync on $(date)"
-        rsync "${rsync_opts[@]}" -e ssh "${src_host}:${src_dir}" "${dst_dir}"
+        # Test rsync explicitly rather than leaving it to `set -e`: the caller
+        # invokes this function as the left side of an ||, and bash suspends
+        # `set -e` for the whole body of a function called that way, so a failing
+        # rsync would fall through to the ok() below and report a false success.
+        if ! rsync "${rsync_opts[@]}" -e "ssh ${SSH_OPTS[*]}" "${src_host}:${src_dir}" "${dst_dir}"; then
+            warn "Failed to synchronize ${src_host}:${src_dir}"
+            exit 1
+        fi
         ok "Completed sync on $(date)"
     ) 9>"${lock_file}"
 }
 
-{% for host in ansible_play_batch -%}
-{% if host != "localhost" -%}
-sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/completed/"
-{% endif -%}
-{% endfor -%}
+# A host that cannot be reached is not a reason to skip the rest, so collect the
+# failures and report them at the end. The names go in the message because error()
+# ignores --quiet, which the cron job passes.
+failed_hosts=""
+{% for host in ansible_play_batch %}
+{% if host != "localhost" %}
+sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/completed/" || failed_hosts+=" {{ host }}"
+{% endif %}
+{% endfor %}
+
+# Exit non-zero so cron reports the run, and so the chained unrart does not run
+# against a half-synced incoming directory.
+[[ -z "${failed_hosts}" ]] || error "Could not synchronize:${failed_hosts}"

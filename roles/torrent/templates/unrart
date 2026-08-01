@@ -67,7 +67,9 @@ done
 header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
+# Not gated on --quiet, unlike the others: a warning names the archive that failed,
+# and the cron job passes --quiet, so gating it leaves the final error unexplained.
+warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 # The extractors write their own output to fd 3. Do not point them at a
 # /dev/stdout path instead: `>` opens it with O_TRUNC, so `unrart >> log` would
@@ -107,6 +109,19 @@ delete_rar_volumes() {
     done
 }
 
+# unrar follows a multi-volume set from its first volume, so the later parts are
+# not separate archives. Old-style .r00/.r01 volumes do not match the find
+# expression below, but every part of a .partN.rar set does. part1, part01 and
+# part001 are all first volumes; part2 and part10 are not.
+is_later_rar_volume() {
+    local name="${1,,}"
+    # Compare the number, not its spelling. 10# because a leading zero would
+    # otherwise be read as octal, making part08 an error rather than volume 8.
+    [[ "${name}" =~ \.part([0-9]+)\.rar$ ]] || return 1
+    (( 10#${BASH_REMATCH[1]} != 1 ))
+}
+
+# Returns non-zero if the archive could not be extracted.
 extract() {
     local archive="$1"
     local archive_dir
@@ -116,7 +131,11 @@ extract() {
     # The extractors unpack into the current directory, so run in a subshell:
     # whatever happens below, the cd cannot leak back to the caller.
     (
-        cd "${archive_dir}"
+        # Test the cd rather than leaving it to `set -e`: the caller invokes this
+        # function in an if, and bash suspends `set -e` for the whole body of a
+        # function called that way, so a failed cd would unpack into the wrong
+        # directory instead of aborting.
+        cd "${archive_dir}" || exit 1
         local rc=0
         case "${archive,,}" in
             *.rar)             ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >&3 || rc=$? ;;
@@ -127,7 +146,11 @@ extract() {
 
         # unrar returns 10 for minor warnings (e.g. file already exists with -o-)
         if [[ "${rc}" -ne 0 && ("${archive,,}" != *.rar || "${rc}" -ne 10) ]]; then
-            error "Failed to extract ${archive} (exit code: ${rc})"
+            # Not fatal: nothing removes a corrupt or truncated archive from the
+            # incoming directory, so aborting here would block every archive
+            # sorting after it, on this run and on every run after it.
+            warn "Failed to extract ${archive} (exit code: ${rc})"
+            exit 1
         fi
 
         if "${DELETE_ARCHIVES}"; then
@@ -144,20 +167,36 @@ header "Extracting archives in ${directory} (max depth: ${MAX_DEPTH})"
 # Collect the list before extracting anything: find streams its results, so an
 # archive unpacked into a directory it has not yet reached would otherwise join
 # the same pass. -print0 keeps a name containing a newline in one piece.
+# -type f: a directory named like an archive otherwise reaches the extractors, and
+# --delete-archives would then rm -f a directory and fail.
 archives=()
 mapfile -d '' -t archives < <(
-    find "${directory}" -maxdepth "${MAX_DEPTH}" \
+    find "${directory}" -maxdepth "${MAX_DEPTH}" -type f \
         -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)' -print0
 )
 
 count=0
+failed=false
 for archive in "${archives[@]}"; do
-    extract "${archive}"
-    count=$((count + 1))
+    if is_later_rar_volume "${archive}"; then
+        info "Skipping ${archive}: not the first volume of its set"
+        continue
+    fi
+    if extract "${archive}"; then
+        count=$((count + 1))
+    else
+        failed=true
+    fi
 done
 
-if [[ "${count}" -eq 0 ]]; then
-    warn "No archives found"
+if "${failed}"; then
+    # Exit non-zero so cron reports the run. The per-archive warnings above name
+    # which ones, and the rest of the batch has already been extracted.
+    error "Some archives could not be extracted"
+elif [[ "${count}" -eq 0 ]]; then
+    # Not a warning: most completed downloads contain no archive at all, and this
+    # runs every 2 minutes against an unrotated log.
+    info "No archives found"
 else
     ok "Extracted ${count} archive(s)"
 fi
