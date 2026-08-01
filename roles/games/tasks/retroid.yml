@@ -1,0 +1,49 @@
+---
+# The handheld is not an inventory host: it is a USB peripheral of the controller, which is also
+# where the ansible-ctrl checkout and the ROM library mount live. So the command is installed on the
+# controller rather than on the host being converged, and games_install_retroid_sync is set in the
+# host_vars of the one host that is the controller.
+
+# The command is one file on the controller, so two hosts enabling the flag would render it from
+# different host_vars and overwrite each other on every run. run_once would not catch that: it
+# evaluates the condition against the play's first host only, so a run where that host has the flag
+# off would skip the install for the host that has it on.
+- name: Assert only one host installs syncretroid
+  ansible.builtin.assert:
+    that:
+      - installers | length == 1
+    fail_msg: >-
+      games_install_retroid_sync is on for {{ installers | join(", ") }}. It installs a single
+      command on the controller, so exactly one host may enable it.
+    success_msg: syncretroid is installed from one host
+  vars:
+    installers: >-
+      {{ ansible_play_hosts | map('extract', hostvars)
+         | selectattr('games_install_retroid_sync', 'defined')
+         | selectattr('games_install_retroid_sync')
+         | map(attribute='inventory_hostname') | list }}
+
+- name: Validate the retroid sync inputs
+  ansible.builtin.assert:
+    that:
+      - games_retroid_library_dir | length > 0
+      - games_retroid_serial | length > 0
+    fail_msg: >-
+      games_install_retroid_sync is on, so games_retroid_library_dir (where the controller mounts
+      the ROM library) and games_retroid_serial (the device's adb serial, from `adb devices`) must
+      both be set in host_vars/ for this host. Both are site data, so the role has no default.
+    success_msg: syncretroid inputs are set
+
+# Rendered rather than copied so the library path and adb serial are baked in and the command takes
+# no arguments. It reads the role's vars/main.yml and profile.yml from the role directory at run
+# time, so only edits to the template itself need this task re-run. validate parses the render
+# because the source is Python held inside a Jinja template: a bad escape of the Python that looks
+# like Jinja must fail here, not at sync time.
+- name: Install syncretroid on the controller
+  ansible.builtin.template:
+    src: syncretroid.j2
+    dest: /usr/local/bin/syncretroid
+    mode: "0755"
+    validate: python3 -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" %s
+  become: true
+  delegate_to: localhost

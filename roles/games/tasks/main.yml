@@ -71,3 +71,10 @@
   become: true
   become_user: "{{ games_user }}"
   tags: retroarch
+
+# No become here: retroid.yml installs to /usr/local/bin on the controller, so it takes root there
+# rather than becoming games_user on this host.
+- name: Install the Retroid handheld sync command
+  ansible.builtin.import_tasks: retroid.yml
+  when: games_install_retroid_sync | bool
+  tags: retroid

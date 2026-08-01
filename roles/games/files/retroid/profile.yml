@@ -1,8 +1,8 @@
-# Retroid Pocket Flip 2 (Snapdragon 865, stock Android + ES-DE) profile for sync.py.
+# Retroid Pocket Flip 2 (Snapdragon 865, stock Android + ES-DE) profile for syncretroid.
 #
-# sync.py reads the games role's defaults/main.yml as the source of truth (systems table,
-# retroarch.cfg keys, per-core overrides and options, controller table) and applies the transforms
-# below. Only the divergences live here; everything shared stays in the role.
+# syncretroid reads the games role's vars/main.yml as the source of truth (systems table,
+# retroarch.cfg keys, per-core overrides and options) and applies the transforms below. Only the
+# divergences live here; everything shared stays in the role.
 #
 # Per-divergence reasoning: ../../../../til/docs/retro-games.md ("Retroid Pocket Mini / Flip 2" and
 # "Cores" sections). Run procedure and the two device-verified values (core library_names, pad
@@ -11,7 +11,7 @@
 package: com.retroarch.aarch64
 
 # Removable sdcard mount. uuid is discovered at run time (adb shell ls /storage/) unless pinned here.
-# app_files is where RetroArch keeps retroarch.cfg and the per-core config/ overrides; sync.py
+# app_files is where RetroArch keeps retroarch.cfg and the per-core config/ overrides; syncretroid
 # discovers the real retroarch.cfg path rather than trusting this, because a RetroArch granted
 # all-files-access may keep it under /storage/emulated/0/RetroArch/.
 sdcard_uuid: ""
@@ -101,7 +101,7 @@ settings_override:
   rewind_buffer_size: "67108864"
   fastforward_ratio: "5.000000"
   video_refresh_rate: "60.000000"
-  # sync.py mirrors the thumbnail cache from the library and prunes what is not in it, so an on-demand
+  # syncretroid mirrors the thumbnail cache from the library and prunes what is not in it, so an on-demand
   # download is redundant and would be deleted on the next sync; off keeps RetroArch from fetching them.
   network_on_demand_thumbnails: "false"
   # Nintendo-layout pad: physical A is the east button, so make the east button confirm (RetroArch's
@@ -162,7 +162,7 @@ settings_drop:
   - input_hold_fast_forward
 
 # retroarch.cfg directory keys, remapped from the base's templated flatpak paths to device_dirs
-# above (resolved by sync.py). libretro_directory and libretro_info_path are deliberately absent:
+# above (resolved by syncretroid). libretro_directory and libretro_info_path are deliberately absent:
 # cores and their .info live in the app-private dir (see cores_ref), so the sync leaves those two keys.
 directory_settings:
   system_directory: system
@@ -269,7 +269,7 @@ esde_package: org.es_de.frontend
 # Pocket Controller" reports BTN_THUMBL/BTN_THUMBR, i.e. KEYCODE_BUTTON_THUMBL/THUMBR): L3=106 rewinds,
 # R3=107 fast-forwards, both as holds. The right-stick axes stay nul on purpose: this pad's right
 # stick is Z/RZ and several systems here (N64, PSP, DS, Dreamcast) use it in-game, so an axis bind
-# would rewind by accident. sync.py folds this into the managed settings like the role folds
+# would rewind by accident. syncretroid folds this into the managed settings like the role folds
 # games_retroarch_controllers.
 controller:
   input_rewind_axis: "nul"
@@ -283,7 +283,7 @@ controller:
 # real mask textures to the curvature and scanline model plain crt-geom already has. It ships only as a
 # slang preset (there is no GLSL port), which is what settles the video driver above.
 #
-# sync.py extracts the preset's file closure from the libretro pack (the same pack RetroArch's "Update
+# syncretroid extracts the preset's file closure from the libretro pack (the same pack RetroArch's "Update
 # Slang Shaders" installs) into device_dirs.shaders, then writes a per-core auto preset for every core
 # the vulkan driver applies to. The pack carries ~5500 files and each one is a separate adb push, so only
 # the dozen the preset actually opens are pushed; installing the rest in-app afterwards is additive and
