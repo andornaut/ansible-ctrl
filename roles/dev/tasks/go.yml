@@ -4,6 +4,12 @@
     url: https://go.dev/dl/?mode=json
     return_content: true
   register: dev_go_releases
+  retries: 3
+  delay: 5
+  # 4xx is deterministic: retry only network errors and 5xx.
+  until: >-
+    dev_go_releases.status == 200 or
+    (dev_go_releases.status >= 400 and dev_go_releases.status < 500)
 
 - name: Set Go version fact
   ansible.builtin.set_fact:

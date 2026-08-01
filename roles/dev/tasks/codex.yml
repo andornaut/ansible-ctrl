@@ -1,7 +1,5 @@
 ---
 - name: Install Codex
-  become: true
-  community.general.npm:
-    name: "@openai/codex"
-    global: true
-    state: latest
+  ansible.builtin.include_tasks: install_global_npm.yml
+  vars:
+    dev_npm_package: "@openai/codex"

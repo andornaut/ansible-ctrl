@@ -1,0 +1,18 @@
+---
+# Build and install one meson/ninja component from a source tarball into /usr/local,
+# via the shared build scaffold in build_component.yml. Fetching the release and
+# resolving the tarball URL belong at the call site.
+#
+# Required vars:
+#   meson_component_name (str): display name, e.g. "wayland-protocols"
+#   meson_component_src_url (str): source tarball URL with a single top-level directory
+#
+# Callers must wrap the include in a tagged block (see dependencies.yml).
+- name: Build and install {{ meson_component_name }}
+  ansible.builtin.include_tasks: build_component.yml
+  vars:
+    build_component_name: "{{ meson_component_name }}"
+    build_component_src_url: "{{ meson_component_src_url }}"
+    build_component_configure_cmd: meson build/ --prefix=/usr/local --buildtype=release
+    build_component_build_cmd: ninja -C build/
+    build_component_install_cmd: ninja -C build/ install

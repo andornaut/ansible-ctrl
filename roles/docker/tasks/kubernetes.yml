@@ -9,6 +9,12 @@
         url: https://api.github.com/repos/helm/helm/releases/latest
         return_content: true
       register: docker_helm_release
+      retries: 3
+      delay: 5
+      # 4xx is deterministic: retry only network errors and 5xx.
+      until: >-
+        docker_helm_release.status == 200 or
+        (docker_helm_release.status >= 400 and docker_helm_release.status < 500)
 
     # unarchive has no version/checksum short circuit, so gate on the installed version.
     # `helm version --short` prints e.g. "v3.16.2+g13654a5".
@@ -36,6 +42,12 @@
         url: "https://storage.googleapis.com/kubernetes-release/release/stable.txt"
         return_content: true
       register: docker_kubectl_version
+      retries: 3
+      delay: 5
+      # 4xx is deterministic: retry only network errors and 5xx.
+      until: >-
+        docker_kubectl_version.status == 200 or
+        (docker_kubectl_version.status >= 400 and docker_kubectl_version.status < 500)
 
     # checksum: makes get_url download only on a digest mismatch, so unchanged binaries
     # are not refetched every play. Applies to minikube below too.

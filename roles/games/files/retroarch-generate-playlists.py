@@ -45,6 +45,14 @@ Two more keys give arcade systems readable labels (both host-agnostic, so the de
   * "arcade_name_cores" (default []): the cores that the map applies to (fbneo). Off this set the
     lookup never runs, so a console filename can never collide with a romset id.
 
+A system may also carry "core_overrides", mapping a playlist label to the core that one title needs
+instead of the system's own. A Sega CD disc that additionally requires the 32X is a Sega CD game to
+every naming authority, so it belongs in the Sega CD directory and resolves its art there, but
+genesis_plus_gx does not emulate the 32X. Only that entry's core_path differs; its playlist,
+label and thumbnails are untouched. Overrides are validated like systems: the core must be
+installed and must accept the system's extensions, and a label matching no content is an error,
+since a silently inert override reads as a fix that is in place.
+
 "cores" is what the cores reported, collected by files/retroarch-probe-cores.py inside the
 flatpak sandbox. Not gathered here: this runs on the host, where a core needing a library only
 the runtime carries (LRPS2 wants libaio) will not load, leaving exactly those cores unchecked.
@@ -154,9 +162,11 @@ def content_label(name, extensions):
 def disc_entry(directory, extensions):
     """Return the disc a visible subdirectory of a system directory should launch.
 
-    Only 3DO uses these: its multi-disc games sit in a visible directory with no .m3u (Opera swaps
-    discs itself), so the playlist points at disc 1. Every other system hides its multi-disc
-    directory behind a dot prefix and exposes an .m3u; dot-prefixed directories never reach here.
+    3DO and GameCube use these: their multi-disc games sit in a visible directory with no .m3u
+    (Opera and Dolphin swap discs themselves), so the playlist points at disc 1 while the label
+    stays the directory name, which is therefore also the name the art is cached under. Every other
+    system hides its multi-disc directory behind a dot prefix and exposes an .m3u; dot-prefixed
+    directories never reach here.
     """
     discs = sorted(
         entry.path
@@ -168,12 +178,15 @@ def disc_entry(directory, extensions):
     return next((disc for disc in discs if "(Disc 1)" in disc), discs[0])
 
 
-def system_items(names, system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
+def system_items(
+    names, overrides, system_dir, emit_system_dir, extensions, core_path, core_name, db_name
+):
     """Build the playlist items for one system directory.
 
     Scanned at system_dir but written under emit_system_dir (see the module docstring's
     emit_system_dirs), equal for a same-host run. names maps romset shortname -> full title for
-    arcade systems, empty elsewhere.
+    arcade systems, empty elsewhere. overrides maps a label -> (core_path, core_name) for the
+    titles the system's own core cannot launch, and is empty for most systems.
     """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
@@ -203,12 +216,16 @@ def system_items(names, system_dir, emit_system_dir, extensions, core_path, core
         # Rewrite the scanned path onto the target's mount. path is always under system_dir.
         path = emit_system_dir + path[len(system_dir):]
 
+        # A title the system's core cannot launch carries its own core; everything else about the
+        # entry, db_name included, stays the system's, so art still resolves off the one playlist.
+        item_core_path, item_core_name = overrides.get(label, (core_path, core_name))
+
         items.append(
             {
                 "path": path,
                 "label": label,
-                "core_path": core_path,
-                "core_name": core_name,
+                "core_path": item_core_path,
+                "core_name": item_core_name,
                 "crc32": CRC32_UNKNOWN,
                 "db_name": db_name,
             }
@@ -296,16 +313,22 @@ def main():
 
     # The probe covers every installed core and the role installs every core the table names, so a
     # system naming a core that did not answer means the two disagree, not that the core is quiet.
-    unknown = sorted({spec["core"] for _, spec in systems} - set(probed))
+    # An override core is held to the same bar as a system's own, or an override naming a core the
+    # role does not install would write entries pointing at a missing core file.
+    declared = {spec["core"] for _, spec in systems}
+    declared.update(core for _, spec in systems for core in spec.get("core_overrides", {}).values())
+    unknown = sorted(declared - set(probed))
     if unknown:
         sys.exit("no installed core reported itself as: %s" % ", ".join(unknown))
 
     # Check the whole table before writing anything, reporting problems together: fixing them one
-    # failed run at a time is worse.
+    # failed run at a time is worse. An override is checked against the system's extensions: it
+    # launches that system's content, so it has to accept the same formats.
     problems = [
         "%s: %s" % (system, reason)
         for system, spec in systems
-        for reason in validate_system(info_dir, probed, spec["core"], spec["extensions"])
+        for core in [spec["core"], *sorted(set(spec.get("core_overrides", {}).values()))]
+        for reason in validate_system(info_dir, probed, core, spec["extensions"])
     ]
     if problems:
         sys.exit(
@@ -333,8 +356,23 @@ def main():
         # cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
         names = arcade_names if core in arcade_name_cores else {}
+        # label -> (core_path, core_name) for the titles this system's core cannot launch.
+        overrides = {
+            label: (
+                os.path.join(cores_dir, "%s%s" % (override, core_suffix)),
+                core_info_field(info_dir, override, "display_name", default=override),
+            )
+            for label, override in spec.get("core_overrides", {}).items()
+        }
         items = system_items(
-            names, system_dir, emit_system_dir, spec["extensions"], core_path, core_name, db_name
+            names,
+            overrides,
+            system_dir,
+            emit_system_dir,
+            spec["extensions"],
+            core_path,
+            core_name,
+            db_name,
         )
 
         # An existing playlist is never replaced by an empty one: a system directory that
@@ -343,6 +381,16 @@ def main():
         if not items:
             print("skipped %s: no content matched %s" % (system, spec["extensions"]), file=sys.stderr)
             continue
+
+        # Checked after the empty guard, so a half-mounted share reports as the skip above rather
+        # than as drift. An override matching no label is drift: the title was renamed or left the
+        # library, and the override now does nothing while still reading as a fix in place.
+        stale = sorted(set(overrides) - {item["label"] for item in items})
+        if stale:
+            sys.exit(
+                "%s: core_overrides name labels the directory does not contain: %s"
+                % (system, ", ".join(stale))
+            )
 
         playlist = {
             "version": PLAYLIST_VERSION,

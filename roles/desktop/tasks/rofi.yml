@@ -32,10 +32,10 @@
     # Fork of rofi that supports Wayland:
     # https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
     - name: Get latest rofi release
-      ansible.builtin.include_tasks: get_latest_github_release.yml
+      ansible.builtin.include_tasks: get_latest_release.yml
       vars:
-        github_release_repo: lbonn/rofi
-        github_release_fact: desktop_rofi_release
+        release_repo: lbonn/rofi
+        release_fact: desktop_rofi_release
 
     - name: Set rofi version fact
       ansible.builtin.set_fact:

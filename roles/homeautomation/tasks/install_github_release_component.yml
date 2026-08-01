@@ -16,11 +16,22 @@
         state: directory
       register: homeautomation_github_component_tmp
 
+    # Filter the release list rather than calling /releases/latest, which returns the release a
+    # project marks as latest: a component tracked here has shipped a newer stable release
+    # without moving that pointer, so following it would silently downgrade the install. The
+    # other roles' get_latest_release.yml follows the pointer for the opposite reason, to avoid
+    # picking up rolling builds published alongside real tags.
     - name: Get releases of {{ github_component_name }}
       ansible.builtin.uri:
         url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
         return_content: true
       register: homeautomation_github_component_releases
+      retries: 3
+      delay: 5
+      # 4xx is deterministic: retry only network errors and 5xx.
+      until: >-
+        homeautomation_github_component_releases.status == 200 or
+        (homeautomation_github_component_releases.status >= 400 and homeautomation_github_component_releases.status < 500)
 
     - name: Set version fact for {{ github_component_name }}
       ansible.builtin.set_fact:
