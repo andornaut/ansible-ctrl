@@ -240,6 +240,7 @@ def missing_slots(playlist_dir, thumbnails_dir):
     is not necessarily valid UTF-8, and one unreadable file is not worth abandoning the rest.
     """
     slots = []
+    overridden = set()
     for playlist in sorted(os.listdir(playlist_dir)):
         path = os.path.join(playlist_dir, playlist)
         if not playlist.endswith(".lpl") or not os.path.isfile(path):
@@ -253,13 +254,18 @@ def missing_slots(playlist_dir, thumbnails_dir):
 
         for item in items:
             system = os.path.splitext(item.get("db_name") or playlist)[0]
+            # A db_name that is not just the playlist's own name is a deliberate override (the
+            # generator's thumbnail_db), naming a system this repository is asserted to publish.
+            # Worth separating from the ordinary case, which asserts nothing: see main().
+            if system != os.path.splitext(playlist)[0]:
+                overridden.add(system)
             for kind in TYPES:
                 destination = os.path.join(
                     thumbnails_dir, system, kind, INVALID.sub("_", item["label"]) + ".png"
                 )
                 if not os.path.exists(destination):
                     slots.append((system, kind, item["label"], item["path"], destination))
-    return slots
+    return slots, overridden
 
 
 def main():
@@ -271,7 +277,7 @@ def main():
     # every host mounting the library. Set here, not inherited from whatever invoked the play.
     os.umask(0o022)
 
-    slots = missing_slots(config["playlist_dir"], config["thumbnails_dir"])
+    slots, overridden = missing_slots(config["playlist_dir"], config["thumbnails_dir"])
     downloads = []
 
     # A system whose content files are themselves PNGs is its own box art: a Pico-8 cart is a
@@ -292,6 +298,28 @@ def main():
     wanted = sorted({(system, kind) for system, kind, _, _, _ in downloads})
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         indexes = dict(zip(wanted, pool.map(lambda pair: index(listing(*pair)), wanted)))
+
+    # An overridden system that publishes nothing is a wrong thumbnail_db, not a repository that
+    # carries no art: the override exists precisely to name a directory the repository does have.
+    # Left unchecked it degrades into "no box art is published" for every game on that system, which
+    # blames the library's naming and sends the reader to the wrong place. A misspelt key falls back
+    # to the system's own name and never reaches here, so this catches the wrong-value case; the
+    # wrong-key case shows up as the system reverting to its displayed name.
+    misnamed = sorted(
+        system
+        for system in overridden
+        if any(pair[0] == system for pair in wanted)
+        and not any(names_by for (s, _), (names_by, _) in indexes.items() if s == system)
+    )
+    if misnamed:
+        print(
+            "%d system(s) name a thumbnail_db the repository does not publish, so no art can "
+            "resolve for them:" % len(misnamed),
+            file=sys.stderr,
+        )
+        for system in misnamed:
+            print("  %s" % system, file=sys.stderr)
+        return 1
 
     def download(slot):
         system, kind, label, _, destination = slot
