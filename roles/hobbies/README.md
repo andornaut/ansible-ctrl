@@ -26,13 +26,15 @@ See [defaults/main.yml](./defaults/main.yml).
 
 | Variable | Purpose |
 | --- | --- |
+| `hobbies_betaflight_version` | Pinned release; only raise it to one whose assets include `linux64-portable.zip` |
 | `hobbies_kicad_version` | Selects both the release PPA and the plugin directory |
 | `hobbies_user` | Account that user-scoped installs (flatpaks, KiCad plugins) apply to |
 
 ## Notes
 
-- betaflight installs the latest portable build to `/opt/betaflight/<tag>`, exposed as `/opt/betaflight/current`,
-  with `betaflight-configurator` on PATH.
+- betaflight is pinned: upstream is PWA-only now, so only older releases ship a Linux portable build. It
+  installs to `/opt/betaflight/<version>`, exposed as `/opt/betaflight/current`, with `betaflight-configurator`
+  on PATH.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
 - kicad is a git-master build. It installs the
   [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, and

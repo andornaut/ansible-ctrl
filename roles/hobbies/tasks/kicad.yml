@@ -22,19 +22,16 @@
   tags: kicad
   block:
     - name: Get latest kicad-jlcpcb-tools release
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/Bouni/kicad-jlcpcb-tools/releases/latest
-        return_content: true
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        validate_certs: true
-      register: hobbies_jlcpcb_release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: Bouni/kicad-jlcpcb-tools
+        release_fact: hobbies_jlcpcb_release
 
     - name: Clone kicad-jlcpcb-tools plugin at the latest release tag
       ansible.builtin.git:
         repo: https://github.com/Bouni/kicad-jlcpcb-tools.git
         dest: "{{ hobbies_user_home }}/.local/share/kicad/{{ hobbies_kicad_version }}/scripting/plugins/kicad-jlcpcb-tools"
-        version: "{{ hobbies_jlcpcb_release.json.tag_name }}"
+        version: "{{ hobbies_jlcpcb_release.tag_name }}"
         update: true
 
 # PCB panelizer. KiCad 10 support is only in KiKit + pcbnewTransition git master (no PyPI
@@ -68,23 +65,17 @@
 - name: Install Freerouting
   tags: freerouting
   block:
-    - name: Get Freerouting releases
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/freerouting/freerouting/releases
-        return_content: true
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        validate_certs: true
-      register: hobbies_freerouting_releases
+    - name: Get latest Freerouting release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: freerouting/freerouting
+        release_fact: hobbies_freerouting_release
 
-    # Newest linux-x64.zip across all stable releases: a fresh tag may briefly lack built
-    # assets. Match the 'linux-x64' substring to avoid regex-escape differences across Jinja.
+    # Match the 'linux-x64' substring to avoid regex-escape differences across Jinja.
     - name: Set Freerouting download URL fact
       ansible.builtin.set_fact:
         hobbies_freerouting_download_url: >-
-          {{ hobbies_freerouting_releases.json
-          | rejectattr('prerelease') | rejectattr('draft')
-          | map(attribute='assets') | flatten
+          {{ hobbies_freerouting_release.assets
           | selectattr('name', 'search', 'linux-x64')
           | map(attribute='browser_download_url') | first }}
 

@@ -1,0 +1,59 @@
+---
+# Download a source tarball into a temporary directory, then run the supplied
+# configure/build/install commands from its root. Returns once installed and cleaned
+# up; fetching the release and resolving the tarball URL belong at the call site.
+#
+# Required vars:
+#   build_component_name (str): display name, e.g. "wayland-protocols"
+#   build_component_src_url (str): source tarball URL with a single top-level directory
+#   build_component_configure_cmd (str)
+#   build_component_build_cmd (str): may interpolate $(...), so it runs in a shell
+#   build_component_install_cmd (str): runs as root
+#
+# Optional vars:
+#   build_component_build_become (bool): build as root, default false.
+#
+# Callers must wrap the include in a tagged block (see hypr.yml).
+- name: Build and install {{ build_component_name }}
+  block:
+    - name: Create a temporary directory for {{ build_component_name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: niri_build_component_tmp
+
+    - name: Download and unarchive {{ build_component_name }}
+      ansible.builtin.unarchive:
+        src: "{{ build_component_src_url }}"
+        dest: "{{ niri_build_component_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+
+    - name: Configure {{ build_component_name }}
+      ansible.builtin.command:
+        cmd: "{{ build_component_configure_cmd }}"
+        chdir: "{{ niri_build_component_tmp.path }}"
+      changed_when: true
+
+    - name: Build {{ build_component_name }} # noqa: command-instead-of-shell
+      ansible.builtin.shell:
+        cmd: "{{ build_component_build_cmd }}"
+        chdir: "{{ niri_build_component_tmp.path }}"
+      changed_when: true
+      become: "{{ build_component_build_become | default(false) | bool }}"
+
+    - name: Install {{ build_component_name }}
+      ansible.builtin.command:
+        cmd: "{{ build_component_install_cmd }}"
+        chdir: "{{ niri_build_component_tmp.path }}"
+      changed_when: true
+      become: true
+  always:
+    # A become build leaves root-owned dirs the connecting user cannot unlink.
+    - name: Remove the temporary directory for {{ build_component_name }}
+      ansible.builtin.file:
+        path: "{{ niri_build_component_tmp.path }}"
+        state: absent
+      when: niri_build_component_tmp.path is defined
+      become: true

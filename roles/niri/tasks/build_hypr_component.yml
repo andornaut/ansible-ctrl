@@ -1,7 +1,8 @@
 ---
-# Build and install one github.com/hyprwm/{name} component from its latest stable release,
-# using the shared cmake commands in vars/main.yml. Returns once installed and cleaned up;
-# post-install steps (relocating/enabling a systemd unit) belong at the call site.
+# Build and install one github.com/hyprwm/{name} component from its latest stable
+# release, using the shared cmake commands in vars/main.yml and the shared build
+# scaffold in build_component.yml. Post-install steps (enabling a systemd unit)
+# belong at the call site.
 #
 # Required vars:
 #   hypr_component_name (str): repository name under github.com/hyprwm/, e.g. "hyprlock"
@@ -11,61 +12,21 @@
 #   hypr_component_build_become (bool): build as root, default false.
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
+- name: Get latest release of {{ hypr_component_name }}
+  ansible.builtin.include_tasks: get_latest_release.yml
+  vars:
+    release_repo: "hyprwm/{{ hypr_component_name }}"
+    release_fact: niri_hypr_component_release
+
 - name: Build and install {{ hypr_component_name }}
-  block:
-    - name: Create a temporary directory for {{ hypr_component_name }}
-      ansible.builtin.tempfile:
-        state: directory
-      register: niri_hypr_component_tmp
-
-    - name: Get latest release of {{ hypr_component_name }}
-      ansible.builtin.include_tasks: get_latest_github_release.yml
-      vars:
-        github_release_repo: "hyprwm/{{ hypr_component_name }}"
-        github_release_fact: niri_hypr_component_release
-
-    - name: Set version fact for {{ hypr_component_name }}
-      ansible.builtin.set_fact:
-        niri_hypr_component_version: "{{ niri_hypr_component_release.name }}"
-
-    - name: Download and unarchive {{ hypr_component_name }}
-      ansible.builtin.unarchive:
-        src: "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
-          {{ niri_hypr_component_version }}.tar.gz"
-        dest: "{{ niri_hypr_component_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
-
-    - name: Configure the build of {{ hypr_component_name }}
-      ansible.builtin.command:
-        cmd: "{{ niri_hypr_cmake_configure }}"
-        chdir: "{{ niri_hypr_component_tmp.path }}"
-      changed_when: true
-
-    # niri_hypr_cmake_build interpolates $(nproc), so it needs a shell.
-    - name: Build {{ hypr_component_name }} # noqa: command-instead-of-shell
-      ansible.builtin.shell:
-        cmd: "{{ niri_hypr_cmake_build }}{{ niri_hypr_component_target_arg }}"
-        chdir: "{{ niri_hypr_component_tmp.path }}"
-      vars:
-        niri_hypr_component_target_arg: >-
-          {{ ' --target ' ~ hypr_component_build_target if hypr_component_build_target | default('') else '' }}
-      changed_when: true
-      become: "{{ hypr_component_build_become | default(false) | bool }}"
-
-    - name: Install {{ hypr_component_name }}
-      ansible.builtin.command:
-        cmd: "{{ niri_hypr_cmake_install }}"
-        chdir: "{{ niri_hypr_component_tmp.path }}"
-      changed_when: true
-      become: true
-  always:
-    # A become build leaves root-owned dirs the connecting user cannot unlink.
-    - name: Remove the temporary directory for {{ hypr_component_name }}
-      ansible.builtin.file:
-        path: "{{ niri_hypr_component_tmp.path }}"
-        state: absent
-      when: niri_hypr_component_tmp.path is defined
-      become: true
+  ansible.builtin.include_tasks: build_component.yml
+  vars:
+    build_component_name: "{{ hypr_component_name }}"
+    build_component_src_url: "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
+      {{ niri_hypr_component_release.name }}.tar.gz"
+    build_component_configure_cmd: "{{ niri_hypr_cmake_configure }}"
+    build_component_build_cmd: >-
+      {{ niri_hypr_cmake_build }}{{ ' --target ' ~ hypr_component_build_target
+      if hypr_component_build_target | default('') else '' }}
+    build_component_install_cmd: "{{ niri_hypr_cmake_install }}"
+    build_component_build_become: "{{ hypr_component_build_become | default(false) }}"

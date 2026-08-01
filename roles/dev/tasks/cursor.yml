@@ -4,6 +4,12 @@
     url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
     return_content: true
   register: dev_cursor_api_response
+  retries: 3
+  delay: 5
+  # 4xx is deterministic: retry only network errors and 5xx.
+  until: >-
+    dev_cursor_api_response.status == 200 or
+    (dev_cursor_api_response.status >= 400 and dev_cursor_api_response.status < 500)
 
 - name: Download Cursor
   ansible.builtin.get_url:

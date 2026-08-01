@@ -25,10 +25,10 @@
       register: desktop_dunst_tmp
 
     - name: Get latest dunst release
-      ansible.builtin.include_tasks: get_latest_github_release.yml
+      ansible.builtin.include_tasks: get_latest_release.yml
       vars:
-        github_release_repo: dunst-project/dunst
-        github_release_fact: desktop_dunst_release
+        release_repo: dunst-project/dunst
+        release_fact: desktop_dunst_release
 
     - name: Set dunst version fact
       ansible.builtin.set_fact:

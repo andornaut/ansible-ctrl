@@ -34,10 +34,10 @@
 - name: Install Source Code Pro font
   block:
     - name: Get latest Source Code Pro release
-      ansible.builtin.include_tasks: get_latest_github_release.yml
+      ansible.builtin.include_tasks: get_latest_release.yml
       vars:
-        github_release_repo: adobe-fonts/source-code-pro
-        github_release_fact: desktop_source_code_pro_release
+        release_repo: adobe-fonts/source-code-pro
+        release_fact: desktop_source_code_pro_release
 
     - name: Set Source Code Pro download URL fact
       ansible.builtin.set_fact:

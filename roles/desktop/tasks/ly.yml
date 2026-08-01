@@ -23,6 +23,12 @@
                 url: https://ziglang.org/download/index.json
                 return_content: true
               register: desktop_zig_versions
+              retries: 3
+              delay: 5
+              # 4xx is deterministic: retry only network errors and 5xx.
+              until: >-
+                desktop_zig_versions.status == 200 or
+                (desktop_zig_versions.status >= 400 and desktop_zig_versions.status < 500)
 
             # ly requires zig v0.16.0+.
             - name: Set zig version fact
@@ -82,15 +88,12 @@
             state: directory
           register: desktop_ly_tmp
 
-        - name: Get ly releases
-          ansible.builtin.uri:
-            url: https://codeberg.org/api/v1/repos/fairyglade/ly/releases
-            return_content: true
-          register: desktop_ly_releases
-
-        - name: Set ly release fact
-          ansible.builtin.set_fact:
-            desktop_ly_release: "{{ desktop_ly_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
+        - name: Get latest ly release
+          ansible.builtin.include_tasks: get_latest_release.yml
+          vars:
+            release_repo: fairyglade/ly
+            release_fact: desktop_ly_release
+            release_api_base: https://codeberg.org/api/v1/repos
 
         # Codeberg's generated .tar.gz archive (tarball_url) returns HTTP 500, so fetch the
         # .zip. unzip has no --strip-components, and the zip wraps its contents in a top-level

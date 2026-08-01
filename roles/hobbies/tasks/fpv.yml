@@ -1,45 +1,17 @@
 ---
-# Recent Betaflight releases are PWA-only (https://app.betaflight.com); install the latest
-# release that still ships a Linux portable build. The portable zip needs a wrapper to set
-# LD_LIBRARY_PATH.
+# The Betaflight version is pinned in defaults/main.yml, not resolved from the releases API:
+# recent releases are PWA-only and ship no Linux portable build. The portable zip needs a
+# wrapper to set LD_LIBRARY_PATH.
 - name: Install Betaflight Configurator
   tags: betaflight
   block:
-    - name: Get Betaflight Configurator releases
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/betaflight/betaflight-configurator/releases
-        return_content: true
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        validate_certs: true
-      register: hobbies_betaflight_releases
-
-    - name: Set Betaflight Configurator release fact
-      ansible.builtin.set_fact:
-        hobbies_betaflight_release: "{{ item }}"
-      loop: "{{ hobbies_betaflight_releases.json | rejectattr('prerelease') | rejectattr('draft') }}"
-      when:
-        - hobbies_betaflight_release is not defined
-        - item.assets | selectattr('name', 'search', 'linux64-portable') | list | length > 0
-      loop_control:
-        label: "{{ item.tag_name }}"
-
-    # Match with a [.] class, not \. : in a folded scalar YAML passes backslashes through and
-    # Jinja does not treat \\ as an escape, so \. matches a literal backslash and selects nothing.
-    - name: Set Betaflight Configurator download URL fact
-      ansible.builtin.set_fact:
-        hobbies_betaflight_download_url: >-
-          {{ hobbies_betaflight_release.assets
-          | selectattr('name', 'search', 'linux64-portable[.]zip$')
-          | map(attribute='browser_download_url') | first }}
-
     # The zip's top-level dir is literally "Betaflight Configurator" (with a space). Extract
-    # each release into its own tag-stamped dir, exposed as /opt/betaflight/current, so the
-    # space never reaches a launcher path.
+    # each release into its own version-stamped dir, exposed as /opt/betaflight/current, so
+    # the space never reaches a launcher path.
     - name: Set Betaflight Configurator install path facts
       ansible.builtin.set_fact:
-        hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}"
-        hobbies_betaflight_app_dir: "/opt/betaflight/{{ hobbies_betaflight_release.tag_name }}/Betaflight Configurator"
+        hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_version }}"
+        hobbies_betaflight_app_dir: "/opt/betaflight/{{ hobbies_betaflight_version }}/Betaflight Configurator"
 
     - name: Create Betaflight release directory
       ansible.builtin.file:
@@ -51,7 +23,9 @@
     # creates is evaluated before download, so an already-installed release skips the fetch.
     - name: Download and extract Betaflight Configurator
       ansible.builtin.unarchive:
-        src: "{{ hobbies_betaflight_download_url }}"
+        src: "https://github.com/betaflight/betaflight-configurator/releases/download/\
+          {{ hobbies_betaflight_version }}/\
+          betaflight-configurator_{{ hobbies_betaflight_version }}_linux64-portable.zip"
         dest: "{{ hobbies_betaflight_release_dir }}"
         remote_src: true
         creates: "{{ hobbies_betaflight_app_dir }}"
@@ -109,20 +83,14 @@
 - name: Download and install ExpressLRS Configurator
   tags: expresslrs
   block:
-    - name: Get ExpressLRS Configurator releases
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/ExpressLRS/ExpressLRS-Configurator/releases
-        return_content: true
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        validate_certs: true
-      register: hobbies_expresslrs_releases
+    - name: Get latest ExpressLRS Configurator release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: ExpressLRS/ExpressLRS-Configurator
+        release_fact: hobbies_expresslrs_release
 
-    - name: Set ExpressLRS Configurator release fact
-      ansible.builtin.set_fact:
-        hobbies_expresslrs_release: "{{ hobbies_expresslrs_releases.json | rejectattr('prerelease') | rejectattr('draft') | first }}"
-
-    # [.] rather than \. for the same reason as the Betaflight asset match above.
+    # Match with a [.] class, not \. : in a folded scalar YAML passes backslashes through and
+    # Jinja does not treat \\ as an escape, so \. matches a literal backslash and selects nothing.
     - name: Set ExpressLRS Configurator download URL fact
       ansible.builtin.set_fact:
         hobbies_expresslrs_download_url: >-
