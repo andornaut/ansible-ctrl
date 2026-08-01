@@ -152,6 +152,22 @@ the full pack later with Online Updater > Update Slang Shaders is not pruned bac
   on-device file manager.
 - **GameCube and PS2 are not libretro playlists** (libretro Dolphin crashes on Android, LRPS2 is
   x86-only); they run in the standalone Dolphin and NetherSX2 apps through ES-DE.
+- **Changing a system's ES-DE short name strands its old directories.** `mirror_roms` and
+  `configure_esde_cores` iterate the current `rom_dir_names` / `esde_cores` maps, so a name that is no
+  longer a value in them is never visited and never pruned. After editing a `rom_dir_names` value,
+  remove three directories on the device by hand, or ES-DE keeps showing the old system alongside the
+  new one, listing the same games from a copy that is never updated again:
+
+  ```bash
+  adb shell rm -rf "/storage/<uuid>/ROMS/<old>" \
+                   "/storage/emulated/0/ES-DE/gamelists/<old>" \
+                   "/storage/<uuid>/ES-DE/downloaded_media/<old>"
+  ```
+
+  Move `gamelists/<old>/gamelist.xml` and `downloaded_media/<old>/` to the new name first to keep the
+  scraped metadata and media: ES-DE keys both by short name, `sync.py` manages neither (it only sets
+  `<alternativeEmulator>`, preserving the rest of the gamelist), and re-scraping is the only other way
+  to get them back. Renaming `ROMS/<old>` to the new name too saves re-pushing the set over USB.
 - **PS2 uses NetherSX2-Turnip** (`xyz.aethersx2.tturnip`) for the Turnip Adreno driver. Two device-side
   edits `sync.py` does not manage, reverted by re-copying the custom_systems:
   - `ES-DE/custom_systems/es_find_rules.xml`: repoint the `AETHERSX2-TURNIP` entry to
