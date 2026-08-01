@@ -38,10 +38,16 @@
       ansible.builtin.shell:
         cmd: |
           before="$(flatpak override --user --show {{ item }})"
-          flatpak override --user {{ (games_flatpak_overrides.default + (games_flatpak_overrides[item] | default([]))) | map('quote') | join(' ') }} {{ item }}
+          flatpak override --user {{ grants | map('quote') | join(' ') }} {{ item }}
           after="$(flatpak override --user --show {{ item }})"
           [ "${before}" = "${after}" ] || echo CHANGED
         executable: /bin/bash
+      vars:
+        # The blanket grants plus this app's own. Both defaulted: an app with no entry of its own is
+        # the common case, and "default" is absent from a games_flatpak_overrides that sets none.
+        grants: >-
+          {{ (games_flatpak_overrides['default'] | default([]))
+             + (games_flatpak_overrides[item] | default([])) }}
       loop: "{{ games_flatpak_apps }}"
       register: games_flatpak_override
       changed_when: "'CHANGED' in games_flatpak_override.stdout"

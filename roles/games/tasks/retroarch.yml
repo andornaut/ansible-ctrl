@@ -38,7 +38,7 @@
       you close it. Close RetroArch and run again.
     success_msg: RetroArch is not running
 
-# input_driver is udev (defaults/main.yml): it reads /dev/input/event* directly, and the distro rules
+# input_driver is udev (vars/main.yml): it reads /dev/input/event* directly, and the distro rules
 # ACL only the joysticks. Without this rule the pad works but mouse and keyboard are unreadable (no
 # menu pointer, dead lightgun binds). Grants the seat's session read access to raw keystrokes, the
 # trade the udev driver requires (README.md).

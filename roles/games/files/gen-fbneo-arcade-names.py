@@ -10,8 +10,8 @@ the libretro thumbnail repos are named from, so the titles line up with both. Ea
 its `rom ( name X.zip )` to the block's `name "..."`. Board-id suffixes ("(NGM-2650 ~ NGH-2650)") are
 kept: RetroArch's label_display_mode 3 hides them at display, exactly as it hides "(USA)" on consoles.
 
-Run this by hand when fbneo adds games (rare); the JSON is committed so the role and sync.py read it
-without a network fetch.
+Run this by hand when fbneo adds games (rare); the JSON is committed so the role and syncretroid read
+it without a network fetch.
 """
 
 import json
