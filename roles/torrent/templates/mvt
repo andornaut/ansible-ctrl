@@ -7,6 +7,11 @@ QUIET=false
 # gives the remote watch directory a file rtorrent cannot load, and a successful
 # scp deletes the local copy, so nothing would be left to retry from.
 MIN_AGE_SECONDS=30
+# Bound a stalled transfer: the run holds a lock for its whole duration, so a hang
+# blocks every later cron run. Without ConnectTimeout ssh waits out the kernel's TCP
+# connect timeout, which is longer than the interval cron fires at, and once a
+# transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
     cat <<EOF
@@ -57,9 +62,9 @@ header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 # shellcheck disable=SC2120  # ok() is intentionally called with no args (defaults to "OK")
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-warn() { "${QUIET}" || printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
-
-failed=false
+# Not gated on --quiet, unlike the others: a warning names what went wrong, and the
+# cron job passes --quiet, so gating it leaves the final error unexplained in the log.
+warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 # Returns non-zero if any file in the source directory could not be uploaded.
 upload_torrent_files() {
@@ -71,7 +76,7 @@ upload_torrent_files() {
     (
         cd "${src}"
         local rc=0
-        local -a scp_opts=()
+        local -a scp_opts=("${SSH_OPTS[@]}")
         "${QUIET}" && scp_opts+=(-q)
         for f in *.torrent; do
             [[ -f "${f}" ]] || continue
@@ -80,8 +85,11 @@ upload_torrent_files() {
                 continue
             fi
             info "Copying ${f} to ${dst}"
-            if scp "${scp_opts[@]}" "${f}" "${dst}"; then
-                rm "${f}"
+            # ./ prefix on both: a name beginning with a dash is otherwise read as
+            # an option, and the glob does not produce one. An unremoved file is
+            # uploaded again on the next run, and to every remaining host in this one.
+            if scp "${scp_opts[@]}" "./${f}" "${dst}"; then
+                rm "./${f}" || rc=1
             else
                 # Keep the file so the next run retries it. A failing scp is not
                 # fatal on its own: the remaining files and watch directories are
@@ -96,13 +104,31 @@ upload_torrent_files() {
 
 header "Uploading .torrent files to remote watch directories"
 
-{% for host in ansible_play_batch -%}
-{% if host != "localhost" -%}
-{% for watch_dir in torrent_local_watch_directories -%}
-upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ torrent_watch_directory }}/" || failed=true
-{% endfor -%}
-{% endif -%}
-{% endfor -%}
+failed=false
+# One lock for the whole run: cron fires every 2 minutes, which is tighter than a
+# stalled scp, and two overlapping runs race to rm the same file. flock holds the
+# lock for the guarded subshell and releases it however that subshell ends,
+# including a kill, which a pid check cannot see. The uid keeps the path from
+# colliding with another user's lock file.
+lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
+(
+    # A held lock means a prior run is wedged, not that runs overlap normally: an
+    # upload takes seconds and cron fires every 2 minutes. Fail so cron reports it.
+    flock -n 9 || error "A previous upload is still running"
+    upload_failed=false
+    # The remote watch directory is derived from each host's own root: a delegated
+    # task resolves plain variables from the play host, so the role's
+    # torrent_watch_directory would name this host's path for every host.
+{% for host in ansible_play_batch %}
+{% if host != "localhost" %}
+{% for watch_dir in torrent_local_watch_directories %}
+    upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/watch/" || upload_failed=true
+{% endfor %}
+{% endif %}
+{% endfor %}
+    "${upload_failed}" && exit 1
+    exit 0
+) 9>"${lock_file}" || failed=true
 
 # Exit non-zero so cron reports the run, which a per-file warning alone would not.
 "${failed}" && error "Some .torrent files could not be uploaded"

@@ -2,7 +2,9 @@
 torrent_root_directory: "{{ torrent_user_home }}/torrents"
 torrent_completed_directory: "{{ torrent_root_directory }}/completed"
 torrent_incoming_directory: "{{ torrent_root_directory }}/incoming"
-# rtorrent.rc, rtorrent.service and mvt must agree on these, so derive them once.
+# rtorrent.rc, rtorrent.service and tasks/main.yml must agree on these, so derive them once.
+# The controller scripts cannot use them: a delegated task resolves plain variables from the
+# play host, so each appends its own subdirectory name to that host's torrent_root_directory.
 torrent_session_directory: "{{ torrent_root_directory }}/session"
 torrent_watch_directory: "{{ torrent_root_directory }}/watch"
 # A private tmux socket. On the default socket the service and the user share a server:
