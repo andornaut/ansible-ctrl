@@ -110,6 +110,23 @@ games_retroarch_buildbot_url: https://buildbot.libretro.com/nightly/linux/{{ gam
 # generator skips, and the .m3u beside it is the entry. The 3DO is the exception (visible
 # directory, no .m3u, Opera swaps discs itself), which the generator handles by pointing at disc 1.
 games_retroarch_systems:
+  # FinalBurn Neo's arcade romsets other than the Neo Geo ones, in a single directory: an arcade set
+  # spans manufacturers, so there is no "Manufacturer - System Name" to name it after.
+  # thumbnail_db exists because this is the one system whose displayed name and art name differ: the
+  # libretro thumbnail repository publishes it only as "FBNeo - Arcade Games" ("Arcade" and "FBNeo"
+  # both 404). The playlist is named Arcade, while every item carries db_name "FBNeo - Arcade
+  # Games.lpl", which is the field RetroArch actually resolves art by, so the shared cache directory
+  # keeps the published name. Drop the key and the art 404s; rename the directory and this moves too.
+  # zip on a block_extract core is accepted for the same
+  # reason as SNK - Neo Geo: fbneo lists zip among its own extensions and opens the romset itself.
+  # fbneo is in games_retroarch_arcade_name_cores, so the label comes from the romset name map
+  # (dino.zip on disk reads "Cadillacs and Dinosaurs" in the playlist). No BIOS beyond the set
+  # already installed: a CPS3 romset carries its own BIOS ROM, and neogeo.zip covers the Neo Geo
+  # hardware fbneo also drives.
+  Arcade:
+    core: fbneo
+    extensions: [zip]
+    thumbnail_db: FBNeo - Arcade Games
   Atari - 2600:
     core: stella
     extensions: [zip]
@@ -122,22 +139,6 @@ games_retroarch_systems:
   Atari - Lynx:
     core: mednafen_lynx
     extensions: [lnx, lyx]
-  # FinalBurn Neo's arcade romsets other than the Neo Geo ones, in a single directory: an arcade set
-  # spans manufacturers, so there is no "Manufacturer - System Name" to name it after. The name is
-  # the playlist the libretro thumbnail repository publishes, and art is resolved by playlist name,
-  # so any other spelling fetches nothing. zip on a block_extract core is accepted for the same
-  # reason as SNK - Neo Geo: fbneo lists zip among its own extensions and opens the romset itself.
-  # fbneo is in games_retroarch_arcade_name_cores, so the label comes from the romset name map
-  # (dino.zip on disk reads "Cadillacs and Dinosaurs" in the playlist). No BIOS beyond the set
-  # already installed: a CPS3 romset carries its own BIOS ROM, and neogeo.zip covers the Neo Geo
-  # hardware fbneo also drives.
-  # thumbnail_db: the art repository publishes this system as "FBNeo - Arcade Games" and under no
-  # other name ("Arcade" and "FBNeo" both 404), so the playlist is shown as Arcade while its items
-  # keep resolving art against the published name. The shared cache directory keeps that name too.
-  Arcade:
-    core: fbneo
-    extensions: [zip]
-    thumbnail_db: FBNeo - Arcade Games
   # Beetle PCE, not the Fast variant: Fast is Mednafen's deliberately low-accuracy PCE module and
   # has no SuperGrafx support. The full core covers HuCard, CD and SuperGrafx.
   NEC - PC Engine - TurboGrafx 16:

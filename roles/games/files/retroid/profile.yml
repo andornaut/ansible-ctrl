@@ -181,7 +181,6 @@ directory_settings:
 # not an ES-DE ROM system). GameCube and PS2 stay here for the ROM mirror though they left the
 # RetroArch table; the generator only looks up systems in its own table, so they are inert for playlists.
 rom_dir_names:
-  Atari - 2600: atari2600
   # ES-DE's arcade system, so the name matches the library directory and the desktop playlist. Its
   # command list carries fourteen emulators, most of them MAME, but esde_cores pins FinalBurn Neo as
   # the <alternativeEmulator> in the gamelist, which is what actually launches. Verified against the
@@ -189,6 +188,7 @@ rom_dir_names:
   # commands include "FinalBurn Neo". The fbneo system remains the exact one (a single emulator) if
   # the pin ever proves unreliable.
   Arcade: arcade
+  Atari - 2600: atari2600
   Atari - 7800: atari7800
   Atari - Jaguar: atarijaguar
   Atari - Lynx: atarilynx
