@@ -111,8 +111,9 @@ games_retroarch_buildbot_url: https://buildbot.libretro.com/nightly/linux/{{ gam
 # (visible directory, no .m3u, Opera and Dolphin swap discs themselves), which the generator handles
 # by pointing at disc 1 while labelling the entry with the directory name.
 #
-# A system may carry "core_overrides", mapping a playlist label to the core that one title needs
-# instead of the system's own; see files/retroarch-generate-playlists.py.
+# A system may carry "game_cores", mapping a playlist label to the core that one title needs instead
+# of the system's own; see files/retroarch-generate-playlists.py. Not to be confused with
+# games_retroarch_core_overrides far below, which is per-core RetroArch *settings*, not core choice.
 games_retroarch_systems:
   # FinalBurn Neo's arcade romsets other than the Neo Geo ones, in a single directory: an arcade set
   # spans manufacturers, so there is no "Manufacturer - System Name" to name it after.
@@ -139,7 +140,7 @@ games_retroarch_systems:
     extensions: [a78]
   Atari - Jaguar:
     core: virtualjaguar
-    extensions: [rom, j64]
+    extensions: [rom]
   Atari - Lynx:
     core: mednafen_lynx
     extensions: [lnx, lyx]
@@ -166,7 +167,9 @@ games_retroarch_systems:
   # zip entry.
   Nintendo - GameCube:
     core: dolphin
-    extensions: [iso, rvz]
+    # .rvz only: an .iso is converted on intake with dolphin-tool, so one sitting here unconverted
+    # should stay out of the playlist rather than be carried at roughly twice the size.
+    extensions: [rvz]
   Nintendo - Nintendo 64:
     core: mupen64plus_next
     extensions: [zip]
@@ -209,7 +212,7 @@ games_retroarch_systems:
   Sega - Mega-CD - Sega CD:
     core: genesis_plus_gx
     extensions: [chd, m3u]
-    core_overrides:
+    game_cores:
       # Night Trap's 1994 re-release is a Sega CD disc that additionally requires the 32X, which it
       # uses to widen the video window and deepen the palette. Redump and libretro both catalogue it
       # as Sega CD, so it stays here and its art resolves here; the 32X thumbnail repository carries
@@ -247,7 +250,7 @@ games_retroarch_systems:
     extensions: [chd, m3u]
   Sony - PlayStation 2:
     core: pcsx2
-    extensions: [chd, iso, m3u]
+    extensions: [chd, m3u]
   # No m3u, unlike every other disc system here, and this is a core limitation rather than an
   # oversight: ppsspp sets need_fullpath, so RetroArch hands it the .m3u path instead of expanding
   # the playlist itself, and ppsspp's loader only knows elf|iso|cso|prx|pbp|chd. Loading one fails
@@ -259,10 +262,8 @@ games_retroarch_systems:
   # playlist entry, so the library carries no multi-disc PSP titles at all; AGENTS.md says the same.
   Sony - PlayStation Portable:
     core: ppsspp
-    # UMD images are stored as .chd, roughly a third smaller than the .iso they are made from.
-    # .iso stays listed because chdman refuses an image whose size is not a whole number of
-    # 2048-byte sectors, which a patched image can be, so a few titles cannot be converted.
-    extensions: [chd, iso, cso]
+    # UMD images are stored as .chd, roughly half the size of the .iso they are made from.
+    extensions: [chd]
   The 3DO Company - 3DO:
     core: opera
     extensions: [chd]
