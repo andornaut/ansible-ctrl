@@ -321,7 +321,12 @@ def main():
             continue
 
         core = spec["core"]
-        db_name = "%s.lpl" % system
+        # Two different names. The filename is what RetroArch displays for the playlist; db_name is
+        # what it resolves thumbnails by, and files/retroarch-fetch-thumbnails.py reads that same
+        # field to pick the cache directory. They match for most systems. thumbnail_db splits them
+        # for one whose art the repository publishes under a name other than the one shown here.
+        playlist_name = "%s.lpl" % system
+        db_name = "%s.lpl" % spec.get("thumbnail_db", system)
         core_path = os.path.join(cores_dir, "%s%s" % (core, core_suffix))
         emit_system_dir = os.path.join(emit_library_dir, emit_system_dirs.get(system, system))
         # Falls back to the core's file name when the .info is missing, which costs only a
@@ -365,7 +370,7 @@ def main():
         # Compared as bytes, not text: a playlist RetroArch scanned itself is not necessarily
         # valid UTF-8, and decoding one to test whether it is already current would fail before
         # it could be replaced.
-        path = os.path.join(playlist_dir, db_name)
+        path = os.path.join(playlist_dir, playlist_name)
         try:
             with open(path, "rb") as handle:
                 if handle.read() == content:
