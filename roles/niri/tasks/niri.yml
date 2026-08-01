@@ -8,10 +8,10 @@
       register: niri_tmp
 
     - name: Get latest niri release
-      ansible.builtin.include_tasks: get_latest_github_release.yml
+      ansible.builtin.include_tasks: get_latest_release.yml
       vars:
-        github_release_repo: YaLTeR/niri
-        github_release_fact: niri_release
+        release_repo: YaLTeR/niri
+        release_fact: niri_release
 
     - name: Set niri version fact
       ansible.builtin.set_fact:

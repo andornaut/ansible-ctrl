@@ -23,10 +23,10 @@
           register: desktop_lemurs_tmp
 
         - name: Get latest lemurs release
-          ansible.builtin.include_tasks: get_latest_github_release.yml
+          ansible.builtin.include_tasks: get_latest_release.yml
           vars:
-            github_release_repo: coastalwhite/lemurs
-            github_release_fact: desktop_lemurs_release
+            release_repo: coastalwhite/lemurs
+            release_fact: desktop_lemurs_release
 
         - name: Set lemurs version fact
           ansible.builtin.set_fact:

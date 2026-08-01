@@ -1,0 +1,26 @@
+---
+# Fetch a gitlab.freedesktop.org project's latest release and store the URL of its .tar.gz
+# source archive as a fact. GitLab returns releases newest first and has no draft/prerelease
+# flags, so the newest entry is the latest release.
+#
+# Required vars:
+#   gitlab_release_project (int): numeric project ID, e.g. 121 for wayland
+#   gitlab_release_src_url_fact (str): variable name to set with the source tarball URL
+- name: Get releases of GitLab project {{ gitlab_release_project }}
+  ansible.builtin.uri:
+    url: "https://gitlab.freedesktop.org/api/v4/projects/{{ gitlab_release_project }}/releases"
+    return_content: true
+  register: niri_gitlab_release_response
+  retries: 3
+  delay: 5
+  # 4xx (rate limit, missing project) is deterministic: retry only network errors and 5xx.
+  until: >-
+    niri_gitlab_release_response.status == 200 or
+    (niri_gitlab_release_response.status >= 400 and niri_gitlab_release_response.status < 500)
+
+- name: Set fact to source tarball URL for {{ gitlab_release_src_url_fact }}
+  ansible.builtin.set_fact:
+    "{{ gitlab_release_src_url_fact }}": >-
+      {{ niri_gitlab_release_response.json[0].assets.sources
+      | selectattr('format', 'equalto', 'tar.gz')
+      | map(attribute='url') | first }}

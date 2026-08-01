@@ -8,10 +8,10 @@
       register: niri_xwayland_tmp
 
     - name: Get latest xwayland-satellite release
-      ansible.builtin.include_tasks: get_latest_github_release.yml
+      ansible.builtin.include_tasks: get_latest_release.yml
       vars:
-        github_release_repo: Supreeeme/xwayland-satellite
-        github_release_fact: niri_xwayland_release
+        release_repo: Supreeeme/xwayland-satellite
+        release_fact: niri_xwayland_release
 
     - name: Set xwayland-satellite version fact
       ansible.builtin.set_fact:

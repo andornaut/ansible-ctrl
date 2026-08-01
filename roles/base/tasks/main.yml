@@ -194,15 +194,21 @@
     path: /etc/alternatives/vim
   become: true
 
-- name: Import filectrl tasks
-  ansible.builtin.import_tasks: filectrl.yml
+- name: Install filectrl
+  ansible.builtin.import_tasks: install_from_github.yml
+  vars:
+    base_tool_name: filectrl
   tags: filectrl
 
-- name: Import gog tasks
-  ansible.builtin.import_tasks: gog.yml
+- name: Install gog
+  ansible.builtin.import_tasks: install_from_github.yml
+  vars:
+    base_tool_name: gog
 
-- name: Import mrs tasks
-  ansible.builtin.import_tasks: mrs.yml
+- name: Install mrs
+  ansible.builtin.import_tasks: install_from_github.yml
+  vars:
+    base_tool_name: mrs
 
 - name: Import disk-cleanup tasks
   ansible.builtin.import_tasks: disk-cleanup.yml

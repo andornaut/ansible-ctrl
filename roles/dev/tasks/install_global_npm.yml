@@ -1,0 +1,8 @@
+---
+# Install an npm package globally. Callers set dev_npm_package.
+- name: Install {{ dev_npm_package }}
+  community.general.npm:
+    name: "{{ dev_npm_package }}"
+    global: true
+    state: latest
+  become: true

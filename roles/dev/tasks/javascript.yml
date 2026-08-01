@@ -11,19 +11,14 @@
 
 # Install nvm for user-specific nodejs/npm management
 - name: Get latest nvm release
-  ansible.builtin.include_tasks: get_latest_github_release.yml
+  ansible.builtin.include_tasks: get_latest_release.yml
   vars:
-    github_release_repo: nvm-sh/nvm
-    github_release_fact: dev_nvm_release
+    release_repo: nvm-sh/nvm
+    release_fact: dev_nvm_release
 
-- name: Set nvm version fact
-  ansible.builtin.set_fact:
-    dev_nvm_version: "{{ dev_nvm_release.tag_name }}"
-
-- name: Install nvm # noqa: command-instead-of-module
-  ansible.builtin.shell:
-    cmd: >
-      set -o pipefail &&
-      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ dev_nvm_version }}/install.sh | bash
-    executable: /bin/bash
-    creates: "{{ dev_user_home }}/.nvm/nvm.sh"
+- name: Install nvm
+  ansible.builtin.include_tasks: install_user_cli.yml
+  vars:
+    dev_cli_name: nvm
+    dev_cli_url: "https://raw.githubusercontent.com/nvm-sh/nvm/{{ dev_nvm_release.tag_name }}/install.sh"
+    dev_cli_creates: "{{ dev_user_home }}/.nvm/nvm.sh"

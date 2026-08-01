@@ -18,15 +18,11 @@
   block:
     - name: Download and install chruby
       block:
-        - name: Get chruby releases
-          ansible.builtin.uri:
-            url: https://api.github.com/repos/postmodern/chruby/releases
-            return_content: true
-          register: dev_chruby_releases
-
-        - name: Set chruby release fact
-          ansible.builtin.set_fact:
-            dev_chruby_release: "{{ dev_chruby_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}"
+        - name: Get latest chruby release
+          ansible.builtin.include_tasks: get_latest_release.yml
+          vars:
+            release_repo: postmodern/chruby
+            release_fact: dev_chruby_release
 
         - name: Set chruby download URL fact
           ansible.builtin.set_fact:
@@ -56,15 +52,11 @@
 
     - name: Download and install ruby-install
       block:
-        - name: Get ruby-install releases
-          ansible.builtin.uri:
-            url: https://api.github.com/repos/postmodern/ruby-install/releases
-            return_content: true
-          register: dev_ruby_install_releases
-
-        - name: Set ruby-install release fact
-          ansible.builtin.set_fact:
-            dev_ruby_install_release: "{{ dev_ruby_install_releases.json | selectattr('prerelease', 'equalto', false) | selectattr('draft', 'equalto', false) | first }}" # noqa: yaml[line-length]
+        - name: Get latest ruby-install release
+          ansible.builtin.include_tasks: get_latest_release.yml
+          vars:
+            release_repo: postmodern/ruby-install
+            release_fact: dev_ruby_install_release
 
         - name: Set ruby-install download URL fact
           ansible.builtin.set_fact:

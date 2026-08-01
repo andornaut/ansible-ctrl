@@ -1,0 +1,29 @@
+---
+# Install an andornaut/{name} tool into /usr/local/bin from its latest GitHub
+# release, which must ship a {name}_{system}_{arch}.tar.gz asset containing the
+# bare {name} binary.
+#
+# Required vars:
+#   base_tool_name (str): repository and binary name under github.com/andornaut/
+- name: Get the latest version of {{ base_tool_name }}
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/andornaut/{{ base_tool_name }}/releases/latest"
+    return_content: true
+  register: base_tool_release
+  retries: 3
+  delay: 5
+  # 4xx (rate limit, missing repo) is deterministic: retry only network errors and 5xx.
+  until: >-
+    base_tool_release.status == 200 or
+    (base_tool_release.status >= 400 and base_tool_release.status < 500)
+
+- name: Install {{ base_tool_name }}
+  ansible.builtin.unarchive:
+    src: "https://github.com/andornaut/{{ base_tool_name }}/releases/download/\
+      {{ base_tool_release.json.tag_name }}/\
+      {{ base_tool_name }}_{{ ansible_facts['system'] | lower }}_{{ base_arch }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include: ["{{ base_tool_name }}"]
+    mode: "0755"
+  become: true

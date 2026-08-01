@@ -35,9 +35,10 @@ See [defaults/main.yml](./defaults/main.yml).
 - **Leftover state.** Purging leaves per-user and installer state behind, so the role also sweeps user `snap/`
   directories, dangling snap systemd symlinks, `/etc/cloud` and `/var/lib/cloud`, and the `ubuntu-insights`
   consent and cache directories under every home.
-- **Installed tools.** [gog](https://github.com/andornaut/gog) and [mrs](https://github.com/andornaut/mrs) from
-  GitHub releases (asset matched to `base_arch`), plus `cache-command`,
-  [filectrl](https://github.com/andornaut/filectrl) (file manager), and
+- **Installed tools.** [filectrl](https://github.com/andornaut/filectrl) (file manager),
+  [gog](https://github.com/andornaut/gog), and [mrs](https://github.com/andornaut/mrs) via
+  [tasks/install_from_github.yml](./tasks/install_from_github.yml), which needs a
+  `{name}_{system}_{base_arch}.tar.gz` release asset. Plus `cache-command` and
   [storage-space-alert](https://github.com/andornaut/storage-space-alert).
 - **Cron.** `storage-space-alert` runs hourly and `disk-cleanup` weekly, both from
   `/etc/cron.d/ansible-role-base`.
