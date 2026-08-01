@@ -131,9 +131,13 @@ games_retroarch_systems:
   # (dino.zip on disk reads "Cadillacs and Dinosaurs" in the playlist). No BIOS beyond the set
   # already installed: a CPS3 romset carries its own BIOS ROM, and neogeo.zip covers the Neo Geo
   # hardware fbneo also drives.
-  FBNeo - Arcade Games:
+  # thumbnail_db: the art repository publishes this system as "FBNeo - Arcade Games" and under no
+  # other name ("Arcade" and "FBNeo" both 404), so the playlist is shown as Arcade while its items
+  # keep resolving art against the published name. The shared cache directory keeps that name too.
+  Arcade:
     core: fbneo
     extensions: [zip]
+    thumbnail_db: FBNeo - Arcade Games
   # Beetle PCE, not the Fast variant: Fast is Mednafen's deliberately low-accuracy PCE module and
   # has no SuperGrafx support. The full core covers HuCard, CD and SuperGrafx.
   NEC - PC Engine - TurboGrafx 16:

@@ -64,7 +64,7 @@ systems_set:
     extensions: [chd, m3u]
 
 # The four SNK/arcade systems carry over from the desktop table and all run on the Flip 2: Neo Geo
-# (fbneo) and FBNeo - Arcade Games (fbneo, the same core on the non-Neo-Geo romsets), Neo Geo CD
+# (fbneo) and Arcade (fbneo, the same core on the non-Neo-Geo romsets), Neo Geo CD
 # (neocd, .chd) and Neo Geo Pocket Color (mednafen_ngp). Each needs a core_probe entry plus
 # rom_dir_names / esde_cores mappings below, or the sync aborts with "core_probe is missing an entry".
 # fbneo romsets use short MAME names, unlike the No-Intro console library, and its neogeo.zip BIOS rides
@@ -184,7 +184,11 @@ rom_dir_names:
   Atari - 2600: atari2600
   # ES-DE's fbneo system, not its arcade one: arcade offers a dozen MAME emulators and assumes a MAME
   # romset, while fbneo's only emulator is FinalBurn Neo, which is the romset version this library holds.
-  FBNeo - Arcade Games: fbneo
+  # ES-DE therefore shows this as "FinalBurn Neo" even though the library directory and the desktop
+  # playlist are both named Arcade. Moving to ES-DE's arcade system would show "Arcade" here too, but
+  # only if its command list carries FinalBurn Neo to pin through esde_cores; verify on the device
+  # before switching, since the wrong emulator there means a MAME romset assumption.
+  Arcade: fbneo
   Atari - 7800: atari7800
   Atari - Jaguar: atarijaguar
   Atari - Lynx: atarilynx
