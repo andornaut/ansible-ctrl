@@ -13,6 +13,7 @@ Usage: $(basename "$0") [OPTIONS] [DIRECTORY]
 
 Extract archive files (rar, zip, tar.gz, tar.bz2) found in DIRECTORY
 (default: {{ torrent_local_incoming_directory }}) up to ${MAX_DEPTH} levels deep.
+Dot-directories are skipped: they hold quarantined content that must stay packed.
 
 Options:
   -h, --help             Show this help message and exit
@@ -169,10 +170,19 @@ header "Extracting archives in ${directory} (max depth: ${MAX_DEPTH})"
 # the same pass. -print0 keeps a name containing a newline in one piece.
 # -type f: a directory named like an archive otherwise reaches the extractors, and
 # --delete-archives would then rm -f a directory and fail.
+# Dot-directories are pruned: a download never lands in one, and the media
+# libraries use them for content that must stay packed. Unpacking an archive
+# quarantined in incoming/.uncategorized/ leaves its contents loose beside it,
+# and for an arcade romset that means scattering chip dumps out of the TorrentZip
+# they are checksummed in. The prune must come before -type f, since a directory
+# is not a regular file and would otherwise never be tested. -mindepth 1 keeps the
+# prune off the start point, which find tests against the same expression: without
+# it, passing a dot-directory as DIRECTORY prunes the target and reports nothing.
 archives=()
 mapfile -d '' -t archives < <(
-    find "${directory}" -maxdepth "${MAX_DEPTH}" -type f \
-        -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)' -print0
+    find "${directory}" -mindepth 1 -maxdepth "${MAX_DEPTH}" \
+        -name '.*' -type d -prune -o \
+        -type f -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)' -print0
 )
 
 count=0
