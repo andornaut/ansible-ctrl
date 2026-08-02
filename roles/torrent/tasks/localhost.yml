@@ -39,7 +39,8 @@
     cron_file: /etc/cron.d/ansible-role-torrent
     user: "{{ torrent_local_user }}"
     minute: "*/2"
-    # unrart runs after a successful sync: synct is the only writer to incoming/, and extraction is cheap.
+    # unrart runs after a successful sync: extraction is cheap, and it skips the
+    # dot-directories that the other writers to incoming/ use for quarantine.
     job: >-
       test -d "{{ torrent_local_incoming_directory }}"
       && /usr/local/bin/synct --quiet >> {{ torrent_local_synct_log_file }} 2>&1
