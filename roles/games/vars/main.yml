@@ -174,8 +174,8 @@ games_retroarch_thumbnails_config:
 
 # ROM library subdirectory -> the core that runs it and the extensions that are launchable entries
 # in it. The cores are the desktop (x64) column of
-# https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores, and the extensions the
-# "ROM formats by system" table of the library's own AGENTS.md.
+# https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores, and the extensions are the
+# formats the library stores that system's ROMs in.
 #
 # Multi-disc games need no extension of their own: their discs live in a dot-prefixed directory the
 # generator skips, and the .m3u beside it is the entry. The 3DO and GameCube are the exceptions
@@ -332,7 +332,7 @@ games_retroarch_systems:
   # The only layout that works is one root disc image per disc, swapped by loading the other
   # playlist entry. The library uses that layout only where a title shipped as two separately
   # purchasable PSN products, each with its own DISC_ID and bootable EBOOT, so each launches on its
-  # own; a genuine disc-swap UMD title is still skipped. AGENTS.md says the same.
+  # own; a genuine disc-swap UMD title is still skipped.
   Sony - PlayStation Portable:
     core: ppsspp
     # UMD images are stored as .chd, roughly three-quarters the size of the .iso they are made from.
