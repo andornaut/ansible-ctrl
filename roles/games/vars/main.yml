@@ -330,10 +330,12 @@ games_retroarch_systems:
   # here would pass validate_system -- the generator unions the .info extensions, and RetroArch does
   # not filter content given as an explicit path -- and emit a playlist entry that fails at launch.
   # The only layout that works is one root disc image per disc, swapped by loading the other
-  # playlist entry, so the library carries no multi-disc PSP titles at all; AGENTS.md says the same.
+  # playlist entry. The library uses that layout only where a title shipped as two separately
+  # purchasable PSN products, each with its own DISC_ID and bootable EBOOT, so each launches on its
+  # own; a genuine disc-swap UMD title is still skipped. AGENTS.md says the same.
   Sony - PlayStation Portable:
     core: ppsspp
-    # UMD images are stored as .chd, roughly half the size of the .iso they are made from.
+    # UMD images are stored as .chd, roughly three-quarters the size of the .iso they are made from.
     extensions: [chd]
   The 3DO Company - 3DO:
     core: opera
