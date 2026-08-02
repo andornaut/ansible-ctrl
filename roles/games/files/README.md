@@ -11,8 +11,9 @@ by hand only when fbneo adds games.
 
 Only the thumbnail fetcher writes into the ROM library tree (the shared `_Thumbnails` cache); the other
 three read the library, so a host can mount it read-only. Playlist generation and thumbnail fetching are
-also driven over `adb`, against a different mount layout, by the Retroid sync in [`retroid/`](retroid/);
-the notes below cover the desktop invocation.
+also driven over `adb`, against a different mount layout, by
+[`retroid/syncretroid.py`](retroid/syncretroid.py); the
+notes below cover the desktop invocation.
 
 ## Common paths
 

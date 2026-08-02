@@ -166,9 +166,9 @@ games_retroarch_thumbnails_config:
 # ---------------------------------------------------------------------------------------------
 # Canonical RetroArch data below: the systems table, the retroarch.cfg keys the role enforces, and
 # the per-core overrides and options. Here rather than in defaults/ for the same reason as the
-# derived values above, and one more: the command templates/syncretroid.j2 installs reads this file
-# directly as its source of truth and resolves no inventory, so a host_vars override would apply to
-# the hosts and silently not to the handheld. A host diverges through games_retroarch_extra_settings,
+# derived values above, and one more: files/retroid/syncretroid.py reads this file directly as its
+# source of truth and resolves no inventory, so a host_vars override would apply to the hosts and
+# silently not to the handheld. A host diverges through games_retroarch_extra_settings,
 # games_retroarch_controller and games_retroarch_video_refresh_rate, which stay in defaults/.
 # ---------------------------------------------------------------------------------------------
 

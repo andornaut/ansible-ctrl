@@ -34,16 +34,16 @@
       both be set in host_vars/ for this host. Both are site data, so the role has no default.
     success_msg: syncretroid inputs are set
 
-# Rendered rather than copied so the library path and adb serial are baked in and the command takes
-# no arguments. It reads the role's vars/main.yml and profile.yml from the role directory at run
-# time, so only edits to the template itself need this task re-run. validate parses the render
-# because the source is Python held inside a Jinja template: a bad escape of the Python that looks
-# like Jinja must fail here, not at sync time.
+# A wrapper rather than a copy of the script: files/retroid/syncretroid.py runs from the role
+# directory, reading the role's vars/main.yml and profile.yml beside it, so an edit to any of the
+# three applies on the next run. Only a change to the library path, the adb serial or the location of
+# the checkout itself needs this task re-run, since the wrapper bakes in all three (which is also why
+# the command takes no arguments).
 - name: Install syncretroid on the controller
   ansible.builtin.template:
     src: syncretroid.j2
     dest: /usr/local/bin/syncretroid
     mode: "0755"
-    validate: python3 -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" %s
+    validate: sh -n %s
   become: true
   delegate_to: localhost

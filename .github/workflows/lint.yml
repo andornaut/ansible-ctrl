@@ -113,3 +113,39 @@ jobs:
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: .ci-shellcheck
+
+  python-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Parse every Python file under roles/*/files/, discovered by extension or
+      # shebang rather than an enumerated list, so a new one in any role is
+      # covered automatically. A .py needs no shebang to be Python (Home
+      # Assistant's python_scripts are imported, not executed), and a script run
+      # from a shebang needs no extension. templates/ is not scanned: no role
+      # renders Python from Jinja2. The roles copy these files verbatim and no
+      # task parses them, so without this a syntax error ships and surfaces only
+      # when one is run.
+      - name: Parse Python scripts
+        run: |
+          status=0
+          while IFS= read -r src; do
+            case "$src" in
+              *.py) ;;
+              *)
+                IFS= read -r firstline < "$src" || true
+                grep -qE '^#!.*\bpython3?\b' <<< "$firstline" || continue
+                ;;
+            esac
+            echo "== $src =="
+            python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$src" \
+              || status=1
+          done < <(find roles/ -type f -path '*/files/*')
+          exit $status
