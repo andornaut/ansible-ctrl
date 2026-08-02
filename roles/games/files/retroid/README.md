@@ -1,80 +1,22 @@
 # Retroid Pocket Flip 2 RetroArch sync
 
 `syncretroid` mirrors the `games` role's managed RetroArch config onto a Retroid Pocket Flip 2
-(Snapdragon 865, Android + ES-DE). Ansible cannot run on the device, so the script reproduces the role's
-convergence from a host that mounts the ROM library and pushes over `adb`.
+(Snapdragon 865, Android + ES-DE), which Ansible cannot reach. What it owns on the device and what it
+leaves alone is in the module docstring of [`syncretroid.py`](syncretroid.py); the flags are in
+`syncretroid --help`. It reads the role's [`../../vars/main.yml`](../../vars/main.yml)
+as the source of truth and applies the Android divergences in [`profile.yml`](profile.yml), which is
+inline-commented; per-divergence reasoning is in the "Retroid Pocket Mini / Flip 2" and "Cores" sections
+of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md).
 
-The role renders [`../../templates/syncretroid.j2`](../../templates/syncretroid.j2) to
-`/usr/local/bin/syncretroid` on the controller (the `retroid` tag, gated on `games_install_retroid_sync`,
-which exactly one host may enable), baking in the ROM library mount and the adb serial so the command
-takes no arguments. No playbook runs it: run it by hand.
+Prerequisites: the ROM library mounted on this host, and RetroArch, ES-DE, the standalone emulators
+(Dolphin, NetherSX2-Turnip), the sdcard folder layout and the ES-DE custom systems already installed on
+the device. It checks the library mount, the sdcard root and both apps before doing anything, the last
+of these being how it confirms `adb` selected the handheld and not some other device, so `--serial`
+matters only when more than one is attached. The standalone emulators and the custom systems it does not
+check.
 
-It reads the role's [`../../vars/main.yml`](../../vars/main.yml) as the source of truth and applies the
-Android divergences in [`profile.yml`](profile.yml). Both are read from the role directory the command
-was installed from, so edits to either reach the next run on their own; only edits to the template need
-`make games -- --tags retroid` re-run. Per-divergence reasoning: the "Retroid Pocket Mini / Flip 2" and
-"Cores" sections of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md).
-
-## What it syncs
-
-RetroArch and ES-DE are force-stopped for the run; reopen them after.
-
-- **`retroarch.cfg`** - sets only the keys the role owns (Android drivers, sdcard directories, handheld
-  rewind buffer), removes the keys dropped for Android (mouse/lightgun, keyboard binds), leaves every
-  other line alone.
-- **Playlists** - regenerated with device paths and the `_libretro_android.so` core suffix; stale
-  managed `.lpl` pruned. Reuses `../retroarch-generate-playlists.py`.
-- **Per-core overrides/options** - `config/<library_name>/<name>.cfg` and `.opt`, with the Android diffs
-  (N64 on GLideN64 HLE, Beetle PSX HW on Vulkan at 2x).
-- **BIOS** - additive push from the library (only files missing or a different size; no deletes).
-- **Shaders** - the preset in `profile.yml`'s `shaders` block and the files it needs, extracted from the
-  libretro slang pack and pushed additively, plus a per-core `.slangp` for every core that can load it.
-  See [Shaders](#shaders).
-- **ES-DE emulators** - pins each system's `<alternativeEmulator>` to the core the role prefers
-  (`profile.yml` `esde_cores`), so ES-DE launches our core rather than its default.
-- **Thumbnails** - mirrors RetroArch's cache: deletes device thumbnails the library dropped and pushes
-  only changed files. ES-DE scrapes its own media.
-- **ROM library** - mirrors each system onto `ROMS/<short name>`. Hundreds of GB over USB; resumable, so
-  re-run to finish an interrupted transfer, and a converged re-run pushes nothing.
-- **Cores** - not synced, and cannot be. See [Gotchas](#gotchas).
-
-## Prerequisites
-
-- `adb` on PATH (installed by the dev role: `make dev`), the device on USB, and its adb authorisation
-  granted (accept the prompt on the device; `adb devices` shows it).
-- The ROM library mounted on this host (the same mount the `games` role uses).
-- On the device: RetroArch, ES-DE, the standalone emulators (Dolphin, NetherSX2), the sdcard folder
-  layout, and the ES-DE custom systems installed.
-- **Close RetroArch on the device first.** It rewrites `retroarch.cfg` on exit (`config_save_on_exit`),
-  overwriting the push.
-
-## Run
-
-```bash
-syncretroid --dry-run
-
-# Full sync: config plus the ROM library mirror (resumable).
-syncretroid
-
-# Everything except the BIOS and ROM mirror
-syncretroid --skip-bios --skip-roms
-
-# Against a different library, device or device profile.
-syncretroid --library-dir /path/to/rom-library --serial 296b55ab
-syncretroid --profile /path/to/other-device.yml
-```
-
-Flag | Description
---- | ---
-`--dry-run` | print every device write, change nothing
-`--library-dir` | ROM library mount (baked in at install; override to sync from elsewhere)
-`--serial <id>` | pick a device when several are attached (baked in at install)
-`--profile <path>` | device profile to apply (defaults to the `profile.yml` beside this README)
-`--role-vars <path>` | the role data to converge from (defaults to the role's `vars/main.yml`)
-`--skip-bios` | do not push the BIOS set
-`--skip-roms` | do not push ROMs
-`--skip-shaders` | do not fetch or push the shader files (the per-core presets are still written)
-`--skip-thumbnails` | do not mirror RetroArch's thumbnail cache
+This file covers what the code cannot show: the values that have to be read off the device by hand, why
+the shader setup is what it is, and the failure modes.
 
 ## Verify on the device (once)
 
@@ -149,8 +91,6 @@ the full pack later with Online Updater > Update Slang Shaders is not pruned bac
   app's scoped storage. Grant RetroArch all-files access (its config then moves to
   `/storage/emulated/0/RetroArch/`, which `syncretroid` discovers), or copy the staged cfg in with an
   on-device file manager.
-- **GameCube and PS2 are not libretro playlists** (libretro Dolphin crashes on Android, LRPS2 is
-  x86-only); they run in the standalone Dolphin and NetherSX2 apps through ES-DE.
 - **Changing a system's ES-DE short name strands its old directories.** `mirror_roms` and
   `configure_esde_cores` iterate the current `rom_dir_names` / `esde_cores` maps, so a name no longer in
   them is never visited and never pruned. After editing a `rom_dir_names` value, remove three
