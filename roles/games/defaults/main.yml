@@ -65,7 +65,7 @@ games_retroarch_extra_settings: {}
 games_install_retroid_sync: false
 
 # Where the controller mounts the ROM library, and the handheld's adb serial (`adb devices`), baked
-# into syncretroid so it takes no arguments. Site data, so no defaults: tasks/retroid.yml asserts
-# both when games_install_retroid_sync is on.
+# into the installed syncretroid wrapper so the command takes no arguments. Site data, so no
+# defaults: tasks/retroid.yml asserts both when games_install_retroid_sync is on.
 games_retroid_library_dir: ""
 games_retroid_serial: ""

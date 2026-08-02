@@ -135,7 +135,10 @@ stock Android + ES-DE), which Ansible cannot reach. `syncretroid` reads this rol
 of truth, applies the Android divergences in `files/retroid/profile.yml`, and reconciles the result onto the device
 over `adb` with the role's own ownership semantics. It reuses `retroarch-generate-playlists.py` unchanged.
 
-The `retroid` tag renders it to `/usr/local/bin/syncretroid` with the ROM library mount and adb serial baked in, so
-the command takes no arguments. The handheld is a USB peripheral of the controller rather than an inventory host,
-so the command is installed on the controller (`delegate_to: localhost`) and gated on `games_install_retroid_sync`.
-No playbook runs the sync itself; run it by hand. See [files/retroid/README.md](./files/retroid/README.md).
+The `retroid` tag installs `/usr/local/bin/syncretroid`, a rendered wrapper that runs
+`files/retroid/syncretroid.py` from this checkout with the ROM library mount and adb serial baked in, so the command
+takes no arguments and an edit to the script or to the data it reads applies without re-running the role. Re-run the
+tag if the checkout moves, since the wrapper carries the path to it as well as those two values. The
+handheld is a USB peripheral of the controller rather than an inventory host, so the command is installed on the
+controller (`delegate_to: localhost`) and gated on `games_install_retroid_sync`. No playbook runs the sync itself;
+run it by hand. See [files/retroid/README.md](./files/retroid/README.md).
