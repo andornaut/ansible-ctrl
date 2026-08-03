@@ -70,10 +70,10 @@ passed to `scp` as `./name`, because a name beginning with a dash is otherwise r
 
 ### orgt
 
-`claude -p` buffers its text output, so a run prints nothing until it ends and a large batch takes tens of
-minutes. `-v`/`--verbose` streams instead, via `--output-format stream-json` (which `-p` only permits alongside
-`--verbose`) piped through `jq`, one line per tool call. It requires `jq`, checked up front. Two properties of
-that filter are load-bearing, because the pipe consumes Claude's stdout:
+`claude -p` buffers its text output, so it prints nothing until the run ends and a large batch takes tens of
+minutes. Every run streams instead, via `--output-format stream-json` (which `-p` only permits alongside
+`--verbose`) piped through `jq`, one line per tool call. `jq` is a hard dependency, checked up front. Two
+properties of that filter are load-bearing, because the pipe consumes Claude's stdout:
 
 - The `result` event prints unclipped, keeping its line breaks. It is the only full copy of the run's report,
   including deferred entries. Tool calls and narration collapse to one clipped line; a `Bash` line shows the
@@ -96,7 +96,8 @@ skipped earlier, before the list is built.
 
 `claude` runs from the library root, not the incoming directory: every destination is a sibling of `incoming/`, so
 the root is the smallest cwd covering them all without an `--add-dir` grant, and sessions bucket by cwd. A resume
-must run from that same directory, so `--verbose` prints the full `cd ... && claude --resume ...` command.
+must run from that same directory, so the first streamed line prints the full `cd ... && claude --resume ...`
+command.
 
 ### unrart
 
