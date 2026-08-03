@@ -4,7 +4,6 @@ set -euo pipefail
 
 QUIET=false
 DRY_RUN=false
-VERBOSE=false
 
 usage() {
     cat <<EOF
@@ -19,11 +18,12 @@ Entries that still exist in a remote torrent host's completed
 directory are skipped: synct would re-download them into the incoming
 directory, undoing the move.
 
+Claude's tool calls print one line each as they happen, followed by
+its report. Requires jq.
+
 Options:
   -h, --help     Show this help message and exit
   -q, --quiet    Suppress this script's own output (Claude still prints)
-  -v, --verbose  Print Claude's tool calls and narration as they happen
-                 (requires jq); without it nothing prints until it finishes
   --dry-run      List the entries that would be organized, then exit
 EOF
     exit 0
@@ -42,9 +42,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
-        -v|--verbose) VERBOSE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
-        # Split a bundled short group (-qv) into -q -v and reprocess. Matches a
+        # Split a bundled short group (-hq) into -h -q and reprocess. Matches a
         # single dash followed by 2+ characters, so long options never reach it.
         # Do not rewrite this using bash's parameter-length syntax: that opens a
         # Jinja2 comment, and the template then fails to render.
@@ -72,9 +71,7 @@ base_dir="$(dirname "${incoming_dir}")"
 
 [[ -d "${incoming_dir}" ]] || error "${incoming_dir} does not exist (or is not a directory)"
 command -v claude >/dev/null || error "claude is not installed"
-if "${VERBOSE}"; then
-    command -v jq >/dev/null || error "jq is not installed (required by --verbose)"
-fi
+command -v jq >/dev/null || error "jq is not installed"
 
 remote_entries="$(mktemp)"
 eligible="$(mktemp)"
@@ -186,35 +183,31 @@ header "Asking Claude to organize the eligible entries"
 # every run resumable from one place (`claude --resume` in ${base_dir}).
 cd "${base_dir}"
 
-if "${VERBOSE}"; then
-    # Text output prints nothing until the run ends, so stream the events and
-    # render one line per tool call. Reading with -R + fromjson keeps a line jq
-    # cannot parse from exiting jq, which would SIGPIPE claude mid-batch. The
-    # result event prints unclipped: the pipe consumes claude's stdout, so it is
-    # the only copy of the run's report. See README.md.
-    claude --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" \
-        | jq --unbuffered -rR --arg cwd "${PWD}" '
-            # Collapse whitespace before truncating: a multi-line command or
-            # narration would otherwise break the one-line-per-event layout.
-            def clip($n): tostring | gsub("\\s+"; " ") | if length > $n then .[:$n] + "..." else . end;
-            def stamp: now | localtime | strftime("%H:%M:%S");
-            fromjson? // empty
-            | objects
-            | if .type == "system" and .subtype == "init" then
-                "\(stamp)  session \(.session_id)  (resume: cd \"\($cwd)\" && claude --resume \(.session_id))"
-              elif .type == "assistant" then
-                .message.content[]?
-                | if .type == "tool_use" then
-                    # command first: for Bash it names the paths being moved,
-                    # which description only summarizes.
-                    "\(stamp)  \(.name)  \((.input.command // .input.file_path // .input.query // .input.url // .input.description // .input) | clip(240))"
-                  elif .type == "text" and (.text | length) > 0 then
-                    "\(stamp)  \(.text | clip(400))"
-                  else empty end
-              elif .type == "result" then
-                "\n\(if .subtype == "success" then "" else "\(.subtype): " end)\(.result // "")"
-              else empty end'
-else
-    claude --dangerously-skip-permissions -p "${prompt}"
-fi
+# Text output prints nothing until the run ends, so stream the events and render
+# one line per tool call. Reading with -R + fromjson keeps a line jq cannot parse
+# from exiting jq, which would SIGPIPE claude mid-batch. The result event prints
+# unclipped: the pipe consumes claude's stdout, so it is the only copy of the
+# run's report. See README.md.
+claude --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" \
+    | jq --unbuffered -rR --arg cwd "${PWD}" '
+        # Collapse whitespace before truncating: a multi-line command or
+        # narration would otherwise break the one-line-per-event layout.
+        def clip($n): tostring | gsub("\\s+"; " ") | if length > $n then .[:$n] + "..." else . end;
+        def stamp: now | localtime | strftime("%H:%M:%S");
+        fromjson? // empty
+        | objects
+        | if .type == "system" and .subtype == "init" then
+            "\(stamp)  session \(.session_id)  (resume: cd \"\($cwd)\" && claude --resume \(.session_id))"
+          elif .type == "assistant" then
+            .message.content[]?
+            | if .type == "tool_use" then
+                # command first: for Bash it names the paths being moved,
+                # which description only summarizes.
+                "\(stamp)  \(.name)  \((.input.command // .input.file_path // .input.query // .input.url // .input.description // .input) | clip(240))"
+              elif .type == "text" and (.text | length) > 0 then
+                "\(stamp)  \(.text | clip(400))"
+              else empty end
+          elif .type == "result" then
+            "\n\(if .subtype == "success" then "" else "\(.subtype): " end)\(.result // "")"
+          else empty end'
 ok "Done"
