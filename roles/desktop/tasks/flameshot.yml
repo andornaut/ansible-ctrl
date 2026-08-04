@@ -1,0 +1,59 @@
+---
+# flameshot is installed by apt.yml on every desktop. Only the tiling hosts need a unit: there
+# the tray is eww's systray widget, which is StatusNotifierItem-only, and flameshot binds to
+# whichever org.kde.StatusNotifierWatcher owns the name when it starts and never re-registers.
+# A restarted eww therefore leaves it running with no icon. PartOf makes systemd propagate
+# eww's restarts to it, so the icon comes back on its own.
+#
+# This unit and the XDG autostart entry are two launchers for one app, so the entry carries
+# NotShowIn=bspwm to stop `dex --autostart --environment bspwm` starting a second copy. Keep the
+# two in step: an environment that gets a unit here must be listed there, or flameshot is
+# started twice. The gnome hosts get no unit and start it from the entry alone.
+# https://github.com/andornaut/dotfiles/blob/master/$HOME/.config/autostart/Flameshot.desktop
+- name: Configure flameshot service
+  block:
+    # eww.yml creates this too, but a `--tags flameshot` run skips eww.yml.
+    - name: Create the local systemd user unit directory
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/user
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Install flameshot.service
+      ansible.builtin.copy:
+        dest: /usr/local/lib/systemd/user/flameshot.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Flameshot screenshot tool
+          Documentation=https://flameshot.org/
+          PartOf=eww.service
+          After=eww.service
+
+          [Service]
+          Type=exec
+          # eww.service counts as started once `eww open` returns, which is not the same moment
+          # the systray widget claims the watcher name. Wait for the name, so flameshot does not
+          # register against a watcher that is not there yet. A timeout fails the unit rather
+          # than leaving a silently icon-less flameshot behind.
+          ExecStartPre=/usr/bin/gdbus wait --session --timeout 10 org.kde.StatusNotifierWatcher
+          ExecStart=/usr/bin/flameshot
+          Slice=session.slice
+
+          [Install]
+          WantedBy=eww.service
+      notify: Restart flameshot
+      become: true
+
+    - name: Enable flameshot service
+      ansible.builtin.systemd_service:
+        name: flameshot.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"

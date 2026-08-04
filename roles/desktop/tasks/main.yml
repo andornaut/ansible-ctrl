@@ -211,6 +211,11 @@
       ansible.builtin.import_tasks: eww.yml
       tags: eww
 
+    # After eww.yml, which installs the eww.service that flameshot.service is PartOf.
+    - name: Configure flameshot
+      ansible.builtin.import_tasks: flameshot.yml
+      tags: flameshot
+
     - name: Configure pavolume
       ansible.builtin.import_tasks: pavolume.yml
       tags: pavolume
