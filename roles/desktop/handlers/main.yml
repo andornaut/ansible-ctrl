@@ -11,6 +11,17 @@
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
 
+- name: Restart flameshot
+  ansible.builtin.systemd_service:
+    name: flameshot.service
+    daemon_reload: true
+    scope: user
+    state: restarted
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+
 # hypridle is built and started by the niri role, applied after this one. The unit may not
 # exist yet on a --tags idle run, which failed_when below tolerates.
 - name: Restart hypridle
