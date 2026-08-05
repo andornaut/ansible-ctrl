@@ -32,7 +32,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- betaflight is pinned: upstream is PWA-only now, so only older releases ship a Linux portable build. It
+- betaflight is pinned because upstream is PWA-only now, so only older releases ship a Linux portable build. It
   installs to `/opt/betaflight/<version>`, exposed as `/opt/betaflight/current`, with `betaflight-configurator`
   on PATH.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
