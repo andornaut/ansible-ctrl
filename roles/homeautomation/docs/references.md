@@ -7,14 +7,13 @@ Links for the [homeautomation](../README.md) role.
 - [llama.cpp](https://github.com/ggml-org/llama.cpp)
 - [Open WebUI](https://openwebui.com/)
 - [Home LLM](https://github.com/acon96/home-llm)
-- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
 - [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
 
 ## Voice assistant
 
 - [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
 - [Piper](https://github.com/rhasspy/piper): text-to-speech. [Voices](https://rhasspy.github.io/piper-samples/)
-- [Whisper](https://github.com/openai/whisper): speech-to-text
+- [Whisper](https://github.com/rhasspy/wyoming-whisper): speech-to-text, the Wyoming wrapper the role runs
 - [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) and its
   [documentation](https://voice-pe.home-assistant.io/documentation/)

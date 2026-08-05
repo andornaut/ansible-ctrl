@@ -29,6 +29,6 @@ See [defaults/main.yml](./defaults/main.yml).
 - This role owns the X11 tools that the [niri](../niri/) role replaces with Wayland equivalents (`scrot`,
   `xsecurelock`, `xss-lock`, `xbacklight`), plus `dex` and `xorg`. Tools both sessions share live in the
   [desktop](../desktop/) role.
-- Locking uses three programs: the X server blanks and powers off the monitor on `xset` timers, `xss-lock` watches
-  the X screensaver extension and `logind` and starts `xsecurelock`. The
+- Locking uses three programs: the X server blanks and powers off the monitor on `xset` timers, and `xss-lock`
+  watches the X screensaver extension and `logind` to start `xsecurelock`. The
   [desktop](../desktop/README.md#idle-locking-and-suspend) role writes all three timeouts into the session script.

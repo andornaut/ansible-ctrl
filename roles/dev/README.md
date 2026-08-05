@@ -13,7 +13,7 @@ make dev -- --tags rust
 
 | Tag | Description |
 | --- | --- |
-| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script |
+| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, on hosts in the `ai_maintainer` group only |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
@@ -25,7 +25,7 @@ make dev -- --tags rust
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby) and [ruby-install](https://github.com/postmodern/ruby-install) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
-| [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo (`dev_virtualbox_version`) |
+| [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
 The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, and are installed on every run.
@@ -39,9 +39,10 @@ directory it operates on.
 
 - Cursor gets unprivileged user namespaces via a dedicated AppArmor profile, not by disabling the restriction
   globally.
-- The `ai_maintainer` tag runs only on hosts in the `ai_maintainer` inventory group. It installs a weekly cron job
-  that runs [ai-maintainer](https://github.com/andornaut/ai-maintainer). The script is symlinked from a local
-  checkout (`dev_ai_maintainer_project_script_path`) when present, downloaded otherwise.
+- `ai_maintainer` symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout
+  (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
+- Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
+  packages and modules are left in place; remove them by hand.
 
 ## Operations
 

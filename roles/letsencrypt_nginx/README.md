@@ -14,9 +14,10 @@ make webservers -- --tags nginx
 | Tag | Description |
 | --- | --- |
 | configuration | Regenerate NGINX configuration files |
+| cron | Certificate renewal cron job |
 | docker | Manage the NGINX Docker container |
-| [letsencrypt](https://letsencrypt.org/) | Obtain and renew HTTPS certificates |
-| nginx | Full NGINX setup (apt, www, basicauth, configuration) |
+| [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job |
+| nginx | apt, www, basicauth, and configuration |
 | www | Set up web root directories and clone site repos |
 
 ## Variables

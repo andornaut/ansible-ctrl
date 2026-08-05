@@ -4,15 +4,13 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 
 ## Requirements
 
-- [Ansible](https://www.ansible.com/) >= 2.18
 - Ubuntu >= 24.04
+- Ansible >= 2.18, from the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
 
-Install Ansible from the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
-
-```bash
-sudo add-apt-repository --yes --update ppa:ansible/ansible
-sudo apt install ansible
-```
+  ```bash
+  sudo add-apt-repository --yes --update ppa:ansible/ansible
+  sudo apt install ansible
+  ```
 
 ## Usage
 
@@ -21,14 +19,9 @@ target installs dependencies, then runs `ansible-playbook --ask-become-pass <pla
 are forwarded to `ansible-playbook`.
 
 ```bash
-# List the targets
-make help
-
-# Run a playbook
-make desktop
-
-# Forward arguments, such as tags and limits
-make desktop -- --tags alacritty --limit example
+make help                                        # List the targets
+make desktop                                     # Run a playbook
+make desktop -- --tags alacritty --limit example # Forward arguments
 ```
 
 `make ai_maintainer` is the exception: it is a tag in the [dev](roles/dev/README.md) role rather than a playbook,
@@ -51,22 +44,23 @@ so the target runs `dev.yml --tags ai_maintainer`.
 | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
 | [niri](roles/niri/README.md) | Niri Wayland compositor and Wayland utilities |
 | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
-| [torrent](roles/torrent/README.md) | rtorrent service on the remote host, plus torrent scripts and cron jobs on the controller |
+| [torrent](roles/torrent/README.md) | rtorrent on the remote host, plus torrent scripts and cron jobs on the controller |
 
-[desktop.yml](desktop.yml) applies the desktop role to the whole `desktop` group, then applies bspwm or niri
-according to each host's `desktop_environment`. [upgrade.yml](upgrade.yml) uses no role: it runs apt dist-upgrade
-and flatpak upgrade.
+Most playbooks apply one role to one group. The exceptions:
 
-[torrent.yml](torrent.yml) applies the torrent role to the `torrent` group (the remote rtorrent host) and, in the
-same run, delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost):
-[roles/torrent/README.md](roles/torrent/README.md).
+| Playbook | Behaviour |
+| --- | --- |
+| [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
+| [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
+| [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
 
 ## Inventory
 
-- `hosts` (gitignored): the inventory. Its group names are the `hosts:` field of each playbook.
-- `host_vars/<hostname>.yml` (gitignored): per-host overrides, such as feature flags
-  (`{role}_install_{component}`), Docker image tags, and extra volumes.
-- `roles/<role>/defaults/main.yml`: role defaults. Override them in `host_vars/`, not here.
+| Path | Contents |
+| --- | --- |
+| `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
+| `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
+| `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
 example ansible_connection=local ansible_host=example.com ansible_user=andornaut ansible_python_interpreter=/usr/bin/python3
@@ -90,14 +84,17 @@ ansible-playbook --ask-vault-pass --ask-become-pass desktop.yml
 
 ## Operations
 
+[.github/workflows/lint.yml](.github/workflows/lint.yml) runs four jobs on every pull request: `ansible-lint`,
+`syntax-check`, `shellcheck` (every shell script under `roles/`, discovered by shebang), and `python-syntax`
+(every Python file under `roles/*/files/`). The first two are reproducible locally:
+
 ```bash
-# Lint, one of the checks pull requests run via .github/workflows/lint.yml
+# Lint
 python3 -m venv /tmp/ansible-lint-venv \
     && /tmp/ansible-lint-venv/bin/pip install ansible-lint \
     && /tmp/ansible-lint-venv/bin/ansible-lint
 
-# Syntax-check every playbook, the other pull-request check. The real inventory is
-# gitignored, so parse against the committed CI inventory.
+# Syntax-check every playbook. The real inventory is gitignored, so parse against the committed CI one.
 for pb in *.yml; do [ "$pb" = requirements.yml ] && continue; \
     ansible-playbook --syntax-check -i tests/inventory.ini "$pb"; done
 
