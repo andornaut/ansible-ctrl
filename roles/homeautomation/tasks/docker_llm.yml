@@ -92,3 +92,7 @@
             llamacpp:
               condition: service_healthy
   notify: Update /etc/hosts
+  # OpenWebUI's environment contains the Brave Search API key. Conditional rather than always
+  # on: this task pulls images and starts the stack, so hiding its output costs the only
+  # diagnostic a pull or startup failure has, and the env is empty unless a host sets it.
+  no_log: "{{ (homeautomation_openwebui_env | length) > 0 }}"
