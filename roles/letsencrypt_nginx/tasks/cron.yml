@@ -8,8 +8,14 @@
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
+    # ansible.cfg's vault_password_file is ~-relative and this runs as root, whose ~ is /root,
+    # so the password file is named explicitly. ~{{ primary_user }} rather than an absolute path:
+    # the shell resolves it through the passwd database, so it survives a home directory move.
+    # The environment variable rather than --vault-password-file: it outranks ansible.cfg for the
+    # same setting, where the flag layers on top and each run warns that the config path is missing.
     job: >-
       cd {{ letsencrypt_nginx_renewal_cron_directory }} &&
+      ANSIBLE_VAULT_PASSWORD_FILE=~{{ primary_user }}/.private/ansible-vault-password
       ansible-playbook webservers.yml --tags letsencrypt
       >> {{ letsencrypt_nginx_renewal_cron_log }} 2>&1
     state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"

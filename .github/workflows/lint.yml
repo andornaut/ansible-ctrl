@@ -36,6 +36,13 @@ jobs:
       - name: Install ansible-lint
         run: pip install ansible-lint
 
+      # ansible.cfg names a vault password file and a missing one is fatal at parse
+      # time. Nothing vaulted is committed, so the contents are never used.
+      - name: Create a dummy vault password file
+        run: |
+          mkdir -p ~/.private
+          echo ci > ~/.private/ansible-vault-password
+
       # Install the collections the roles use so ansible-lint's syntax-check can
       # validate their module arguments; without them those modules are unknown.
       - name: Install Ansible collections
@@ -57,6 +64,13 @@ jobs:
 
       - name: Install ansible-core
         run: pip install ansible-core
+
+      # ansible.cfg names a vault password file and a missing one is fatal at parse
+      # time. Nothing vaulted is committed, so the contents are never used.
+      - name: Create a dummy vault password file
+        run: |
+          mkdir -p ~/.private
+          echo ci > ~/.private/ansible-vault-password
 
       # roles are local, but the playbooks use community.*/ansible.posix modules;
       # install the collections so FQCN references resolve during the parse.

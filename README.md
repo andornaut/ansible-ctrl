@@ -60,6 +60,7 @@ Most playbooks apply one role to one group. The exceptions:
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
+| `group_vars/all/vault.yml` (gitignored, ansible-vault encrypted) | Every credential, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
@@ -74,13 +75,51 @@ example
 
 ## Secrets
 
-API tokens, SMTP passwords, and Home Assistant long-lived tokens live in the gitignored `host_vars/` files.
-Encrypt shared or committed secrets with [ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html):
+Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assistant long-lived
+tokens) lives in `group_vars/all/vault.yml`, encrypted with
+[ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html) and named
+`vault_<purpose>`. `host_vars/` holds no credential values, only references to them:
+
+```yaml
+# host_vars/example.yml
+msmtp_password: "{{ vault_msmtp_password }}"
+```
+
+The split keeps `host_vars/` readable and diffable while the secrets themselves are encrypted at
+rest.
+
+`ansible.cfg` sets `vault_password_file` to a `~`-relative path, so playbooks need no
+`--ask-vault-pass`. The certificate renewal cron is the exception: it runs `ansible-playbook` as
+root and unattended, where a prompt would hang and `~` resolves to `/root`, so
+[roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) sets
+`ANSIBLE_VAULT_PASSWORD_FILE=~{{ primary_user }}/.private/ansible-vault-password` for that run.
+
+A `vault_password_file` that does not exist is a fatal parse error, not a warning, even though
+nothing vaulted is committed, so [.github/workflows/lint.yml](.github/workflows/lint.yml) writes a
+dummy one before it runs anything. A fresh clone needs the bootstrap below before any playbook,
+lint or syntax check will parse.
 
 ```bash
-ansible-vault encrypt host_vars/example.yml
-ansible-playbook --ask-vault-pass --ask-become-pass desktop.yml
+# Add or rotate a secret
+ansible-vault edit group_vars/all/vault.yml
+
+# Rotate the vault password itself. --new-vault-password-file is required: without it the
+# new password is read from the file ansible.cfg names, so the rekey re-encrypts with the
+# password it started with and still reports success.
+(umask 077 && cat > ~/.private/ansible-vault-password-new)
+ansible-vault rekey --new-vault-password-file ~/.private/ansible-vault-password-new \
+    group_vars/all/vault.yml \
+    && mv ~/.private/ansible-vault-password-new ~/.private/ansible-vault-password
+
+# Bootstrap a new controller: restore the password from a password manager into the path
+# ansible.cfg names, then paste and press Ctrl-D
+mkdir -p ~/.private && chmod 0700 ~/.private
+(umask 077 && cat > ~/.private/ansible-vault-password) && chmod 0400 ~/.private/ansible-vault-password
 ```
+
+Both halves need a backup, and neither is in git: the password belongs in a password manager, and
+`group_vars/all/vault.yml` is gitignored, so it exists only on the controller's disk. Losing
+either one loses every secret.
 
 ## Operations
 

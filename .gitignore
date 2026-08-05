@@ -1,5 +1,6 @@
 .ansible/
 .vscode/mcp.json
 __pycache__/
+group_vars/all/vault.yml
 host_vars/
 hosts
