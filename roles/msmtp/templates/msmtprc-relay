@@ -6,7 +6,7 @@ domain {{ msmtp_domain }}
 
 auth on
 user {{ msmtp_user }}
-password {{ msmtp_password_INSECURE }}
+password {{ msmtp_password }}
 
 tls on
 tls_trust_file /etc/ssl/certs/ca-certificates.crt

@@ -16,12 +16,13 @@ See [defaults/main.yml](./defaults/main.yml).
 | --- | --- |
 | `msmtp_domain` | Mail domain, used to build `msmtp_send_all_email_to`. Required |
 | `msmtp_user` | Upstream SMTP username. Required |
-| `msmtp_password_INSECURE` | Upstream SMTP password. Required, rendered into `/etc/msmtprc-relay` only |
+| `msmtp_password` | Upstream SMTP password. Required, rendered into `/etc/msmtprc-relay` only |
 | `msmtp_host`, `msmtp_port` | Upstream SMTP server |
 | `msmtp_relay_interface` | Interface `msmtpd` listens on. Must be `127.0.0.1` or `::1` |
 | `msmtp_relay_port` | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535) |
 
-Set the required vars per host in `host_vars/`. The role asserts them, and the relay constraints,
+Set the required vars per host in `host_vars/`, with `msmtp_password` referencing an
+ansible-vault secret rather than holding one. The role asserts them, and the relay constraints,
 before its first task, which uninstalls the host's existing MTA.
 
 ## Design

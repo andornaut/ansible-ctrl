@@ -5,14 +5,14 @@
     that:
       - msmtp_domain is defined
       - msmtp_user is defined
-      - msmtp_password_INSECURE is defined
+      - msmtp_password is defined
       # msmtpd accepts unauthenticated mail, so the relay must stay on loopback.
       - msmtp_relay_interface in ['127.0.0.1', '::1']
       # The override clears CAP_NET_BIND_SERVICE, so a privileged port fails to bind.
       - msmtp_relay_port | int >= 1024
       - msmtp_relay_port | int <= 65535
     fail_msg: >-
-      Set msmtp_domain, msmtp_user and msmtp_password_INSECURE in host_vars
+      Set msmtp_domain, msmtp_user and msmtp_password in host_vars
       (gitignored), keep msmtp_relay_interface on loopback, and use an
       unprivileged msmtp_relay_port.
     quiet: true

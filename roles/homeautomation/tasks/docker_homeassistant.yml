@@ -135,3 +135,8 @@
           required_services | combine(govee2mqtt_service if homeautomation_install_govee2mqtt else {})
         }}
   notify: Update /etc/hosts
+  # Govee2MQTT's environment contains the Govee account password and API key. Conditional
+  # rather than always on: this task pulls images and starts the stack, so hiding its output
+  # costs the only diagnostic a pull or startup failure has, and the secret is only in the
+  # definition when govee2mqtt is installed.
+  no_log: "{{ homeautomation_install_govee2mqtt }}"
