@@ -24,12 +24,6 @@ The registry has no tag of its own.
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable | Purpose |
-| --- | --- |
-| `docker_user` | Account added to the `docker` group |
-| `docker_install_kubernetes` | Install helm, kubectl, and minikube |
-| `docker_install_registry` | Install and start Docker Registry |
-
 ## Notes
 
 - Docker Registry binds host port 5000, which Frigate also publishes by default. Enable `docker_install_registry`

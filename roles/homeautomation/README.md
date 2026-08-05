@@ -14,6 +14,8 @@ make homeautomation -- --tags frigate
 
 ## Tags
 
+Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone runs nothing.
+
 | Tag | Description |
 | --- | --- |
 | [avahi](https://avahi.org/) | mDNS discovery service |
@@ -45,7 +47,7 @@ Containers use one of two network modes:
 Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
 [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
 resolves to its bridge IP, so use the container's **internal** port, which is not always the published one:
-openwebui listens on 8080 and publishes host port 3000. Most publish no host port at all; uncomment their port
+openwebui listens on 8080 and publishes host port 3000. Several publish no host port at all; uncomment their port
 mappings in the task files if host-port access is needed.
 
 Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then
@@ -53,6 +55,9 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 [docker_llm.yml](./tasks/docker_llm.yml) (Frigate may depend on llama.cpp). The rest run in any order.
 
 ### Container ports
+
+Internal ports. Those that are configurable are `homeautomation_*_port` in
+[defaults/main.yml](./defaults/main.yml).
 
 | Container | Network | Port | Protocol | Description |
 | --- | --- | --- | --- | --- |
@@ -71,8 +76,8 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 | llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
 | openwebui | bridge | 8080 | HTTP | Web UI, published on host port 3000 |
 | hamcp | bridge | 8086 | HTTP | MCP server |
-| piper | bridge | 10200 | Wyoming | Text-to-speech |
-| whisper | bridge | 10300 | Wyoming | Speech-to-text |
+| piper | bridge | 10200 | Wyoming | Text-to-speech, also published on the host |
+| whisper | bridge | 10300 | Wyoming | Speech-to-text, also published on the host |
 
 ### llama.cpp models and context
 
@@ -80,10 +85,10 @@ Router mode (`--models-dir /models`) spawns a child `llama-server` per model wit
 defaults to 4096 tokens. `homeautomation_llamacpp_env` sets vars the children inherit: `LLAMA_ARG_CTX_SIZE` for
 the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot (else it is split across slots).
 
-`LLAMA_ARG_CTX_SIZE` must stay at or below the smallest model's native training context or quality degrades
-without YaRN: Qwen3.5-9B is 262144, gemma-4-E4B is 131072, so 131072 is the shared ceiling. KV cache grows with
-context; at 128k these models exceed the 16GB GPU and spill to system RAM. Lower it if latency or memory is a
-problem.
+- `LLAMA_ARG_CTX_SIZE` must stay at or below the smallest `homeautomation_llamacpp_models` entry's native
+  training context, or quality degrades without YaRN.
+- KV cache grows with context. At 128k the current models exceed the 16GB GPU and spill to system RAM; lower it if
+  latency or memory is a problem.
 
 ### Matter and Thread
 
