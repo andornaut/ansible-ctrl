@@ -39,6 +39,7 @@ See [defaults/main.yml](./defaults/main.yml).
 - freecad comes from the maintainers' stable PPA because Ubuntu 24.04 ships no freecad package at all. That PPA
   covers noble with the 0.21 series, not 1.x. `freecadcmd` runs headless scripts against its bundled OpenCascade.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
-- kicad is a git-master build. It installs the
+- kicad comes from the release PPA that `hobbies_kicad_version` selects. It installs the
   [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, and
-  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization.
+  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization. KiKit is the git-master build,
+  since no PyPI release supports KiCad 10 yet.
