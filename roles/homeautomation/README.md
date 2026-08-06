@@ -90,6 +90,22 @@ the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot (
 - KV cache grows with context. At 128k the current models exceed the 16GB GPU and spill to system RAM; lower it if
   latency or memory is a problem.
 
+### Home Assistant conversation agent
+
+Assist talks to llama.cpp through the built-in
+[llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later),
+which replaced the Extended OpenAI Conversation custom component this role used to install. Add it under Settings >
+Devices & services with the URL `http://llamacpp.internal:8080/v1`; the trailing `/v1` is required. Router mode
+advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so each conversation agent selects one and
+several agents can run different models. It only sees entities exposed to Assist, and it does not fire
+[sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
+
+Home Assistant uses host networking, so Docker gives it a **copy** of the host's `/etc/hosts` (see
+[moby](https://github.com/moby/moby/blob/master/daemon/container_operations_unix.go)), which is how the
+docker_etc_hosts entry for llamacpp resolves inside the container. Because it is a copy taken at container start
+rather than a mount, recreating llamacpp on a different bridge IP leaves Home Assistant resolving the old address
+until it is restarted: `docker restart homeassistant`.
+
 ### Matter and Thread
 
 - Enable exactly one Matter server, `homeautomation_install_matterjs` or the superseded
