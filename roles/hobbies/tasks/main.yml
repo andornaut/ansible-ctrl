@@ -22,6 +22,10 @@
   ansible.builtin.import_tasks: fpv.yml
   tags: fpv
 
+- name: Import FreeCAD tasks
+  ansible.builtin.import_tasks: freecad.yml
+  tags: freecad
+
 - name: Import KiCad tasks
   ansible.builtin.import_tasks: kicad.yml
   tags: kicad
