@@ -1,9 +1,8 @@
 ---
 - name: Install SOPS and age
   block:
-    # age holds the keys SOPS encrypts to, so the two are one toolchain: a host
-    # with sops and no age-keygen cannot create or read an encrypted file.
-    # age is in universe; SOPS is not packaged for Ubuntu at all.
+    # age-keygen mints the keypair SOPS encrypts to; SOPS itself has age built
+    # in. age is in universe; SOPS is not packaged for Ubuntu at all.
     - name: Install age
       ansible.builtin.apt:
         name: age
