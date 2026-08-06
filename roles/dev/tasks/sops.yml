@@ -1,16 +1,12 @@
 ---
-- name: Install SOPS and age
+- name: Install SOPS
   block:
-    # age-keygen mints the keypair SOPS encrypts to; SOPS itself has age built
-    # in. age is in universe; SOPS is not packaged for Ubuntu at all.
-    - name: Install age
-      ansible.builtin.apt:
-        name: age
-        state: latest
-        install_recommends: false
-        update_cache: true
-      become: true
-
+    # No age package: SOPS links the age library, so it encrypts and decrypts
+    # without one, and faramir mints the keypair itself with `faramir keygen`.
+    # The binary was only ever needed for age-keygen.
+    #
+    # SOPS is not packaged for Ubuntu at all, so it comes from the release
+    # asset named sops_<version>_<arch>.deb.
     - name: Get latest SOPS release
       ansible.builtin.include_tasks: get_latest_release.yml
       vars:
