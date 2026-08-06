@@ -71,6 +71,10 @@
   ansible.builtin.import_tasks: opencode.yml
   tags: opencode
 
+- name: Import sops tasks
+  ansible.builtin.import_tasks: sops.yml
+  tags: sops
+
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox
