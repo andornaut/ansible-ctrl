@@ -16,6 +16,7 @@ make hobbies -- --tags kicad
 | [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator |
 | [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool |
 | fpv | betaflight and expresslrs |
+| [freecad](https://www.freecad.org/) | Parametric CAD for modelling parts around PCBs |
 | [freerouting](https://github.com/freerouting/freerouting) | PCB autorouter for KiCad; a subset of `kicad` |
 | [kicad](https://www.kicad.org/) | Electronics schematic and PCB design, with plugins |
 | [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer) | 3D printer slicer (user flatpak) |
@@ -35,6 +36,8 @@ See [defaults/main.yml](./defaults/main.yml).
 - betaflight is pinned because upstream is PWA-only now, so only older releases ship a Linux portable build. It
   installs to `/opt/betaflight/<version>`, exposed as `/opt/betaflight/current`, with `betaflight-configurator`
   on PATH.
+- freecad comes from the maintainers' stable PPA because Ubuntu 24.04 ships no freecad package at all. That PPA
+  covers noble with the 0.21 series, not 1.x. `freecadcmd` runs headless scripts against its bundled OpenCascade.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
 - kicad is a git-master build. It installs the
   [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, and
