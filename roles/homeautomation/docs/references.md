@@ -46,6 +46,8 @@ Built-in:
   [Envisalink Refactored](https://github.com/ufodone/envisalink_new)
 - [Google Cast](https://www.home-assistant.io/integrations/cast/)
 - [HomeKit](https://www.home-assistant.io/integrations/homekit/)
+- [llama.cpp](https://www.home-assistant.io/integrations/llama_cpp): conversation agent backed by the llamacpp
+  container
 - [Matter](https://www.home-assistant.io/integrations/matter/)
 - [OTBR](https://www.home-assistant.io/integrations/otbr/)
 - [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
@@ -58,7 +60,6 @@ Custom:
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
 - [Custom Icons](https://github.com/thomasloven/hass-custom_icons)
 - [Dreo](https://github.com/JeffSteinbok/hass-dreo)
-- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration) and its
   [notifications blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee2MQTT](https://github.com/wez/govee2mqtt)
