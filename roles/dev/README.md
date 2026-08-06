@@ -25,7 +25,7 @@ make dev -- --tags rust
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby) and [ruby-install](https://github.com/postmodern/ruby-install) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
-| [sops](https://github.com/getsops/sops) | Encrypted file editor, with the [age](https://github.com/FiloSottile/age) backend it needs |
+| [sops](https://github.com/getsops/sops) | Encrypted file editor; it links [age](https://github.com/FiloSottile/age), so no age package is needed |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
@@ -44,6 +44,9 @@ directory it operates on.
   (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
 - Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
   packages and modules are left in place; remove them by hand.
+- The `age` package is no longer installed. SOPS links the age library, and faramir mints keypairs with
+  `faramir keygen`, so nothing here needs the binary. Hosts that ran an earlier version still have it:
+  `sudo apt purge age` if you want it gone.
 
 ## Operations
 
