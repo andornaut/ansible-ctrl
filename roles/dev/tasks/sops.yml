@@ -1,0 +1,35 @@
+---
+- name: Install SOPS and age
+  block:
+    # age holds the keys SOPS encrypts to, so the two are one toolchain: a host
+    # with sops and no age-keygen cannot create or read an encrypted file.
+    # age is in universe; SOPS is not packaged for Ubuntu at all.
+    - name: Install age
+      ansible.builtin.apt:
+        name: age
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+
+    - name: Get latest SOPS release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: getsops/sops
+        release_fact: dev_sops_release
+
+    # Assets are named sops_<version>_<arch>.deb, alongside bare binaries and
+    # SBOMs for the same architectures, which the .deb suffix excludes.
+    - name: Set SOPS download URL fact
+      ansible.builtin.set_fact:
+        dev_sops_download_url: >-
+          {{ dev_sops_release.assets
+          | selectattr('name', 'match', 'sops_.*_' ~ dev_arch ~ '\.deb$')
+          | map(attribute='browser_download_url') | first }}
+
+    - name: Install SOPS package
+      ansible.builtin.apt:
+        deb: "{{ dev_sops_download_url }}"
+        install_recommends: false
+        update_cache: true
+      become: true
