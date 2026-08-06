@@ -89,8 +89,6 @@
         release_repo: ExpressLRS/ExpressLRS-Configurator
         release_fact: hobbies_expresslrs_release
 
-    # Match with a [.] class, not \. : in a folded scalar YAML passes backslashes through and
-    # Jinja does not treat \\ as an escape, so \. matches a literal backslash and selects nothing.
     - name: Set ExpressLRS Configurator download URL fact
       ansible.builtin.set_fact:
         hobbies_expresslrs_download_url: >-
