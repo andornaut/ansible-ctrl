@@ -8,6 +8,16 @@
     mode: "0755"
   become: true
 
+# Superseded by the built-in llama.cpp integration, which drives the same
+# OpenAI-compatible API on the llamacpp container. Delete its config entry in the
+# Home Assistant UI first: an orphaned entry for a missing integration logs an error
+# on every startup. See the README.
+- name: Remove the superseded Extended OpenAI Conversation custom component
+  ansible.builtin.file:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/extended_openai_conversation"
+    state: absent
+  become: true
+
 - name: Install BambuLab custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
   vars:
@@ -35,13 +45,6 @@
     github_component_name: Meross
     github_component_repo: albertogeniola/meross-homeassistant
     github_component_src: custom_components/meross_cloud
-
-- name: Install Extended OpenAI Conversation custom component
-  ansible.builtin.include_tasks: install_github_release_component.yml
-  vars:
-    github_component_name: Extended OpenAI Conversation
-    github_component_repo: jekalmin/extended_openai_conversation
-    github_component_src: custom_components/extended_openai_conversation
 
 - name: Install Simple Icons custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
