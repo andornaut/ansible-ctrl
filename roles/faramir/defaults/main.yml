@@ -39,12 +39,6 @@ faramir_config_src: etc/examples/ansible-fleet.toml
 # from faramir_config_src. Destructive: edits made on the host are lost.
 faramir_overwrite_config: false
 
-# Fail when the broker comes up having loaded no secret refs. That is what an
-# install against a tree whose credentials are still in ansible-vault looks
-# like: healthy, and protecting nothing. Set false to allow it deliberately,
-# which a staged migration needs.
-faramir_require_secrets: true
-
 # The SSH identity the broker lends to brokered commands through an agent it
 # owns. This must match [ssh] keys in faramir_config_src: the broker exposes no
 # way to read that setting back, so nothing here can derive one from the other.
