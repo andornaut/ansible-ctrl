@@ -242,9 +242,10 @@
       holds no SSH key, so a git@github.com URL would be refused.
       sudo -u {{ faramir_agent_user }} git clone
       https://github.com/andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then copy hosts, host_vars/ and group_vars/ in as root, since your home is
-      not readable by that account, and re-run: phase 1 applies the group and
-      setgid bits on that run. See the role README for the exact commands.
+      Then copy hosts, host_vars/, group_vars/ and (once the migration has
+      created it) secrets/ in as root, since your home is not readable by that
+      account, and re-run: phase 1 applies the group and setgid bits on that
+      run. See the role README for the exact commands.
     quiet: true
 
 - name: Provision the operator's age identity
@@ -444,8 +445,31 @@
       The broker read {{ faramir_secrets.files | join(', ') }} and loaded no
       refs from it. Nothing is injectable and nothing is redacted: a playbook
       that prints a credential prints it in plaintext.
+      {{ 'Load errors: ' ~ (faramir_secrets.errors | join('; '))
+         if faramir_secrets.errors | default([]) | length > 0
+         else 'The broker reported no load error, so the file parsed and is
+               empty rather than unreadable.' }}
     quiet: true
   when: faramir_secrets.files | default([]) | length > 0
+
+# Ansible loads every .yml under group_vars/ and host_vars/ as a vars file, and
+# a sops file is valid YAML: it binds each var to its ENC[...] ciphertext, and
+# since "vault" sorts after "vars" it also overwrites the lookup('env', ...)
+# mapping the broker's injection relies on.  Nothing errors and no task fails.
+# Hosts get configured with the ciphertext of a credential in place of the
+# credential, which is why this is an assert and not a warning.
+- name: Require the encrypted files to be outside the auto-loaded vars directories
+  ansible.builtin.assert:
+    that: faramir_secrets.files | default([]) | select('search', bad_dirs) | list | length == 0
+    fail_msg: >-
+      {{ faramir_secrets.files | select('search', bad_dirs) | join(', ') }}
+      is under group_vars/ or host_vars/, which Ansible auto-loads. Every
+      vault_* var would resolve to its ENC[...] ciphertext instead of the
+      injected value, silently. Move it (secrets/ is not auto-loaded) and
+      update [secrets] files in /etc/faramir/config.toml.
+    quiet: true
+  vars:
+    bad_dirs: (^|/)(group_vars|host_vars)/
 
 # Phase 4 installs faramir's own snippet, which says how the broker works and
 # nothing about this repo. These two flags are what make a brokered run work

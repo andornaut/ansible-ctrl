@@ -46,19 +46,26 @@ make faramir
 Then, as the operator, in the *operator's* checkout:
 
 ```bash
-# 1. Re-encrypt. Names are preserved exactly, so nothing that reads them changes.
-install/migrate-vault.sh group_vars/all/vault.yml group_vars/all/vault.sops.yml
+# 1. Re-encrypt into secrets/, NOT group_vars/. Ansible auto-loads every .yml
+#    under group_vars/ and host_vars/, and a sops file is valid YAML: it would
+#    bind each var to its ENC[...] ciphertext, and "vault" sorts after "vars"
+#    so it would also overwrite the mapping written in step 2. Nothing errors;
+#    hosts just get the ciphertext as the password. migrate-vault.sh refuses
+#    the bad destination, and the role asserts on it after install.
+#    Names are preserved exactly, so nothing that reads them changes.
+mkdir -p secrets
+install/migrate-vault.sh group_vars/all/vault.yml secrets/vault.sops.yml
 
 # 2. Map each name to the environment. group_vars/ is gitignored, so this is
 #    written by hand and copied into the agent's tree with the rest of it.
 #    vars.yml sorts before vault.yml, so ansible keeps using the vault until
 #    step 3 removes it: adding this changes nothing on its own.
-for k in $(sops -d group_vars/all/vault.sops.yml | grep -oE '^[a-z_]+'); do
+for k in $(sops -d secrets/vault.sops.yml | grep -oE '^[a-z_]+'); do
     echo "${k}: \"{{ lookup('env', '${k}') }}\""
 done > group_vars/all/vars.yml
 
 # 3. Prove it works before deleting anything.
-sops exec-env group_vars/all/vault.sops.yml 'make homeautomation -- --check'
+sops exec-env secrets/vault.sops.yml 'make homeautomation -- --check'
 git rm group_vars/all/vault.yml
 
 # 4. Drop vault_password_file from ansible.cfg. Nothing needs it once the vault
@@ -71,6 +78,21 @@ sed -i '/^vault_password_file/d' ansible.cfg
 
 `host_vars/` needs no change at all: it refers to `{{ vault_* }}`, and those
 names now resolve through `group_vars/all/vars.yml` instead of the vault.
+
+Then copy `secrets/` into the agent's tree alongside the rest, re-run `make
+faramir`, and prove the brokered path resolves a var end to end:
+
+```bash
+faramir run --env-file faramir.env -- \
+    ansible tron -m debug -a 'var=vault_msmtp_password'
+# -> "vault_msmtp_password": "«SECRET:vault_msmtp_password»"
+```
+
+That one command covers the whole chain: the ref decrypted, the value reached
+the child's environment, `lookup('env', ...)` found it, and the redactor
+replaced it on the way back. Any other output is a fault. A bare name means the
+ref was not injected; `ENC[AES256_GCM,...]` means the encrypted file is
+somewhere Ansible auto-loads it, per step 1.
 
 Afterwards `make faramir` runs without the override, and its own check confirms
 the broker loaded all eleven.
@@ -193,9 +215,9 @@ name no tree and the installer writes no drop-ins; what keeps a brokered command
 out of everything else is the file mode, and `ProtectSystem=strict` makes the
 whole hierarchy read-only apart from `/home`.
 
-The role requires it to exist and does not create it: `hosts`, `host_vars/` and
-`group_vars/` are gitignored, so a fresh clone would produce a tree that parses
-but has no inventory.
+The role requires it to exist and does not create it: `hosts`, `host_vars/`,
+`group_vars/` and `secrets/` are gitignored, so a fresh clone would produce a
+tree that parses but has no inventory and no secrets.
 
 A first install is therefore two passes. The first creates the accounts and
 stops, naming the account it just made:
@@ -208,6 +230,8 @@ sudo -u agent git clone https://github.com/andornaut/ansible-ctrl.git \
     /home/agent/work/ansible-ctrl
 
 # As root, because the operator's home is 0700 and that account cannot read it.
+# Add secrets/ to the list once the migration has created it; before then it
+# does not exist and cp would fail on it.
 sudo cp -a ~/src/github.com/andornaut/ansible-ctrl/{hosts,host_vars,group_vars} \
     /home/agent/work/ansible-ctrl/
 sudo chown -R agent:devwork /home/agent/work/ansible-ctrl

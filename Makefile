@@ -69,7 +69,7 @@ requirements:
 # which makes a dry run wet. Referenced through another name, -n stays dry.
 SUBMAKE := $(MAKE)
 
-SOPS_FILE := group_vars/all/vault.sops.yml
+SOPS_FILE := secrets/vault.sops.yml
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
 # SECRETS_LOADED marks the inner half so this happens once; SECRETS=none skips
