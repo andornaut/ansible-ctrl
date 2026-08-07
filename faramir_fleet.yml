@@ -1,0 +1,86 @@
+---
+# Authorize the faramir broker's key on the hosts brokered playbooks reach.
+#
+# Separate from faramir.yml because it writes to production hosts rather than to
+# the controller, and because it is only useful once the controller has a broker
+# with a key to distribute. faramir.yml prints that key and fails when the
+# broker's agent holds none; this play is what makes the key mean something.
+#
+# Reached from a brokered run it would grant the agent's own reach, so it is
+# kept out of every hosts: all play for the same reason faramir.yml is.
+- name: Read the broker's public key from the controller
+  hosts: faramir
+  gather_facts: false
+  tasks:
+    # 0700 faramir-broker, so root reads it. The public half is not a secret;
+    # the private half never leaves this host, which is the point of lending it
+    # through an agent rather than copying it around.
+    - name: Read the broker's public key
+      ansible.builtin.slurp:
+        src: "{{ faramir_broker_ssh_key }}.pub"
+      become: true
+      register: faramir_broker_pubkey
+
+    - name: Publish it to the other plays
+      ansible.builtin.set_fact:
+        faramir_broker_authorized_key: "{{ faramir_broker_pubkey.content | b64decode | trim }}"
+
+    - name: Require a public key
+      ansible.builtin.assert:
+        that: faramir_broker_authorized_key.startswith("ssh-")
+        fail_msg: >-
+          {{ faramir_broker_ssh_key }}.pub does not look like a public key. Run
+          make faramir first; it generates the pair and prints the public half.
+        quiet: true
+
+# Every managed host except the controller. controller reaches itself with
+# ansible_connection=local, so no key is involved there, and a brokered run
+# against it is bounded by what faramir-exec can do locally rather than by SSH.
+- name: Authorize the broker's key on the managed hosts
+  hosts: all:!faramir
+  gather_facts: false
+  tasks:
+    - name: Authorize the broker's key for the ansible account
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user | default(primary_user) }}"
+        key: "{{ hostvars[groups['faramir'][0]]['faramir_broker_authorized_key'] }}"
+        state: "{{ 'present' if faramir_fleet_authorize_key | bool else 'absent' }}"
+        # Not exclusive: this account's other keys, including the operator's own,
+        # are what this play would otherwise lock out of the host it runs on.
+        exclusive: false
+        comment: "faramir broker on {{ groups['faramir'][0] }}"
+      vars:
+        faramir_fleet_authorize_key: true
+
+    # No become password can safely live in the secret store: it is the
+    # operator's login password, an agent that extracts it can su to the
+    # operator, and on the controller that reaches the age key.  So a brokered
+    # run has no password to offer, and sudo here must not ask for one.
+    #
+    # This is the grant, stated plainly: the broker's key plus this entry means
+    # the agent is root on this host.  That is what "the agent configures the
+    # fleet" means.  Leave a host out of this play to keep it agent-free.
+    #
+    # validate: a malformed sudoers file locks everyone out, including the
+    # account that would fix it, so visudo checks it before it is installed.
+    - name: Grant the ansible account passwordless sudo
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/faramir-agent
+        content: "{{ ansible_user | default(primary_user) }} ALL=(ALL) NOPASSWD:ALL\n"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: visudo -cf %s
+      become: true
+      when: faramir_fleet_authorize_key | bool
+      vars:
+        faramir_fleet_authorize_key: true
+
+    - name: Remove the passwordless sudo grant
+      ansible.builtin.file:
+        path: /etc/sudoers.d/faramir-agent
+        state: absent
+      become: true
+      when: not (faramir_fleet_authorize_key | bool)
+      vars:
+        faramir_fleet_authorize_key: true
