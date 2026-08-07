@@ -433,17 +433,51 @@
 # neither injectable nor redacted. Zero refs is therefore a broker that is
 # running and protecting nothing, which is indistinguishable from a healthy
 # install unless something says so. See the role README.
+# Derived rather than configured. --check lists only the managed files it could
+# stat, so an empty list means the sops file does not exist yet, which is what
+# every install looks like before the vault is migrated. A file that exists and
+# yields nothing is the real fault, and that is what this catches.
 - name: Require the broker to have loaded at least one secret
   ansible.builtin.assert:
     that: faramir_secrets.ref_count | default(0) | int > 0
     fail_msg: >-
-      The broker loaded no secret refs from
-      {{ faramir_secrets.files | default([]) | join(', ') or 'the configured files' }}.
-      Nothing is injectable and nothing is redacted: a playbook that prints a
-      credential prints it in plaintext. Migrate group_vars/all/vault.yml to
-      sops, or set faramir_require_secrets=false to accept this deliberately.
+      The broker read {{ faramir_secrets.files | join(', ') }} and loaded no
+      refs from it. Nothing is injectable and nothing is redacted: a playbook
+      that prints a credential prints it in plaintext.
     quiet: true
-  when: faramir_require_secrets | bool
+  when: faramir_secrets.files | default([]) | length > 0
+
+# Phase 4 installs faramir's own snippet, which says how the broker works and
+# nothing about this repo. These two flags are what make a brokered run work
+# here, and an agent that has to guess them gets a run that reaches the wrong
+# hosts or no credentials at all.
+- name: Tell the agent how to run a playbook through the broker
+  ansible.builtin.blockinfile:
+    path: "{{ faramir_worktree }}/CLAUDE.md"
+    create: true
+    owner: "{{ faramir_agent_user }}"
+    group: "{{ faramir_devwork_group }}"
+    mode: "0664"
+    marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
+    block: |
+      ## Running playbooks
+
+      Credentials come from the broker and are never visible here. Run a
+      playbook with both of these:
+
+          faramir run --env-file faramir.env -- \
+              ansible-playbook <playbook>.yml --limit '!faramir'
+
+      `--env-file faramir.env` names every credential this repo uses, by
+      reference. `--limit '!faramir'` excludes the controller, which a brokered
+      run cannot configure: commands run as a uid with no sudo there, so those
+      tasks fail after the rest of the run has already applied. The operator
+      applies the controller's own playbooks.
+
+      `faramir_list_secrets` shows the available names. Do not use `make`: it is
+      the operator's entry point and prompts for a sudo password, which a
+      brokered command has no terminal to answer.
+  become: true
 
 - name: Check the broker's SSH identity end to end
   when: faramir_manage_broker_ssh_key | bool
