@@ -29,9 +29,9 @@ that prints it prints it in plaintext.
 
 A broker installed before the migration comes up healthy and protects nothing,
 which is indistinguishable from a working install unless something says so. The
-role prints what the broker loaded and then fails when it loaded nothing. A
-staged migration that means to pass through that state sets
-`faramir_require_secrets=false`.
+role prints what the broker loaded, and fails when a managed sops file exists
+and yielded no refs. Before the migration there is no such file, so a first
+install passes without needing to be told to.
 
 ### The migration, in order
 
@@ -40,7 +40,7 @@ age key that encrypts them is minted by phase 2. So faramir is installed first,
 against the unmigrated vault, and the secrets follow:
 
 ```bash
-make faramir -- --extra-vars faramir_require_secrets=false
+make faramir
 ```
 
 Then, as the operator, in the *operator's* checkout:
@@ -269,11 +269,15 @@ Generating the broker's key grants nothing. Its public half has to be in
 make faramir_fleet
 ```
 
-`faramir_fleet.yml` reads the public key off the controller and installs it on
-every host except the controller itself, without `exclusive`, so the operator's
-own key keeps working. It is a separate play because it writes to production
-hosts rather than to controller, and because it is only useful once controller has a broker
-with a key to distribute.
+`faramir_fleet.yml` reads the public key off the controller, installs it on
+every host except the controller itself without `exclusive` so your own key
+keeps working, grants that account NOPASSWD sudo, and then proves the chain by
+pinging every host *through the broker*. That last step is the difference
+between "installed" and "works": the role can only tell you the broker holds a
+key, not that anything accepts it.
+
+It is a separate play because it writes to production hosts rather than to controller,
+and because it is only useful once controller has a broker with a key to distribute.
 
 Set `faramir_fleet_authorize_key=false` to remove it again.
 
@@ -292,7 +296,6 @@ Set `faramir_fleet_authorize_key=false` to remove it again.
 | `faramir_worktree` | `{{ faramir_agent_user_home }}/work/ansible-ctrl` | Where brokered commands run. |
 | `faramir_config_src` | `etc/examples/ansible-fleet.toml` | Config to install, relative to `faramir_src_dir`. |
 | `faramir_overwrite_config` | `false` | Discard the installed config and rewrite it. Destructive. |
-| `faramir_require_secrets` | `true` | Fail when the broker loads no secret refs. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends. Must match `[ssh] keys` in the config. |
 | `faramir_manage_broker_ssh_key` | `true` | Generate that key, and fail when the broker's agent holds none. |
 | `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, added to `.sops.yaml` as a second recipient. |

@@ -84,3 +84,44 @@
       when: not (faramir_fleet_authorize_key | bool)
       vars:
         faramir_fleet_authorize_key: true
+
+# The role verifies the broker's agent holds a key. That it *opens* anything is
+# a different claim, and the one that matters: a key authorized for the wrong
+# account, or a host this play skipped, leaves an install that comes up green
+# and reaches nothing. Asked through the broker, in the agent's own worktree,
+# because that is the path a brokered playbook actually takes.
+- name: Prove a brokered run reaches the fleet
+  hosts: faramir
+  gather_facts: false
+  tasks:
+    - name: Ping every managed host through the broker
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/faramir
+          - run
+          - --quiet
+          - --
+          - ansible
+          - all
+          - -m
+          - ping
+          - --limit
+          - "!faramir"
+          - -o
+      become: true
+      register: faramir_fleet_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Require every host to answer
+      ansible.builtin.assert:
+        that:
+          - "'UNREACHABLE' not in faramir_fleet_ping.stdout"
+          - "'SUCCESS' in faramir_fleet_ping.stdout"
+        fail_msg: >-
+          A brokered ping did not reach every host. The broker holds a key; this
+          says whether the fleet accepts it. Check that this play authorized the
+          account ansible connects as, and that the agent's worktree has the
+          inventory. Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
+          {{ faramir_fleet_ping.stderr | default('') | trim }}
+        quiet: true
