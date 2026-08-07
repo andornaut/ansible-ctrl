@@ -1,0 +1,10 @@
+---
+# Its own playbook, and its own inventory group, rather than a tag in dev: this
+# installs the units and config that confine the coding agent, and restarts the
+# broker. Reached from a brokered run it would rewrite that confinement as root,
+# and kill the command doing the rewriting. Keeping it off every hosts: all play
+# and out of `make dev` means a brokered run cannot reach it by accident.
+- name: Apply faramir role
+  hosts: faramir
+  roles:
+    - faramir
