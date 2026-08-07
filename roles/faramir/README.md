@@ -194,10 +194,17 @@ A first install is therefore two passes. The first creates the accounts and
 stops, naming the account it just made:
 
 ```bash
-make faramir
-sudo -u agent git clone git@github.com:andornaut/ansible-ctrl.git \
+make faramir            # creates the accounts, then stops: no working tree yet
+
+# https, not git@github.com: the agent account holds no SSH key of its own.
+sudo -u agent git clone https://github.com/andornaut/ansible-ctrl.git \
     /home/agent/work/ansible-ctrl
-# copy in hosts, host_vars/ and group_vars/ by hand
+
+# As root, because the operator's home is 0700 and that account cannot read it.
+sudo cp -a ~/src/github.com/andornaut/ansible-ctrl/{hosts,host_vars,group_vars} \
+    /home/agent/work/ansible-ctrl/
+sudo chown -R agent:devwork /home/agent/work/ansible-ctrl
+
 make faramir
 ```
 
