@@ -237,11 +237,14 @@
     fail_msg: >-
       No working tree at {{ faramir_worktree }}. Brokered commands run there and
       the sops files are read from there, so it must exist before the broker is
-      installed. The {{ faramir_agent_user }} account exists now, so:
+      installed. The {{ faramir_agent_user }} account exists now, so clone it as
+      that account over https, which is the only transport it has: the account
+      holds no SSH key, so a git@github.com URL would be refused.
       sudo -u {{ faramir_agent_user }} git clone
-      git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      then copy in the gitignored inventory (hosts, host_vars/, group_vars/) and
-      re-run. Phase 1 applies the group and setgid bits on that run.
+      https://github.com/andornaut/ansible-ctrl.git {{ faramir_worktree }}
+      Then copy hosts, host_vars/ and group_vars/ in as root, since your home is
+      not readable by that account, and re-run: phase 1 applies the group and
+      setgid bits on that run. See the role README for the exact commands.
     quiet: true
 
 - name: Provision the operator's age identity
