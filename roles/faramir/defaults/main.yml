@@ -1,0 +1,86 @@
+---
+# Account that owns the faramir checkout and runs the build. Never the agent.
+faramir_user: "{{ primary_user }}"
+
+# Where the checkout lives. faramir publishes no release binaries, so they are
+# built from source on the controller.
+faramir_src_dir: "{{ faramir_user_home }}/src/github.com/andornaut/faramir"
+
+# The Go toolchain installs outside the default PATH, and a task's PATH is not a
+# login shell's. See roles/dev/tasks/go.yml.
+faramir_go_bin_dir: /usr/local/go/bin
+
+# The unprivileged account the coding agent runs as. Deliberately not
+# faramir_user: the design is that the agent's uid can reach nothing the
+# operator's uid holds.
+faramir_agent_user: agent
+
+# Shared group giving the agent and the three service accounts access to the
+# working tree. Not a boundary; the boundaries are file modes.
+faramir_devwork_group: devwork
+
+# The three service uids. These names are also written into the shipped systemd
+# units and config.toml, so changing one here means changing it there too.
+faramir_broker_user: faramir-broker
+faramir_keeper_user: faramir-keeper
+faramir_exec_user: faramir-exec
+
+# The tree brokered commands run in, where the sops files live, and the only
+# path bound into all three units. The agent's own checkout, not the operator's.
+faramir_worktree: "{{ faramir_agent_user_home }}/work/ansible-ctrl"
+
+# Config installed as /etc/faramir/config.toml, relative to faramir_src_dir.
+# @WORKTREE@ in it is substituted with faramir_worktree by phase 3.
+faramir_config_src: etc/examples/ansible-fleet.toml
+
+# Phase 3 keeps an existing /etc/faramir/config.toml and writes the new default
+# to config.toml.dist beside it, so re-running this role does not reconcile the
+# installed config. Set true to delete it first and have phase 3 write it fresh
+# from faramir_config_src. Destructive: edits made on the host are lost.
+faramir_overwrite_config: false
+
+# Fail when the broker comes up having loaded no secret refs. That is what an
+# install against a tree whose credentials are still in ansible-vault looks
+# like: healthy, and protecting nothing. Set false to allow it deliberately,
+# which a staged migration needs.
+faramir_require_secrets: true
+
+# The SSH identity the broker lends to brokered commands through an agent it
+# owns. This must match [ssh] keys in faramir_config_src: the broker exposes no
+# way to read that setting back, so nothing here can derive one from the other.
+#
+# A key of the broker's own rather than the operator's. The executor's uid can
+# authenticate with it without being able to read it, and the fleet can revoke
+# the agent's reach without rotating the key the operator uses.
+faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
+
+# Generate faramir_broker_ssh_key when it is missing, and check afterwards that
+# a brokered command can actually use it. The public key is printed at the end
+# of the run; it opens nothing until it is in authorized_keys on the managed
+# hosts, which is a step this role does not take.
+#
+# Set false when the config leaves [ssh] keys empty, which is a working setup
+# but not a recommended one: the keys then have to live where the executor's
+# own uid can read them.
+faramir_manage_broker_ssh_key: true
+
+# An age identity for the operator, listed in .sops.yaml alongside the keeper's
+# so the account that is responsible for these secrets can still read them.
+# Without it the keeper is the only recipient and editing a value, rotating a
+# credential or reading one back all have to go through the broker.
+#
+# It grants the agent nothing: the agent has no age key either way, and this one
+# lives under the operator's home where the agent's uid cannot reach it.
+faramir_operator_age_key: "{{ faramir_user_home }}/.config/sops/age/keys.txt"
+
+# Generate faramir_operator_age_key when it is missing and add it as a second
+# recipient. Set false to leave the keeper as the only one.
+faramir_manage_operator_age_key: true
+
+# Hosts whose authorized_keys should carry the broker's public key, so brokered
+# playbooks can reach them. Empty means the role writes to no managed host and
+# the key is yours to distribute.
+#
+# This writes to production hosts, so it is a separate play (faramir_fleet.yml)
+# rather than something the controller-side role does behind your back.
+faramir_fleet_authorize_key: true

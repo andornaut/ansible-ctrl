@@ -1,0 +1,45 @@
+---
+# Derived values, not operator knobs. In vars/ (not defaults/) so role vars outrank
+# host_vars and a host cannot desync a derived value from its source.
+
+# faramir_user home from passwd (getent runs in tasks/main.yml).
+faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
+
+# The agent account does not exist before phase 1 creates it, so this falls back
+# to the home useradd -m would give it rather than failing the first run.
+faramir_agent_user_home: >-
+  {{ ansible_facts['getent_passwd'].get(faramir_agent_user,
+     ['', '', '', '', '/home/' ~ faramir_agent_user, ''])[4] }}
+
+# The uids phase 1 creates. The agent account is checked separately: it may
+# already exist for other reasons.
+faramir_service_accounts:
+  - "{{ faramir_broker_user }}"
+  - "{{ faramir_keeper_user }}"
+  - "{{ faramir_exec_user }}"
+
+# Phase 3 enables these. Sockets, not services: all three are socket-activated.
+faramir_sockets:
+  - faramir-keeper.socket
+  - faramir-exec.socket
+  - faramir-broker.socket
+
+# The phase scripts read their inputs from the environment. Assembled once here
+# because all four share most of it, and a phase given a different worktree than
+# its neighbours produces a broker whose units bind a tree its config never names.
+faramir_install_env:
+  OPERATOR: "{{ faramir_user }}"
+  AGENT_USER: "{{ faramir_agent_user }}"
+  BROKER_USER: "{{ faramir_broker_user }}"
+  KEEPER_USER: "{{ faramir_keeper_user }}"
+  EXEC_USER: "{{ faramir_exec_user }}"
+  DEVWORK_GROUP: "{{ faramir_devwork_group }}"
+  # All four phases read WORKTREE. Phase 2 still accepts the older REPO spelling
+  # for the same tree, which is not passed here: one name cannot desync.
+  WORKTREE: "{{ faramir_worktree }}"
+  CONFIG: "{{ faramir_config_src }}"
+  FARAMIR_BIN: "{{ faramir_src_dir }}/bin"
+  # Listed in .sops.yaml alongside the keeper's, so the operator can still read
+  # the files they are responsible for. Empty until the identity below has been
+  # minted, which is fine: phase 1 ignores it, and phase 2 is the only reader.
+  EXTRA_AGE_RECIPIENTS: "{{ faramir_operator_recipient.stdout | default('') }}"
