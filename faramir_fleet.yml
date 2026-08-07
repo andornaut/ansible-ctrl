@@ -120,8 +120,11 @@
           - "'SUCCESS' in faramir_fleet_ping.stdout"
         fail_msg: >-
           A brokered ping did not reach every host. The broker holds a key; this
-          says whether the fleet accepts it. Check that this play authorized the
-          account ansible connects as, and that the agent's worktree has the
-          inventory. Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
+          says whether the fleet accepts it. Two causes, in order of likelihood:
+          ansible.cfg still sets vault_password_file, which is ~-relative and so
+          missing for the executor's uid, and ansible exits 1 rather than
+          warning (drop the line, nothing needs it once the vault is migrated);
+          or this play has not authorized the account ansible connects as on
+          every host. Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
           {{ faramir_fleet_ping.stderr | default('') | trim }}
         quiet: true
