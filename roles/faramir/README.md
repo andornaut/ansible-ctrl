@@ -60,6 +60,13 @@ done > group_vars/all/vars.yml
 # 3. Prove it works before deleting anything.
 sops exec-env group_vars/all/vault.sops.yml 'make homeautomation -- --check'
 git rm group_vars/all/vault.yml
+
+# 4. Drop vault_password_file from ansible.cfg. Nothing needs it once the vault
+#    is gone, and while it is there no brokered run can start at all: the path
+#    is ~-relative, faramir-exec's home has no such file, and ansible exits 1
+#    rather than warning. The cert-renewal cron sets the variable itself, so it
+#    is unaffected either way.
+sed -i '/^vault_password_file/d' ansible.cfg
 ```
 
 `host_vars/` needs no change at all: it refers to `{{ vault_* }}`, and those
@@ -266,8 +273,12 @@ Generating the broker's key grants nothing. Its public half has to be in
 `authorized_keys` for the account ansible connects as on every managed host:
 
 ```bash
-make faramir_fleet
+make faramir_fleet ASK_PASS=1
 ```
+
+Run it **after** the migration. Its last step pings every host through the
+broker, and a brokered ansible cannot start while `vault_password_file` is
+still in `ansible.cfg`.
 
 `faramir_fleet.yml` reads the public key off the controller, installs it on
 every host except the controller itself without `exclusive` so your own key
