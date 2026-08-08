@@ -93,9 +93,9 @@ the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot (
 ### Home Assistant conversation agent
 
 Assist talks to llama.cpp through the built-in
-[llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later),
-which replaced the Extended OpenAI Conversation custom component this role used to install. Add it under Settings >
-Devices & services with the URL `http://llamacpp.internal:8080/v1`; the trailing `/v1` is required. Router mode
+[llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later).
+Add it under Settings > Devices & services with the URL `http://llamacpp.internal:8080/v1`; the trailing `/v1` is
+required. Router mode
 advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so each conversation agent selects one and
 several agents can run different models. It only sees entities exposed to Assist, and it does not fire
 [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).

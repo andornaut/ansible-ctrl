@@ -20,89 +20,41 @@ There is no circular dependency with the rest of this repo. Installing faramir i
 an operator action run directly against the controller; brokering playbooks is an
 agent action run later. Ansible never needs faramir in order to run.
 
-## Prerequisite: the secrets have to be in sops
+## Where the credentials have to be
 
-The keeper decrypts sops and nothing else. Any credential still held in
-`group_vars/all/vault.yml` is absent from the keeper's value set, which means it
-is neither injectable through `--env` nor present in the redactor, so a playbook
-that prints it prints it in plaintext.
+The keeper decrypts sops and nothing else, so every credential this repo uses
+lives in `secrets/vault.sops.yml`, `group_vars/all/vars.yml` maps each name to
+`lookup('env', ...)`, and `host_vars/` refers to the names. A credential held
+anywhere else is absent from the keeper's value set, which means it is neither
+injectable through `--env` nor present in the redactor: a playbook that prints
+it prints it in plaintext.
 
-A broker installed before the migration comes up healthy and protects nothing,
-which is indistinguishable from a working install unless something says so. The
-role prints what the broker loaded, and fails when a managed sops file exists
-and yielded no refs. Before the migration there is no such file, so a first
-install passes without needing to be told to.
+The encrypted file belongs in `secrets/`, never under `group_vars/`. Ansible
+auto-loads every `.yml` under `group_vars/` and `host_vars/`, and a sops file is
+valid YAML, so it would bind each var to its `ENC[...]` ciphertext. Nothing
+errors; hosts just get the ciphertext as the password. The role asserts on this
+after install.
 
-### The migration, in order
+A broker whose secrets file it cannot read comes up healthy and protects
+nothing, which is indistinguishable from a working install unless something says
+so. The role prints what the broker loaded and fails when a managed sops file
+exists and yielded no refs.
 
-The controller has to have a broker before the secrets can move, because the
-age key that encrypts them is minted by phase 2. So faramir is installed first,
-against the unmigrated vault, and the secrets follow:
-
-```bash
-make faramir
-```
-
-Then, as the operator, in the *operator's* checkout:
-
-```bash
-# 1. Re-encrypt into secrets/, NOT group_vars/. Ansible auto-loads every .yml
-#    under group_vars/ and host_vars/, and a sops file is valid YAML: it would
-#    bind each var to its ENC[...] ciphertext, and "vault" sorts after "vars"
-#    so it would also overwrite the mapping written in step 2. Nothing errors;
-#    hosts just get the ciphertext as the password. migrate-vault.sh refuses
-#    the bad destination, and the role asserts on it after install.
-#    Names are preserved exactly, so nothing that reads them changes.
-mkdir -p secrets
-install/migrate-vault.sh group_vars/all/vault.yml secrets/vault.sops.yml
-
-# 2. Map each name to the environment. group_vars/ is gitignored, so this is
-#    written by hand and copied into the agent's tree with the rest of it.
-#    vars.yml sorts before vault.yml, so ansible keeps using the vault until
-#    step 3 removes it: adding this changes nothing on its own.
-for k in $(sops -d secrets/vault.sops.yml | grep -oE '^[a-z_]+'); do
-    echo "${k}: \"{{ lookup('env', '${k}') }}\""
-done > group_vars/all/vars.yml
-
-# 3. Prove it works before deleting anything.
-sops exec-env secrets/vault.sops.yml 'make homeautomation -- --check'
-git rm group_vars/all/vault.yml
-
-# 4. Drop vault_password_file from ansible.cfg. Nothing needs it once the vault
-#    is gone, and while it is there no brokered run can start at all: the path
-#    is ~-relative, faramir-exec's home has no such file, and ansible exits 1
-#    rather than warning. The cert-renewal cron sets the variable itself, so it
-#    is unaffected either way.
-sed -i '/^vault_password_file/d' ansible.cfg
-```
-
-`host_vars/` needs no change at all: it refers to `{{ vault_* }}`, and those
-names now resolve through `group_vars/all/vars.yml` instead of the vault.
-
-Then copy `secrets/` into the agent's tree alongside the rest, re-run `make
-faramir`, and prove the brokered path resolves a var end to end:
+To prove the brokered path resolves a var end to end:
 
 ```bash
 faramir run --env-file faramir.env -- \
-    ansible controller -m debug -a 'var=vault_msmtp_password'
-# -> "vault_msmtp_password": "«SECRET:vault_msmtp_password»"
+    ansible controller -m debug -a 'var=secret_msmtp_password'
+# -> "secret_msmtp_password": "«SECRET:secret_msmtp_password»"
 ```
 
 That one command covers the whole chain: the ref decrypted, the value reached
 the child's environment, `lookup('env', ...)` found it, and the redactor
 replaced it on the way back. Any other output is a fault. A bare name means the
 ref was not injected; `ENC[AES256_GCM,...]` means the encrypted file is
-somewhere Ansible auto-loads it, per step 1.
+somewhere Ansible auto-loads it.
 
-Afterwards `make faramir` runs without the override, and its own check confirms
-the broker loaded all eleven.
-
-> [!WARNING]
-> The vault blob stays in git history, and the vault password still opens it.
-> Rotate every credential that was ever committed, or rewrite history. Moving to
-> sops does not un-leak what is already there.
-
-### Running playbooks afterwards
+### Running playbooks
 
 `make` is yours. It wraps itself in `sops exec-env` when the values are not
 already in the environment, so there is one command and nothing to remember:
@@ -186,13 +138,10 @@ set, the uid layout and the config schema are faramir's to change, and a
 reimplementation here would silently drift from them.
 
 Before phase 1, the role reads `faramir_config_src` with the broker binary it
-just built and refuses a config that does not parse, or whose `[exec]
-default_cwd` names a directory outside `faramir_worktree`. Leaving that key
-unset is the ordinary case and always passes: a brokered command runs where its
-caller was, so a config that names no directory has nothing to disagree with.
-Phase 3 applies the same rule, but only after the binaries and the hook are on
-the host, where a rejection leaves the install half-applied. Checking it here
-means a mismatch stops the run before anything touches root.
+just built and refuses a config that does not parse. Phase 3 applies the same
+rule, but only after the binaries and the hook are on the host, where a
+rejection leaves the install half-applied. Checking it here means a bad config
+stops the run before anything touches root.
 
 Phase 1 is written to tolerate a missing tree: it reports `SKIP` and leaves the
 group and setgid bits for a later run.
@@ -233,9 +182,8 @@ The role requires it to exist and does not create it: `hosts`, `host_vars/`,
 `group_vars/` and `secrets/` are gitignored, so a fresh clone would produce a
 tree that parses but has no inventory and no secrets.
 
-Because the tree is the checkout you already work in, `make faramir` is a single
-pass: there is no second account to clone into, and no copy of the inventory to
-keep in step with this one.
+The tree is the checkout you already work in, so `make faramir` is a single pass
+and there is one copy of the inventory rather than two to keep in step.
 
 ## The broker's SSH identity
 
@@ -248,8 +196,8 @@ The shipped `ansible-fleet.toml` names `/var/lib/faramir-broker/.ssh/id_ed25519`
 and nothing in faramir creates it. A broker started without it logs one warning
 and carries on: every socket comes up active, `--check` passes, and every
 brokered playbook then fails to reach a single managed host. That is the same
-"healthy and protecting nothing" shape as an unmigrated vault, so the role
-treats it the same way.
+"healthy and protecting nothing" shape as a secrets file the keeper cannot read,
+so the role treats it the same way.
 
 The role generates the key if it is missing, and afterwards asks the running
 broker what its agent actually holds:
@@ -296,9 +244,8 @@ Generating the broker's key grants nothing. Its public half has to be in
 make faramir_fleet ASK_PASS=1
 ```
 
-Run it **after** the migration. Its last step pings every host through the
-broker, and a brokered ansible cannot start while `vault_password_file` is
-still in `ansible.cfg`.
+Run it once the broker has a key to distribute. Its last step pings every host
+through the broker, so it needs a working brokered ansible.
 
 `faramir_fleet.yml` reads the public key off the controller, installs it on
 every host except the controller itself without `exclusive` so your own key
@@ -337,8 +284,8 @@ systemd units and `config.toml` name them too.
 
 ## After the first run
 
-Group membership is read at login, so the operator and the agent both have to log
-out and back in before `dev` takes effect.
+Group membership is read at login, so log out and back in before `dev` takes
+effect.
 
 The faramir checkout ships a verification matrix that runs against the live
 install:
