@@ -376,17 +376,16 @@
 # the faramir checkout. The account left behind runs nothing and owns a home the
 # operator cannot read.
 #
-# The account and the group go; the home does not. It holds a checkout and an
-# agent's own ~/.claude, and no automation should decide those are disposable.
-# It is re-owned to root instead, so a directory nothing manages is not left
-# belonging to a uid that adduser can hand to somebody else.
-- name: Remove the retired agent account
+# The home goes with it. What it holds is a checkout of a public repository and
+# an agent's own ~/.claude, neither of which is the only copy of anything. Left
+# behind it would be a directory nothing manages, owned by a uid adduser can
+# hand to somebody else, and readable by nobody who could tell you what is in
+# it.
+- name: Remove the retired agent account and its home
   ansible.builtin.user:
     name: agent
     state: absent
-    # The home is dealt with below rather than here.
-    remove: false
-  register: faramir_agent_account
+    remove: true
   become: true
 
 - name: Remove the retired agent group
@@ -394,24 +393,6 @@
     name: agent
     state: absent
   become: true
-
-- name: Take the orphaned agent home out of a reusable uid
-  ansible.builtin.file:
-    path: /home/agent
-    state: directory
-    owner: root
-    group: root
-    recurse: true
-  when: faramir_agent_account.changed
-  become: true
-
-- name: Say what is left of the agent account
-  ansible.builtin.debug:
-    msg: >-
-      /home/agent is left in place and now owned by root. It holds the retired
-      agent's checkout and its ~/.claude. Salvage anything you want from it and
-      remove it by hand; nothing here will.
-  when: faramir_agent_account.changed
 
 # CLEANUP (added 2026-08-08): the guard hook used to be registered in the
 # operator's own settings, where it covered every project. It is per project
