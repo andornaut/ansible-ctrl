@@ -13,7 +13,7 @@ make dev -- --tags rust
 
 | Tag | Description |
 | --- | --- |
-| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, on hosts in the `ai_maintainer` group only |
+| [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |

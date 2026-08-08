@@ -149,8 +149,10 @@ Configure reverse proxies via the [letsencrypt_nginx](../letsencrypt_nginx/defau
 
 ```yaml
 letsencrypt_nginx_websites:
+  # 8971, Frigate's authenticated port. Its unauthenticated one has no login and
+  # is bound to loopback for that reason; proxying it publishes the camera UI.
   - domain: frigate.example.com
-    proxy_port: 5000
+    proxy_port: 8971
     websocket_enabled: true
   - domain: ai.example.com
     proxy_port: 3000

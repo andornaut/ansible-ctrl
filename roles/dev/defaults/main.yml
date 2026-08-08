@@ -8,6 +8,9 @@ dev_install_virtualbox: false
 # Oracle publishes one apt package per minor series (virtualbox-7.2).
 dev_virtualbox_version: "7.2"
 
+# The cron job runs a coding agent against every checkout under
+# dev_ai_maintainer_src_base_dir, so enable it only where those checkouts are.
+dev_install_ai_maintainer: false
 # ai-maintainer cron job (see README).
 dev_ai_maintainer_src_base_dir: "{{ dev_user_home }}/src/github.com/andornaut/ai-maintainer"
 dev_ai_maintainer_agent_command: "claude"
