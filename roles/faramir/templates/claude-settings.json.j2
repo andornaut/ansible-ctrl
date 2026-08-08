@@ -1,0 +1,30 @@
+{#-
+  The operator's Claude settings with every faramir-guard hook taken out.
+
+  Rebuilt rather than patched: a matcher whose only hook was the guard is
+  dropped, and the "hooks" key goes with it when nothing else used it, so what
+  is left is not an empty object that reads as a configuration someone chose.
+
+  A hook entry with no command is kept. Only an entry naming faramir-guard is
+  this role's to remove.
+-#}
+{%- set out = {} -%}
+{%- for event, matchers in settings.get('hooks', {}).items() -%}
+  {%- set kept = [] -%}
+  {%- for m in matchers -%}
+    {%- set entries = m.hooks | default([])
+        | rejectattr('command', 'defined')
+        | list
+      + m.hooks | default([])
+        | selectattr('command', 'defined')
+        | rejectattr('command', 'search', 'faramir-guard')
+        | list -%}
+    {%- if entries -%}{%- set _ = kept.append(m | combine({'hooks': entries})) -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if kept -%}{%- set _ = out.update({event: kept}) -%}{%- endif -%}
+{%- endfor -%}
+{%- if out -%}
+{{ settings | combine({'hooks': out}) | to_nice_json }}
+{%- else -%}
+{{ dict(settings | dict2items | rejectattr('key', 'eq', 'hooks') | list | items2dict) | to_nice_json }}
+{%- endif -%}
