@@ -245,7 +245,14 @@ an existing `/etc/faramir/config.toml` and writes the incoming default to
 first install and can never be reconciled afterwards. Set
 `faramir_overwrite_config=true` to rewrite the base from `faramir_config_src`,
 discarding host edits, which is rarely what you want now that the settings this
-project cares about are not in it.
+project cares about are not in it:
+
+```bash
+make faramir ARGS="--extra-vars faramir_overwrite_config=true"
+```
+
+Assigned rather than passed after `--`, because make reads a word containing `=`
+as a variable assignment and would forward a bare `--extra-vars`.
 
 Neither daemon re-reads its config while running, so the role restarts both when
 the drop-in changes, keeper first: it decrypts the file list the broker is then
