@@ -423,11 +423,16 @@
         mode: "0755"
 
     # ProtectHome=tmpfs rather than dropping it: every other home stays invisible
-    # to the process holding the age key, and only the store is bound back in.
-    # The leading - makes that bind optional, so an encrypted home that is not
-    # mounted yet leaves the keeper running with no values rather than failing to
-    # start at all.
-    - name: Let the keeper see the store without seeing the home
+    # to the process holding the age key, and only what it reads is bound back
+    # in. Both paths, because the keeper needs its config as well as the store,
+    # and an unbound config is not a degraded keeper but one that exits 2 before
+    # it opens a socket.
+    #
+    # The leading - makes each bind optional, so an encrypted home that is not
+    # mounted yet leaves the keeper with nothing to serve rather than failing to
+    # start. That only holds for the store: a missing config stops it either way,
+    # which is why the units are socket activated and nothing asks before login.
+    - name: Let the keeper see its config and the store without seeing the home
       ansible.builtin.copy:
         dest: /etc/systemd/system/faramir-keeper.service.d/secrets-path.conf
         owner: root
@@ -437,6 +442,7 @@
           # Managed by ansible-ctrl's faramir role.
           [Service]
           ProtectHome=tmpfs
+          BindReadOnlyPaths=-{{ faramir_config_dir }}
           BindReadOnlyPaths=-{{ faramir_secrets_dir }}
       register: faramir_secrets_dropin
 
