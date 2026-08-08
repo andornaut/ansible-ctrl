@@ -125,6 +125,10 @@
       # Reported by the checksum comparison below: go build is a no-op when
       # nothing changed, and says nothing either way.
       changed_when: false
+      # Runs under --check too, deliberately: init is given --dry-run there and
+      # still has to find binaries to preflight against, and a build writes only
+      # into the operator's own checkout. It is the one thing a check run of this
+      # role puts on disk.
       check_mode: false
 
     - name: Check the built broker binary after the build
@@ -138,13 +142,35 @@
 # --skip-tags build is a reinstall of what is already there, which is only a
 # thing to do when it is already there. init refuses without the binaries and
 # says which are missing, but it does so after this role has decided to run it.
+#
+# Outside the build block, and stat-ing rather than reading the block's
+# register: under --skip-tags build that register is never set, and an assert
+# reading it would fail on every run that skipped the build, which is the only
+# kind of run it exists to protect.
+- name: Check for the built binaries
+  ansible.builtin.stat:
+    path: "{{ faramir_bin_dir }}/{{ item }}"
+  register: faramir_binaries
+  loop:
+    - faramir
+    - faramir-broker
+    - faramir-keeper
+    - faramir-exec
+    - faramir-mcp
+    - faramir-guard
+  loop_control:
+    label: "{{ item }}"
+
 - name: Require the built binaries
   ansible.builtin.assert:
-    that: faramir_built.stat.exists | default(false)
+    that: item.stat.exists
     fail_msg: >-
-      {{ faramir_bin_dir }}/faramir-broker is missing. Drop --skip-tags build,
+      {{ faramir_bin_dir }}/{{ item.item }} is missing. Drop --skip-tags build,
       or run make build in the checkout.
     quiet: true
+  loop: "{{ faramir_binaries.results }}"
+  loop_control:
+    label: "{{ item.item }}"
 
 # The whole install, in one command. It is idempotent and reports per step, so
 # the changed state below is what it says rather than something inferred from
@@ -184,6 +210,16 @@
 # The SSH key is not named here. init generates it and writes it into its own
 # drop-in, config.d/00-faramir-init.toml, so it is named once; naming it again
 # here would put the same path in the merged list twice.
+#
+# Skipped under --check on a host init has not provisioned: --dry-run writes no
+# config.d, and copy fails on a missing destination directory before it consults
+# check mode, which would abort a check run against a fresh controller.
+- name: Check for the config drop-in directory
+  ansible.builtin.stat:
+    path: "{{ faramir_config_dir }}/config.d"
+  register: faramir_configd
+  become: true
+
 - name: Name this project's secrets in a config drop-in
   ansible.builtin.copy:
     dest: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
@@ -197,6 +233,7 @@
       files = {{ faramir_secrets_files | to_json }}
   register: faramir_dropin
   become: true
+  when: faramir_configd.stat.isdir | default(false)
 
 # Neither daemon re-reads its config while running, and the keeper has to lead:
 # it decrypts the file list the broker is then served, so restarting the broker
@@ -212,6 +249,12 @@
   when: faramir_dropin.changed
   changed_when: true
   become: true
+
+# Everything below reconciles what an earlier layout left behind. faramir
+# installs and never migrates: a version of `faramir init` carrying a repair
+# cannot know when every host has run it, so it would carry it forever. These
+# are here instead, and are deleted once the fleet has converged, after which an
+# install is a first install again.
 
 # CLEANUP (added 2026-08-08): the store used to live in /etc/faramir/secrets.
 # Delete once every controller has run this and the directory is gone.
@@ -235,6 +278,30 @@
   when:
     - faramir_old_store.files is defined
     - faramir_old_store.files | length == 0
+  become: true
+
+# CLEANUP (added 2026-08-08): the keeper's sandbox and its credential source used
+# to be systemd drop-ins, written half by faramir's installer and half by this
+# role. They are conditionals inside the unit now, and a leftover drop-in
+# outranks the unit it extends, so one left in place silently keeps the old
+# config path or the old credential. Delete once every controller has run this.
+- name: Remove the systemd drop-ins the units now carry themselves
+  ansible.builtin.file:
+    path: /etc/systemd/system/{{ item.0 }}.service.d/{{ item.1 }}
+    state: absent
+  loop: "{{ ['faramir-broker', 'faramir-keeper', 'faramir-exec']
+            | product(['config-path.conf', 'secrets-path.conf', 'tpm-credential.conf'])
+            | list }}"
+  loop_control:
+    label: "{{ item.0 }}/{{ item.1 }}"
+  register: faramir_stale_dropins
+  become: true
+
+- name: Restart the daemons after removing a stale drop-in # noqa: no-handler
+  ansible.builtin.command:
+    cmd: /usr/local/bin/faramir reload
+  when: faramir_stale_dropins.changed
+  changed_when: true
   become: true
 
 # faramir's own agent snippet says how the broker works and nothing about this

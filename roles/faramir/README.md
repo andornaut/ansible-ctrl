@@ -167,6 +167,13 @@ faramir:
 | `faramir reload` when that changes | the drop-in is the role's to write, so getting the daemons onto it is the role's to trigger |
 | the `AGENTS.md` block | how to run *these* playbooks through the broker, which faramir's own snippet says nothing about |
 | `faramir doctor` and its assert | the run has to fail when the result does not work, and a playbook is what fails |
+| the `CLEANUP` tasks | faramir installs and never migrates, so repairing what an earlier layout left behind is this role's, in tasks that are deleted once the fleet has converged |
+
+That last row is the rule, not an accident of where things ended up. A repair
+built into `faramir init` cannot know when every host has run it, so it would be
+carried forever and every install would be a migration. Kept here, each one is a
+`CLEANUP (added YYYY-MM-DD)` task that is deleted once it has run everywhere,
+after which an install is a first install again.
 
 `init` reports per step in JSON, so `changed_when` reads a field rather than
 inferring one from stat-ing the host before and after. Under `--check` the role
@@ -226,8 +233,10 @@ faramir run -- ssh-add -l
 ```
 
 Asked through the broker rather than read off disk, because what matters is what
-a brokered command gets. Both `init` and `faramir doctor` fail when the agent
-holds nothing.
+a brokered command gets. `init` fails when the agent holds nothing, which is what
+fails the play, since the role runs `init` every time. `doctor` reports it as a
+warning instead: it is not told whether a key was meant to be configured, so it
+cannot tell an install that lost its key from one that never wanted one.
 
 Generating the key grants nothing on its own. Its public half has to reach the
 managed hosts, which the fleet play below does, and the role prints it at the end
