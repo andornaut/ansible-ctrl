@@ -1,17 +1,4 @@
 ---
-# Read here rather than relied on from an earlier task file, so --tags esphome
-# resolves the uid too. homeautomation_esphome_passwd is what the uid and gid
-# defaults index; a missing account leaves them undefined and the first task to
-# use one says so, rather than silently chowning to 1000.
-- name: Read the passwd entry for the ESPHome account
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ homeautomation_esphome_user }}"
-
-- name: Keep the ESPHome passwd entry
-  ansible.builtin.set_fact:
-    homeautomation_esphome_passwd: "{{ ansible_facts['getent_passwd'][homeautomation_esphome_user] }}"
-
 # The dashboard enables its login only when it gets both, so a username with an
 # empty password starts it open on the LAN: firmware-flash access to every ESP
 # device, and secrets.yaml readable. Asserted rather than left to the auth gate
