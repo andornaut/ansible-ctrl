@@ -45,8 +45,5 @@ faramir_init_argv: >-
        if faramir_broker_ssh_key | length > 0 else [])
     + (['--agent-config'] if faramir_install_agent_config | bool else [])
     + (['--overwrite-config'] if faramir_overwrite_config | bool else [])
-    + (['--seal-age-key'] if faramir_seal_age_key | bool else [])
-    + (['--remove-plaintext-age-key']
-       if faramir_remove_plaintext_age_key | bool else [])
     + (['--dry-run'] if ansible_check_mode else [])
   }}

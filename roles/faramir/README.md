@@ -31,8 +31,8 @@ is the only part that can. The agent runs as that account and its age identity i
 in that home, so it can already decrypt the ciphertext wherever it sits: moving
 the file costs nothing. Everything else is what stops the agent, and a file in
 the agent's own home is a file it can rewrite. `config.toml` is the policy
-itself, the sealed age credential is `0400 root:root` so the account cannot swap
-it, the units define the three service uids, and the binaries are what enforce
+itself, the age key is `0400 faramir-keeper` so the account cannot read it and
+lives outside every home so it cannot swap it either, the units define the three service uids, and the binaries are what enforce
 any of it. Those stay outside every home.
 
 Not in the checkout either: it is a public repo, so a store inside it is
@@ -154,8 +154,7 @@ checkout at `faramir_src_dir` with `make build` (Go, from the `dev` role), then
 runs `faramir init` once, as root, with this project's paths on the command
 line. That one command establishes the accounts and the `dev` group, the age key,
 `.sops.yaml`, the broker's SSH identity, the directories, the binaries, the hook,
-the config, the systemd units and their sandboxing, the TPM sealing, and the
-sockets. None of it is restated here: a setting named in both places is one that
+the config, the systemd units and their sandboxing, and the sockets. None of it is restated here: a setting named in both places is one that
 can disagree with itself.
 
 What is left for the role is the part that belongs to this project rather than to
@@ -302,37 +301,22 @@ because the order matters and is not obvious: the keeper leads, since it decrypt
 the file list the broker is then served, and restarting the broker first would
 just fetch the old value set.
 
-## The age key is sealed to the TPM
+## The age key, and what it is worth at rest
 
 `0400 faramir-keeper` protects the key while the machine runs. Powered off it is
-an ordinary file that decrypts every managed secret retroactively, and nothing
-in faramir encrypts a disk.
+an ordinary file, and nothing in faramir encrypts a disk.
 
-So `init` seals it to this host's TPM and renders the keeper's unit with
-`LoadCredentialEncrypted=` in place of `LoadCredential=`, never both: two entries
-claiming one credential name is a unit systemd refuses to start. The keeper is
-unchanged by this: the credential keeps the name `age_key`, so it reads the same
-path under `$CREDENTIALS_DIRECTORY` and never learns which source filled it. The
-plaintext then exists only in the unit's credential directory, on tmpfs, readable
-by that unit alone.
+It decrypts nothing on its own, though, and where the store sits is what decides
+whether that matters. `faramir_secrets_dir` is inside the operator's home, which
+is encrypted, so someone holding the drive has the key and nothing it opens. The
+key stays under `/etc` rather than moving in beside the store: per-user
+encryption unlocks at login and the keeper starts at boot, and the agent runs as
+the operator, so a key in that home is one it could replace even though `0400`
+stops it being read.
 
-`init` asserts the host has a TPM rather than skipping quietly, because a host
-that silently does not seal its key is the install that looks healthy and
-protects less than it appears to. Set `faramir_seal_age_key=false` on a host
-without one, and use full-disk encryption instead, which covers the audit log
-and swap as well.
-
-**Sealing alone changes nothing.** `/etc/faramir/age.key` stays on disk until
-`faramir_remove_plaintext_age_key=true`, which is separate and false by default
-because it is the step that cannot be undone. Sealing binds to PCR 7, which
-tracks Secure Boot policy: change that state, or clear the TPM, and the blob
-stops decrypting. The only way back is sealing the original key again, so do not
-set that flag without the key material somewhere you can re-seal from.
-
-Everything short of removing the plaintext is reversible by setting
-`faramir_seal_age_key=false` and re-running: the keeper's unit is rendered fresh
-each time, so it goes back to reading the file. There is no drop-in to remember
-to delete.
+That holds only while the store stays there. Point `faramir_secrets_dir` at an
+unencrypted filesystem and both files sit on the same disk again, at which point
+full-disk encryption is the answer, and it covers the audit log and swap as well.
 
 ## Authorizing the broker on the fleet
 
@@ -375,8 +359,6 @@ again.
 | `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, minted when missing and added to `.sops.yaml` as a second recipient. Empty leaves the keeper as the only one. |
 | `faramir_install_agent_config` | `true` | Install faramir's `Read` deny rules into the operator's Claude settings. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
-| `faramir_seal_age_key` | `true` | Seal the age key to the host TPM and have the keeper load it as an encrypted credential. Fails when the host has no TPM. |
-| `faramir_remove_plaintext_age_key` | `false` | Delete `/etc/faramir/age.key` once the keeper runs from the sealed credential. Irreversible without the key material. |
 
 Changing a service account name or `faramir_dev_group` here is enough on its own.
 `init` renders the config the sockets check and the units that reach the working
