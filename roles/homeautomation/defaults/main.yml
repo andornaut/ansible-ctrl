@@ -83,17 +83,26 @@ homeautomation_frigate_tmpfs_size_mb: 128
 # ha-mcp
 homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
 homeautomation_hamcp_env: {}
-# host.docker.internal (mapped to host-gateway in docker_hamcp.yml) lets this
-# bridge-networked container reach the host-networked Home Assistant.
-homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
-# Home Assistant long-lived access token (Profile > Security).
-homeautomation_hamcp_token: ""
+# One entry per Home Assistant an agent drives, not per host running Home
+# Assistant: the server is an adapter holding a token and speaking HTTP, so a
+# remote instance is reached by pointing url at it rather than by deploying
+# alongside it. Keeping them all on the agent's own host means no MCP port is
+# published anywhere, and ha-mcp authenticates no one who reaches it.
+#
+# Each entry takes:
+#   name  (str): container name, and so its <name>.internal host on the bridge.
+#                Also the service account name, so it must be a valid user name.
+#   url   (str): the Home Assistant to drive. host.docker.internal (mapped to
+#                host-gateway in docker_hamcp.yml) reaches this host's own,
+#                which is host-networked; anything else is a URL.
+#   token (str): long-lived access token (Profile > Security) of that instance.
+#   uid   (str): as below, and distinct across every service in this role.
+#
 # The image's own mcpuser is uid 999, which is a system account on the host
-# (systemd-coredump on Ubuntu), so the container is given this uid:gid instead.
-# It bind-mounts nothing, so the account owns no paths; the point is that the
-# process does not carry an unrelated system account's identity.
-homeautomation_hamcp_uid: "10003"
-homeautomation_hamcp_gid: "10003"
+# (systemd-coredump on Ubuntu), so each container is given its own uid:gid
+# instead. They bind-mount nothing, so the accounts own no paths; the point is
+# that the process does not carry an unrelated system account's identity.
+homeautomation_hamcp_instances: []
 homeautomation_install_hamcp: false
 
 # Govee2mqtt

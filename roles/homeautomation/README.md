@@ -183,12 +183,18 @@ letsencrypt_nginx_websites:
 [Model Context Protocol](https://modelcontextprotocol.io/).
 
 1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
-1. Set `homeautomation_install_hamcp: true` and `homeautomation_hamcp_token` in host vars
-1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs hamcp`
+1. Set `homeautomation_install_hamcp: true` and add an entry to `homeautomation_hamcp_instances` in host vars
+1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs <name>`
 
-Clients connect to `http://hamcp.internal:8086/mcp`: the container's internal port on the bridge network, not a
+Clients connect to `http://<name>.internal:8086/mcp`: the container's internal port on the bridge network, not a
 host-mapped port. It is configured for VSCode in this project's `.vscode/mcp.json`, and under `mcpServers` in
 `~/.claude.json` for Claude Code.
+
+One instance is deployed per Home Assistant an assistant drives, all on the assistant's own host. A remote
+instance is reached by pointing its `url` at that Home Assistant, rather than by deploying ha-mcp alongside it:
+the server authenticates nobody who reaches it, so keeping every instance on the bridge network means no MCP
+port is published anywhere. Each entry needs its own `name`, which becomes both the container name and the
+service account, and its own `uid`, distinct across every service in this role.
 
 ## Documentation
 
