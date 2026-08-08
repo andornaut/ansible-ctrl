@@ -190,6 +190,39 @@
   ansible.builtin.set_fact:
     faramir_report: "{{ faramir_init.stdout | from_json }}"
 
+# Enrolling the tree is separate from provisioning the host, and runs after it:
+# it reads the shared group out of the config init installed rather than being
+# told it a second time, which is what keeps a tree from being group-owned by
+# something the broker socket does not admit.
+#
+# It also installs the PreToolUse hook and the MCP server config here, which is
+# what makes the broker worth using in this checkout rather than merely
+# reachable from it.
+- name: Enrol this checkout as a faramir project
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/faramir
+      - init-project
+      - --json
+      - --operator
+      - "{{ faramir_user }}"
+      - --config-dir
+      - "{{ faramir_config_dir }}"
+      - "--hook={{ faramir_project_hook | bool | lower }}"
+      - "{{ faramir_worktree }}"
+  become: true
+  register: faramir_project
+  check_mode: false
+  changed_when: not ansible_check_mode and (faramir_project.stdout | from_json).changed
+  when: not ansible_check_mode
+
+- name: Show what enrolling the checkout warned about
+  ansible.builtin.debug:
+    msg: "{{ (faramir_project.stdout | from_json).warnings }}"
+  when:
+    - faramir_project.stdout | default('') | length > 0
+    - (faramir_project.stdout | from_json).warnings | default([]) | length > 0
+
 # init warns rather than fails on the things with a legitimate shape that have
 # nonetheless left somebody with a broker that installs cleanly and does
 # nothing: a group membership that needs a fresh login, an executor in the

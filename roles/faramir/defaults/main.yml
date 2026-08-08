@@ -102,6 +102,16 @@ faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
 # read going through the broker as well.
 faramir_operator_age_key: "{{ faramir_user_home }}/.config/sops/age/keys.txt"
 
+# Register faramir's PreToolUse hook in this checkout's own agent settings, which
+# is what redacts the output of everything the agent runs here.
+#
+# It auto-approves Bash in this checkout as a consequence: the hook rewrites
+# every command so the output can be redacted, and a rewritten command matches no
+# permission rule, so the hook's deny list is what refuses one instead. That
+# trade is worth making where managed credentials are in play, which is what this
+# checkout is for. Set false to keep Bash prompts here and get no redaction.
+faramir_project_hook: true
+
 # Install faramir's Read deny rules into the operator's own Claude settings.
 # They refuse to open key material wherever the agent is working and take
 # nothing away. The PreToolUse hook is a separate, per-project decision that
