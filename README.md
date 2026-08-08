@@ -29,8 +29,9 @@ for a password: either it is in the play's host list, or a role in the run has a
 `delegate_to: localhost`. `ASK_PASS=1` forces the prompt. A run that is already root never gets one,
 since sudo asks root for nothing.
 
-`make ai_maintainer` is the exception: it is a tag in the [dev](roles/dev/README.md) role rather than a playbook,
-so the target runs `dev.yml --tags ai_maintainer`.
+Tags that are not playbooks are run through the playbook that owns them, e.g. `make dev -- --tags
+ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, which applies to hosts in the
+`ai_maintainer` group.
 
 ## Roles
 

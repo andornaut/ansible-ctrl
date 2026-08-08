@@ -17,7 +17,7 @@ PLAYBOOKS := base desktop dev docker faramir faramir_fleet \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean requirements ai_maintainer $(PLAYBOOKS)
+.PHONY: help clean requirements $(PLAYBOOKS)
 
 help:
 	@echo "Available targets:"
@@ -42,10 +42,6 @@ help:
 	@echo "  torrent               - Configure rtorrent host and controller scripts"
 	@echo "  upgrade               - Run system upgrades"
 	@echo "  webservers            - Configure web servers"
-	@echo ""
-	@echo "Tag targets:"
-	@echo "  ai_maintainer         - Configure automated GitHub repository maintenance"
-	@echo "                          (dev.yml --tags ai_maintainer; there is no ai_maintainer role)"
 	@echo ""
 	@echo "Forward extra ansible-playbook arguments after --, e.g.:"
 	@echo "  make desktop -- --limit example --tags alacritty"
@@ -127,12 +123,4 @@ $(PLAYBOOKS): %: requirements
 	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)'; \
 	 else \
 	   ansible-playbook $(call become_flag,$*) $*.yml $(ARGS); \
-	 fi
-
-# A tag in the dev role, gated on the ai_maintainer group, rather than a playbook of its own.
-ai_maintainer: requirements
-	@if [ -n "$(WRAP)" ]; then \
-	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory ai_maintainer -- $(ARGS)'; \
-	 else \
-	   ansible-playbook $(call become_flag,dev) dev.yml --tags ai_maintainer $(ARGS); \
 	 fi
