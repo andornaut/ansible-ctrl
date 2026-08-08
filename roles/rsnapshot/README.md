@@ -19,13 +19,13 @@ See [defaults/main.yml](./defaults/main.yml).
 | `rsnapshot_retention` | Snapshots kept per interval. A null value omits both the `retain` line and the cron job |
 | `rsnapshot_sudo` | Run the remote rsync via `sudo`, for directories the SSH user cannot read |
 
-Each entry in `rsnapshot_hosts` takes a `name`, an optional `local` and `user`, a list of `directories` (trailing
-slash required by rsnapshot), and a list of `scripts`.
+Each entry in `rsnapshot_hosts` takes a `name`, an optional `local`, a list of `directories` (trailing
+slash required by rsnapshot), and a list of `scripts`. Remote hosts are pulled as `primary_user`, which
+is the account the fleet authorizes and the one `rsnapshot_sudo` needs.
 
 ```yaml
 rsnapshot_hosts:
   - name: example.com
-    user: root
     directories:
       - /etc/
       - /var/docker-volumes/

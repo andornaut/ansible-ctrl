@@ -2,6 +2,16 @@
 - name: Install niri
   tags: [niri]
   block:
+    # Before the download, so a host without a toolchain fails in a sentence
+    # rather than after fetching and unpacking a source tree.
+    - name: Require the Rust toolchain
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: cargo
+            probe: cargo --version
+            hint: "It comes from the dev role: make dev -- --tags rust"
+
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory

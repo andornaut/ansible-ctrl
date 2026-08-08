@@ -1,4 +1,14 @@
 ---
+# Before the build dependencies, so a host without a toolchain fails in a
+# sentence rather than after an apt install and a clone.
+- name: Require the Rust toolchain
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools:
+      - name: cargo
+        probe: cargo --version
+        hint: "It comes from the dev role: make dev -- --tags rust"
+
 - name: Install eww build dependencies
   ansible.builtin.apt:
     name:

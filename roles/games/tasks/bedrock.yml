@@ -1,4 +1,14 @@
 ---
+# The bedrock tag does not select the flatpak tag that installs the binary, and
+# every install step here shells out to it.
+- name: Require flatpak
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools:
+      - name: flatpak
+        probe: flatpak --version
+        hint: "It comes from this role's flatpak tag: make games -- --tags flatpak"
+
 # BedrockOnLinux (github.com/Wyze3306/BedrockOnLinux) runs the Windows GDK build of Minecraft
 # Bedrock under a bundled Wine/vkd3d-proton engine. It ships only a release .flatpak bundle
 # (not on Flathub), which the community.general.flatpak module cannot install (it takes app IDs
