@@ -1,4 +1,17 @@
 ---
+# Read here rather than relied on from an earlier task file, so --tags esphome
+# resolves the uid too. homeautomation_esphome_passwd is what the uid and gid
+# defaults index; a missing account leaves them undefined and the first task to
+# use one says so, rather than silently chowning to 1000.
+- name: Read the passwd entry for the ESPHome account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ homeautomation_esphome_user }}"
+
+- name: Keep the ESPHome passwd entry
+  ansible.builtin.set_fact:
+    homeautomation_esphome_passwd: "{{ ansible_facts['getent_passwd'][homeautomation_esphome_user] }}"
+
 # The dashboard enables its login only when it gets both, so a username with an
 # empty password starts it open on the LAN: firmware-flash access to every ESP
 # device, and secrets.yaml readable. Asserted rather than left to the auth gate
@@ -12,6 +25,22 @@
     fail_msg: >-
       One of the ESPHome username/password is set and the other is empty, which
       would start the dashboard unauthenticated.
+
+# The pair check above passes when both are empty, which is the same open
+# dashboard reached by a different route: a host that has not been given
+# credentials yet, rather than one that asked for none.
+- name: Assert that the ESPHome dashboard has a login
+  ansible.builtin.assert:
+    that:
+      - homeautomation_esphome_username | length > 0
+      - homeautomation_esphome_password | length > 0
+    fail_msg: >-
+      ESPHome has no username or password, which starts the dashboard
+      unauthenticated on the LAN: firmware-flash access to every ESP device,
+      and secrets.yaml readable. Set homeautomation_esphome_username and a
+      secret_* reference for the password in host_vars, or set
+      homeautomation_esphome_allow_unauthenticated to run it open on purpose.
+  when: not homeautomation_esphome_allow_unauthenticated | bool
 
 # No mode alongside recurse: it would apply to the files too, and the modes
 # those need are set below rather than swept across the directory.

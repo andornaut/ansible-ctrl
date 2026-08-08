@@ -15,7 +15,7 @@
       {%- for device in (device_paths | default([])) -%}
         {%- if device.startswith('/dev/') -%}
           {%- set device_stat = homeautomation_device_stats_result.results | selectattr('item', 'equalto', device) | first | default({}) -%}
-          {%- if device_stat.stat is defined and device_stat.stat.islnk -%}
+          {%- if device_stat.stat.islnk | default(false) -%}
             {%- set target = device_stat.stat.lnk_target -%}
             {%- if target.startswith('/') -%}
               {%- set _ = devices.append(target) -%}

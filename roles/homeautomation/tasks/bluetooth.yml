@@ -26,3 +26,11 @@
     mode: "0644"
   become: true
   notify: Load docker-ble-policy
+
+# Home Assistant starts later in this play with security_opt
+# apparmor=docker-ble-policy, and docker refuses a profile the kernel has not
+# loaded. Left to the end-of-play flush, the first run fails there and takes the
+# pending handler with it; the copy is idempotent from then on, so the profile
+# would never load and every later run would fail the same way.
+- name: Load the AppArmor profile before anything consumes it
+  ansible.builtin.meta: flush_handlers

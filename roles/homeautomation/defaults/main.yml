@@ -28,20 +28,29 @@ homeautomation_esphome_required_volumes:
 # firmware-flash access to every ESP device and read access to the wifi and OTA
 # passwords in secrets.yaml, from anywhere on the LAN. Setting both enables its
 # login; leaving either empty leaves it open. The password is a secret, so
-# host_vars references a vault var rather than holding a value.
+# host_vars references a secret_* name rather than holding a value.
 #
 # Only the API is gated, so the page itself still answers 200 either way. Check
 # with /devices, which answers 401 once these are set.
 homeautomation_esphome_username: ""
 homeautomation_esphome_password: ""
+# Both empty is refused rather than served: the role installs the dashboard on
+# purpose, so an empty pair is a host that has not been given credentials yet,
+# not a host that wants none. Set this true to run it open deliberately.
+homeautomation_esphome_allow_unauthenticated: false
 # The image's default user is root, but the dashboard only reads and writes
 # these two directories, so it is run as this uid:gid.
 #
 # The one service still on the operator's uid rather than a dedicated account
 # above 10000: its config directory is a git checkout the operator writes and
 # the dashboard writes too, so splitting the uids needs a shared group first.
-homeautomation_esphome_uid: "1000"
-homeautomation_esphome_gid: "1000"
+#
+# Resolved from the account rather than assumed to be 1000: the directories task
+# recurses ownership over that git checkout, so a wrong uid hands the operator's
+# tree to an unrelated account and the 0600 below then locks them out of it.
+homeautomation_esphome_user: "{{ primary_user }}"
+homeautomation_esphome_uid: "{{ homeautomation_esphome_passwd[1] }}"
+homeautomation_esphome_gid: "{{ homeautomation_esphome_passwd[2] }}"
 
 # Frigate
 # The address the unauthenticated UI is published on. Frigate serves the same
