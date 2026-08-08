@@ -111,12 +111,18 @@
   block:
     # init would create this itself, but it has not run yet: the key has to be
     # in place before it looks for one.
+    #
+    # root, wherever the directory sits. config.d/*.toml merges over config.toml
+    # and decides what a brokered command runs with a secret in its environment,
+    # so write permission here is that choice; an agent runs as the operator, so
+    # an operator-owned config directory hands it over. init owns it the same way
+    # and does not ask whose home it is in.
     - name: Create the config directory to move the age key into
       ansible.builtin.file:
         path: "{{ faramir_config_dir }}"
         state: directory
-        owner: "{{ faramir_config_owner }}"
-        group: "{{ faramir_config_owner }}"
+        owner: root
+        group: root
         mode: "0755"
 
     # force: false so a key already at the new path is never overwritten. If one
@@ -492,10 +498,12 @@
   register: faramir_settings_raw
   failed_when: false
 
-# init keeps an existing settings.json and writes what it would have installed
-# to settings.json.dist beside it. Nothing merges that, so a deny rule added
-# upstream sits there unread: the operator's Read rules drift behind the ones
-# faramir ships, which is how the store's own directory ended up uncovered.
+# init merges the settings it ships into an existing settings.json, but a host
+# provisioned by a version that kept the file and wrote settings.json.dist
+# beside it still has one, and nothing merges a .dist: the deny rules in it sit
+# unread while the operator's drift behind the ones faramir ships. Unioned in
+# here, then removed below. Read with the same failed_when: false as the file
+# above, a host that never had one being the ordinary case.
 - name: Read the agent settings faramir ships
   ansible.builtin.slurp:
     src: "{{ faramir_user_home }}/.claude/settings.json.dist"
@@ -548,12 +556,18 @@
 # path that no longer exists.
 #
 # Guarded rather than unconditional, which is the whole reason it is two tasks.
-# A tree enrolled before the change still names the old hook path in its
-# .claude/settings.json, and `faramir init-project` keeps an existing settings
-# file rather than rewriting it. A PreToolUse hook that cannot exec denies
-# nothing and rewrites nothing: it fails open, silently, so redaction and the
-# deny list are off with no error anywhere. The binary goes only once nothing
-# this role can see still names it.
+# A PreToolUse hook that cannot exec denies nothing and rewrites nothing: it
+# fails open, silently, so redaction and the deny list are off with no error
+# anywhere. The binaries go only once nothing this role can see still names one.
+#
+# What is left to catch is what the tasks above do not repoint. init-project
+# merges the settings it writes, dropping the entry that names the old path, and
+# the template above strips the guard hook out of the operator's own
+# settings.json, so neither is stale by the time this runs. Not covered by
+# either: this checkout when faramir_project_hook is false, because
+# init-project writes no agent config at all then and an earlier enrolment's
+# hook path stands; the operator's settings.local.json and .mcp.json, which the
+# template does not touch; and a check run, which skips enrolling entirely.
 #
 # read_whole_file: true is load-bearing. find applies `contains` with re.match
 # per line, which anchors it, so a pattern without a leading .* never matches a
@@ -583,15 +597,21 @@
   changed_when: false
   become: true
 
-- name: Report the agent settings that must be repointed first
-  ansible.builtin.debug:
-    msg: >-
+# A failure rather than a debug line: what it has found is a hook that is
+# already failing open, so the file it names has to be repointed before the run
+# is worth anything, and nothing here can repoint it. A warning in a long run
+# leaves the removal blocked with the operator none the wiser, which is a
+# cleanup that never converges and a redaction that is off in the meantime.
+- name: Refuse to remove binaries the agent settings still name
+  ansible.builtin.assert:
+    that: faramir_stale_agent_refs.files | length == 0
+    fail_msg: >-
       {{ faramir_stale_agent_refs.files | map(attribute='path') | list }} still
       name faramir-guard or faramir-mcp. Repoint them at "/usr/local/bin/faramir
       guard", and at "/usr/local/bin/faramir" with args ["mcp"]; the binaries
       they name are left in place until then, because a hook that cannot exec
       fails open.
-  when: faramir_stale_agent_refs.files | length > 0
+    quiet: true
 
 - name: Remove the binaries the consolidated build replaced
   ansible.builtin.file:
@@ -603,50 +623,6 @@
     - /usr/local/bin/faramir-exec
     - /usr/local/bin/faramir-mcp
     - /usr/local/libexec/faramir/faramir-guard
-  when: faramir_stale_agent_refs.files | length == 0
-  become: true
-
-# CLEANUP (added 2026-08-08): init creates the config directory owned by the
-# home's owner when it sits in one, but never re-owns a directory that is
-# already there, on the grounds that an operator may have set it up themselves.
-# One created root-owned by the installer that came before it therefore stays
-# that way, and the operator needs sudo to edit their own config. Delete once no
-# host has one.
-#
-# Not recursive: the store underneath is 2770 root:{{ faramir_dev_group }} and a
-# recursive chown would flatten it.
-- name: Give the operator back their own config directory
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ faramir_config_owner }}"
-    group: "{{ faramir_config_owner }}"
-    mode: "0755"
-  loop:
-    - "{{ faramir_config_dir }}"
-    - "{{ faramir_config_dir }}/config.d"
-  become: true
-
-- name: Find a config the earlier installer left root-owned
-  ansible.builtin.find:
-    paths: "{{ faramir_config_dir }}"
-    patterns: config.toml
-    recurse: false
-  register: faramir_root_configs
-  failed_when: false
-  changed_when: false
-  become: true
-  when: faramir_config_owner != 'root'
-
-- name: Give the operator back their own config file
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    owner: "{{ faramir_config_owner }}"
-    group: "{{ faramir_config_owner }}"
-    mode: "0644"
-  loop: "{{ faramir_root_configs.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path }}"
   become: true
 
 # faramir's own agent snippet says how the broker works and nothing about this

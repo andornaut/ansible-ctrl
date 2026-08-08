@@ -15,11 +15,11 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 
 | Path | Mode | Contents |
 | --- | --- | --- |
-| `~/.faramir/config.toml` | operator | faramir's base config, rendered by `init`. `[secrets] files` and `[ssh] keys` are left empty here and set in drop-ins. |
-| `~/.faramir/config.d/00-faramir-init.toml` | operator | `[ssh] keys`, written by `faramir init` |
-| `~/.faramir/config.d/ansible-ctrl.toml` | operator | `[secrets] files`, written by this role every run |
+| `~/.faramir/config.toml` | `0644 root` | faramir's base config, rendered by `init`. `[secrets] files` and `[ssh] keys` are left empty here and set in drop-ins. |
+| `~/.faramir/config.d/00-faramir-init.toml` | `0644 root` | `[ssh] keys`, written by `faramir init` |
+| `~/.faramir/config.d/ansible-ctrl.toml` | `0644 root` | `[secrets] files`, written by this role every run |
 | `~/.faramir/age.key` | `0400 faramir-keeper` | decrypts the store. Owning the directory is permission to unlink it, not to read it. |
-| `~/.faramir/secrets/` | `2770 root:dev` | `sops` edits in place through the group without sudo. Root owns it so the operator cannot change its mode. |
+| `~/.faramir/secrets/` | `2750 root:faramir-secrets` | the keeper and the broker are in that group; the operator is not, so reading or editing a managed file needs sudo. |
 | `~/.faramir/secrets/ansible-ctrl.sops.yml` | | every credential this repo uses |
 | `/var/lib/faramir-broker/.ssh/id_ed25519` | broker | the key the broker lends to brokered commands |
 
@@ -37,16 +37,28 @@ Drop-ins merge over the base in lexical order and face every check the base file
 - **The keeper cannot see the rest of the home.** Its unit carries `ProtectHome=tmpfs` plus `BindReadOnlyPaths` of `faramir_config_dir` alone, rendered by `init` in the unit rather than a drop-in. Move `faramir_secrets_dir` outside the config dir and init emits a second bind for it.
 - **Nothing under the home is readable before first login.** A reboot leaves the store absent and a 03:00 renewal on an unmounted home does not run. The bind carries no leading `-`, so the keeper fails to start rather than coming up empty, and an absent `[secrets]` file counts as a load failure so `--check` fails too.
 - **Group membership is read at login.** Log out and back in before `dev` takes effect.
-- **`faramir_dev_group` grants traversal of the operator's home**, through ordinary group ownership, so keep it to the accounts that need it.
+- **`faramir_dev_group` grants traversal of the operator's home**, through ordinary group ownership, so keep it to the accounts that need it. It is not the store's group: admitting a caller to the broker socket and granting read on the ciphertext are separate privileges, and the agent runs as an account in this one.
+- **The config directory is root's, wherever it sits.** `config.d/*.toml` merges over `config.toml` and `[exec.base_env]` merges key by key, so whoever can write a drop-in chooses the `PATH` a brokered command's child runs with, holding the requested secret. Editing config by hand needs sudo, the same as editing the store.
+- **The operator cannot read the store.** `sops -d` and `sops exec-env` fail for want of a readable file, whatever age identities are listed as recipients. `sudo faramir edit <file>` is the way in; it decrypts to a 0600 file in a root-owned tmpfs and re-encrypts to the recipients the file already had.
 
 ## Running playbooks
 
-`make` is the operator's entry point and wraps itself in `sops exec-env` when the values are not already in the environment:
+`make` is the operator's entry point. The three targets that read a credential, `homeautomation`, `msmtp` and `webservers`, re-enter under `sops exec-env`; the rest run straight through, having nothing to load.
+
+Since the store belongs to a group the operator is not in, that re-entry only succeeds as root. Two accounts can serve a secret-bearing run and neither covers the whole fleet:
 
 ```bash
-make homeautomation                      # reaches the controller, so it asks for sudo
-make homeautomation -- --limit <host>    # does not, so it does not ask
-make faramir_fleet ASK_PASS=1            # forces the prompt
+sudo make homeautomation -- --limit <controller>   # root reads the store; the controller is a local connection, so no ssh key is needed
+faramir run --env-file faramir.env -- \            # the executor authenticates everywhere but has no sudo on the controller
+    ansible-playbook homeautomation.yml --limit '!faramir'
+```
+
+`make` refuses a secret-bearing target it cannot serve and prints both, rather than choosing one and silently changing which account the playbook runs as. Targets that read no credential are unaffected:
+
+```bash
+make faramir                             # no credential, so no re-entry and no refusal
+make desktop -- --limit <host>
+make faramir_fleet ASK_PASS=1            # forces the sudo prompt
 ```
 
 Whether it prompts is decided per run by one ansible call that connects to nothing, from the hosts the run targets (honouring `--limit`) and the roles it pulls in. Roles matter because `delegate_to: localhost` reaches the controller without appearing in any host list. It errs toward asking. `ASK_PASS=1` forces the prompt, which the fleet play needs because it is the run that establishes the NOPASSWD that makes prompting unnecessary. A run that is already root is never asked.

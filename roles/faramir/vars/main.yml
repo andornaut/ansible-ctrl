@@ -5,12 +5,6 @@
 # faramir_user home from passwd (getent runs in tasks/main.yml).
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# Who owns faramir_config_dir, matching what init does with it: the operator
-# when it sits inside their own home, so they edit their own config without
-# sudo, and root anywhere else. Write permission on a directory is permission to
-# replace what is in it, and under /etc that includes age.key.
-faramir_config_owner: "{{ faramir_user if faramir_config_dir.startswith(faramir_user_home + '/') else 'root' }}"
-
 # Where the binaries are downloaded from. `dev` is a rolling release, deleted and
 # re-cut by CI on every push to faramir's main. Its assets are named and laid out
 # exactly as goreleaser names the ones a tagged release publishes, so moving to a
