@@ -12,8 +12,7 @@ The role writes the systemd units, `/etc/faramir/config.toml` and the filesystem
 permissions that confine the agent, then restarts the broker. A brokered run
 reaching those tasks would rewrite its own confinement as root and kill the
 command doing the rewriting. So the role is applied by `faramir.yml` to a
-`faramir` inventory group and is reachable from no other play, and it is not a
-tag in `dev`, which is the run an agent is most likely to trigger.
+`faramir` inventory group and is reachable from no other play.
 
 Installing faramir is an operator action; brokering playbooks is an agent action
 run later. Ansible never needs faramir in order to run.
@@ -122,10 +121,6 @@ runs the project's own install phases as root:
 | install-broker | binaries, `/etc/faramir/config.toml`, systemd units |
 | agent-config | the agent's settings, and the working tree's `.mcp.json` and instructions snippet |
 
-Calling faramir's own scripts rather than reimplementing them keeps one
-installer: the unit set, the uid layout and the config schema are faramir's to
-change.
-
 The role validates `faramir_config_src` with the freshly built binary before the
 first phase. The installer applies the same rule, but only once the binaries are
 on the host, where a rejection leaves the install half-applied.
@@ -143,17 +138,15 @@ there, so it has to be reachable by `faramir-exec`, and by nothing else: the
 sops files are read from `/etc/faramir/secrets`, so the keeper never opens
 anything under a home and its unit sets `ProtectHome=true`. `faramir-exec` is
 not the operator's uid and a home is 0700, so the accounts phase grants it
-traversal with an ACL on every component from the home down. Not `chmod o+x`,
-which would grant every account on the machine the same thing.
+traversal with an ACL on every component from the home down.
 
 The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
-and `group_vars/` are gitignored, so a fresh clone parses but has no inventory,
-and the credentials it names live in `/etc/faramir/secrets`.
+and `group_vars/` are gitignored, so a fresh clone parses but has no inventory.
 
-Nothing the broker reads names this tree: the systemd units do not, and neither
-does the config now that the secrets are under `/etc`. What keeps a brokered
-command out of everything else is the file mode, plus `ProtectSystem=strict`,
-which makes the hierarchy read-only apart from `/home`.
+Nothing the broker reads names this tree: neither the systemd units nor the
+config. What keeps a brokered command out of everything else is the file mode,
+plus `ProtectSystem=strict`, which makes the hierarchy read-only apart from
+`/home`.
 
 > [!WARNING]
 > On an ecryptfs home the ACL is write-once. The first `setfacl` against an inode
@@ -161,9 +154,7 @@ which makes the hierarchy read-only apart from `/home`.
 > nothing. Grant every uid in a single call and read the result back with
 > `getfacl` rather than trusting the exit status. The entries can still be
 > corrected on the lower directory (`/home/.ecryptfs/<user>/.Private`), which is
-> ext4, but the mount does not see the change until it is remounted. Pointing the
-> tree outside the homes needs no ACL, at the cost of it no longer being the
-> checkout you work in.
+> ext4, but the mount does not see the change until it is remounted.
 
 ## The broker's SSH identity
 
@@ -189,8 +180,7 @@ managed hosts, which the fleet play below does, and the role prints it at the en
 of every run.
 
 Set `faramir_manage_broker_ssh_key=false` when the config leaves `[ssh] keys`
-empty. That works, but the keys then have to live where the executor's own uid
-can read them, which is what holding them in the broker avoids.
+empty. The keys then have to live where the executor's own uid can read them.
 
 ## config.toml is install-once
 
