@@ -17,15 +17,11 @@
       # otherwise fail on an undefined lookup several tasks later.
       - faramir_user is defined and faramir_user | length > 0
       - faramir_user != "root"
-      - faramir_agent_user != "root"
-      # One uid for both would give the agent everything the operator holds,
-      # which is the single thing the uid split exists to prevent.
-      - faramir_agent_user != faramir_user
       - faramir_worktree.startswith("/")
     fail_msg: >-
-      faramir_user and faramir_agent_user must be distinct non-root accounts and
-      faramir_worktree must be an absolute path. Set primary_user in the
-      inventory (or faramir_user in host_vars) to the operator's account.
+      faramir_user must be a non-root account and faramir_worktree must be an
+      absolute path. Set primary_user in the inventory (or faramir_user in
+      host_vars) to the account the coding agent runs as.
     quiet: true
   tags: always
 
@@ -138,6 +134,9 @@
 #
 # The units name no tree, so a disagreement is now "commands run somewhere you
 # did not ask for" rather than "nothing runs at all". Still worth refusing.
+#
+# The flag prints nothing at all for the ordinary config, which leaves the key
+# unset; what is being read is as much the exit status as the output.
 - name: Read the source config's default working directory
   ansible.builtin.command:
     cmd: bin/faramir-broker -c {{ faramir_config_src }} --print-default-cwd
@@ -147,23 +146,26 @@
   failed_when: false
   check_mode: false
 
-# @WORKTREE@ is the placeholder phase 3 substitutes, so it always agrees. A
-# literal path is accepted only where phase 3 would accept it: the tree itself
-# or something under it, never a prefix match like "<worktree>-old".
+# Empty is the ordinary case and the recommended setting: a brokered command
+# runs where its caller was, so a config that names no directory has nothing to
+# disagree with. @WORKTREE@ is the placeholder phase 3 substitutes, so it always
+# agrees. A literal path is accepted only where phase 3 would accept it: the
+# tree itself or something under it, never a prefix match like "<worktree>-old".
 - name: Require a source config that agrees with the worktree
   ansible.builtin.assert:
     that:
       - faramir_config_cwd.rc == 0
       - >-
-        faramir_config_cwd.stdout == "@WORKTREE@"
+        faramir_config_cwd.stdout == ""
+        or faramir_config_cwd.stdout == "@WORKTREE@"
         or faramir_config_cwd.stdout == faramir_worktree
         or faramir_config_cwd.stdout.startswith(faramir_worktree ~ "/")
     fail_msg: >-
       {{ faramir_config_src }} {{ "does not parse as a faramir config"
       if faramir_config_cwd.rc != 0 else
       'sets [exec] default_cwd to "' ~ faramir_config_cwd.stdout ~ '", which is
-      not inside ' ~ faramir_worktree ~ '. Write the tree as @WORKTREE@ there,
-      or set faramir_worktree to match' }}.
+      not inside ' ~ faramir_worktree ~ '. Leave default_cwd unset, write the
+      tree as @WORKTREE@ there, or set faramir_worktree to match' }}.
     quiet: true
 
 # The phase scripts are idempotent re-assertions and report nothing a machine can
@@ -182,15 +184,11 @@
 
 - name: Check for the agent's Claude settings
   ansible.builtin.stat:
-    path: "{{ faramir_agent_user_home }}/.claude/settings.json"
+    path: "{{ faramir_user_home }}/.claude/settings.json"
   register: faramir_agent_settings
 
-# Phase 1 first, and on its own: it creates the agent account, and the working
-# tree lives in that account's home. Requiring the tree before this ran told an
-# operator to clone it as a user that did not exist yet.
-#
-# Phase 1 is written to run without the tree, reporting SKIP and leaving the
-# group and setgid bits for a later run, which is why the ordering works.
+# Phase 1 first: it creates the service accounts and the shared working tree,
+# which everything below reads.
 - name: Run phase 1, accounts and working tree permissions
   ansible.builtin.command:
     cmd: bash install/10-accounts.sh
@@ -202,12 +200,10 @@
   # this does not detect. Only account creation is reported.
   changed_when: >-
     faramir_service_accounts | difference(ansible_facts['getent_passwd'] | list) | length > 0
-    or faramir_agent_user not in ansible_facts['getent_passwd']
-    or faramir_devwork_group not in ansible_facts['getent_group']
+    or faramir_dev_group not in ansible_facts['getent_group']
 
 # The accounts phase 1 created are not in the facts gathered at the top of this
-# role, and faramir_agent_user_home derives from them. Re-reading replaces the
-# assumed /home/<agent> with the one useradd actually gave it.
+# role, and the checks below read them.
 - name: Re-read the passwd and group databases
   ansible.builtin.getent:
     database: "{{ item }}"
@@ -215,37 +211,25 @@
     - passwd
     - group
 
-- name: Require the agent account
-  ansible.builtin.assert:
-    that: faramir_agent_user in ansible_facts['getent_passwd']
-    fail_msg: >-
-      Phase 1 did not create {{ faramir_agent_user }}. Re-run with -vvv and read
-      install/10-accounts.sh output.
-    quiet: true
-
-# Phase 2 writes .sops.yaml into the tree and phase 3 binds it into all three
-# units, so it has to exist from here on. Phase 3 would otherwise install a
-# broker that fails every command with "cwd does not exist".
-- name: Check for the agent's working tree
+# Phase 2 writes .sops.yaml into the tree and phase 3 names it in the config, so
+# it has to exist from here on. Phase 3 would otherwise install a broker that
+# fails every command with "cwd does not exist".
+- name: Check for the shared working tree
   ansible.builtin.stat:
     path: "{{ faramir_worktree }}"
   register: faramir_worktree_dir
+  become: true
 
-- name: Require the agent's working tree
+- name: Require the shared working tree
   ansible.builtin.assert:
     that: faramir_worktree_dir.stat.isdir | default(false)
     fail_msg: >-
       No working tree at {{ faramir_worktree }}. Brokered commands run there and
       the sops files are read from there, so it must exist before the broker is
-      installed. The {{ faramir_agent_user }} account exists now, so clone it as
-      that account over https, which is the only transport it has: the account
-      holds no SSH key, so a git@github.com URL would be refused.
-      sudo -u {{ faramir_agent_user }} git clone
-      https://github.com/andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then copy hosts, host_vars/, group_vars/ and (once the migration has
-      created it) secrets/ in as root, since your home is not readable by that
-      account, and re-run: phase 1 applies the group and setgid bits on that
-      run. See the role README for the exact commands.
+      installed. It is meant to be your own checkout:
+      git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
+      Then re-run: phase 1 applies the group, the setgid bits and, for a tree
+      inside your home, the ACL that lets the keeper and the executor reach it.
     quiet: true
 
 - name: Provision the operator's age identity
@@ -479,8 +463,8 @@
   ansible.builtin.blockinfile:
     path: "{{ faramir_worktree }}/CLAUDE.md"
     create: true
-    owner: "{{ faramir_agent_user }}"
-    group: "{{ faramir_devwork_group }}"
+    owner: "{{ faramir_user }}"
+    group: "{{ faramir_dev_group }}"
     mode: "0664"
     marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
     block: |
