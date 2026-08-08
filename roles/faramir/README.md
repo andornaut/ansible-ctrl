@@ -151,7 +151,7 @@ carry none and the fleet gets NOPASSWD sudo instead, installed by
 
 ## What the role does
 
-The role downloads faramir's six binaries into a temporary directory and runs
+The role unpacks faramir's six binaries into a temporary directory and runs
 `faramir init` once, as root, with this project's paths on the command line.
 That one command establishes the accounts and the `dev` group, the age key,
 `.sops.yaml`, the broker's SSH identity, the directories, the binaries, the hook,
@@ -182,12 +182,14 @@ passes `--dry-run`, which computes every answer and writes nothing.
 
 ## Where the binaries come from
 
-faramir's CI cuts a `dev` release on every push to its `main`, holding the six
-binaries as bare assets. The role downloads them into a temp directory, hands
-that directory to `init`, and removes it: what is installed is what `init`
-copied into `/usr/local/bin`, and a staged copy left on disk would be a second
-one that nothing updates. It costs 23MB a run and needs no Go toolchain and no
-faramir checkout on the controller.
+faramir's CI cuts a `dev` release on every push to its `main`, publishing one
+`faramir_linux_{arch}.tar.gz` per architecture and a `checksums.txt`, named and
+laid out exactly as goreleaser names the archives a tagged release publishes.
+The role downloads the one its architecture selects into a temp directory,
+unpacks it, hands that directory to `init`, and removes it: what is installed is
+what `init` copied into `/usr/local/bin`, and a staged copy left on disk would be
+a second one that nothing updates. It costs one ~23MB archive a run and needs no
+Go toolchain and no faramir checkout on the controller.
 
 Nothing but the binaries crosses: the units, the base config, the agent hook and
 the docs are embedded in them, so `init` needs no source layout and this role
@@ -195,13 +197,19 @@ knows about none. `init` compares each binary against the installed one and
 reports what it replaced, so a run that downloads the same build reports no
 change.
 
-Two things the `dev` release is not. It is amd64 only, because CI builds it once
-on an x86_64 runner and the asset names carry no architecture, which the role
-asserts on rather than mapping. And it ships no `checksums.txt`, so the download
-is trusted to TLS and to GitHub and to nothing else. Both are fixed by a tagged
-release: goreleaser publishes amd64 and arm64 archives with checksums, and
-switching to one means changing the fetch as well as the URL. faramir has no `v`
-tag yet.
+`faramir_arch` maps the kernel name onto the one in the asset, keeping `x86_64`
+and turning `aarch64` into `arm64`, which is goreleaser's naming and the same
+mapping `base_arch` uses for the gog and mrs assets from the same CI. There is no
+mapping for the kernel: faramir is linux-only, because the broker reads peer
+credentials with `SO_PEERCRED` and the executor allocates PTYs with `TIOCGPTN`.
+
+`get_url` verifies the archive against `checksums.txt` from the same release,
+matched by asset name. That matters more on `dev` than it would on a tag, since
+`dev` is deleted and re-cut on every push: a download straddling a re-cut fails
+the checksum rather than installing one build's binaries as another's. What the
+tag would still add is immutability, so a run that finds no change today can be
+reproduced tomorrow. faramir has no `v` tag yet, and moving to one is a change of
+URL and nothing else.
 
 ## The working tree
 
