@@ -226,6 +226,9 @@
         state: absent
       when: faramir_staging.path is defined
       become: true
+      # As with the three above: they really run under --check, so a removal
+      # that only simulated would leave 23MB of binaries in /tmp every check.
+      check_mode: false
 
 # Enrolling the tree is separate from provisioning the host, and runs after it:
 # it reads the shared group out of the config init installed rather than being
@@ -414,6 +417,7 @@
   loop_control:
     label: "{{ item }}"
   when: faramir_config_dir != '/etc/faramir'
+  become: true
 
 - name: Look for anything still in the old location
   ansible.builtin.find:
@@ -436,7 +440,6 @@
     - faramir_config_dir != '/etc/faramir'
     - faramir_old_etc.files is defined
     - faramir_old_etc.files | length == 0
-  become: true
   become: true
 
 # CLEANUP (added 2026-08-08): faramir used to create a second account for the
