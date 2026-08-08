@@ -1,32 +1,33 @@
 ---
 # Account that owns the faramir checkout and runs the build. Never the agent.
+#
+# There is no account for the coding agent: it runs as this one. A separate uid
+# could not reach the operator's checkouts, gh credential or commit identity,
+# which is the work it is asked to do. See docs/scope.md in the faramir checkout
+# for what that gives up and what still holds.
 faramir_user: "{{ primary_user }}"
 
 # Where the checkout lives. faramir publishes no release binaries, so they are
-# built from source on the controller.
+# built from source on the controller. Nothing else here reads the checkout:
+# `faramir init` carries the units, the config, the hook and the docs inside the
+# binary, so this role hands it a directory of binaries and no source layout.
 faramir_src_dir: "{{ faramir_user_home }}/src/github.com/andornaut/faramir"
 
 # The Go toolchain installs outside the default PATH, and a task's PATH is not a
 # login shell's. See roles/dev/tasks/go.yml.
 faramir_go_bin_dir: /usr/local/go/bin
 
-# There is no account for the coding agent: it runs as faramir_user. A separate
-# uid could not reach the operator's checkouts, gh credential or commit
-# identity, which is the work it is asked to do. See docs/scope.md in the
-# faramir checkout for what that gives up and what still holds.
-
 # Shared group giving the agent and the three service accounts access to the
 # working tree. Not a boundary; the boundaries are file modes.
 #
-# Named literally in faramir's own files: allowed_groups in faramir_config_src,
-# which is what the sockets admit, and SupplementaryGroups in the shipped units,
-# which is what reaches the working tree. Changing it here alone creates the
-# group and adds the operator to it, passes every check in this role, and then
-# refuses every agent connection, so the role asserts the two agree.
+# Passed to `faramir init`, which renders both the config the sockets check and
+# the units that reach the working tree from it. The two cannot disagree, so
+# this is an ordinary knob rather than a value that has to be kept in agreement
+# with faramir's own files by hand.
 faramir_dev_group: dev
 
-# The three service uids. These names are also written into the shipped systemd
-# units and config.toml, so changing one here means changing it there too.
+# The three service uids. Passed to init, which renders the units and the config
+# from them, so these are likewise free to change.
 faramir_broker_user: faramir-broker
 faramir_keeper_user: faramir-keeper
 faramir_exec_user: faramir-exec
@@ -37,70 +38,57 @@ faramir_exec_user: faramir-exec
 # that one directory and nothing else of the home around it.
 #
 # It has to be reachable by faramir-exec, which is not the operator's uid. A home
-# is 0700, so faramir share-tree makes every directory from the home down group
-# faramir_dev_group and group-executable. Point this outside the homes instead
-# (/srv/faramir/ansible-ctrl) and nothing is needed, at the cost of the tree no
-# longer being the checkout you work in.
+# is 0700, so init shares the tree: group, setgid bits, and every directory from
+# the home down made group-executable. Point this outside the homes instead and
+# nothing is needed, at the cost of the tree no longer being the checkout you
+# work in.
 faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
-# Where the base config and its drop-ins are installed. Passed to the installer
-# as CONFIG_DIR, and the units are given FARAMIR_CONFIG to match. In the
-# operator's home for the same reason as the store, with one difference that
-# matters: a config the daemons cannot read is a daemon that will not start,
-# where an unreadable store only empties the value set. The units are socket
-# activated, so nothing tries before the operator has logged in.
+# Where the base config and its drop-ins are installed. In the operator's home
+# for the same reason as the store, with one difference that matters: a config
+# the daemons cannot read is a daemon that will not start, where an unreadable
+# store only empties the value set. The units are socket activated, so nothing
+# tries before the operator has logged in.
 faramir_config_dir: "{{ faramir_user_home }}/.faramir"
-
-# Base config installed as {{ faramir_config_dir }}/config.toml, relative to
-# faramir_src_dir. faramir's own starter: the settings that belong to this
-# project go in a drop-in instead, so the base file is never edited to name an
-# ansible-ctrl secrets file.
-faramir_config_src: etc/config.toml
 
 # Where the store lives. In the operator's home, which the store can be and the
 # age key and the units cannot: those are what stop the agent, and the agent runs
 # as this account. The store is not one of them, since that account's age
 # identity decrypts it wherever it sits.
 #
-# Created 2770 operator:dev, so sops edits it in place without sudo. The keeper
-# reaches it through a drop-in that binds this one directory into an otherwise
-# empty /home, rather than by giving up ProtectHome.
-faramir_secrets_dir: "{{ faramir_user_home }}/.faramir/secrets"
+# Created 2770 root:{{ faramir_dev_group }}, so sops edits it in place through
+# the group without sudo. The keeper reaches it through a bind of this one
+# directory into an otherwise empty /home, rather than by giving up ProtectHome.
+faramir_secrets_dir: "{{ faramir_config_dir }}/secrets"
 
 # The managed sops files this project's playbooks draw on. Written to
-# /etc/faramir/config.d/ansible-ctrl.toml as [secrets] files, every run, which
-# the installed base config is not: phase 3 keeps an existing config.toml, so
-# anything named there lands once and can never be reconciled.
+# {{ faramir_config_dir }}/config.d/ansible-ctrl.toml as [secrets] files, every
+# run, which the installed base config is not: init keeps an existing
+# config.toml, so anything named there lands once and can never be reconciled.
 #
 # Every client of the broker sees every ref whatever file it came from, so the
 # name buys per-file decryption errors and a per-file reload, not isolation.
 faramir_secrets_files:
   - "{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml"
 
-# Phase 3 keeps an existing /etc/faramir/config.toml and writes the new default
-# to config.toml.dist beside it, so re-running this role does not reconcile the
-# installed config. Set true to delete it first and have phase 3 write it fresh
-# from faramir_config_src. Destructive: edits made on the host are lost.
+# init keeps an existing config.toml and writes the new default to
+# config.toml.dist beside it. Set true to have it write the config fresh
+# instead. Destructive: edits made on the host are lost.
 faramir_overwrite_config: false
 
 # The SSH identity the broker lends to brokered commands through an agent it
-# owns. Written to the config drop-in as [ssh] keys, so this is the only place
-# it is named and there is nothing left to keep in agreement by hand.
+# owns. Generated by init when missing, and written to the config drop-in as
+# [ssh] keys, so this is the only place it is named.
 #
 # A key of the broker's own rather than the operator's. The executor's uid can
 # authenticate with it without being able to read it, and the fleet can revoke
 # the agent's reach without rotating the key the operator uses.
-faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
-
-# Generate faramir_broker_ssh_key when it is missing, and check afterwards that
-# a brokered command can actually use it. The public key is printed at the end
-# of the run; it opens nothing until it is in authorized_keys on the managed
-# hosts, which is a step this role does not take.
 #
-# Set false when the config leaves [ssh] keys empty, which is a working setup
-# but not a recommended one: the keys then have to live where the executor's
-# own uid can read them.
-faramir_manage_broker_ssh_key: true
+# Set empty to leave [ssh] keys unset, which is a working setup but not a
+# recommended one: the keys then have to live where the executor's own uid can
+# read them. The public key is printed at the end of every run; it opens nothing
+# until faramir_fleet.yml puts it in authorized_keys on the managed hosts.
+faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
 
 # An age identity for the operator, listed in .sops.yaml alongside the keeper's
 # so the account that is responsible for these secrets can still read them.
@@ -110,13 +98,39 @@ faramir_manage_broker_ssh_key: true
 # Not a boundary. The coding agent runs as this same account, so it can read
 # this identity and decrypt the store directly. The broker keeps values out of
 # the agent's context and redacts what comes back; it does not stop an agent
-# that goes looking for them. Setting the flag below false closes that path, at
-# the cost of every operator read going through the broker as well.
+# that goes looking. Set empty to close that path, at the cost of every operator
+# read going through the broker as well.
 faramir_operator_age_key: "{{ faramir_user_home }}/.config/sops/age/keys.txt"
 
-# Generate faramir_operator_age_key when it is missing and add it as a second
-# recipient. Set false to leave the keeper as the only one.
-faramir_manage_operator_age_key: true
+# Install faramir's Read deny rules into the operator's own Claude settings.
+# They refuse to open key material wherever the agent is working and take
+# nothing away. The PreToolUse hook is a separate, per-project decision that
+# neither init nor this role makes: registering it auto-approves Bash for that
+# project.
+faramir_install_agent_config: true
+
+# Seal the age key to this host's TPM and have the keeper take it from an
+# encrypted credential instead of a file. What it buys is protection at rest:
+# 0400 faramir-keeper is a running-system boundary, and powered off the key is
+# an ordinary file that decrypts every managed secret retroactively. Nothing
+# else here encrypts a disk.
+#
+# init refuses rather than skips when the host has no TPM. A security measure
+# that quietly does not apply is the failure this project spends error messages
+# on. Set false on a host without one, and use full-disk encryption instead,
+# which covers the audit log and swap as well.
+faramir_seal_age_key: true
+
+# Remove the plaintext age key once the keeper is running from the sealed
+# credential. Until this happens the plaintext is still on disk and the sealing
+# has bought nothing.
+#
+# Separate, and false, because it is irreversible in the way that matters:
+# sealing binds to PCR 7, which tracks Secure Boot policy, so changing that
+# state or clearing the TPM stops the blob decrypting and the only way back is
+# sealing the original key again. Set true only with the key material somewhere
+# you can re-seal from.
+faramir_remove_plaintext_age_key: false
 
 # Whether faramir_fleet.yml authorizes the broker's public key on the managed
 # hosts and grants that account NOPASSWD sudo, or removes both. This role never
@@ -128,30 +142,3 @@ faramir_manage_operator_age_key: true
 # It writes to production hosts, so it is a separate play rather than something
 # the controller-side role does behind your back.
 faramir_fleet_authorize_key: true
-
-# Seal the age key to this host's TPM and have the keeper take it from an
-# encrypted credential instead of a file. What it buys is protection at rest:
-# 0400 faramir-keeper is a running-system boundary, and powered off the key is
-# an ordinary file that decrypts every managed secret retroactively. Nothing
-# else here encrypts a disk.
-#
-# Asserted rather than skipped when the host has no TPM. A security measure that
-# quietly does not apply is the failure this project spends error messages on.
-# Set false on a host without one, and use full-disk encryption instead, which
-# covers the audit log and swap as well.
-faramir_seal_age_key: true
-
-# Where the sealed credential goes. Read by systemd as root at unit start, so it
-# is 0400 root:root and never read by the keeper's own uid.
-faramir_age_key_cred: /etc/faramir/age.key.cred
-
-# Remove /etc/faramir/age.key once the keeper is running from the sealed
-# credential. Until this happens the plaintext is still on disk and the sealing
-# has bought nothing.
-#
-# Separate, and false, because it is irreversible in the way that matters:
-# sealing binds to PCR 7, which tracks Secure Boot policy, so changing that
-# state or clearing the TPM stops the blob decrypting and the only way back is
-# sealing the original key again. Set true only with the key material somewhere
-# you can re-seal from.
-faramir_remove_plaintext_age_key: false
