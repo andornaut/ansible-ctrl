@@ -114,6 +114,12 @@ and holds no values. Adding a credential is four edits: the value into the sops 
 `lookup('env', ...)` mapping into `group_vars/all/vars.yml`, the ref into `faramir.env`, and the
 reference into `host_vars/`.
 
+The certificate renewal cron is the third path, and wraps itself.
+[roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs
+`ansible-playbook` under `sops exec-env` directly rather than through `make`, which would add
+`--ask-become-pass` on a run that reaches the controller and leave cron with a prompt and no
+terminal. It names the age key explicitly, root's own `~` being `/root`.
+
 The encrypted file lives in `secrets/`, deliberately not under `group_vars/`. Ansible auto-loads
 every `.yml` there and a sops file is valid YAML, so it would bind each var to its `ENC[...]`
 ciphertext without erroring, and hosts would get the ciphertext as the password.
