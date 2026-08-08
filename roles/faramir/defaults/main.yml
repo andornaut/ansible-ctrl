@@ -43,7 +43,15 @@ faramir_exec_user: faramir-exec
 # longer being the checkout you work in.
 faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
-# Base config installed as /etc/faramir/config.toml, relative to
+# Where the base config and its drop-ins are installed. Passed to the installer
+# as CONFIG_DIR, and the units are given FARAMIR_CONFIG to match. In the
+# operator's home for the same reason as the store, with one difference that
+# matters: a config the daemons cannot read is a daemon that will not start,
+# where an unreadable store only empties the value set. The units are socket
+# activated, so nothing tries before the operator has logged in.
+faramir_config_dir: "{{ faramir_user_home }}/.faramir"
+
+# Base config installed as {{ faramir_config_dir }}/config.toml, relative to
 # faramir_src_dir. faramir's own starter: the settings that belong to this
 # project go in a drop-in instead, so the base file is never edited to name an
 # ansible-ctrl secrets file.
