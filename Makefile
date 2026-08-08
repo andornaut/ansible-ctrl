@@ -53,13 +53,9 @@ help:
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements
 
-# A stamp rather than a phony recipe.  A wrapped target runs make twice, once to
-# resolve the secrets and once under sops exec-env, and a phony prerequisite
-# installs the galaxy content on both passes.  The stamp also skips the install
-# entirely while requirements.yml is unchanged.
-#
-# Removed by `make clean` along with what it stands for: deleting .ansible/roles
-# by hand leaves the stamp claiming an install that is no longer there.
+# A stamp rather than a phony recipe: a wrapped target runs make twice, and a
+# phony prerequisite would install the galaxy content on both passes. `make
+# clean` removes it along with what it stands for.
 requirements: .ansible/.requirements
 
 .ansible/.requirements: requirements.yml
@@ -69,44 +65,25 @@ requirements: .ansible/.requirements
 	@touch $@
 
 
-# Where the credentials come from, and whether a password has to be typed. Both
-# are decided per invocation rather than always-on, so that a run asks for
-# nothing it will not use and needs no wrapping by hand.
-#
 # Not $(MAKE): make runs any recipe line containing that string even under -n,
-# which makes a dry run wet. Referenced through another name, -n stays dry.
+# which makes a dry run wet.
 SUBMAKE := $(MAKE)
 
-# Absolute, and outside this checkout on purpose: an encrypted home is not
-# mounted until its owner logs in, so a secrets file inside one is unreadable to
-# the broker at boot and to any unattended job at any time.
+# Outside this checkout: an encrypted home is not mounted at boot or under cron,
+# so a secrets file inside one is unreadable exactly when it is needed.
 SOPS_FILE := /etc/faramir/secrets/ansible-ctrl.sops.yml
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
-# SECRETS_LOADED marks the inner half so this happens once; SECRETS=none skips
-# it for a playbook that needs no credential. An absent SOPS_FILE makes all of
-# it a no-op, so a checkout without one still runs.
+# SECRETS_LOADED marks the inner half; SECRETS=none skips it for a playbook that
+# needs no credential. An absent SOPS_FILE makes it a no-op.
 WRAP = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(wildcard $(SOPS_FILE)))
 
-# Prompt for a become password only when the run reaches a host whose sudo asks
-# for one, which is the controller: the fleet is NOPASSWD, and a brokered run
-# cannot become there at all. Asked of ansible rather than assumed, so a --limit
-# in ARGS is accounted for. Roughly 0.4s.
+# Prompt for a become password only when the run reaches the controller, the one
+# host whose sudo asks for one. Asked of ansible rather than assumed, so a
+# --limit in ARGS counts. One startup, connecting to nothing, roughly 0.4s.
 #
-# Two ways a run reaches the controller, and both have to be checked:
-#
-#   it targets it        the controller is in the play's host list
-#   it delegates to it   a role runs a become task with delegate_to: localhost,
-#                        which no host list ever shows (the torrent play targets
-#                        a remote host and still writes /usr/local/bin here)
-#
-# --list-hosts and --list-tasks combine into one call and connect to nothing, so
-# this costs one ansible startup. The delegation check greps the roles the run
-# actually named, so a role that gains a delegation is covered without anyone
-# remembering to update a list here.
-#
-# It errs toward asking: a delegate_to naming a remote host would prompt for
-# nothing, which costs a keystroke. Not asking costs a half-applied run.
+# Two ways a run reaches it: the controller is in the play's host list, or a role
+# runs a become task under delegate_to: localhost, which no host list shows.
 list_run = ansible-playbook $(1).yml $(ARGS) --list-hosts --list-tasks 2>/dev/null
 
 # Host names sit under "hosts (N):" and stop where the task list starts.
@@ -115,13 +92,10 @@ pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
 
-# ASK_PASS=1 forces it. The fleet play is the run that establishes the NOPASSWD
-# making prompts unnecessary, so it is the one run that still needs one.
-#
-# Root is tested ahead of ASK_PASS, because a prompt there cannot be needed: sudo
-# from root asks for nothing, and ansible prompts at startup whether or not the
-# password is used. A root run is also the one most likely to have no terminal to
-# answer on.
+# Root is tested first: sudo asks root for nothing, and ansible prompts at
+# startup whether or not the password is used. Then ASK_PASS=1, which forces the
+# prompt for the fleet play, the run that establishes the NOPASSWD the rest rely
+# on.
 IS_ROOT := $(filter 0,$(shell id -u))
 
 define become_flag
