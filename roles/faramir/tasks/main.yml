@@ -365,6 +365,28 @@
         group: "{{ faramir_dev_group }}"
         mode: "2770"
 
+    # CLEANUP (added 2026-08-08): the store used to live in /etc/faramir/secrets.
+    # Delete once every controller has run this and the directory is gone.
+    #
+    # Emptiness is checked rather than assumed: state=absent on a directory is
+    # recursive, and this one held every credential until the move. A host that
+    # still keeps its store there keeps it.
+    - name: Look for a store left in the old location
+      ansible.builtin.find:
+        paths: /etc/faramir/secrets
+        hidden: true
+        file_type: any
+      register: faramir_old_store
+      failed_when: false
+
+    - name: Remove the old store directory once it is empty
+      ansible.builtin.file:
+        path: /etc/faramir/secrets
+        state: absent
+      when:
+        - faramir_old_store.files is defined
+        - faramir_old_store.files | length == 0
+
     # Mints the age key into /etc/faramir and writes .sops.yaml beside the store.
     # Runs before phase 3, which refuses to start the services without a key.
     - name: Run phase 2, age key and sops configuration
