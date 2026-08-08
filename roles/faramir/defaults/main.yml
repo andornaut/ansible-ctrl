@@ -17,6 +17,12 @@ faramir_go_bin_dir: /usr/local/go/bin
 
 # Shared group giving the agent and the three service accounts access to the
 # working tree. Not a boundary; the boundaries are file modes.
+#
+# Named literally in faramir's own files: allowed_groups in faramir_config_src,
+# which is what the sockets admit, and SupplementaryGroups in the shipped units,
+# which is what reaches the working tree. Changing it here alone creates the
+# group and adds the operator to it, passes every check in this role, and then
+# refuses every agent connection, so the role asserts the two agree.
 faramir_dev_group: dev
 
 # The three service uids. These names are also written into the shipped systemd
@@ -25,8 +31,10 @@ faramir_broker_user: faramir-broker
 faramir_keeper_user: faramir-keeper
 faramir_exec_user: faramir-exec
 
-# The tree brokered commands run in and where the sops files live: the
-# operator's own checkout, so there is one copy and nothing to keep in sync.
+# The tree brokered commands run in: the operator's own checkout, so there is one
+# copy of the inventory and nothing to keep in sync. The sops files are not here;
+# they are read from /etc/faramir/secrets, which is why the keeper opens nothing
+# under a home.
 #
 # It has to be reachable by faramir-keeper and faramir-exec, which are not the
 # operator's uid. A home is 0700, so phase 1 grants those two traversal with an
