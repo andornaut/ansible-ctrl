@@ -28,6 +28,11 @@
   vars:
     service_account_uids: "{{ homeautomation_service_account_uids.values() | list }}"
 
+# After the assert above, which is what says the numbering it migrates towards
+# is coherent.
+- name: Move any service account onto its allocated uid
+  ansible.builtin.import_tasks: migrate_service_account_uids.yml
+
 - name: Read system timezone
   ansible.builtin.command: timedatectl show -p Timezone --value
   register: homeautomation_system_timezone
