@@ -31,8 +31,8 @@ is the only part that can. The agent runs as that account and its age identity i
 in that home, so it can already decrypt the ciphertext wherever it sits: moving
 the file costs nothing. Everything else is what stops the agent, and a file in
 the agent's own home is a file it can rewrite. `config.toml` is the policy
-itself, the age key is `0400 faramir-keeper` so the account cannot read it and
-lives outside every home so it cannot swap it either, the units define the three service uids, and the binaries are what enforce
+itself, the sealed age credential is `0400 root:root` so the account cannot swap
+it, the units define the three service uids, and the binaries are what enforce
 any of it. Those stay outside every home.
 
 Not in the checkout either: it is a public repo, so a store inside it is
@@ -149,10 +149,9 @@ carry none and the fleet gets NOPASSWD sudo instead, installed by
 
 ## What the role does
 
-`faramir` publishes no release binaries, so the role builds them from the
-checkout at `faramir_src_dir` with `make build` (Go, from the `dev` role), then
-runs `faramir init` once, as root, with this project's paths on the command
-line. That one command establishes the accounts and the `dev` group, the age key,
+The role downloads faramir's six binaries into a temporary directory and runs
+`faramir init` once, as root, with this project's paths on the command line.
+That one command establishes the accounts and the `dev` group, the age key,
 `.sops.yaml`, the broker's SSH identity, the directories, the binaries, the hook,
 the config, the systemd units and their sandboxing, and the sockets. None of it is restated here: a setting named in both places is one that
 can disagree with itself.
@@ -162,7 +161,7 @@ faramir:
 
 | Step | Why it is here and not in faramir |
 | --- | --- |
-| `faramir init-project` against the checkout | which tree the agent works in is this repo's to say; the enrolment itself is faramir's |
+| `faramir init-project` against `playbook_dir` | which tree the agent works in is this repo's to say; the enrolment itself is faramir's |
 | the `config.d/ansible-ctrl.toml` drop-in | which sops files the broker manages is this repo's, and faramir ships no list of them |
 | `faramir reload` when that changes | the drop-in is the role's to write, so getting the daemons onto it is the role's to trigger |
 | the `AGENTS.md` block | how to run *these* playbooks through the broker, which faramir's own snippet says nothing about |
@@ -179,17 +178,41 @@ after which an install is a first install again.
 inferring one from stat-ing the host before and after. Under `--check` the role
 passes `--dry-run`, which computes every answer and writes nothing.
 
-The binaries are the only thing that crosses from the checkout: the units, the
-base config, the agent hook and the docs are embedded in them, so `init` needs no
-source layout and this role knows about none.
+## Where the binaries come from
+
+faramir's CI cuts a `dev` release on every push to its `main`, holding the six
+binaries as bare assets. The role downloads them into a temp directory, hands
+that directory to `init`, and removes it: what is installed is what `init`
+copied into `/usr/local/bin`, and a staged copy left on disk would be a second
+one that nothing updates. It costs 23MB a run and needs no Go toolchain and no
+faramir checkout on the controller.
+
+Nothing but the binaries crosses: the units, the base config, the agent hook and
+the docs are embedded in them, so `init` needs no source layout and this role
+knows about none. `init` compares each binary against the installed one and
+reports what it replaced, so a run that downloads the same build reports no
+change.
+
+Two things the `dev` release is not. It is amd64 only, because CI builds it once
+on an x86_64 runner and the asset names carry no architecture, which the role
+asserts on rather than mapping. And it ships no `checksums.txt`, so the download
+is trusted to TLS and to GitHub and to nothing else. Both are fixed by a tagged
+release: goreleaser publishes amd64 and arm64 archives with checksums, and
+switching to one means changing the fetch as well as the URL. faramir has no `v`
+tag yet.
 
 ## The working tree
 
-`faramir_worktree` is the operator's own checkout of this repo, so there is one
-copy of the inventory rather than two to keep in step. Brokered commands run
-there, so it has to be reachable by `faramir-exec`, and by nothing else: the
-sops files are read from `faramir_secrets_dir`, which the keeper sees through a
-bind of that one directory and nothing else of the home around it.
+The tree brokered commands run in is the checkout the play was run from,
+`playbook_dir`. There is no variable naming it: the operator's own checkout is
+the one place the inventory lives, and a variable pointing anywhere else would
+enrol a tree nobody works in. It also means this role applies only to the
+controller holding that checkout, which is the only host it was ever meant for.
+
+Brokered commands run there, so it has to be reachable by `faramir-exec`, and by
+nothing else: the sops files are read from `faramir_secrets_dir`, which the
+keeper sees through a bind of that one directory and nothing else of the home
+around it.
 
 `faramir-exec` is not the operator's uid and a home is 0700, so the role passes
 that checkout to `faramir init-project`, which the role runs after `init`: it
@@ -210,8 +233,10 @@ second time, so a tree cannot end up group-owned by something the broker socket
 does not admit. Enrol another the same way: `cd <dir> && sudo faramir
 init-project`, which defaults to where you are standing.
 
-The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
-and `group_vars/` are gitignored, so a fresh clone parses but has no inventory.
+The role checks that the tree exists on the target before it installs anything. `playbook_dir` is a controller-side path, and it is the target's too
+only because the host this role applies to is the controller; a remote host in
+the `faramir` group would be handed a directory that need not exist there, and
+that check is what says so before the run has done any work.
 
 Nothing the broker reads names this tree: neither the systemd units nor the
 config. What keeps a brokered command out of everything else is the file mode,
@@ -308,11 +333,13 @@ an ordinary file, and nothing in faramir encrypts a disk.
 
 It decrypts nothing on its own, though, and where the store sits is what decides
 whether that matters. `faramir_secrets_dir` is inside the operator's home, which
-is encrypted, so someone holding the drive has the key and nothing it opens. The
-key stays under `/etc` rather than moving in beside the store: per-user
-encryption unlocks at login and the keeper starts at boot, and the agent runs as
-the operator, so a key in that home is one it could replace even though `0400`
-stops it being read.
+is encrypted, so someone holding the drive has the key and nothing it opens.
+
+`/etc/faramir` holds that one file and nothing else: the config and the store
+moved into the home, and the key deliberately did not follow them. Per-user
+encryption unlocks at login while the keeper starts at boot, and the agent runs
+as the operator, so a key in that home is one it could replace even though
+`0400` stops it being read.
 
 That holds only while the store stays there. Point `faramir_secrets_dir` at an
 unencrypted filesystem and both files sit on the same disk again, at which point
@@ -342,14 +369,11 @@ again.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `faramir_user` | `primary_user` | Owns the checkout and runs the build. Never the agent. |
-| `faramir_src_dir` | `{{ faramir_user_home }}/src/github.com/andornaut/faramir` | The checkout to build from. |
-| `faramir_go_bin_dir` | `/usr/local/go/bin` | Where the `dev` role installs Go. |
+| `faramir_user` | `primary_user` | Owns the working tree and the config. Never the agent. |
 | `faramir_dev_group` | `dev` | Shared access to the working tree. |
 | `faramir_broker_user` | `faramir-broker` | Policy, redaction, audit log, SSH keys. |
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
-| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. Enrolled with `faramir init-project`. |
 | `faramir_project_hook` | `true` | Register the `PreToolUse` hook in the checkout. Redacts everything the agent runs here, and auto-approves Bash here as a consequence. |
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml` and `config.d/` are installed. |
 | `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. Created `2770 root:dev`, and bound into the keeper's namespace by its own unit. |
@@ -372,9 +396,9 @@ connection.
 Group membership is read at login, so log out and back in before `dev` takes
 effect.
 
-The faramir checkout ships a verification matrix that runs against the live
-install:
+faramir ships a verification matrix that runs against the live install. The role
+installs no checkout, so this needs one:
 
 ```bash
-sudo tests/verify.sh
+git clone git@github.com:andornaut/faramir.git && cd faramir && sudo tests/verify.sh
 ```

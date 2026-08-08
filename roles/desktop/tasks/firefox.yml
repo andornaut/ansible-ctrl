@@ -1,4 +1,16 @@
 ---
+# Probed, not required: the two removals below are no-ops on a host that has no flatpak, and
+# the browser tag does not select the flatpak tag that installs it. The install branch does
+# require it, and asserts for itself.
+- name: Check for flatpak
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: command -v flatpak
+  register: desktop_firefox_flatpak_bin
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 # One pin record, written unconditionally, rather than one file per install method (two records
 # for the same package collide, and apt's resolution depends on filename ordering nothing here
 # controls). Pin-Priority -1 blocks an install from the Mozilla repo as it does from Ubuntu's, so
@@ -24,10 +36,7 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      register: desktop_firefox_flatpak_removal
-      failed_when:
-        - desktop_firefox_flatpak_removal is failed
-        - "'Executable \\'flatpak\\' was not found' not in desktop_firefox_flatpak_removal.msg"
+      when: desktop_firefox_flatpak_bin.rc == 0
 
     - name: Configure Firefox apt packages
       block:
@@ -75,6 +84,14 @@
 - name: Configure Firefox flatpak installation method
   when: desktop_install_firefox and not desktop_install_firefox_apt
   block:
+    - name: Require flatpak
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: flatpak
+            probe: flatpak --version
+            hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
+
     # The pin at the top of this file prevents an install; it cannot undo one.
     - name: Remove Firefox apt package
       ansible.builtin.apt:
@@ -111,10 +128,7 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      register: desktop_firefox_flatpak_removal
-      failed_when:
-        - desktop_firefox_flatpak_removal is failed
-        - "'Executable \\'flatpak\\' was not found' not in desktop_firefox_flatpak_removal.msg"
+      when: desktop_firefox_flatpak_bin.rc == 0
 
     - name: Remove Firefox apt package
       ansible.builtin.apt:

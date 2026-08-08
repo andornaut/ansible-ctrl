@@ -18,6 +18,48 @@
     state: absent
   become: true
 
+# Superseded by Custom Icons, which serves the same glyphs out of the iconify
+# collections it already carries: si:cbc is cbi:cbc-gem. Prefer an equivalent in
+# a set the host already has active, because a set that is not activated is not
+# served, and activating one is a websocket call this role cannot make.
+#
+# Rewriting a dashboard is a websocket call too, so the check below stops the run
+# rather than let the removal blank an icon that is still referenced. It clears
+# itself once the dashboards are converted.
+#
+# CLEANUP (added 2026-08-08): delete once every host in the homeautomation group
+# has run this role.
+- name: Find dashboards still using the Simple Icons prefix
+  ansible.builtin.find:
+    paths: "{{ homeautomation_homeassistant_required_volumes.config }}/.storage"
+    patterns: lovelace*
+    # Hand-made copies of a dashboard, which Home Assistant never reads.
+    excludes: "*.bak.*"
+    contains: '"si:'
+    # The line filter anchors the pattern at the start of a line, and these
+    # files are a single line of JSON.
+    read_whole_file: true
+  become: true
+  register: homeautomation_simpleicons_dashboards
+
+- name: Assert that no dashboard uses the Simple Icons prefix
+  ansible.builtin.assert:
+    that: homeautomation_simpleicons_dashboards.files | length == 0
+    fail_msg: >-
+      {{ homeautomation_simpleicons_dashboards.files | map(attribute='path') | join(', ')
+      }} still reference si: icons, which nothing serves once Simple Icons is
+      removed. Rewrite each to its Custom Icons equivalent (si:cbc is
+      cbi:cbc-gem) in the dashboard's raw configuration editor, then delete the
+      simpleicons config entry in the Home Assistant UI: an orphaned entry for a
+      missing integration logs an error on every startup.
+    quiet: true
+
+- name: Remove the superseded Simple Icons custom component
+  ansible.builtin.file:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/simpleicons"
+    state: absent
+  become: true
+
 - name: Install BambuLab custom component
   ansible.builtin.include_tasks: install_github_release_component.yml
   vars:
@@ -45,13 +87,6 @@
     github_component_name: Meross
     github_component_repo: albertogeniola/meross-homeassistant
     github_component_src: custom_components/meross_cloud
-
-- name: Install Simple Icons custom component
-  ansible.builtin.include_tasks: install_github_release_component.yml
-  vars:
-    github_component_name: Simple Icons
-    github_component_repo: vigonotion/hass-simpleicons
-    github_component_src: custom_components/simpleicons
 
 - name: Install Custom Icons custom component
   ansible.builtin.include_tasks: install_github_release_component.yml

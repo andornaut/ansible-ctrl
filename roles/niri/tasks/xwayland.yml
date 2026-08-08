@@ -2,6 +2,14 @@
 - name: Install xwayland-satellite
   tags: [xwayland]
   block:
+    - name: Require the Rust toolchain
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: cargo
+            probe: cargo --version
+            hint: "It comes from the dev role: make dev -- --tags rust"
+
     - name: Create a temporary directory for xwayland-satellite
       ansible.builtin.tempfile:
         state: directory

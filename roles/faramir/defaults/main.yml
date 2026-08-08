@@ -1,21 +1,12 @@
 ---
-# Account that owns the faramir checkout and runs the build. Never the agent.
+# The operator's own login account: it owns the working tree and is who the
+# broker is installed for. Never a second account, and never created here.
 #
 # There is no account for the coding agent: it runs as this one. A separate uid
 # could not reach the operator's checkouts, gh credential or commit identity,
 # which is the work it is asked to do. See docs/scope.md in the faramir checkout
 # for what that gives up and what still holds.
 faramir_user: "{{ primary_user }}"
-
-# Where the checkout lives. faramir publishes no release binaries, so they are
-# built from source on the controller. Nothing else here reads the checkout:
-# `faramir init` carries the units, the config, the hook and the docs inside the
-# binary, so this role hands it a directory of binaries and no source layout.
-faramir_src_dir: "{{ faramir_user_home }}/src/github.com/andornaut/faramir"
-
-# The Go toolchain installs outside the default PATH, and a task's PATH is not a
-# login shell's. See roles/dev/tasks/go.yml.
-faramir_go_bin_dir: /usr/local/go/bin
 
 # Shared group giving the agent and the three service accounts access to the
 # working tree. Not a boundary; the boundaries are file modes.
@@ -31,18 +22,6 @@ faramir_dev_group: dev
 faramir_broker_user: faramir-broker
 faramir_keeper_user: faramir-keeper
 faramir_exec_user: faramir-exec
-
-# The tree brokered commands run in: the operator's own checkout, so there is one
-# copy of the inventory and nothing to keep in sync. The sops files are not here;
-# they are read from faramir_secrets_dir, which the keeper sees through a bind of
-# that one directory and nothing else of the home around it.
-#
-# It has to be reachable by faramir-exec, which is not the operator's uid. A home
-# is 0700, so init shares the tree: group, setgid bits, and every directory from
-# the home down made group-executable. Point this outside the homes instead and
-# nothing is needed, at the cost of the tree no longer being the checkout you
-# work in.
-faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
 # Where the base config and its drop-ins are installed. In the operator's home
 # for the same reason as the store, with one difference that matters: a config

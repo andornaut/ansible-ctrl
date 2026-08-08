@@ -11,10 +11,28 @@ faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 # replace what is in it, and under /etc that includes age.key.
 faramir_config_owner: "{{ faramir_user if faramir_config_dir.startswith(faramir_user_home + '/') else 'root' }}"
 
-# Where the build puts the binaries, and where init reads them from. init needs
-# no checkout beyond this: the units, the base config, the agent hook and the
-# docs are embedded in the binary.
-faramir_bin_dir: "{{ faramir_src_dir }}/bin"
+# Where the binaries are downloaded from. `dev` is a rolling release, deleted and
+# re-cut by CI on every push to faramir's main, holding the six binaries as bare
+# assets. Switching to a tagged release means changing more than this name:
+# goreleaser publishes one tar.gz per platform plus a checksums.txt, so the fetch
+# below becomes an unarchive with a checksum to verify against. faramir has no
+# v tag yet, so this is the only thing there is to install.
+#
+# amd64 only: CI builds the dev assets once, on an x86_64 runner, and the names
+# carry no architecture. Asserted in tasks/main.yml rather than mapped, because
+# there is no arm64 asset to map to.
+faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
+
+# Every binary init needs. It installs five of them into /usr/local/bin and puts
+# faramir-guard, the PreToolUse hook, in libexec instead, but its preflight
+# demands all six and names the ones it cannot find.
+faramir_release_binaries:
+  - faramir
+  - faramir-broker
+  - faramir-keeper
+  - faramir-exec
+  - faramir-mcp
+  - faramir-guard
 
 # The whole invocation, assembled once. An argv list rather than a command
 # string: paths here come from the inventory and a shell-quoted string would
@@ -28,9 +46,13 @@ faramir_bin_dir: "{{ faramir_src_dir }}/bin"
 # No tree is named here. init provisions the host; enrolling a tree is
 # `faramir init-project`, which is per project and reads the shared group out of
 # the config init installed rather than being told it a second time.
+#
+# faramir_staging.path is the directory the download task registers. Resolved
+# where this is used rather than here, so it is only ever read inside the block
+# that created it.
 faramir_init_argv: >-
   {{
-    [faramir_bin_dir ~ '/faramir', 'init', '--json',
+    [faramir_staging.path ~ '/faramir', 'init', '--json',
      '--operator', faramir_user,
      '--group', faramir_dev_group,
      '--broker-user', faramir_broker_user,
@@ -38,7 +60,7 @@ faramir_init_argv: >-
      '--exec-user', faramir_exec_user,
      '--config-dir', faramir_config_dir,
      '--secrets-dir', faramir_secrets_dir,
-     '--binaries', faramir_bin_dir]
+     '--binaries', faramir_staging.path]
     + (['--operator-age-key', faramir_operator_age_key]
        if faramir_operator_age_key | length > 0 else [])
     + (['--ssh-key', faramir_broker_ssh_key]

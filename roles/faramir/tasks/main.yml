@@ -1,7 +1,7 @@
 ---
 # What this role still does, now that `faramir init` does the install:
 #
-#   builds the binaries, because faramir publishes none
+#   downloads the binaries, which faramir publishes but does not install
 #   runs init once, with this project's paths
 #   names this project's sops files and SSH key in a config.d drop-in
 #   tells the agent how to run a playbook through the broker
@@ -12,192 +12,168 @@
 # and is not restated here. A setting named in both places is one that can
 # disagree with itself.
 
-# First: faramir_worktree and faramir_src_dir derive from passwd entries, so the
-# guard below cannot check them until this has run.
+# First: faramir_user_home comes from a passwd entry, and the config directory,
+# the store and the operator's age key all hang off it.
 # tags: always so a --tags run cannot skip either.
 - name: Read the passwd and group databases
   ansible.builtin.getent:
     database: passwd
   tags: always
 
-- name: Validate the faramir account and worktree
+- name: Validate the faramir account
   ansible.builtin.assert:
     that:
       # primary_user is inventory data, so an inventory that omits it would
       # otherwise fail on an undefined lookup several tasks later.
       - faramir_user is defined and faramir_user | length > 0
       - faramir_user != "root"
-      - faramir_worktree.startswith("/")
+      # Membership too, and not only that a name was given: faramir_user_home
+      # indexes the passwd entry, so an account this host does not have fails
+      # there instead, on a missing dictionary key that names nothing.
+      # The account is never created here. It is the operator's own login, and
+      # what makes it theirs -- the keys, the checkouts, the commit identity --
+      # is not something this role could put back.
+      - faramir_user in ansible_facts["getent_passwd"]
     fail_msg: >-
-      faramir_user must be a non-root account and faramir_worktree must be an
-      absolute path. Set primary_user in the inventory (or faramir_user in
-      host_vars) to the account the coding agent runs as.
+      faramir_user must be an existing non-root account on this host. Set
+      primary_user in the inventory (or faramir_user in host_vars) to the
+      account the coding agent runs as.
     quiet: true
   tags: always
 
-- name: Check for the faramir checkout
-  ansible.builtin.stat:
-    path: "{{ faramir_src_dir }}/Makefile"
-  register: faramir_checkout
-
-- name: Require the faramir checkout
+- name: Require an architecture the dev release is built for
   ansible.builtin.assert:
-    that: faramir_checkout.stat.exists
+    that: ansible_facts['architecture'] == 'x86_64'
     fail_msg: >-
-      No faramir checkout at {{ faramir_src_dir }}. There are no published
-      release binaries, so they are built from source here:
-      git clone git@github.com:andornaut/faramir.git {{ faramir_src_dir }}
+      The faramir dev release ships amd64 binaries only, and this host is
+      {{ ansible_facts['architecture'] }}. Build from source there, or install
+      from a tagged release once faramir publishes one.
     quiet: true
 
-# Brokered commands run in this tree, so it has to exist before init shares it.
+# The tree brokered commands run in is the checkout this play was run from, so
+# playbook_dir names it and no variable can point somewhere the operator does not
+# actually work. That path is the controller's, and it is the target's too only
+# because the host this role applies to is the controller: a remote host in the
+# faramir group would be handed a directory that need not exist there. This is
+# the check for that, and it is here rather than beside init-project so it fails
+# before the download and the install rather than after them.
 - name: Check for the working tree
   ansible.builtin.stat:
-    path: "{{ faramir_worktree }}"
+    path: "{{ playbook_dir }}"
   register: faramir_worktree_dir
 
 - name: Require the working tree
   ansible.builtin.assert:
     that: faramir_worktree_dir.stat.isdir | default(false)
     fail_msg: >-
-      No working tree at {{ faramir_worktree }}. Brokered commands run there, so
-      it must exist before the broker is installed. It is meant to be your own
-      checkout:
-      git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
+      No directory at {{ playbook_dir }} on this host. faramir enrols the
+      checkout the play was run from, so this role applies only to the
+      controller holding that checkout.
     quiet: true
 
-# Go and sops are asserted rather than installed: roles here declare no
-# dependencies, and a second installer for either would drift from the dev
-# role's. Go builds the binaries; sops is what the keeper execs to decrypt and
-# what the operator edits the store with, so it is needed at run time too.
+# sops is asserted rather than installed: roles here declare no dependencies, and
+# a second installer would drift from the dev role's. It is what the keeper execs
+# to decrypt and what the operator edits the store with, so it is a run-time
+# requirement and not only an install-time one.
 # check_mode: false so the assert below has an rc to read; a skipped probe would
 # fail on an undefined variable instead of reporting what is wrong.
-- name: Locate the build and secret-store tools
+- name: Locate sops
   ansible.builtin.shell:
     executable: /bin/bash
-    cmd: command -v {{ item.cmd }}
-  environment:
-    PATH: "{{ faramir_go_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
-  register: faramir_tools
+    cmd: command -v sops
+  register: faramir_sops
   changed_when: false
   failed_when: false
   check_mode: false
-  loop:
-    - cmd: go
-      hint: "It comes from the dev role: make dev -- --tags go"
-    - cmd: sops
-      hint: "It comes from the dev role: make dev -- --tags sops"
-  loop_control:
-    label: "{{ item.cmd }}"
 
-- name: Require the build and secret-store tools
+- name: Require sops
   ansible.builtin.assert:
-    that: item.rc == 0
-    fail_msg: "{{ item.item.cmd }} is not installed. {{ item.item.hint }}"
+    that: faramir_sops.rc == 0
+    fail_msg: "sops is not installed. It comes from the dev role: make dev -- --tags sops"
     quiet: true
-  loop: "{{ faramir_tools.results }}"
-  loop_control:
-    label: "{{ item.item.cmd }}"
 
-# As faramir_user, not as whoever ansible connects as: this playbook is run with
-# root often enough (make supplies no become password to a root run, and the
-# README says to run it against the controller), and a root build leaves bin/
-# root-owned inside the operator's checkout, where their next make build cannot
-# write.
-- name: Build the faramir binaries
-  tags: build
-  become: true
-  become_user: "{{ faramir_user }}"
+# Downloaded rather than built from a checkout: init copies the binaries it is
+# given into /usr/local/bin and carries the units, the config, the hook and the
+# docs inside them, so the controller needs no source layout and no Go
+# toolchain.
+#
+# Staged in a temp directory rather than kept: what is installed is what init
+# copied, and a directory of binaries left behind is a second copy that nothing
+# updates. 23MB a run is the cost.
+- name: Install faramir from the dev release
   block:
-    # Reproducible: the Makefile builds with -trimpath and CGO_ENABLED=0, so the
-    # checksum moves only when the source does.
-    - name: Check the built broker binary
-      ansible.builtin.stat:
-        path: "{{ faramir_bin_dir }}/faramir-broker"
-        checksum_algorithm: sha256
-      register: faramir_built_before
-
-    - name: Run make build
-      ansible.builtin.command:
-        cmd: make build
-        chdir: "{{ faramir_src_dir }}"
-      environment:
-        PATH: "{{ faramir_go_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
-      # Reported by the checksum comparison below: go build is a no-op when
-      # nothing changed, and says nothing either way.
-      changed_when: false
-      # Runs under --check too, deliberately: init is given --dry-run there and
-      # still has to find binaries to preflight against, and a build writes only
-      # into the operator's own checkout. It is the one thing a check run of this
-      # role puts on disk.
+    - name: Create a temporary directory for the faramir binaries
+      ansible.builtin.tempfile:
+        state: directory
+      register: faramir_staging
+      # With the download and init below, which run under --check as well: init
+      # is given --dry-run there and still has to find binaries to preflight
+      # against, and all of this lands in a directory the always: below removes.
       check_mode: false
 
-    - name: Check the built broker binary after the build
-      ansible.builtin.stat:
-        path: "{{ faramir_bin_dir }}/faramir-broker"
-        checksum_algorithm: sha256
-      register: faramir_built
-      changed_when: >-
-        faramir_built.stat.checksum != faramir_built_before.stat.checksum | default('')
+    - name: Download the faramir binaries
+      ansible.builtin.get_url:
+        url: "{{ faramir_release_url }}/{{ item }}"
+        dest: "{{ faramir_staging.path }}/{{ item }}"
+        mode: "0755"
+      loop: "{{ faramir_release_binaries }}"
+      loop_control:
+        label: "{{ item }}"
+      # A fresh temp directory means every download is a new file, so this would
+      # report changed on every run. What changed on the host is what init says
+      # below, which compares each binary against the installed one.
+      changed_when: false
+      check_mode: false
+      # A release asset is a redirect to object storage, so a failure here is a
+      # network one and worth retrying.
+      register: faramir_download
+      until: faramir_download is succeeded
+      retries: 3
+      delay: 5
 
-# --skip-tags build is a reinstall of what is already there, which is only a
-# thing to do when it is already there. init refuses without the binaries and
-# says which are missing, but it does so after this role has decided to run it.
-#
-# Outside the build block, and stat-ing rather than reading the block's
-# register: under --skip-tags build that register is never set, and an assert
-# reading it would fail on every run that skipped the build, which is the only
-# kind of run it exists to protect.
-- name: Check for the built binaries
-  ansible.builtin.stat:
-    path: "{{ faramir_bin_dir }}/{{ item }}"
-  register: faramir_binaries
-  loop:
-    - faramir
-    - faramir-broker
-    - faramir-keeper
-    - faramir-exec
-    - faramir-mcp
-    - faramir-guard
-  loop_control:
-    label: "{{ item }}"
+    # The whole install, in one command. It is idempotent and reports per step,
+    # so the changed state below is what it says rather than something inferred
+    # from stat-ing the host before and after.
+    #
+    # check_mode: false with --dry-run added to the argv instead: init computes
+    # the same answers and writes nothing, which a skipped task could not report.
+    - name: Install faramir
+      ansible.builtin.command:
+        argv: "{{ faramir_init_argv }}"
+      become: true
+      register: faramir_init
+      check_mode: false
+      changed_when: (faramir_init.stdout | from_json).changed
 
-- name: Require the built binaries
-  ansible.builtin.assert:
-    that: item.stat.exists
-    fail_msg: >-
-      {{ faramir_bin_dir }}/{{ item.item }} is missing. Drop --skip-tags build,
-      or run make build in the checkout.
-    quiet: true
-  loop: "{{ faramir_binaries.results }}"
-  loop_control:
-    label: "{{ item.item }}"
-
-# The whole install, in one command. It is idempotent and reports per step, so
-# the changed state below is what it says rather than something inferred from
-# stat-ing the host before and after.
-#
-# check_mode: false with --dry-run added to the argv instead: init computes the
-# same answers and writes nothing, which a skipped task could not report.
-- name: Install faramir
-  ansible.builtin.command:
-    argv: "{{ faramir_init_argv }}"
-  become: true
-  register: faramir_init
-  check_mode: false
-  changed_when: (faramir_init.stdout | from_json).changed
-
-- name: Read what the install did
-  ansible.builtin.set_fact:
-    faramir_report: "{{ faramir_init.stdout | from_json }}"
+    - name: Read what the install did
+      ansible.builtin.set_fact:
+        faramir_report: "{{ faramir_init.stdout | from_json }}"
+  always:
+    - name: Remove the temporary directory for the faramir binaries
+      ansible.builtin.file:
+        path: "{{ faramir_staging.path }}"
+        state: absent
+      when: faramir_staging.path is defined
+      become: true
 
 # Enrolling the tree is separate from provisioning the host, and runs after it:
 # it reads the shared group out of the config init installed rather than being
 # told it a second time, which is what keeps a tree from being group-owned by
 # something the broker socket does not admit.
 #
+# What enrolling does is share the tree, because brokered commands run in it as
+# faramir-exec, which is not the operator's uid, and a home is 0700: it group-
+# owns the tree, sets the setgid bits, and makes every directory group-executable
+# from the home down. The sops files are not in here; the keeper reads them from
+# faramir_secrets_dir through a bind of that one directory.
+#
 # It also installs the PreToolUse hook and the MCP server config here, which is
 # what makes the broker worth using in this checkout rather than merely
 # reachable from it.
+#
+# Only this checkout. A host is provisioned once and there is no limit to how
+# many trees you work in, so enrol another where it lives:
+# cd <dir> && sudo faramir init-project
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:
     argv:
@@ -209,7 +185,7 @@
       - --config-dir
       - "{{ faramir_config_dir }}"
       - "--hook={{ faramir_project_hook | bool | lower }}"
-      - "{{ faramir_worktree }}"
+      - "{{ playbook_dir }}"
   become: true
   register: faramir_project
   check_mode: false
@@ -335,21 +311,6 @@
     cmd: /usr/local/bin/faramir reload
   when: faramir_stale_dropins.changed
   changed_when: true
-  become: true
-
-# CLEANUP (added 2026-08-08): the age key used to be sealed to the host TPM and
-# read by the keeper as an encrypted credential. It is not: the store lives in
-# the operator's encrypted home, so a drive that leaves the building carries a
-# key and nothing it opens, and sealing was paying PCR 7's fragility for
-# confidentiality already covered.
-#
-# The unit is rendered fresh by init and already reads the plaintext again, so
-# this only takes away the blob it no longer names. The plaintext key itself is
-# never touched here, by this or anything else. Delete once no host has one.
-- name: Remove the sealed age credential
-  ansible.builtin.file:
-    path: /etc/faramir/age.key.cred
-    state: absent
   become: true
 
 # CLEANUP (added 2026-08-08): the config and its drop-ins used to be installed
@@ -516,7 +477,7 @@
     # to here. blockinfile writes through a symlink, so naming either works, but
     # naming the target keeps a host without that symlink from ending up with
     # two files saying different things.
-    path: "{{ faramir_worktree }}/AGENTS.md"
+    path: "{{ playbook_dir }}/AGENTS.md"
     create: true
     owner: "{{ faramir_user }}"
     group: "{{ faramir_dev_group }}"

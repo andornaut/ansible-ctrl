@@ -1,4 +1,25 @@
 ---
+# community.docker reports a missing daemon as a connection error against the
+# socket, which reads as a broken install rather than an absent one.
+- name: Require Docker
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools_become: true
+    require_tools:
+      - name: Docker
+        probe: docker version
+        hint: >-
+          It comes from the docker role, which webservers.yml applies only once
+          its commented-out entry is uncommented for a host's first run.
+      # docker_compose_v2 below drives the CLI plugin, but the restart handler
+      # uses docker_container, which goes through the Python SDK: a separate
+      # package, so a working `docker version` does not imply it is installed.
+      - name: The Docker SDK for Python
+        probe: >-
+          {{ ansible_facts['discovered_interpreter_python'] | default('python3') }}
+          -c 'import docker'
+        hint: "It is the python3-docker package, which the docker role installs."
+
 - name: Create Docker volume directories
   ansible.builtin.file:
     path: "{{ item }}"

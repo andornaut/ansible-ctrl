@@ -2,6 +2,13 @@
 # Download the latest stable GitHub release of a component and install
 # a subpath of its archive to a destination directory.
 #
+# Skipped when the installed component's manifest.json already names the latest
+# tag. The archive is the repository source rather than a release asset, so the
+# manifest holds whatever the project committed: one that leaves a placeholder
+# there, or bumps the version after tagging, never matches and is downloaded
+# and reinstalled on every run. So is a component installed as a bare file,
+# which has no manifest to read.
+#
 # Required vars:
 #   github_component_name (str): Display name (used in task names)
 #   github_component_repo (str): "owner/repo"
@@ -10,12 +17,11 @@
 #   github_component_dest (str): Destination directory on the target host
 #     (defaults to the Home Assistant custom_components/ directory)
 - name: Install the latest GitHub release of {{ github_component_name }}
+  vars:
+    github_component_dest_dir: >-
+      {{ github_component_dest
+      | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}
   block:
-    - name: Create a temporary directory for {{ github_component_name }}
-      ansible.builtin.tempfile:
-        state: directory
-      register: homeautomation_github_component_tmp
-
     # Filter the release list rather than calling /releases/latest, which returns the release a
     # project marks as latest: a component tracked here has shipped a newer stable release
     # without moving that pointer, so following it would silently downgrade the install. The
@@ -41,28 +47,54 @@
           | selectattr('draft', 'equalto', false)
           | list | first).tag_name }}
 
-    - name: Download and unarchive {{ github_component_name }}
-      ansible.builtin.unarchive:
-        src: >-
-          https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
-          homeautomation_github_component_version }}.tar.gz
-        dest: "{{ homeautomation_github_component_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
+    # A missing directory, a missing manifest and an unreadable one all register
+    # as a failure, which leaves the version below empty and reinstalls.
+    - name: Read the installed manifest of {{ github_component_name }}
+      ansible.builtin.slurp:
+        src: "{{ github_component_dest_dir }}/{{ github_component_src | basename }}/manifest.json"
+      register: homeautomation_github_component_manifest
+      failed_when: false
+      become: true
 
-    - name: Install files for {{ github_component_name }}
-      ansible.builtin.copy:
-        src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
-        dest: "{{ github_component_dest | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}"
-        remote_src: true
-        mode: "0644"
-      become: true
-  always:
-    - name: Remove the temporary directory for {{ github_component_name }}
-      ansible.builtin.file:
-        path: "{{ homeautomation_github_component_tmp.path }}"
-        state: absent
-      when: homeautomation_github_component_tmp.path is defined
-      become: true
+    - name: Set installed version fact for {{ github_component_name }}
+      ansible.builtin.set_fact:
+        homeautomation_github_component_installed: >-
+          {{ (homeautomation_github_component_manifest.content | b64decode | from_json).version | default('')
+          if homeautomation_github_component_manifest.content is defined else '' }}
+
+    - name: Update the installed files of {{ github_component_name }}
+      # Tags carry a leading v that the manifest version does not.
+      when: >-
+        homeautomation_github_component_installed
+        != homeautomation_github_component_version | regex_replace('^v', '')
+      block:
+        - name: Create a temporary directory for {{ github_component_name }}
+          ansible.builtin.tempfile:
+            state: directory
+          register: homeautomation_github_component_tmp
+
+        - name: Download and unarchive {{ github_component_name }}
+          ansible.builtin.unarchive:
+            src: >-
+              https://github.com/{{ github_component_repo }}/archive/refs/tags/{{
+              homeautomation_github_component_version }}.tar.gz
+            dest: "{{ homeautomation_github_component_tmp.path }}"
+            remote_src: true
+            extra_opts:
+              - --strip-components
+              - 1
+
+        - name: Install files for {{ github_component_name }}
+          ansible.builtin.copy:
+            src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
+            dest: "{{ github_component_dest_dir }}"
+            remote_src: true
+            mode: "0644"
+          become: true
+      always:
+        - name: Remove the temporary directory for {{ github_component_name }}
+          ansible.builtin.file:
+            path: "{{ homeautomation_github_component_tmp.path }}"
+            state: absent
+          when: homeautomation_github_component_tmp.path is defined
+          become: true

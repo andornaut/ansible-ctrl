@@ -1,4 +1,17 @@
 ---
+# The theme tag does not select the flatpak tag that installs the binary, and
+# the override below is how flatpak applications get the theme at all. Required
+# rather than skipped: this role installs flatpak on every host it configures,
+# so an absent binary means the host is part-provisioned, and skipping would
+# leave the flatpaks on Adwaita with the run reporting success.
+- name: Require flatpak
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools:
+      - name: flatpak
+        probe: flatpak --version
+        hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
+
 - name: Validate GTK theme
   ansible.builtin.assert:
     that:

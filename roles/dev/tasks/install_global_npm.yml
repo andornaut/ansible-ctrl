@@ -1,5 +1,17 @@
 ---
 # Install an npm package globally. Callers set dev_npm_package.
+#
+# Every caller is its own tag (codex, kilocode, opencode), and none of them
+# selects the javascript tag that installs npm, so a tag-scoped run reaches the
+# module on a host that has no node.
+- name: Require npm
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools:
+      - name: npm
+        probe: npm --version
+        hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
+
 - name: Install {{ dev_npm_package }}
   community.general.npm:
     name: "{{ dev_npm_package }}"
