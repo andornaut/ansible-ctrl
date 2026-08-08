@@ -59,3 +59,36 @@ homeautomation_tz: "{{ homeautomation_system_timezone.stdout.strip() }}"
 homeautomation_esphome_auth_configured: >-
   {{ (homeautomation_esphome_username | length > 0)
      and (homeautomation_esphome_password | length > 0) }}
+
+# What each optional component leaves on the host, so that clearing its install
+# flag removes it rather than leaving it running. Volumes are deliberately not
+# listed: they hold the only copy of a service's data, and an install flag
+# cleared by accident would otherwise destroy it.
+#
+# Absent from this table on purpose: home assistant and mosquitto, which have no
+# install flag and are always configured; avahi, a host daemon the play stops
+# rather than a container; and memryx, which installs a DKMS driver and apt
+# sources whose removal is not the reverse of writing a compose definition.
+homeautomation_teardown:
+  - install: "{{ homeautomation_install_esphome }}"
+    containers: [esphome]
+    # Set for the ESPHome gid alone, so it narrows the host's range rather than
+    # widening it, and outlives the container it was written for.
+    files: [/etc/sysctl.d/60-esphome-ping.conf]
+  - install: "{{ homeautomation_install_frigate }}"
+    containers: [frigate]
+  - install: "{{ homeautomation_install_govee2mqtt }}"
+    containers: [govee2mqtt]
+  - install: "{{ homeautomation_install_hamcp }}"
+    containers: [hamcp]
+  - install: "{{ homeautomation_install_llm }}"
+    containers: [llamacpp, openwebui]
+  - install: "{{ homeautomation_install_matterjs }}"
+    containers: [matterjs]
+  - install: "{{ homeautomation_install_legacy_pythonmatterserver }}"
+    containers: [pythonmatterserver]
+  - install: "{{ homeautomation_install_voice }}"
+    containers: [openwakeword, microwakeword, piper, whisper]
+  # The border router serves either matter stack, so it goes only when both do.
+  - install: "{{ homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver }}"
+    containers: [otbr]
