@@ -123,13 +123,11 @@ The certificate renewal cron is the third path, and wraps itself.
 terminal. It decrypts with `/etc/faramir/age.key`, the keeper's, which is already a recipient and
 which root can read anyway.
 
-**Why the file is under `/etc` and not in this repo.** Cron has no session and the broker starts at
-boot, and an encrypted home is not mounted at either moment, so anything under one is unreadable
-exactly when these need it: the cron would fail at the `cd` and the broker would come up with an
-empty value set, redacting nothing. `/etc/faramir/secrets` is `2770 root:dev`, so you still edit it
-with `sops` directly, without sudo. It also keeps the ciphertext out of a directory Ansible
-auto-loads, where a sops file, being valid YAML, would bind each var to its `ENC[...]` ciphertext
-without erroring and hand hosts the ciphertext as the password.
+**Why the file is under `/etc` and not in this repo.** An encrypted home is not mounted at boot or
+under cron, which is exactly when the broker and the renewal job need it, and `/etc` keeps the
+ciphertext out of a directory Ansible auto-loads. `/etc/faramir/secrets` is `2770 root:dev`, so
+`sops` still edits it in place without sudo. The [faramir role](roles/faramir/README.md) has the
+detail on both.
 
 The encrypted file and the age identity both need a backup and neither is in git. Both are covered
 by rsnapshot today: it takes `/etc/` and `~/.config/`. Note that this puts the key and the
@@ -138,15 +136,11 @@ ciphertext it opens in the same snapshot.
 ## Getting started with the secret broker
 
 [faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any
-plaintext value entering a coding agent's context. It is what lets an agent run these playbooks
-against the fleet without being able to read the credentials they use. The
-[faramir role](roles/faramir/README.md) installs it on the controller; faramir's own
+plaintext value entering a coding agent's context. Installing it is an operator action against the
+controller and Ansible never needs it in order to run, so none of the above depends on this. The
+[faramir role](roles/faramir/README.md) installs it; faramir's own
 [README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is
 worth reading before trusting it.
-
-Installing it is an operator action, run against the controller. Brokering playbooks is an agent
-action, run later. Ansible never needs faramir in order to run, so none of the above depends on
-this.
 
 **1. Clone faramir beside this repo** and make sure the [dev](roles/dev/README.md) role has run,
 which is what installs Go and sops:
@@ -166,15 +160,13 @@ make faramir
 **3. Log out and back in.** The install adds you to the `dev` group, and group membership is read
 at login. Until then the broker refuses your connections.
 
-**4. Check what it loaded:**
+**4. Check what it loaded.** A ref count of zero is a failure, not a fresh start: it means the
+broker is running and protecting nothing.
 
 ```bash
 faramir status          # config path, the sops files it manages, and the ref count
 faramir list-secrets    # the names, never the values
 ```
-
-A ref count of zero means the broker is running and protecting nothing, so treat it as a failure
-rather than a fresh start.
 
 **5. Authorize its SSH key on the managed hosts**, which is what lets a brokered playbook reach
 them. `ASK_PASS=1` is required because this is the run that establishes the NOPASSWD sudo the
@@ -192,19 +184,12 @@ faramir run --env-file faramir.env -- \
 # -> "secret_msmtp_password": "«SECRET:secret_msmtp_password»"
 ```
 
-That confirms the ref decrypted, the value reached the child's environment, `lookup('env', ...)`
-resolved it, and the redactor replaced it on the way back. A bare name means the ref was not
-injected; `ENC[AES256_GCM,...]` means the encrypted file is somewhere Ansible auto-loads it.
+Anything else is a fault; the [faramir role](roles/faramir/README.md) says what each one means.
 
-After that, an agent runs playbooks through the broker rather than through `make`:
-
-```bash
-faramir run --env-file faramir.env -- \
-    ansible-playbook <playbook>.yml --limit '!faramir'
-```
-
-`--limit '!faramir'` excludes the controller, which a brokered run cannot configure: commands run
-as a uid with no sudo there. The controller's own playbooks stay yours to apply.
+After that, playbooks run through the broker rather than through `make`, with the command under
+[Secrets](#secrets) above. `--limit '!faramir'` excludes the controller, which a brokered run
+cannot configure: commands run as a uid with no sudo there. The controller's own playbooks stay
+yours to apply.
 
 ## Operations
 
