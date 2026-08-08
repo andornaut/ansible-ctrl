@@ -1,4 +1,16 @@
 ---
+# The store is in the operator's home, and this job runs as root, so the path has to be
+# resolved rather than assumed: root's own ~ is /root, and a home is not always /home/<user>.
+- name: Read the operator's passwd entry
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ letsencrypt_nginx_operator }}"
+
+- name: Resolve the operator's home
+  ansible.builtin.set_fact:
+    letsencrypt_nginx_operator_home: >-
+      {{ ansible_facts['getent_passwd'][letsencrypt_nginx_operator][4] }}
+
 # state is derived from the flag rather than gated with `when`, so clearing the flag removes
 # the job from a host that used to run it.
 - name: Configure the certificate renewal cron job
