@@ -47,9 +47,11 @@ letsencrypt_nginx_operator: "{{ primary_user }}"
 # mails rather than failing quietly.
 letsencrypt_nginx_renewal_cron_sops_file: >-
   {{ letsencrypt_nginx_operator_home }}/.faramir/secrets/ansible-ctrl.sops.yml
-# The age key that decrypts it. The keeper's, which is already a recipient, and
-# which root can read like any other file: this job runs as root, so naming it
-# grants nothing root did not have. The operator's own key stays in their
-# encrypted home, where a stolen disk does not reach it. SOPS_AGE_KEY_FILE takes
-# a path rather than a value, so the material is read only by sops itself.
-letsencrypt_nginx_renewal_cron_age_key_file: /etc/faramir/age.key
+# The age key that decrypts it. The keeper's, which is already a recipient and
+# which root can read whatever its mode: this job runs as root, so naming it
+# grants nothing root did not have. It sits beside the broker's config in the
+# same home as the store, resolved the same way and for the same reason, so the
+# preflight that guards an unmounted home guards both. SOPS_AGE_KEY_FILE takes a
+# path rather than a value, so the material is read only by sops itself.
+letsencrypt_nginx_renewal_cron_age_key_file: >-
+  {{ letsencrypt_nginx_operator_home }}/.faramir/age.key

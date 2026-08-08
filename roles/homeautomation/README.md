@@ -40,14 +40,12 @@ Clearing a `homeautomation_install_*` flag removes the component on the next run
 [vars/main.yml](./vars/main.yml) lists for it are deleted, along with any host files it wrote, such
 as the `ping_group_range` sysctl drop-in ESPHome needs.
 
-**Volumes are never removed.** They hold the only copy of a service's data, so a flag cleared by
-accident costs a restart rather than the data, and clearing one is not how you decommission a
-service's storage. Delete those by hand, and note that some hold credentials: ESPHome's
-`secrets.yaml` carries the wifi and OTA passwords.
-
-Home Assistant and Mosquitto have no flag and are always configured. Avahi is a host daemon the run
-stops rather than a container. MemryX installs a DKMS driver and apt sources, which the run does not
-reverse.
+- **Volumes are never removed.** They hold the only copy of a service's data, so a flag cleared by
+  accident costs a restart rather than the data. Delete them by hand, and note that some hold
+  credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords.
+- **Not covered:** Home Assistant and Mosquitto, which have no flag and are always configured; Avahi,
+  a host daemon the run stops rather than a container; MemryX, whose DKMS driver and apt sources the
+  run does not reverse.
 
 ## Networking
 
@@ -99,9 +97,9 @@ Internal ports. Those that are configurable are `homeautomation_*_port` in
 Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern is:
 
 - **A dedicated host account per container**, created by [tasks/service_account.yml](./tasks/service_account.yml)
-  with the uid above the range `adduser` allocates from, so a file on a bind mount names the service that wrote
-  it. Two exceptions: mosquitto follows the uid baked into its image, and esphome shares the operator's uid
-  because its config directory is a checkout the operator also writes.
+  with a uid above the range `adduser` allocates from, so a file on a bind mount names the service that wrote it.
+  The uids are listed in [vars/main.yml](./vars/main.yml) and asserted distinct before any account is created.
+  mosquitto is the exception, following the uid baked into its image.
 - **`cap_drop: ALL` for every container that runs as a non-root uid.** Such a process cannot use a capability
   anyway: `cap_add` fills the permitted set, not the ambient set.
 - **`no-new-privileges` everywhere**, root included, since that is what blocks the setuid transition that would
