@@ -99,3 +99,30 @@ faramir_manage_operator_age_key: true
 # It writes to production hosts, so it is a separate play rather than something
 # the controller-side role does behind your back.
 faramir_fleet_authorize_key: true
+
+# Seal the age key to this host's TPM and have the keeper take it from an
+# encrypted credential instead of a file. What it buys is protection at rest:
+# 0400 faramir-keeper is a running-system boundary, and powered off the key is
+# an ordinary file that decrypts every managed secret retroactively. Nothing
+# else here encrypts a disk.
+#
+# Asserted rather than skipped when the host has no TPM. A security measure that
+# quietly does not apply is the failure this project spends error messages on.
+# Set false on a host without one, and use full-disk encryption instead, which
+# covers the audit log and swap as well.
+faramir_seal_age_key: true
+
+# Where the sealed credential goes. Read by systemd as root at unit start, so it
+# is 0400 root:root and never read by the keeper's own uid.
+faramir_age_key_cred: /etc/faramir/age.key.cred
+
+# Remove /etc/faramir/age.key once the keeper is running from the sealed
+# credential. Until this happens the plaintext is still on disk and the sealing
+# has bought nothing.
+#
+# Separate, and false, because it is irreversible in the way that matters:
+# sealing binds to PCR 7, which tracks Secure Boot policy, so changing that
+# state or clearing the TPM stops the blob decrypting and the only way back is
+# sealing the original key again. Set true only with the key material somewhere
+# you can re-seal from.
+faramir_remove_plaintext_age_key: false

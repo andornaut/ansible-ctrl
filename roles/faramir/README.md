@@ -196,6 +196,36 @@ To rewrite it from `faramir_config_src`, discarding any edits made on the host:
 make faramir -- --extra-vars faramir_overwrite_config=true
 ```
 
+## The age key is sealed to the TPM
+
+`0400 faramir-keeper` protects the key while the machine runs. Powered off it is
+an ordinary file that decrypts every managed secret retroactively, and nothing
+in faramir encrypts a disk.
+
+So the role seals it to this host's TPM and drops in a
+`LoadEncryptedCredential=` for the keeper. The keeper is unchanged by this: the
+credential keeps the name `age_key`, so it reads the same path under
+`$CREDENTIALS_DIRECTORY` and never learns which source filled it. The plaintext
+then exists only in the unit's credential directory, on tmpfs, readable by that
+unit alone.
+
+The role asserts the host has a TPM rather than skipping quietly, because a host
+that silently does not seal its key is the install that looks healthy and
+protects less than it appears to. Set `faramir_seal_age_key=false` on a host
+without one, and use full-disk encryption instead, which covers the audit log
+and swap as well.
+
+**Sealing alone changes nothing.** `/etc/faramir/age.key` stays on disk until
+`faramir_remove_plaintext_age_key=true`, which is separate and false by default
+because it is the step that cannot be undone. Sealing binds to PCR 7, which
+tracks Secure Boot policy: change that state, or clear the TPM, and the blob
+stops decrypting. The only way back is sealing the original key again, so do not
+set that flag without the key material somewhere you can re-seal from.
+
+Everything short of removing the plaintext is reversible by deleting
+`/etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf`, reloading
+systemd and restarting the keeper.
+
 ## Authorizing the broker on the fleet
 
 The broker's public key has to be in `authorized_keys` for the account ansible
@@ -235,6 +265,9 @@ again.
 | `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, added to `.sops.yaml` as a second recipient. |
 | `faramir_manage_operator_age_key` | `true` | Mint that identity and list it. False leaves the keeper as the only recipient. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
+| `faramir_seal_age_key` | `true` | Seal the age key to the host TPM and have the keeper load it as an encrypted credential. Fails when the host has no TPM. |
+| `faramir_age_key_cred` | `/etc/faramir/age.key.cred` | Where the sealed credential goes. `0400 root:root`. |
+| `faramir_remove_plaintext_age_key` | `false` | Delete `/etc/faramir/age.key` once the keeper runs from the sealed credential. Irreversible without the key material. |
 
 Changing a service account name here is not enough on its own: the shipped
 systemd units and `config.toml` name them too. The same holds for
