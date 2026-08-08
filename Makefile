@@ -69,9 +69,20 @@ requirements: .ansible/.requirements
 # which makes a dry run wet.
 SUBMAKE := $(MAKE)
 
+# Root needs neither a become password nor the operator's age identity, and both
+# decisions below read this.
+IS_ROOT := $(filter 0,$(shell id -u))
+
 # Outside this checkout: an encrypted home is not mounted at boot or under cron,
 # so a secrets file inside one is unreadable exactly when it is needed.
 SOPS_FILE := /etc/faramir/secrets/ansible-ctrl.sops.yml
+
+# sops looks for an identity under $HOME, which is /root for a root run, so it
+# would find none. The keeper's key is already a recipient and root can read it
+# whatever its mode. ?= leaves an operator-set value alone.
+ifdef IS_ROOT
+export SOPS_AGE_KEY_FILE ?= /etc/faramir/age.key
+endif
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
 # SECRETS_LOADED marks the inner half; SECRETS=none skips it for a playbook that
@@ -92,12 +103,10 @@ pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
 
-# Root is tested first: sudo asks root for nothing, and ansible prompts at
+# IS_ROOT is tested first: sudo asks root for nothing, and ansible prompts at
 # startup whether or not the password is used. Then ASK_PASS=1, which forces the
 # prompt for the fleet play, the run that establishes the NOPASSWD the rest rely
 # on.
-IS_ROOT := $(filter 0,$(shell id -u))
-
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   run=$$($(call list_run,$(1))); \
