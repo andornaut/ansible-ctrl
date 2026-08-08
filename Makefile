@@ -11,8 +11,9 @@ ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 %:
 	@:
 
-PLAYBOOKS := base desktop dev docker faramir faramir_fleet games hobbies \
-             homeautomation msmtp nas rsnapshot torrent upgrade webservers
+PLAYBOOKS := base desktop dev docker faramir faramir_fleet \
+             games hobbies homeautomation msmtp nas rsnapshot torrent upgrade \
+             webservers
 
 .DEFAULT_GOAL := help
 
@@ -50,11 +51,22 @@ help:
 	@echo "  make desktop -- --limit controller --tags alacritty"
 
 clean:
-	rm -rf .ansible/roles .ansible/collections
+	rm -rf .ansible/roles .ansible/collections .ansible/.requirements
 
-requirements:
+# A stamp rather than a phony recipe.  A wrapped target runs make twice, once to
+# resolve the secrets and once under sops exec-env, and a phony prerequisite
+# installs the galaxy content on both passes.  The stamp also skips the install
+# entirely while requirements.yml is unchanged.
+#
+# Removed by `make clean` along with what it stands for: deleting .ansible/roles
+# by hand leaves the stamp claiming an install that is no longer there.
+requirements: .ansible/.requirements
+
+.ansible/.requirements: requirements.yml
+	@mkdir -p $(@D)
 	ansible-galaxy role install -r requirements.yml
 	ansible-galaxy collection install -r requirements.yml
+	@touch $@
 
 
 # Where the credentials come from, and whether a password has to be typed.
@@ -120,9 +132,12 @@ $(if $(ASK_PASS),--ask-become-pass,$$( \
   done))
 endef
 
+# The `--` is repeated on the re-entry for the same reason it is required on the
+# way in: the inner make parses ARGS as its own options and rejects the first
+# --flag among them. Without it, forwarding works only while SOPS_FILE is absent.
 $(PLAYBOOKS): %: requirements
 	@if [ -n "$(WRAP)" ]; then \
-	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* $(ARGS)'; \
+	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)'; \
 	 else \
 	   ansible-playbook $(call become_flag,$*) $*.yml $(ARGS); \
 	 fi
@@ -130,7 +145,7 @@ $(PLAYBOOKS): %: requirements
 # A tag in the dev role, gated on the ai_maintainer group, rather than a playbook of its own.
 ai_maintainer: requirements
 	@if [ -n "$(WRAP)" ]; then \
-	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory ai_maintainer $(ARGS)'; \
+	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory ai_maintainer -- $(ARGS)'; \
 	 else \
 	   ansible-playbook $(call become_flag,dev) dev.yml --tags ai_maintainer $(ARGS); \
 	 fi
