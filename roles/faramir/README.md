@@ -328,22 +328,25 @@ just fetch the old value set.
 
 ## The age key, and what it is worth at rest
 
-`0400 faramir-keeper` protects the key while the machine runs. Powered off it is
-an ordinary file, and nothing in faramir encrypts a disk.
+`0400 faramir-keeper` protects the key while the machine runs, and it is what
+keeps the operator out of it wherever the key sits: owning the directory is
+permission to unlink the file, not to read it. Replacing it is a deliberate act,
+and a store encrypted to the key it replaced then decrypts for nobody, so what
+that buys is denial of service rather than disclosure.
 
-It decrypts nothing on its own, though, and where the store sits is what decides
-whether that matters. `faramir_secrets_dir` is inside the operator's home, which
-is encrypted, so someone holding the drive has the key and nothing it opens.
+The key lives beside the config, which means inside `faramir_config_dir` and so
+inside the operator's encrypted home. That is the whole of the at-rest story: the
+store is in there too, so a powered-off disk carries neither the ciphertext nor
+the key that opens it. `/etc/faramir` is gone once a run has moved the key out of
+it.
 
-`/etc/faramir` holds that one file and nothing else: the config and the store
-moved into the home, and the key deliberately did not follow them. Per-user
-encryption unlocks at login while the keeper starts at boot, and the agent runs
-as the operator, so a key in that home is one it could replace even though
-`0400` stops it being read.
+It holds only while both stay there. Point `faramir_config_dir` at an
+unencrypted filesystem and the key and the store are back on the same ordinary
+disk, at which point full-disk encryption is the answer, and it covers the audit
+log and swap as well.
 
-That holds only while the store stays there. Point `faramir_secrets_dir` at an
-unencrypted filesystem and both files sit on the same disk again, at which point
-full-disk encryption is the answer, and it covers the audit log and swap as well.
+Nothing starts the keeper at boot: its unit is triggered only by its socket, so
+a key in a home is read after login, which is when the home is there.
 
 ## Authorizing the broker on the fleet
 

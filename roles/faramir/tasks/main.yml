@@ -92,6 +92,77 @@
     fail_msg: "sops is not installed. It comes from the dev role: make dev -- --tags sops"
     quiet: true
 
+# CLEANUP (added 2026-08-08): the age key used to sit at a fixed
+# /etc/faramir/age.key whatever config directory was asked for. It follows the
+# config now, which is what puts it inside the encrypted home the store is
+# already in, so a powered-off disk carries neither.
+#
+# Before the install, and this is the ordering that matters: init mints a key
+# when it finds none at the path it expects, so a run that reached it first
+# would leave a brand-new identity beside the config, a .sops.yaml naming it,
+# and a store still encrypted to the key at the old path that nothing now reads.
+#
+# Copied and verified before the original is removed, and never generated: this
+# is the one file whose loss cannot be recovered from, because the store is
+# encrypted to it and there is no second copy. Delete once no host has one.
+- name: Look for an age key at the old path
+  ansible.builtin.stat:
+    path: /etc/faramir/age.key
+    checksum_algorithm: sha256
+  register: faramir_old_age_key
+  become: true
+
+- name: Move the age key beside the config
+  when:
+    - faramir_old_age_key.stat.exists
+    - faramir_config_dir != '/etc/faramir'
+  become: true
+  block:
+    # init would create this itself, but it has not run yet: the key has to be
+    # in place before it looks for one.
+    - name: Create the config directory to move the age key into
+      ansible.builtin.file:
+        path: "{{ faramir_config_dir }}"
+        state: directory
+        owner: "{{ faramir_config_owner }}"
+        group: "{{ faramir_config_owner }}"
+        mode: "0755"
+
+    # force: false so a key already at the new path is never overwritten. If one
+    # is there and differs, the checksum below refuses and both are left alone,
+    # which is the only safe answer: this task cannot know which of the two the
+    # store is encrypted to.
+    - name: Copy the age key beside the config
+      ansible.builtin.copy:
+        src: /etc/faramir/age.key
+        dest: "{{ faramir_config_dir }}/age.key"
+        remote_src: true
+        owner: "{{ faramir_keeper_user }}"
+        group: "{{ faramir_keeper_user }}"
+        mode: "0400"
+        force: false
+
+    - name: Read back what was copied
+      ansible.builtin.stat:
+        path: "{{ faramir_config_dir }}/age.key"
+        checksum_algorithm: sha256
+      register: faramir_new_age_key
+
+    - name: Require the copy to match before the original is removed
+      ansible.builtin.assert:
+        that: faramir_new_age_key.stat.checksum == faramir_old_age_key.stat.checksum
+        fail_msg: >-
+          {{ faramir_config_dir }}/age.key does not match the key at
+          /etc/faramir/age.key. Nothing has been removed. Compare them by hand:
+          the store is encrypted to one of them, and deleting that one loses
+          every managed secret retroactively.
+        quiet: true
+
+    - name: Remove the age key from the old path
+      ansible.builtin.file:
+        path: /etc/faramir/age.key
+        state: absent
+
 # Downloaded rather than built from a checkout: init copies the binaries it is
 # given into /usr/local/bin and carries the units, the config, the hook and the
 # docs inside them, so the controller needs no source layout and no Go
@@ -319,10 +390,10 @@
 # config that disagrees with the running one and reads as authoritative to
 # anyone who finds it first. Delete once every controller has run this.
 #
-# Named rather than globbed, and the directory is never removed: /etc/faramir
-# still holds age.key and age.key.cred, which are the one thing here that must
-# survive every cleanup. Deleting the key makes every managed file unreadable
-# retroactively.
+# Named rather than globbed. The directory goes only once it is empty, and only
+# after the age key has been moved out of it by the task above: deleting that key
+# makes every managed file unreadable retroactively, so nothing here removes
+# /etc/faramir wholesale.
 - name: Look for a config left in the old location
   ansible.builtin.find:
     paths: /etc/faramir
@@ -343,6 +414,29 @@
   loop_control:
     label: "{{ item }}"
   when: faramir_config_dir != '/etc/faramir'
+
+- name: Look for anything still in the old location
+  ansible.builtin.find:
+    paths: /etc/faramir
+    hidden: true
+    file_type: any
+  register: faramir_old_etc
+  failed_when: false
+  changed_when: false
+  become: true
+  when: faramir_config_dir != '/etc/faramir'
+
+# Emptiness is checked rather than assumed: state=absent on a directory is
+# recursive, and this one held the age key until a run moved it out.
+- name: Remove the old location once nothing is left in it
+  ansible.builtin.file:
+    path: /etc/faramir
+    state: absent
+  when:
+    - faramir_config_dir != '/etc/faramir'
+    - faramir_old_etc.files is defined
+    - faramir_old_etc.files | length == 0
+  become: true
   become: true
 
 # CLEANUP (added 2026-08-08): faramir used to create a second account for the
