@@ -18,6 +18,10 @@ faramir_bin_dir: "{{ faramir_src_dir }}/bin"
 # be set differently. The role's own share of the work afterwards is the two
 # things that belong to this project rather than to faramir: which sops files
 # the broker manages, and how a brokered playbook is run.
+#
+# No tree is named here. init provisions the host; enrolling a tree is
+# `faramir init-project`, which is per project and reads the shared group out of
+# the config init installed rather than being told it a second time.
 faramir_init_argv: >-
   {{
     [faramir_bin_dir ~ '/faramir', 'init', '--json',
@@ -28,8 +32,7 @@ faramir_init_argv: >-
      '--exec-user', faramir_exec_user,
      '--config-dir', faramir_config_dir,
      '--secrets-dir', faramir_secrets_dir,
-     '--binaries', faramir_bin_dir,
-     '--share-tree', faramir_worktree]
+     '--binaries', faramir_bin_dir]
     + (['--operator-age-key', faramir_operator_age_key]
        if faramir_operator_age_key | length > 0 else [])
     + (['--ssh-key', faramir_broker_ssh_key]
