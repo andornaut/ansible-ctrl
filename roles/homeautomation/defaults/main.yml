@@ -92,8 +92,8 @@ homeautomation_hamcp_token: ""
 # (systemd-coredump on Ubuntu), so the container is given this uid:gid instead.
 # It bind-mounts nothing, so the account owns no paths; the point is that the
 # process does not carry an unrelated system account's identity.
-homeautomation_hamcp_uid: "10008"
-homeautomation_hamcp_gid: "10008"
+homeautomation_hamcp_uid: "10003"
+homeautomation_hamcp_gid: "10003"
 homeautomation_install_hamcp: false
 
 # Govee2mqtt
@@ -142,16 +142,16 @@ homeautomation_llamacpp_required_volumes:
   cache: /var/docker-volumes/homeautomation/llamacpp/cache
 # The image's default user is root, but GPU access comes from the render and
 # video groups rather than the uid, so it is run as this uid:gid.
-homeautomation_llamacpp_uid: "10003"
-homeautomation_llamacpp_gid: "10003"
+homeautomation_llamacpp_uid: "10004"
+homeautomation_llamacpp_gid: "10004"
 
 # Matter.js
 homeautomation_matterjs_docker_image: ghcr.io/matter-js/matterjs-server:stable
 # The image's own user is 1000:1000, which is the operator's uid on the host,
 # so the container is given this uid:gid instead. Its data directory holds the
 # Matter fabric credentials.
-homeautomation_matterjs_uid: "10004"
-homeautomation_matterjs_gid: "10004"
+homeautomation_matterjs_uid: "10005"
+homeautomation_matterjs_gid: "10005"
 homeautomation_matterjs_required_volumes:
   data: /var/docker-volumes/homeautomation/matterjs/data
 
@@ -210,8 +210,8 @@ homeautomation_openwebui_required_volumes:
   data: /var/docker-volumes/homeautomation/openwebui/data
 # The image declares USER 0:0, but the server only reads and writes its data
 # dir, so it is run as this uid:gid and the dir is chowned to match.
-homeautomation_openwebui_uid: "10005"
-homeautomation_openwebui_gid: "10005"
+homeautomation_openwebui_uid: "10006"
+homeautomation_openwebui_gid: "10006"
 
 # Piper
 homeautomation_piper_command: "--data-dir /data --voice en_US-amy-medium"
@@ -221,8 +221,8 @@ homeautomation_piper_required_volumes:
 homeautomation_piper_port: 10200
 # The image's default user is root, but the server only reads and writes its
 # data dir, so it is run as this uid:gid and the dir is chowned to match.
-homeautomation_piper_uid: "10006"
-homeautomation_piper_gid: "10006"
+homeautomation_piper_uid: "10007"
+homeautomation_piper_gid: "10007"
 
 # Whisper
 homeautomation_whisper_command: "--data-dir /data --language en --model tiny-int8"
@@ -233,5 +233,5 @@ homeautomation_whisper_port: 10300
 # The image's default user is root, but the server only reads and writes its
 # data dir (the HuggingFace model cache), so it is run as this uid:gid and the
 # dir is chowned to match.
-homeautomation_whisper_uid: "10007"
-homeautomation_whisper_gid: "10007"
+homeautomation_whisper_uid: "10008"
+homeautomation_whisper_gid: "10008"
