@@ -117,7 +117,7 @@ Where things live and why:
 
 [faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is worth reading before trusting it.
 
-1. **Install sops**, which the [dev](roles/dev/README.md) role provides: `make dev`. The faramir binaries are downloaded from a release, so no faramir checkout and no Go toolchain are needed.
+1. **Install sops**, which the [dev](roles/dev/README.md) role provides: `make dev`. The faramir binary is downloaded from a release, so no faramir checkout and no Go toolchain are needed.
 2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this target asks for a sudo password.
 3. **Log out and back in.** The install adds you to the `dev` group and group membership is read at login. Until then the broker refuses your connections.
 4. **Check what it loaded.** A ref count of zero is a failure, not a fresh start: the broker is running and protecting nothing.

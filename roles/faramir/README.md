@@ -75,11 +75,13 @@ What belongs to this project rather than to faramir:
 | `faramir doctor` and its assert | the run has to fail when the result does not work, and a playbook is what fails |
 | `CLEANUP` tasks | faramir installs and never migrates; a repair built into `init` could not know when every host had run it |
 
-### Binaries
+### The binary
 
-faramir's CI cuts a `dev` release on every push to its `main`, publishing one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive its architecture selects into a temp directory, unpacks it, hands the directory to `init`, and removes it: what is installed is what `init` copied into `/usr/local/bin`. One ~23MB archive a run, no Go toolchain and no faramir checkout on the controller. Everything else (units, base config, agent hook, docs) is embedded in the binaries.
+faramir ships one executable. The three daemons, the MCP server and the PreToolUse hook are subcommands of it (`faramir broker`, `keeper`, `exec`, `mcp`, `guard`), and what separates the roles is the `User=` each unit runs its subcommand as, not which file it came from. `/usr/local/libexec/faramir/` still holds the hook's deny list and wrap script, rendered per install, but no binary.
 
-`get_url` verifies the archive against `checksums.txt` from the same release. `dev` is deleted and re-cut on every push, so a download straddling a re-cut fails the checksum rather than installing one build's binaries as another's.
+faramir's CI cuts a `dev` release on every push to its `main`, publishing one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive its architecture selects into a temp directory, unpacks it, hands the directory to `init`, and removes it: what is installed is what `init` copied into `/usr/local/bin`. One ~7MB archive a run, no Go toolchain and no faramir checkout on the controller. Everything else (units, base config, agent hook, docs) is embedded in the binary.
+
+`get_url` verifies the archive against `checksums.txt` from the same release. `dev` is deleted and re-cut on every push, so a download straddling a re-cut fails the checksum rather than installing a build that does not match what was verified.
 
 `faramir_arch` maps the kernel name onto the asset's: `x86_64` stays, `aarch64` becomes `arm64`. The kernel is not mapped, faramir being linux-only: the broker reads peer credentials with `SO_PEERCRED` and the executor allocates PTYs with `TIOCGPTN`.
 

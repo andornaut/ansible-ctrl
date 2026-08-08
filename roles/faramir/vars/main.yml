@@ -23,9 +23,11 @@ faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 faramir_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# One archive per platform, holding all six binaries. init installs five of them
-# into /usr/local/bin and puts faramir-guard, the PreToolUse hook, in libexec
-# instead, but its preflight demands all six and names the ones it cannot find.
+# One archive per platform, holding one binary. The three daemons, the MCP
+# server and the PreToolUse hook are subcommands of it: what separates them is
+# the uid each systemd unit runs its subcommand as. init installs it into
+# /usr/local/bin, and libexec holds the hook's deny list and wrap script but no
+# binary.
 #
 # Linux only, and unmapped for that reason: the broker reads peer credentials
 # with SO_PEERCRED and the executor allocates PTYs with TIOCGPTN, so faramir
@@ -33,8 +35,10 @@ faramir_arch: >-
 faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 
 # Where the archive is unpacked, and what init is handed as --binaries: a
-# directory holding what came out of it and nothing else. faramir_staging.path is
-# the temp directory the install block registers, so this resolves only in there.
+# directory holding what came out of it and nothing else. Still a directory
+# rather than the file, because that is what init takes and what it defaults to
+# from its own path. faramir_staging.path is the temp directory the install block
+# registers, so this resolves only in there.
 faramir_binaries_dir: "{{ faramir_staging.path }}/binaries"
 
 # The whole invocation, assembled once. An argv list rather than a command
