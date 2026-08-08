@@ -240,7 +240,7 @@
 # that has to be shared.
 #
 # Re-asserted every run like the phases around it, and reporting no change: it
-# sets a group, setgid bits and an ACL that are already what they should be on
+# sets a group, setgid bits and a mode that are already what they should be on
 # every run after the first.
 - name: Share this project's checkout with the service accounts
   ansible.builtin.command:
@@ -277,8 +277,9 @@
       it must exist before the broker is installed. It is meant to be your own
       checkout:
       git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then re-run: faramir share-tree applies the group, the setgid bits and,
-      for a tree inside your home, the ACL that lets the executor reach it.
+      Then re-run: faramir share-tree applies the group and the setgid bits,
+      and for a tree inside your home makes every directory down to it
+      group-executable so the executor can reach it.
     quiet: true
 
 # As faramir_user for the same reason as the build, and with more at stake: under
@@ -355,8 +356,7 @@
   block:
     # Before phase 2, which writes .sops.yaml into it. Group dev and setgid so
     # sops edits it in place without sudo and the keeper can read what lands
-    # there; the home already carries that uid's traversal ACL, so nothing
-    # further is needed to reach it.
+    # there.  Under /etc rather than a home, so no traversal is involved.
     - name: Create the secrets directory
       ansible.builtin.file:
         path: "{{ faramir_secrets_dir }}"
