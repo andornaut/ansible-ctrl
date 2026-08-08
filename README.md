@@ -111,7 +111,7 @@ the same names to a command that never sees them:
 faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'
 ```
 
-`faramir.env` holds no values, only `secret://` references, and is gitignored anyway: those
+`faramir.env` holds no values, only `secret://` references, and is gitignored: those
 references map this repo's variable names onto the secret store's layout. Adding a credential is
 four edits: the value into the sops file, the `lookup('env', ...)` mapping into
 `group_vars/all/vars.yml`, the ref into `faramir.env`, and the reference into `host_vars/`.
@@ -121,7 +121,7 @@ The certificate renewal cron is the third path, and wraps itself.
 `ansible-playbook` under `sops exec-env` directly rather than through `make`, which would add
 `--ask-become-pass` on a run that reaches the controller and leave cron with a prompt and no
 terminal. It decrypts with `/etc/faramir/age.key`, the keeper's, which is already a recipient and
-which root can read anyway.
+which root can read.
 
 **Why the file is under `/etc` and not in this repo.** An encrypted home is not mounted at boot or
 under cron, which is exactly when the broker and the renewal job need it, and `/etc` keeps the
@@ -130,17 +130,16 @@ ciphertext out of a directory Ansible auto-loads. `/etc/faramir/secrets` is `277
 detail on both.
 
 The encrypted file and the age identity both need a backup and neither is in git. Both are covered
-by rsnapshot today: it takes `/etc/` and `~/.config/`. Note that this puts the key and the
-ciphertext it opens in the same snapshot.
+by rsnapshot: it takes `/etc/` and `~/.config/`. Note that this puts the key and the ciphertext it
+opens in the same snapshot.
 
 ## Getting started with the secret broker
 
 [faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any
 plaintext value entering a coding agent's context. Installing it is an operator action against the
-controller and Ansible never needs it in order to run, so none of the above depends on this. The
-[faramir role](roles/faramir/README.md) installs it; faramir's own
-[README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is
-worth reading before trusting it.
+controller, and Ansible never needs it in order to run. The [faramir role](roles/faramir/README.md)
+installs it; faramir's own [README](https://github.com/andornaut/faramir#readme) explains what it
+protects against, which is worth reading before trusting it.
 
 **1. Clone faramir beside this repo** and make sure the [dev](roles/dev/README.md) role has run,
 which is what installs Go and sops:
