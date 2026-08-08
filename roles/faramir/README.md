@@ -258,7 +258,7 @@ an ordinary file that decrypts every managed secret retroactively, and nothing
 in faramir encrypts a disk.
 
 So the role seals it to this host's TPM and drops in a
-`LoadEncryptedCredential=` for the keeper. The keeper is unchanged by this: the
+`LoadCredentialEncrypted=` for the keeper. The keeper is unchanged by this: the
 credential keeps the name `age_key`, so it reads the same path under
 `$CREDENTIALS_DIRECTORY` and never learns which source filled it. The plaintext
 then exists only in the unit's credential directory, on tmpfs, readable by that
