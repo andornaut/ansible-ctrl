@@ -12,27 +12,30 @@ faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 faramir_config_owner: "{{ faramir_user if faramir_config_dir.startswith(faramir_user_home + '/') else 'root' }}"
 
 # Where the binaries are downloaded from. `dev` is a rolling release, deleted and
-# re-cut by CI on every push to faramir's main, holding the six binaries as bare
-# assets. Switching to a tagged release means changing more than this name:
-# goreleaser publishes one tar.gz per platform plus a checksums.txt, so the fetch
-# below becomes an unarchive with a checksum to verify against. faramir has no
-# v tag yet, so this is the only thing there is to install.
-#
-# amd64 only: CI builds the dev assets once, on an x86_64 runner, and the names
-# carry no architecture. Asserted in tasks/main.yml rather than mapped, because
-# there is no arm64 asset to map to.
+# re-cut by CI on every push to faramir's main. Its assets are named and laid out
+# exactly as goreleaser names the ones a tagged release publishes, so moving to a
+# tag means changing this URL and nothing else. faramir has no v tag yet.
 faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 
-# Every binary init needs. It installs five of them into /usr/local/bin and puts
-# faramir-guard, the PreToolUse hook, in libexec instead, but its preflight
-# demands all six and names the ones it cannot find.
-faramir_release_binaries:
-  - faramir
-  - faramir-broker
-  - faramir-keeper
-  - faramir-exec
-  - faramir-mcp
-  - faramir-guard
+# Architecture name in the release asset, which is goreleaser's rather than
+# Debian's: x86_64 is kept and aarch64 maps to arm64. Same mapping as base_arch,
+# which reads the gog and mrs assets from the same CI.
+faramir_arch: >-
+  {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
+# One archive per platform, holding all six binaries. init installs five of them
+# into /usr/local/bin and puts faramir-guard, the PreToolUse hook, in libexec
+# instead, but its preflight demands all six and names the ones it cannot find.
+#
+# Linux only, and unmapped for that reason: the broker reads peer credentials
+# with SO_PEERCRED and the executor allocates PTYs with TIOCGPTN, so faramir
+# builds for no other kernel and there is nothing for a system fact to select.
+faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
+
+# Where the archive is unpacked, and what init is handed as --binaries: a
+# directory holding what came out of it and nothing else. faramir_staging.path is
+# the temp directory the install block registers, so this resolves only in there.
+faramir_binaries_dir: "{{ faramir_staging.path }}/binaries"
 
 # The whole invocation, assembled once. An argv list rather than a command
 # string: paths here come from the inventory and a shell-quoted string would
@@ -47,12 +50,12 @@ faramir_release_binaries:
 # `faramir init-project`, which is per project and reads the shared group out of
 # the config init installed rather than being told it a second time.
 #
-# faramir_staging.path is the directory the download task registers. Resolved
-# where this is used rather than here, so it is only ever read inside the block
-# that created it.
+# faramir_binaries_dir hangs off the temp directory the install block registers.
+# Resolved where this is used rather than here, so it is only ever read inside
+# the block that created it.
 faramir_init_argv: >-
   {{
-    [faramir_staging.path ~ '/faramir', 'init', '--json',
+    [faramir_binaries_dir ~ '/faramir', 'init', '--json',
      '--operator', faramir_user,
      '--group', faramir_dev_group,
      '--broker-user', faramir_broker_user,
@@ -60,7 +63,7 @@ faramir_init_argv: >-
      '--exec-user', faramir_exec_user,
      '--config-dir', faramir_config_dir,
      '--secrets-dir', faramir_secrets_dir,
-     '--binaries', faramir_staging.path]
+     '--binaries', faramir_binaries_dir]
     + (['--operator-age-key', faramir_operator_age_key]
        if faramir_operator_age_key | length > 0 else [])
     + (['--ssh-key', faramir_broker_ssh_key]

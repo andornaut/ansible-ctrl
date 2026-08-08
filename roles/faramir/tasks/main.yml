@@ -41,15 +41,6 @@
     quiet: true
   tags: always
 
-- name: Require an architecture the dev release is built for
-  ansible.builtin.assert:
-    that: ansible_facts['architecture'] == 'x86_64'
-    fail_msg: >-
-      The faramir dev release ships amd64 binaries only, and this host is
-      {{ ansible_facts['architecture'] }}. Build from source there, or install
-      from a tagged release once faramir publishes one.
-    quiet: true
-
 # The tree brokered commands run in is the checkout this play was run from, so
 # playbook_dir names it and no variable can point somewhere the operator does not
 # actually work. That path is the controller's, and it is the target's too only
@@ -170,7 +161,7 @@
 #
 # Staged in a temp directory rather than kept: what is installed is what init
 # copied, and a directory of binaries left behind is a second copy that nothing
-# updates. 23MB a run is the cost.
+# updates. One archive of ~23MB a run is the cost.
 - name: Install faramir from the dev release
   block:
     - name: Create a temporary directory for the faramir binaries
@@ -182,14 +173,15 @@
       # against, and all of this lands in a directory the always: below removes.
       check_mode: false
 
-    - name: Download the faramir binaries
+    - name: Download the faramir release archive
       ansible.builtin.get_url:
-        url: "{{ faramir_release_url }}/{{ item }}"
-        dest: "{{ faramir_staging.path }}/{{ item }}"
-        mode: "0755"
-      loop: "{{ faramir_release_binaries }}"
-      loop_control:
-        label: "{{ item }}"
+        url: "{{ faramir_release_url }}/{{ faramir_release_archive }}"
+        dest: "{{ faramir_staging.path }}/{{ faramir_release_archive }}"
+        # checksums.txt is fetched from the same release and matched by asset
+        # name. `dev` is a moving tag, so a download that straddles a re-cut
+        # fails here rather than installing one build's binaries as another's.
+        checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
+        mode: "0644"
       # A fresh temp directory means every download is a new file, so this would
       # report changed on every run. What changed on the host is what init says
       # below, which compares each binary against the installed one.
@@ -201,6 +193,24 @@
       until: faramir_download is succeeded
       retries: 3
       delay: 5
+
+    # A directory of its own, so what init is handed as --binaries is what the
+    # archive held and not the archive as well. unarchive does not create it.
+    - name: Create the directory to unpack the binaries into
+      ansible.builtin.file:
+        path: "{{ faramir_binaries_dir }}"
+        state: directory
+        mode: "0755"
+      check_mode: false
+
+    - name: Unpack the faramir binaries
+      ansible.builtin.unarchive:
+        src: "{{ faramir_staging.path }}/{{ faramir_release_archive }}"
+        dest: "{{ faramir_binaries_dir }}"
+        remote_src: true
+        mode: "0755"
+      changed_when: false
+      check_mode: false
 
     # The whole install, in one command. It is idempotent and reports per step,
     # so the changed state below is what it says rather than something inferred
