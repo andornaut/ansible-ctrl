@@ -493,13 +493,20 @@
   register: faramir_settings_dist
   failed_when: false
 
-# No owner, group or mode: the file is the operator's and this is the one task
-# that rewrites it while become is in force, so naming any of them is how it
-# would come back owned by root. Ansible keeps what the destination had.
+# No owner or group: the file is the operator's and this is the one task that
+# rewrites it while become is in force, so naming either is how it would come
+# back owned by root. Ansible keeps what the destination had.
+#
+# The mode is named, and 0600 is what it already is: the file can hold an API
+# key in its env block, and both things that write it -- Claude Code and faramir
+# init -- create it that way. Leaving it unset would rely on the destination
+# existing to inherit from, which the when: below does guarantee, but a mode
+# that has to be reasoned about is one ansible-lint is right to ask for.
 - name: Reconcile the operator's agent settings with what faramir ships
   ansible.builtin.template:
     src: claude-settings.json.j2
     dest: "{{ faramir_user_home }}/.claude/settings.json"
+    mode: "0600"
     backup: true
   vars:
     settings: "{{ faramir_settings_raw.content | b64decode | from_json }}"
