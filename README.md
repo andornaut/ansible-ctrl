@@ -111,9 +111,10 @@ reached the environment would apply blank credentials and report success.
 
 The split keeps `host_vars/` readable and diffable while the values are encrypted at rest, and it
 means a value only ever reaches a play through the environment. Two things put it there. `make`
-wraps itself in `sops exec-env` when the values are not already loaded, which needs the age
-identity at `~/.config/sops/age/keys.txt`. The [faramir](roles/faramir/README.md) broker supplies
-the same names to a command that never sees them:
+wraps itself in `sops exec-env` when the values are not already loaded, which needs the operator's
+age identity at `~/.config/sops/age/keys.txt`, or, for a run that is already root, the keeper's at
+`/etc/faramir/age.key`, which the Makefile names for it. The [faramir](roles/faramir/README.md)
+broker supplies the same names to a command that never sees them:
 
 ```bash
 faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'
@@ -126,10 +127,10 @@ four edits: the value into the sops file, the `lookup('env', ...)` mapping into
 
 The certificate renewal cron is the third path, and wraps itself.
 [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs
-`ansible-playbook` under `sops exec-env` directly rather than through `make`, which would add
-`--ask-become-pass` on a run that reaches the controller and leave cron with a prompt and no
-terminal. It decrypts with `/etc/faramir/age.key`, the keeper's, which is already a recipient and
-which root can read.
+`ansible-playbook` under `sops exec-env` directly rather than through `make`, because every make
+target depends on the `requirements` stamp: a root cron would run `ansible-galaxy install` into
+`.ansible/` inside the operator's home and leave root-owned files there. It decrypts with
+`/etc/faramir/age.key`, the keeper's, which is already a recipient and which root can read.
 
 **Why the file is under `/etc` and not in this repo.** An encrypted home is not mounted at boot or
 under cron, which is exactly when the broker and the renewal job need it, and `/etc` keeps the

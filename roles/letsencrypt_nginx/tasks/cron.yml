@@ -8,15 +8,14 @@
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
-    # Wrapped in sops exec-env, because credentials reach a play through the environment: a bare
-    # ansible-playbook leaves every lookup('env', ...) empty, and an empty one is not an error, so
-    # the run would reach the DNS challenge before failing rather than refusing to start. The
-    # wildcard certificates need dns-01, which needs the Cloudflare token, so this is not a job
-    # that can do without credentials.
+    # Wrapped in sops exec-env, because credentials reach a play through the environment: without
+    # it the Cloudflare token is undefined and the run fails naming it. The wildcard certificates
+    # need dns-01, which needs that token, so this is not a job that can do without credentials.
     #
-    # sops rather than make, which is the operator's entry point: make adds --ask-become-pass when
-    # a run reaches the controller, and cron has no terminal to answer it on. Root's own ~ is
-    # /root, so the key is named explicitly rather than left to sops to find.
+    # sops rather than make: every make target depends on the requirements stamp, so this would run
+    # ansible-galaxy install as root into .ansible/ inside the operator's home and leave root-owned
+    # files there. Root's own ~ is /root, so the key is named explicitly rather than left to sops to
+    # find.
     #
     # The sops file and the age key are outside the homes, but the checkout this runs from is not:
     # cron has no session, so if the operator is logged out an encrypted home is not mounted and
