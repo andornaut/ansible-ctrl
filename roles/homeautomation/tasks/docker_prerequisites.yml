@@ -16,7 +16,11 @@
 - name: Check that the service account uids are distinct
   ansible.builtin.assert:
     that:
-      - service_account_uids | length == service_account_uids | unique | length
+      # Compared as strings: the defaults are quoted, but a host_vars override
+      # written unquoted is an int, and unique would treat 10006 and "10006" as
+      # two values, passing the collision this exists to catch.
+      - service_account_uids | map('string') | length
+        == service_account_uids | map('string') | unique | length
     fail_msg: >-
       Two services are configured with the same uid, so they would share their
       files: {{ homeautomation_service_account_uids }}.

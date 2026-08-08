@@ -32,17 +32,31 @@
       ansible.builtin.import_tasks: avahi.yml
       when: homeautomation_install_avahi
 
-    - name: Disable host Avahi daemon when not needed
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        state: stopped
-        enabled: false
-      become: true
+    # Ubuntu Server does not ship avahi-daemon, and systemd_service fails on a
+    # unit it cannot find whenever enabled is set, so a host that never had it
+    # would abort here before any container is configured.
+    - name: Check for the host Avahi units
+      ansible.builtin.stat:
+        path: "/usr/lib/systemd/system/{{ item }}"
+      register: homeautomation_avahi_units
       loop:
-        # Stop the socket first, b/c it can spawn the service
         - avahi-daemon.socket
         - avahi-daemon.service
       when: not homeautomation_install_avahi
+
+    - name: Disable host Avahi daemon when not needed
+      ansible.builtin.systemd_service:
+        name: "{{ item.item }}"
+        state: stopped
+        enabled: false
+      become: true
+      # Stop the socket first, b/c it can spawn the service
+      loop: "{{ homeautomation_avahi_units.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when:
+        - not homeautomation_install_avahi
+        - item.stat.exists | default(false)
 
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
