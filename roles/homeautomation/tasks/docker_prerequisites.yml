@@ -9,6 +9,15 @@
     - group
     - passwd
 
+# The ESPHome uid and gid defaults index this entry, and the assert below
+# dereferences them, so it is taken from the database read above rather than
+# from a keyed getent in docker_esphome.yml. A keyed read replaces the whole
+# getent_passwd fact, and the service_account.yml calls that follow it check a
+# uid against that fact and would find an empty database.
+- name: Keep the passwd entry for the ESPHome account
+  ansible.builtin.set_fact:
+    homeautomation_esphome_passwd: "{{ ansible_facts['getent_passwd'][homeautomation_esphome_user] }}"
+
 # The getent facts above are read once, so an account service_account.yml
 # creates is invisible to the next caller's check and two services configured
 # with the same uid would silently come to share their files. Compared here,
