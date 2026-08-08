@@ -82,7 +82,6 @@ IS_ROOT := $(filter 0,$(shell id -u))
 OPERATOR := $(if $(SUDO_USER),$(SUDO_USER),$(shell id -un))
 OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
-SECRETS_DIR := $(dir $(SOPS_FILE))
 
 # sops looks for an identity under $HOME, which is /root for a root run, so it
 # would find none. The keeper's key is already a recipient and root can read it
@@ -92,11 +91,34 @@ ifdef IS_ROOT
 export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.faramir/age.key
 endif
 
+# The runs that read a secret_* variable. Only these re-enter under sops; the
+# rest reach no credential and must not be stopped for want of one.
+#
+#   homeautomation  the role's own defaults and tasks
+#   msmtp           msmtp_password, set for every host
+#   webservers      cloudflare_api_token and basicauth_password
+#
+# A list rather than something derived from the run. A credential reaches a play
+# through host_vars, which ansible templates lazily, so `msmtp_password` is set
+# on every host here and costs nothing until the msmtp role reads it. Grepping
+# host_vars therefore answers yes for every run, and grepping the roles in the
+# run answers no for msmtp and webservers, whose roles name a plain variable
+# that host_vars happens to bind to a secret. Telling the two apart means
+# resolving which variables each role reads, which is not a thing make can do.
+#
+# So: giving a playbook its first credential means adding it here.
+SECRET_PLAYBOOKS := homeautomation msmtp webservers
+
 # Re-enter under sops exec-env when the values are not in the environment yet.
-# SECRETS_LOADED marks the inner half; SECRETS=none skips it for a playbook that
-# needs no credential. An absent SOPS_FILE still makes it a no-op, but the
-# recipe decides that, not $(wildcard): see the assertion below.
-LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,1)
+# SECRETS_LOADED marks the inner half; SECRETS=none skips it for a run that
+# turns out to need no credential, a --tags run being the usual reason.
+LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter $*,$(SECRET_PLAYBOOKS)))
+
+# SECRETS=none has to reach the play as well as the re-entry above. A
+# secret-bearing playbook asserts in pre_tasks that credentials were injected,
+# and this is the operator saying this run reads none, so the assert is the one
+# thing that must not outlive the decision to skip the injection.
+SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
 
 # Prompt for a become password only when the run reaches the controller, the one
 # host whose sudo asks for one. Asked of ansible rather than assumed, so a
@@ -128,33 +150,37 @@ $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   done)))
 endef
 
-# A store that cannot be read is an error; only one that is genuinely absent is a
-# no-op. The two are indistinguishable to $(wildcard), which reports nothing for
-# both, and running anyway leaves every secret_* variable undefined: the first
-# task to use one fails after the tasks before it have applied, which for a
-# container means it is removed and not recreated.
+# A secret-bearing run whose store cannot be read is stopped rather than
+# attempted. Every secret_* variable would be undefined, and the first task to
+# read one fails with the tasks before it already applied, which for a container
+# means it is removed and not recreated. Absent and unreadable are not told
+# apart, because for these playbooks either one ends the same way.
 #
-# The file is unreadable when it exists but cannot be opened, and also when the
-# directory holding it cannot be searched, since then whether it exists cannot be
-# established either. SECRETS_DIR is stat-able whatever its mode, its own parent
-# being the operator's home.
+# The store belongs to a group the operator is not in, so the two accounts that
+# can serve such a run are root and the broker's executor, and neither covers the
+# whole fleet: root reads the store but has no key for any host it must reach
+# over ssh, and the executor authenticates everywhere but has no sudo on the
+# controller, deliberately. So the message names both and leaves the --limit to
+# the operator rather than guessing at one.
 #
 # The `--` is repeated on the re-entry for the same reason it is required on the
 # way in: the inner make parses ARGS as its own options and rejects the first
-# --flag among them. Without it, forwarding works only while SOPS_FILE is absent.
+# --flag among them.
 $(PLAYBOOKS): %: requirements
-	@if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ] \
-	    && { [ -e "$(SOPS_FILE)" ] \
-	         || { [ -d "$(SECRETS_DIR)" ] && [ ! -x "$(SECRETS_DIR)" ]; }; }; then \
+	@if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
+	   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts) | head -1); \
 	   echo "$(SOPS_FILE): not readable by $(OPERATOR)" >&2; \
-	   echo "Refusing to run: every secret_* variable would be undefined, and the" >&2; \
-	   echo "first task to use one fails with the tasks before it already applied." >&2; \
-	   echo "Run it as root, or through the broker:" >&2; \
-	   echo "  faramir run --env-file faramir.env -- ansible-playbook $*.yml $(ARGS)" >&2; \
+	   echo "Refusing to run $*.yml: every secret_* variable would be undefined," >&2; \
+	   echo "and the first task to read one fails with the tasks before it already" >&2; \
+	   echo "applied. Run it as root, which reads the store:" >&2; \
+	   echo "  sudo make $* -- --limit $$controller$(if $(ARGS), $(ARGS))" >&2; \
+	   echo "or through the broker, for every host but the controller:" >&2; \
+	   echo "  faramir run --env-file faramir.env -- \\" >&2; \
+	   echo "      ansible-playbook $*.yml --limit '!faramir'$(if $(ARGS), $(ARGS))" >&2; \
 	   exit 1; \
 	 fi; \
-	 if [ -n "$(LOAD_SECRETS)" ] && [ -r "$(SOPS_FILE)" ]; then \
+	 if [ -n "$(LOAD_SECRETS)" ]; then \
 	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)'; \
 	 else \
-	   ansible-playbook $(call become_flag,$*) $*.yml $(ARGS); \
+	   ansible-playbook $(call become_flag,$*) $(SECRETS_FLAG) $*.yml $(ARGS); \
 	 fi
