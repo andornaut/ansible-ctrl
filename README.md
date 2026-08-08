@@ -30,8 +30,8 @@ for a password: either it is in the play's host list, or a role in the run has a
 since sudo asks root for nothing.
 
 Tags that are not playbooks are run through the playbook that owns them, e.g. `make dev -- --tags
-ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, which applies to hosts in the
-`ai_maintainer` group.
+ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, which is gated on
+`dev_install_ai_maintainer`.
 
 ## Roles
 
