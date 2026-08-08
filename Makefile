@@ -85,9 +85,10 @@ SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
 
 # sops looks for an identity under $HOME, which is /root for a root run, so it
 # would find none. The keeper's key is already a recipient and root can read it
-# whatever its mode. ?= leaves an operator-set value alone.
+# whatever its mode. It sits beside the store, so it is resolved from the
+# operator's home the same way. ?= leaves an operator-set value alone.
 ifdef IS_ROOT
-export SOPS_AGE_KEY_FILE ?= /etc/faramir/age.key
+export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.faramir/age.key
 endif
 
 # Re-enter under sops exec-env when the values are not in the environment yet.

@@ -1,6 +1,7 @@
 ---
-# The store is in the operator's home, and this job runs as root, so the path has to be
-# resolved rather than assumed: root's own ~ is /root, and a home is not always /home/<user>.
+# The store and the age key are in the operator's home, and this job runs as root, so their
+# paths have to be resolved rather than assumed: root's own ~ is /root, and a home is not
+# always /home/<user>.
 - name: Read the operator's passwd entry
   ansible.builtin.getent:
     database: passwd
@@ -29,9 +30,9 @@
     # files there. Root's own ~ is /root, so the key is named explicitly rather than left to sops to
     # find.
     #
-    # The sops file and the age key are outside the homes, but the checkout this runs from is not:
-    # cron has no session, so if the operator is logged out an encrypted home is not mounted and
-    # the directory does not exist. The preflight below is what turns that from silence into mail.
+    # The checkout, the sops file and the age key are all in the operator's home: cron has no
+    # session, so if the operator is logged out an encrypted home is not mounted and none of the
+    # three exists. The preflight below is what turns that from silence into mail.
     #
     # It writes to stderr OUTSIDE the log redirect on purpose. Everything inside the redirect goes
     # to a file nobody reads, which is how a job like this fails for months; anything cron sees on
