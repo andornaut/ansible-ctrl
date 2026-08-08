@@ -27,12 +27,21 @@ letsencrypt_nginx_renewal_cron_minute: "11"
 # Directory ansible-playbook runs from; defaults to the current run's checkout.
 letsencrypt_nginx_renewal_cron_directory: "{{ playbook_dir }}"
 letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
-# The sops file the renewal run reads its credentials from. Absolute, and
-# outside every home: this job runs from cron with no session, so an encrypted
-# home is not mounted and nothing under one is readable. Paired with SOPS_FILE
-# in the Makefile: if one moves the other has to follow, because nothing fails
-# when a credential does not resolve.
-letsencrypt_nginx_renewal_cron_sops_file: /etc/faramir/secrets/ansible-ctrl.sops.yml
+# The account whose home holds the store. Its home is resolved with getent in
+# cron.yml, never assumed to be /home/{{ letsencrypt_nginx_operator }}.
+letsencrypt_nginx_operator: "{{ primary_user }}"
+
+# The sops file the renewal run reads its credentials from. In the operator's
+# home, so it is resolved from primary_user rather than named: this job runs as
+# root, whose own ~ is /root. Paired with SOPS_FILE in the Makefile: if one moves
+# the other has to follow.
+#
+# The job already runs from playbook_dir, which is in that same home, so it is
+# gated on the home being mounted either way. What that costs is stated in the
+# role README: an unmounted home at 03:00 means no renewal, and the preflight
+# mails rather than failing quietly.
+letsencrypt_nginx_renewal_cron_sops_file: >-
+  {{ letsencrypt_nginx_operator_home }}/.faramir/secrets/ansible-ctrl.sops.yml
 # The age key that decrypts it. The keeper's, which is already a recipient, and
 # which root can read like any other file: this job runs as root, so naming it
 # grants nothing root did not have. The operator's own key stays in their

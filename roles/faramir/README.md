@@ -22,24 +22,41 @@ run later. Ansible never needs faramir in order to run.
 The keeper decrypts sops and nothing else. A credential held anywhere else is
 absent from the keeper's value set, so it is neither injectable through `--env`
 nor known to the redactor: a playbook that prints it prints it in plaintext.
-Every credential therefore lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`,
+Every credential therefore lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`,
 `vars_plugins/secret_env.py` turns each injected `secret_*` variable into one of
 the same name, and `host_vars/` refers to the names.
 
-The encrypted file lives under `/etc` rather than in this checkout for two
-reasons, either of which decides it. The keeper's unit sets `ProtectHome=true`,
-so the process holding the age key cannot read anything under any home: a store
-in the checkout means relaxing that on the one process whose isolation the rest
-of this depends on. And the checkout is a public repo, where a store is
-ciphertext of every credential one `git add -f` away from publication, which
-rotation does not undo.
+The store is the only part of faramir that lives in the operator's home, and it
+is the only part that can. The agent runs as that account and its age identity is
+in that home, so it can already decrypt the ciphertext wherever it sits: moving
+the file costs nothing. Everything else is what stops the agent, and a file in
+the agent's own home is a file it can rewrite. `config.toml` is the policy
+itself, the sealed age credential is `0400 root:root` so the account cannot swap
+it, the units define the three service uids, and the binaries are what enforce
+any of it. Those stay outside every home.
 
-Secondary, and true here but not load-bearing: the broker starts at boot, before
-any login, so an encrypted home leaves it holding an empty value set. The
-renewal job is not a third reason, whatever it may look like: it already runs
-from `playbook_dir`, so it is gated on that same home either way.
+Not in the checkout either: it is a public repo, so a store inside it is
+ciphertext of every credential one `git add -f` from publication.
 
-The directory is `2770 root:dev`, so `sops` still edits it in place without sudo.
+`faramir_secrets_dir` is created `2770 <operator>:dev`, so `sops` edits it in
+place without sudo and the keeper can read what lands there. The keeper reaches
+it through a role-written drop-in:
+
+```ini
+[Service]
+ProtectHome=tmpfs
+BindReadOnlyPaths=-/home/<operator>/.faramir/secrets
+```
+
+`tmpfs` rather than dropping `ProtectHome`: every other home stays invisible to
+the process holding the age key, and only the store is bound back in. The leading
+`-` makes that bind optional, so an encrypted home that is not mounted yet leaves
+the keeper running with no values rather than failing to start at all.
+
+What that costs: nothing under the home is readable before the operator's first
+login, so a reboot leaves the broker holding no refs, and a renewal at 03:00 on
+an unmounted home does not run. Both are reported rather than silent, by the
+role's ref-count assert and by the cron's preflight respectively.
 
 It must also never sit under `group_vars/` or `host_vars/`. Ansible auto-loads
 every `.yml` there and a sops file is valid YAML, so each var would bind to its
@@ -127,7 +144,7 @@ runs the project's own install phases as root:
 | Phase | Establishes |
 | --- | --- |
 | accounts | the `faramir-keeper`, `faramir-broker` and `faramir-exec` uids, the `dev` group, `umask 002` |
-| sops-init | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` in `/etc/faramir/secrets` |
+| sops-init | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` beside the store |
 | install-broker | binaries, `/etc/faramir/config.toml`, systemd units |
 | agent-config | the `Read` deny rules in the operator's account; enrolling a project is separate, and per project |
 
@@ -145,8 +162,8 @@ the broker phase rewrites the unit files every run.
 `faramir_worktree` is the operator's own checkout of this repo, so there is one
 copy of the inventory rather than two to keep in step. Brokered commands run
 there, so it has to be reachable by `faramir-exec`, and by nothing else: the
-sops files are read from `/etc/faramir/secrets`, so the keeper never opens
-anything under a home and its unit sets `ProtectHome=true`.
+sops files are read from `faramir_secrets_dir`, which the keeper sees through a
+bind of that one directory and nothing else of the home around it.
 
 `faramir-exec` is not the operator's uid and a home is 0700, so the role runs
 `faramir share-tree` against that checkout: it group-owns the tree
@@ -211,7 +228,7 @@ the role writes every run:
 ```toml
 # /etc/faramir/config.d/ansible-ctrl.toml
 [secrets]
-files = ["/etc/faramir/secrets/ansible-ctrl.sops.yml"]
+files = ["/home/<operator>/.faramir/secrets/ansible-ctrl.sops.yml"]
 
 [ssh]
 keys = ["/var/lib/faramir-broker/.ssh/id_ed25519"]
@@ -297,7 +314,8 @@ again.
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
 | `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. |
 | `faramir_config_src` | `etc/config.toml` | Base config to install, relative to `faramir_src_dir`. faramir's own starter. |
-| `faramir_secrets_files` | `[/etc/faramir/secrets/ansible-ctrl.sops.yml]` | The managed sops files, written to the config drop-in every run. |
+| `faramir_secrets_dir` | `{{ faramir_user_home }}/.faramir/secrets` | Where the store lives. Created `2770 operator:dev`, and bound into the keeper's namespace by a drop-in. |
+| `faramir_secrets_files` | `[{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml]` | The managed sops files, written to the config drop-in every run. |
 | `faramir_overwrite_config` | `false` | Discard the installed config and rewrite it. Destructive. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends. Must match `[ssh] keys` in the config. |
 | `faramir_manage_broker_ssh_key` | `true` | Generate that key, and fail when the broker's agent holds none. |

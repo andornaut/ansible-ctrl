@@ -69,9 +69,12 @@ SUBMAKE := $(MAKE)
 # decisions below read this.
 IS_ROOT := $(filter 0,$(shell id -u))
 
-# Outside this checkout: an encrypted home is not mounted at boot or under cron,
-# so a secrets file inside one is unreadable exactly when it is needed.
-SOPS_FILE := /etc/faramir/secrets/ansible-ctrl.sops.yml
+# The store lives in the operator's home, so it has to be resolved rather than
+# named: a root run has HOME=/root, and SUDO_USER is the account that invoked it.
+# getent rather than ~, which expands to the wrong home for exactly that run.
+OPERATOR := $(if $(SUDO_USER),$(SUDO_USER),$(shell id -un))
+OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
+SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
 
 # sops looks for an identity under $HOME, which is /root for a root run, so it
 # would find none. The keeper's key is already a recipient and root can read it
