@@ -186,12 +186,10 @@ plus `ProtectSystem=strict`, which makes the hierarchy read-only apart from
 `/home`.
 
 > [!NOTE]
-> Traversal is granted by group ownership rather than an ACL. An ACL names the
-> uids exactly, but an ecryptfs home discards one written through the mount:
-> `setfacl` exits 0 and the entry lands nowhere. `chgrp` passes through that same
-> mount unchanged, ownership being ordinary inode metadata rather than an xattr.
-> The cost is that membership of `faramir_dev_group` is now also a grant to
-> traverse the operator's home, so keep it to the accounts that need it.
+> Traversal is granted by group ownership, which is ordinary inode metadata and
+> so passes through an encrypted home unchanged. The cost is that membership of
+> `faramir_dev_group` is also a grant to traverse the operator's home, so keep it
+> to the accounts that need it.
 
 ## The broker's SSH identity
 
