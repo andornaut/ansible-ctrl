@@ -5,36 +5,39 @@
 # faramir_user home from passwd (getent runs in tasks/main.yml).
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# The uids phase 1 creates. All three are service accounts: the coding agent
-# runs as you, so there is no fourth.
-faramir_service_accounts:
-  - "{{ faramir_broker_user }}"
-  - "{{ faramir_keeper_user }}"
-  - "{{ faramir_exec_user }}"
+# Where the build puts the binaries, and where init reads them from. init needs
+# no checkout beyond this: the units, the base config, the agent hook and the
+# docs are embedded in the binary.
+faramir_bin_dir: "{{ faramir_src_dir }}/bin"
 
-# Phase 3 enables these. Sockets, not services: all three are socket-activated.
-faramir_sockets:
-  - faramir-keeper.socket
-  - faramir-exec.socket
-  - faramir-broker.socket
-
-# The phase scripts read their inputs from the environment. Assembled once here
-# because all four share most of it, and a phase given a different worktree than
-# its neighbours produces a broker whose units bind a tree its config never names.
-faramir_install_env:
-  OPERATOR: "{{ faramir_user }}"
-  BROKER_USER: "{{ faramir_broker_user }}"
-  KEEPER_USER: "{{ faramir_keeper_user }}"
-  EXEC_USER: "{{ faramir_exec_user }}"
-  DEV_GROUP: "{{ faramir_dev_group }}"
-  CONFIG: "{{ faramir_config_src }}"
-  # Where it is installed to, as against CONFIG, which is what is installed.
-  CONFIG_DIR: "{{ faramir_config_dir }}"
-  # Phase 2 writes .sops.yaml beside the store, so it has to agree with
-  # faramir_secrets_files or sops edits the wrong directory's recipients.
-  SECRETS_DIR: "{{ faramir_secrets_dir }}"
-  FARAMIR_BIN: "{{ faramir_src_dir }}/bin"
-  # Listed in .sops.yaml alongside the keeper's, so the operator can still read
-  # the files they are responsible for. Empty until the identity below has been
-  # minted, which is fine: phase 1 ignores it, and phase 2 is the only reader.
-  EXTRA_AGE_RECIPIENTS: "{{ faramir_operator_recipient.stdout | default('') }}"
+# The whole invocation, assembled once. An argv list rather than a command
+# string: paths here come from the inventory and a shell-quoted string would
+# make an unusual one this role's problem.
+#
+# Everything init needs is on this line, so there is no second place a value can
+# be set differently. The role's own share of the work afterwards is the two
+# things that belong to this project rather than to faramir: which sops files
+# the broker manages, and how a brokered playbook is run.
+faramir_init_argv: >-
+  {{
+    [faramir_bin_dir ~ '/faramir', 'init', '--json',
+     '--operator', faramir_user,
+     '--group', faramir_dev_group,
+     '--broker-user', faramir_broker_user,
+     '--keeper-user', faramir_keeper_user,
+     '--exec-user', faramir_exec_user,
+     '--config-dir', faramir_config_dir,
+     '--secrets-dir', faramir_secrets_dir,
+     '--binaries', faramir_bin_dir,
+     '--share-tree', faramir_worktree]
+    + (['--operator-age-key', faramir_operator_age_key]
+       if faramir_operator_age_key | length > 0 else [])
+    + (['--ssh-key', faramir_broker_ssh_key]
+       if faramir_broker_ssh_key | length > 0 else [])
+    + (['--agent-config'] if faramir_install_agent_config | bool else [])
+    + (['--overwrite-config'] if faramir_overwrite_config | bool else [])
+    + (['--seal-age-key'] if faramir_seal_age_key | bool else [])
+    + (['--remove-plaintext-age-key']
+       if faramir_remove_plaintext_age_key | bool else [])
+    + (['--dry-run'] if ansible_check_mode else [])
+  }}

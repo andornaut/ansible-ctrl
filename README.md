@@ -182,8 +182,8 @@ git clone git@github.com:andornaut/faramir.git ~/src/github.com/andornaut/farami
 make dev
 ```
 
-**2. Install it.** The role builds the binaries from that checkout, then runs faramir's own install
-phases as root, so this is the one target that asks for a sudo password:
+**2. Install it.** The role builds the binaries from that checkout, then runs `faramir init` as
+root, so this is the one target that asks for a sudo password:
 
 ```bash
 make faramir
@@ -196,6 +196,7 @@ at login. Until then the broker refuses your connections.
 broker is running and protecting nothing.
 
 ```bash
+faramir doctor          # whether the install is doing its job, not just running
 faramir status          # config path, the sops files it manages, and the ref count
 faramir list-secrets    # the names, never the values
 ```
