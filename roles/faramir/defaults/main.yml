@@ -36,11 +36,11 @@ faramir_exec_user: faramir-exec
 # they are read from faramir_secrets_dir, which the keeper sees through a bind of
 # that one directory and nothing else of the home around it.
 #
-# It has to be reachable by faramir-keeper and faramir-exec, which are not the
-# operator's uid. A home is 0700, so phase 1 grants those two traversal with an
-# ACL on every component from the home down. Point this outside the homes
-# instead (/srv/faramir/ansible-ctrl) and no ACL is needed, at the cost of the
-# tree no longer being the checkout you work in.
+# It has to be reachable by faramir-exec, which is not the operator's uid. A home
+# is 0700, so faramir share-tree makes every directory from the home down group
+# faramir_dev_group and group-executable. Point this outside the homes instead
+# (/srv/faramir/ansible-ctrl) and nothing is needed, at the cost of the tree no
+# longer being the checkout you work in.
 faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
 # Base config installed as /etc/faramir/config.toml, relative to

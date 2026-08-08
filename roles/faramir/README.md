@@ -168,7 +168,7 @@ bind of that one directory and nothing else of the home around it.
 `faramir-exec` is not the operator's uid and a home is 0700, so the role runs
 `faramir share-tree` against that checkout: it group-owns the tree
 and sets the setgid bits, so a brokered command and the operator stop fighting
-over each other's files, and grants execute-only ACLs on every directory from
+over each other's files, and makes every directory group-executable from
 the home down. Not `chmod o+x`, which with `umask 002` in force would open the
 whole home rather than a path through it.
 
@@ -185,13 +185,13 @@ config. What keeps a brokered command out of everything else is the file mode,
 plus `ProtectSystem=strict`, which makes the hierarchy read-only apart from
 `/home`.
 
-> [!WARNING]
-> On an ecryptfs home the ACL is write-once. The first `setfacl` against an inode
-> applies and every later one is silently ignored, exiting 0 while changing
-> nothing. Grant every uid in a single call and read the result back with
-> `getfacl` rather than trusting the exit status. The entries can still be
-> corrected on the lower directory (`/home/.ecryptfs/<user>/.Private`), which is
-> ext4, but the mount does not see the change until it is remounted.
+> [!NOTE]
+> Traversal is granted by group ownership rather than an ACL. An ACL names the
+> uids exactly, but an ecryptfs home discards one written through the mount:
+> `setfacl` exits 0 and the entry lands nowhere. `chgrp` passes through that same
+> mount unchanged, ownership being ordinary inode metadata rather than an xattr.
+> The cost is that membership of `faramir_dev_group` is now also a grant to
+> traverse the operator's home, so keep it to the accounts that need it.
 
 ## The broker's SSH identity
 
