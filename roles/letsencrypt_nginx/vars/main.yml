@@ -1,0 +1,10 @@
+---
+# Values derived from defaults/main.yml, not operator knobs. They live here rather than
+# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
+# value from the variable it is derived from.
+
+letsencrypt_nginx_default_logging:
+  driver: "json-file"
+  options:
+    max-size: "{{ letsencrypt_nginx_docker_log_max_size }}"
+    max-file: "{{ letsencrypt_nginx_docker_log_max_file }}"
