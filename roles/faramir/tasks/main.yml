@@ -8,7 +8,7 @@
 #   asks faramir doctor whether any of it works
 #
 # Everything else -- accounts, directories, the age key, .sops.yaml, the units,
-# their sandboxing, the TPM sealing, the systemd ordering -- belongs to faramir
+# their sandboxing, the systemd ordering -- belongs to faramir
 # and is not restated here. A setting named in both places is one that can
 # disagree with itself.
 
@@ -335,6 +335,21 @@
     cmd: /usr/local/bin/faramir reload
   when: faramir_stale_dropins.changed
   changed_when: true
+  become: true
+
+# CLEANUP (added 2026-08-08): the age key used to be sealed to the host TPM and
+# read by the keeper as an encrypted credential. It is not: the store lives in
+# the operator's encrypted home, so a drive that leaves the building carries a
+# key and nothing it opens, and sealing was paying PCR 7's fragility for
+# confidentiality already covered.
+#
+# The unit is rendered fresh by init and already reads the plaintext again, so
+# this only takes away the blob it no longer names. The plaintext key itself is
+# never touched here, by this or anything else. Delete once no host has one.
+- name: Remove the sealed age credential
+  ansible.builtin.file:
+    path: /etc/faramir/age.key.cred
+    state: absent
   become: true
 
 # CLEANUP (added 2026-08-08): the config and its drop-ins used to be installed
