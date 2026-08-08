@@ -1,10 +1,11 @@
 ---
 # Fail with a named remediation when a tool this role uses is missing.
 #
-# Roles here declare no dependencies, so a tool another role installs is an
-# unstated prerequisite. Without this, the first task to use it fails with
-# whatever the missing binary prints, which never names the run that installs
-# it. Each probe carries that command.
+# Roles here declare no dependencies, and a tag selects one task file without
+# the tags that install what it needs. Either way the tool is an unstated
+# prerequisite, and without this the first task to use it fails with whatever
+# the missing binary prints, which never names the run that installs it. Each
+# probe carries that command.
 #
 # Copied into each role that needs it rather than shared, because roles share no
 # task files. Keep the copies in sync by hand.
@@ -15,15 +16,16 @@
 #     probe (str): shell command, exits 0 when the tool is usable
 #     hint (str):  what installs it, e.g. "make dev -- --tags rust"
 #
-# Optional vars:
-#   require_tools_become (bool): probe as root, default false.
-#
 # Callers must wrap the include in a tagged block, or include it from a file
 # imported under one: a tag on an include_tasks filters out what it includes.
 
-# Probe in the same become context as the tasks being guarded. A per-account
-# toolchain is present for one user and absent for another, so a probe run as
-# somebody else answers a question nobody asked.
+# Privilege is inherited here, never set. A probe carrying `become: false`
+# overrides an enclosing `become:` rather than deferring to it, so a guard for
+# privileged tasks would report on the connection user instead. include_tasks
+# takes no `become` of its own, so a caller whose guarded tasks are privileged
+# wraps the include in a block carrying the same `become`/`become_user`. It
+# matters because a per-account toolchain is present for one user and absent for
+# another, so a probe run as somebody else answers a question nobody asked.
 #
 # shell, not command: `command -v` is a builtin with no binary behind it, and a
 # probe may be a pipeline.
@@ -35,7 +37,6 @@
     executable: /bin/bash
     cmd: "{{ item.probe }}"
   register: letsencrypt_nginx_required_tools
-  become: "{{ require_tools_become | default(false) | bool }}"
   changed_when: false
   failed_when: false
   check_mode: false

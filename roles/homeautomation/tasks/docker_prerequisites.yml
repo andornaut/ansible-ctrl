@@ -2,24 +2,32 @@
 # First, because every container tag imports this file: community.docker reports
 # a missing daemon as a connection error against the socket, which reads as a
 # broken install rather than an absent one.
+# become: true, matching the container tasks, so the probe reports on the
+# account that will run them rather than on whoever ansible connects as.
 - name: Require Docker
-  ansible.builtin.include_tasks: require_tools.yml
-  vars:
-    require_tools_become: true
-    require_tools:
-      - name: Docker
-        probe: docker version
-        hint: >-
-          It comes from the docker role, which homeautomation.yml applies only
-          once its commented-out entry is uncommented for a host's first run.
-      # docker_compose_v2 drives the CLI plugin, but docker_container and its
-      # _exec and _info siblings go through the Python SDK, which is a separate
-      # package: a working `docker version` does not imply it is installed.
-      - name: The Docker SDK for Python
-        probe: >-
-          {{ ansible_facts['discovered_interpreter_python'] | default('python3') }}
-          -c 'import docker'
-        hint: "It is the python3-docker package, which the docker role installs."
+  become: true
+  block:
+    - name: Probe for Docker
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: Docker
+            probe: docker version
+            hint: >-
+              It comes from the docker role, which homeautomation.yml applies
+              only once its commented-out entry is uncommented for a host's
+              first run.
+          # Three packages, not one: the docker role purges Ubuntu's docker.io
+          # and installs the engine, the compose plugin and the SDK separately,
+          # so each of the three can be absent while the others work.
+          - name: The Docker Compose plugin
+            probe: docker compose version
+            hint: "It is the docker-compose-plugin package, which the docker role installs."
+          - name: The Docker SDK for Python
+            probe: >-
+              {{ ansible_facts['discovered_interpreter_python'] | default('python3') }}
+              -c 'import docker'
+            hint: "It is the python3-docker package, which the docker role installs."
 
 # Both databases: the container definitions below read group ids from group,
 # and service_account.yml checks a uid against passwd before creating it. This
