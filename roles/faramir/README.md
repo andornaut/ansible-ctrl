@@ -137,7 +137,7 @@ on the host, where a rejection leaves the install half-applied.
 
 The scripts report no machine-readable change, so `changed_when` is derived from
 the state each phase establishes, sampled before any phase runs. It under-reports
-twice: share-tree.sh re-applies the tree's group and setgid bits every run, and
+twice: share-tree re-applies the tree's group and setgid bits every run, and
 the broker phase rewrites the unit files every run.
 
 ## The working tree
@@ -149,7 +149,7 @@ sops files are read from `/etc/faramir/secrets`, so the keeper never opens
 anything under a home and its unit sets `ProtectHome=true`.
 
 `faramir-exec` is not the operator's uid and a home is 0700, so the role runs
-faramir's `install/share-tree.sh` against that checkout: it group-owns the tree
+`faramir share-tree` against that checkout: it group-owns the tree
 and sets the setgid bits, so a brokered command and the operator stop fighting
 over each other's files, and grants execute-only ACLs on every directory from
 the home down. Not `chmod o+x`, which with `umask 002` in force would open the
@@ -157,8 +157,8 @@ whole home rather than a path through it.
 
 That is per directory rather than something faramir's installer does, because
 faramir names no tree anywhere: a brokered command runs where its caller was.
-Share another the same way, `sudo install/share-tree.sh <dir>` from the faramir
-checkout.
+Share another the same way, `sudo faramir share-tree <dir>`, from anywhere: it
+is a subcommand of the installed binary rather than a script in the checkout.
 
 The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
 and `group_vars/` are gitignored, so a fresh clone parses but has no inventory.
