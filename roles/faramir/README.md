@@ -23,8 +23,8 @@ The keeper decrypts sops and nothing else. A credential held anywhere else is
 absent from the keeper's value set, so it is neither injectable through `--env`
 nor known to the redactor: a playbook that prints it prints it in plaintext.
 Every credential therefore lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`,
-`group_vars/all/vars.yml` maps each name to `lookup('env', ...)`, and
-`host_vars/` refers to the names.
+`vars_plugins/secret_env.py` turns each injected `secret_*` variable into one of
+the same name, and `host_vars/` refers to the names.
 
 The encrypted file lives under `/etc` rather than in this checkout, because an
 encrypted home is not mounted at boot or under cron: a secrets file inside one

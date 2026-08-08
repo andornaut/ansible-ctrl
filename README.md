@@ -70,7 +70,7 @@ Most playbooks apply one role to one group. The exceptions:
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| `group_vars/all/vars.yml` (gitignored) | Maps each credential name to `lookup('env', ...)`. Holds no values |
+| [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each `secret_*` environment variable into a variable of the same name |
 | `/etc/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
@@ -96,18 +96,15 @@ no credential values, only references to them:
 msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
-`group_vars/all/vars.yml` binds the two. It maps each name to the environment and holds no value
-itself:
+[vars_plugins/secret_env.py](vars_plugins/secret_env.py) binds the two. Every `secret_*`
+environment variable becomes an inventory variable of the same name, so there is no per-credential
+mapping to keep in step with anything.
 
-```yaml
-secret_msmtp_password: >-
-  {{ lookup('env', 'secret_msmtp_password')
-     | default(undef('secret_msmtp_password is not in the run environment'), true) }}
-```
-
-The `undef()` fallback is what makes a missing credential fail. A bare
-`lookup('env', ...)` returns an empty string for a variable that is not set, so a run that never
-reached the environment would apply blank credentials and report success.
+A credential that is not in the environment is absent rather than empty, so the first task to use
+it fails naming it instead of the run applying a blank credential and reporting success. An empty
+value counts as absent for the same reason. Enabling it in
+[ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it, because
+`vars_plugins_enabled` replaces the default list rather than adding to it.
 
 The split keeps `host_vars/` readable and diffable while the values are encrypted at rest, and it
 means a value only ever reaches a play through the environment. Two things put it there. `make`
@@ -122,8 +119,8 @@ faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limi
 
 `faramir.env` holds no values, only `secret://` references, and is gitignored: those
 references map this repo's variable names onto the secret store's layout. Adding a credential is
-four edits: the value into the sops file, the `lookup('env', ...)` mapping into
-`group_vars/all/vars.yml`, the ref into `faramir.env`, and the reference into `host_vars/`.
+three edits: the value into the sops file, the ref into `faramir.env`, and the reference into
+`host_vars/`.
 
 The certificate renewal cron is the third path, and wraps itself.
 [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs
