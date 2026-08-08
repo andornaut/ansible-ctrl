@@ -1,4 +1,34 @@
 ---
+# No mode alongside recurse: it would apply to the files too, and the modes
+# those need are set below rather than swept across the directory.
+- name: Create the ESPHome directories with correct ownership
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ homeautomation_esphome_uid }}"
+    group: "{{ homeautomation_esphome_gid }}"
+    recurse: true
+  loop:
+    - "{{ homeautomation_esphome_required_volumes.config }}"
+    - "{{ homeautomation_esphome_required_volumes.cache }}"
+  become: true
+
+# The dashboard pings devices to track whether they are online. An unprivileged
+# ICMP datagram socket is the only way a non-root uid can do that: Docker's
+# cap_add fills the permitted set but not the ambient set, so NET_RAW never
+# becomes effective for a non-root process and both icmplib modes fail. Such a
+# socket sends echo requests and reads their replies and nothing else, unlike
+# the raw socket NET_RAW would grant. Set on the host because the container is
+# host-networked and so shares the host's network namespace.
+- name: Allow the ESPHome group to open unprivileged ICMP sockets
+  ansible.posix.sysctl:
+    name: net.ipv4.ping_group_range
+    value: "{{ homeautomation_esphome_gid }} {{ homeautomation_esphome_gid }}"
+    sysctl_file: /etc/sysctl.d/60-esphome-ping.conf
+    sysctl_set: true
+    reload: true
+  become: true
+
 - name: Remove ESPHome container if it exists
   ansible.builtin.include_tasks: remove_docker_containers.yml
   vars:
@@ -9,7 +39,26 @@
   vars:
     esphome_base_volumes:
       - "{{ homeautomation_esphome_required_volumes.config }}:/config"
+      - "{{ homeautomation_esphome_required_volumes.cache }}:/cache"
     esphome_volumes: "{{ homeautomation_common_volumes + esphome_base_volumes }}"
+
+    esphome_base_environment:
+      ESPHOME_DASHBOARD_USE_PING: "true"
+      # PlatformIO stores appstate.json in its core dir, which it derives from
+      # $HOME and which the entrypoint cannot override. The image default of
+      # /root is not writable by the uid, and was discarded on every recreate
+      # even when it was.
+      HOME: /cache
+    # ESPHOME_-prefixed, not the USERNAME and PASSWORD the older dashboard took:
+    # those are ignored, silently, leaving the dashboard open. The equivalent
+    # --username and --password flags are deprecated and would put the password
+    # in the host's process list.
+    esphome_auth_environment:
+      ESPHOME_USERNAME: "{{ homeautomation_esphome_username }}"
+      ESPHOME_PASSWORD: "{{ homeautomation_esphome_password }}"
+    esphome_environment: >-
+      {{ esphome_base_environment | combine(esphome_auth_environment
+         if homeautomation_esphome_auth_configured | bool else {}) }}
 
   community.docker.docker_compose_v2:
     project_name: homeautomation-esphome
@@ -21,9 +70,9 @@
         esphome:
           # http://esphome.internal:6052
           container_name: esphome
-          environment:
-            - ESPHOME_DASHBOARD_USE_PING=true
+          environment: "{{ esphome_environment }}"
           image: "{{ homeautomation_esphome_docker_image }}"
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
           # Host networking required for mDNS ESP device discovery; the
           # multicast does not cross the Docker bridge.
@@ -31,5 +80,37 @@
           # ports:
           #   - "6052:6052"
           restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
+          user: "{{ homeautomation_esphome_uid }}:{{ homeautomation_esphome_gid }}"
           volumes: "{{ esphome_volumes }}"
   notify: Update /etc/hosts
+  # The environment contains the dashboard password. Conditional rather than always on:
+  # this task pulls the image and starts the container, so hiding its output costs the
+  # only diagnostic a pull or startup failure has, and there is no secret to hide until
+  # a host configures one.
+  no_log: "{{ homeautomation_esphome_auth_configured | bool }}"
+
+# secrets.yaml holds the wifi password and the OTA password; every device YAML
+# holds that device's API encryption key. Owner-only rather than a closed
+# directory, because that directory is a git checkout the operator reads.
+#
+# Reasserted every run: the dashboard creates a file per device as devices are
+# adopted, and each one is born with the dashboard's umask.
+- name: Find the ESPHome configuration files
+  ansible.builtin.find:
+    paths: "{{ homeautomation_esphome_required_volumes.config }}"
+    patterns:
+      - "*.yaml"
+      - "*.yml"
+    file_type: file
+  register: homeautomation_esphome_config_files
+  become: true
+
+- name: Restrict the ESPHome configuration files to their owner
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    mode: "0600"
+  loop: "{{ homeautomation_esphome_config_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true

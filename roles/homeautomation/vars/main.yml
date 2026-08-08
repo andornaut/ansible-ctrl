@@ -17,4 +17,45 @@ homeautomation_external_network:
     external: true
     name: "{{ homeautomation_docker_network_name }}"
 
+# For the containers that run as a non-root uid. Docker grants every container
+# a default capability set; a non-root process cannot use it, because cap_add
+# fills the permitted set but not the ambient set. Dropping it costs nothing
+# now and matters when something later gains uid 0 inside the container.
+#
+# Not applied to the containers that keep uid 0. Several of them need
+# capabilities from that default set, and for them the caps do work.
+homeautomation_unprivileged_cap_drop:
+  - ALL
+
+# Applied to every container, root or not, which is why it is not named for the
+# unprivileged ones: it blocks the setuid transition that would make a
+# capability effective, so it is what actually stops a compromised process from
+# reaching the caps sitting in its permitted set. Nothing here loses by it,
+# because a process that drops privileges does so with setuid() rather than by
+# exec'ing a setuid binary, and only the latter is blocked.
+homeautomation_no_new_privileges:
+  - no-new-privileges:true
+
+# Every uid a container in this role runs as. Each service account owns its
+# files exclusively, which only holds if no two services share a uid, and
+# docker_prerequisites.yml asserts that before any of them are created.
+homeautomation_service_account_uids:
+  esphome: "{{ homeautomation_esphome_uid }}"
+  govee2mqtt: "{{ homeautomation_govee2mqtt_uid }}"
+  hamcp: "{{ homeautomation_hamcp_uid }}"
+  llamacpp: "{{ homeautomation_llamacpp_uid }}"
+  matterjs: "{{ homeautomation_matterjs_uid }}"
+  mosquitto: "{{ homeautomation_mosquitto_uid }}"
+  openwebui: "{{ homeautomation_openwebui_uid }}"
+  piper: "{{ homeautomation_piper_uid }}"
+  whisper: "{{ homeautomation_whisper_uid }}"
+
 homeautomation_tz: "{{ homeautomation_system_timezone.stdout.strip() }}"
+
+# Both, because the dashboard reads USERNAME and PASSWORD as a pair and enables
+# nothing when either is empty. Named for what it probes rather than
+# install-something, because it is not an operator preference so much as a
+# report of whether the host supplied the credentials.
+homeautomation_esphome_auth_configured: >-
+  {{ (homeautomation_esphome_username | length > 0)
+     and (homeautomation_esphome_password | length > 0) }}

@@ -6,6 +6,19 @@
       {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}
     resolved_var_name: homeautomation_otbr_devices_resolved
 
+# Root-owned because the agent runs as root to manage the wpan interface, and
+# closed because thread/ under it holds the Thread network key, which is what
+# admits a device to the mesh. Docker would otherwise create this directory
+# implicitly on first start, world-readable.
+- name: Create the OTBR data directory
+  ansible.builtin.file:
+    path: "{{ homeautomation_otbr_required_volumes.data }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+
 - name: Remove OTBR container if it exists
   ansible.builtin.include_tasks: remove_docker_containers.yml
   vars:
@@ -63,5 +76,6 @@
           # Required for host mDNS and physical interface access.
           network_mode: host
           restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
           volumes: "{{ otbr_volumes }}"
   notify: Update /etc/hosts

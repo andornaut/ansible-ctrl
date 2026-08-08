@@ -4,6 +4,12 @@ letsencrypt_nginx_acme_version: 2
 letsencrypt_nginx_csr_country: CA
 letsencrypt_nginx_docker_extra_volumes: []
 letsencrypt_nginx_docker_image: nginx:stable
+# The uid the image's worker processes run as. The master runs as root and
+# reads the config, but a worker opens the .htpasswd file on every
+# authenticated request, so that is the uid those files must be readable by.
+# Numeric because it is the container's uid: the host's own account at 101 is
+# unrelated to nginx.
+letsencrypt_nginx_docker_worker_uid: "101"
 letsencrypt_nginx_docker_required_volumes:
   config: /var/docker-volumes/nginx/config
   localtime: /etc/localtime
