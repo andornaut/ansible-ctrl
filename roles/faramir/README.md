@@ -163,6 +163,7 @@ faramir:
 
 | Step | Why it is here and not in faramir |
 | --- | --- |
+| `faramir init-project` against the checkout | which tree the agent works in is this repo's to say; the enrolment itself is faramir's |
 | the `config.d/ansible-ctrl.toml` drop-in | which sops files the broker manages is this repo's, and faramir ships no list of them |
 | `faramir reload` when that changes | the drop-in is the role's to write, so getting the daemons onto it is the role's to trigger |
 | the `AGENTS.md` block | how to run *these* playbooks through the broker, which faramir's own snippet says nothing about |
@@ -192,15 +193,23 @@ sops files are read from `faramir_secrets_dir`, which the keeper sees through a
 bind of that one directory and nothing else of the home around it.
 
 `faramir-exec` is not the operator's uid and a home is 0700, so the role passes
-that checkout to `init` as `--share-tree`: it group-owns the tree and sets the
-setgid bits, so a brokered command and the operator stop fighting over each
-other's files, and makes every directory group-executable from the home down.
-Not `chmod o+x`, which with `umask 002` in force would open the whole home rather
-than a path through it.
+that checkout to `faramir init-project`, which the role runs after `init`: it
+group-owns the tree and sets the setgid bits, so a brokered command and the
+operator stop fighting over each other's files, and makes every directory
+group-executable from the home down. Not `chmod o+x`, which with `umask 002` in
+force would open the whole home rather than a path through it.
 
-It is named per directory rather than derived, because faramir names no tree
-anywhere: a brokered command runs where its caller was. Share another the same
-way, `sudo faramir share-tree <dir>`, from anywhere.
+`init-project` also registers the `PreToolUse` hook in this checkout's own
+`.claude/settings.json`, writes `.mcp.json`, and splices faramir's credentials
+block into `AGENTS.md`. Set `faramir_project_hook=false` to share the tree
+without the hook, which keeps Bash prompts here and gives up redaction with them.
+
+It is a separate command from `init` rather than a flag on it, because a host is
+provisioned once and there is no limit to how many trees you work in. It reads
+the shared group out of the config `init` installed rather than being told it a
+second time, so a tree cannot end up group-owned by something the broker socket
+does not admit. Enrol another the same way: `cd <dir> && sudo faramir
+init-project`, which defaults to where you are standing.
 
 The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
 and `group_vars/` are gitignored, so a fresh clone parses but has no inventory.
@@ -356,7 +365,8 @@ again.
 | `faramir_broker_user` | `faramir-broker` | Policy, redaction, audit log, SSH keys. |
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
-| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. Passed as `--share-tree`. |
+| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. Enrolled with `faramir init-project`. |
+| `faramir_project_hook` | `true` | Register the `PreToolUse` hook in the checkout. Redacts everything the agent runs here, and auto-approves Bash here as a consequence. |
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml` and `config.d/` are installed. |
 | `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. Created `2770 root:dev`, and bound into the keeper's namespace by its own unit. |
 | `faramir_secrets_files` | `[{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml]` | The managed sops files, written to the config drop-in every run. |
