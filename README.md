@@ -98,8 +98,14 @@ msmtp_password: "{{ secret_msmtp_password }}"
 itself:
 
 ```yaml
-secret_msmtp_password: "{{ lookup('env', 'secret_msmtp_password') }}"
+secret_msmtp_password: >-
+  {{ lookup('env', 'secret_msmtp_password')
+     | default(undef('secret_msmtp_password is not in the run environment'), true) }}
 ```
+
+The `undef()` fallback is what makes a missing credential fail. A bare
+`lookup('env', ...)` returns an empty string for a variable that is not set, so a run that never
+reached the environment would apply blank credentials and report success.
 
 The split keeps `host_vars/` readable and diffable while the values are encrypted at rest, and it
 means a value only ever reaches a play through the environment. Two things put it there. `make`
