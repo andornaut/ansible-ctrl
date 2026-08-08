@@ -135,6 +135,77 @@ The encrypted file and the age identity both need a backup and neither is in git
 by rsnapshot today: it takes `/etc/` and `~/.config/`. Note that this puts the key and the
 ciphertext it opens in the same snapshot.
 
+## Getting started with the secret broker
+
+[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any
+plaintext value entering a coding agent's context. It is what lets an agent run these playbooks
+against the fleet without being able to read the credentials they use. The
+[faramir role](roles/faramir/README.md) installs it on the controller; faramir's own
+[README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is
+worth reading before trusting it.
+
+Installing it is an operator action, run against the controller. Brokering playbooks is an agent
+action, run later. Ansible never needs faramir in order to run, so none of the above depends on
+this.
+
+**1. Clone faramir beside this repo** and make sure the [dev](roles/dev/README.md) role has run,
+which is what installs Go and sops:
+
+```bash
+git clone git@github.com:andornaut/faramir.git ~/src/github.com/andornaut/faramir
+make dev
+```
+
+**2. Install it.** The role builds the binaries from that checkout, then runs faramir's own install
+phases as root, so this is the one target that asks for a sudo password:
+
+```bash
+make faramir
+```
+
+**3. Log out and back in.** The install adds you to the `dev` group, and group membership is read
+at login. Until then the broker refuses your connections.
+
+**4. Check what it loaded:**
+
+```bash
+faramir status          # config path, the sops files it manages, and the ref count
+faramir list-secrets    # the names, never the values
+```
+
+A ref count of zero means the broker is running and protecting nothing, so treat it as a failure
+rather than a fresh start.
+
+**5. Authorize its SSH key on the managed hosts**, which is what lets a brokered playbook reach
+them. `ASK_PASS=1` is required because this is the run that establishes the NOPASSWD sudo the
+others rely on:
+
+```bash
+make faramir_fleet ASK_PASS=1
+```
+
+**6. Prove the whole chain end to end**, which is one command:
+
+```bash
+faramir run --env-file faramir.env -- \
+    ansible <host> -m debug -a 'var=secret_msmtp_password'
+# -> "secret_msmtp_password": "«SECRET:secret_msmtp_password»"
+```
+
+That confirms the ref decrypted, the value reached the child's environment, `lookup('env', ...)`
+resolved it, and the redactor replaced it on the way back. A bare name means the ref was not
+injected; `ENC[AES256_GCM,...]` means the encrypted file is somewhere Ansible auto-loads it.
+
+After that, an agent runs playbooks through the broker rather than through `make`:
+
+```bash
+faramir run --env-file faramir.env -- \
+    ansible-playbook <playbook>.yml --limit '!faramir'
+```
+
+`--limit '!faramir'` excludes the controller, which a brokered run cannot configure: commands run
+as a uid with no sudo there. The controller's own playbooks stay yours to apply.
+
 ## Operations
 
 [.github/workflows/lint.yml](.github/workflows/lint.yml) runs on every pull request: `ansible-lint`,

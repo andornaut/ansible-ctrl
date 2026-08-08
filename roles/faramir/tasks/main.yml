@@ -391,9 +391,9 @@
       - "files: {{ faramir_secrets.files | default([]) | join(', ') or 'none' }}"
       - "load errors: {{ faramir_secrets.errors | default([]) | join('; ') or 'none' }}"
 
-# The keeper decrypts sops and nothing else, so a credential still held in
-# ansible-vault is absent from the value set, and a value absent from the set is
-# neither injectable nor redacted. Zero refs is therefore a broker that is
+# The keeper decrypts sops and nothing else, so a credential held anywhere else
+# is absent from the value set, and a value absent from the set is neither
+# injectable nor redacted. Zero refs is therefore a broker that is
 # running and protecting nothing, which is indistinguishable from a healthy
 # install unless something says so. See the role README.
 # Derived rather than configured. --check lists only the managed files it could
