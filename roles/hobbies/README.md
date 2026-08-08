@@ -36,10 +36,11 @@ See [defaults/main.yml](./defaults/main.yml).
 - betaflight is pinned because upstream is PWA-only now, so only older releases ship a Linux portable build. It
   installs to `/opt/betaflight/<version>`, exposed as `/opt/betaflight/current`, with `betaflight-configurator`
   on PATH.
-- freecad comes from the maintainers' stable PPA because Ubuntu 24.04 ships no freecad package at all. That PPA
-  covers noble with the 0.21 series, not 1.x. `freecadcmd` runs headless scripts against its bundled OpenCascade.
+- freecad comes from the maintainers' stable PPA, because Ubuntu ships no freecad package. The PPA tracks their
+  stable series, which lags the latest major release. `freecadcmd` runs headless scripts against its bundled
+  OpenCascade.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.
 - kicad comes from the release PPA that `hobbies_kicad_version` selects. It installs the
   [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, and
-  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization. KiKit is the git-master build,
-  since no PyPI release supports KiCad 10 yet.
+  [KiKit](https://github.com/yaqwsx/KiKit) in a `/opt/kikit` venv for panelization. KiKit is installed from git
+  master, because its PyPI releases lag the KiCad version the PPA installs.

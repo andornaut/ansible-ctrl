@@ -130,7 +130,7 @@ controller's disk. Losing either one loses every secret.
 
 ## Operations
 
-[.github/workflows/lint.yml](.github/workflows/lint.yml) runs four jobs on every pull request: `ansible-lint`,
+[.github/workflows/lint.yml](.github/workflows/lint.yml) runs on every pull request: `ansible-lint`,
 `syntax-check`, `shellcheck` (every shell script under `roles/`, discovered by shebang), and `python-syntax`
 (every Python file under `roles/*/files/`). The first two are reproducible locally:
 
