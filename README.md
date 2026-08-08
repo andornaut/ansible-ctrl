@@ -129,11 +129,15 @@ target depends on the `requirements` stamp: a root cron would run `ansible-galax
 `.ansible/` inside the operator's home and leave root-owned files there. It decrypts with
 `/etc/faramir/age.key`, the keeper's, which is already a recipient and which root can read.
 
-**Why the file is under `/etc` and not in this repo.** An encrypted home is not mounted at boot or
-under cron, which is exactly when the broker and the renewal job need it, and `/etc` keeps the
-ciphertext out of a directory Ansible auto-loads. `/etc/faramir/secrets` is `2770 root:dev`, so
-`sops` still edits it in place without sudo. The [faramir role](roles/faramir/README.md) has the
-detail on both.
+**Why the file is under `/etc` and not in this repo.** The keeper's unit sets `ProtectHome=true`, so
+the process holding the age key cannot read anything under any home; a store in this checkout would
+mean relaxing that on exactly the process the rest of the arrangement is built around. This repo is
+also public, so a store inside it is ciphertext of every credential one `git add -f` or one broken
+ignore rule from being published, which rotation does not undo. Secondary: the broker starts at
+boot, before any login, and an encrypted home is not mounted then.
+
+`/etc/faramir/secrets` is `2770 root:dev`, so `sops` still edits it in place without sudo. The
+[faramir role](roles/faramir/README.md) has the detail.
 
 The encrypted file and the age identity both need a backup and neither is in git. Both are covered
 by rsnapshot: it takes `/etc/` and `~/.config/`. Note that this puts the key and the ciphertext it
