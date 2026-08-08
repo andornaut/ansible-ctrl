@@ -386,6 +386,38 @@
     # Tracks the binaries. The unit files are rewritten every run, which this does
     # not detect. It installs no drop-ins: a worktree outside /home and
     # /srv/faramir needs a ReadWritePaths drop-in added by hand.
+    # Before phase 3, not after: phase 3 starts the keeper and then validates it,
+    # so a drop-in written afterwards is one phase 3 has already been judged
+    # without. When that drop-in is what breaks the keeper, the run fails there
+    # and never reaches the task that would fix it, and no re-run can recover.
+    # A .service.d directory for a unit that does not exist yet is inert, so this
+    # is safe on a first install too.
+    - name: Create the keeper's drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/faramir-keeper.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # ProtectHome=tmpfs rather than dropping it: every other home stays invisible
+    # to the process holding the age key, and only the store is bound back in.
+    # The leading - makes that bind optional, so an encrypted home that is not
+    # mounted yet leaves the keeper running with no values rather than failing to
+    # start at all.
+    - name: Let the keeper see the store without seeing the home
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/faramir-keeper.service.d/secrets-path.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by ansible-ctrl's faramir role.
+          [Service]
+          ProtectHome=tmpfs
+          BindReadOnlyPaths=-{{ faramir_secrets_dir }}
+      register: faramir_secrets_dropin
+
     - name: Run phase 3, binaries, config and systemd units
       ansible.builtin.command:
         cmd: bash install/30-install-broker.sh
@@ -429,33 +461,31 @@
 # Written every run, unlike /etc/faramir/config.toml, which phase 3 installs
 # once and then keeps: a setting that only lands on a first install is one this
 # role cannot reconcile afterwards.
-# After phase 3, which is what installs the unit this extends. ProtectHome=tmpfs
-# rather than dropping it: every other home stays invisible to the process
-# holding the age key, and only the store is bound back in. The leading - makes
-# that bind optional, so an encrypted home that is not mounted yet leaves the
-# keeper running with no values rather than failing to start at all.
-- name: Create the keeper's drop-in directory
-  ansible.builtin.file:
-    path: /etc/systemd/system/faramir-keeper.service.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
+# systemd ignores a directive it does not recognise, logs one line and starts the
+# unit anyway, so a misspelled hardening key is silent until something needs what
+# it was supposed to provide. verify exits 0 either way, so the output is what is
+# checked. Run after phase 3, which is what installs the unit the drop-ins extend.
+- name: Check the keeper's unit and drop-ins for directives systemd will ignore
+  ansible.builtin.command:
+    cmd: systemd-analyze verify faramir-keeper.service
+  register: faramir_unit_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
   become: true
 
-- name: Let the keeper see the store without seeing the home
-  ansible.builtin.copy:
-    dest: /etc/systemd/system/faramir-keeper.service.d/secrets-path.conf
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # Managed by ansible-ctrl's faramir role.
-      [Service]
-      ProtectHome=tmpfs
-      BindReadOnlyPaths=-{{ faramir_secrets_dir }}
-  register: faramir_secrets_dropin
-  become: true
+- name: Require every directive in the keeper's unit to be one systemd knows
+  ansible.builtin.assert:
+    that: "'Unknown key name' not in (faramir_unit_verify.stderr | default('')
+           ~ faramir_unit_verify.stdout | default(''))"
+    fail_msg: >-
+      systemd does not recognise a directive in faramir-keeper.service or its
+      drop-ins, and ignores it rather than failing:
+      {{ (faramir_unit_verify.stderr | default('') ~ faramir_unit_verify.stdout | default(''))
+         | regex_findall('Unknown key name [^\n]*') | join('; ') }}
+      A hardening or credential setting that is silently dropped leaves the
+      keeper running and holding nothing.
+    quiet: true
 
 - name: Name this project's secrets and SSH key in a config drop-in
   ansible.builtin.copy:
