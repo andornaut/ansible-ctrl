@@ -8,15 +8,36 @@
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
-    # ansible.cfg's vault_password_file is ~-relative and this runs as root, whose ~ is /root,
-    # so the password file is named explicitly. ~{{ primary_user }} rather than an absolute path:
-    # the shell resolves it through the passwd database, so it survives a home directory move.
-    # The environment variable rather than --vault-password-file: it outranks ansible.cfg for the
-    # same setting, where the flag layers on top and each run warns that the config path is missing.
+    # Wrapped in sops exec-env, because credentials reach a play through the environment: a bare
+    # ansible-playbook leaves every lookup('env', ...) empty, and an empty one is not an error, so
+    # the run would reach the DNS challenge before failing rather than refusing to start. The
+    # wildcard certificates need dns-01, which needs the Cloudflare token, so this is not a job
+    # that can do without credentials.
+    #
+    # sops rather than make, which is the operator's entry point: make adds --ask-become-pass when
+    # a run reaches the controller, and cron has no terminal to answer it on. Root's own ~ is
+    # /root, so the key is named explicitly rather than left to sops to find.
     job: >-
       cd {{ letsencrypt_nginx_renewal_cron_directory }} &&
-      ANSIBLE_VAULT_PASSWORD_FILE=~{{ primary_user }}/.private/ansible-vault-password
-      ansible-playbook webservers.yml --tags letsencrypt
+      SOPS_AGE_KEY_FILE={{ letsencrypt_nginx_renewal_cron_age_key_file }}
+      sops exec-env {{ letsencrypt_nginx_renewal_cron_sops_file }}
+      'ansible-playbook webservers.yml --tags letsencrypt'
       >> {{ letsencrypt_nginx_renewal_cron_log }} 2>&1
     state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"
   become: true
+
+# The redirect above creates this with root's umask, which leaves it world-readable, and it holds
+# the full output of every renewal run. The credentials in it are no_log, nothing else is. Created
+# here so the mode is in place before the first run rather than after it. The timestamps are
+# preserved so that a run that changes nothing reports nothing.
+- name: Restrict the certificate renewal log
+  ansible.builtin.file:
+    path: "{{ letsencrypt_nginx_renewal_cron_log }}"
+    state: touch
+    owner: root
+    group: adm
+    mode: "0640"
+    modification_time: preserve
+    access_time: preserve
+  become: true
+  when: letsencrypt_nginx_install_renewal_cron
