@@ -57,11 +57,10 @@ faramir_config_dir: "{{ faramir_user_home }}/.faramir"
 # ansible-ctrl secrets file.
 faramir_config_src: etc/config.toml
 
-# Where the store lives. In the operator's home rather than /etc, and the only
-# part of faramir that is: the age key, config.toml and the units stay root-owned
-# outside every home, because those are what stop the agent and the agent runs as
-# this account. The store is not one of them, since that account's age identity
-# decrypts it wherever it sits.
+# Where the store lives. In the operator's home, which the store can be and the
+# age key and the units cannot: those are what stop the agent, and the agent runs
+# as this account. The store is not one of them, since that account's age
+# identity decrypts it wherever it sits.
 #
 # Created 2770 operator:dev, so sops edits it in place without sudo. The keeper
 # reaches it through a drop-in that binds this one directory into an otherwise

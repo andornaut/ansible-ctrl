@@ -647,7 +647,7 @@
 
     - name: Require the sealed key to still decrypt the store
       ansible.builtin.assert:
-        that: faramir_sealed_secrets.ref_count | default(0) | int > 0
+        that: faramir_sealed_secrets.count | default(0) | int > 0
         fail_msg: >-
           The keeper is running from {{ faramir_age_key_cred }} and the broker
           loaded no refs
@@ -730,7 +730,7 @@
   ansible.builtin.debug:
     msg:
       - "version: {{ faramir_version.stdout }}"
-      - "refs loaded: {{ faramir_secrets.ref_count | default('unknown') }}"
+      - "secrets loaded: {{ faramir_secrets.count | default('unknown') }}"
       - "files: {{ faramir_secrets.files | default([]) | join(', ') or 'none' }}"
       - "load errors: {{ faramir_secrets.errors | default([]) | join('; ') or 'none' }}"
 
@@ -745,7 +745,7 @@
 # fault, and that is what this catches.
 - name: Require the broker to have loaded at least one secret
   ansible.builtin.assert:
-    that: faramir_secrets.ref_count | default(0) | int > 0
+    that: faramir_secrets.count | default(0) | int > 0
     fail_msg: >-
       The broker read {{ faramir_secrets.files | join(', ') }} and loaded no
       refs from it. Nothing is injectable and nothing is redacted: a playbook
