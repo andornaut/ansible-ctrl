@@ -401,7 +401,7 @@
     # installed config is where [ssh] keys and [secrets] files are edited by hand.
     - name: Discard the installed broker config so phase 3 writes it fresh
       ansible.builtin.file:
-        path: /etc/faramir/config.toml
+        path: "{{ faramir_config_dir }}/config.toml"
         state: absent
       when: faramir_overwrite_config | bool
 
@@ -536,7 +536,7 @@
 # project, not to faramir. They go in a drop-in so the base config stays
 # faramir's and neither has to be merged by hand.
 #
-# Written every run, unlike /etc/faramir/config.toml, which phase 3 installs
+# Written every run, unlike the base config, which phase 3 installs
 # once and then keeps: a setting that only lands on a first install is one this
 # role cannot reconcile afterwards.
 # systemd ignores a directive it does not recognise, logs one line and starts the
@@ -567,13 +567,13 @@
 
 - name: Name this project's secrets and SSH key in a config drop-in
   ansible.builtin.copy:
-    dest: /etc/faramir/config.d/ansible-ctrl.toml
+    dest: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
     owner: root
     group: root
     mode: "0644"
     content: |
       # Managed by ansible-ctrl's faramir role. Merged over
-      # /etc/faramir/config.toml, which is faramir's own and not edited here.
+      # the base config, which is faramir's own and not edited here.
       [secrets]
       files = {{ faramir_secrets_files | to_json }}
 
@@ -702,7 +702,7 @@
 # it is repeated here for the numbers, not the exit code.
 - name: Report what the broker loaded
   ansible.builtin.command:
-    cmd: /usr/local/bin/faramir-broker -c /etc/faramir/config.toml --check
+    cmd: /usr/local/bin/faramir-broker -c {{ faramir_config_dir }}/config.toml --check
   register: faramir_broker_check
   changed_when: false
   failed_when: false
@@ -765,7 +765,7 @@
       is under group_vars/ or host_vars/, which Ansible auto-loads. Every
       secret_* var would resolve to its ENC[...] ciphertext instead of the
       injected value, silently. Move it to {{ faramir_secrets_dir }} and update
-      [secrets] files in /etc/faramir/config.toml.
+      [secrets] files in {{ faramir_config_dir }}/config.toml.
     quiet: true
   vars:
     bad_dirs: (^|/)(group_vars|host_vars)/
@@ -836,7 +836,7 @@
           ({{ faramir_agent_keys.stdout | default('') | trim
               or faramir_agent_keys.stderr | default('') | trim or 'no output' }}).
           Brokered commands can reach no managed host. Check that [ssh] keys in
-          /etc/faramir/config.toml names {{ faramir_broker_ssh_key }}, then
+          {{ faramir_config_dir }}/config.toml names {{ faramir_broker_ssh_key }}, then
           systemctl restart faramir-broker.
         quiet: true
 

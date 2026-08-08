@@ -28,6 +28,8 @@ faramir_install_env:
   EXEC_USER: "{{ faramir_exec_user }}"
   DEV_GROUP: "{{ faramir_dev_group }}"
   CONFIG: "{{ faramir_config_src }}"
+  # Where it is installed to, as against CONFIG, which is what is installed.
+  CONFIG_DIR: "{{ faramir_config_dir }}"
   # Phase 2 writes .sops.yaml beside the store, so it has to agree with
   # faramir_secrets_files or sops edits the wrong directory's recipients.
   SECRETS_DIR: "{{ faramir_secrets_dir }}"
