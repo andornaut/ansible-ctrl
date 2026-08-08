@@ -1,16 +1,26 @@
 ---
+# What this role still does, now that `faramir init` does the install:
+#
+#   builds the binaries, because faramir publishes none
+#   runs init once, with this project's paths
+#   names this project's sops files and SSH key in a config.d drop-in
+#   tells the agent how to run a playbook through the broker
+#   asks faramir doctor whether any of it works
+#
+# Everything else -- accounts, directories, the age key, .sops.yaml, the units,
+# their sandboxing, the TPM sealing, the systemd ordering -- belongs to faramir
+# and is not restated here. A setting named in both places is one that can
+# disagree with itself.
+
 # First: faramir_worktree and faramir_src_dir derive from passwd entries, so the
 # guard below cannot check them until this has run.
 # tags: always so a --tags run cannot skip either.
 - name: Read the passwd and group databases
   ansible.builtin.getent:
-    database: "{{ item }}"
-  loop:
-    - passwd
-    - group
+    database: passwd
   tags: always
 
-- name: Validate faramir accounts and worktree
+- name: Validate the faramir account and worktree
   ansible.builtin.assert:
     that:
       # primary_user is inventory data, so an inventory that omits it would
@@ -39,10 +49,28 @@
       git clone git@github.com:andornaut/faramir.git {{ faramir_src_dir }}
     quiet: true
 
+# Brokered commands run in this tree, so it has to exist before init shares it.
+- name: Check for the working tree
+  ansible.builtin.stat:
+    path: "{{ faramir_worktree }}"
+  register: faramir_worktree_dir
+
+- name: Require the working tree
+  ansible.builtin.assert:
+    that: faramir_worktree_dir.stat.isdir | default(false)
+    fail_msg: >-
+      No working tree at {{ faramir_worktree }}. Brokered commands run there, so
+      it must exist before the broker is installed. It is meant to be your own
+      checkout:
+      git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
+    quiet: true
+
 # Go and sops are asserted rather than installed: roles here declare no
 # dependencies, and a second installer for either would drift from the dev
-# role's. check_mode: false so the asserts below have an rc to read; a skipped
-# probe would fail on an undefined variable instead of reporting what is wrong.
+# role's. Go builds the binaries; sops is what the keeper execs to decrypt and
+# what the operator edits the store with, so it is needed at run time too.
+# check_mode: false so the assert below has an rc to read; a skipped probe would
+# fail on an undefined variable instead of reporting what is wrong.
 - name: Locate the build and secret-store tools
   ansible.builtin.shell:
     executable: /bin/bash
@@ -81,11 +109,10 @@
   become_user: "{{ faramir_user }}"
   block:
     # Reproducible: the Makefile builds with -trimpath and CGO_ENABLED=0, so the
-    # checksum moves only when the source does. That makes it a usable signal
-    # both for "did this build change anything" and for phase 3's change report.
+    # checksum moves only when the source does.
     - name: Check the built broker binary
       ansible.builtin.stat:
-        path: "{{ faramir_src_dir }}/bin/faramir-broker"
+        path: "{{ faramir_bin_dir }}/faramir-broker"
         checksum_algorithm: sha256
       register: faramir_built_before
 
@@ -98,480 +125,66 @@
       # Reported by the checksum comparison below: go build is a no-op when
       # nothing changed, and says nothing either way.
       changed_when: false
+      check_mode: false
 
     - name: Check the built broker binary after the build
       ansible.builtin.stat:
-        path: "{{ faramir_src_dir }}/bin/faramir-broker"
+        path: "{{ faramir_bin_dir }}/faramir-broker"
         checksum_algorithm: sha256
       register: faramir_built
       changed_when: >-
         faramir_built.stat.checksum != faramir_built_before.stat.checksum | default('')
 
 # --skip-tags build is a reinstall of what is already there, which is only a
-# thing to do when it is already there. Checked separately from the config
-# probe below so that "not built" does not surface as "does not parse".
-#
-# All six that install/30-install-broker.sh requires, not the ones this role
-# names elsewhere: a shorter list here passes and then phase 3 dies with the raw
-# "not built" this assert exists to pre-empt.
+# thing to do when it is already there. init refuses without the binaries and
+# says which are missing, but it does so after this role has decided to run it.
 - name: Require the built binaries
-  ansible.builtin.stat:
-    path: "{{ faramir_src_dir }}/bin/{{ item }}"
-  register: faramir_binaries
-  loop:
-    - faramir
-    - faramir-broker
-    - faramir-keeper
-    - faramir-exec
-    - faramir-mcp
-    - faramir-guard
-  loop_control:
-    label: "{{ item }}"
-
-- name: Fail when the binaries are missing
   ansible.builtin.assert:
-    that: item.stat.exists
+    that: faramir_built.stat.exists | default(false)
     fail_msg: >-
-      {{ faramir_src_dir }}/bin/{{ item.item }} is missing. Phase 3 refuses to
-      install without it. Drop --skip-tags build, or run make build in the
-      checkout.
-    quiet: true
-  loop: "{{ faramir_binaries.results }}"
-  loop_control:
-    label: "{{ item.item }}"
-
-# Phase 3 refuses a config that does not parse, and it refuses it after the
-# binaries and the hook are already on the host, leaving the install
-# half-applied. Read the source config here, with the parser that will judge
-# it, so a bad config stops the run before it touches root.
-- name: Check that the source config parses
-  ansible.builtin.command:
-    cmd: bin/faramir-broker -c {{ faramir_config_src }} --parse-only
-    chdir: "{{ faramir_src_dir }}"
-  register: faramir_config_parse
-  changed_when: false
-  failed_when: false
-  check_mode: false
-
-- name: Require a source config that parses
-  ansible.builtin.assert:
-    that: faramir_config_parse.rc == 0
-    fail_msg: >-
-      {{ faramir_config_src }} does not parse as a faramir config.
+      {{ faramir_bin_dir }}/faramir-broker is missing. Drop --skip-tags build,
+      or run make build in the checkout.
     quiet: true
 
-# faramir names the group literally in both files, and neither is this role's to
-# template: the config is installed verbatim and the units are faramir's. Checked
-# rather than trusted, because the failure has no other symptom. allowed_groups
-# is what the sockets admit and SupplementaryGroups is what reaches the working
-# tree, so a mismatch in either is a broker that installs and then does nothing.
-- name: Check that faramir's config and units name the dev group
-  ansible.builtin.shell:
-    executable: /bin/bash
-    chdir: "{{ faramir_src_dir }}"
-    cmd: >-
-      grep -qE '^[[:space:]]*allowed_groups[[:space:]]*=.*"{{ faramir_dev_group }}"'
-      {{ faramir_config_src | quote }}
-      && grep -qE '^SupplementaryGroups=.*\b{{ faramir_dev_group }}\b'
-      systemd/faramir-exec.service
-  register: faramir_dev_group_named
-  changed_when: false
-  failed_when: false
-  check_mode: false
-
-- name: Require faramir's own files to name the dev group
-  ansible.builtin.assert:
-    that: faramir_dev_group_named.rc == 0
-    fail_msg: >-
-      faramir_dev_group is {{ faramir_dev_group }}, which faramir's
-      {{ faramir_config_src }} and systemd/faramir-exec.service do not name.
-      Phase 1 would create that group and add {{ faramir_user }} to it, every
-      check here would pass, and the broker would then refuse every connection
-      from it. Change it in faramir's files too, or leave it at the default.
-    quiet: true
-
-# The phase scripts are idempotent re-assertions and report nothing a machine can
-# read, so each one's changed_when comes from the state it establishes, checked
-# here before any of them runs.
-- name: Check the installed broker binary
-  ansible.builtin.stat:
-    path: /usr/local/bin/faramir-broker
-    checksum_algorithm: sha256
-  register: faramir_installed
-
-# The built binary, checksummed here rather than inside the build block, so that
-# phase 3's change report has both sides under --skip-tags build too. Reading it
-# from the block's register would leave that side unset and report every skipped
-# build as a change.
-- name: Check the broker binary about to be installed
-  ansible.builtin.stat:
-    path: "{{ faramir_src_dir }}/bin/faramir-broker"
-    checksum_algorithm: sha256
-  register: faramir_build_current
-
-- name: Check for the age key
-  ansible.builtin.stat:
-    path: /etc/faramir/age.key
-  register: faramir_age_key
-
-- name: Check for the agent's Claude settings
-  ansible.builtin.stat:
-    path: "{{ faramir_user_home }}/.claude/settings.json"
-  register: faramir_agent_settings
-
-# Phase 1 first: it creates the service accounts and the group, which everything
-# below reads. It shares no tree; that is the task after it.
-- name: Run phase 1, accounts and group
-  ansible.builtin.command:
-    cmd: bash install/10-accounts.sh
-    chdir: "{{ faramir_src_dir }}"
-  register: faramir_phase_accounts
-  become: true
-  environment: "{{ faramir_install_env }}"
-  # Only account creation is reported.
-  changed_when: >-
-    faramir_service_accounts | difference(ansible_facts['getent_passwd'] | list) | length > 0
-    or faramir_dev_group not in ansible_facts['getent_group']
-
-# Phase 1 creates the accounts and stops there. Sharing a tree is a separate,
-# per-directory action now, because faramir names no directory anywhere: the
-# managed sops files are under /etc and a brokered command runs where its caller
-# was. This project's checkout is the tree its playbooks run in, so it is the one
-# that has to be shared.
+# The whole install, in one command. It is idempotent and reports per step, so
+# the changed state below is what it says rather than something inferred from
+# stat-ing the host before and after.
 #
-# Re-asserted every run like the phases around it, and reporting no change: it
-# sets a group, setgid bits and a mode that are already what they should be on
-# every run after the first.
-- name: Share this project's checkout with the service accounts
+# check_mode: false with --dry-run added to the argv instead: init computes the
+# same answers and writes nothing, which a skipped task could not report.
+- name: Install faramir
   ansible.builtin.command:
-    cmd: bin/faramir share-tree {{ faramir_worktree | quote }}
-    chdir: "{{ faramir_src_dir }}"
-  register: faramir_share_tree
-  changed_when: false
+    argv: "{{ faramir_init_argv }}"
   become: true
-  environment: "{{ faramir_install_env }}"
-
-# The accounts phase 1 created are not in the facts gathered at the top of this
-# role, and the checks below read them.
-- name: Re-read the passwd and group databases
-  ansible.builtin.getent:
-    database: "{{ item }}"
-  loop:
-    - passwd
-    - group
-
-# Brokered commands run in this tree, so it has to exist from here on. Phase 3
-# would otherwise install a broker that fails every command with "cwd does not
-# exist".
-- name: Check for the shared working tree
-  ansible.builtin.stat:
-    path: "{{ faramir_worktree }}"
-  register: faramir_worktree_dir
-  become: true
-
-- name: Require the shared working tree
-  ansible.builtin.assert:
-    that: faramir_worktree_dir.stat.isdir | default(false)
-    fail_msg: >-
-      No working tree at {{ faramir_worktree }}. Brokered commands run there, so
-      it must exist before the broker is installed. It is meant to be your own
-      checkout:
-      git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then re-run: faramir share-tree applies the group and the setgid bits,
-      and for a tree inside your home makes every directory down to it
-      group-executable so the executor can reach it.
-    quiet: true
-
-# As faramir_user for the same reason as the build, and with more at stake: under
-# a root run the directory and the identity are created root-owned at 0400, the
-# operator can no longer decrypt anything, and phase 2 has already listed that
-# unreadable identity in .sops.yaml as a recipient.
-- name: Provision the operator's age identity
-  when: faramir_manage_operator_age_key | bool
-  become: true
-  become_user: "{{ faramir_user }}"
-  block:
-    # Before phase 2, which is the only thing that writes .sops.yaml, and only
-    # writes it once: a recipient added later means editing that file and
-    # re-encrypting every managed value.
-    - name: Create the operator's sops key directory
-      ansible.builtin.file:
-        path: "{{ faramir_operator_age_key | dirname }}"
-        state: directory
-        mode: "0700"
-
-    # faramir keygen writes 0400 and refuses to overwrite, so creates: is belt
-    # and braces rather than the only guard. Overwriting an age identity
-    # destroys access to every value it was a recipient for.
-    - name: Mint the operator's age identity
-      ansible.builtin.command:
-        cmd: bin/faramir keygen -o {{ faramir_operator_age_key | quote }}
-        chdir: "{{ faramir_src_dir }}"
-        creates: "{{ faramir_operator_age_key }}"
-
-    # The public half only. The identity file holds both, and nothing here
-    # needs the private one: sops finds it at this path on its own.
-    - name: Read the operator's age recipient
-      ansible.builtin.shell:
-        executable: /bin/bash
-        cmd: set -o pipefail; grep -o 'age1[0-9a-z]*' {{ faramir_operator_age_key | quote }} | tail -1
-      register: faramir_operator_recipient
-      changed_when: false
-
-    - name: Require an age recipient
-      ansible.builtin.assert:
-        that: faramir_operator_recipient.stdout is match("age1")
-        fail_msg: >-
-          No age recipient in {{ faramir_operator_age_key }}. Remove it and
-          re-run, or set faramir_manage_operator_age_key=false to leave the
-          keeper as the only one.
-        quiet: true
-
-- name: Provision the broker's SSH identity
-  when: faramir_manage_broker_ssh_key | bool
-  become: true
-  block:
-    # Before phase 3, which starts the broker: the agent loads its keys once at
-    # startup, so a key that appears afterwards is not in it until a restart.
-    #
-    # A key the broker owns and the executor cannot read. Generating it grants
-    # nothing on its own; it opens a host only once its public half is in that
-    # host's authorized_keys, which is reported at the end of the run.
-    - name: Generate the broker's SSH key
-      community.crypto.openssh_keypair:
-        path: "{{ faramir_broker_ssh_key }}"
-        type: ed25519
-        comment: "faramir broker on {{ inventory_hostname }}"
-        owner: "{{ faramir_broker_user }}"
-        group: "{{ faramir_broker_user }}"
-        mode: "0600"
-        # An existing key is left alone: regenerating one silently would lock
-        # the broker out of every host its public half is already on.
-        regenerate: never
-      register: faramir_broker_key
-
-- name: Install the rest of faramir
-  become: true
-  environment: "{{ faramir_install_env }}"
-  block:
-    # Before phase 2, which writes .sops.yaml into it. Group dev and setgid so
-    # sops edits it in place without sudo and the keeper can read what lands
-    # there.  Under /etc rather than a home, so no traversal is involved.
-    - name: Create the secrets directory
-      ansible.builtin.file:
-        path: "{{ faramir_secrets_dir }}"
-        state: directory
-        owner: "{{ faramir_user }}"
-        group: "{{ faramir_dev_group }}"
-        mode: "2770"
-
-    # CLEANUP (added 2026-08-08): the store used to live in /etc/faramir/secrets.
-    # Delete once every controller has run this and the directory is gone.
-    #
-    # Emptiness is checked rather than assumed: state=absent on a directory is
-    # recursive, and this one held every credential until the move. A host that
-    # still keeps its store there keeps it.
-    - name: Look for a store left in the old location
-      ansible.builtin.find:
-        paths: /etc/faramir/secrets
-        hidden: true
-        file_type: any
-      register: faramir_old_store
-      failed_when: false
-
-    - name: Remove the old store directory once it is empty
-      ansible.builtin.file:
-        path: /etc/faramir/secrets
-        state: absent
-      when:
-        - faramir_old_store.files is defined
-        - faramir_old_store.files | length == 0
-
-    # Mints the age key into /etc/faramir and writes .sops.yaml beside the store.
-    # Runs before phase 3, which refuses to start the services without a key.
-    - name: Run phase 2, age key and sops configuration
-      ansible.builtin.command:
-        cmd: bash install/20-sops-init.sh
-        chdir: "{{ faramir_src_dir }}"
-      register: faramir_phase_sops
-      changed_when: not faramir_age_key.stat.exists
-
-    # Phase 3 keeps an existing config and writes config.toml.dist beside it, so
-    # this is the only way the role can reconcile it. Guarded because the
-    # installed config is where [ssh] keys and [secrets] files are edited by hand.
-    - name: Discard the installed broker config so phase 3 writes it fresh
-      ansible.builtin.file:
-        path: "{{ faramir_config_dir }}/config.toml"
-        state: absent
-      when: faramir_overwrite_config | bool
-
-    # Tracks the binaries. The unit files are rewritten every run, which this does
-    # not detect. It installs no drop-ins: a worktree outside /home and
-    # /srv/faramir needs a ReadWritePaths drop-in added by hand.
-    # Before phase 3, not after: phase 3 starts the keeper and then validates it,
-    # so a drop-in written afterwards is one phase 3 has already been judged
-    # without. When that drop-in is what breaks the keeper, the run fails there
-    # and never reaches the task that would fix it, and no re-run can recover.
-    # A .service.d directory for a unit that does not exist yet is inert, so this
-    # is safe on a first install too.
-    - name: Create the keeper's drop-in directory
-      ansible.builtin.file:
-        path: /etc/systemd/system/faramir-keeper.service.d
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    # ProtectHome=tmpfs rather than dropping it: every other home stays invisible
-    # to the process holding the age key, and only what it reads is bound back
-    # in. Both paths, because the keeper needs its config as well as the store,
-    # and an unbound config is not a degraded keeper but one that exits 2 before
-    # it opens a socket.
-    #
-    # The leading - makes each bind optional, so an encrypted home that is not
-    # mounted yet leaves the keeper with nothing to serve rather than failing to
-    # start. That only holds for the store: a missing config stops it either way,
-    # which is why the units are socket activated and nothing asks before login.
-    - name: Let the keeper see its config and the store without seeing the home
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/faramir-keeper.service.d/secrets-path.conf
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          # Managed by ansible-ctrl's faramir role.
-          [Service]
-          ProtectHome=tmpfs
-          BindReadOnlyPaths=-{{ faramir_config_dir }}
-          BindReadOnlyPaths=-{{ faramir_secrets_dir }}
-      register: faramir_secrets_dropin
-
-    # Sealed and pointed at before phase 3 for the same reason, and this is the
-    # drop-in that proved it: an unrecognised directive here leaves the keeper
-    # with no key at all, phase 3 fails validating it, and the run ends before
-    # reaching a task that would have replaced the file. The restart and the
-    # check that the sealed key still decrypts stay after phase 3, which is what
-    # installs the unit and starts the services.
-    - name: Seal the age key to the TPM
-      when: faramir_seal_age_key | bool
-      block:
-        - name: Ask systemd whether this host has a usable TPM
-          ansible.builtin.command:
-            cmd: systemd-creds has-tpm2
-          register: faramir_tpm
-          changed_when: false
-          failed_when: false
-
-        # Asserted rather than skipped. A host quietly not sealing its key is the
-        # install that looks healthy and protects less than it appears to.
-        - name: Require a TPM when sealing was asked for
-          ansible.builtin.assert:
-            that: faramir_tpm.stdout is defined and faramir_tpm.stdout.startswith('yes')
-            fail_msg: >-
-              faramir_seal_age_key is true and systemd-creds reports no usable TPM
-              ({{ faramir_tpm.stdout | default('') | trim or 'no output' }}).
-              Set faramir_seal_age_key=false and use full-disk encryption, which
-              covers the audit log and swap as well.
-            quiet: true
-
-        # --name is what binds the blob: a credential decrypts only under the name
-        # it was encrypted with, and the unit asks for age_key. Sealed once and
-        # left alone; remove the .cred to re-seal after rotating the key.
-        - name: Seal the age key into an encrypted credential
-          ansible.builtin.command:
-            cmd: >-
-              systemd-creds encrypt --name=age_key
-              /etc/faramir/age.key {{ faramir_age_key_cred | quote }}
-            creates: "{{ faramir_age_key_cred }}"
-          register: faramir_sealed
-
-        - name: Restrict the sealed credential to root
-          ansible.builtin.file:
-            path: "{{ faramir_age_key_cred }}"
-            owner: root
-            group: root
-            mode: "0400"
-
-        - name: Point the keeper at the sealed credential
-          ansible.builtin.copy:
-            src: "{{ faramir_src_dir }}/systemd/tpm-credential.conf"
-            dest: /etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf
-            remote_src: true
-            owner: root
-            group: root
-            mode: "0644"
-          register: faramir_tpm_dropin
-
-    - name: Run phase 3, binaries, config and systemd units
-      ansible.builtin.command:
-        cmd: bash install/30-install-broker.sh
-        chdir: "{{ faramir_src_dir }}"
-      register: faramir_phase_broker
-      # default('') on the installed side only: a first install has nothing under
-      # /usr/local/bin yet, while the built side is asserted to exist above.
-      changed_when: >-
-        faramir_installed.stat.checksum | default('') != faramir_build_current.stat.checksum
-        or faramir_overwrite_config | bool
-
-    # Writes the operator's agent settings, the working tree's .mcp.json, and an
-    # instructions snippet. Keeps whatever it finds, so a second run is a no-op.
-    - name: Run phase 4, agent configuration
-      ansible.builtin.command:
-        cmd: bash install/40-agent-config.sh
-        chdir: "{{ faramir_src_dir }}"
-      register: faramir_phase_agent
-      changed_when: not faramir_agent_settings.stat.exists
-
-    # The phases warn rather than fail on the things most likely to produce a
-    # broker that installs cleanly and then does nothing: a worktree that does
-    # not exist, an installed config naming a different one, an executor uid in
-    # the broker's or keeper's group. Ansible swallows their stdout, so the
-    # warnings are pulled back out here.
-    - name: Show what the install phases warned about
-      ansible.builtin.debug:
-        msg: "{{ faramir_phase_warnings }}"
-      vars:
-        faramir_phase_warnings: >-
-          {{ [faramir_phase_accounts, faramir_phase_sops,
-              faramir_phase_broker, faramir_phase_agent]
-             | map(attribute='stdout_lines', default=[]) | flatten
-             | select('search', 'WARNING|SKIP') | list }}
-      when: faramir_phase_warnings | length > 0
-
-# Which sops files the broker manages and which SSH key it lends belong to this
-# project, not to faramir. They go in a drop-in so the base config stays
-# faramir's and neither has to be merged by hand.
-#
-# Written every run, unlike the base config, which phase 3 installs
-# once and then keeps: a setting that only lands on a first install is one this
-# role cannot reconcile afterwards.
-# systemd ignores a directive it does not recognise, logs one line and starts the
-# unit anyway, so a misspelled hardening key is silent until something needs what
-# it was supposed to provide. verify exits 0 either way, so the output is what is
-# checked. Run after phase 3, which is what installs the unit the drop-ins extend.
-- name: Check the keeper's unit and drop-ins for directives systemd will ignore
-  ansible.builtin.command:
-    cmd: systemd-analyze verify faramir-keeper.service
-  register: faramir_unit_verify
-  changed_when: false
-  failed_when: false
+  register: faramir_init
   check_mode: false
-  become: true
+  changed_when: (faramir_init.stdout | from_json).changed
 
-- name: Require every directive in the keeper's unit to be one systemd knows
-  ansible.builtin.assert:
-    that: "'Unknown key name' not in (faramir_unit_verify.stderr | default('')
-           ~ faramir_unit_verify.stdout | default(''))"
-    fail_msg: >-
-      systemd does not recognise a directive in faramir-keeper.service or its
-      drop-ins, and ignores it rather than failing:
-      {{ (faramir_unit_verify.stderr | default('') ~ faramir_unit_verify.stdout | default(''))
-         | regex_findall('Unknown key name [^\n]*') | join('; ') }}
-      A hardening or credential setting that is silently dropped leaves the
-      keeper running and holding nothing.
-    quiet: true
+- name: Read what the install did
+  ansible.builtin.set_fact:
+    faramir_report: "{{ faramir_init.stdout | from_json }}"
 
-- name: Name this project's secrets and SSH key in a config drop-in
+# init warns rather than fails on the things with a legitimate shape that have
+# nonetheless left somebody with a broker that installs cleanly and does
+# nothing: a group membership that needs a fresh login, an executor in the
+# broker's group, a hook registered account-wide.
+- name: Show what the install warned about
+  ansible.builtin.debug:
+    msg: "{{ faramir_report.warnings }}"
+  when: faramir_report.warnings | default([]) | length > 0
+
+# Which sops files the broker manages belongs to this project, not to faramir,
+# and faramir ships no list of them. It goes in a drop-in so the base config
+# stays faramir's and neither has to be merged by hand.
+#
+# Written every run, unlike the base config, which init installs once and then
+# keeps: a setting that only lands on a first install is one this role cannot
+# reconcile afterwards.
+#
+# The SSH key is not named here. init generates it and writes it into its own
+# drop-in, config.d/00-faramir-init.toml, so it is named once; naming it again
+# here would put the same path in the merged list twice.
+- name: Name this project's secrets in a config drop-in
   ansible.builtin.copy:
     dest: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
     owner: root
@@ -582,204 +195,52 @@
       # the base config, which is faramir's own and not edited here.
       [secrets]
       files = {{ faramir_secrets_files | to_json }}
-
-      [ssh]
-      keys = {{ [faramir_broker_ssh_key] | to_json }}
   register: faramir_dropin
   become: true
 
 # Neither daemon re-reads its config while running, and the keeper has to lead:
 # it decrypts the file list the broker is then served, so restarting the broker
-# first just fetches the old value set again.
+# first just fetches the old value set again. `faramir reload` is that order,
+# which is why this is one command rather than two systemd_service tasks.
 #
-# Tasks rather than handlers, hence the noqa: the checks below read what the
-# broker loaded and what its agent holds, so a restart deferred to the end of the
-# play would report the state the drop-in was written to replace.
-- name: Restart the keeper onto the new drop-in # noqa: no-handler
-  ansible.builtin.systemd_service:
-    name: faramir-keeper
-    state: restarted
-    daemon_reload: true
-  when: faramir_dropin.changed or faramir_secrets_dropin.changed
-  become: true
-
-- name: Restart the broker onto the new drop-in # noqa: no-handler
-  ansible.builtin.systemd_service:
-    name: faramir-broker
-    state: restarted
+# A task rather than a handler, hence the noqa: doctor below reads what the
+# broker loaded, so a restart deferred to the end of the play would report the
+# state the drop-in was written to replace.
+- name: Restart the daemons onto the new drop-in # noqa: no-handler
+  ansible.builtin.command:
+    cmd: /usr/local/bin/faramir reload
   when: faramir_dropin.changed
+  changed_when: true
   become: true
 
-# The other half of the sealing above: everything here needs the unit installed
-# and the services running, so it cannot happen before phase 3. Anything that
-# fails from here leaves a keeper the run has already proved it can repair, since
-# the drop-in it reads was written before phase 3 judged it.
-- name: Check the sealed age key
-  when: faramir_seal_age_key | bool
-  become: true
-  block:
-    - name: Restart the keeper onto the sealed credential
-      ansible.builtin.systemd_service:
-        name: faramir-keeper
-        state: restarted
-        daemon_reload: true
-      when: faramir_sealed.changed or faramir_tpm_dropin.changed
-
-    # Through the broker, because what matters is that values still decrypt. A
-    # keeper that starts but cannot unseal serves nothing, and the broker then
-    # holds an empty value set and redacts nothing.
-    - name: Ask the broker what it loaded from the sealed key
-      ansible.builtin.command:
-        cmd: /usr/local/bin/faramir status
-      register: faramir_sealed_status
-      changed_when: false
-      failed_when: false
-
-    # Guarded like the report further down: a broker that could not answer puts
-    # its error on stderr, and an unguarded from_json fails on that instead of
-    # reporting it.
-    - name: Parse what the broker loaded
-      ansible.builtin.set_fact:
-        faramir_sealed_secrets: >-
-          {{ (faramir_sealed_status.stdout | from_json).secrets
-             if (faramir_sealed_status.stdout | default('') | trim).startswith('{')
-             else {} }}
-
-    - name: Require the sealed key to still decrypt the store
-      ansible.builtin.assert:
-        that: faramir_sealed_secrets.count | default(0) | int > 0
-        fail_msg: >-
-          The keeper is running from {{ faramir_age_key_cred }} and the broker
-          loaded no refs
-          ({{ faramir_sealed_status.stderr | default('') | trim or 'no error' }}).
-          Do not remove /etc/faramir/age.key. Read the keeper's unit log, and
-          revert by deleting
-          /etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf
-          followed by systemctl daemon-reload and a keeper restart.
-        quiet: true
-
-    # Only after the assert above, and only when asked for. Everything up to
-    # here is reversible by deleting the drop-in; this is the step that is not.
-    - name: Remove the plaintext age key
-      ansible.builtin.file:
-        path: /etc/faramir/age.key
-        state: absent
-      when: faramir_remove_plaintext_age_key | bool
-
-    - name: Say that the plaintext key is still on disk
-      ansible.builtin.debug:
-        msg:
-          - "/etc/faramir/age.key is still present, so sealing has bought nothing yet."
-          - "Set faramir_remove_plaintext_age_key=true once you have the key
-             material somewhere you can re-seal from: PCR 7 tracks Secure Boot
-             policy, and changing it stops the blob decrypting."
-      when: not faramir_remove_plaintext_age_key | bool
-
-# No state or enabled key: the module then only reports the unit's status, which
-# is what phase 3 has already enabled and started.
-- name: Read the state of the faramir sockets
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-  register: faramir_socket_state
-  loop: "{{ faramir_sockets }}"
-  become: true
-
-- name: Require the faramir sockets to be listening
-  ansible.builtin.assert:
-    that: item.status.ActiveState == "active"
-    fail_msg: >-
-      {{ item.item }} is {{ item.status.ActiveState }}. Phase 3 leaves the units
-      installed but stopped when /etc/faramir/age.key is missing or systemd is
-      not running; check journalctl -u {{ item.item }}.
-    quiet: true
-  loop: "{{ faramir_socket_state.results }}"
-  loop_control:
-    label: "{{ item.item }}"
-
-- name: Read the installed faramir version
-  ansible.builtin.command:
-    cmd: /usr/local/bin/faramir --version
-  register: faramir_version
-  changed_when: false
-
-# --check prints the operator-facing report: the managed files, the ref count
-# and any per-file load error. Phase 3 runs it as its own install gate and fails
-# there on a ref too short to redact, so reaching this means that list is empty;
-# it is repeated here for the numbers, not the exit code.
-- name: Report what the broker loaded
-  ansible.builtin.command:
-    cmd: /usr/local/bin/faramir-broker -c {{ faramir_config_dir }}/config.toml --check
-  register: faramir_broker_check
-  changed_when: false
+# CLEANUP (added 2026-08-08): the store used to live in /etc/faramir/secrets.
+# Delete once every controller has run this and the directory is gone.
+#
+# Emptiness is checked rather than assumed: state=absent on a directory is
+# recursive, and this one held every credential until the move. A host that
+# still keeps its store there keeps it.
+- name: Look for a store left in the old location
+  ansible.builtin.find:
+    paths: /etc/faramir/secrets
+    hidden: true
+    file_type: any
+  register: faramir_old_store
   failed_when: false
   become: true
 
-# A set_fact rather than a vars/ entry: this has to survive as a dict, and the
-# guard keeps a non-JSON stdout (a config that failed to load, so the report
-# went to stderr) from failing from_json instead of reporting the load error.
-- name: Parse the broker report
-  ansible.builtin.set_fact:
-    faramir_secrets: >-
-      {{ (faramir_broker_check.stdout | from_json).secrets
-         if (faramir_broker_check.stdout | default('') | trim).startswith('{')
-         else {} }}
+- name: Remove the old store directory once it is empty
+  ansible.builtin.file:
+    path: /etc/faramir/secrets
+    state: absent
+  when:
+    - faramir_old_store.files is defined
+    - faramir_old_store.files | length == 0
+  become: true
 
-# A list, one single-line template per entry: a folded multi-line message keeps
-# the line breaks between its {{ }} blocks and renders with stray newlines.
-- name: Show what the broker loaded
-  ansible.builtin.debug:
-    msg:
-      - "version: {{ faramir_version.stdout }}"
-      - "secrets loaded: {{ faramir_secrets.count | default('unknown') }}"
-      - "files: {{ faramir_secrets.files | default([]) | join(', ') or 'none' }}"
-      - "load errors: {{ faramir_secrets.errors | default([]) | join('; ') or 'none' }}"
-
-# The keeper decrypts sops and nothing else, so a credential held anywhere else
-# is absent from the value set, and a value absent from the set is neither
-# injectable nor redacted. Zero refs is therefore a broker that is
-# running and protecting nothing, which is indistinguishable from a healthy
-# install unless something says so. See the role README.
-# Guarded rather than unconditional. --check lists only the managed files it
-# could stat, so an empty list means no sops file exists yet, which is what a
-# first install looks like. A file that exists and yields nothing is the real
-# fault, and that is what this catches.
-- name: Require the broker to have loaded at least one secret
-  ansible.builtin.assert:
-    that: faramir_secrets.count | default(0) | int > 0
-    fail_msg: >-
-      The broker read {{ faramir_secrets.files | join(', ') }} and loaded no
-      refs from it. Nothing is injectable and nothing is redacted: a playbook
-      that prints a credential prints it in plaintext.
-      {{ 'Load errors: ' ~ (faramir_secrets.errors | join('; '))
-         if faramir_secrets.errors | default([]) | length > 0
-         else 'The broker reported no load error, so the file parsed and is
-               empty rather than unreadable.' }}
-    quiet: true
-  when: faramir_secrets.files | default([]) | length > 0
-
-# Ansible loads every .yml under group_vars/ and host_vars/ as a vars file, and
-# a sops file is valid YAML: it binds each var to its ENC[...] ciphertext, and
-# since "vault" sorts after "vars" it also overwrites the lookup('env', ...)
-# mapping the broker's injection relies on.  Nothing errors and no task fails.
-# Hosts get configured with the ciphertext of a credential in place of the
-# credential, which is why this is an assert and not a warning.
-- name: Require the encrypted files to be outside the auto-loaded vars directories
-  ansible.builtin.assert:
-    that: faramir_secrets.files | default([]) | select('search', bad_dirs) | list | length == 0
-    fail_msg: >-
-      {{ faramir_secrets.files | select('search', bad_dirs) | join(', ') }}
-      is under group_vars/ or host_vars/, which Ansible auto-loads. Every
-      secret_* var would resolve to its ENC[...] ciphertext instead of the
-      injected value, silently. Move it to {{ faramir_secrets_dir }} and update
-      [secrets] files in {{ faramir_config_dir }}/config.toml.
-    quiet: true
-  vars:
-    bad_dirs: (^|/)(group_vars|host_vars)/
-
-# Phase 4 installs faramir's own snippet, which says how the broker works and
-# nothing about this repo. These two flags are what make a brokered run work
-# here, and an agent that has to guess them gets a run that reaches the wrong
-# hosts or no credentials at all.
+# faramir's own agent snippet says how the broker works and nothing about this
+# repo. These two flags are what make a brokered run work here, and an agent
+# that has to guess them gets a run that reaches the wrong hosts or no
+# credentials at all.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
     # AGENTS.md, which every coding agent reads and which CLAUDE.md is a symlink
@@ -815,44 +276,65 @@
       brokered command has no terminal to answer.
   become: true
 
-- name: Check the broker's SSH identity end to end
-  when: faramir_manage_broker_ssh_key | bool
+# The questions the install cannot answer about itself. A broker serving zero
+# refs, an ssh-agent holding no key, and a shared group with members nobody
+# recognises all look exactly like a healthy install: every socket is active,
+# every unit is running, and nothing is redacted or reachable.
+#
+# Skipped under --check, where init wrote nothing and there is nothing new to
+# examine.
+- name: Ask faramir whether the install is doing its job
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/faramir
+      - doctor
+      - --json
+      - --config-dir
+      - "{{ faramir_config_dir }}"
+      - --operator
+      - "{{ faramir_user }}"
+      - --group
+      - "{{ faramir_dev_group }}"
+      - --broker-user
+      - "{{ faramir_broker_user }}"
+      - --keeper-user
+      - "{{ faramir_keeper_user }}"
+      - --exec-user
+      - "{{ faramir_exec_user }}"
   become: true
-  block:
-    # The other way an install comes up healthy and does nothing. The broker
-    # loads its keys at startup and only warns when none of them load, so a
-    # missing or unreadable key leaves an agent holding nothing, every socket
-    # active, and every playbook unable to reach a single managed host.
-    #
-    # Asked through the broker rather than read off disk, because what matters
-    # is what a brokered command gets: the executor's uid can use the agent but
-    # cannot read the key, so this is the only place the answer is visible.
-    - name: Ask a brokered command what the agent holds
-      ansible.builtin.command:
-        cmd: /usr/local/bin/faramir run --quiet -- ssh-add -l
-      register: faramir_agent_keys
-      changed_when: false
-      failed_when: false
+  register: faramir_doctor
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode
 
-    - name: Require the broker's agent to hold a key
-      ansible.builtin.assert:
-        that: "'SHA256' in faramir_agent_keys.stdout"
-        fail_msg: >-
-          The broker's ssh-agent holds no usable key
-          ({{ faramir_agent_keys.stdout | default('') | trim
-              or faramir_agent_keys.stderr | default('') | trim or 'no output' }}).
-          Brokered commands can reach no managed host. Check that [ssh] keys in
-          {{ faramir_config_dir }}/config.toml names {{ faramir_broker_ssh_key }}, then
-          systemctl restart faramir-broker.
-        quiet: true
+- name: Show what faramir doctor found
+  ansible.builtin.debug:
+    msg: >-
+      {{ (faramir_doctor.stdout | from_json).findings
+         | map(attribute='check') | zip((faramir_doctor.stdout | from_json).findings
+         | map(attribute='status')) | map('join', ': ') | list }}
+  when: faramir_doctor.stdout | default('') | length > 0
 
-    # Printed every run, not only when the key was just generated: it is what
-    # has to be in authorized_keys on every managed host, and an install that
-    # never says so is one where the fleet silently rejects the agent.
-    - name: Show the public key the fleet has to authorize
-      ansible.builtin.debug:
-        msg:
-          - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
-          - "{{ faramir_broker_key.public_key | default('unchanged; read it from the path above') }}"
-          - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
-             on every managed host, or brokered playbooks authenticate as nobody."
+- name: Require a working install
+  ansible.builtin.assert:
+    that: not (faramir_doctor.stdout | from_json).failed
+    fail_msg: >-
+      {{ (faramir_doctor.stdout | from_json).findings
+         | selectattr('status', 'equalto', 'failed')
+         | map(attribute='detail') | join('; ') }}
+    quiet: true
+  when: faramir_doctor.stdout | default('') | length > 0
+
+# Printed every run, not only when the key was just generated: it is what has to
+# be in authorized_keys on every managed host, and an install that never says so
+# is one where the fleet silently rejects the agent. faramir_fleet.yml is what
+# puts it there.
+- name: Show the public key the fleet has to authorize
+  ansible.builtin.debug:
+    msg:
+      - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
+      - "{{ faramir_report.broker_public_key | default('none; faramir_broker_ssh_key is empty') }}"
+      - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
+         on every managed host, or brokered playbooks authenticate as nobody.
+         Run: make faramir_fleet ASK_PASS=1"
+  when: faramir_broker_ssh_key | length > 0

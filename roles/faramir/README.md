@@ -8,7 +8,7 @@ Run it with `make faramir`.
 
 ## Why its own playbook
 
-The role writes the systemd units, `/etc/faramir/config.toml` and the filesystem
+The role writes the systemd units, the broker config and the filesystem
 permissions that confine the agent, then restarts the broker. A brokered run
 reaching those tasks would rewrite its own confinement as root and kill the
 command doing the rewriting. So the role is applied by `faramir.yml` to a
@@ -38,34 +38,46 @@ any of it. Those stay outside every home.
 Not in the checkout either: it is a public repo, so a store inside it is
 ciphertext of every credential one `git add -f` from publication.
 
-`faramir_secrets_dir` is created `2770 <operator>:dev`, so `sops` edits it in
-place without sudo and the keeper can read what lands there. The keeper reaches
-it through a role-written drop-in:
+`faramir_secrets_dir` is created `2770 root:dev`, so `sops` edits it in place
+through the group without sudo and the keeper can read what lands there. Root
+owns the directory rather than the operator: group write is all either of them
+needs to edit a file in it, and owning it would additionally let the operator
+change its mode, which is the one thing keeping the keeper's access from being
+revoked by accident.
+
+The keeper reaches it through its own unit, which `faramir init` renders with
+these lines whenever the config or the store is inside a home:
 
 ```ini
 [Service]
 ProtectHome=tmpfs
-BindReadOnlyPaths=-/home/<operator>/.faramir/secrets
+BindReadOnlyPaths=/home/<operator>/.faramir
 ```
 
 `tmpfs` rather than dropping `ProtectHome`: every other home stays invisible to
-the process holding the age key, and only the store is bound back in. The leading
-`-` makes that bind optional, so an encrypted home that is not mounted yet leaves
-the keeper running with no values rather than failing to start at all.
+the process holding the age key, and only that one directory is bound back in.
+`faramir_secrets_dir` sits inside `faramir_config_dir`, so the single bind covers
+both; move it outside and init emits a bind of its own for it.
+
+In the unit rather than a drop-in, which is why nothing here writes one. A
+sandbox split across two files is one where the second can be stale, or absent,
+or written after the run that judged the unit without it.
 
 What that costs: nothing under the home is readable before the operator's first
-login, so a reboot leaves the broker holding no refs, and a renewal at 03:00 on
-an unmounted home does not run. Both are reported rather than silent, by the
-role's ref-count assert and by the cron's preflight respectively.
+login, so a reboot leaves the store absent, and a renewal at 03:00 on an unmounted
+home does not run. Neither is silent. The bind carries no leading `-`, so the
+keeper fails to start rather than coming up empty, and the broker counts an
+absent `[secrets]` file as a load failure, so `--check` fails too. `faramir
+doctor` and the cron's preflight report the rest.
 
 It must also never sit under `group_vars/` or `host_vars/`. Ansible auto-loads
 every `.yml` there and a sops file is valid YAML, so each var would bind to its
 `ENC[...]` ciphertext. Nothing errors; hosts get the ciphertext as the password.
-The role asserts against this after install.
+`faramir init` refuses to finish against a store under either directory.
 
 A broker whose secrets file it cannot read comes up healthy and protects nothing.
-The role prints what the broker loaded and fails when a managed sops file exists
-and yielded no refs.
+`faramir doctor` reports what the broker loaded, and the role fails when a
+managed sops file exists and yielded no refs.
 
 To prove the chain end to end:
 
@@ -139,23 +151,30 @@ carry none and the fleet gets NOPASSWD sudo instead, installed by
 
 `faramir` publishes no release binaries, so the role builds them from the
 checkout at `faramir_src_dir` with `make build` (Go, from the `dev` role), then
-runs the project's own install phases as root:
+runs `faramir init` once, as root, with this project's paths on the command
+line. That one command establishes the accounts and the `dev` group, the age key,
+`.sops.yaml`, the broker's SSH identity, the directories, the binaries, the hook,
+the config, the systemd units and their sandboxing, the TPM sealing, and the
+sockets. None of it is restated here: a setting named in both places is one that
+can disagree with itself.
 
-| Phase | Establishes |
+What is left for the role is the part that belongs to this project rather than to
+faramir:
+
+| Step | Why it is here and not in faramir |
 | --- | --- |
-| accounts | the `faramir-keeper`, `faramir-broker` and `faramir-exec` uids, the `dev` group, `umask 002` |
-| sops-init | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` beside the store |
-| install-broker | binaries, `/etc/faramir/config.toml`, systemd units |
-| agent-config | the `Read` deny rules in the operator's account; enrolling a project is separate, and per project |
+| the `config.d/ansible-ctrl.toml` drop-in | which sops files the broker manages is this repo's, and faramir ships no list of them |
+| `faramir reload` when that changes | the drop-in is the role's to write, so getting the daemons onto it is the role's to trigger |
+| the `AGENTS.md` block | how to run *these* playbooks through the broker, which faramir's own snippet says nothing about |
+| `faramir doctor` and its assert | the run has to fail when the result does not work, and a playbook is what fails |
 
-The role validates `faramir_config_src` with the freshly built binary before the
-first phase. The installer applies the same rule, but only once the binaries are
-on the host, where a rejection leaves the install half-applied.
+`init` reports per step in JSON, so `changed_when` reads a field rather than
+inferring one from stat-ing the host before and after. Under `--check` the role
+passes `--dry-run`, which computes every answer and writes nothing.
 
-The scripts report no machine-readable change, so `changed_when` is derived from
-the state each phase establishes, sampled before any phase runs. It under-reports
-twice: share-tree re-applies the tree's group and setgid bits every run, and
-the broker phase rewrites the unit files every run.
+The binaries are the only thing that crosses from the checkout: the units, the
+base config, the agent hook and the docs are embedded in them, so `init` needs no
+source layout and this role knows about none.
 
 ## The working tree
 
@@ -165,17 +184,16 @@ there, so it has to be reachable by `faramir-exec`, and by nothing else: the
 sops files are read from `faramir_secrets_dir`, which the keeper sees through a
 bind of that one directory and nothing else of the home around it.
 
-`faramir-exec` is not the operator's uid and a home is 0700, so the role runs
-`faramir share-tree` against that checkout: it group-owns the tree
-and sets the setgid bits, so a brokered command and the operator stop fighting
-over each other's files, and makes every directory group-executable from
-the home down. Not `chmod o+x`, which with `umask 002` in force would open the
-whole home rather than a path through it.
+`faramir-exec` is not the operator's uid and a home is 0700, so the role passes
+that checkout to `init` as `--share-tree`: it group-owns the tree and sets the
+setgid bits, so a brokered command and the operator stop fighting over each
+other's files, and makes every directory group-executable from the home down.
+Not `chmod o+x`, which with `umask 002` in force would open the whole home rather
+than a path through it.
 
-That is per directory rather than something faramir's installer does, because
-faramir names no tree anywhere: a brokered command runs where its caller was.
-Share another the same way, `sudo faramir share-tree <dir>`, from anywhere: it
-is a subcommand of the installed binary rather than a script in the checkout.
+It is named per directory rather than derived, because faramir names no tree
+anywhere: a brokered command runs where its caller was. Share another the same
+way, `sudo faramir share-tree <dir>`, from anywhere.
 
 The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
 and `group_vars/` are gitignored, so a fresh clone parses but has no inventory.
@@ -198,39 +216,47 @@ reaches the fleet without being able to read it. The broker holds the key under
 its own uid, loads it into an `ssh-agent` it owns, and passes the child only
 `SSH_AUTH_SOCK`.
 
-Nothing in faramir creates that key. A broker started without it logs one warning
-and carries on: every socket comes up active, `--check` passes, and every brokered
-playbook then fails to reach a single host. The role generates it when missing,
-then asks the running broker what its agent holds:
+A broker started without a key logs one warning and carries on: every socket
+comes up active, `--check` passes, and every brokered playbook then fails to
+reach a single host. `init` generates the key when missing, then asks the running
+broker what its agent holds:
 
 ```bash
 faramir run -- ssh-add -l
 ```
 
 Asked through the broker rather than read off disk, because what matters is what
-a brokered command gets. The run fails when the agent holds nothing.
+a brokered command gets. Both `init` and `faramir doctor` fail when the agent
+holds nothing.
 
 Generating the key grants nothing on its own. Its public half has to reach the
 managed hosts, which the fleet play below does, and the role prints it at the end
 of every run.
 
-Set `faramir_manage_broker_ssh_key=false` when the config leaves `[ssh] keys`
-empty. The keys then have to live where the executor's own uid can read them.
+Set `faramir_broker_ssh_key=""` to leave `[ssh] keys` empty. The keys then have
+to live where the executor's own uid can read them.
 
 ## What this project sets, and where
 
-`/etc/faramir/config.toml` is faramir's, installed from its own starter and
-never edited here. The two settings that belong to this project go in a drop-in
-the role writes every run:
+`~/.faramir/config.toml` is faramir's, rendered by `init` from its own template
+and never edited here. Both it and the base config leave `[secrets] files` and
+`[ssh] keys` empty on purpose, because a value that lands only on a first
+install can never be reconciled afterwards. Each is set in a drop-in instead,
+and they have different owners:
 
 ```toml
-# /etc/faramir/config.d/ansible-ctrl.toml
-[secrets]
-files = ["/home/<operator>/.faramir/secrets/ansible-ctrl.sops.yml"]
-
+# 00-faramir-init.toml -- written by faramir init, every run
 [ssh]
 keys = ["/var/lib/faramir-broker/.ssh/id_ed25519"]
+
+# ansible-ctrl.toml -- written by this role, every run
+[secrets]
+files = ["/home/<operator>/.faramir/secrets/ansible-ctrl.sops.yml"]
 ```
+
+The key is faramir's because faramir generates it; the store is this repo's
+because faramir has no opinion about what is in it. Naming either in both places
+would put it in the merged list twice.
 
 Drop-ins merge over the base in lexical order and are held to every check the
 base file is, so a typo here is a hard error naming the alternatives rather than
@@ -238,13 +264,12 @@ a setting that reads as though it took effect. `faramir status` reports
 `configs`, the base file and every drop-in that contributed, which is where to
 look when a setting is not what you expect.
 
-A drop-in rather than the base config for a specific reason: the installer keeps
-an existing `/etc/faramir/config.toml` and writes the incoming default to
-`config.toml.dist` beside it, so anything named in the base file lands on a
-first install and can never be reconciled afterwards. Set
-`faramir_overwrite_config=true` to rewrite the base from `faramir_config_src`,
-discarding host edits, which is rarely what you want now that the settings this
-project cares about are not in it:
+A drop-in rather than the base config for a specific reason: `init` keeps an
+existing `config.toml` and writes the incoming default to `config.toml.dist`
+beside it, so anything named in the base file lands on a first install and can
+never be reconciled afterwards. Set `faramir_overwrite_config=true` to have init
+write the base fresh, discarding host edits, which is rarely what you want now
+that the settings this project cares about are not in it:
 
 ```bash
 make faramir ARGS="--extra-vars faramir_overwrite_config=true"
@@ -253,9 +278,11 @@ make faramir ARGS="--extra-vars faramir_overwrite_config=true"
 Assigned rather than passed after `--`, because make reads a word containing `=`
 as a variable assignment and would forward a bare `--extra-vars`.
 
-Neither daemon re-reads its config while running, so the role restarts both when
-the drop-in changes, keeper first: it decrypts the file list the broker is then
-served, and restarting the broker first would just fetch the old value set.
+Neither daemon re-reads its config while running, so the role runs `faramir
+reload` when the drop-in changes. That is one command rather than two restarts
+because the order matters and is not obvious: the keeper leads, since it decrypts
+the file list the broker is then served, and restarting the broker first would
+just fetch the old value set.
 
 ## The age key is sealed to the TPM
 
@@ -263,14 +290,15 @@ served, and restarting the broker first would just fetch the old value set.
 an ordinary file that decrypts every managed secret retroactively, and nothing
 in faramir encrypts a disk.
 
-So the role seals it to this host's TPM and drops in a
-`LoadCredentialEncrypted=` for the keeper. The keeper is unchanged by this: the
-credential keeps the name `age_key`, so it reads the same path under
-`$CREDENTIALS_DIRECTORY` and never learns which source filled it. The plaintext
-then exists only in the unit's credential directory, on tmpfs, readable by that
-unit alone.
+So `init` seals it to this host's TPM and renders the keeper's unit with
+`LoadCredentialEncrypted=` in place of `LoadCredential=`, never both: two entries
+claiming one credential name is a unit systemd refuses to start. The keeper is
+unchanged by this: the credential keeps the name `age_key`, so it reads the same
+path under `$CREDENTIALS_DIRECTORY` and never learns which source filled it. The
+plaintext then exists only in the unit's credential directory, on tmpfs, readable
+by that unit alone.
 
-The role asserts the host has a TPM rather than skipping quietly, because a host
+`init` asserts the host has a TPM rather than skipping quietly, because a host
 that silently does not seal its key is the install that looks healthy and
 protects less than it appears to. Set `faramir_seal_age_key=false` on a host
 without one, and use full-disk encryption instead, which covers the audit log
@@ -283,9 +311,10 @@ tracks Secure Boot policy: change that state, or clear the TPM, and the blob
 stops decrypting. The only way back is sealing the original key again, so do not
 set that flag without the key material somewhere you can re-seal from.
 
-Everything short of removing the plaintext is reversible by deleting
-`/etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf`, reloading
-systemd and restarting the keeper.
+Everything short of removing the plaintext is reversible by setting
+`faramir_seal_age_key=false` and re-running: the keeper's unit is rendered fresh
+each time, so it goes back to reading the file. There is no drop-in to remember
+to delete.
 
 ## Authorizing the broker on the fleet
 
@@ -318,25 +347,24 @@ again.
 | `faramir_broker_user` | `faramir-broker` | Policy, redaction, audit log, SSH keys. |
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
-| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. |
-| `faramir_config_src` | `etc/config.toml` | Base config to install, relative to `faramir_src_dir`. faramir's own starter. |
-| `faramir_secrets_dir` | `{{ faramir_user_home }}/.faramir/secrets` | Where the store lives. Created `2770 operator:dev`, and bound into the keeper's namespace by a drop-in. |
+| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. Passed as `--share-tree`. |
+| `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml` and `config.d/` are installed. |
+| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. Created `2770 root:dev`, and bound into the keeper's namespace by its own unit. |
 | `faramir_secrets_files` | `[{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml]` | The managed sops files, written to the config drop-in every run. |
-| `faramir_overwrite_config` | `false` | Discard the installed config and rewrite it. Destructive. |
-| `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends. Must match `[ssh] keys` in the config. |
-| `faramir_manage_broker_ssh_key` | `true` | Generate that key, and fail when the broker's agent holds none. |
-| `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, added to `.sops.yaml` as a second recipient. |
-| `faramir_manage_operator_age_key` | `true` | Mint that identity and list it. False leaves the keeper as the only recipient. |
+| `faramir_overwrite_config` | `false` | Have init rewrite the base config instead of keeping it. Destructive. |
+| `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends, generated when missing. Empty leaves `[ssh] keys` unset. |
+| `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, minted when missing and added to `.sops.yaml` as a second recipient. Empty leaves the keeper as the only one. |
+| `faramir_install_agent_config` | `true` | Install faramir's `Read` deny rules into the operator's Claude settings. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
 | `faramir_seal_age_key` | `true` | Seal the age key to the host TPM and have the keeper load it as an encrypted credential. Fails when the host has no TPM. |
-| `faramir_age_key_cred` | `/etc/faramir/age.key.cred` | Where the sealed credential goes. `0400 root:root`. |
 | `faramir_remove_plaintext_age_key` | `false` | Delete `/etc/faramir/age.key` once the keeper runs from the sealed credential. Irreversible without the key material. |
 
-Changing a service account name here is not enough on its own: the shipped
-systemd units and `config.toml` name them too. The same holds for
-`faramir_dev_group`, which is `allowed_groups` in the config and
-`SupplementaryGroups` in the units, and which the role checks against both
-because a mismatch installs cleanly and then refuses every agent connection.
+Changing a service account name or `faramir_dev_group` here is enough on its own.
+`init` renders the config the sockets check and the units that reach the working
+tree from the same values, so `allowed_groups` and `SupplementaryGroups=` cannot
+disagree. They used to be literals in faramir's own files, which the role had to
+grep for, because a mismatch installs cleanly and then refuses every agent
+connection.
 
 ## After the first run
 
