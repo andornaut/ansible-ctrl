@@ -183,18 +183,37 @@ of every run.
 Set `faramir_manage_broker_ssh_key=false` when the config leaves `[ssh] keys`
 empty. The keys then have to live where the executor's own uid can read them.
 
-## config.toml is install-once
+## What this project sets, and where
 
-The installer keeps an existing `/etc/faramir/config.toml` and writes the incoming
-default to `config.toml.dist` beside it, already substituted so it can be moved
-into place as-is. Re-running the role does not reconcile the installed config,
-deliberately: that file is where `[ssh] keys` and `[secrets] files` get edited.
+`/etc/faramir/config.toml` is faramir's, installed from its own starter and
+never edited here. The two settings that belong to this project go in a drop-in
+the role writes every run:
 
-To rewrite it from `faramir_config_src`, discarding any edits made on the host:
+```toml
+# /etc/faramir/config.d/ansible-ctrl.toml
+[secrets]
+files = ["/etc/faramir/secrets/ansible-ctrl.sops.yml"]
 
-```bash
-make faramir -- --extra-vars faramir_overwrite_config=true
+[ssh]
+keys = ["/var/lib/faramir-broker/.ssh/id_ed25519"]
 ```
+
+Drop-ins merge over the base in lexical order and are held to every check the
+base file is, so a typo here is a hard error naming the alternatives rather than
+a setting that reads as though it took effect. `faramir status` reports
+`config_sources`, which is where to look when a setting is not what you expect.
+
+A drop-in rather than the base config for a specific reason: the installer keeps
+an existing `/etc/faramir/config.toml` and writes the incoming default to
+`config.toml.dist` beside it, so anything named in the base file lands on a
+first install and can never be reconciled afterwards. Set
+`faramir_overwrite_config=true` to rewrite the base from `faramir_config_src`,
+discarding host edits, which is rarely what you want now that the settings this
+project cares about are not in it.
+
+Neither daemon re-reads its config while running, so the role restarts both when
+the drop-in changes, keeper first: it decrypts the file list the broker is then
+served, and restarting the broker first would just fetch the old value set.
 
 ## The age key is sealed to the TPM
 
@@ -258,7 +277,8 @@ again.
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
 | `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: the operator's own checkout. |
-| `faramir_config_src` | `etc/examples/ansible-fleet.toml` | Config to install, relative to `faramir_src_dir`. |
+| `faramir_config_src` | `etc/config.toml` | Base config to install, relative to `faramir_src_dir`. faramir's own starter. |
+| `faramir_secrets_files` | `[/etc/faramir/secrets/ansible-ctrl.sops.yml]` | The managed sops files, written to the config drop-in every run. |
 | `faramir_overwrite_config` | `false` | Discard the installed config and rewrite it. Destructive. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends. Must match `[ssh] keys` in the config. |
 | `faramir_manage_broker_ssh_key` | `true` | Generate that key, and fail when the broker's agent holds none. |
