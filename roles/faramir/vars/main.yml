@@ -28,6 +28,9 @@ faramir_install_env:
   EXEC_USER: "{{ faramir_exec_user }}"
   DEV_GROUP: "{{ faramir_dev_group }}"
   CONFIG: "{{ faramir_config_src }}"
+  # Phase 2 writes .sops.yaml beside the store, so it has to agree with
+  # faramir_secrets_files or sops edits the wrong directory's recipients.
+  SECRETS_DIR: "{{ faramir_secrets_dir }}"
   FARAMIR_BIN: "{{ faramir_src_dir }}/bin"
   # Listed in .sops.yaml alongside the keeper's, so the operator can still read
   # the files they are responsible for. Empty until the identity below has been

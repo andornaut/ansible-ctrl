@@ -244,7 +244,7 @@
 # every run after the first.
 - name: Share this project's checkout with the service accounts
   ansible.builtin.command:
-    cmd: bash install/share-tree.sh {{ faramir_worktree | quote }}
+    cmd: bin/faramir share-tree {{ faramir_worktree | quote }}
     chdir: "{{ faramir_src_dir }}"
   register: faramir_share_tree
   changed_when: false
@@ -277,8 +277,8 @@
       it must exist before the broker is installed. It is meant to be your own
       checkout:
       git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then re-run: install/share-tree.sh applies the group, the setgid bits
-      and, for a tree inside your home, the ACL that lets the executor reach it.
+      Then re-run: faramir share-tree applies the group, the setgid bits and,
+      for a tree inside your home, the ACL that lets the executor reach it.
     quiet: true
 
 # As faramir_user for the same reason as the build, and with more at stake: under
@@ -353,7 +353,19 @@
   become: true
   environment: "{{ faramir_install_env }}"
   block:
-    # Mints the age key and writes .sops.yaml, both into /etc/faramir/secrets.
+    # Before phase 2, which writes .sops.yaml into it. Group dev and setgid so
+    # sops edits it in place without sudo and the keeper can read what lands
+    # there; the home already carries that uid's traversal ACL, so nothing
+    # further is needed to reach it.
+    - name: Create the secrets directory
+      ansible.builtin.file:
+        path: "{{ faramir_secrets_dir }}"
+        state: directory
+        owner: "{{ faramir_user }}"
+        group: "{{ faramir_dev_group }}"
+        mode: "2770"
+
+    # Mints the age key into /etc/faramir and writes .sops.yaml beside the store.
     # Runs before phase 3, which refuses to start the services without a key.
     - name: Run phase 2, age key and sops configuration
       ansible.builtin.command:
@@ -417,6 +429,34 @@
 # Written every run, unlike /etc/faramir/config.toml, which phase 3 installs
 # once and then keeps: a setting that only lands on a first install is one this
 # role cannot reconcile afterwards.
+# After phase 3, which is what installs the unit this extends. ProtectHome=tmpfs
+# rather than dropping it: every other home stays invisible to the process
+# holding the age key, and only the store is bound back in. The leading - makes
+# that bind optional, so an encrypted home that is not mounted yet leaves the
+# keeper running with no values rather than failing to start at all.
+- name: Create the keeper's drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/faramir-keeper.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Let the keeper see the store without seeing the home
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/faramir-keeper.service.d/secrets-path.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by ansible-ctrl's faramir role.
+      [Service]
+      ProtectHome=tmpfs
+      BindReadOnlyPaths=-{{ faramir_secrets_dir }}
+  register: faramir_secrets_dropin
+  become: true
+
 - name: Name this project's secrets and SSH key in a config drop-in
   ansible.builtin.copy:
     dest: /etc/faramir/config.d/ansible-ctrl.toml
@@ -445,7 +485,8 @@
   ansible.builtin.systemd_service:
     name: faramir-keeper
     state: restarted
-  when: faramir_dropin.changed
+    daemon_reload: true
+  when: faramir_dropin.changed or faramir_secrets_dropin.changed
   become: true
 
 - name: Restart the broker onto the new drop-in # noqa: no-handler

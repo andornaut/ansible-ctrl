@@ -56,8 +56,18 @@ faramir_config_src: etc/config.toml
 #
 # Every client of the broker sees every ref whatever file it came from, so the
 # name buys per-file decryption errors and a per-file reload, not isolation.
+# Under the operator's home rather than /etc, which the keeper reaches through a
+# drop-in below. Only the ciphertext moves: the age key, config.toml and the
+# units stay root-owned outside every home, because those are what stop the agent
+# and the agent runs as this account. A store it can already decrypt is not one
+# of them.
+#
+# 2770 operator:dev, so sops edits it in place and the keeper can read it through
+# the traversal ACL the home already carries.
+faramir_secrets_dir: "{{ faramir_user_home }}/.faramir/secrets"
+
 faramir_secrets_files:
-  - /etc/faramir/secrets/ansible-ctrl.sops.yml
+  - "{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml"
 
 # Phase 3 keeps an existing /etc/faramir/config.toml and writes the new default
 # to config.toml.dist beside it, so re-running this role does not reconcile the
