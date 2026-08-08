@@ -1,7 +1,17 @@
 .ansible/
-group_vars/all/vault.yml
-hosts
-host_vars/
 __pycache__/
+
+# Inventory and variables: these name hosts and bind credentials, so the whole
+# directory is ignored rather than the files known to exist today.
+hosts
+group_vars/
+host_vars/
+
+# Secret material, encrypted or not. An encrypted file is still ignored: the
+# ciphertext is a standing offer to whoever later obtains the key. The generic
+# patterns (*.sops.yml, *.key, .env) are in the global ignore file.
 secrets/
-.vscode/mcp.json
+
+# Holds no value, only secret:// references, but those references map this
+# repo's variables onto the secret store's layout.
+faramir.env
