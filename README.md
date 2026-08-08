@@ -24,6 +24,14 @@ make desktop                                     # Run a playbook
 make desktop -- --tags alacritty --limit example # Forward arguments
 ```
 
+An argument containing `=` cannot go after `--`: make reads any such word as a variable assignment,
+so `-- --extra-vars k=v` forwards a bare `--extra-vars` and ansible exits with a usage message.
+Assign `ARGS` instead, which overrides the value the target derives from the goals:
+
+```bash
+make faramir ARGS="--extra-vars faramir_overwrite_config=true"
+```
+
 `--ask-become-pass` is added only when the run reaches the controller, which is the only host whose sudo asks
 for a password: either it is in the play's host list, or a role in the run has a `become` task under
 `delegate_to: localhost`. `ASK_PASS=1` forces the prompt. A run that is already root never gets one,
