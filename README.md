@@ -56,6 +56,8 @@ Most playbooks apply one role to one group. The exceptions:
 | Playbook | Behaviour |
 | --- | --- |
 | [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
+| [docker.yml](docker.yml) | Applies `docker` to `dev`, `homeautomation` and `webservers` in one run |
+| [webservers.yml](webservers.yml) | Applies the `letsencrypt_nginx` role, which does not share the playbook's name |
 | [faramir_fleet.yml](faramir_fleet.yml) | Uses no role: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
 | [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
 | [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
@@ -66,8 +68,8 @@ Most playbooks apply one role to one group. The exceptions:
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| `secrets/vault.sops.yml` (gitignored, sops encrypted) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `group_vars/all/vars.yml` (gitignored) | Maps each credential name to `lookup('env', ...)`. Holds no values |
+| `/etc/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
@@ -83,9 +85,9 @@ example
 ## Secrets
 
 Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assistant long-lived
-tokens) lives in `secrets/vault.sops.yml`, encrypted with [sops](https://github.com/getsops/sops)
-and age, and named `secret_<purpose>`. `host_vars/` holds no credential values, only references to
-them:
+tokens) lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
+[sops](https://github.com/getsops/sops) and age, and named `secret_<purpose>`. `host_vars/` holds
+no credential values, only references to them:
 
 ```yaml
 # host_vars/example.yml
@@ -109,24 +111,29 @@ the same names to a command that never sees them:
 faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'
 ```
 
-`faramir.env` is committed, because it maps each environment variable to a `secret://` reference
-and holds no values. Adding a credential is four edits: the value into the sops file, the
-`lookup('env', ...)` mapping into `group_vars/all/vars.yml`, the ref into `faramir.env`, and the
-reference into `host_vars/`.
+`faramir.env` holds no values, only `secret://` references, and is gitignored anyway: those
+references map this repo's variable names onto the secret store's layout. Adding a credential is
+four edits: the value into the sops file, the `lookup('env', ...)` mapping into
+`group_vars/all/vars.yml`, the ref into `faramir.env`, and the reference into `host_vars/`.
 
 The certificate renewal cron is the third path, and wraps itself.
 [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs
 `ansible-playbook` under `sops exec-env` directly rather than through `make`, which would add
 `--ask-become-pass` on a run that reaches the controller and leave cron with a prompt and no
-terminal. It names the age key explicitly, root's own `~` being `/root`.
+terminal. It decrypts with `/etc/faramir/age.key`, the keeper's, which is already a recipient and
+which root can read anyway.
 
-The encrypted file lives in `secrets/`, deliberately not under `group_vars/`. Ansible auto-loads
-every `.yml` there and a sops file is valid YAML, so it would bind each var to its `ENC[...]`
-ciphertext without erroring, and hosts would get the ciphertext as the password.
+**Why the file is under `/etc` and not in this repo.** Cron has no session and the broker starts at
+boot, and an encrypted home is not mounted at either moment, so anything under one is unreadable
+exactly when these need it: the cron would fail at the `cd` and the broker would come up with an
+empty value set, redacting nothing. `/etc/faramir/secrets` is `2770 root:dev`, so you still edit it
+with `sops` directly, without sudo. It also keeps the ciphertext out of a directory Ansible
+auto-loads, where a sops file, being valid YAML, would bind each var to its `ENC[...]` ciphertext
+without erroring and hand hosts the ciphertext as the password.
 
-The encrypted file and the age identity both need a backup, and neither is in git: the identity
-belongs in a password manager, and `secrets/vault.sops.yml` is gitignored, so it exists only on the
-controller's disk. Losing either one loses every secret.
+The encrypted file and the age identity both need a backup and neither is in git. Both are covered
+by rsnapshot today: it takes `/etc/` and `~/.config/`. Note that this puts the key and the
+ciphertext it opens in the same snapshot.
 
 ## Operations
 

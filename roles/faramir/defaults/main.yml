@@ -36,7 +36,8 @@ faramir_exec_user: faramir-exec
 faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
 # Config installed as /etc/faramir/config.toml, relative to faramir_src_dir.
-# @WORKTREE@ in it is substituted with faramir_worktree by phase 3.
+# Installed verbatim: every path in it is absolute, and the managed sops files
+# live in /etc/faramir/secrets rather than in this tree.
 faramir_config_src: etc/examples/ansible-fleet.toml
 
 # Phase 3 keeps an existing /etc/faramir/config.toml and writes the new default
