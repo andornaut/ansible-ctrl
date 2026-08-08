@@ -40,11 +40,12 @@ homeautomation_no_new_privileges:
 # files exclusively, which only holds if no two services share a uid, and
 # docker_prerequisites.yml asserts that before any of them are created.
 #
-# Allocated alphabetically from 10001, mosquitto excepted because 1883 is baked
-# into its image. Adding a service therefore renumbers every one that sorts
-# after it, and a uid that changes has to be followed by every file it owns:
-# migrate_service_account_uids.yml is what does that, and a new service needs it
-# reinstated rather than written again.
+# Append-only: a new service takes the next number free in this list, whatever
+# its name sorts as. These happen to run alphabetically from 10001 because they
+# were reassigned once to put them in some order, not because the order is a
+# rule to keep. A uid is an account's identity on disk, so a number that moves
+# drags every file it owns behind it, and that is worth doing once and not
+# again. mosquitto is the exception at 1883, which its image bakes in.
 homeautomation_service_account_uids:
   esphome: "{{ homeautomation_esphome_uid }}"
   govee2mqtt: "{{ homeautomation_govee2mqtt_uid }}"
