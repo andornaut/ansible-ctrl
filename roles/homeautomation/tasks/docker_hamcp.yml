@@ -1,52 +1,59 @@
 ---
-- name: Create the ha-mcp service account
+- name: Create the ha-mcp service accounts
   ansible.builtin.include_tasks: service_account.yml
   vars:
-    service_account_name: hamcp
-    service_account_uid: "{{ homeautomation_hamcp_uid }}"
+    service_account_name: "{{ item.name }}"
+    service_account_uid: "{{ item.uid }}"
     # Nothing bind-mounted: the server keeps no state, so the account exists
     # only to give the process an identity of its own.
     service_account_paths: []
     service_account_mode: "0700"
+  loop: "{{ homeautomation_hamcp_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
 
-- name: Remove ha-mcp container if it exists
+- name: Remove ha-mcp containers if they exist
   ansible.builtin.include_tasks: remove_docker_containers.yml
   vars:
-    container_names:
-      - hamcp
+    container_names: "{{ homeautomation_hamcp_instances | map(attribute='name') | list }}"
 
-- name: Start ha-mcp Docker container
+# One compose project per instance rather than one project of many services, so
+# that adding or removing an instance cannot disturb the others' containers.
+- name: Start ha-mcp Docker containers
   vars:
     hamcp_base_environment:
-      HOMEASSISTANT_TOKEN: "{{ homeautomation_hamcp_token }}"
-      HOMEASSISTANT_URL: "{{ homeautomation_hamcp_homeassistant_url }}"
+      HOMEASSISTANT_TOKEN: "{{ item.token }}"
+      HOMEASSISTANT_URL: "{{ item.url }}"
       TZ: "{{ homeautomation_tz }}"
     hamcp_environment: >-
       {{ hamcp_base_environment | combine(homeautomation_hamcp_env | default({})) }}
-
+    hamcp_service:
+      # http://<name>.internal:8086
+      container_name: "{{ item.name }}"
+      command: "fastmcp run fastmcp-http.json"
+      environment: "{{ hamcp_environment }}"
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+      image: "{{ homeautomation_hamcp_docker_image }}"
+      cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
+      logging: "{{ homeautomation_default_logging }}"
+      restart: unless-stopped
+      security_opt: "{{ homeautomation_no_new_privileges }}"
+      # The gid always equals the uid, as service_account.yml creates them.
+      user: "{{ item.uid }}:{{ item.uid }}"
+      volumes: "{{ homeautomation_common_volumes }}"
   community.docker.docker_compose_v2:
-    project_name: homeautomation-hamcp
+    project_name: "homeautomation-{{ item.name }}"
     pull: always
     remove_orphans: true
     definition:
       networks: "{{ homeautomation_external_network }}"
-      services:
-        hamcp:
-          # http://hamcp.internal:8086
-          container_name: hamcp
-          command: "fastmcp run fastmcp-http.json"
-          environment: "{{ hamcp_environment }}"
-          extra_hosts:
-            - "host.docker.internal:host-gateway"
-          image: "{{ homeautomation_hamcp_docker_image }}"
-          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
-          logging: "{{ homeautomation_default_logging }}"
-          # ports:
-          #   - "8086:8086"
-          restart: unless-stopped
-          security_opt: "{{ homeautomation_no_new_privileges }}"
-          user: "{{ homeautomation_hamcp_uid }}:{{ homeautomation_hamcp_gid }}"
-          volumes: "{{ homeautomation_common_volumes }}"
+      # Built rather than written literally, because the service key is the
+      # instance name and a templated mapping key is not reliably rendered.
+      services: "{{ {item.name: hamcp_service} }}"
+  loop: "{{ homeautomation_hamcp_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
   notify: Update /etc/hosts
   # The environment contains the Home Assistant long-lived access token.
   no_log: true

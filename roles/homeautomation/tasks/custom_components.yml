@@ -23,9 +23,12 @@
 # a set the host already has active, because a set that is not activated is not
 # served, and activating one is a websocket call this role cannot make.
 #
-# Rewriting a dashboard is a websocket call too, so the check below stops the run
-# rather than let the removal blank an icon that is still referenced. It clears
-# itself once the dashboards are converted.
+# Rewriting a dashboard is a websocket call too, so the removal below waits for a
+# host whose dashboards still name the old prefix, rather than blank an icon that
+# is still referenced. Waiting rather than failing, because the alternative
+# freezes every later task on a host that is otherwise healthy. The component
+# stays at its installed version meanwhile, and the check clears itself once the
+# dashboards are converted.
 #
 # CLEANUP (added 2026-08-08): delete once every host in the homeautomation group
 # has run this role.
@@ -42,23 +45,23 @@
   become: true
   register: homeautomation_simpleicons_dashboards
 
-- name: Assert that no dashboard uses the Simple Icons prefix
-  ansible.builtin.assert:
-    that: homeautomation_simpleicons_dashboards.files | length == 0
-    fail_msg: >-
-      {{ homeautomation_simpleicons_dashboards.files | map(attribute='path') | join(', ')
-      }} still reference si: icons, which nothing serves once Simple Icons is
-      removed. Rewrite each to its Custom Icons equivalent (si:cbc is
-      cbi:cbc-gem) in the dashboard's raw configuration editor, then delete the
-      simpleicons config entry in the Home Assistant UI: an orphaned entry for a
-      missing integration logs an error on every startup.
-    quiet: true
+- name: Report the dashboards holding Simple Icons in place
+  ansible.builtin.debug:
+    msg: >-
+      Keeping Simple Icons installed: {{ homeautomation_simpleicons_dashboards.files
+      | map(attribute='path') | join(', ') }} still reference si: icons, which
+      nothing serves once it is removed. Rewrite each to its Custom Icons
+      equivalent (si:cbc is cbi:cbc-gem) in the dashboard's raw configuration
+      editor, then delete the simpleicons config entry in the Home Assistant UI:
+      an orphaned entry for a missing integration logs an error on every startup.
+  when: homeautomation_simpleicons_dashboards.files | length > 0
 
 - name: Remove the superseded Simple Icons custom component
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/custom_components/simpleicons"
     state: absent
   become: true
+  when: homeautomation_simpleicons_dashboards.files | length == 0
 
 - name: Install BambuLab custom component
   ansible.builtin.include_tasks: install_github_release_component.yml

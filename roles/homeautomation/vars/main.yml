@@ -46,16 +46,27 @@ homeautomation_no_new_privileges:
 # rule to keep. A uid is an account's identity on disk, so a number that moves
 # drags every file it owns behind it, and that is worth doing once and not
 # again. mosquitto is the exception at 1883, which its image bakes in.
-homeautomation_service_account_uids:
+#
+# ha-mcp is merged in rather than listed, because its accounts come one per
+# entry in homeautomation_hamcp_instances, which the operator extends per Home
+# Assistant the agent drives.
+homeautomation_service_account_uids: >-
+  {{ homeautomation_service_account_uids_fixed
+     | combine(homeautomation_hamcp_service_account_uids) }}
+
+homeautomation_service_account_uids_fixed:
   esphome: "{{ homeautomation_esphome_uid }}"
   govee2mqtt: "{{ homeautomation_govee2mqtt_uid }}"
-  hamcp: "{{ homeautomation_hamcp_uid }}"
   llamacpp: "{{ homeautomation_llamacpp_uid }}"
   matterjs: "{{ homeautomation_matterjs_uid }}"
   mosquitto: "{{ homeautomation_mosquitto_uid }}"
   openwebui: "{{ homeautomation_openwebui_uid }}"
   piper: "{{ homeautomation_piper_uid }}"
   whisper: "{{ homeautomation_whisper_uid }}"
+
+homeautomation_hamcp_service_account_uids: >-
+  {{ dict(homeautomation_hamcp_instances | map(attribute='name')
+          | zip(homeautomation_hamcp_instances | map(attribute='uid'))) }}
 
 homeautomation_tz: "{{ homeautomation_system_timezone.stdout.strip() }}"
 
