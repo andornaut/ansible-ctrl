@@ -50,8 +50,11 @@
 - name: Blacklist KVM modules to prevent conflict with VirtualBox
   ansible.builtin.copy:
     dest: /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
+    # Both vendor modules, not just this host's: blacklisting kvm alone does not
+    # stop it, since kvm_intel and kvm_amd pull it in as a dependency.
     content: |
       blacklist kvm_amd
+      blacklist kvm_intel
       blacklist kvm
     mode: "0644"
   become: true

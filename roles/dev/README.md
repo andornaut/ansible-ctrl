@@ -29,7 +29,8 @@ make dev -- --tags rust
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
-The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, and are installed on every run.
+The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, so they are installed on every run
+that names no `--tags`, and skipped by every run that does.
 
 ## Variables
 
