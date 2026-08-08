@@ -176,10 +176,10 @@ runs the project's own four install phases as root:
 
 | Phase | Script | Establishes |
 | --- | --- | --- |
-| 1 | `install/10-accounts.sh` | the `agent`, `faramir-keeper`, `faramir-broker` and `faramir-exec` uids, the `devwork` group, working tree permissions |
+| 1 | `install/10-accounts.sh` | the `faramir-keeper`, `faramir-broker` and `faramir-exec` uids, the `dev` group, working tree permissions |
 | 2 | `install/20-sops-init.sh` | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` in the working tree |
 | 3 | `install/30-install-broker.sh` | binaries, `/etc/faramir/config.toml`, systemd units |
-| 4 | `install/40-agent-config.sh` | the agent account's Claude settings, the working tree's `.mcp.json` and `CLAUDE.md` snippet |
+| 4 | `install/40-agent-config.sh` | your Claude settings, the working tree's `.mcp.json` and `CLAUDE.md` snippet |
 
 Calling the scripts rather than reimplementing them keeps one installer: the unit
 set, the uid layout and the config schema are faramir's to change, and a
@@ -187,28 +187,42 @@ reimplementation here would silently drift from them.
 
 Before phase 1, the role reads `faramir_config_src` with the broker binary it
 just built and refuses a config that does not parse, or whose `[exec]
-default_cwd` is not `@WORKTREE@` and not inside `faramir_worktree`. Phase 3
-applies the same rule, but only after the binaries and the hook are on the host,
-where a rejection leaves the install half-applied. Checking it here means a
-mismatch stops the run before anything touches root.
+default_cwd` names a directory outside `faramir_worktree`. Leaving that key
+unset is the ordinary case and always passes: a brokered command runs where its
+caller was, so a config that names no directory has nothing to disagree with.
+Phase 3 applies the same rule, but only after the binaries and the hook are on
+the host, where a rejection leaves the install half-applied. Checking it here
+means a mismatch stops the run before anything touches root.
 
-Phase 1 runs before the working tree is required, because phase 1 is what
-creates the `agent` account and the tree lives in that account's home. Phase 1
-is written to tolerate a missing tree: it reports `SKIP` and leaves the group
-and setgid bits for a later run.
+Phase 1 is written to tolerate a missing tree: it reports `SKIP` and leaves the
+group and setgid bits for a later run.
 
 The cost is that the scripts report no machine-readable change, so each task's
 `changed_when` is derived from the state that phase establishes, checked before
 any phase runs. Two things this under-reports: phase 1 re-applies the working
-tree's group and setgid bits every run, and phase 3 rewrites the unit files and
-bind-mount drop-ins every run. Neither shows up as changed.
+tree's group and setgid bits every run, and phase 3 rewrites the unit files
+every run. Neither shows up as changed.
 
 ## The working tree
 
-`faramir_worktree` is the agent's own checkout of this repo, not the operator's.
-Brokered commands run there and the sops files are read from there. It has to be
-the agent's own because the operator's home is 0700: uid `agent` cannot read the
-operator's checkout at all, so sharing one tree is not an option to weigh.
+`faramir_worktree` is your own checkout of this repo.
+Brokered commands run there and the sops files are read from there. It has to be reachable by
+`faramir-keeper`, which decrypts the sops files in it, and `faramir-exec`, which
+runs brokered commands in it. Neither is your uid and a home is 0700, so phase 1
+grants those two traversal with an ACL on every component from your home down.
+Not `chmod o+x`, which would give every account on the machine the same thing.
+
+On an ecryptfs home that ACL is write-once. The first `setfacl` against an inode
+applies; every later one is silently ignored, exiting 0 while changing nothing,
+so an entry left out of the first call cannot be added afterwards. Grant every
+uid in a single call and read the result back with `getfacl` rather than
+trusting the exit status. The entries can still be corrected on the lower
+directory (`/home/.ecryptfs/<user>/.Private`), which is ext4, but the mount does
+not see the change until it is remounted.
+
+Point it outside the homes instead (`/srv/faramir/ansible-ctrl`) and no ACL is
+needed. The cost is that it stops being the checkout you work in, which is what
+having one copy was for.
 
 The path lives in `/etc/faramir/config.toml` and nowhere else. The systemd units
 name no tree and the installer writes no drop-ins; what keeps a brokered command
@@ -219,27 +233,9 @@ The role requires it to exist and does not create it: `hosts`, `host_vars/`,
 `group_vars/` and `secrets/` are gitignored, so a fresh clone would produce a
 tree that parses but has no inventory and no secrets.
 
-A first install is therefore two passes. The first creates the accounts and
-stops, naming the account it just made:
-
-```bash
-make faramir            # creates the accounts, then stops: no working tree yet
-
-# https, not git@github.com: the agent account holds no SSH key of its own.
-sudo -u agent git clone https://github.com/andornaut/ansible-ctrl.git \
-    /home/agent/work/ansible-ctrl
-
-# As root, because the operator's home is 0700 and that account cannot read it.
-# Add secrets/ to the list once the migration has created it; before then it
-# does not exist and cp would fail on it.
-sudo cp -a ~/src/github.com/andornaut/ansible-ctrl/{hosts,host_vars,group_vars} \
-    /home/agent/work/ansible-ctrl/
-sudo chown -R agent:devwork /home/agent/work/ansible-ctrl
-
-make faramir
-```
-
-The second pass applies the tree's group and setgid bits and installs the rest.
+Because the tree is the checkout you already work in, `make faramir` is a single
+pass: there is no second account to clone into, and no copy of the inventory to
+keep in step with this one.
 
 ## The broker's SSH identity
 
@@ -323,12 +319,11 @@ Set `faramir_fleet_authorize_key=false` to remove it again.
 | `faramir_user` | `primary_user` | Owns the checkout and runs the build. Never the agent. |
 | `faramir_src_dir` | `{{ faramir_user_home }}/src/github.com/andornaut/faramir` | The checkout to build from. |
 | `faramir_go_bin_dir` | `/usr/local/go/bin` | Where the `dev` role installs Go. |
-| `faramir_agent_user` | `agent` | The uid the coding agent runs as. |
-| `faramir_devwork_group` | `devwork` | Shared access to the working tree. |
+| `faramir_dev_group` | `dev` | Shared access to the working tree. |
 | `faramir_broker_user` | `faramir-broker` | Policy, redaction, audit log, SSH keys. |
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
-| `faramir_worktree` | `{{ faramir_agent_user_home }}/work/ansible-ctrl` | Where brokered commands run. |
+| `faramir_worktree` | `{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl` | Where brokered commands run: your own checkout. |
 | `faramir_config_src` | `etc/examples/ansible-fleet.toml` | Config to install, relative to `faramir_src_dir`. |
 | `faramir_overwrite_config` | `false` | Discard the installed config and rewrite it. Destructive. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends. Must match `[ssh] keys` in the config. |
@@ -343,7 +338,7 @@ systemd units and `config.toml` name them too.
 ## After the first run
 
 Group membership is read at login, so the operator and the agent both have to log
-out and back in before `devwork` takes effect.
+out and back in before `dev` takes effect.
 
 The faramir checkout ships a verification matrix that runs against the live
 install:

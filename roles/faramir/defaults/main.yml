@@ -10,14 +10,14 @@ faramir_src_dir: "{{ faramir_user_home }}/src/github.com/andornaut/faramir"
 # login shell's. See roles/dev/tasks/go.yml.
 faramir_go_bin_dir: /usr/local/go/bin
 
-# The unprivileged account the coding agent runs as. Deliberately not
-# faramir_user: the design is that the agent's uid can reach nothing the
-# operator's uid holds.
-faramir_agent_user: agent
+# There is no account for the coding agent: it runs as faramir_user. A separate
+# uid could not reach the operator's checkouts, gh credential or commit
+# identity, which is the work it is asked to do. See docs/scope.md in the
+# faramir checkout for what that gives up and what still holds.
 
 # Shared group giving the agent and the three service accounts access to the
 # working tree. Not a boundary; the boundaries are file modes.
-faramir_devwork_group: devwork
+faramir_dev_group: dev
 
 # The three service uids. These names are also written into the shipped systemd
 # units and config.toml, so changing one here means changing it there too.
@@ -25,9 +25,15 @@ faramir_broker_user: faramir-broker
 faramir_keeper_user: faramir-keeper
 faramir_exec_user: faramir-exec
 
-# The tree brokered commands run in, where the sops files live, and the only
-# path bound into all three units. The agent's own checkout, not the operator's.
-faramir_worktree: "{{ faramir_agent_user_home }}/work/ansible-ctrl"
+# The tree brokered commands run in and where the sops files live: the
+# operator's own checkout, so there is one copy and nothing to keep in sync.
+#
+# It has to be reachable by faramir-keeper and faramir-exec, which are not the
+# operator's uid. A home is 0700, so phase 1 grants those two traversal with an
+# ACL on every component from the home down. Point this outside the homes
+# instead (/srv/faramir/ansible-ctrl) and no ACL is needed, at the cost of the
+# tree no longer being the checkout you work in.
+faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
 # Config installed as /etc/faramir/config.toml, relative to faramir_src_dir.
 # @WORKTREE@ in it is substituted with faramir_worktree by phase 3.

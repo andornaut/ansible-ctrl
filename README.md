@@ -15,14 +15,18 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 ## Usage
 
 Every root `.yml` except `requirements.yml` is a playbook with a [make](Makefile) target of the same name. The
-target installs dependencies, then runs `ansible-playbook --ask-become-pass <playbook>.yml`. Arguments after `--`
-are forwarded to `ansible-playbook`.
+target installs dependencies, then runs `ansible-playbook <playbook>.yml`. Arguments after `--` are forwarded
+to `ansible-playbook`.
 
 ```bash
 make help                                        # List the targets
 make desktop                                     # Run a playbook
 make desktop -- --tags alacritty --limit example # Forward arguments
 ```
+
+`--ask-become-pass` is added only when the run reaches the controller, which is the only host whose sudo asks
+for a password: either it is in the play's host list, or a role in the run has a `become` task under
+`delegate_to: localhost`. `ASK_PASS=1` forces the prompt.
 
 `make ai_maintainer` is the exception: it is a tag in the [dev](roles/dev/README.md) role rather than a playbook,
 so the target runs `dev.yml --tags ai_maintainer`.
@@ -36,6 +40,7 @@ so the target runs `dev.yml --tags ai_maintainer`.
 | [desktop](roles/desktop/README.md) | Desktop environment (display manager, browser, fonts, themes) |
 | [dev](roles/dev/README.md) | Development tools and programming languages |
 | [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
+| [faramir](roles/faramir/README.md) | Secret broker, so an agent can run credentialed commands without seeing the values |
 | [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
 | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
 | [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
@@ -51,6 +56,7 @@ Most playbooks apply one role to one group. The exceptions:
 | Playbook | Behaviour |
 | --- | --- |
 | [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
+| [faramir_fleet.yml](faramir_fleet.yml) | Uses no role: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
 | [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
 | [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
 
@@ -120,6 +126,11 @@ mkdir -p ~/.private && chmod 0700 ~/.private
 Both halves need a backup, and neither is in git: the password belongs in a password manager, and
 `group_vars/all/vault.yml` is gitignored, so it exists only on the controller's disk. Losing
 either one loses every secret.
+
+The [faramir](roles/faramir/README.md) role replaces this arrangement. Afterwards the values live in
+`secrets/vault.sops.yml` (sops + age, gitignored), `group_vars/all/vars.yml` maps each name to
+`lookup('env', ...)`, and `vault_password_file` comes out of `ansible.cfg`. Variable names do not
+change, so `host_vars/` needs no edit. The role's README has the migration runbook.
 
 ## Operations
 

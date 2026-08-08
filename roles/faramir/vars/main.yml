@@ -5,14 +5,8 @@
 # faramir_user home from passwd (getent runs in tasks/main.yml).
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# The agent account does not exist before phase 1 creates it, so this falls back
-# to the home useradd -m would give it rather than failing the first run.
-faramir_agent_user_home: >-
-  {{ ansible_facts['getent_passwd'].get(faramir_agent_user,
-     ['', '', '', '', '/home/' ~ faramir_agent_user, ''])[4] }}
-
-# The uids phase 1 creates. The agent account is checked separately: it may
-# already exist for other reasons.
+# The uids phase 1 creates. All three are service accounts: the coding agent
+# runs as you, so there is no fourth.
 faramir_service_accounts:
   - "{{ faramir_broker_user }}"
   - "{{ faramir_keeper_user }}"
@@ -29,11 +23,10 @@ faramir_sockets:
 # its neighbours produces a broker whose units bind a tree its config never names.
 faramir_install_env:
   OPERATOR: "{{ faramir_user }}"
-  AGENT_USER: "{{ faramir_agent_user }}"
   BROKER_USER: "{{ faramir_broker_user }}"
   KEEPER_USER: "{{ faramir_keeper_user }}"
   EXEC_USER: "{{ faramir_exec_user }}"
-  DEVWORK_GROUP: "{{ faramir_devwork_group }}"
+  DEV_GROUP: "{{ faramir_dev_group }}"
   # All four phases read WORKTREE. Phase 2 still accepts the older REPO spelling
   # for the same tree, which is not passed here: one name cannot desync.
   WORKTREE: "{{ faramir_worktree }}"
