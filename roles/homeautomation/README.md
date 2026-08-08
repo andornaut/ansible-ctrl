@@ -34,6 +34,21 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 
 See [defaults/main.yml](./defaults/main.yml).
 
+### Removing a component
+
+Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers
+[vars/main.yml](./vars/main.yml) lists for it are deleted, along with any host files it wrote, such
+as the `ping_group_range` sysctl drop-in ESPHome needs.
+
+**Volumes are never removed.** They hold the only copy of a service's data, so a flag cleared by
+accident costs a restart rather than the data, and clearing one is not how you decommission a
+service's storage. Delete those by hand, and note that some hold credentials: ESPHome's
+`secrets.yaml` carries the wifi and OTA passwords.
+
+Home Assistant and Mosquitto have no flag and are always configured. Avahi is a host daemon the run
+stops rather than a container. MemryX installs a DKMS driver and apt sources, which the run does not
+reverse.
+
 ## Networking
 
 Containers use one of two network modes:
