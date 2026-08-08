@@ -82,6 +82,7 @@ IS_ROOT := $(filter 0,$(shell id -u))
 OPERATOR := $(if $(SUDO_USER),$(SUDO_USER),$(shell id -un))
 OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
+SECRETS_DIR := $(dir $(SOPS_FILE))
 
 # sops looks for an identity under $HOME, which is /root for a root run, so it
 # would find none. The keeper's key is already a recipient and root can read it
@@ -93,8 +94,9 @@ endif
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
 # SECRETS_LOADED marks the inner half; SECRETS=none skips it for a playbook that
-# needs no credential. An absent SOPS_FILE makes it a no-op.
-WRAP = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(wildcard $(SOPS_FILE)))
+# needs no credential. An absent SOPS_FILE still makes it a no-op, but the
+# recipe decides that, not $(wildcard): see the assertion below.
+LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,1)
 
 # Prompt for a become password only when the run reaches the controller, the one
 # host whose sudo asks for one. Asked of ansible rather than assumed, so a
@@ -126,11 +128,32 @@ $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   done)))
 endef
 
+# A store that cannot be read is an error; only one that is genuinely absent is a
+# no-op. The two are indistinguishable to $(wildcard), which reports nothing for
+# both, and running anyway leaves every secret_* variable undefined: the first
+# task to use one fails after the tasks before it have applied, which for a
+# container means it is removed and not recreated.
+#
+# The file is unreadable when it exists but cannot be opened, and also when the
+# directory holding it cannot be searched, since then whether it exists cannot be
+# established either. SECRETS_DIR is stat-able whatever its mode, its own parent
+# being the operator's home.
+#
 # The `--` is repeated on the re-entry for the same reason it is required on the
 # way in: the inner make parses ARGS as its own options and rejects the first
 # --flag among them. Without it, forwarding works only while SOPS_FILE is absent.
 $(PLAYBOOKS): %: requirements
-	@if [ -n "$(WRAP)" ]; then \
+	@if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ] \
+	    && { [ -e "$(SOPS_FILE)" ] \
+	         || { [ -d "$(SECRETS_DIR)" ] && [ ! -x "$(SECRETS_DIR)" ]; }; }; then \
+	   echo "$(SOPS_FILE): not readable by $(OPERATOR)" >&2; \
+	   echo "Refusing to run: every secret_* variable would be undefined, and the" >&2; \
+	   echo "first task to use one fails with the tasks before it already applied." >&2; \
+	   echo "Run it as root, or through the broker:" >&2; \
+	   echo "  faramir run --env-file faramir.env -- ansible-playbook $*.yml $(ARGS)" >&2; \
+	   exit 1; \
+	 fi; \
+	 if [ -n "$(LOAD_SECRETS)" ] && [ -r "$(SOPS_FILE)" ]; then \
 	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)'; \
 	 else \
 	   ansible-playbook $(call become_flag,$*) $*.yml $(ARGS); \
