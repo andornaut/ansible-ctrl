@@ -26,14 +26,16 @@ Every credential therefore lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`,
 `vars_plugins/secret_env.py` turns each injected `secret_*` variable into one of
 the same name, and `host_vars/` refers to the names.
 
-The store is the only part of faramir that lives in the operator's home, and it
-is the only part that can. The agent runs as that account and its age identity is
-in that home, so it can already decrypt the ciphertext wherever it sits: moving
-the file costs nothing. Everything else is what stops the agent, and a file in
-the agent's own home is a file it can rewrite. `config.toml` is the policy
-itself, the sealed age credential is `0400 root:root` so the account cannot swap
-it, the units define the three service uids, and the binaries are what enforce
-any of it. Those stay outside every home.
+The store lives in the operator's home, inside `faramir_config_dir` along with
+the config and the age key. The agent runs as that account and its own age
+identity is in that home, so it can already decrypt the ciphertext wherever it
+sits: moving the file costs nothing, and it is what puts the store and the key
+that opens it on the same encrypted disk.
+
+What confines the agent there is mode and uid rather than location. The age key
+is `0400 faramir-keeper`, so owning the directory around it is permission to
+unlink the file and not to read it. The units define the three service uids and
+the binaries are what enforce any of it, and those stay outside every home.
 
 Not in the checkout either: it is a public repo, so a store inside it is
 ciphertext of every credential one `git add -f` from publication.
