@@ -1,7 +1,7 @@
 ---
 # What this role still does, now that `faramir init` does the install:
 #
-#   downloads the binaries, which faramir publishes but does not install
+#   downloads the binary, which faramir publishes but does not install
 #   runs init once, with this project's paths
 #   names this project's sops files and SSH key in a config.d drop-in
 #   tells the agent how to run a playbook through the broker
@@ -154,14 +154,13 @@
         path: /etc/faramir/age.key
         state: absent
 
-# Downloaded rather than built from a checkout: init copies the binaries it is
+# Downloaded rather than built from a checkout: init copies the binary it is
 # given into /usr/local/bin and carries the units, the config, the hook and the
-# docs inside them, so the controller needs no source layout and no Go
-# toolchain.
+# docs inside it, so the controller needs no source layout and no Go toolchain.
 #
 # Staged in a temp directory rather than kept: what is installed is what init
-# copied, and a directory of binaries left behind is a second copy that nothing
-# updates. One archive of ~23MB a run is the cost.
+# copied, and a binary left behind is a second copy that nothing updates. One
+# archive of ~7MB a run is the cost.
 - name: Install faramir from the dev release
   block:
     - name: Create a temporary directory for the faramir binaries
@@ -237,7 +236,7 @@
       when: faramir_staging.path is defined
       become: true
       # As with the three above: they really run under --check, so a removal
-      # that only simulated would leave 23MB of binaries in /tmp every check.
+      # that only simulated would leave the unpacked archive in /tmp every check.
       check_mode: false
 
 # Enrolling the tree is separate from provisioning the host, and runs after it:
@@ -282,52 +281,6 @@
   when:
     - faramir_project.stdout | default('') | length > 0
     - (faramir_project.stdout | from_json).warnings | default([]) | length > 0
-
-# CLEANUP (added 2026-08-08): faramir shipped a binary per role until the roles
-# became subcommands of one. The units start /usr/local/bin/faramir now, so the
-# four in /usr/local/bin and the hook in libexec are orphaned: nothing execs
-# them. Delete once every host in the faramir group has run this.
-#
-# Guarded rather than unconditional, and this is the whole reason it is two
-# tasks. A tree enrolled before the change still names the old hook path in its
-# .claude/settings.json, and faramir init-project keeps an existing settings file
-# rather than rewriting it. A PreToolUse hook that cannot exec denies nothing and
-# rewrites nothing: it fails open, silently, so redaction and the deny list are
-# off with no error anywhere. The binary goes only once nothing names it.
-- name: Look for agent settings still naming the old binaries
-  ansible.builtin.find:
-    paths: "{{ playbook_dir }}"
-    patterns:
-      - settings.json
-      - settings.json.dist
-      - .mcp.json
-    contains: faramir-(guard|mcp)
-    hidden: true
-    recurse: true
-  register: faramir_stale_agent_refs
-  changed_when: false
-
-- name: Report the agent settings that must be repointed first
-  ansible.builtin.debug:
-    msg: >-
-      {{ faramir_stale_agent_refs.files | map(attribute='path') | list }} still
-      name faramir-guard or faramir-mcp. Repoint them at "/usr/local/bin/faramir
-      guard" and "/usr/local/bin/faramir" with args ["mcp"]; the old binaries are
-      left in place until then, because a hook that cannot exec fails open.
-  when: faramir_stale_agent_refs.files | length > 0
-
-- name: Remove the binaries the consolidated build replaced
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /usr/local/bin/faramir-broker
-    - /usr/local/bin/faramir-keeper
-    - /usr/local/bin/faramir-exec
-    - /usr/local/bin/faramir-mcp
-    - /usr/local/libexec/faramir/faramir-guard
-  when: faramir_stale_agent_refs.files | length == 0
-  become: true
 
 # init warns rather than fails on the things with a legitimate shape that have
 # nonetheless left somebody with a broker that installs cleanly and does
@@ -582,6 +535,75 @@
   loop:
     - "{{ faramir_user_home }}/.claude/settings.json.dist"
     - "{{ faramir_config_dir }}/config.toml.dist"
+  become: true
+
+# CLEANUP (added 2026-08-08): faramir shipped a binary per role until the roles
+# became subcommands of one. The units start /usr/local/bin/faramir now, so the
+# four in /usr/local/bin and the hook in libexec are orphaned: nothing execs
+# them. Delete once every host in the faramir group has run this.
+#
+# Here, after the task above, rather than beside the install: that task is what
+# takes the account-wide hook registration out of the operator's own settings,
+# and removing the binary first would leave a window where those settings name a
+# path that no longer exists.
+#
+# Guarded rather than unconditional, which is the whole reason it is two tasks.
+# A tree enrolled before the change still names the old hook path in its
+# .claude/settings.json, and `faramir init-project` keeps an existing settings
+# file rather than rewriting it. A PreToolUse hook that cannot exec denies
+# nothing and rewrites nothing: it fails open, silently, so redaction and the
+# deny list are off with no error anywhere. The binary goes only once nothing
+# this role can see still names it.
+#
+# read_whole_file: true is load-bearing. find applies `contains` with re.match
+# per line, which anchors it, so a pattern without a leading .* never matches a
+# path that appears mid-line -- which is every one of these, the paths being
+# JSON values. The guard reads as though it works and matches nothing.
+#
+# This checkout and the operator's own settings are what it can check. Another
+# tree enrolled by hand is not enumerable from here; `faramir doctor` reports a
+# stale binary on the host, which is what covers those.
+- name: Look for agent settings still naming the old binaries
+  ansible.builtin.find:
+    paths:
+      - "{{ playbook_dir }}"
+      - "{{ faramir_user_home }}/.claude"
+    # Only files an agent actually reads. A .dist beside a kept settings file is
+    # a merge candidate that nothing execs, so it cannot fail open, and matching
+    # one would hold the binaries here forever over a file that does nothing.
+    patterns:
+      - settings.json
+      - settings.local.json
+      - .mcp.json
+    contains: faramir-(guard|mcp)
+    read_whole_file: true
+    hidden: true
+    recurse: true
+  register: faramir_stale_agent_refs
+  changed_when: false
+  become: true
+
+- name: Report the agent settings that must be repointed first
+  ansible.builtin.debug:
+    msg: >-
+      {{ faramir_stale_agent_refs.files | map(attribute='path') | list }} still
+      name faramir-guard or faramir-mcp. Repoint them at "/usr/local/bin/faramir
+      guard", and at "/usr/local/bin/faramir" with args ["mcp"]; the binaries
+      they name are left in place until then, because a hook that cannot exec
+      fails open.
+  when: faramir_stale_agent_refs.files | length > 0
+
+- name: Remove the binaries the consolidated build replaced
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/faramir-broker
+    - /usr/local/bin/faramir-keeper
+    - /usr/local/bin/faramir-exec
+    - /usr/local/bin/faramir-mcp
+    - /usr/local/libexec/faramir/faramir-guard
+  when: faramir_stale_agent_refs.files | length == 0
   become: true
 
 # CLEANUP (added 2026-08-08): init creates the config directory owned by the
