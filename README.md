@@ -88,7 +88,7 @@ tokens) lives in `group_vars/all/vault.yml`, encrypted with
 
 ```yaml
 # host_vars/example.yml
-msmtp_password: "{{ vault_msmtp_password }}"
+msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
 The split keeps `host_vars/` readable and diffable while the secrets themselves are encrypted at
