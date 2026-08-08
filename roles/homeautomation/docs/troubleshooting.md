@@ -92,45 +92,48 @@ docker restart frigate
 1. Start Frigate to download the model to `/var/docker-volumes/homeautomation/frigate/config/model_cache/`, then
    stop it.
 
-1. Rename the model file:
+1. Name the model, and use that name for every file below. Dating it keeps successive conversions distinct:
 
    ```bash
-   mv <Model ID> 2025-11-04-yolov9s.onnx
-   mv <Model ID>.json 2025-11-04-yolov9s.json
+   MODEL=$(date +%F)-yolov9s
+   CONFIG=/var/docker-volumes/homeautomation/frigate/config
+   mv <Model ID> $MODEL.onnx
+   mv <Model ID>.json $MODEL.json
    ```
 
-1. Get the model dimensions:
+1. Get the model dimensions, which the conversion and Frigate's config both need:
 
    ```bash
-   cat 2025-11-04-yolov9s.json | jq -r '"\(.width),\(.height)"'
+   jq -r '"\(.width),\(.height)"' $MODEL.json
    ```
 
-1. Convert to DFP:
+1. Convert to DFP, substituting those dimensions into `--input_shapes`:
 
    ```bash
-   mx_nc --models 2025-11-04-yolov9s.onnx --dfp_fname 2025-11-04-yolov9s.dfp --input_shapes "1,3,320,320" --autocrop --effort hard --num_processes 8 --verbose
+   mx_nc --models $MODEL.onnx --dfp_fname $MODEL.dfp --input_shapes "1,3,320,320" \
+       --autocrop --effort hard --num_processes 8 --verbose
 
    # Monitor for thermal throttling
    watch 'cat /sys/memx0/temperature'
 
    # Include the newly created "*_post.onnx" file
-   zip 2025-11-04-yolov9s.zip 2025-11-04-yolov9s.dfp 2025-11-04-yolov9s_post.onnx
-   sudo cp 2025-11-04-yolov9s.zip /var/docker-volumes/homeautomation/frigate/config/
+   zip $MODEL.zip $MODEL.dfp ${MODEL}_post.onnx
+   sudo cp $MODEL.zip $CONFIG/
    ```
 
 1. Create a label map:
 
    ```bash
-   cat 2025-11-04-yolov9s.json | jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' > 2025-11-04-yolov9s.txt
-   sudo cp 2025-11-04-yolov9s.txt /var/docker-volumes/homeautomation/frigate/config/
+   jq -r '.labelMap | to_entries[] | "\(.key) \(.value)"' $MODEL.json > $MODEL.txt
+   sudo cp $MODEL.txt $CONFIG/
    ```
 
-1. Update Frigate's `config.yml`:
+1. Update Frigate's `config.yml`, with the name and dimensions from above:
 
    ```yaml
    model:
-     path: /config/2025-11-04-yolov9s.zip
-     labelmap_path: /config/2025-11-04-yolov9s.txt
+     path: /config/<model>.zip
+     labelmap_path: /config/<model>.txt
      width: 320
      height: 320
      input_dtype: float
