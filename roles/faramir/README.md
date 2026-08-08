@@ -71,7 +71,8 @@ targeting it, through `delegate_to: localhost`, which no host list shows.
 It errs toward asking: a delegation naming a remote host costs a keystroke, where
 not asking costs a half-applied run. `ASK_PASS=1` forces the prompt, which the
 fleet play needs because it is the run that establishes the NOPASSWD that makes
-prompting unnecessary.
+prompting unnecessary. A run that is already root is never asked, sudo wanting
+nothing from root.
 
 The agent does not use `make`. It calls ansible through the broker:
 

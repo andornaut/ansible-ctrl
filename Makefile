@@ -117,8 +117,15 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 
 # ASK_PASS=1 forces it. The fleet play is the run that establishes the NOPASSWD
 # making prompts unnecessary, so it is the one run that still needs one.
+#
+# Root is tested ahead of ASK_PASS, because a prompt there cannot be needed: sudo
+# from root asks for nothing, and ansible prompts at startup whether or not the
+# password is used. A root run is also the one most likely to have no terminal to
+# answer on.
+IS_ROOT := $(filter 0,$(shell id -u))
+
 define become_flag
-$(if $(ASK_PASS),--ask-become-pass,$$( \
+$(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   run=$$($(call list_run,$(1))); \
   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts)); \
   for h in $$(echo "$$run" | $(pick_hosts)); do \
@@ -126,7 +133,7 @@ $(if $(ASK_PASS),--ask-become-pass,$$( \
   done; \
   for r in $$(echo "$$run" | $(pick_roles)); do \
     grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo --ask-become-pass; exit 0; }; \
-  done))
+  done)))
 endef
 
 # The `--` is repeated on the re-entry for the same reason it is required on the
