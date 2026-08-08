@@ -703,7 +703,7 @@
       {{ faramir_secrets.files | select('search', bad_dirs) | join(', ') }}
       is under group_vars/ or host_vars/, which Ansible auto-loads. Every
       secret_* var would resolve to its ENC[...] ciphertext instead of the
-      injected value, silently. Move it to /etc/faramir/secrets/ and update
+      injected value, silently. Move it to {{ faramir_secrets_dir }} and update
       [secrets] files in /etc/faramir/config.toml.
     quiet: true
   vars:

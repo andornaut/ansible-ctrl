@@ -71,7 +71,7 @@ Most playbooks apply one role to one group. The exceptions:
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
 | [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each `secret_*` environment variable into a variable of the same name |
-| `/etc/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
+| `~/.faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
@@ -87,7 +87,7 @@ example
 ## Secrets
 
 Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assistant long-lived
-tokens) lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
+tokens) lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
 [sops](https://github.com/getsops/sops) and age, and named `secret_<purpose>`. `host_vars/` holds
 no credential values, only references to them:
 
@@ -129,15 +129,27 @@ target depends on the `requirements` stamp: a root cron would run `ansible-galax
 `.ansible/` inside the operator's home and leave root-owned files there. It decrypts with
 `/etc/faramir/age.key`, the keeper's, which is already a recipient and which root can read.
 
-**Why the file is under `/etc` and not in this repo.** The keeper's unit sets `ProtectHome=true`, so
-the process holding the age key cannot read anything under any home; a store in this checkout would
-mean relaxing that on exactly the process the rest of the arrangement is built around. This repo is
-also public, so a store inside it is ciphertext of every credential one `git add -f` or one broken
-ignore rule from being published, which rotation does not undo. Secondary: the broker starts at
-boot, before any login, and an encrypted home is not mounted then.
+**Why the store is in the home and the rest of faramir is not.** The store is the one piece moving
+costs nothing: the agent runs as you and your age identity is in your home, so it can already
+decrypt the ciphertext wherever it sits. Everything else stays root-owned outside every home
+because it is what confines the agent, and a file in your home is a file the agent can rewrite:
+`config.toml` is the policy itself (`allowed_groups`, redaction, which files, which keys), the
+sealed age credential is `0400 root:root` so your account cannot swap it, and the units define the
+three service uids that make any of it mean anything.
 
-`/etc/faramir/secrets` is `2770 root:dev`, so `sops` still edits it in place without sudo. The
-[faramir role](roles/faramir/README.md) has the detail.
+Not in this repo either, even though the repo is where you work: it is public, so a store inside it
+is ciphertext of every credential one `git add -f` or one broken ignore rule from being published,
+which rotating afterwards does not undo.
+
+`~/.faramir/secrets` is `2770 <operator>:dev`, so `sops` edits it in place without sudo. The keeper
+reaches it through a drop-in that sets `ProtectHome=tmpfs` and binds only that one directory back
+in, so every other home stays invisible to the process holding the age key. The bind is optional, so
+an encrypted home that is not mounted yet leaves the broker holding no values rather than a keeper
+that will not start. The [faramir role](roles/faramir/README.md) has the detail.
+
+The cost of the home-based store: nothing under it is readable before your first login, so a
+reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not
+happen. The cron's preflight mails in that case rather than failing quietly.
 
 The encrypted file and the age identity both need a backup and neither is in git. Both are covered
 by rsnapshot: it takes `/etc/` and `~/.config/`. Note that this puts the key and the ciphertext it
