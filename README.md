@@ -228,21 +228,20 @@ yours to apply.
 
 [.github/workflows/lint.yml](.github/workflows/lint.yml) runs on every pull request: `ansible-lint`,
 `syntax-check`, `shellcheck` (every shell script under `roles/`, discovered by shebang), and `python-syntax`
-(every Python file under `roles/*/files/`). The first two are reproducible locally:
+(every Python file under `roles/*/files/`). All four are [tests/lint.sh](tests/lint.sh), which CI calls one
+check per job and `make lint` calls in full, so what passes locally is what passes there. A failure is a
+failure whoever introduced it: the gate is the whole file, not the lines a change touched.
 
 ```bash
-# Lint
-python3 -m venv /tmp/ansible-lint-venv \
-    && /tmp/ansible-lint-venv/bin/pip install ansible-lint \
-    && /tmp/ansible-lint-venv/bin/ansible-lint
-
-# Syntax-check every playbook. The real inventory is gitignored, so parse against the committed CI one.
-for pb in *.yml; do [ "$pb" = requirements.yml ] && continue; \
-    ansible-playbook --syntax-check -i tests/inventory.ini "$pb"; done
+make lint                  # every check CI gates on
+tests/lint.sh syntax       # or one of ansible-lint, syntax, shell, python
 
 # Upgrade all collections, which `make requirements` does not do
 ansible-galaxy collection install --upgrade -r requirements.yml
 
-# Remove downloaded roles and collections
+# Remove downloaded roles and collections, and the lint venv
 make clean
 ```
+
+`ansible-lint` is not packaged for Ubuntu, so `tests/lint.sh` keeps it in a venv under `.ansible/`, built on
+first use. CI installs it with `pip` instead and the script uses whichever it finds on `PATH`.

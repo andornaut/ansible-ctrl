@@ -17,12 +17,13 @@ PLAYBOOKS := base desktop dev docker faramir faramir_fleet \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean requirements $(PLAYBOOKS)
+.PHONY: help clean lint requirements $(PLAYBOOKS)
 
 help:
 	@echo "Available targets:"
 	@echo "  clean                 - Remove temporary role files"
 	@echo "  help                  - Show this help message"
+	@echo "  lint                  - Run every check CI gates on"
 	@echo "  requirements          - Install required Ansible roles and collections"
 	@echo ""
 	@echo "Playbook targets:"
@@ -47,7 +48,13 @@ help:
 	@echo "  make desktop -- --limit example --tags alacritty"
 
 clean:
-	rm -rf .ansible/roles .ansible/collections .ansible/.requirements
+	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
+
+# The same four checks CI runs, from the same script, so passing here is passing
+# there. Depends on requirements: ansible-lint's syntax-check resolves the
+# collections' modules, and reports every one of them as unknown without them.
+lint: requirements
+	@tests/lint.sh
 
 # A stamp rather than a phony recipe: a wrapped target runs make twice, and a
 # phony prerequisite would install the galaxy content on both passes. `make
