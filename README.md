@@ -29,7 +29,7 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment, so `-- --extra-vars k=v` forwards a bare `--extra-vars` and ansible exits with a usage message. Assign `ARGS` instead, which overrides the value the target derives from the goals. |
 | `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost`. A run that is already root never gets one. |
 | `ASK_PASS=1` | forces the prompt |
-| `SECRETS=none` | skips the `sops exec-env` re-entry, for a playbook that needs no credential |
+| `SECRETS=none` | skips the `sops exec-env` re-entry, and tells the play the run reads no credential. For a `--tags` run of a secret-bearing playbook that reaches none. |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 
@@ -101,15 +101,16 @@ A value only ever reaches a play through the environment. Three paths put it the
 
 | Path | How |
 | --- | --- |
-| `make` (operator) | wraps itself in `sops exec-env` when the values are not already loaded, using the operator's age identity at `~/.config/sops/age/keys.txt` |
+| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the other targets read no credential and run straight through. The store belongs to a group the operator is not in, so the re-entry succeeds only as root, which also reads the keeper's age key. A secret-bearing target `make` cannot serve is refused rather than run with every `secret_*` undefined. |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'`. `faramir.env` holds `secret://` references and no values, and is gitignored because those references map this repo's variable names onto the store's layout. |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` directly rather than through `make`, because every make target depends on the `requirements` stamp and a root cron would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
 
 Where things live and why:
 
-- **The store is in the operator's home**, alongside the age key that opens it, so a powered-off disk carries neither. The agent runs as the operator and its own age identity is in that home, so moving the store there costs nothing: what confines the agent is mode and uid, not location.
+- **The store is in the operator's home**, alongside the age key that opens it, so a powered-off disk carries neither. Being in that home grants its owner nothing: what confines the agent is mode and uid, not location.
 - **Not in this repo.** It is public, so a store inside it is ciphertext of every credential one `git add -f` or one broken ignore rule from publication, which rotating afterwards does not undo.
-- **`~/.faramir/secrets` is `2770 root:dev`**, so `sops` edits it in place without sudo, while the keeper reaches it through a unit that sets `ProtectHome=tmpfs` and binds only that one directory back in.
+- **`~/.faramir/secrets` is `2750 root:faramir-secrets`**, a group holding the keeper and the broker and no human. The operator is not in it, so `sops -d` and `sops exec-env` fail for want of a readable file whatever identities are recipients; `sudo faramir edit` is the way in. The keeper reaches it through a unit that sets `ProtectHome=tmpfs` and binds only that one directory back in.
+- **Every play that reads a credential checks first.** Credentials arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that something was injected. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
 - **Nothing under the home is readable before first login**, so a reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not happen. The cron's preflight mails in that case rather than failing quietly.
 - **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git. rsnapshot covers them only if each path is listed for it, and losing the key that opens the store loses every credential it ever encrypted. This does put the keys and the ciphertext they open in the same snapshot.
 

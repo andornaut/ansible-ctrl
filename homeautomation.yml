@@ -1,6 +1,27 @@
 ---
 - name: Apply homeautomation role
   hosts: homeautomation
+  # Credentials arrive as a set, so one check answers for every secret_* this
+  # play reads: sops exec-env or the broker injects the whole env file, or
+  # nothing does. Here rather than left to the first task that reads one, which
+  # fails with the tasks before it already applied, and for a container means it
+  # is removed and not recreated.
+  #
+  # tags: always so a --tags run is checked too, and secrets_required=false is
+  # the operator saying this one reaches no credential. `make SECRETS=none`
+  # passes that through.
+  pre_tasks:
+    - name: Require the credentials this play reads
+      ansible.builtin.assert:
+        that: secrets_injected | int > 0
+        fail_msg: >-
+          No secret_* variable was injected, so every credential this play reads
+          is undefined. Run it through `make`, which re-enters under sops, or
+          through the broker with `faramir run --env-file faramir.env`. For a run
+          that reaches no credential, pass secrets_required=false.
+        quiet: true
+      when: secrets_required | default(true) | bool
+      tags: always
   roles:
     # Uncomment the `base` and `docker` on the first run
     # - base

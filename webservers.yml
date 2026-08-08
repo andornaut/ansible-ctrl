@@ -6,6 +6,24 @@
 # the run it schedules.
 - name: Apply letsencrypt_nginx role
   hosts: webservers
+  # Identical to the block in homeautomation.yml and msmtp.yml, the other two
+  # playbooks that read a credential. See the reasoning in homeautomation.yml.
+  #
+  # This one also guards the renewal cron, which runs this playbook as root under
+  # sops exec-env: a store it cannot read now stops the run instead of reissuing
+  # nothing and reporting success.
+  pre_tasks:
+    - name: Require the credentials this play reads
+      ansible.builtin.assert:
+        that: secrets_injected | int > 0
+        fail_msg: >-
+          No secret_* variable was injected, so every credential this play reads
+          is undefined. Run it through `make`, which re-enters under sops, or
+          through the broker with `faramir run --env-file faramir.env`. For a run
+          that reaches no credential, pass secrets_required=false.
+        quiet: true
+      when: secrets_required | default(true) | bool
+      tags: always
   roles:
     # Uncomment the `base` and `docker` on the first run
     # - base
