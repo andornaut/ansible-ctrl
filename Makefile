@@ -81,7 +81,10 @@ requirements: .ansible/.requirements
 # which makes a dry run wet. Referenced through another name, -n stays dry.
 SUBMAKE := $(MAKE)
 
-SOPS_FILE := secrets/vault.sops.yml
+# Absolute, and outside this checkout on purpose: an encrypted home is not
+# mounted until its owner logs in, so a secrets file inside one is unreadable to
+# the broker at boot and to any unattended job at any time.
+SOPS_FILE := /etc/faramir/secrets/ansible-ctrl.sops.yml
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
 # SECRETS_LOADED marks the inner half so this happens once; SECRETS=none skips

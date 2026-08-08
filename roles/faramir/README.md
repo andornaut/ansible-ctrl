@@ -23,14 +23,20 @@ run later. Ansible never needs faramir in order to run.
 The keeper decrypts sops and nothing else. A credential held anywhere else is
 absent from the keeper's value set, so it is neither injectable through `--env`
 nor known to the redactor: a playbook that prints it prints it in plaintext.
-Every credential therefore lives in `secrets/vault.sops.yml`,
+Every credential therefore lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`,
 `group_vars/all/vars.yml` maps each name to `lookup('env', ...)`, and
 `host_vars/` refers to the names.
 
-The encrypted file belongs in `secrets/`, never under `group_vars/` or
-`host_vars/`. Ansible auto-loads every `.yml` there and a sops file is valid
-YAML, so each var would bind to its `ENC[...]` ciphertext. Nothing errors; hosts
-get the ciphertext as the password. The role asserts against this after install.
+The encrypted file lives under `/etc` rather than in this checkout, because an
+encrypted home is not mounted at boot or under cron: a secrets file inside one
+leaves the broker holding an empty value set until the operator's first login,
+and leaves the certificate renewal job unable to read anything at all. The
+directory is `2770 root:dev`, so `sops` still edits it in place without sudo.
+
+It must also never sit under `group_vars/` or `host_vars/`. Ansible auto-loads
+every `.yml` there and a sops file is valid YAML, so each var would bind to its
+`ENC[...]` ciphertext. Nothing errors; hosts get the ciphertext as the password.
+The role asserts against this after install.
 
 A broker whose secrets file it cannot read comes up healthy and protects nothing.
 The role prints what the broker loaded and fails when a managed sops file exists
@@ -110,7 +116,7 @@ runs the project's own install phases as root:
 | Phase | Establishes |
 | --- | --- |
 | accounts | the `faramir-keeper`, `faramir-broker` and `faramir-exec` uids, the `dev` group, working tree permissions |
-| sops-init | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` in the working tree |
+| sops-init | the age keypair at `/etc/faramir/age.key` (0400, keeper-owned) and `.sops.yaml` in `/etc/faramir/secrets` |
 | install-broker | binaries, `/etc/faramir/config.toml`, systemd units |
 | agent-config | the agent's settings, and the working tree's `.mcp.json` and instructions snippet |
 
@@ -131,20 +137,21 @@ every run, and the broker phase rewrites the unit files every run.
 
 `faramir_worktree` is the operator's own checkout of this repo, so there is one
 copy of the inventory rather than two to keep in step. Brokered commands run
-there and the sops files are read from there, so it has to be reachable by
-`faramir-keeper`, which decrypts, and `faramir-exec`, which runs the commands.
-Neither is the operator's uid and a home is 0700, so the accounts phase grants
-both traversal with an ACL on every component from the home down. Not
-`chmod o+x`, which would grant every account on the machine the same thing.
+there, so it has to be reachable by `faramir-exec`, and by nothing else: the
+sops files are read from `/etc/faramir/secrets`, so the keeper never opens
+anything under a home and its unit sets `ProtectHome=true`. `faramir-exec` is
+not the operator's uid and a home is 0700, so the accounts phase grants it
+traversal with an ACL on every component from the home down. Not `chmod o+x`,
+which would grant every account on the machine the same thing.
 
-The role requires the tree to exist and does not create it: `hosts`, `host_vars/`,
-`group_vars/` and `secrets/` are gitignored, so a fresh clone parses but has no
-inventory and no secrets.
+The role requires the tree to exist and does not create it: `hosts`, `host_vars/`
+and `group_vars/` are gitignored, so a fresh clone parses but has no inventory,
+and the credentials it names live in `/etc/faramir/secrets`.
 
-The path lives in `/etc/faramir/config.toml` and nowhere else. The systemd units
-name no tree; what keeps a brokered command out of everything else is the file
-mode, plus `ProtectSystem=strict`, which makes the hierarchy read-only apart from
-`/home`.
+Nothing the broker reads names this tree: the systemd units do not, and neither
+does the config now that the secrets are under `/etc`. What keeps a brokered
+command out of everything else is the file mode, plus `ProtectSystem=strict`,
+which makes the hierarchy read-only apart from `/home`.
 
 > [!WARNING]
 > On an ecryptfs home the ACL is write-once. The first `setfacl` against an inode

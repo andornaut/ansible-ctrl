@@ -27,13 +27,15 @@ letsencrypt_nginx_renewal_cron_minute: "11"
 # Directory ansible-playbook runs from; defaults to the current run's checkout.
 letsencrypt_nginx_renewal_cron_directory: "{{ playbook_dir }}"
 letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
-# The sops file the renewal run reads its credentials from, relative to the
-# directory above. Paired with SOPS_FILE in the Makefile: if one moves the other
-# has to follow, because nothing fails when a credential does not resolve.
-letsencrypt_nginx_renewal_cron_sops_file: secrets/vault.sops.yml
-# The age key that decrypts it. The operator's own, not the secret broker's:
-# .sops.yaml encrypts to both, and the broker's key belongs to the account that
-# holds it rather than to root. ~{{ primary_user }} rather than an absolute
-# path, because the shell resolves ~user through the passwd database and so
-# survives a home directory move.
-letsencrypt_nginx_renewal_cron_age_key_file: "~{{ primary_user }}/.config/sops/age/keys.txt"
+# The sops file the renewal run reads its credentials from. Absolute, and
+# outside every home: this job runs from cron with no session, so an encrypted
+# home is not mounted and nothing under one is readable. Paired with SOPS_FILE
+# in the Makefile: if one moves the other has to follow, because nothing fails
+# when a credential does not resolve.
+letsencrypt_nginx_renewal_cron_sops_file: /etc/faramir/secrets/ansible-ctrl.sops.yml
+# The age key that decrypts it. The keeper's, which is already a recipient, and
+# which root can read like any other file: this job runs as root, so naming it
+# grants nothing root did not have. The operator's own key stays in their
+# encrypted home, where a stolen disk does not reach it. SOPS_AGE_KEY_FILE takes
+# a path rather than a value, so the material is read only by sops itself.
+letsencrypt_nginx_renewal_cron_age_key_file: /etc/faramir/age.key
