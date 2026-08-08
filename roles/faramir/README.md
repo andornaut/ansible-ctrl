@@ -26,11 +26,20 @@ Every credential therefore lives in `/etc/faramir/secrets/ansible-ctrl.sops.yml`
 `vars_plugins/secret_env.py` turns each injected `secret_*` variable into one of
 the same name, and `host_vars/` refers to the names.
 
-The encrypted file lives under `/etc` rather than in this checkout, because an
-encrypted home is not mounted at boot or under cron: a secrets file inside one
-leaves the broker holding an empty value set until the operator's first login,
-and leaves the certificate renewal job unable to read anything at all. The
-directory is `2770 root:dev`, so `sops` still edits it in place without sudo.
+The encrypted file lives under `/etc` rather than in this checkout for two
+reasons, either of which decides it. The keeper's unit sets `ProtectHome=true`,
+so the process holding the age key cannot read anything under any home: a store
+in the checkout means relaxing that on the one process whose isolation the rest
+of this depends on. And the checkout is a public repo, where a store is
+ciphertext of every credential one `git add -f` away from publication, which
+rotation does not undo.
+
+Secondary, and true here but not load-bearing: the broker starts at boot, before
+any login, so an encrypted home leaves it holding an empty value set. The
+renewal job is not a third reason, whatever it may look like: it already runs
+from `playbook_dir`, so it is gated on that same home either way.
+
+The directory is `2770 root:dev`, so `sops` still edits it in place without sudo.
 
 It must also never sit under `group_vars/` or `host_vars/`. Ansible auto-loads
 every `.yml` there and a sops file is valid YAML, so each var would bind to its
