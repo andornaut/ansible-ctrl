@@ -1,0 +1,29 @@
+---
+# Clearing an install flag stops the role configuring a component, which on its
+# own leaves the last run's container running and its host files in place. This
+# converges the other direction: what homeautomation_teardown lists for a
+# component whose flag is false is removed.
+#
+# Volumes are never touched. A flag cleared by accident would otherwise take the
+# only copy of a service's data with it, and re-setting the flag would rebuild
+# an empty service that looks healthy.
+
+- name: Remove the containers of components that are not installed
+  community.docker.docker_container:
+    name: "{{ item.1 }}"
+    state: absent
+  loop: "{{ homeautomation_teardown | rejectattr('install') | subelements('containers') }}"
+  loop_control:
+    label: "{{ item.1 }}"
+
+- name: Remove the host files of components that are not installed
+  ansible.builtin.file:
+    path: "{{ item.1 }}"
+    state: absent
+  loop: >-
+    {{ homeautomation_teardown | rejectattr('install')
+       | subelements('files', skip_missing=true) }}
+  loop_control:
+    label: "{{ item.1 }}"
+  become: true
+  notify: Reload sysctl

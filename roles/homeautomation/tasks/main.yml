@@ -96,6 +96,12 @@
         - mosquitto
         - voice
 
+    # Before the imports below, so a component being removed releases its name,
+    # ports and devices before another run claims them.
+    - name: Remove the components this host does not install
+      ansible.builtin.import_tasks: teardown.yml
+      tags: teardown
+
     # After the prerequisites, which read the passwd database its service
     # account is checked against, and before Home Assistant, which is where the
     # broker container is defined.
