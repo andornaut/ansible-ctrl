@@ -307,8 +307,8 @@
         faramir_installed.stat.checksum | default('') != faramir_built.stat.checksum | default('')
         or faramir_overwrite_config | bool
 
-    # Writes ~agent/.claude/settings.json, the working tree's .mcp.json, and the
-    # CLAUDE.md snippet. Keeps whatever it finds, so a second run is a no-op.
+    # Writes the operator's agent settings, the working tree's .mcp.json, and an
+    # instructions snippet. Keeps whatever it finds, so a second run is a no-op.
     - name: Run phase 4, agent configuration
       ansible.builtin.command:
         cmd: bash install/40-agent-config.sh
@@ -396,10 +396,10 @@
 # injectable nor redacted. Zero refs is therefore a broker that is
 # running and protecting nothing, which is indistinguishable from a healthy
 # install unless something says so. See the role README.
-# Derived rather than configured. --check lists only the managed files it could
-# stat, so an empty list means the sops file does not exist yet, which is what
-# every install looks like before the vault is migrated. A file that exists and
-# yields nothing is the real fault, and that is what this catches.
+# Guarded rather than unconditional. --check lists only the managed files it
+# could stat, so an empty list means no sops file exists yet, which is what a
+# first install looks like. A file that exists and yields nothing is the real
+# fault, and that is what this catches.
 - name: Require the broker to have loaded at least one secret
   ansible.builtin.assert:
     that: faramir_secrets.ref_count | default(0) | int > 0
@@ -439,11 +439,18 @@
 # hosts or no credentials at all.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
-    path: "{{ faramir_worktree }}/CLAUDE.md"
+    # AGENTS.md, which every coding agent reads and which CLAUDE.md is a symlink
+    # to here. blockinfile writes through a symlink, so naming either works, but
+    # naming the target keeps a host without that symlink from ending up with
+    # two files saying different things.
+    path: "{{ faramir_worktree }}/AGENTS.md"
     create: true
     owner: "{{ faramir_user }}"
     group: "{{ faramir_dev_group }}"
-    mode: "0664"
+    # Not group-writable. The dev group includes the executor, and this file is
+    # what tells the agent which paths to leave alone; a brokered command has no
+    # reason to be able to rewrite it. The operator owns it and is who edits it.
+    mode: "0644"
     marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
     block: |
       ## Running playbooks

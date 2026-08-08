@@ -70,18 +70,24 @@ faramir_manage_broker_ssh_key: true
 # Without it the keeper is the only recipient and editing a value, rotating a
 # credential or reading one back all have to go through the broker.
 #
-# It grants the agent nothing: the agent has no age key either way, and this one
-# lives under the operator's home where the agent's uid cannot reach it.
+# Not a boundary. The coding agent runs as this same account, so it can read
+# this identity and decrypt the store directly. The broker keeps values out of
+# the agent's context and redacts what comes back; it does not stop an agent
+# that goes looking for them. Setting the flag below false closes that path, at
+# the cost of every operator read going through the broker as well.
 faramir_operator_age_key: "{{ faramir_user_home }}/.config/sops/age/keys.txt"
 
 # Generate faramir_operator_age_key when it is missing and add it as a second
 # recipient. Set false to leave the keeper as the only one.
 faramir_manage_operator_age_key: true
 
-# Hosts whose authorized_keys should carry the broker's public key, so brokered
-# playbooks can reach them. Empty means the role writes to no managed host and
-# the key is yours to distribute.
+# Whether faramir_fleet.yml authorizes the broker's public key on the managed
+# hosts and grants that account NOPASSWD sudo, or removes both. This role never
+# reads it; the entry is here so the flag is documented where the rest are. That
+# play applies no role and so defaults it itself, which is also why it must not
+# bind the name at play or task scope: either would outrank host_vars and pin it
+# to true.
 #
-# This writes to production hosts, so it is a separate play (faramir_fleet.yml)
-# rather than something the controller-side role does behind your back.
+# It writes to production hosts, so it is a separate play rather than something
+# the controller-side role does behind your back.
 faramir_fleet_authorize_key: true

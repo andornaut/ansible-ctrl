@@ -1,11 +1,11 @@
 SHELL := /bin/bash
 
 # Arguments after `--` are forwarded verbatim to ansible-playbook, e.g.:
-#   make desktop -- --limit controller --tags alacritty
+#   make desktop -- --limit example --tags alacritty
 # (make rejects bare --flags, so the `--` separator is required.)
 ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
-# Swallow the forwarded tokens (e.g. --limit, controller) as no-op goals so make
+# Swallow the forwarded tokens (e.g. --limit, example) as no-op goals so make
 # does not error with "No rule to make target". Real targets have explicit
 # rules, which take precedence over this pattern.
 %:
@@ -48,7 +48,7 @@ help:
 	@echo "                          (dev.yml --tags ai_maintainer; there is no ai_maintainer role)"
 	@echo ""
 	@echo "Forward extra ansible-playbook arguments after --, e.g.:"
-	@echo "  make desktop -- --limit controller --tags alacritty"
+	@echo "  make desktop -- --limit example --tags alacritty"
 
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements
@@ -69,14 +69,10 @@ requirements: .ansible/.requirements
 	@touch $@
 
 
-# Where the credentials come from, and whether a password has to be typed.
+# Where the credentials come from, and whether a password has to be typed. Both
+# are decided per invocation rather than always-on, so that a run asks for
+# nothing it will not use and needs no wrapping by hand.
 #
-# Both are decided per invocation rather than always-on, because both used to be
-# unconditional and both were usually wrong: every run asked for a sudo password
-# it would not use, and every run needing a credential had to be wrapped by hand.
-#
-# SOPS_FILE absent means the vault has not been migrated yet, and everything
-# below is a no-op: the run behaves exactly as it always did.
 # Not $(MAKE): make runs any recipe line containing that string even under -n,
 # which makes a dry run wet. Referenced through another name, -n stays dry.
 SUBMAKE := $(MAKE)
@@ -88,26 +84,24 @@ SOPS_FILE := /etc/faramir/secrets/ansible-ctrl.sops.yml
 
 # Re-enter under sops exec-env when the values are not in the environment yet.
 # SECRETS_LOADED marks the inner half so this happens once; SECRETS=none skips
-# it for a playbook that needs no credential.
+# it for a playbook that needs no credential. An absent SOPS_FILE makes all of
+# it a no-op, so a checkout without one still runs.
 WRAP = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(wildcard $(SOPS_FILE)))
 
-# Prompt for a become password only when the run actually reaches a host whose
-# sudo asks for one, which is the controller: the fleet is NOPASSWD, and a
-# brokered run cannot become there at all.  Asked of ansible rather than
-# assumed, so a --limit in ARGS is accounted for.  Roughly 0.4s.
+# Prompt for a become password only when the run reaches a host whose sudo asks
+# for one, which is the controller: the fleet is NOPASSWD, and a brokered run
+# cannot become there at all. Asked of ansible rather than assumed, so a --limit
+# in ARGS is accounted for. Roughly 0.4s.
 #
-#   make homeautomation                    -> reaches controller, prompts
-#   make homeautomation -- --limit siteb -> does not, so it does not
-# Whether a run needs a sudo password, decided per invocation rather than always
-# asked for. Two ways a run reaches the controller, and both have to be checked:
+# Two ways a run reaches the controller, and both have to be checked:
 #
-#   it targets it        controller is in the play's host list
+#   it targets it        the controller is in the play's host list
 #   it delegates to it   a role runs a become task with delegate_to: localhost,
-#                        which no host list ever shows (make torrent targets
-#                        torrentbox and still writes /usr/local/bin on the controller)
+#                        which no host list ever shows (the torrent play targets
+#                        a remote host and still writes /usr/local/bin here)
 #
 # --list-hosts and --list-tasks combine into one call and connect to nothing, so
-# this costs one ansible startup. The delegation check greps the roles that call
+# this costs one ansible startup. The delegation check greps the roles the run
 # actually named, so a role that gains a delegation is covered without anyone
 # remembering to update a list here.
 #
