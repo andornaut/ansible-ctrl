@@ -29,19 +29,17 @@
       homeautomation_esphome_allow_unauthenticated to run it open on purpose.
   when: not homeautomation_esphome_allow_unauthenticated | bool
 
-# No mode alongside recurse: it would apply to the files too, and the modes
-# those need are set below rather than swept across the directory.
-- name: Create the ESPHome directories with correct ownership
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ homeautomation_esphome_uid }}"
-    group: "{{ homeautomation_esphome_gid }}"
-    recurse: true
-  loop:
-    - "{{ homeautomation_esphome_required_volumes.config }}"
-    - "{{ homeautomation_esphome_required_volumes.cache }}"
-  become: true
+- name: Create the ESPHome service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: esphome
+    service_account_uid: "{{ homeautomation_esphome_uid }}"
+    service_account_paths:
+      - "{{ homeautomation_esphome_required_volumes.config }}"
+      - "{{ homeautomation_esphome_required_volumes.cache }}"
+    # secrets.yaml holds the wifi and OTA passwords, and the config directory is
+    # also where the dashboard keeps the git repository it writes.
+    service_account_mode: "0700"
 
 # The dashboard pings devices to track whether they are online. An unprivileged
 # ICMP datagram socket is the only way a non-root uid can do that: Docker's
@@ -121,8 +119,10 @@
   no_log: "{{ homeautomation_esphome_auth_configured | bool }}"
 
 # secrets.yaml holds the wifi password and the OTA password; every device YAML
-# holds that device's API encryption key. Owner-only rather than a closed
-# directory, because that directory is a git checkout the operator reads.
+# holds that device's API encryption key. The directory above is already 0700
+# and owned by the service account, so this is the second of the two rather than
+# the control that matters: it keeps a file readable only by its owner if the
+# directory's mode is ever loosened.
 #
 # Reasserted every run: the dashboard creates a file per device as devices are
 # adopted, and each one is born with the dashboard's umask.
