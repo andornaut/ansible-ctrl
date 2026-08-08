@@ -235,7 +235,8 @@ keys = ["/var/lib/faramir-broker/.ssh/id_ed25519"]
 Drop-ins merge over the base in lexical order and are held to every check the
 base file is, so a typo here is a hard error naming the alternatives rather than
 a setting that reads as though it took effect. `faramir status` reports
-`config_sources`, which is where to look when a setting is not what you expect.
+`configs`, the base file and every drop-in that contributed, which is where to
+look when a setting is not what you expect.
 
 A drop-in rather than the base config for a specific reason: the installer keeps
 an existing `/etc/faramir/config.toml` and writes the incoming default to
