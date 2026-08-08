@@ -43,10 +43,21 @@ faramir_exec_user: faramir-exec
 # tree no longer being the checkout you work in.
 faramir_worktree: "{{ faramir_user_home }}/src/github.com/andornaut/ansible-ctrl"
 
-# Config installed as /etc/faramir/config.toml, relative to faramir_src_dir.
-# Installed verbatim: every path in it is absolute, and the managed sops files
-# live in /etc/faramir/secrets rather than in this tree.
-faramir_config_src: etc/examples/ansible-fleet.toml
+# Base config installed as /etc/faramir/config.toml, relative to
+# faramir_src_dir. faramir's own starter: the settings that belong to this
+# project go in a drop-in instead, so the base file is never edited to name an
+# ansible-ctrl secrets file.
+faramir_config_src: etc/config.toml
+
+# The managed sops files this project's playbooks draw on. Written to
+# /etc/faramir/config.d/ansible-ctrl.toml as [secrets] files, every run, which
+# the installed base config is not: phase 3 keeps an existing config.toml, so
+# anything named there lands once and can never be reconciled.
+#
+# Every client of the broker sees every ref whatever file it came from, so the
+# name buys per-file decryption errors and a per-file reload, not isolation.
+faramir_secrets_files:
+  - /etc/faramir/secrets/ansible-ctrl.sops.yml
 
 # Phase 3 keeps an existing /etc/faramir/config.toml and writes the new default
 # to config.toml.dist beside it, so re-running this role does not reconcile the
@@ -55,8 +66,8 @@ faramir_config_src: etc/examples/ansible-fleet.toml
 faramir_overwrite_config: false
 
 # The SSH identity the broker lends to brokered commands through an agent it
-# owns. This must match [ssh] keys in faramir_config_src: the broker exposes no
-# way to read that setting back, so nothing here can derive one from the other.
+# owns. Written to the config drop-in as [ssh] keys, so this is the only place
+# it is named and there is nothing left to keep in agreement by hand.
 #
 # A key of the broker's own rather than the operator's. The executor's uid can
 # authenticate with it without being able to read it, and the fleet can revoke

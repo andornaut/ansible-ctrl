@@ -393,6 +393,47 @@
              | select('search', 'WARNING|SKIP') | list }}
       when: faramir_phase_warnings | length > 0
 
+# Which sops files the broker manages and which SSH key it lends belong to this
+# project, not to faramir. They go in a drop-in so the base config stays
+# faramir's and neither has to be merged by hand.
+#
+# Written every run, unlike /etc/faramir/config.toml, which phase 3 installs
+# once and then keeps: a setting that only lands on a first install is one this
+# role cannot reconcile afterwards.
+- name: Name this project's secrets and SSH key in a config drop-in
+  ansible.builtin.copy:
+    dest: /etc/faramir/config.d/ansible-ctrl.toml
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by ansible-ctrl's faramir role. Merged over
+      # /etc/faramir/config.toml, which is faramir's own and not edited here.
+      [secrets]
+      files = {{ faramir_secrets_files | to_json }}
+
+      [ssh]
+      keys = {{ [faramir_broker_ssh_key] | to_json }}
+  register: faramir_dropin
+  become: true
+
+# Neither daemon re-reads its config while running, and the keeper has to lead:
+# it decrypts the file list the broker is then served, so restarting the broker
+# first just fetches the old value set again.
+- name: Restart the keeper onto the new drop-in
+  ansible.builtin.systemd_service:
+    name: faramir-keeper
+    state: restarted
+  when: faramir_dropin.changed
+  become: true
+
+- name: Restart the broker onto the new drop-in
+  ansible.builtin.systemd_service:
+    name: faramir-broker
+    state: restarted
+  when: faramir_dropin.changed
+  become: true
+
 # Seal the age key to the TPM, so the one file that decrypts every managed
 # secret is not readable from the drive. The keeper is unchanged by this: the
 # credential keeps the name age_key, so it reads the same path under
