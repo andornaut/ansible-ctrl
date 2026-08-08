@@ -283,6 +283,52 @@
     - faramir_project.stdout | default('') | length > 0
     - (faramir_project.stdout | from_json).warnings | default([]) | length > 0
 
+# CLEANUP (added 2026-08-08): faramir shipped a binary per role until the roles
+# became subcommands of one. The units start /usr/local/bin/faramir now, so the
+# four in /usr/local/bin and the hook in libexec are orphaned: nothing execs
+# them. Delete once every host in the faramir group has run this.
+#
+# Guarded rather than unconditional, and this is the whole reason it is two
+# tasks. A tree enrolled before the change still names the old hook path in its
+# .claude/settings.json, and faramir init-project keeps an existing settings file
+# rather than rewriting it. A PreToolUse hook that cannot exec denies nothing and
+# rewrites nothing: it fails open, silently, so redaction and the deny list are
+# off with no error anywhere. The binary goes only once nothing names it.
+- name: Look for agent settings still naming the old binaries
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}"
+    patterns:
+      - settings.json
+      - settings.json.dist
+      - .mcp.json
+    contains: faramir-(guard|mcp)
+    hidden: true
+    recurse: true
+  register: faramir_stale_agent_refs
+  changed_when: false
+
+- name: Report the agent settings that must be repointed first
+  ansible.builtin.debug:
+    msg: >-
+      {{ faramir_stale_agent_refs.files | map(attribute='path') | list }} still
+      name faramir-guard or faramir-mcp. Repoint them at "/usr/local/bin/faramir
+      guard" and "/usr/local/bin/faramir" with args ["mcp"]; the old binaries are
+      left in place until then, because a hook that cannot exec fails open.
+  when: faramir_stale_agent_refs.files | length > 0
+
+- name: Remove the binaries the consolidated build replaced
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/faramir-broker
+    - /usr/local/bin/faramir-keeper
+    - /usr/local/bin/faramir-exec
+    - /usr/local/bin/faramir-mcp
+    - /usr/local/libexec/faramir/faramir-guard
+  when: faramir_stale_agent_refs.files | length == 0
+  become: true
+
 # init warns rather than fails on the things with a legitimate shape that have
 # nonetheless left somebody with a broker that installs cleanly and does
 # nothing: a group membership that needs a fresh login, an executor in the
