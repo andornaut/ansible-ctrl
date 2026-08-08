@@ -26,7 +26,8 @@ make desktop -- --tags alacritty --limit example # Forward arguments
 
 `--ask-become-pass` is added only when the run reaches the controller, which is the only host whose sudo asks
 for a password: either it is in the play's host list, or a role in the run has a `become` task under
-`delegate_to: localhost`. `ASK_PASS=1` forces the prompt.
+`delegate_to: localhost`. `ASK_PASS=1` forces the prompt. A run that is already root never gets one,
+since sudo asks root for nothing.
 
 `make ai_maintainer` is the exception: it is a tag in the [dev](roles/dev/README.md) role rather than a playbook,
 so the target runs `dev.yml --tags ai_maintainer`.
