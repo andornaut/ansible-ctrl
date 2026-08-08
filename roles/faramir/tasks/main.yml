@@ -126,46 +126,24 @@
   loop_control:
     label: "{{ item.item }}"
 
-# Phase 3 refuses a config whose [exec] default_cwd is not inside the tree it
-# was told about, and it refuses it after the binaries and the hook are already
-# on the host, leaving the install half-applied. Read the source config here,
-# with the parser that will judge it, so a mismatch stops the run before it
-# touches root.
-#
-# The units name no tree, so a disagreement is now "commands run somewhere you
-# did not ask for" rather than "nothing runs at all". Still worth refusing.
-#
-# The flag prints nothing at all for the ordinary config, which leaves the key
-# unset; what is being read is as much the exit status as the output.
-- name: Read the source config's default working directory
+# Phase 3 refuses a config that does not parse, and it refuses it after the
+# binaries and the hook are already on the host, leaving the install
+# half-applied. Read the source config here, with the parser that will judge
+# it, so a bad config stops the run before it touches root.
+- name: Check that the source config parses
   ansible.builtin.command:
-    cmd: bin/faramir-broker -c {{ faramir_config_src }} --print-default-cwd
+    cmd: bin/faramir-broker -c {{ faramir_config_src }} --parse-only
     chdir: "{{ faramir_src_dir }}"
-  register: faramir_config_cwd
+  register: faramir_config_parse
   changed_when: false
   failed_when: false
   check_mode: false
 
-# Empty is the ordinary case and the recommended setting: a brokered command
-# runs where its caller was, so a config that names no directory has nothing to
-# disagree with. @WORKTREE@ is the placeholder phase 3 substitutes, so it always
-# agrees. A literal path is accepted only where phase 3 would accept it: the
-# tree itself or something under it, never a prefix match like "<worktree>-old".
-- name: Require a source config that agrees with the worktree
+- name: Require a source config that parses
   ansible.builtin.assert:
-    that:
-      - faramir_config_cwd.rc == 0
-      - >-
-        faramir_config_cwd.stdout == ""
-        or faramir_config_cwd.stdout == "@WORKTREE@"
-        or faramir_config_cwd.stdout == faramir_worktree
-        or faramir_config_cwd.stdout.startswith(faramir_worktree ~ "/")
+    that: faramir_config_parse.rc == 0
     fail_msg: >-
-      {{ faramir_config_src }} {{ "does not parse as a faramir config"
-      if faramir_config_cwd.rc != 0 else
-      'sets [exec] default_cwd to "' ~ faramir_config_cwd.stdout ~ '", which is
-      not inside ' ~ faramir_worktree ~ '. Leave default_cwd unset, write the
-      tree as @WORKTREE@ there, or set faramir_worktree to match' }}.
+      {{ faramir_config_src }} does not parse as a faramir config.
     quiet: true
 
 # The phase scripts are idempotent re-assertions and report nothing a machine can

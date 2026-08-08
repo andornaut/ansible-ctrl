@@ -44,9 +44,8 @@ directory it operates on.
   (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
 - Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
   packages and modules are left in place; remove them by hand.
-- The `age` package is no longer installed. SOPS links the age library, and faramir mints keypairs with
-  `faramir keygen`, so nothing here needs the binary. Hosts that ran an earlier version still have it:
-  `sudo apt purge age` if you want it gone.
+- The `age` package is deliberately not installed. SOPS links the age library, and faramir mints keypairs with
+  `faramir keygen`, so nothing here needs the binary.
 
 ## Operations
 
