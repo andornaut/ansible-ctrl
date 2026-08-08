@@ -219,20 +219,37 @@
     path: "{{ faramir_user_home }}/.claude/settings.json"
   register: faramir_agent_settings
 
-# Phase 1 first: it creates the service accounts and the shared working tree,
-# which everything below reads.
-- name: Run phase 1, accounts and working tree permissions
+# Phase 1 first: it creates the service accounts and the group, which everything
+# below reads. It shares no tree; that is the task after it.
+- name: Run phase 1, accounts and group
   ansible.builtin.command:
     cmd: bash install/10-accounts.sh
     chdir: "{{ faramir_src_dir }}"
   register: faramir_phase_accounts
   become: true
   environment: "{{ faramir_install_env }}"
-  # Phase 1 also re-chgrps and re-setgids the working tree every run, which
-  # this does not detect. Only account creation is reported.
+  # Only account creation is reported.
   changed_when: >-
     faramir_service_accounts | difference(ansible_facts['getent_passwd'] | list) | length > 0
     or faramir_dev_group not in ansible_facts['getent_group']
+
+# Phase 1 creates the accounts and stops there. Sharing a tree is a separate,
+# per-directory action now, because faramir names no directory anywhere: the
+# managed sops files are under /etc and a brokered command runs where its caller
+# was. This project's checkout is the tree its playbooks run in, so it is the one
+# that has to be shared.
+#
+# Re-asserted every run like the phases around it, and reporting no change: it
+# sets a group, setgid bits and an ACL that are already what they should be on
+# every run after the first.
+- name: Share this project's checkout with the service accounts
+  ansible.builtin.command:
+    cmd: bash install/share-tree.sh {{ faramir_worktree | quote }}
+    chdir: "{{ faramir_src_dir }}"
+  register: faramir_share_tree
+  changed_when: false
+  become: true
+  environment: "{{ faramir_install_env }}"
 
 # The accounts phase 1 created are not in the facts gathered at the top of this
 # role, and the checks below read them.
@@ -260,8 +277,8 @@
       it must exist before the broker is installed. It is meant to be your own
       checkout:
       git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
-      Then re-run: phase 1 applies the group, the setgid bits and, for a tree
-      inside your home, the ACL that lets the keeper and the executor reach it.
+      Then re-run: install/share-tree.sh applies the group, the setgid bits
+      and, for a tree inside your home, the ACL that lets the executor reach it.
     quiet: true
 
 # As faramir_user for the same reason as the build, and with more at stake: under
