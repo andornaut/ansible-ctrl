@@ -70,8 +70,15 @@
   loop_control:
     label: "{{ item.item.cmd }}"
 
+# As faramir_user, not as whoever ansible connects as: this playbook is run with
+# root often enough (make supplies no become password to a root run, and the
+# README says to run it against the controller), and a root build leaves bin/
+# root-owned inside the operator's checkout, where their next make build cannot
+# write.
 - name: Build the faramir binaries
   tags: build
+  become: true
+  become_user: "{{ faramir_user }}"
   block:
     # Reproducible: the Makefile builds with -trimpath and CGO_ENABLED=0, so the
     # checksum moves only when the source does. That makes it a usable signal
@@ -103,6 +110,10 @@
 # --skip-tags build is a reinstall of what is already there, which is only a
 # thing to do when it is already there. Checked separately from the config
 # probe below so that "not built" does not surface as "does not parse".
+#
+# All six that install/30-install-broker.sh requires, not the ones this role
+# names elsewhere: a shorter list here passes and then phase 3 dies with the raw
+# "not built" this assert exists to pre-empt.
 - name: Require the built binaries
   ansible.builtin.stat:
     path: "{{ faramir_src_dir }}/bin/{{ item }}"
@@ -110,6 +121,9 @@
   loop:
     - faramir
     - faramir-broker
+    - faramir-keeper
+    - faramir-exec
+    - faramir-mcp
     - faramir-guard
   loop_control:
     label: "{{ item }}"
@@ -146,6 +160,36 @@
       {{ faramir_config_src }} does not parse as a faramir config.
     quiet: true
 
+# faramir names the group literally in both files, and neither is this role's to
+# template: the config is installed verbatim and the units are faramir's. Checked
+# rather than trusted, because the failure has no other symptom. allowed_groups
+# is what the sockets admit and SupplementaryGroups is what reaches the working
+# tree, so a mismatch in either is a broker that installs and then does nothing.
+- name: Check that faramir's config and units name the dev group
+  ansible.builtin.shell:
+    executable: /bin/bash
+    chdir: "{{ faramir_src_dir }}"
+    cmd: >-
+      grep -qE '^[[:space:]]*allowed_groups[[:space:]]*=.*"{{ faramir_dev_group }}"'
+      {{ faramir_config_src | quote }}
+      && grep -qE '^SupplementaryGroups=.*\b{{ faramir_dev_group }}\b'
+      systemd/faramir-exec.service
+  register: faramir_dev_group_named
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require faramir's own files to name the dev group
+  ansible.builtin.assert:
+    that: faramir_dev_group_named.rc == 0
+    fail_msg: >-
+      faramir_dev_group is {{ faramir_dev_group }}, which faramir's
+      {{ faramir_config_src }} and systemd/faramir-exec.service do not name.
+      Phase 1 would create that group and add {{ faramir_user }} to it, every
+      check here would pass, and the broker would then refuse every connection
+      from it. Change it in faramir's files too, or leave it at the default.
+    quiet: true
+
 # The phase scripts are idempotent re-assertions and report nothing a machine can
 # read, so each one's changed_when comes from the state it establishes, checked
 # here before any of them runs.
@@ -154,6 +198,16 @@
     path: /usr/local/bin/faramir-broker
     checksum_algorithm: sha256
   register: faramir_installed
+
+# The built binary, checksummed here rather than inside the build block, so that
+# phase 3's change report has both sides under --skip-tags build too. Reading it
+# from the block's register would leave that side unset and report every skipped
+# build as a change.
+- name: Check the broker binary about to be installed
+  ansible.builtin.stat:
+    path: "{{ faramir_src_dir }}/bin/faramir-broker"
+    checksum_algorithm: sha256
+  register: faramir_build_current
 
 - name: Check for the age key
   ansible.builtin.stat:
@@ -189,9 +243,9 @@
     - passwd
     - group
 
-# Phase 2 writes .sops.yaml into the tree and phase 3 names it in the config, so
-# it has to exist from here on. Phase 3 would otherwise install a broker that
-# fails every command with "cwd does not exist".
+# Brokered commands run in this tree, so it has to exist from here on. Phase 3
+# would otherwise install a broker that fails every command with "cwd does not
+# exist".
 - name: Check for the shared working tree
   ansible.builtin.stat:
     path: "{{ faramir_worktree }}"
@@ -202,16 +256,22 @@
   ansible.builtin.assert:
     that: faramir_worktree_dir.stat.isdir | default(false)
     fail_msg: >-
-      No working tree at {{ faramir_worktree }}. Brokered commands run there and
-      the sops files are read from there, so it must exist before the broker is
-      installed. It is meant to be your own checkout:
+      No working tree at {{ faramir_worktree }}. Brokered commands run there, so
+      it must exist before the broker is installed. It is meant to be your own
+      checkout:
       git clone git@github.com:andornaut/ansible-ctrl.git {{ faramir_worktree }}
       Then re-run: phase 1 applies the group, the setgid bits and, for a tree
       inside your home, the ACL that lets the keeper and the executor reach it.
     quiet: true
 
+# As faramir_user for the same reason as the build, and with more at stake: under
+# a root run the directory and the identity are created root-owned at 0400, the
+# operator can no longer decrypt anything, and phase 2 has already listed that
+# unreadable identity in .sops.yaml as a recipient.
 - name: Provision the operator's age identity
   when: faramir_manage_operator_age_key | bool
+  become: true
+  become_user: "{{ faramir_user }}"
   block:
     # Before phase 2, which is the only thing that writes .sops.yaml, and only
     # writes it once: a recipient added later means editing that file and
@@ -276,8 +336,8 @@
   become: true
   environment: "{{ faramir_install_env }}"
   block:
-    # Mints the age key and writes .sops.yaml into the working tree. Runs before
-    # phase 3, which refuses to start the services without a key.
+    # Mints the age key and writes .sops.yaml, both into /etc/faramir/secrets.
+    # Runs before phase 3, which refuses to start the services without a key.
     - name: Run phase 2, age key and sops configuration
       ansible.builtin.command:
         cmd: bash install/20-sops-init.sh
@@ -294,17 +354,18 @@
         state: absent
       when: faramir_overwrite_config | bool
 
-    # Tracks the binaries. The unit files and worktree drop-ins are rewritten
-    # every run, which this does not detect.
+    # Tracks the binaries. The unit files are rewritten every run, which this does
+    # not detect. It installs no drop-ins: a worktree outside /home and
+    # /srv/faramir needs a ReadWritePaths drop-in added by hand.
     - name: Run phase 3, binaries, config and systemd units
       ansible.builtin.command:
         cmd: bash install/30-install-broker.sh
         chdir: "{{ faramir_src_dir }}"
       register: faramir_phase_broker
-      # default('') on both sides: --skip-tags build leaves faramir_built unset,
-      # and a first install has nothing under /usr/local/bin yet.
+      # default('') on the installed side only: a first install has nothing under
+      # /usr/local/bin yet, while the built side is asserted to exist above.
       changed_when: >-
-        faramir_installed.stat.checksum | default('') != faramir_built.stat.checksum | default('')
+        faramir_installed.stat.checksum | default('') != faramir_build_current.stat.checksum
         or faramir_overwrite_config | bool
 
     # Writes the operator's agent settings, the working tree's .mcp.json, and an

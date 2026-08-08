@@ -237,7 +237,10 @@ again.
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
 
 Changing a service account name here is not enough on its own: the shipped
-systemd units and `config.toml` name them too.
+systemd units and `config.toml` name them too. The same holds for
+`faramir_dev_group`, which is `allowed_groups` in the config and
+`SupplementaryGroups` in the units, and which the role checks against both
+because a mismatch installs cleanly and then refuses every agent connection.
 
 ## After the first run
 
