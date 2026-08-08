@@ -6,19 +6,29 @@
     dev_cli_bin: claude
     dev_cli_url: https://claude.ai/install.sh
 
+# shell, because command is a builtin with no binary behind it: the command
+# module cannot exec it and exits 2 on every host, which failed_when hides and
+# the guard below then reads as "no VS Code".
 - name: Check for VS Code
-  ansible.builtin.command:
+  ansible.builtin.shell:
+    executable: /bin/bash
     cmd: command -v code
   register: dev_claude_vscode_bin
   changed_when: false
   failed_when: false
 
+# Extensions install per user, so this has to be dev_user's; run as the
+# connecting account it lands in whichever home that is.
 - name: Install Claude Code VS Code extension
   ansible.builtin.command:
     cmd: code --install-extension anthropic.claude-code
   register: dev_claude_vscode_ext
   changed_when: "'successfully installed' in dev_claude_vscode_ext.stdout"
   when: dev_claude_vscode_bin.rc == 0
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
 
 - name: Install Claude Desktop (Cowork)
   become: true
