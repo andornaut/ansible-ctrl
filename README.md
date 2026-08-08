@@ -66,7 +66,8 @@ Most playbooks apply one role to one group. The exceptions:
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| `group_vars/all/vault.yml` (gitignored, ansible-vault encrypted) | Every credential, and nothing else. See [Secrets](#secrets) |
+| `secrets/vault.sops.yml` (gitignored, sops encrypted) | Every credential value, and nothing else. See [Secrets](#secrets) |
+| `group_vars/all/vars.yml` (gitignored) | Maps each credential name to `lookup('env', ...)`. Holds no values |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
@@ -82,55 +83,44 @@ example
 ## Secrets
 
 Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assistant long-lived
-tokens) lives in `group_vars/all/vault.yml`, encrypted with
-[ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html) and named
-`vault_<purpose>`. `host_vars/` holds no credential values, only references to them:
+tokens) lives in `secrets/vault.sops.yml`, encrypted with [sops](https://github.com/getsops/sops)
+and age, and named `secret_<purpose>`. `host_vars/` holds no credential values, only references to
+them:
 
 ```yaml
 # host_vars/example.yml
 msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
-The split keeps `host_vars/` readable and diffable while the secrets themselves are encrypted at
-rest.
+`group_vars/all/vars.yml` binds the two. It maps each name to the environment and holds no value
+itself:
 
-`ansible.cfg` sets `vault_password_file` to a `~`-relative path, so playbooks need no
-`--ask-vault-pass`. The certificate renewal cron is the exception: it runs `ansible-playbook` as
-root and unattended, where a prompt would hang and `~` resolves to `/root`, so
-[roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) sets
-`ANSIBLE_VAULT_PASSWORD_FILE=~{{ primary_user }}/.private/ansible-vault-password` for that run.
-
-A `vault_password_file` that does not exist is a fatal parse error, not a warning, even though
-nothing vaulted is committed, so [.github/workflows/lint.yml](.github/workflows/lint.yml) writes a
-dummy one before it runs anything. A fresh clone needs the bootstrap below before any playbook,
-lint or syntax check will parse.
-
-```bash
-# Add or rotate a secret
-ansible-vault edit group_vars/all/vault.yml
-
-# Rotate the vault password itself. --new-vault-password-file is required: without it the
-# new password is read from the file ansible.cfg names, so the rekey re-encrypts with the
-# password it started with and still reports success.
-(umask 077 && cat > ~/.private/ansible-vault-password-new)
-ansible-vault rekey --new-vault-password-file ~/.private/ansible-vault-password-new \
-    group_vars/all/vault.yml \
-    && mv ~/.private/ansible-vault-password-new ~/.private/ansible-vault-password
-
-# Bootstrap a new controller: restore the password from a password manager into the path
-# ansible.cfg names, then paste and press Ctrl-D
-mkdir -p ~/.private && chmod 0700 ~/.private
-(umask 077 && cat > ~/.private/ansible-vault-password) && chmod 0400 ~/.private/ansible-vault-password
+```yaml
+secret_msmtp_password: "{{ lookup('env', 'secret_msmtp_password') }}"
 ```
 
-Both halves need a backup, and neither is in git: the password belongs in a password manager, and
-`group_vars/all/vault.yml` is gitignored, so it exists only on the controller's disk. Losing
-either one loses every secret.
+The split keeps `host_vars/` readable and diffable while the values are encrypted at rest, and it
+means a value only ever reaches a play through the environment. Two things put it there. `make`
+wraps itself in `sops exec-env` when the values are not already loaded, which needs the age
+identity at `~/.config/sops/age/keys.txt`. The [faramir](roles/faramir/README.md) broker supplies
+the same names to a command that never sees them:
 
-The [faramir](roles/faramir/README.md) role replaces this arrangement. Afterwards the values live in
-`secrets/vault.sops.yml` (sops + age, gitignored), `group_vars/all/vars.yml` maps each name to
-`lookup('env', ...)`, and `vault_password_file` comes out of `ansible.cfg`. Variable names do not
-change, so `host_vars/` needs no edit. The role's README has the migration runbook.
+```bash
+faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'
+```
+
+`faramir.env` is committed, because it maps each environment variable to a `secret://` reference
+and holds no values. Adding a credential is four edits: the value into the sops file, the
+`lookup('env', ...)` mapping into `group_vars/all/vars.yml`, the ref into `faramir.env`, and the
+reference into `host_vars/`.
+
+The encrypted file lives in `secrets/`, deliberately not under `group_vars/`. Ansible auto-loads
+every `.yml` there and a sops file is valid YAML, so it would bind each var to its `ENC[...]`
+ciphertext without erroring, and hosts would get the ciphertext as the password.
+
+The encrypted file and the age identity both need a backup, and neither is in git: the identity
+belongs in a password manager, and `secrets/vault.sops.yml` is gitignored, so it exists only on the
+controller's disk. Losing either one loses every secret.
 
 ## Operations
 
