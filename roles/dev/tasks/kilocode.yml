@@ -4,8 +4,24 @@
   vars:
     dev_npm_package: "@kilocode/cli"
 
+# Probed rather than assumed: --tags kilocode filters out the vscode tag, so the
+# editor need not be installed on a host this tag runs against.
+- name: Check for VS Code
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: command -v code
+  register: dev_kilocode_vscode_bin
+  changed_when: false
+  failed_when: false
+
+# Extensions install per user, so this has to be dev_user's.
 - name: Install Kilo Code VS Code extension
   ansible.builtin.command:
     cmd: code --install-extension kilocode.kilo-code
   register: dev_kilocode_vscode_ext
   changed_when: "'successfully installed' in dev_kilocode_vscode_ext.stdout"
+  when: dev_kilocode_vscode_bin.rc == 0
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"

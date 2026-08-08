@@ -7,32 +7,40 @@
     state: latest
   become: true
 
-- name: Create the ai-maintainer script directory
-  ansible.builtin.file:
-    path: "{{ dev_ai_maintainer_script_path | dirname }}"
-    state: directory
-    mode: "0755"
+# Everything below writes under dev_user_home, so it runs as dev_user rather
+# than as whoever ansible connects as: the cron entry runs the script as
+# dev_user, and a root-driven run would otherwise leave it root-owned in their
+# home.
+- name: Install the ai-maintainer script
+  become: true
+  become_user: "{{ dev_user }}"
+  block:
+    - name: Create the ai-maintainer script directory
+      ansible.builtin.file:
+        path: "{{ dev_ai_maintainer_script_path | dirname }}"
+        state: directory
+        mode: "0755"
 
-- name: Check for a local ai-maintainer project checkout
-  ansible.builtin.stat:
-    path: "{{ dev_ai_maintainer_project_script_path }}"
-  register: dev_ai_maintainer_project_script
+    - name: Check for a local ai-maintainer project checkout
+      ansible.builtin.stat:
+        path: "{{ dev_ai_maintainer_project_script_path }}"
+      register: dev_ai_maintainer_project_script
 
-- name: Symlink ai-maintainer to the local project script
-  ansible.builtin.file:
-    src: "{{ dev_ai_maintainer_project_script_path }}"
-    dest: "{{ dev_ai_maintainer_script_path }}"
-    state: link
-    force: true
-  when: dev_ai_maintainer_project_script.stat.exists
+    - name: Symlink ai-maintainer to the local project script
+      ansible.builtin.file:
+        src: "{{ dev_ai_maintainer_project_script_path }}"
+        dest: "{{ dev_ai_maintainer_script_path }}"
+        state: link
+        force: true
+      when: dev_ai_maintainer_project_script.stat.exists
 
-- name: Download ai-maintainer script
-  ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/andornaut/ai-maintainer/main/ai-maintainer
-    dest: "{{ dev_ai_maintainer_script_path }}"
-    mode: "0755"
-    force: true
-  when: not dev_ai_maintainer_project_script.stat.exists
+    - name: Download ai-maintainer script
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/andornaut/ai-maintainer/main/ai-maintainer
+        dest: "{{ dev_ai_maintainer_script_path }}"
+        mode: "0755"
+        force: true
+      when: not dev_ai_maintainer_project_script.stat.exists
 
 - name: Create cron file for automated repo maintenance
   ansible.builtin.template:
