@@ -159,9 +159,12 @@ The cost of the home-based store: nothing under it is readable before your first
 reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not
 happen. The cron's preflight mails in that case rather than failing quietly.
 
-The encrypted file and the age identity both need a backup and neither is in git. Both are covered
-by rsnapshot: it takes `/etc/` and `~/.config/`. Note that this puts the key and the ciphertext it
-opens in the same snapshot.
+The encrypted file and the age identities both need a backup and none of them is in git. rsnapshot
+covers all three, but only because each path is listed for it: `~/.faramir/` for the store,
+`~/.config/` for the operator's identity, and `/etc/` for the keeper's. A store moved somewhere
+rsnapshot does not take is a store with no backup, and losing the key that opens it loses every
+credential it ever encrypted. Note also that this puts the keys and the ciphertext they open in the
+same snapshot.
 
 ## Getting started with the secret broker
 
