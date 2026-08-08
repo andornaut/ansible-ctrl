@@ -8,6 +8,9 @@
 # project ships a newer stable release without moving the pointer, which is why
 # homeautomation/tasks/install_github_release_component.yml filters the list instead.
 #
+# Copied into each role that needs it rather than shared, because roles share no
+# task files. Keep the copies in sync by hand.
+#
 # Required vars:
 #   release_repo (str): "owner/repo"
 #   release_fact (str): variable name to set with the release object

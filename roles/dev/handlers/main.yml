@@ -5,13 +5,6 @@
     state: reloaded
   become: true
 
-- name: Restart docker
-  ansible.builtin.systemd_service:
-    name: docker
-    daemon_reload: true
-    state: restarted
-  become: true
-
 - name: Update initramfs
   ansible.builtin.command: update-initramfs -u
   changed_when: true

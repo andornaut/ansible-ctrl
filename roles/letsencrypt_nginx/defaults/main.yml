@@ -4,6 +4,11 @@ letsencrypt_nginx_acme_version: 2
 letsencrypt_nginx_csr_country: CA
 letsencrypt_nginx_docker_extra_volumes: []
 letsencrypt_nginx_docker_image: nginx:stable
+# Docker's json-file driver rotates nothing by default, and the access log is a
+# line per request on stdout, so the container's log file grows until the disk
+# fills. Bounded at max_size * max_file per container.
+letsencrypt_nginx_docker_log_max_file: "10"
+letsencrypt_nginx_docker_log_max_size: "10m"
 # The uid the image's worker processes run as. The master runs as root and
 # reads the config, but a worker opens the .htpasswd file on every
 # authenticated request, so that is the uid those files must be readable by.

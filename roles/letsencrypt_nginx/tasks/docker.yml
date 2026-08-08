@@ -73,6 +73,7 @@
             - NET_BIND_SERVICE
             - SETGID
             - SETUID
+          logging: "{{ letsencrypt_nginx_default_logging }}"
           network_mode: host
           restart: unless-stopped
           # The master drops privileges with setuid() rather than by exec'ing a
