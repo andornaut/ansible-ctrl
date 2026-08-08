@@ -33,24 +33,29 @@
           make faramir first; it generates the pair and prints the public half.
         quiet: true
 
-# Every managed host except the controller. tron reaches itself with
-# ansible_connection=local, so no key is involved there, and a brokered run
+# Every managed host except the controller, which reaches itself with
+# ansible_connection=local, so no key is involved there and a brokered run
 # against it is bounded by what faramir-exec can do locally rather than by SSH.
 - name: Authorize the broker's key on the managed hosts
   hosts: all:!faramir
   gather_facts: false
+  vars:
+    # Read into a second name rather than defaulted in place. This play applies
+    # no role, so roles/faramir/defaults/main.yml is not loaded and the flag
+    # needs a default here; but binding that default to its own name, at play or
+    # task scope, outranks host_vars and would pin it to true. Setting it false
+    # would then be silently ignored and the teardown below could never run.
+    faramir_fleet_authorize: "{{ faramir_fleet_authorize_key | default(true) | bool }}"
   tasks:
     - name: Authorize the broker's key for the ansible account
       ansible.posix.authorized_key:
         user: "{{ ansible_user | default(primary_user) }}"
         key: "{{ hostvars[groups['faramir'][0]]['faramir_broker_authorized_key'] }}"
-        state: "{{ 'present' if faramir_fleet_authorize_key | bool else 'absent' }}"
+        state: "{{ 'present' if faramir_fleet_authorize else 'absent' }}"
         # Not exclusive: this account's other keys, including the operator's own,
         # are what this play would otherwise lock out of the host it runs on.
         exclusive: false
         comment: "faramir broker on {{ groups['faramir'][0] }}"
-      vars:
-        faramir_fleet_authorize_key: true
 
     # No become password can safely live in the secret store: it is the
     # operator's login password, an agent that extracts it can su to the
@@ -72,18 +77,14 @@
         mode: "0440"
         validate: visudo -cf %s
       become: true
-      when: faramir_fleet_authorize_key | bool
-      vars:
-        faramir_fleet_authorize_key: true
+      when: faramir_fleet_authorize
 
     - name: Remove the passwordless sudo grant
       ansible.builtin.file:
         path: /etc/sudoers.d/faramir-agent
         state: absent
       become: true
-      when: not (faramir_fleet_authorize_key | bool)
-      vars:
-        faramir_fleet_authorize_key: true
+      when: not faramir_fleet_authorize
 
 # The role verifies the broker's agent holds a key. That it *opens* anything is
 # a different claim, and the one that matters: a key authorized for the wrong
@@ -120,11 +121,10 @@
           - "'SUCCESS' in faramir_fleet_ping.stdout"
         fail_msg: >-
           A brokered ping did not reach every host. The broker holds a key; this
-          says whether the fleet accepts it. Two causes, in order of likelihood:
-          ansible.cfg still sets vault_password_file, which is ~-relative and so
-          missing for the executor's uid, and ansible exits 1 rather than
-          warning (drop the line, nothing needs it once the vault is migrated);
-          or this play has not authorized the account ansible connects as on
-          every host. Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
+          says whether the fleet accepts it. Likeliest causes: this play has not
+          authorized the account ansible connects as on every host, or
+          ansible.cfg names a path that is ~-relative and so resolves to nothing
+          for the executor's uid, which ansible exits 1 over rather than warning.
+          Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
           {{ faramir_fleet_ping.stderr | default('') | trim }}
         quiet: true

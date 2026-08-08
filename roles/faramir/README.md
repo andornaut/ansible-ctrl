@@ -96,10 +96,12 @@ so one list serves both.
 ## No become password in the store
 
 The store holds no sudo password, and must not. `ansible_become_password` for the
-operator's account is their login password. An agent that extracted it (the
-threat model accepts this is possible, since `| rev` and `| cut` defeat
-redaction) could `su` to that account, and on the controller that reaches the age
-key. One leaked value would become every value, retroactively.
+operator's account is their login password, and the agent already runs as that
+account: what it lacks is not the uid but the password, and with it `sudo`. On
+the controller that is root, and root reads the keeper's age key. An agent that
+extracted the value (the threat model accepts this is possible, since `| rev` and
+`| cut` defeat redaction) would turn one leaked credential into every credential,
+retroactively.
 
 The rule is that no credential goes in the store whose compromise would defeat
 the store. Where the operator's password is the same on the controller and the
