@@ -8,6 +8,10 @@
     group: root
   become: true
 
+# Owned by the worker uid and readable by nobody else: the file is a password
+# hash, and the worker is the only thing that reads it. Not root-owned, even
+# group-readable: the worker is not root and not in root's group, so nginx
+# fails the request with a 500 rather than falling back to a challenge.
 - name: Configure basicauth .htpasswd files for main domains
   community.general.htpasswd:
     path: >-
@@ -15,8 +19,8 @@
       item.0.domain }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
-    mode: "0644"
-    owner: root
+    mode: "0400"
+    owner: "{{ letsencrypt_nginx_docker_worker_uid }}"
     group: root
     create: true
   when:
@@ -38,8 +42,8 @@
       item.0.file_basename }}.htpasswd
     name: "{{ item.1.username }}"
     password: "{{ item.1.password }}"
-    mode: "0640"
-    owner: root
+    mode: "0400"
+    owner: "{{ letsencrypt_nginx_docker_worker_uid }}"
     group: root
     create: true
   when:

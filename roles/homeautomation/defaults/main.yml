@@ -20,8 +20,41 @@ homeautomation_avahi_interfaces: ""
 homeautomation_esphome_docker_image: ghcr.io/esphome/esphome:stable
 homeautomation_esphome_required_volumes:
   config: /var/docker-volumes/homeautomation/esphome/config
+  # The entrypoint uses /cache as the PlatformIO core dir when it is mounted,
+  # and it doubles as $HOME so PlatformIO's appstate.json has somewhere to go.
+  # Kept out of /config because that directory is version controlled.
+  cache: /var/docker-volumes/homeautomation/esphome/cache
+# The dashboard is host-networked and unauthenticated out of the box, which is
+# firmware-flash access to every ESP device and read access to the wifi and OTA
+# passwords in secrets.yaml, from anywhere on the LAN. Setting both enables its
+# login; leaving either empty leaves it open. The password is a secret, so
+# host_vars references a vault var rather than holding a value.
+#
+# Only the API is gated, so the page itself still answers 200 either way. Check
+# with /devices, which answers 401 once these are set.
+homeautomation_esphome_username: ""
+homeautomation_esphome_password: ""
+# The image's default user is root, but the dashboard only reads and writes
+# these two directories, so it is run as this uid:gid.
+#
+# The one service still on the operator's uid rather than a dedicated account
+# above 10000: its config directory is a git checkout the operator writes and
+# the dashboard writes too, so splitting the uids needs a shared group first.
+homeautomation_esphome_uid: "1000"
+homeautomation_esphome_gid: "1000"
 
 # Frigate
+# The address the unauthenticated UI is published on. Frigate serves the same
+# application on two ports: the authenticated one below, and this one with no
+# login at all, so on 0.0.0.0 it hands the whole camera system to anyone on the
+# LAN. Loopback keeps it for host-local tooling without that. Nothing consumes
+# it over the network: the reverse proxy uses the authenticated port over
+# loopback, and Home Assistant reaches that port on the container's own bridge
+# address, which no published port is involved in.
+#
+# Only this one is narrowed. The WebRTC port carries media straight from the
+# browser and has to stay reachable.
+homeautomation_frigate_bind_http_unauthenticated: "127.0.0.1"
 homeautomation_frigate_devices: []
 # https://github.com/blakeblackshear/frigate/pkgs/container/frigate
 homeautomation_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
@@ -49,14 +82,21 @@ homeautomation_hamcp_env: {}
 homeautomation_hamcp_homeassistant_url: "http://host.docker.internal:8123"
 # Home Assistant long-lived access token (Profile > Security).
 homeautomation_hamcp_token: ""
+# The image's own mcpuser is uid 999, which is a system account on the host
+# (systemd-coredump on Ubuntu), so the container is given this uid:gid instead.
+# It bind-mounts nothing, so the account owns no paths; the point is that the
+# process does not carry an unrelated system account's identity.
+homeautomation_hamcp_uid: "10008"
+homeautomation_hamcp_gid: "10008"
 homeautomation_install_hamcp: false
 
 # Govee2mqtt
 homeautomation_govee2mqtt_env: {}
 homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:latest
-# The govee2mqtt image runs as non-root (USER govee:govee = 1000:1000 in Dockerfile)
-homeautomation_govee2mqtt_uid: "1000"
-homeautomation_govee2mqtt_gid: "1000"
+# The image's own user is govee:govee (1000:1000), which is the operator's uid
+# on the host, so the container is given this uid:gid instead.
+homeautomation_govee2mqtt_uid: "10002"
+homeautomation_govee2mqtt_gid: "10002"
 homeautomation_govee2mqtt_required_volumes:
   data: /var/docker-volumes/homeautomation/govee2mqtt/data
 
@@ -91,12 +131,21 @@ homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
+  # $HOME for the container, holding the Mesa/RADV shader caches. A dir of its
+  # own so the models stay mounted read-only.
+  cache: /var/docker-volumes/homeautomation/llamacpp/cache
+# The image's default user is root, but GPU access comes from the render and
+# video groups rather than the uid, so it is run as this uid:gid.
+homeautomation_llamacpp_uid: "10003"
+homeautomation_llamacpp_gid: "10003"
 
 # Matter.js
 homeautomation_matterjs_docker_image: ghcr.io/matter-js/matterjs-server:stable
-# The matter.js image runs as non-root (USER 1000:1000 in Dockerfile)
-homeautomation_matterjs_uid: "1000"
-homeautomation_matterjs_gid: "1000"
+# The image's own user is 1000:1000, which is the operator's uid on the host,
+# so the container is given this uid:gid instead. Its data directory holds the
+# Matter fabric credentials.
+homeautomation_matterjs_uid: "10004"
+homeautomation_matterjs_gid: "10004"
 homeautomation_matterjs_required_volumes:
   data: /var/docker-volumes/homeautomation/matterjs/data
 
@@ -113,9 +162,22 @@ homeautomation_memryx_version: "2.1"
 homeautomation_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
 # Mosquitto
+# The address the broker is published on. mosquitto.conf enables anonymous
+# access, so on 0.0.0.0 any host on the LAN can publish to the topics Home
+# Assistant acts on. Loopback covers the clients there are: the containers on
+# the shared bridge reach the broker by its container address without the
+# published port at all, and the host-networked ones connect over loopback.
+# Override per host only if a device outside this host has to publish.
+homeautomation_mosquitto_bind: "127.0.0.1"
 homeautomation_mosquitto_docker_image: eclipse-mosquitto
 homeautomation_mosquitto_host: localhost
 homeautomation_mosquitto_port: 1883
+# The image's own mosquitto user, which owns the directories it ships and is
+# what its entrypoint drops to. Not a service account from service_account.yml:
+# the uid is baked into the image, so the host account follows it rather than
+# the other way round.
+homeautomation_mosquitto_uid: "1883"
+homeautomation_mosquitto_gid: "1883"
 homeautomation_mosquitto_required_volumes:
   config: /var/docker-volumes/homeautomation/mosquitto/config
   data: /var/docker-volumes/homeautomation/mosquitto/data
@@ -140,6 +202,10 @@ homeautomation_openwebui_docker_image: ghcr.io/open-webui/open-webui:main
 homeautomation_openwebui_env: {}
 homeautomation_openwebui_required_volumes:
   data: /var/docker-volumes/homeautomation/openwebui/data
+# The image declares USER 0:0, but the server only reads and writes its data
+# dir, so it is run as this uid:gid and the dir is chowned to match.
+homeautomation_openwebui_uid: "10005"
+homeautomation_openwebui_gid: "10005"
 
 # Piper
 homeautomation_piper_command: "--data-dir /data --voice en_US-amy-medium"
@@ -147,6 +213,10 @@ homeautomation_piper_docker_image: rhasspy/wyoming-piper
 homeautomation_piper_required_volumes:
   data: /var/docker-volumes/homeautomation/piper/data
 homeautomation_piper_port: 10200
+# The image's default user is root, but the server only reads and writes its
+# data dir, so it is run as this uid:gid and the dir is chowned to match.
+homeautomation_piper_uid: "10006"
+homeautomation_piper_gid: "10006"
 
 # Whisper
 homeautomation_whisper_command: "--data-dir /data --language en --model tiny-int8"
@@ -154,3 +224,8 @@ homeautomation_whisper_docker_image: rhasspy/wyoming-whisper
 homeautomation_whisper_required_volumes:
   data: /var/docker-volumes/homeautomation/whisper/data
 homeautomation_whisper_port: 10300
+# The image's default user is root, but the server only reads and writes its
+# data dir (the HuggingFace model cache), so it is run as this uid:gid and the
+# dir is chowned to match.
+homeautomation_whisper_uid: "10007"
+homeautomation_whisper_gid: "10007"

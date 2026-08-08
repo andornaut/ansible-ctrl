@@ -5,14 +5,16 @@
     device_paths: "{{ homeautomation_homeassistant_devices }}"
     resolved_var_name: homeautomation_homeassistant_devices_resolved
 
-- name: Create Govee2MQTT data directory with correct ownership
-  ansible.builtin.file:
-    path: "{{ homeautomation_govee2mqtt_required_volumes.data }}"
-    state: directory
-    owner: "{{ homeautomation_govee2mqtt_uid }}"
-    group: "{{ homeautomation_govee2mqtt_gid }}"
-    mode: "0755"
-  become: true
+- name: Create the Govee2MQTT service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: govee2mqtt
+    service_account_uid: "{{ homeautomation_govee2mqtt_uid }}"
+    service_account_paths:
+      - "{{ homeautomation_govee2mqtt_required_volumes.data }}"
+    # iot.key and iot.cert are the device credentials for Govee's LAN API, so
+    # nothing outside the service reads this directory.
+    service_account_mode: "0700"
   when: homeautomation_install_govee2mqtt
 
 - name: Remove Home Assistant, Govee2MQTT, and Mosquitto containers if they exist
@@ -58,6 +60,7 @@
         container_name: govee2mqtt
         hostname: govee2mqtt-{{ ansible_facts['hostname'] }}
         image: "{{ homeautomation_govee2mqtt_docker_image }}"
+        cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
         depends_on:
           # Broker must be ready; HA need only have started (govee reads state
           # over MQTT, so gating on HA's health just delays govee needlessly).
@@ -70,6 +73,10 @@
         # Host networking required for UDP broadcast-based Govee LAN device discovery
         network_mode: host
         restart: unless-stopped
+        security_opt: "{{ homeautomation_no_new_privileges }}"
+        # Overrides the image's own govee:govee, which is 1000:1000 and so the
+        # operator's uid on the host.
+        user: "{{ homeautomation_govee2mqtt_uid }}:{{ homeautomation_govee2mqtt_gid }}"
         volumes: "{{ govee2mqtt_volumes }}"
 
     required_services:
@@ -97,8 +104,8 @@
         # and direct LAN access, which the bridge cannot provide.
         network_mode: host
         restart: unless-stopped
-        security_opt:
-          - "apparmor=docker-ble-policy"
+        security_opt: >-
+          {{ homeautomation_no_new_privileges + ["apparmor=docker-ble-policy"] }}
         volumes: "{{ homeassistant_volumes }}"
 
       mosquitto:
@@ -113,10 +120,17 @@
           timeout: 10s
           retries: 3
           start_period: 30s
+        cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
         logging: "{{ homeautomation_default_logging }}"
         ports:
-          - "{{ homeautomation_mosquitto_port }}:1883"
+          - "{{ homeautomation_mosquitto_bind }}:{{ homeautomation_mosquitto_port }}:1883"
         restart: unless-stopped
+        security_opt: "{{ homeautomation_no_new_privileges }}"
+        # The image's entrypoint su-execs to this uid anyway, and the config,
+        # data and log directories it ships are owned by it. Naming it here
+        # means the container never has a root phase at all, and the volumes
+        # below stay readable by the broker.
+        user: "{{ homeautomation_mosquitto_uid }}:{{ homeautomation_mosquitto_gid }}"
         volumes: "{{ mosquitto_volumes }}"
 
   community.docker.docker_compose_v2:
@@ -140,3 +154,63 @@
   # costs the only diagnostic a pull or startup failure has, and the secret is only in the
   # definition when govee2mqtt is installed.
   no_log: "{{ homeautomation_install_govee2mqtt }}"
+
+# Home Assistant runs as root, and its Bluetooth, dbus and udev access is why:
+# the dbus socket admits only root by default. So it keeps its uid, and these
+# files are closed to everything else instead.
+#
+# The directory rather than the files under it, for the same reason .storage is
+# closed below: zigbee.db holds the Zigbee network key and home-assistant_v2.db
+# holds every recorded state, both are rewritten constantly with Home
+# Assistant's own umask, and a per-file mode would drift back. Nothing else
+# mounts this directory, so closing it costs no other service anything.
+- name: Restrict the Home Assistant configuration directory to root
+  ansible.builtin.file:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+
+# Reasserted after the container starts, every run, because Home Assistant
+# creates these itself and which ones exist changes with the integrations
+# configured and with the image.
+- name: Find the Home Assistant credential files
+  ansible.builtin.find:
+    paths: "{{ homeautomation_homeassistant_required_volumes.config }}"
+    patterns:
+      - secrets.yaml
+      - "*.key"
+      - "*.pem"
+    file_type: file
+    hidden: true
+  register: homeautomation_homeassistant_secret_files
+  become: true
+
+- name: Restrict the Home Assistant credential files to root
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    mode: "0600"
+  loop: "{{ homeautomation_homeassistant_secret_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true
+
+- name: Check for the Home Assistant storage directory
+  ansible.builtin.stat:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/.storage"
+  register: homeautomation_homeassistant_storage
+  become: true
+
+# The directory rather than the files in it: Home Assistant rewrites .storage
+# on its own schedule with its own umask, so per-file modes drift back and a
+# closed directory does not. core.config_entries holds an access token for
+# every configured integration, in plaintext JSON.
+- name: Restrict the Home Assistant storage directory to root
+  ansible.builtin.file:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/.storage"
+    state: directory
+    mode: "0700"
+  become: true
+  when: homeautomation_homeassistant_storage.stat.exists

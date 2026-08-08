@@ -1,4 +1,14 @@
 ---
+- name: Create the ha-mcp service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: hamcp
+    service_account_uid: "{{ homeautomation_hamcp_uid }}"
+    # Nothing bind-mounted: the server keeps no state, so the account exists
+    # only to give the process an identity of its own.
+    service_account_paths: []
+    service_account_mode: "0700"
+
 - name: Remove ha-mcp container if it exists
   ansible.builtin.include_tasks: remove_docker_containers.yml
   vars:
@@ -29,10 +39,13 @@
           extra_hosts:
             - "host.docker.internal:host-gateway"
           image: "{{ homeautomation_hamcp_docker_image }}"
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
           # ports:
           #   - "8086:8086"
           restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
+          user: "{{ homeautomation_hamcp_uid }}:{{ homeautomation_hamcp_gid }}"
           volumes: "{{ homeautomation_common_volumes }}"
   notify: Update /etc/hosts
   # The environment contains the Home Assistant long-lived access token.

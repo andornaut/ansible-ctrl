@@ -7,6 +7,9 @@
     owner: root
     group: root
   loop:
+    # The parent as well: nothing created it, so it was left with whatever mode
+    # the first mkdir gave it, and a stray setuid bit on it went unnoticed.
+    - "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.config }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.www }}"
   become: true
@@ -28,7 +31,22 @@
         nginx:
           container_name: nginx
           image: "{{ letsencrypt_nginx_docker_image }}"
+          # The master stays root to read the config and bind 80 and 443, then
+          # drops to the worker uid, so only the four capabilities that takes
+          # are kept: NET_BIND_SERVICE for the ports, SETUID and SETGID for the
+          # drop, CHOWN for the log and cache paths it hands to the worker.
+          cap_drop:
+            - ALL
+          cap_add:
+            - CHOWN
+            - NET_BIND_SERVICE
+            - SETGID
+            - SETUID
           network_mode: host
           restart: unless-stopped
+          # The master drops privileges with setuid() rather than by exec'ing a
+          # setuid binary, and only the latter is what this blocks.
+          security_opt:
+            - no-new-privileges:true
           volumes: "{{ required_volumes + letsencrypt_nginx_docker_extra_volumes }}"
   become: true
