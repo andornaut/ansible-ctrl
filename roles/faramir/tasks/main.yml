@@ -418,6 +418,62 @@
           BindReadOnlyPaths=-{{ faramir_secrets_dir }}
       register: faramir_secrets_dropin
 
+    # Sealed and pointed at before phase 3 for the same reason, and this is the
+    # drop-in that proved it: an unrecognised directive here leaves the keeper
+    # with no key at all, phase 3 fails validating it, and the run ends before
+    # reaching a task that would have replaced the file. The restart and the
+    # check that the sealed key still decrypts stay after phase 3, which is what
+    # installs the unit and starts the services.
+    - name: Seal the age key to the TPM
+      when: faramir_seal_age_key | bool
+      block:
+        - name: Ask systemd whether this host has a usable TPM
+          ansible.builtin.command:
+            cmd: systemd-creds has-tpm2
+          register: faramir_tpm
+          changed_when: false
+          failed_when: false
+
+        # Asserted rather than skipped. A host quietly not sealing its key is the
+        # install that looks healthy and protects less than it appears to.
+        - name: Require a TPM when sealing was asked for
+          ansible.builtin.assert:
+            that: faramir_tpm.stdout is defined and faramir_tpm.stdout.startswith('yes')
+            fail_msg: >-
+              faramir_seal_age_key is true and systemd-creds reports no usable TPM
+              ({{ faramir_tpm.stdout | default('') | trim or 'no output' }}).
+              Set faramir_seal_age_key=false and use full-disk encryption, which
+              covers the audit log and swap as well.
+            quiet: true
+
+        # --name is what binds the blob: a credential decrypts only under the name
+        # it was encrypted with, and the unit asks for age_key. Sealed once and
+        # left alone; remove the .cred to re-seal after rotating the key.
+        - name: Seal the age key into an encrypted credential
+          ansible.builtin.command:
+            cmd: >-
+              systemd-creds encrypt --name=age_key
+              /etc/faramir/age.key {{ faramir_age_key_cred | quote }}
+            creates: "{{ faramir_age_key_cred }}"
+          register: faramir_sealed
+
+        - name: Restrict the sealed credential to root
+          ansible.builtin.file:
+            path: "{{ faramir_age_key_cred }}"
+            owner: root
+            group: root
+            mode: "0400"
+
+        - name: Point the keeper at the sealed credential
+          ansible.builtin.copy:
+            src: "{{ faramir_src_dir }}/systemd/tpm-credential.conf"
+            dest: /etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          register: faramir_tpm_dropin
+
     - name: Run phase 3, binaries, config and systemd units
       ansible.builtin.command:
         cmd: bash install/30-install-broker.sh
@@ -526,61 +582,14 @@
   when: faramir_dropin.changed
   become: true
 
-# Seal the age key to the TPM, so the one file that decrypts every managed
-# secret is not readable from the drive. The keeper is unchanged by this: the
-# credential keeps the name age_key, so it reads the same path under
-# CREDENTIALS_DIRECTORY and never learns which source filled it.
-- name: Seal the age key to the TPM
+# The other half of the sealing above: everything here needs the unit installed
+# and the services running, so it cannot happen before phase 3. Anything that
+# fails from here leaves a keeper the run has already proved it can repair, since
+# the drop-in it reads was written before phase 3 judged it.
+- name: Check the sealed age key
   when: faramir_seal_age_key | bool
   become: true
   block:
-    - name: Ask systemd whether this host has a usable TPM
-      ansible.builtin.command:
-        cmd: systemd-creds has-tpm2
-      register: faramir_tpm
-      changed_when: false
-      failed_when: false
-
-    # Asserted rather than skipped. A host quietly not sealing its key is the
-    # install that looks healthy and protects less than it appears to.
-    - name: Require a TPM when sealing was asked for
-      ansible.builtin.assert:
-        that: faramir_tpm.stdout is defined and faramir_tpm.stdout.startswith('yes')
-        fail_msg: >-
-          faramir_seal_age_key is true and systemd-creds reports no usable TPM
-          ({{ faramir_tpm.stdout | default('') | trim or 'no output' }}).
-          Set faramir_seal_age_key=false and use full-disk encryption, which
-          covers the audit log and swap as well.
-        quiet: true
-
-    # --name is what binds the blob: a credential decrypts only under the name
-    # it was encrypted with, and the unit asks for age_key. Sealed once and left
-    # alone; remove the .cred to re-seal after rotating the key.
-    - name: Seal the age key into an encrypted credential
-      ansible.builtin.command:
-        cmd: >-
-          systemd-creds encrypt --name=age_key
-          /etc/faramir/age.key {{ faramir_age_key_cred | quote }}
-        creates: "{{ faramir_age_key_cred }}"
-      register: faramir_sealed
-
-    - name: Restrict the sealed credential to root
-      ansible.builtin.file:
-        path: "{{ faramir_age_key_cred }}"
-        owner: root
-        group: root
-        mode: "0400"
-
-    - name: Point the keeper at the sealed credential
-      ansible.builtin.copy:
-        src: "{{ faramir_src_dir }}/systemd/tpm-credential.conf"
-        dest: /etc/systemd/system/faramir-keeper.service.d/tpm-credential.conf
-        remote_src: true
-        owner: root
-        group: root
-        mode: "0644"
-      register: faramir_tpm_dropin
-
     - name: Restart the keeper onto the sealed credential
       ansible.builtin.systemd_service:
         name: faramir-keeper
