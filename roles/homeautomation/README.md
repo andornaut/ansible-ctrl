@@ -79,6 +79,24 @@ Internal ports. Those that are configurable are `homeautomation_*_port` in
 | piper | bridge | 10200 | Wyoming | Text-to-speech, also published on the host |
 | whisper | bridge | 10300 | Wyoming | Speech-to-text, also published on the host |
 
+### Container hardening
+
+Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern is:
+
+- **A dedicated host account per container**, created by [tasks/service_account.yml](./tasks/service_account.yml)
+  with the uid above the range `adduser` allocates from, so a file on a bind mount names the service that wrote
+  it. Two exceptions: mosquitto follows the uid baked into its image, and esphome shares the operator's uid
+  because its config directory is a checkout the operator also writes.
+- **`cap_drop: ALL` for every container that runs as a non-root uid.** Such a process cannot use a capability
+  anyway: `cap_add` fills the permitted set, not the ambient set.
+- **`no-new-privileges` everywhere**, root included, since that is what blocks the setuid transition that would
+  make a permitted capability effective.
+- **Directories closed rather than files**, wherever a service rewrites its own state with its own umask. That
+  covers the Zigbee network key, the Thread network key, the Matter fabric credentials, and the camera
+  configuration and recordings.
+- **Listeners bound to loopback where nothing off-host consumes them.** The MQTT broker allows anonymous access,
+  and Frigate serves a second copy of its UI with no login at all; both are published on `127.0.0.1`.
+
 ### llama.cpp models and context
 
 Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
