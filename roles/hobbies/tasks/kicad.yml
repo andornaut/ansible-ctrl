@@ -12,6 +12,7 @@
       ansible.builtin.apt:
         name:
           - kicad
+          - kicad-footprints
         state: latest
         install_recommends: false
         update_cache: true
