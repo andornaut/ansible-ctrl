@@ -1,4 +1,18 @@
 ---
+# The dashboard enables its login only when it gets both, so a username with an
+# empty password starts it open on the LAN: firmware-flash access to every ESP
+# device, and secrets.yaml readable. Asserted rather than left to the auth gate
+# below, which reads an empty value as "this host wants no login" and would
+# start the container unauthenticated without reporting anything.
+- name: Assert that the ESPHome dashboard credentials are a complete pair
+  ansible.builtin.assert:
+    that:
+      - (homeautomation_esphome_username | length > 0) ==
+        (homeautomation_esphome_password | length > 0)
+    fail_msg: >-
+      One of the ESPHome username/password is set and the other is empty, which
+      would start the dashboard unauthenticated.
+
 # No mode alongside recurse: it would apply to the files too, and the modes
 # those need are set below rather than swept across the directory.
 - name: Create the ESPHome directories with correct ownership
