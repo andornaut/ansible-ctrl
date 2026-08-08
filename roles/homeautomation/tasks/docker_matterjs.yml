@@ -1,12 +1,14 @@
 ---
-- name: Create Matter.js data directory with correct ownership
-  ansible.builtin.file:
-    path: "{{ homeautomation_matterjs_required_volumes.data }}"
-    state: directory
-    owner: "{{ homeautomation_matterjs_uid }}"
-    group: "{{ homeautomation_matterjs_gid }}"
-    mode: "0755"
-  become: true
+- name: Create the Matter.js service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: matterjs
+    service_account_uid: "{{ homeautomation_matterjs_uid }}"
+    service_account_paths:
+      - "{{ homeautomation_matterjs_required_volumes.data }}"
+    # Holds the Matter fabric credentials: the keys that make this controller
+    # the one the commissioned devices trust.
+    service_account_mode: "0700"
 
 - name: Remove Matter.js container if it exists
   ansible.builtin.include_tasks: remove_docker_containers.yml
@@ -32,9 +34,13 @@
           container_name: matterjs
           hostname: matterjs-{{ ansible_facts['hostname'] }}
           image: "{{ homeautomation_matterjs_docker_image }}"
-          cap_add:
-            - NET_ADMIN
-            - NET_RAW
+          # No cap_add, and the default set dropped: the server runs as a
+          # non-root uid, and cap_add fills the permitted set but not the
+          # ambient set, so no capability can become effective for it either
+          # way. Naming NET_ADMIN and NET_RAW here would only suggest they do
+          # something. Host networking, not a capability, is what lets it see
+          # the mDNS it needs.
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
           # Host networking is required to see the _matter._tcp mDNS OTBR
           # advertises on the LAN; those multicasts don't cross the bridge, so a
@@ -42,8 +48,11 @@
           # show unavailable.
           network_mode: host
           restart: unless-stopped
-          security_opt:
-            # Needed for Bluetooth via dbus
-            - apparmor=unconfined
+          # apparmor=unconfined for Bluetooth via dbus.
+          security_opt: >-
+            {{ homeautomation_no_new_privileges + ["apparmor=unconfined"] }}
+          # Overrides the image's own 1000:1000, which is the operator's uid on
+          # the host.
+          user: "{{ homeautomation_matterjs_uid }}:{{ homeautomation_matterjs_gid }}"
           volumes: "{{ matterjs_volumes }}"
   notify: Update /etc/hosts

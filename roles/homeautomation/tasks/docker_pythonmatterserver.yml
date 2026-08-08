@@ -1,9 +1,15 @@
 ---
+# Root-owned because the server runs as root for dbus and Bluetooth, and closed
+# because the directory holds the Matter fabric credentials: the keys that make
+# this controller the one the commissioned devices trust. The directory rather
+# than the files, which the server rewrites with its own umask.
 - name: Create Python Matter Server data directory
   ansible.builtin.file:
     path: "{{ homeautomation_pythonmatterserver_required_volumes.data }}"
     state: directory
-    mode: "0755"
+    owner: root
+    group: root
+    mode: "0700"
   become: true
 
 - name: Remove Python Matter Server container if it exists
@@ -40,7 +46,8 @@
           # show unavailable.
           network_mode: host
           restart: unless-stopped
-          security_opt:
-            - apparmor=unconfined
+          # apparmor=unconfined for Bluetooth via dbus.
+          security_opt: >-
+            {{ homeautomation_no_new_privileges + ["apparmor=unconfined"] }}
           volumes: "{{ pms_volumes }}"
   notify: Update /etc/hosts

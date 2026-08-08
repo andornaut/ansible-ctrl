@@ -6,17 +6,40 @@
       - openwebui
       - llamacpp
 
-- name: Create required directories
+# Root-owned and mounted read-only: llama.cpp only reads the models, and the
+# download task below is the only writer.
+- name: Create the llama.cpp models directory
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ homeautomation_llamacpp_required_volumes.models }}"
     state: directory
     owner: root
     group: root
     mode: "0755"
-  loop:
-    - "{{ homeautomation_llamacpp_required_volumes.models }}"
-    - "{{ homeautomation_openwebui_required_volumes.data }}"
   become: true
+
+- name: Create the llama.cpp service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: llamacpp
+    service_account_uid: "{{ homeautomation_llamacpp_uid }}"
+    # The models directory is not here: it stays root-owned and is mounted
+    # read-only, so the only writer is the download task above.
+    service_account_paths:
+      - "{{ homeautomation_llamacpp_required_volumes.cache }}"
+    service_account_mode: "0700"
+
+- name: Create the OpenWebUI service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: openwebui
+    service_account_uid: "{{ homeautomation_openwebui_uid }}"
+    service_account_paths:
+      - "{{ homeautomation_openwebui_required_volumes.data }}"
+    # webui.db holds the password hashes and API keys of every OpenWebUI
+    # account, and .webui_secret_key signs its session tokens. The directory
+    # rather than the files: the server writes hundreds of them with its own
+    # umask, and which ones exist changes with the image.
+    service_account_mode: "0700"
 
 - name: Check which llama.cpp models already exist
   ansible.builtin.stat:
@@ -42,9 +65,34 @@
       - "{{ homeautomation_openwebui_required_volumes.data }}:/app/backend/data"
     openwebui_volumes: "{{ homeautomation_common_volumes + openwebui_base_volumes }}"
 
+    # The image sets HOME=/root, which the uid cannot write. Every cache path
+    # the image declares already points into the data dir, so HOME follows it
+    # for any library that consults HOME directly. A host-supplied env wins.
+    #
+    # start.sh defaults the key file to /app/backend/.webui_secret_key, which is
+    # the image layer: the uid cannot write it, and even as root it was
+    # regenerated on every recreate, signing out every session. In the data dir
+    # it is written once and survives.
+    # OpenWebUI recopies its branding assets over STATIC_DIR on every startup,
+    # which defaults into the image layer and logs an error per file when it
+    # cannot be written. Pointing it at the data dir lets the copy succeed.
+    openwebui_base_environment:
+      HOME: /app/backend/data
+      STATIC_DIR: /app/backend/data/static
+      WEBUI_SECRET_KEY_FILE: /app/backend/data/.webui_secret_key
+    openwebui_environment: "{{ openwebui_base_environment | combine(homeautomation_openwebui_env) }}"
+
     llamacpp_base_volumes:
-      - "{{ homeautomation_llamacpp_required_volumes.models }}:/models"
+      - "{{ homeautomation_llamacpp_required_volumes.models }}:/models:ro"
+      - "{{ homeautomation_llamacpp_required_volumes.cache }}:/cache"
     llamacpp_volumes: "{{ homeautomation_common_volumes + llamacpp_base_volumes }}"
+
+    # The Mesa and RADV shader caches go to $HOME, which the uid cannot write
+    # at the image's default of /root. In the cache volume they also survive a
+    # recreate, so the shaders are not recompiled on every start.
+    llamacpp_base_environment:
+      HOME: /cache
+    llamacpp_environment: "{{ llamacpp_base_environment | combine(homeautomation_llamacpp_env) }}"
 
   community.docker.docker_compose_v2:
     project_name: homeautomation-llm
@@ -57,10 +105,12 @@
           # http://llamacpp.internal:8080
           container_name: llamacpp
           image: "{{ homeautomation_llamacpp_docker_image }}"
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           # Use --models-dir to enable "router mode"
           command: "--host 0.0.0.0 --port 8080 --models-dir /models"
-          environment: "{{ homeautomation_llamacpp_env }}"
+          environment: "{{ llamacpp_environment }}"
           devices: "{{ homeautomation_llamacpp_devices }}"
+          user: "{{ homeautomation_llamacpp_uid }}:{{ homeautomation_llamacpp_gid }}"
           group_add:
             - "{{ ansible_facts.getent_group.render[1] }}"
             - "{{ ansible_facts.getent_group.video[1] }}"
@@ -76,17 +126,21 @@
           # ports:
           #   - "8080:8080"
           restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
           volumes: "{{ llamacpp_volumes }}"
 
         openwebui:
           # http://openwebui.internal:8080
           container_name: openwebui
-          environment: "{{ homeautomation_openwebui_env }}"
+          environment: "{{ openwebui_environment }}"
           image: "{{ homeautomation_openwebui_docker_image }}"
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
           ports:
             - "3000:8080"
           restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
+          user: "{{ homeautomation_openwebui_uid }}:{{ homeautomation_openwebui_gid }}"
           volumes: "{{ openwebui_volumes }}"
           depends_on:
             llamacpp:

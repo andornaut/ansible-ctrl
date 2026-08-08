@@ -46,8 +46,6 @@
 
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
-- name: Import Mosquitto tasks
-  ansible.builtin.import_tasks: mosquitto.yml
 
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
@@ -83,6 +81,15 @@
         - matter
         - mosquitto
         - voice
+
+    # After the prerequisites, which read the passwd database its service
+    # account is checked against, and before Home Assistant, which is where the
+    # broker container is defined.
+    - name: Import Mosquitto tasks
+      ansible.builtin.import_tasks: mosquitto.yml
+      tags:
+        - homeassistant
+        - mosquitto
 
     # Must come first, because it creates the shared bridge network
     - name: Import Home Assistant Docker tasks

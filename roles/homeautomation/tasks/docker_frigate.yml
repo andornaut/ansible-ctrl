@@ -1,4 +1,25 @@
 ---
+# Frigate runs as root and creates everything under these itself, so the modes
+# of the individual files follow its umask and cannot be held. Closing the
+# directories is what holds instead, and nothing else mounts them.
+#
+# config holds the camera RTSP passwords in plaintext, in config.yml, in the
+# backup Frigate writes before a UI edit and again in the go2rtc stream URLs,
+# plus .jwt_secret, which signs its session tokens, and frigate.db, which holds
+# its user table. media holds the recordings and snapshots. Docker would
+# otherwise create both implicitly on first start, world-readable.
+- name: Create the Frigate directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - "{{ homeautomation_frigate_required_volumes.config }}"
+    - "{{ homeautomation_frigate_required_volumes.media }}"
+  become: true
+
 - name: Remove Frigate container if it exists
   ansible.builtin.include_tasks: remove_docker_containers.yml
   vars:
@@ -44,18 +65,17 @@
             {{ homeautomation_frigate_memory_swap | default(homeautomation_frigate_memory) }}
           ports:
             - "{{ homeautomation_frigate_port_http_authenticated }}:8971"
-            - "{{ homeautomation_frigate_port_http_unauthenticated }}:5000"
+            - >-
+              {{ homeautomation_frigate_bind_http_unauthenticated }}:{{
+              homeautomation_frigate_port_http_unauthenticated }}:5000
             # RTSP restream https://docs.frigate.video/configuration/restream/
             - "{{ homeautomation_frigate_port_rtsp }}:8554"
             # WebRTC
             - "{{ homeautomation_frigate_port_webrtc }}:8555/tcp"
             - "{{ homeautomation_frigate_port_webrtc }}:8555/udp"
 
-          # Required for memryx
-          privileged: "{{ homeautomation_install_memryx }}"
           restart: unless-stopped
-          security_opt:
-            - seccomp=unconfined
+          security_opt: "{{ homeautomation_no_new_privileges }}"
           shm_size: "{{ homeautomation_frigate_shm_size }}"
           volumes: >-
             {{ frigate_volumes + ([frigate_tmpfs_volume] if homeautomation_frigate_tmpfs_size_mb > 0 else []) }}
