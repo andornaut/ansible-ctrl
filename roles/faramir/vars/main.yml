@@ -27,9 +27,6 @@ faramir_install_env:
   KEEPER_USER: "{{ faramir_keeper_user }}"
   EXEC_USER: "{{ faramir_exec_user }}"
   DEV_GROUP: "{{ faramir_dev_group }}"
-  # All four phases read WORKTREE. Phase 2 still accepts the older REPO spelling
-  # for the same tree, which is not passed here: one name cannot desync.
-  WORKTREE: "{{ faramir_worktree }}"
   CONFIG: "{{ faramir_config_src }}"
   FARAMIR_BIN: "{{ faramir_src_dir }}/bin"
   # Listed in .sops.yaml alongside the keeper's, so the operator can still read
