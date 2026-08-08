@@ -420,14 +420,18 @@
 # Neither daemon re-reads its config while running, and the keeper has to lead:
 # it decrypts the file list the broker is then served, so restarting the broker
 # first just fetches the old value set again.
-- name: Restart the keeper onto the new drop-in
+#
+# Tasks rather than handlers, hence the noqa: the checks below read what the
+# broker loaded and what its agent holds, so a restart deferred to the end of the
+# play would report the state the drop-in was written to replace.
+- name: Restart the keeper onto the new drop-in # noqa: no-handler
   ansible.builtin.systemd_service:
     name: faramir-keeper
     state: restarted
   when: faramir_dropin.changed
   become: true
 
-- name: Restart the broker onto the new drop-in
+- name: Restart the broker onto the new drop-in # noqa: no-handler
   ansible.builtin.systemd_service:
     name: faramir-broker
     state: restarted
