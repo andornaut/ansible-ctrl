@@ -60,7 +60,7 @@ Most playbooks apply one role to one group. The exceptions:
 | [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
 | [docker.yml](docker.yml) | Applies `docker` to `dev`, `homeautomation` and `webservers` in one run |
 | [webservers.yml](webservers.yml) | Applies the `letsencrypt_nginx` role, which does not share the playbook's name |
-| [faramir_fleet.yml](faramir_fleet.yml) | Applies the `faramir` role's `ssh` entry point (`tasks_from`) rather than its `main`: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
+| [faramir.yml](faramir.yml) | Applies the `faramir` role's `main` entry point to the `faramir` group, then its `ssh` entry point (`tasks_from`) over `hosts: all`: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
 | [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
 | [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
 
@@ -117,11 +117,10 @@ Gotchas:
 [faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects against and how it works; the [faramir role](roles/faramir/README.md) covers what is specific to this repo.
 
 1. **Install sops**, from the [dev](roles/dev/README.md) role: `make dev`. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
-2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this asks for a sudo password.
+2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this asks for a sudo password. Its second play authorizes the broker's SSH key on the managed hosts and establishes the NOPASSWD sudo the other playbooks rely on, using the same prompt.
 3. **Log out and back in.** The install adds you to the `dev` group, and group membership is read at login. Until then the broker refuses your connections.
 4. **Check what it loaded** with `faramir doctor`, `faramir status` and `faramir list-secrets` (names, never values). A ref count of zero is a failure: the broker is running and protecting nothing.
-5. **Authorize its SSH key on the fleet**: `make faramir_fleet ASK_PASS=1`, the run that establishes the NOPASSWD sudo the others rely on.
-6. **Prove the chain end to end**, per [Verification](roles/faramir/README.md#verification). Anything but a `«SECRET:...»` token is a fault, and that table says which.
+5. **Prove the chain end to end**, per [Verification](roles/faramir/README.md#verification). Anything but a `«SECRET:...»` token is a fault, and that table says which.
 
 ## Operations
 

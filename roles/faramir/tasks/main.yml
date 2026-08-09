@@ -31,8 +31,8 @@
       This role installs the broker on {{ faramir_controller }}, the controller:
       service accounts, systemd units, the age key and root's config directory.
       {{ inventory_hostname }} is not that host. Apply it with make faramir,
-      which targets the faramir group. To authorize the broker's key on this
-      host instead, that is make faramir_fleet, which applies tasks/ssh.yml. If
+      whose first play targets the faramir group. Authorizing the broker's key
+      on this host is that run's second play, which applies tasks/ssh.yml. If
       the controller was renamed or replaced, faramir_controller is where its
       name is set.
     quiet: true
@@ -304,14 +304,14 @@
 
 # Printed every run, not only when the key was just generated: it is what has to
 # be in authorized_keys on every managed host, and an install that never says so
-# is one where the fleet silently rejects the agent. tasks/ssh.yml, which
-# faramir_fleet.yml applies, is what puts it there.
+# is one where the fleet silently rejects the agent. tasks/ssh.yml, the play
+# after this one, is what puts it there.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:
       - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
       - "{{ faramir_report.broker_public_key | default('none; faramir_broker_ssh_key is empty') }}"
       - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
-         on every managed host, or brokered playbooks authenticate as nobody.
-         Run: make faramir_fleet ASK_PASS=1"
+         on every managed host, or brokered playbooks authenticate as nobody. The
+         next play of this run puts it there, over the whole inventory."
   when: faramir_broker_ssh_key | length > 0

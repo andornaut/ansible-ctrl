@@ -7,15 +7,16 @@ faramir's own [README](https://github.com/andornaut/faramir#readme) covers what 
 ## Usage
 
 ```bash
-make faramir                     # install and reconcile the broker on the controller
-make faramir_fleet ASK_PASS=1    # authorize the broker's key on the managed hosts
+make faramir    # install and reconcile the broker, then authorize its key on the fleet
 ```
 
-Both are operator actions. `faramir.yml` applies this role to the `faramir` inventory group and no other play reaches it: a brokered run would rewrite its own confinement as root and kill the command doing the rewriting.
+An operator action. `faramir.yml` applies this role's install to the `faramir` inventory group and no other play reaches it: a brokered run would rewrite its own confinement as root and kill the command doing the rewriting.
 
 Log out and back in after the first install. It adds you to `faramir_dev_group`, and group membership is read at login.
 
-The role has two entry points. `tasks/main.yml` installs the broker on the controller, and is what `faramir.yml` applies. `tasks/ssh.yml` authorizes that broker's key across the fleet, and is what `faramir_fleet.yml` applies, over `hosts: all` and with `tasks_from: ssh` so nothing else in the role runs there: it reads the key off the controller, installs it on every other host without `exclusive`, grants that account NOPASSWD sudo, then pings every host back through the broker. Separate because the second writes to production hosts and is useful only once the first has produced a key to distribute.
+The role has two entry points, and that one playbook applies both in order. `tasks/main.yml` installs the broker on the controller, which is `faramir.yml`'s first play. `tasks/ssh.yml` authorizes that broker's key across the fleet, and is the second, over `hosts: all` and with `tasks_from: ssh` so nothing else in the role runs there: it reads the key off the controller, installs it on every other host without `exclusive`, grants that account NOPASSWD sudo, then pings every host back through the broker. Two entry points because the second writes to production hosts and needs a key the first has to produce; one run because a broker whose key no host authorizes comes up green and reaches nothing.
+
+A brokered run cannot use the second play to grant itself its own reach. It carries `--limit '!faramir'`, which leaves the first play with no hosts, so no key is published and the second play's assert stops it before it authorizes anything.
 
 The controller is named: `faramir_controller` is `tron`, matched against `inventory_hostname`. `main.yml` refuses to run on any other host, before it reads anything, because the install creates service accounts, systemd units and the age key, and a `hosts:` pattern meant for the controller that reached the fleet instead would provision the fleet. The working-tree check further down is not that backstop: a host with a directory at the same path passes it.
 
@@ -23,11 +24,11 @@ The controller is named: `faramir_controller` is `tron`, matched against `invent
 
 Asserted rather than `delegate_to: localhost`, which is how the `torrent` role reaches the controller from a play targeting somewhere else. Delegation would not stop this and would hide it: a delegated task resolves plain variables from the play host rather than the delegate, so a role applied to the fleet would install here once per host, each run using that host's `primary_user` and config path.
 
-One play, where that was three. The default linear strategy runs each task on every host before starting the next, so the key is published before the first host is asked to authorize it, and every host has been asked before the brokered ping goes looking for it.
+`ssh.yml` is one play, where that was three. The default linear strategy runs each task on every host before starting the next, so the key is published before the first host is asked to authorize it, and every host has been asked before the brokered ping goes looking for it.
 
 ## Running playbooks
 
-`homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other twelve targets run straight through.
+`homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other eleven targets run straight through.
 
 | Run | Command |
 | --- | --- |
@@ -39,7 +40,7 @@ Neither account covers the whole fleet: root has no key for a host it must reach
 
 `faramir.env` holds refs, never values. Both paths set the same variable names, so one list serves both.
 
-`--ask-become-pass` is added only when the run reaches the controller, decided per run by one ansible call that connects to nothing. Roles are checked as well as hosts, because `delegate_to: localhost` reaches the controller without appearing in any host list. It errs toward asking, and a run already root is never asked. `ASK_PASS=1` forces it, which `faramir_fleet.yml` needs: that is the run establishing the NOPASSWD which makes prompting unnecessary.
+`--ask-become-pass` is added only when the run reaches the controller, decided per run by one ansible call that connects to nothing. Roles are checked as well as hosts, because `delegate_to: localhost` reaches the controller without appearing in any host list. It errs toward asking, and a run already root is never asked. `ASK_PASS=1` forces it for a run the check reads as needing none. `make faramir` is not one of those: the controller is in its first play, so the prompt that play earns is also what serves the fleet play, which needs one until the NOPASSWD it installs is in place.
 
 ## Constraints
 
