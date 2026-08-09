@@ -12,16 +12,6 @@
   become: true
   delegate_to: localhost
 
-# CLEANUP (added 2026-07-18): remove once every torrent-group host has run this role.
-# The cron file was renamed to ansible-role-torrent; drop the old name so its jobs
-# do not run alongside the new file's.
-- name: Remove the pre-rename cron file
-  ansible.builtin.file:
-    path: /etc/cron.d/ansible-torrent
-    state: absent
-  become: true
-  delegate_to: localhost
-
 - name: Set crontab mvt schedule
   ansible.builtin.cron:
     name: mvt

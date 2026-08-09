@@ -96,17 +96,6 @@
         - mosquitto
         - voice
 
-    # After the prerequisites, which read the passwd database it renumbers
-    # against and assert that the numbering it moves towards is coherent.
-    #
-    # Carrying only this block's docker tag, unlike the prerequisites above: it
-    # stops the container of every service it renumbers, and a run narrowed to
-    # one component's tag would restart only that one and leave the rest down.
-    # A tag-scoped run against a host that has not converged instead stops at
-    # service_account.yml's assert, naming the account that holds the uid.
-    - name: Move any service account onto its allocated uid
-      ansible.builtin.import_tasks: migrate_service_account_uids.yml
-
     # Before the imports below, so a component being removed releases its name,
     # ports and devices before another run claims them.
     - name: Remove the components this host does not install

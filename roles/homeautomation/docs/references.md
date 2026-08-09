@@ -64,7 +64,6 @@ Custom:
   [notifications blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee2MQTT](https://github.com/wez/govee2mqtt)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
-- [Simpleicons](https://github.com/vigonotion/hass-simpleicons)
 
 ## Other
 
