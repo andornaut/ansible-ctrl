@@ -1,9 +1,9 @@
 ---
-# Account added to the "docker" group so the docker CLI works without sudo.
+# Added to the "docker" group, so the CLI works without sudo.
 docker_user: "{{ primary_user }}"
 
 docker_install_kubernetes: false
-# Registry binds host port 5000, which Frigate also publishes by default. Set per host.
-# Setting back to false stops installing/starting it but does not remove an existing one:
-# purging the package would destroy /var/lib/docker-registry. Remove by hand.
+# Binds host port 5000, which Frigate also publishes by default. Setting it back to
+# false stops installing and starting it but removes nothing: purging the package
+# would destroy /var/lib/docker-registry.
 docker_install_registry: false

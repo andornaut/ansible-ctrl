@@ -1,9 +1,7 @@
 ---
 # Clearing an install flag only stops the role configuring a component, so this
-# removes what homeautomation_teardown lists for it.
-#
-# Never the volumes: a flag cleared by accident would take the only copy of a
-# service's data, and re-setting it would rebuild an empty service.
+# removes what homeautomation_teardown lists for it. Never the volumes: a flag
+# cleared by accident would take the only copy of a service's data with it.
 
 - name: Remove the containers of components that are not installed
   community.docker.docker_container:

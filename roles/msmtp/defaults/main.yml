@@ -1,7 +1,7 @@
 ---
 msmtp_host: smtp.gmail.com
 msmtp_port: 587
-# Required, set per host. msmtp_password holds a credential: point it at a vaulted variable.
+# Required per host. msmtp_password is a credential: point it at a secret_* name.
 # msmtp_domain:
 # msmtp_user:
 # msmtp_password:
@@ -9,5 +9,5 @@ msmtp_send_all_email_to: admin@{{ msmtp_domain }}
 msmtp_relay_config_path: /etc/msmtprc-relay
 # msmtpd accepts unauthenticated mail, so it must only ever listen on loopback.
 msmtp_relay_interface: 127.0.0.1
-# Unprivileged, so msmtpd needs no CAP_NET_BIND_SERVICE. Nothing outside the host connects.
+# Unprivileged, so msmtpd needs no CAP_NET_BIND_SERVICE.
 msmtp_relay_port: 8025

@@ -5,24 +5,21 @@
 set -u
 log() { echo "heroic-refresh: $*"; }
 
-# Heroic refreshes its own tokens while running, so skip to avoid two writers.
-# This is best-effort: it narrows but cannot fully close the window (Heroic could
-# start mid-run). legendary/gogdl write their config atomically, so the worst case
-# of an overlap is a lost refresh (fixed on the next run), not a corrupt file.
+# Heroic refreshes its own tokens while running, so skip rather than be a second
+# writer. Best-effort: Heroic could still start mid-run, but legendary and gogdl write
+# atomically, so an overlap costs a refresh rather than the file.
 if pgrep -u "$(id -u)" -f heroic-run >/dev/null; then
   log "Heroic is running; leaving token refresh to Heroic"
   exit 0
 fi
 
-# Resolve the bundled legendary/gogdl at runtime so the arch, branch and version are
-# not hardcoded (the deploy path changes on every Heroic update).
+# Resolved at run time: the deploy path changes on every Heroic update.
 loc=$(flatpak info --show-location {{ games_heroic_app_id }} 2>/dev/null)
 base="$loc/files/bin/heroic/resources/app.asar.unpacked/build/bin/x64/linux"
 cfg="{{ games_heroic_config_file | dirname }}"
 
 # refresh_store LABEL BINARY STATE_FILE CMD...
-# Runs CMD (which refreshes and persists the token) only when the store's binary and
-# login state both exist, and logs the outcome.
+# Runs CMD only when the store's binary and login state both exist, and logs the outcome.
 refresh_store() {
   local label=$1 binary=$2 statefile=$3
   shift 3
@@ -41,8 +38,7 @@ refresh_store() {
 refresh_store Epic "$base/legendary" "$cfg/legendaryConfig/legendary/user.json" \
   env LEGENDARY_CONFIG_PATH="$cfg/legendaryConfig/legendary" "$base/legendary" status
 
-# GOG: the same 'gogdl auth' call Heroic makes to keep GOG logged in; it refreshes
-# the access token from the stored refresh token. Whether gogdl persists the result
-# is why the outcome is logged rather than assumed.
+# GOG: the same 'gogdl auth' call Heroic makes, refreshing the access token from the
+# stored refresh token. Whether gogdl persists it is why the outcome is logged.
 refresh_store GOG "$base/gogdl" "$cfg/gog_store/auth.json" \
   "$base/gogdl" --auth-config-path "$cfg/gog_store/auth.json" auth

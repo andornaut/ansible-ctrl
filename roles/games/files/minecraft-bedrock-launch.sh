@@ -7,17 +7,15 @@ FLATPAK_CMD="/usr/bin/flatpak run --branch=master --arch=x86_64 --command=bedroc
 
 log() { echo "[minecraft-launch] $*"; }
 
-# Already running? Ask flatpak, which lists the app ID of every live sandbox instance. An exact
-# match, so neither a same-named window nor an unrelated process sharing this script's PID can
-# trigger a false positive and launch a second copy.
+# flatpak lists the app ID of every live sandbox instance. Matched exactly, so nothing
+# else can read as a running copy and cause a second launch.
 log "Checking for a running BedrockOnLinux instance..."
 if flatpak ps --columns=application | grep -qx "$APP_ID"; then
     log "BedrockOnLinux is already running."
 
-    # Focus its window. Match the Wine build's XWayland window by its WM_CLASS
-    # (minecraft.windows.exe), not the "Minecraft" title: the title also matches Mutter's separate
-    # server-side-decoration frame window. Best-effort only: on GNOME Wayland the compositor may
-    # treat the activate as an attention hint rather than actually raising the window.
+    # By WM_CLASS, not the "Minecraft" title, which also matches Mutter's separate
+    # decoration frame window. Best-effort: on GNOME Wayland the compositor may treat
+    # the activate as an attention hint rather than raising the window.
     log "Searching for the Minecraft window..."
     WID=$(xdotool search --onlyvisible --class minecraft.windows.exe 2>/dev/null | head -1)
     if [ -n "$WID" ]; then
@@ -34,11 +32,10 @@ fi
 
 log "No running BedrockOnLinux instance detected."
 
-# BOL leaves a .gpu-launch-in-progress.json lock when a session is force-killed instead of exited
-# cleanly, and refuses to launch while it exists. The flatpak ps check above already proved no
-# instance is running, so a lock present here is stale: clear just it. Not BOL_ALLOW_UNSAFE_GPU,
-# which would disable every gpu_safety check, including the RandR provider check the role vendors
-# a host xrandr to satisfy.
+# A force-killed session leaves this lock behind and BOL refuses to launch while it
+# exists. The check above proved nothing is running, so it is stale. Clearing it rather
+# than setting BOL_ALLOW_UNSAFE_GPU, which would disable every gpu_safety check,
+# including the RandR one the role vendors a host xrandr to satisfy.
 marker="${XDG_DATA_HOME:-$HOME/.local/share}/bedrock-on-linux/.gpu-launch-in-progress.json"
 if [ -e "$marker" ]; then
     log "Clearing stale GPU-session lock: $marker"

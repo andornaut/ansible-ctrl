@@ -1,11 +1,11 @@
 ---
-# Account that user-scoped installs (flatpaks, KiCad plugins) act on. Override per host.
+# The account the user-scoped installs act on.
 hobbies_user: "{{ primary_user }}"
 
 # KiCad major version. Selects the release PPA and the per-user plugin directory.
 hobbies_kicad_version: "10.0"
 
-# Betaflight Configurator release. Pinned, not resolved at run time: recent releases are
-# PWA-only (https://app.betaflight.com) and this is the newest one that still ships a Linux
-# portable build. Only raise it to a release whose assets include linux64-portable.zip.
+# Pinned rather than resolved at run time: recent releases are PWA-only, and this is
+# the last shipping a Linux portable build. Only raise it to a release whose assets
+# include linux64-portable.zip.
 hobbies_betaflight_version: "10.10.0"

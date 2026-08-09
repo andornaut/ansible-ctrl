@@ -1,29 +1,21 @@
 SHELL := /bin/bash
 
-# Arguments after `--` are forwarded verbatim to ansible-playbook, e.g.:
-#   make desktop -- --limit example --tags alacritty
-# (make rejects bare --flags, so the `--` separator is required.)
+# Arguments after `--` are forwarded verbatim to ansible-playbook; the separator is
+# required, make rejecting bare --flags. See README.
 ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
-# An argument containing = does not survive that route: make takes any such
-# argument as a variable assignment before the goal list is built, so
-# `-- --extra-vars foo=bar` forwards --extra-vars with nothing after it, and
-# `-- --start-at-task=Foo` forwards nothing at all and says nothing. What make
-# took lands here, and the run is refused rather than performed with the
-# argument missing.
-#
-# Passing ARGS directly is the way to send one:
-#   make desktop ARGS='--extra-vars foo=bar'
-# which suppresses the check, every assignment on that line being deliberate.
+# An argument containing = does not survive that route: make takes it as a variable
+# assignment before the goal list is built, and the flag forwards with nothing after
+# it. What make took lands here, and the run is refused rather than run short.
+# ARGS='...' is how to send one, and suppresses the check.
 ifeq ($(origin ARGS),command line)
 STRAY_ARGS :=
 else
 STRAY_ARGS := $(filter-out SECRETS=% ASK_PASS=%,$(MAKEOVERRIDES))
 endif
 
-# Swallow the forwarded tokens (e.g. --limit, example) as no-op goals so make
-# does not error with "No rule to make target". Real targets have explicit
-# rules, which take precedence over this pattern.
+# Swallow the forwarded tokens as no-op goals, or make errors with "No rule to make
+# target". Real targets have explicit rules, which outrank this pattern.
 %:
 	@:
 
@@ -35,26 +27,19 @@ PLAYBOOKS := base desktop dev docker faramir \
 
 .PHONY: help clean lint requirements $(PLAYBOOKS)
 
-# Root needs neither a become password nor the operator's age identity, and the
-# decisions below read this.
+# Root needs neither a become password nor the operator's age identity.
 IS_ROOT := $(filter 0,$(shell id -u))
 
-# The galaxy content and the secret store both sit under an account rather than
-# a fixed path, so it has to be resolved rather than named: a root run has
-# HOME=/root, and SUDO_USER is the account that invoked it. Only a root run
-# reads SUDO_USER, because any other run is being made by the account it is
-# running as, whatever a stale SUDO_USER inherited from an outer sudo says.
-# getent rather than ~, which expands to the wrong home for exactly the run that
-# needs this.
+# The galaxy content and the store both sit under an account, so the home is resolved
+# rather than named: a root run has HOME=/root, and SUDO_USER names who invoked it.
+# Only a root run reads SUDO_USER, a stale one being what any other run would find.
+# getent rather than ~, which expands wrong for exactly the run that needs this.
 OPERATOR := $(or $(and $(IS_ROOT),$(SUDO_USER)),$(shell id -un))
 OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 
-# What a recipe writes into the work tree is written as the operator, so a root
-# run leaves nothing the operator cannot update afterwards: .ansible/ is
-# rebuilt by an unprivileged `make`, which cannot overwrite root's copy of it.
-# runuser rather than sudo, because this is already root: nothing to
-# authenticate and sudoers is not consulted. A real root login has no
-# SUDO_USER, so OPERATOR is root and this drops nothing.
+# Recipes write into the work tree as the operator, so a root run leaves nothing an
+# unprivileged `make` cannot rebuild. runuser rather than sudo, this already being
+# root. A real root login has no SUDO_USER, so OPERATOR is root and nothing drops.
 AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
@@ -94,21 +79,18 @@ help:
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
 
-# The same four checks CI runs, from the same script, so passing here is passing
-# there. Depends on requirements: ansible-lint's syntax-check resolves the
-# collections' modules, and reports every one of them as unknown without them.
+# The same four checks CI runs, from the same script. Depends on requirements:
+# ansible-lint's syntax-check reports every collection module unknown without them.
 lint: requirements
 	@$(AS_OPERATOR) tests/lint.sh
 
-# A stamp rather than a phony recipe: a wrapped target runs make twice, and a
-# phony prerequisite would install the galaxy content on both passes. `make
-# clean` removes it along with what it stands for.
+# A stamp, not a phony recipe: a wrapped target runs make twice, and a phony
+# prerequisite would install the galaxy content on both passes.
 requirements: .ansible/.requirements
 
-# Everything under .ansible/ belongs to the operator, and a root run takes the
-# chance to say so: runuser cannot write into a root-owned tree, so one left
-# that way stops an unprivileged make with a permission error. tests/lint.sh
-# builds its venv in the same directory and is subject to the same thing.
+# Everything under .ansible/ belongs to the operator, and a root run says so:
+# runuser cannot write into a root-owned tree, and tests/lint.sh builds its venv
+# in the same directory.
 .ansible/.requirements: requirements.yml
 	@$(AS_OPERATOR) mkdir -p $(@D)
 	@$(if $(IS_ROOT),chown -R $(OPERATOR) $(@D))
@@ -116,65 +98,45 @@ requirements: .ansible/.requirements
 	$(AS_OPERATOR) ansible-galaxy collection install -r requirements.yml
 	@$(AS_OPERATOR) touch $@
 
-# Not $(MAKE): make runs any recipe line containing that string even under -n,
-# which makes a dry run wet.
+# Not $(MAKE): make runs any recipe line containing that string even under -n.
 SUBMAKE := $(MAKE)
 
-# The store lives in the operator's home, resolved above for the same reason.
+# In the operator's home, resolved above.
 SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
 
-# sops looks for an identity under $HOME, and root's is /root, so the key is
-# named rather than left to be found. The keeper's key is already a recipient
-# and root can read it whatever its mode. It sits beside the store, so it is
-# resolved from the operator's home the same way. ?= leaves an operator-set
-# value alone. The renewal cron in the letsencrypt_nginx role names it for the
-# same reason, being the other root-run entry point.
+# sops looks for an identity under $HOME, and root's is /root, so the key is named.
+# The keeper's key is already a recipient and root reads it whatever its mode.
+# ?= leaves an operator-set value alone. The letsencrypt_nginx renewal cron names it
+# for the same reason, being the other root-run entry point.
 #
-# Nothing here redirects ssh. Root's own ~/.ssh reaches the fleet, and pointing
-# it at the operator's config would supply aliases without an identity: ~ in an
-# IdentityFile expands against the running uid, so every path in that config
-# resolves under /root. -F would also suppress /etc/ssh/ssh_config, and
-# UserKnownHostsFile would replace a host key store that already holds the
-# fleet.
+# ssh is not redirected: root's own ~/.ssh reaches the fleet, and the operator's
+# config would supply aliases without an identity, every ~ in it expanding to /root.
 ifdef IS_ROOT
 export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.faramir/age.key
 endif
 
-# The runs that read a secret_* variable. Only these re-enter under sops; the
-# rest reach no credential and must not be stopped for want of one.
+# The runs that read a secret_* variable, and so the only ones that re-enter under
+# sops. Giving a playbook its first credential means adding it here.
 #
-#   homeautomation  the role's own defaults and tasks
-#   msmtp           msmtp_password, set for every host
-#   webservers      cloudflare_api_token and basicauth_password
-#
-# A list rather than something derived from the run. A credential reaches a play
-# through host_vars, which ansible templates lazily, so `msmtp_password` is set
-# on every host here and costs nothing until the msmtp role reads it. Grepping
-# host_vars therefore answers yes for every run, and grepping the roles in the
-# run answers no for msmtp and webservers, whose roles name a plain variable
-# that host_vars happens to bind to a secret. Telling the two apart means
-# resolving which variables each role reads, which is not a thing make can do.
-#
-# So: giving a playbook its first credential means adding it here.
+# A list rather than something derived: host_vars binds msmtp_password on every host
+# and ansible templates it lazily, so grepping host_vars answers yes for every run,
+# while grepping the roles answers no for msmtp and webservers, whose roles name a
+# plain variable host_vars happens to bind to a secret. Telling the two apart means
+# resolving which variables each role reads, which make cannot do.
 SECRET_PLAYBOOKS := homeautomation msmtp webservers
 
-# Re-enter under sops exec-env when the values are not in the environment yet.
-# SECRETS_LOADED marks the inner half; SECRETS=none skips it for a run that
-# turns out to need no credential, a --tags run being the usual reason.
+# SECRETS_LOADED marks the inner half of the re-entry; SECRETS=none skips it for a
+# run that reaches no credential, usually a --tags run.
 LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter $*,$(SECRET_PLAYBOOKS)))
 
-# SECRETS=none has to reach the play as well as the re-entry above. A
-# secret-bearing playbook asserts in pre_tasks that credentials were injected,
-# and this is the operator saying this run reads none, so the assert is the one
-# thing that must not outlive the decision to skip the injection.
+# SECRETS=none has to reach the play too: its pre_tasks assert that credentials
+# arrived, and that assert must not outlive the decision to skip the injection.
 SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
 
-# Prompt for a become password only when the run reaches the controller, the one
-# host whose sudo asks for one. Asked of ansible rather than assumed, so a
-# --limit in ARGS counts. One startup, connecting to nothing, roughly 0.4s.
-#
-# Two ways a run reaches it: the controller is in the play's host list, or a role
-# runs a become task under delegate_to: localhost, which no host list shows.
+# Prompt only when the run reaches the controller, the one host whose sudo asks.
+# Asked of ansible rather than assumed, so a --limit in ARGS counts: one startup,
+# connecting to nothing, roughly 0.4s. Two ways a run reaches it, hence the two
+# checks below: the host list, and a role with a become task under delegate_to.
 list_run = ansible-playbook $(1).yml $(ARGS) --list-hosts --list-tasks 2>/dev/null
 
 # Host names sit under "hosts (N):" and stop where the task list starts.
@@ -183,11 +145,10 @@ pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
 
-# IS_ROOT is tested first: sudo asks root for nothing, and ansible prompts at
-# startup whether or not the password is used. Then ASK_PASS=1, which forces the
-# prompt for a run the check below reads as needing none. `make faramir` is not
-# one of those: the controller is in its first play, so the prompt that play
-# earns is also what serves its second one, the fleet play that establishes the
+# IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or
+# not the password is used. Then ASK_PASS=1, which forces the prompt for a run the
+# check below reads as needing none. `make faramir` is not one: the controller is in
+# its first play, so that prompt also serves the second, which establishes the
 # NOPASSWD the rest rely on.
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
@@ -201,34 +162,22 @@ $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   done)))
 endef
 
-# POSIX shell quoting for a string that is about to be nested inside single
-# quotes: close, escape the quote, reopen. The forwarded arguments reach sops as
-# part of a command string, and one of them carrying a quote of its own
-# (--extra-vars "a='b'") would otherwise end the string early.
+# Close, escape, reopen. The forwarded arguments reach sops inside a command string,
+# where one carrying a quote of its own would end the string early.
 shquote = '$(subst ','\'',$(1))'
 
-# A secret-bearing run whose store cannot be read is stopped rather than
-# attempted. Every secret_* variable would be undefined, and the first task to
-# read one fails with the tasks before it already applied, which for a container
-# means it is removed and not recreated. Absent and unreadable are not told
-# apart, because for these playbooks either one ends the same way.
+# A secret-bearing run whose store cannot be read is stopped rather than attempted:
+# every secret_* would be undefined, and the first task to read one fails with the
+# tasks before it already applied.
 #
-# The store belongs to a group the operator is not in, so the two accounts that
-# can serve such a run are root and the broker's executor. Root covers the whole
-# run: it reads the store, and its own ~/.ssh reaches the fleet. The executor
-# authenticates everywhere but has no sudo on the controller, deliberately, so
-# its half stops one host short. The message names both, the second carrying the
-# --limit that difference forces.
+# The store's group holds no human, so only root and the broker's executor can serve
+# such a run. Root covers all of it; the executor authenticates everywhere but has no
+# sudo on the controller, hence the --limit in the second message.
 #
-# The `--` is repeated on the re-entry for the same reason it is required on the
-# way in: the inner make parses ARGS as its own options and rejects the first
-# --flag among them.
+# The `--` is repeated on the re-entry for the reason it is required on the way in.
 #
-# Only the first goal is applied. A forwarded argument is a goal like any other,
-# and most of them name something: every inventory group is also a playbook
-# here, so `make base -- --limit desktop` would otherwise apply desktop as
-# well. ARGS is defined as everything after the first goal, so a
-# playbook reached as any later goal is one of those arguments and does nothing.
+# Only the first goal is applied: every inventory group is also a playbook here, so
+# `make base -- --limit desktop` would otherwise apply desktop as well.
 $(PLAYBOOKS): %: requirements
 	@if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
 	 if [ -n "$(STRAY_ARGS)" ]; then \

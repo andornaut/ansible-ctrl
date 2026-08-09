@@ -1,7 +1,6 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
 
 homeautomation_common_volumes:
   - "{{ homeautomation_homeassistant_required_volumes.localtime }}:/etc/localtime:ro"
@@ -17,39 +16,29 @@ homeautomation_external_network:
     external: true
     name: "{{ homeautomation_docker_network_name }}"
 
-# For the containers that run as a non-root uid. Docker grants every container
-# a default capability set; a non-root process cannot use it, because cap_add
-# fills the permitted set but not the ambient set. Dropping it costs nothing
-# now and matters when something later gains uid 0 inside the container.
-#
-# Not applied to the containers that keep uid 0. Several of them need
-# capabilities from that default set, and for them the caps do work.
+# For the non-root containers, whose processes cannot use Docker's default
+# capability set anyway: cap_add fills the permitted set but not the ambient one.
+# Dropping it costs nothing now and matters if something gains uid 0 later. Not
+# applied to the containers that keep uid 0, several of which need those caps.
 homeautomation_unprivileged_cap_drop:
   - ALL
 
-# Applied to every container, root or not, which is why it is not named for the
-# unprivileged ones: it blocks the setuid transition that would make a
-# capability effective, so it is what actually stops a compromised process from
-# reaching the caps sitting in its permitted set. Nothing here loses by it,
-# because a process that drops privileges does so with setuid() rather than by
-# exec'ing a setuid binary, and only the latter is blocked.
+# Every container, root or not: it blocks the setuid transition that would make a
+# permitted capability effective. Nothing here loses by it, dropping privileges
+# with setuid() rather than by exec'ing a setuid binary.
 homeautomation_no_new_privileges:
   - no-new-privileges:true
 
-# Every uid a container in this role runs as. Each service account owns its
-# files exclusively, which only holds if no two services share a uid, and
-# docker_prerequisites.yml asserts that before any of them are created.
+# Every uid a container here runs as. Each account owns its files exclusively,
+# which holds only if no two services share a uid; docker_prerequisites.yml
+# asserts that before any are created.
 #
-# Append-only: a new service takes the next number free in this list, whatever
-# its name sorts as. These happen to run alphabetically from 10001 because they
-# were reassigned once to put them in some order, not because the order is a
-# rule to keep. A uid is an account's identity on disk, so a number that moves
-# drags every file it owns behind it, and that is worth doing once and not
-# again. mosquitto is the exception at 1883, which its image bakes in.
+# Append-only: a new service takes the next free number, whatever its name sorts
+# as. A uid is an identity on disk, so moving one drags every file it owns.
+# mosquitto is the exception at 1883, which its image bakes in.
 #
-# ha-mcp is merged in rather than listed, because its accounts come one per
-# entry in homeautomation_hamcp_instances, which the operator extends per Home
-# Assistant the agent drives.
+# ha-mcp is merged in rather than listed, its accounts coming one per entry in
+# homeautomation_hamcp_instances.
 homeautomation_service_account_uids: >-
   {{ homeautomation_service_account_uids_fixed
      | combine(homeautomation_hamcp_service_account_uids) }}
@@ -70,36 +59,30 @@ homeautomation_hamcp_service_account_uids: >-
 
 homeautomation_tz: "{{ homeautomation_system_timezone.stdout.strip() }}"
 
-# Both, because the dashboard reads USERNAME and PASSWORD as a pair and enables
-# nothing when either is empty. Named for what it probes rather than
-# install-something, because it is not an operator preference so much as a
-# report of whether the host supplied the credentials.
+# Both, the dashboard reading them as a pair and enabling nothing when either is
+# empty. Named for what it reports rather than for a preference.
 homeautomation_esphome_auth_configured: >-
   {{ (homeautomation_esphome_username | length > 0)
      and (homeautomation_esphome_password | length > 0) }}
 
-# What each optional component leaves on the host, so that clearing its install
-# flag removes it rather than leaving it running. Volumes are deliberately not
-# listed: they hold the only copy of a service's data, and an install flag
-# cleared by accident would otherwise destroy it.
+# What each optional component leaves on the host, so clearing its flag removes it.
+# Never volumes: they hold the only copy of a service's data.
 #
-# Absent from this table on purpose: home assistant and mosquitto, which have no
-# install flag and are always configured; avahi, a host daemon the play stops
-# rather than a container; and memryx, which installs a DKMS driver and apt
-# sources whose removal is not the reverse of writing a compose definition.
+# Absent on purpose: home assistant and mosquitto, which have no flag; avahi, a
+# host daemon rather than a container; and memryx, whose DKMS driver and apt
+# sources are not the reverse of a compose definition.
 homeautomation_teardown:
   - install: "{{ homeautomation_install_esphome }}"
     containers: [esphome]
-    # Set for the ESPHome gid alone, so it narrows the host's range rather than
-    # widening it, and outlives the container it was written for.
+    # Scoped to the ESPHome gid, so it narrows the host's range rather than
+    # widening it, and outlives the container.
     files: [/etc/sysctl.d/60-esphome-ping.conf]
   - install: "{{ homeautomation_install_frigate }}"
     containers: [frigate]
   - install: "{{ homeautomation_install_govee2mqtt }}"
     containers: [govee2mqtt]
-  # One container per Home Assistant it drives, so the names come from the
-  # instance list rather than being fixed. The default name is removed too, for
-  # a host whose instances were cleared along with the flag.
+  # Names come from the instance list, plus the default one, for a host whose
+  # instances were cleared along with the flag.
   - install: "{{ homeautomation_install_hamcp }}"
     containers: >-
       {{ (['hamcp'] + (homeautomation_hamcp_instances | map(attribute='name') | list)) | unique }}
@@ -111,6 +94,6 @@ homeautomation_teardown:
     containers: [pythonmatterserver]
   - install: "{{ homeautomation_install_voice }}"
     containers: [openwakeword, microwakeword, piper, whisper]
-  # The border router serves either matter stack, so it goes only when both do.
+  # Serves either matter stack, so it goes only when both do.
   - install: "{{ homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver }}"
     containers: [otbr]

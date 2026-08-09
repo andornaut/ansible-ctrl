@@ -11,12 +11,9 @@
   become: true
   when: desktop_chrome_check.rc != 0
 
-# Not a conffile, so dpkg reverts the flag on every Chrome self-update: patch it
-# here and shadow it below under /usr/local/share, which XDG_DATA_DIRS ranks first
-# and dpkg never writes. Patching first keeps the copy idempotent.
-#
-# The repeating group replaces any existing flags with exactly one. `[ \t]+` rather
-# than `\s+`, which would match a newline and swallow the line after Exec=.
+# Not a conffile, so dpkg reverts the flag on every Chrome self-update: patch it,
+# then shadow it below under /usr/local/share, which XDG_DATA_DIRS ranks first.
+# `[ \t]+`, not `\s+`, which would match a newline and swallow the next line.
 - name: Configure Google Chrome for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/google-chrome.desktop

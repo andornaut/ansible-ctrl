@@ -1,7 +1,7 @@
 ---
 nas_backup_device_name: nasbackup
 nas_backup_devices: []
-# nofail: a degraded or missing device must never block boot; headless and remote hosts have no console.
+# nofail: a degraded or missing device must never block boot on a headless host.
 nas_backup_fs_defaults: defaults,noauto,nofail
 nas_backup_fs_type: btrfs
 nas_backup_mount_directory: /media/nasbackup
@@ -11,11 +11,10 @@ nas_backup_source_directory: "{{ nas_raid_mount_directory }}/.backups"
 nas_key_file: "{{ nas_user_home }}/.nas-luks-key"
 nas_key_file_mount_unit: ""
 nas_raid_devices: []
-# nofail: a degraded or missing device must never block boot; headless and remote hosts have no console.
+# nofail: a degraded or missing device must never block boot on a headless host.
 nas_raid_fs_defaults: defaults,noauto,nofail
 nas_raid_fs_type: btrfs
 nas_raid_group: root
 nas_raid_mount_directory: /media/nas
-# Account whose home directory holds the LUKS key file (see nas_key_file).
-# Defaults to primary_user from the inventory; override per host.
+# The account whose home holds the LUKS key file; see nas_key_file.
 nas_user: "{{ primary_user }}"

@@ -1,48 +1,40 @@
 ---
-# Derived values, not operator knobs. In vars/ (not defaults/) so role vars outrank
-# host_vars and a host cannot desync a derived value from its source.
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
 
-# faramir_user home from passwd (getent runs in tasks/main.yml).
+# From the getent in tasks/main.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# Where the binaries are downloaded from. `dev` is a rolling release, deleted and
-# re-cut by CI on every push to faramir's main. Its assets are named and laid out
-# exactly as a tagged release's, so moving to a tag means changing this URL and
-# nothing else. faramir has no v tag yet.
+# `dev` is rolling, re-cut by CI on every push to faramir's main; faramir has no v
+# tag yet. Its assets match a tagged release's, so moving to one is this URL alone.
 faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 
-# Architecture name in the release asset, which is goreleaser's rather than
-# Debian's: x86_64 is kept and aarch64 maps to arm64. Same mapping as base_arch,
-# which reads the gog and mrs assets from the same CI.
+# goreleaser's names rather than Debian's: x86_64 kept, aarch64 to arm64. Same
+# mapping as base_arch, which reads assets from the same CI.
 faramir_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# One archive per platform, holding one binary. Linux only, and unmapped for that
-# reason: faramir builds for no other kernel, so there is nothing for a system
-# fact to select.
+# One archive per platform, holding one binary. The kernel is unmapped: faramir
+# builds for no other.
 faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 
 # Where init puts the binary, and so what every later invocation runs.
 faramir_binary: /usr/local/bin/faramir
 
-# Warnings from enrolling the checkout, which is skipped on a --check run
-# against a host that has no binary yet: the register then holds no stdout.
+# Enrolment is skipped under --check on a host with no binary yet, leaving the
+# register without stdout.
 faramir_project_warnings: >-
   {{ (faramir_project.stdout | from_json).warnings | default([])
      if faramir_project.stdout | default('') | length > 0 else [] }}
 
-# The whole invocation, assembled once, so there is no second place a value can
-# be set differently. An argv list rather than a command string: paths here come
-# from the inventory and a shell-quoted string would make an unusual one this
-# role's problem.
+# The whole invocation in one place. argv rather than a command string: the paths
+# come from the inventory, and quoting an unusual one is not this role's problem.
 #
-# No tree is named. init provisions the host; enrolling a tree is init-project
-# below, which reads the client group out of the config init installed rather
-# than being told it a second time.
+# No tree is named: init provisions the host, and init-project below enrols the
+# tree, reading the client group out of the config init installed.
 #
-# The binary is the staged one, init installing the binary it was itself run
-# from. faramir_staging.path is the temp directory the install block registers,
-# so this resolves only inside that block.
+# The staged binary, init installing the one it was run from, so this resolves
+# only inside the install block that registers faramir_staging.
 faramir_init_argv: >-
   {{
     [faramir_staging.path ~ '/faramir', 'init', '--json',
@@ -58,9 +50,8 @@ faramir_init_argv: >-
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
-# The same, for the one tree this repo enrols. The directory is last because
-# init-project takes it as an argument rather than a flag, and naming it keeps
-# the enrolment on playbook_dir rather than on wherever ansible-playbook ran.
+# The same, for the one tree this repo enrols. The directory is an argument rather
+# than a flag, and naming it pins the enrolment to playbook_dir.
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
@@ -72,9 +63,8 @@ faramir_init_project_argv: >-
     + [playbook_dir]
   }}
 
-# The same accounts and paths again: doctor checks the install against the names
-# it is given rather than against the config it finds, so passing them is what
-# makes an install that drifted from these variables a finding.
+# doctor checks the install against the names it is given rather than the config
+# it finds, so passing these is what makes drift a finding.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',

@@ -36,8 +36,7 @@ jobs:
       - name: Install ansible-lint
         run: pip install ansible-lint
 
-      # Install the collections the roles use so ansible-lint's syntax-check can
-      # validate their module arguments; without them those modules are unknown.
+      # Without them, syntax-check reports every collection module as unknown.
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r requirements.yml
 
@@ -58,8 +57,7 @@ jobs:
       - name: Install ansible-core
         run: pip install ansible-core
 
-      # roles are local, but the playbooks use community.*/ansible.posix modules;
-      # install the collections so FQCN references resolve during the parse.
+      # The roles are local, but their FQCN module references are not.
       - name: Install collections
         run: ansible-galaxy collection install -r requirements.yml
 
@@ -72,8 +70,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      # shellcheck is preinstalled on the runner image, so this needs no setup
-      # and no action: the script renders the templates and calls it.
+      # shellcheck is preinstalled on the runner image; the script renders the
+      # templates and calls it.
       - name: Run ShellCheck
         run: tests/lint.sh shell
 

@@ -1,9 +1,8 @@
 ---
-# Point Lutris's default install directory at games_lutris_dir, its share of the
-# per-launcher layout under ~/.local/games. Stored as system.game_path in system.yml,
-# which lives in config/lutris if that exists, else data/lutris. Only game_path is
-# enforced; existing keys are preserved. Safe to create when absent, unlike Heroic's
-# config.json, and the flatpak already has `home` access so no grant is needed.
+# Point Lutris's default install directory at games_lutris_dir. Stored as
+# system.game_path in system.yml, which lives in config/lutris if that exists, else
+# data/lutris. Only game_path is enforced, and the file is safe to create when
+# absent, unlike Heroic's config.json. The flatpak already has `home` access.
 - name: Check for the deprecated Lutris config directory
   ansible.builtin.stat:
     path: "{{ games_lutris_config_dir }}"

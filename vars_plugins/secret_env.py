@@ -1,14 +1,12 @@
-# Every secret_* environment variable becomes an inventory variable of the same
-# name, so host_vars can reference secret_msmtp_password without this repo
-# holding a mapping for it.
+# Every secret_* environment variable becomes an inventory variable of the same name,
+# so host_vars can reference one without this repo holding a mapping for it.
 #
-# A credential that is not in the environment is absent rather than empty: the
-# first task to use it fails naming it, instead of the run applying a blank
-# credential and reporting success. An empty value counts as absent for the same
-# reason.
+# A credential not in the environment is absent rather than empty, so the first task
+# to use it fails naming it rather than applying a blank and reporting success. An
+# empty value counts as absent for the same reason.
 #
-# The values arrive from `sops exec-env` (make) or from the broker
-# (`faramir run --env-file faramir.env`). Nothing here reads the store.
+# The values arrive from `sops exec-env` or from the broker; nothing here reads the
+# store. See the README.
 from os import environ
 
 from ansible.plugins.vars import BaseVarsPlugin
@@ -29,18 +27,17 @@ DOCUMENTATION = """
 SECRET_PREFIX = "secret_"
 
 # How many were injected, so a play can require that credentials arrived without
-# naming every variable it might read. They arrive as a set: sops exec-env or the
-# broker injects the whole env file or nothing does, so one count answers for all
-# of them, and it answers the same on every host whatever that host references.
+# naming each one: the whole env file arrives or nothing does, so one count answers
+# for all of them, on every host.
 #
-# Not prefixed secret_, which names a variable holding a credential. This holds a
-# count, it is safe to print, and `ansible <host> -m debug -a 'var=secrets_injected'`
-# is how to tell an uninjected run from a misnamed reference.
+# Not prefixed secret_, which names a credential. This is a count and safe to print,
+# and `ansible <host> -m debug -a 'var=secrets_injected'` tells an uninjected run
+# from a misnamed reference.
 COUNT_VAR = "secrets_injected"
 
 
 class VarsModule(BaseVarsPlugin):
-    # The same for every host and group, so the entities are not consulted.
+    # The same for every host and group, so entities is not consulted.
     def get_vars(self, loader, path, entities, cache=True):
         super().get_vars(loader, path, entities)
         secrets = {
