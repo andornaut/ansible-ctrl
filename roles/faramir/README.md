@@ -43,34 +43,19 @@ Drop-ins merge over the base in lexical order and face every check the base file
 
 ## Running playbooks
 
-`make` is the operator's entry point. The three targets that read a credential, `homeautomation`, `msmtp` and `webservers`, re-enter under `sops exec-env`; the rest run straight through, having nothing to load.
+`homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other twelve targets run straight through.
 
-Since the store belongs to a group the operator is not in, that re-entry only succeeds as root. Two accounts can serve a secret-bearing run and neither covers the whole fleet:
+| Run | Command |
+| --- | --- |
+| no credential | `make <playbook>` |
+| credential, controller | `sudo make <playbook> -- --limit <controller>` |
+| credential, fleet | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'` |
 
-```bash
-sudo make homeautomation -- --limit <controller>   # root reads the store; the controller is a local connection, so no ssh key is needed
-faramir run --env-file faramir.env -- \            # the executor authenticates everywhere but has no sudo on the controller
-    ansible-playbook homeautomation.yml --limit '!faramir'
-```
-
-`make` refuses a secret-bearing target it cannot serve and prints both, rather than choosing one and silently changing which account the playbook runs as. Targets that read no credential are unaffected:
-
-```bash
-make faramir                             # no credential, so no re-entry and no refusal
-make desktop -- --limit <host>
-make faramir_fleet ASK_PASS=1            # forces the sudo prompt
-```
-
-Whether it prompts is decided per run by one ansible call that connects to nothing, from the hosts the run targets (honouring `--limit`) and the roles it pulls in. Roles matter because `delegate_to: localhost` reaches the controller without appearing in any host list. It errs toward asking. `ASK_PASS=1` forces the prompt, which the fleet play needs because it is the run that establishes the NOPASSWD that makes prompting unnecessary. A run that is already root is never asked.
-
-The agent does not use `make`:
-
-```bash
-faramir run --env-file faramir.env -- \
-    ansible-playbook homeautomation.yml --limit '!faramir'
-```
+The re-entry succeeds only as root, the store's group holding no human, and neither account covers the whole fleet: root has no key for a host it must reach over ssh, and the executor has no sudo on the controller. So `make` refuses a run it cannot serve and prints both, rather than picking one and silently changing which account the playbook runs as.
 
 `faramir.env` holds refs, never values. Both paths set the same variable names, so one list serves both.
+
+`--ask-become-pass` is added only when the run reaches the controller, decided per run by one ansible call that connects to nothing. Roles are checked as well as hosts, because `delegate_to: localhost` reaches the controller without appearing in any host list. It errs toward asking, and a run already root is never asked. `ASK_PASS=1` forces it, which `faramir_fleet.yml` needs: that is the run establishing the NOPASSWD which makes prompting unnecessary.
 
 ## What the role does
 
@@ -85,15 +70,14 @@ What belongs to this project rather than to faramir:
 | `faramir reload` when that changes | the drop-in is the role's to write, so triggering the daemons is the role's too |
 | the `AGENTS.md` block | how to run *these* playbooks through the broker |
 | `faramir doctor` and its assert | the run has to fail when the result does not work, and a playbook is what fails |
-| `CLEANUP` tasks | faramir installs and never migrates; a repair built into `init` could not know when every host had run it |
 
 ### The binary
 
-faramir ships one executable. The three daemons, the MCP server and the PreToolUse hook are subcommands of it (`faramir broker`, `keeper`, `exec`, `mcp`, `guard`), and what separates the roles is the `User=` each unit runs its subcommand as, not which file it came from. `/usr/local/libexec/faramir/` still holds the hook's deny list and wrap script, rendered per install, but no binary.
+One executable. The daemons, the MCP server and the PreToolUse hook are subcommands (`faramir broker`, `keeper`, `exec`, `mcp`, `guard`), separated by the `User=` each unit runs its subcommand as rather than by which file they came from. Units, base config, agent hook and docs are embedded in it; `/usr/local/libexec/faramir/` holds the hook's deny list and wrap script, rendered per install.
 
-faramir's CI cuts a `dev` release on every push to its `main`, publishing one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive its architecture selects into a temp directory, unpacks it, hands the directory to `init`, and removes it: what is installed is what `init` copied into `/usr/local/bin`. One ~7MB archive a run, no Go toolchain and no faramir checkout on the controller. Everything else (units, base config, agent hook, docs) is embedded in the binary.
+faramir's CI cuts a `dev` release on every push to its `main`: one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive into a temp directory, unpacks it, hands the directory to `init`, and removes it. One ~7MB archive a run, no Go toolchain and no faramir checkout on the controller.
 
-`get_url` verifies the archive against `checksums.txt` from the same release. `dev` is deleted and re-cut on every push, so a download straddling a re-cut fails the checksum rather than installing a build that does not match what was verified.
+`get_url` verifies against `checksums.txt` from the same release. `dev` is deleted and re-cut on every push, so a download straddling a re-cut fails the checksum rather than installing a build that was never verified.
 
 `faramir_arch` maps the kernel name onto the asset's: `x86_64` stays, `aarch64` becomes `arm64`. The kernel is not mapped, faramir being linux-only: the broker reads peer credentials with `SO_PEERCRED` and the executor allocates PTYs with `TIOCGPTN`.
 
