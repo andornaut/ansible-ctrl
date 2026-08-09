@@ -210,33 +210,6 @@
 # directory, so a sops file is managed by being in it, and the keeper expands
 # that pattern per request: a file added there is picked up without a config
 # edit and without restarting a daemon.
-#
-# CLEANUP (added 2026-08-08): remove once every host in the faramir group has
-# run this play. The drop-in named one file explicitly, which the glob now
-# covers. Left behind it is a second name for the same store that nothing
-# reconciles, and renaming the file would then fail the load gate on an entry
-# no longer written from here.
-- name: Remove the superseded secrets drop-in
-  ansible.builtin.file:
-    path: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
-    state: absent
-  register: faramir_dropin_removed
-  become: true
-
-# Neither daemon re-reads its config while running, and the keeper has to lead:
-# it decrypts the file list the broker is then served, so restarting the broker
-# first just fetches the old value set again. `faramir reload` is that order,
-# which is why this is one command rather than two systemd_service tasks.
-#
-# A task rather than a handler, hence the noqa: doctor below reads what the
-# broker loaded, so a restart deferred to the end of the play would report the
-# state this run was meant to replace.
-- name: Restart the daemons onto the changed config # noqa: no-handler
-  ansible.builtin.command:
-    cmd: /usr/local/bin/faramir reload
-  when: faramir_dropin_removed.changed
-  changed_when: true
-  become: true
 
 # faramir's own agent snippet says how the broker works and nothing about this
 # repo. These two flags are what make a brokered run work here, and an agent
