@@ -60,7 +60,7 @@ Most playbooks apply one role to one group. The exceptions:
 | [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
 | [docker.yml](docker.yml) | Applies `docker` to `dev`, `homeautomation` and `webservers` in one run |
 | [webservers.yml](webservers.yml) | Applies the `letsencrypt_nginx` role, which does not share the playbook's name |
-| [faramir_fleet.yml](faramir_fleet.yml) | Uses no role: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
+| [faramir_fleet.yml](faramir_fleet.yml) | Applies the `faramir` role's `ssh` entry point (`tasks_from`) rather than its `main`: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
 | [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
 | [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
 

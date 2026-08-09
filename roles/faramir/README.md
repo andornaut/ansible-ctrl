@@ -15,6 +15,10 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 
 Log out and back in after the first install. It adds you to `faramir_dev_group`, and group membership is read at login.
 
+The role has two entry points. `tasks/main.yml` installs the broker on the controller, and is what `faramir.yml` applies. `tasks/ssh.yml` authorizes that broker's key across the fleet, and is what `faramir_fleet.yml` applies, over `hosts: all` and with `tasks_from: ssh` so nothing else in the role runs there: it reads the key off the controller, installs it on every other host without `exclusive`, grants that account NOPASSWD sudo, then pings every host back through the broker. Separate because the second writes to production hosts and is useful only once the first has produced a key to distribute.
+
+One play, where that was three. The default linear strategy runs each task on every host before starting the next, so the key is published before the first host is asked to authorize it, and every host has been asked before the brokered ping goes looking for it.
+
 ## Running playbooks
 
 `homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other twelve targets run straight through.
@@ -36,7 +40,7 @@ Neither account covers the whole fleet: root has no key for a host it must reach
 - **Every credential lives in the store**, `~/.faramir/secrets/ansible-ctrl.sops.yml`. A credential held anywhere else is absent from the broker's value set: neither injectable through `--env` nor known to the redactor, so a playbook that prints it prints plaintext.
 - **The store must never sit under `group_vars/` or `host_vars/`.** Ansible auto-loads every `.yml` there and a sops file is valid YAML, so each var binds to its `ENC[...]` ciphertext. Nothing errors; hosts get the ciphertext as the password. `faramir init` refuses to finish against a store under either directory.
 - **The store must not be in the checkout.** This is a public repo, and a store inside it is ciphertext of every credential one `git add -f` from publication.
-- **No sudo password in the store.** `ansible_become_password` for the operator is their login password, and the agent already runs as that account: with the password it has sudo, on the controller that is root, and root reads the keeper's age key. The fleet gets NOPASSWD sudo instead, installed by `faramir_fleet.yml`.
+- **No sudo password in the store.** `ansible_become_password` for the operator is their login password, and the agent already runs as that account: with the password it has sudo, on the controller that is root, and root reads the keeper's age key. The fleet gets NOPASSWD sudo instead, installed by `tasks/ssh.yml`.
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir'`. Commands run as `faramir-exec`, which has no sudo here, and granting it any would hand the agent root on the machine holding the age key. Apply the controller's own playbooks as the operator.
 - **Nothing under the home is readable before first login.** Config and store both sit in the operator's encrypted home, so a reboot leaves the store absent and a 03:00 renewal on an unmounted home does not run. Point `faramir_config_dir` at an unencrypted filesystem and that trade changes.
 
