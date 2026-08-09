@@ -10,6 +10,39 @@
 # sandboxing belong to faramir and are not restated here: a setting named in
 # both places is one that can disagree with itself.
 
+# Before anything else, and asserted rather than delegated. This entry point
+# installs the broker: it creates three service accounts, installs systemd units,
+# writes a config directory root owns, and generates the key that ends up in
+# authorized_keys across the fleet. Run against a managed host it provisions that
+# host instead, and the working-tree check further down is not the backstop it
+# looks like, a host with a directory at the same path passing it.
+#
+# The faramir group names the one host meant to get all that, so membership of it
+# is the whole condition. Nothing here reads a hostname: which host is the
+# controller is the inventory's to say, not this role's.
+#
+# ssh.yml is the entry point for every other host, and faramir_fleet.yml applies
+# it over hosts: all, so the file next door is one tasks_from away from being
+# this one. That is what this guards against.
+#
+# Not delegate_to: localhost, which is how the torrent role reaches the
+# controller from a play targeting somewhere else. It would not stop this: a
+# delegated task resolves plain variables from the play host rather than the
+# delegate, so a role applied to the fleet would still install here, once per
+# host, each run using that host's primary_user and config path. The install
+# would land on the controller and describe someone else.
+- name: Require the controller
+  ansible.builtin.assert:
+    that: inventory_hostname in groups['faramir'] | default([])
+    fail_msg: >-
+      {{ inventory_hostname }} is not in the faramir group, and this role
+      installs the broker on the controller: service accounts, systemd units,
+      the age key and root's config directory. Apply it with make faramir, which
+      targets that group. To authorize the broker's key on this host instead,
+      that is make faramir_fleet, which applies tasks/ssh.yml.
+    quiet: true
+  tags: always
+
 # faramir_user_home indexes this, and the config directory, the store and the
 # age key all hang off it. tags: always so a --tags run cannot skip it.
 - name: Read the passwd database
