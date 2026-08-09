@@ -206,6 +206,36 @@
     msg: "{{ faramir_report.warnings }}"
   when: faramir_report.warnings | default([]) | length > 0
 
+# CLEANUP (added 2026-08-09): remove once every host in the faramir group has
+# run this play. faramir used to install its docs flat into the doc directory;
+# they now sit under docs/ there, so the installed README's links and every
+# "see docs/<name>.md" in the deny list, the plugins and `faramir edit` resolve
+# on a host with no checkout. init installs and never migrates, so the flat
+# copies stay until something removes them, and a stale one is a doc from an
+# older binary sitting beside the current one.
+#
+# README.md is excluded: that one belongs at the top, and it is what every
+# unit's Documentation= names.
+- name: Find the docs faramir used to install flat
+  ansible.builtin.find:
+    paths: /usr/local/share/doc/faramir
+    patterns: "*.md"
+    excludes: README.md
+    recurse: false
+    file_type: file
+  register: faramir_flat_docs
+  check_mode: false
+  changed_when: false
+
+- name: Remove the docs faramir used to install flat
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ faramir_flat_docs.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true
+
 # This project names no secrets file. faramir's base config globs the store
 # directory, so a sops file is managed by being in it, and the keeper expands
 # that pattern per request: a file added there is picked up without a config
