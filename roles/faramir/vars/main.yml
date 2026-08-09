@@ -28,32 +28,32 @@ faramir_arch: >-
 # builds for no other kernel and there is nothing for a system fact to select.
 faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 
-# Where the archive is unpacked: a directory holding what came out of it and
-# nothing else. init installs the binary it was itself run from, so running the
-# staged one is what puts that build on the host and there is nothing to name.
-# faramir_staging.path is the temp directory the install block registers, so this
-# resolves only in there.
-faramir_binaries_dir: "{{ faramir_staging.path }}/binaries"
+# Where init puts the binary, and so what every later invocation runs.
+faramir_binary: /usr/local/bin/faramir
+
+# Warnings from enrolling the checkout, which is skipped on a --check run
+# against a host that has no binary yet: the register then holds no stdout.
+faramir_project_warnings: >-
+  {{ (faramir_project.stdout | from_json).warnings | default([])
+     if faramir_project.stdout | default('') | length > 0 else [] }}
 
 # The whole invocation, assembled once. An argv list rather than a command
 # string: paths here come from the inventory and a shell-quoted string would
 # make an unusual one this role's problem.
 #
 # Everything init needs is on this line, so there is no second place a value can
-# be set differently. The role's own share of the work afterwards is the two
-# things that belong to this project rather than to faramir: which sops files
-# the broker manages, and how a brokered playbook is run.
+# be set differently.
 #
 # No tree is named here. init provisions the host; enrolling a tree is
 # `faramir init-project`, which is per project and reads the client group out of
 # the config init installed rather than being told it a second time.
 #
-# faramir_binaries_dir hangs off the temp directory the install block registers.
-# Resolved where this is used rather than here, so it is only ever read inside
-# the block that created it.
+# The binary is the staged one, init installing the binary it was itself run
+# from. faramir_staging.path is the temp directory the install block registers,
+# so this resolves only inside that block.
 faramir_init_argv: >-
   {{
-    [faramir_binaries_dir ~ '/faramir', 'init', '--json',
+    [faramir_staging.path ~ '/faramir', 'init', '--json',
      '--operator', faramir_user,
      '--client-group', faramir_dev_group,
      '--broker-user', faramir_broker_user,
@@ -71,10 +71,25 @@ faramir_init_argv: >-
 # the enrolment on playbook_dir rather than on wherever ansible-playbook ran.
 faramir_init_project_argv: >-
   {{
-    ['/usr/local/bin/faramir', 'init-project', '--json',
+    [faramir_binary, 'init-project', '--json',
      '--operator', faramir_user,
      '--config-dir', faramir_config_dir,
      '--hook=' ~ (faramir_project_hook | bool | lower)]
     + (['--agent'] | product(faramir_project_agents) | flatten)
+    + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]
+  }}
+
+# The same accounts and paths again: doctor checks the install against the names
+# it is given rather than against the config it finds, so passing them is what
+# makes an install that drifted from these variables a finding.
+faramir_doctor_argv: >-
+  {{
+    [faramir_binary, 'doctor', '--json',
+     '--operator', faramir_user,
+     '--client-group', faramir_dev_group,
+     '--broker-user', faramir_broker_user,
+     '--keeper-user', faramir_keeper_user,
+     '--exec-user', faramir_exec_user,
+     '--config-dir', faramir_config_dir]
   }}
