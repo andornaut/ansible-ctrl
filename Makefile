@@ -27,7 +27,7 @@ endif
 %:
 	@:
 
-PLAYBOOKS := base desktop dev docker faramir faramir_fleet \
+PLAYBOOKS := base desktop dev docker faramir \
              games hobbies homeautomation msmtp nas rsnapshot torrent upgrade \
              webservers
 
@@ -69,9 +69,8 @@ help:
 	@echo "  desktop               - Configure desktop environment"
 	@echo "  dev                   - Configure development tools"
 	@echo "  docker                - Configure Docker and Kubernetes"
-	@echo "  faramir               - Install the faramir secret broker on the controller"
-	@echo "  faramir_fleet         - Authorize the broker's SSH key on the managed hosts"
-	@echo "                          (needs ASK_PASS=1 until those hosts have NOPASSWD sudo)"
+	@echo "  faramir               - Install the faramir secret broker on the controller,"
+	@echo "                          then authorize its SSH key on the managed hosts"
 	@echo "  games                 - Configure gaming packages"
 	@echo "  hobbies               - Configure hobby tools (3D printing, electronics, FPV)"
 	@echo "  homeautomation        - Configure home automation"
@@ -186,8 +185,10 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 
 # IS_ROOT is tested first: sudo asks root for nothing, and ansible prompts at
 # startup whether or not the password is used. Then ASK_PASS=1, which forces the
-# prompt for the fleet play, the run that establishes the NOPASSWD the rest rely
-# on.
+# prompt for a run the check below reads as needing none. `make faramir` is not
+# one of those: the controller is in its first play, so the prompt that play
+# earns is also what serves its second one, the fleet play that establishes the
+# NOPASSWD the rest rely on.
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   run=$$($(call list_run,$(1))); \

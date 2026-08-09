@@ -1,9 +1,10 @@
 ---
 # Authorize the broker's key on the hosts brokered playbooks reach.
 #
-# A second entry point rather than part of main.yml: this writes to production
-# hosts, and is useful only once the controller has a broker with a key to
-# distribute. faramir_fleet.yml applies it, and applies nothing else.
+# A second entry point rather than part of main.yml: that one installs the broker
+# on the controller alone, and these run over the whole inventory. faramir.yml
+# applies both, this one as its second play, reached with tasks_from so nothing
+# else in the role runs against the fleet.
 #
 # One task file over the whole inventory, where this was three plays split by
 # hosts: pattern. What the pattern used to say, each block now says by comparing
@@ -75,7 +76,7 @@
           The controller published no public key, so there is nothing to
           authorize here. It is in this run only when the run reaches it, and
           --limit '!faramir', which every brokered run carries, excludes it.
-          Apply this playbook as the operator: make faramir_fleet ASK_PASS=1
+          Apply this playbook as the operator: make faramir
         quiet: true
 
     - name: Authorize the broker's key for the ansible account
