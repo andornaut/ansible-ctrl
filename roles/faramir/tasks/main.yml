@@ -10,27 +10,20 @@
 # sandboxing belong to faramir and are not restated here: a setting named in
 # both places is one that can disagree with itself.
 
-# Before anything else, and asserted rather than delegated. This entry point
-# installs the broker: it creates three service accounts, installs systemd units,
-# writes a config directory root owns, and generates the key that ends up in
-# authorized_keys across the fleet. Run against a managed host it provisions that
-# host instead, and the working-tree check further down is not the backstop it
-# looks like, a host with a directory at the same path passing it.
+# Before anything else. This entry point installs the broker, so run against a
+# managed host it provisions that host instead, and ssh.yml next door is applied
+# over hosts: all: one tasks_from away from being this file. The working-tree
+# check below is not the backstop it looks like, a host with a directory at the
+# same path passing it.
 #
-# faramir_controller names the one host meant to get all that, and this compares
-# against it rather than against membership of the faramir group: a group is a
-# list, and the guard has to answer for the case where it holds two.
+# Against faramir_controller rather than membership of the faramir group, a group
+# being a list and the guard having to answer for one holding two.
 #
-# ssh.yml is the entry point for every other host, and faramir_fleet.yml applies
-# it over hosts: all, so the file next door is one tasks_from away from being
-# this one. That is what this guards against.
-#
-# Not delegate_to: localhost, which is how the torrent role reaches the
-# controller from a play targeting somewhere else. It would not stop this: a
-# delegated task resolves plain variables from the play host rather than the
-# delegate, so a role applied to the fleet would still install here, once per
-# host, each run using that host's primary_user and config path. The install
-# would land on the controller and describe someone else.
+# Not delegate_to: localhost, the torrent role's way of reaching the controller
+# from a play targeting somewhere else. It would not stop this: a delegated task
+# resolves plain variables from the play host rather than the delegate, so a role
+# applied to the fleet would still install here, once per host, each run using
+# that host's primary_user and config path.
 - name: Require the controller
   ansible.builtin.assert:
     that: inventory_hostname == faramir_controller

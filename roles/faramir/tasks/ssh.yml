@@ -2,10 +2,8 @@
 # Authorize the broker's key on the hosts brokered playbooks reach.
 #
 # A second entry point rather than part of main.yml: this writes to production
-# hosts rather than to the controller, and it is only useful once the controller
-# has a broker with a key to distribute. main.yml prints that key and fails when
-# the broker's agent holds none; these tasks are what make the key mean
-# something. faramir_fleet.yml applies them, and applies nothing else.
+# hosts, and is useful only once the controller has a broker with a key to
+# distribute. faramir_fleet.yml applies it, and applies nothing else.
 #
 # One task file over the whole inventory, where this was three plays split by
 # hosts: pattern. What the pattern used to say, each block now says by comparing
@@ -14,13 +12,11 @@
 # before the first host is asked to authorize it, and every host has been asked
 # before the brokered ping goes looking for it.
 
-# The key comes off faramir_controller, every other host authorizes that one key,
-# and the brokered ping is asked of it. The faramir group is what the plays
-# target, so the two have to agree: a group holding some other host would leave
-# this run reading a key from a host it never reached, and a group holding two
-# would distribute one of the two brokers' keys and refuse the other's brokered
-# runs everywhere. Both are inventory mistakes, and both are errors here rather
-# than something to be resolved by picking a member.
+# The key comes off faramir_controller and the plays target the faramir group, so
+# the two have to agree. A group holding some other host would read a key from a
+# host this run never reached; one holding two would distribute one of the two
+# brokers' keys and refuse the other's brokered runs everywhere. Both are
+# inventory mistakes rather than something to resolve by picking a member.
 - name: Require the faramir group to hold the controller alone
   ansible.builtin.assert:
     that: groups['faramir'] | default([]) == [faramir_controller]
