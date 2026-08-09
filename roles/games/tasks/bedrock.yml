@@ -10,12 +10,11 @@
         hint: "It comes from this role's flatpak tag: make games -- --tags flatpak"
 
 # github.com/Wyze3306/BedrockOnLinux ships only a release .flatpak bundle, which the
-# flatpak module cannot install: it takes app IDs and flatpakref URLs only.
+# flatpak module cannot install, taking app IDs and flatpakref URLs only. The
+# launcher only: game files and Microsoft sign-in are interactive per-user steps.
 #
-# The launcher only; game files and Microsoft sign-in are interactive per-user steps.
-#
-# /releases/latest is unusable here: the repo publishes its bundled engine components
-# as full releases too, so list releases newest-first and take the first vN.N.N tag.
+# /releases/latest is unusable, the repo publishing its bundled engine components as
+# full releases too, so take the first vN.N.N tag off a newest-first listing.
 - name: Resolve the BedrockOnLinux releases
   ansible.builtin.uri:
     url: https://api.github.com/repos/Wyze3306/BedrockOnLinux/releases?per_page=100
@@ -108,10 +107,10 @@
         dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
         mode: "0644"
 
-# BOL's gpu_safety check fail-closes under X11 because the freedesktop runtime ships
-# no xrandr. Vendoring the host binary into a read-only grant on PATH keeps every
-# check active, unlike BOL_ALLOW_UNSAFE_GPU or a whole --filesystem=host-os grant.
-# xrandr links only against runtime libraries. No-op on Wayland.
+# BOL's gpu_safety check fail-closes under X11, the freedesktop runtime shipping no
+# xrandr. Vendoring the host binary into a read-only grant on PATH keeps every check
+# active, unlike BOL_ALLOW_UNSAFE_GPU or a --filesystem=host-os grant. No-op on
+# Wayland, and xrandr links only against runtime libraries.
 - name: Check for the host xrandr
   ansible.builtin.stat:
     path: /usr/bin/xrandr

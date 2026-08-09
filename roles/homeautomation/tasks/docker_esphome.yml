@@ -38,10 +38,10 @@
     service_account_mode: "0700"
 
 # The dashboard pings devices to track whether they are online, and an unprivileged
-# ICMP datagram socket is the only way a non-root uid can: cap_add fills the
-# permitted set but not the ambient set, so NET_RAW never becomes effective. Such a
-# socket only sends echo requests and reads the replies. On the host, the container
-# being host-networked.
+# ICMP datagram socket is the only way a non-root uid can: cap_add fills the permitted
+# set but not the ambient one, so NET_RAW never becomes effective. Such a socket only
+# sends echo requests and reads the replies. On the host, the container being
+# host-networked.
 - name: Allow the ESPHome group to open unprivileged ICMP sockets
   ansible.posix.sysctl:
     name: net.ipv4.ping_group_range
@@ -107,9 +107,8 @@
   no_log: "{{ homeautomation_esphome_auth_configured | bool }}"
 
 # secrets.yaml holds the wifi and OTA passwords, and each device YAML that device's
-# API encryption key. Defence in depth behind the 0700 directory above, for if its
-# mode is ever loosened. Reasserted every run, the dashboard writing a file per
-# device with its own umask as devices are adopted.
+# API encryption key. Defence in depth behind the 0700 directory above, and reasserted
+# every run, the dashboard writing a file per device as they are adopted.
 - name: Find the ESPHome configuration files
   ansible.builtin.find:
     paths: "{{ homeautomation_esphome_required_volumes.config }}"

@@ -3,10 +3,9 @@
 set -euo pipefail
 
 QUIET=false
-# Bound a stalled transfer: a sync holds its host's lock for its whole duration, so
-# a hang blocks every later cron run. Without ConnectTimeout ssh waits out the
-# kernel's TCP connect timeout, which is longer than the interval cron fires at, and
-# once a transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+# Bound a stall: a sync holds its host's lock throughout, so a hang blocks every
+# later cron run. ssh otherwise waits out the kernel's TCP connect timeout, and once
+# a transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
 SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
@@ -26,9 +25,8 @@ EOF
     exit 0
 }
 
-# ANSI escapes only when the stream is a terminal: under cron this output goes to
-# a log file or a mail spool, where the codes are noise. Stdout and stderr are
-# tested separately because cron redirects them independently.
+# ANSI escapes only on a terminal: under cron this goes to a log or a mail spool.
+# The two streams are tested separately, cron redirecting them independently.
 O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
 [[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
 [[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
@@ -39,17 +37,15 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess. Matches a
-        # single dash followed by 2+ characters, so long options never reach it.
-        # Do not rewrite this using bash's parameter-length syntax: that opens a
-        # Jinja2 comment, and the template then fails to render.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
+        # and 2+ characters, so long options never match. Do not rewrite with
+        # bash's parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
             set -- "${bundle[@]/#/-}" "$@"
             ;;
-        # Without this, a typo falls through to the positional branch and is
-        # read as the destination directory.
+        # Or a typo falls through and is read as the destination directory.
         -*) error "unknown option: $1" ;;
         *) break ;;
     esac
@@ -58,8 +54,8 @@ done
 header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-# Not gated on --quiet, unlike the others: a warning names what went wrong, and the
-# cron job passes --quiet, so gating it leaves the final error unexplained in the log.
+# Ungated, unlike the others: the cron job passes --quiet, and gating this would
+# leave the final error unexplained in the log.
 warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 dst_dir="${1:-{{ torrent_local_incoming_directory }}}"
@@ -68,9 +64,8 @@ if [[ ! -d "${dst_dir}" ]]; then
     error "${dst_dir} does not exist (or is not a directory)"
 fi
 
-# --progress and --verbose emit a continuous stream of carriage-returned lines,
-# and the cron job appends to a log file that is not rotated, so --quiet has to
-# reach rsync too.
+# --quiet reaches rsync too: --progress emits carriage-returned lines by the
+# thousand, and the cron job appends to an unrotated log.
 rsync_opts=(--compress --copy-links --recursive --times)
 if "${QUIET}"; then
     rsync_opts+=(--quiet)
@@ -82,22 +77,18 @@ sync_host() {
     local src_host="${1}"
     local src_dir="${2}"
     local lock_file
-    # One lock per host+dir, so a second host still syncs while this one is busy.
-    # The uid keeps the path from colliding with another user's lock file.
+    # Per host+dir, so a second host still syncs while this one is busy. The uid
+    # keeps the path off another user's lock file.
     lock_file="${TMPDIR:-/tmp}/synct-$(id -u)-${src_host}${src_dir//\//_}.lock"
     header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
-    # flock holds the lock for the guarded subshell and releases it however that
-    # subshell ends, including a kill, which a pid check cannot see. A held lock
-    # means a prior sync for this host+dir is wedged rather than that runs overlap
-    # normally, so fail instead of skipping: the run is reported and the chained
-    # unrart does not see a half-synced incoming directory.
+    # flock releases however the guarded subshell ends, including a kill, which a
+    # pid check cannot see. A held lock means a prior sync is wedged, so fail
+    # rather than skip: the chained unrart must not see a half-synced directory.
     (
         flock -n 9 || error "A previous sync of ${src_host}:${src_dir} is still running"
         info "Starting sync on $(date)"
-        # Test rsync explicitly rather than leaving it to `set -e`: the caller
-        # invokes this function as the left side of an ||, and bash suspends
-        # `set -e` for the whole body of a function called that way, so a failing
-        # rsync would fall through to the ok() below and report a false success.
+        # Tested rather than left to `set -e`, which bash suspends for the whole
+        # body of a function called on the left of an ||, as this one is.
         if ! rsync "${rsync_opts[@]}" -e "ssh ${SSH_OPTS[*]}" "${src_host}:${src_dir}" "${dst_dir}"; then
             warn "Failed to synchronize ${src_host}:${src_dir}"
             exit 1
@@ -106,9 +97,8 @@ sync_host() {
     ) 9>"${lock_file}"
 }
 
-# A host that cannot be reached is not a reason to skip the rest, so collect the
-# failures and report them at the end. The names go in the message because error()
-# ignores --quiet, which the cron job passes.
+# An unreachable host is no reason to skip the rest. The names go in the message
+# because error() ignores the --quiet the cron job passes.
 failed_hosts=""
 {% for host in ansible_play_batch %}
 {% if host != "localhost" %}
@@ -116,6 +106,6 @@ sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torre
 {% endif %}
 {% endfor %}
 
-# Exit non-zero so cron reports the run, and so the chained unrart does not run
-# against a half-synced incoming directory.
+# Non-zero so cron reports the run, and the chained unrart does not run against a
+# half-synced incoming directory.
 [[ -z "${failed_hosts}" ]] || error "Could not synchronize:${failed_hosts}"

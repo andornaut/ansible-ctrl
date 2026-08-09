@@ -1,7 +1,6 @@
 ---
-# Values derived from defaults/main.yml, not operator knobs. They live here rather than
-# in defaults/ so that role vars outrank host_vars and a host cannot desync a derived
-# value from the variable it is derived from.
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
 
 letsencrypt_nginx_default_logging:
   driver: "json-file"

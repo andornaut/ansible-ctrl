@@ -4,16 +4,12 @@ letsencrypt_nginx_acme_version: 2
 letsencrypt_nginx_csr_country: CA
 letsencrypt_nginx_docker_extra_volumes: []
 letsencrypt_nginx_docker_image: nginx:stable
-# Docker's json-file driver rotates nothing by default, and the access log is a
-# line per request on stdout, so the container's log file grows until the disk
-# fills. Bounded at max_size * max_file per container.
+# json-file rotates nothing by default, and the access log is a line per request
+# on stdout. Bounded at max_size * max_file per container.
 letsencrypt_nginx_docker_log_max_file: "10"
 letsencrypt_nginx_docker_log_max_size: "10m"
-# The uid the image's worker processes run as. The master runs as root and
-# reads the config, but a worker opens the .htpasswd file on every
-# authenticated request, so that is the uid those files must be readable by.
-# Numeric because it is the container's uid: the host's own account at 101 is
-# unrelated to nginx.
+# The image's worker uid, which is what opens .htpasswd on every authenticated
+# request. Numeric because it is the container's: the host's own 101 is unrelated.
 letsencrypt_nginx_docker_worker_uid: "101"
 letsencrypt_nginx_docker_required_volumes:
   config: /var/docker-volumes/nginx/config
@@ -23,35 +19,27 @@ letsencrypt_nginx_remaining_days: 30
 letsencrypt_nginx_hidden_patterns: []
 letsencrypt_nginx_websites: []
 
-# Renewal re-runs this playbook: letsencrypt.yml reissues any cert within
-# letsencrypt_nginx_remaining_days of expiry. Only the controller has a checkout, so enable
-# this in the controller's host_vars; the nightly run reapplies the whole role.
+# Renewal re-runs this playbook, reissuing any cert within
+# letsencrypt_nginx_remaining_days of expiry. Only the controller has a checkout,
+# so enable it there; the nightly run reapplies the whole role.
 letsencrypt_nginx_install_renewal_cron: false
 letsencrypt_nginx_renewal_cron_hour: "22"
 letsencrypt_nginx_renewal_cron_minute: "11"
-# Directory ansible-playbook runs from; defaults to the current run's checkout.
+# Where ansible-playbook runs from, defaulting to this run's checkout.
 letsencrypt_nginx_renewal_cron_directory: "{{ playbook_dir }}"
 letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
-# The account whose home holds the store. Its home is resolved with getent in
-# cron.yml, never assumed to be /home/{{ letsencrypt_nginx_operator }}.
+# The account whose home holds the store. cron.yml resolves the home with getent.
 letsencrypt_nginx_operator: "{{ primary_user }}"
 
-# The sops file the renewal run reads its credentials from. In the operator's
-# home, so it is resolved from primary_user rather than named: this job runs as
-# root, whose own ~ is /root. Paired with SOPS_FILE in the Makefile: if one moves
-# the other has to follow.
-#
-# The job already runs from playbook_dir, which is in that same home, so it is
-# gated on the home being mounted either way. What that costs is stated in the
-# role README: an unmounted home at 03:00 means no renewal, and the preflight
-# mails rather than failing quietly.
+# Where the renewal run reads its credentials. Resolved from primary_user rather
+# than named, this job running as root, whose own ~ is /root. Paired with
+# SOPS_FILE in the Makefile. The job runs from playbook_dir in that same home
+# anyway, so an unmounted home stops it either way; see the role README.
 letsencrypt_nginx_renewal_cron_sops_file: >-
   {{ letsencrypt_nginx_operator_home }}/.faramir/secrets/ansible-ctrl.sops.yml
-# The age key that decrypts it. The keeper's, which is already a recipient and
-# which root can read whatever its mode: this job runs as root, so naming it
-# grants nothing root did not have. It sits beside the broker's config in the
-# same home as the store, resolved the same way and for the same reason, so the
-# preflight that guards an unmounted home guards both. SOPS_AGE_KEY_FILE takes a
-# path rather than a value, so the material is read only by sops itself.
+# The keeper's key, already a recipient and readable by root whatever its mode, so
+# naming it grants nothing. Beside the broker's config in the same home as the
+# store, so one preflight guards both. SOPS_AGE_KEY_FILE takes a path, not a
+# value, so only sops reads the material.
 letsencrypt_nginx_renewal_cron_age_key_file: >-
   {{ letsencrypt_nginx_operator_home }}/.faramir/age.key

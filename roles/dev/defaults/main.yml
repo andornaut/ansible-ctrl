@@ -1,9 +1,8 @@
 ---
-# Account that user-scoped tasks act on. Defaults to primary_user; override per host.
+# The account the user-scoped tasks act on.
 dev_user: "{{ primary_user }}"
 
-# Secure Boot refuses to load the DKMS modules unless the machine owner key is
-# enrolled, so enable this only on hosts meant to run VMs.
+# Secure Boot refuses the DKMS modules until the machine owner key is enrolled.
 dev_install_virtualbox: false
 # Oracle publishes one apt package per minor series (virtualbox-7.2).
 dev_virtualbox_version: "7.2"

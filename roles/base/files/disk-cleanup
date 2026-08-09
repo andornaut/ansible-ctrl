@@ -11,8 +11,7 @@ apt-get autoremove --purge --yes
 # Vacuum journald logs (also enforced continuously by journald.conf).
 journalctl --vacuum-size=500M --vacuum-time=4weeks
 
-# Remove unused Docker images, containers, networks, and build cache.
-# --all removes all unused images; volumes are preserved to avoid data loss.
+# Unused images, containers, networks and build cache. Volumes are preserved.
 if command -v docker >/dev/null 2>&1; then
     docker system prune --all --force
 fi

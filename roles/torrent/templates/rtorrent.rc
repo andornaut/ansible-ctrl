@@ -10,9 +10,7 @@ method.insert = cfg.session,  private|const|string, (cat,"{{ torrent_session_dir
 method.insert = cfg.watch,    private|const|string, (cat,"{{ torrent_watch_directory }}/")
 
 
-## Create instance directories
-## The role's "Create directories" task also makes these at provision time; recreating them
-## here self-heals a fresh or remounted root (e.g. a NAS mount) without re-running Ansible.
+## Created at provision time too; here to self-heal a remounted root without a run.
 execute.throw = sh, -c, (cat,\
     "mkdir -p \"",(cfg.download),"\" ",\
     "\"",(cfg.logs),"\" ",\
@@ -37,16 +35,13 @@ throttle.global_up.max_rate.set_kb   = {{ torrent_upload_rate_kib }}
 protocol.encryption.set = allow_incoming,try_outgoing,enable_retry
 
 
-## Limits for file handle resources, this is optimized for
-## an `ulimit` of 1024 (a common default). You MUST leave
-## a ceiling of handles reserved for rTorrent's internal needs!
+## Sized for an `ulimit` of 1024, leaving rtorrent headroom for its own handles.
 network.http.max_open.set = 50
 network.max_open_files.set = 600
 network.max_open_sockets.set = 300
 
 
-## Memory resource usage (increase if you have a large number of items loaded,
-## and/or the available resources to spend)
+## Raise with the number of items loaded; see torrent_pieces_memory_max.
 pieces.memory.max.set = {{ torrent_pieces_memory_max }}
 network.xmlrpc.size_limit.set = 4M
 

@@ -1,14 +1,10 @@
-# Managed by the desktop role (tasks/idle.yml); edits are lost on the next run. Policy comes
-# from desktop_suspend_inactive_minutes.
+# Managed by the desktop role (tasks/idle.yml); edits are lost on the next run. Policy
+# comes from desktop_suspend_inactive_minutes.
 #
-# logind cannot detect idleness itself. Under bspwm xss-lock sets the session's idle hint when
-# the X screensaver activates (desktop_screen_blank_minutes into the idle period), and
-# IdleActionSec counts from that moment, so the role subtracts the blank timeout to keep the
-# variable meaning "suspend this long after the last input". System-wide, unlike the per-session
-# GNOME/niri mechanisms: logind suspends only when every session (ssh included) is idle. See the
-# role README.
-#
-# IdleAction=ignore takes no timeout.
+# logind cannot detect idleness itself: xss-lock sets the idle hint at blank time and
+# IdleActionSec counts from there, so the role subtracts the blank timeout. System-wide,
+# unlike the GNOME and niri mechanisms, so every session must be idle, ssh included.
+# IdleAction=ignore takes no timeout. See the role README.
 [Login]
 IdleAction={{ desktop_suspend_idle_action }}
 {% if desktop_suspend_idle_action == 'suspend' %}
