@@ -1,19 +1,13 @@
 ---
 # The controller: the one host the broker is installed on, and the one whose key
-# the fleet authorizes. Named, not derived. The faramir group has to hold this
-# host and no other, which tasks/ssh.yml asserts; taking the group's first member
-# instead would let a second one in, and the fleet would then authorize whichever
-# of them the inventory happened to list first while the other's brokered runs
-# were refused everywhere, with nothing saying so.
+# the fleet authorizes. Named rather than taken as the faramir group's first
+# member, which would let a second one in and leave the fleet authorizing
+# whichever the inventory listed first. That group has to hold this host and no
+# other; tasks/ssh.yml asserts it, and tasks/main.yml refuses to install anywhere
+# else, naming this value and the host it was applied to.
 #
-# Two controllers is an error rather than a configuration: the fleet authorizes
-# one broker's key, and these tasks say which broker.
-#
-# Matched against inventory_hostname exactly, so this is whatever the inventory
-# calls the host, not a DNS name and not its ansible_host. Change it here if the
-# controller is ever renamed or replaced; tasks/main.yml refuses to install
-# anywhere else, and names both this value and the host it was applied to when it
-# does.
+# Matched against inventory_hostname exactly: whatever the inventory calls the
+# host, not a DNS name and not its ansible_host.
 faramir_controller: tron
 
 # The operator's own login account: it owns the working tree and is who the

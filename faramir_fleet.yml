@@ -1,28 +1,20 @@
 ---
 # Authorize the faramir broker's key on the hosts brokered playbooks reach.
 #
-# Separate from faramir.yml because it writes to production hosts rather than to
-# the controller, and because it is only useful once the controller has a broker
-# with a key to distribute. faramir.yml prints that key and fails when the
-# broker's agent holds none; this play is what makes the key mean something.
+# Separate from faramir.yml because it writes to production hosts, and because it
+# is useful only once the controller has a broker with a key to distribute.
+# Reached from a brokered run it would grant the agent its own reach, so it is a
+# playbook of its own rather than tasks folded into a play every run applies.
 #
-# Reached from a brokered run it would grant the agent's own reach, so it is a
-# playbook of its own rather than tasks folded into a play every run applies,
-# for the same reason faramir.yml is.
-#
-# hosts: all, where this was three plays: the tasks read the broker's key off
-# the controller, install it on every other host, then ask the controller
-# whether a brokered run reaches them. roles/faramir/tasks/ssh.yml holds them
+# hosts: all, where this was three plays: roles/faramir/tasks/ssh.yml holds them
 # and says which block runs where.
 - name: Authorize the broker's key across the fleet
   hosts: all
   gather_facts: false
   tasks:
-    # tasks_from rather than the roles: keyword, which applies main.yml and
-    # would install the broker on every host in the inventory. Importing the
-    # role is also what defines faramir_broker_ssh_key here, from the same
-    # defaults faramir.yml installs the key under, rather than leaving these
-    # tasks to name the path a second time.
+    # tasks_from rather than the roles: keyword, which would apply main.yml to
+    # every host. Importing the role is also what defines faramir_broker_ssh_key
+    # here, from the same defaults faramir.yml installs the key under.
     - name: Authorize the broker's key
       ansible.builtin.import_role:
         name: faramir
