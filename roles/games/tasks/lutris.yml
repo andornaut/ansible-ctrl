@@ -1,13 +1,9 @@
 ---
-# Set Lutris's default game install directory so installs land under games_lutris_dir, matching the
-# per-launcher layout under ~/.local/games (Heroic, Lutris, Steam each get a subdir so installs do not
-# collide). Lutris stores this as system.game_path in system.yml. The flatpak already has `home`
-# filesystem access, so no override grant is needed (unlike Heroic).
-#
-# Lutris keeps system.yml in its active config dir: config/lutris if it exists, else data/lutris
-# (games_lutris_config_dir / games_lutris_data_dir). system.yml holds only default game options, so
-# unlike Heroic's config.json it is safe to create when absent; Lutris merges its own keys on top.
-# Only game_path is enforced; existing keys are preserved.
+# Point Lutris's default install directory at games_lutris_dir, its share of the
+# per-launcher layout under ~/.local/games. Stored as system.game_path in system.yml,
+# which lives in config/lutris if that exists, else data/lutris. Only game_path is
+# enforced; existing keys are preserved. Safe to create when absent, unlike Heroic's
+# config.json, and the flatpak already has `home` access so no grant is needed.
 - name: Check for the deprecated Lutris config directory
   ansible.builtin.stat:
     path: "{{ games_lutris_config_dir }}"
@@ -20,8 +16,7 @@
   register: games_lutris_data_dir_stat
   changed_when: false
 
-# Mirror Lutris: config/lutris if it exists, else data/lutris. Empty when neither does
-# (Lutris has never run on this host), which the tasks below warn on and skip.
+# Empty when neither exists, i.e. Lutris has never run here; the tasks below skip.
 - name: Resolve the active Lutris config directory
   ansible.builtin.set_fact:
     games_lutris_active_dir: >-
@@ -53,16 +48,14 @@
         games_lutris_config: >-
           {{ (games_lutris_config_raw.content | b64decode | from_yaml) or {}
              if games_lutris_config_raw.content is defined else {} }}
-        # default({}, true) so a null `system:` key (present but empty) becomes {} rather
-        # than None, which would make the combine below fail with a NoneType error.
+        # default({}, true): a present-but-empty `system:` key is None, which the
+        # combine below cannot take.
         games_lutris_system: "{{ games_lutris_config.system | default({}, true) }}"
         games_lutris_desired:
           game_path: "{{ games_lutris_dir }}"
-        # Merge once and reuse for the change test and the written content.
+        # Merged once, for the change test and the content alike.
         games_lutris_merged: "{{ games_lutris_system | combine(games_lutris_desired) }}"
-      # Rewrite only when game_path actually differs. system.yml is machine-managed by
-      # Lutris (no user comments), so re-serialising the whole file via to_nice_yaml is
-      # acceptable; every existing key is preserved through the combine above.
+      # system.yml is machine-written, so re-serialising it whole loses nothing.
       when: games_lutris_merged != games_lutris_system
       ansible.builtin.copy:
         dest: "{{ games_lutris_config_file }}"

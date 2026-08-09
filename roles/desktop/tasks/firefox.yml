@@ -1,7 +1,6 @@
 ---
-# Probed, not required: the two removals below are no-ops on a host that has no flatpak, and
-# the browser tag does not select the flatpak tag that installs it. The install branch does
-# require it, and asserts for itself.
+# Probed, not required: the removals below are no-ops without flatpak. The install
+# branch asserts for itself.
 - name: Check for flatpak
   ansible.builtin.shell:
     executable: /bin/bash
@@ -11,11 +10,9 @@
   failed_when: false
   check_mode: false
 
-# One pin record, written unconditionally, rather than one file per install method (two records
-# for the same package collide, and apt's resolution depends on filename ordering nothing here
-# controls). Pin-Priority -1 blocks an install from the Mozilla repo as it does from Ubuntu's, so
-# no branch has to remove that repo or its key; it also blocks firefox as a dependency and makes
-# dist-upgrade remove any installed copy. Only the apt method raises it to 1000.
+# One record, written unconditionally: two files pinning the same package resolve by
+# filename order. -1 blocks the Mozilla repo and Ubuntu's alike, blocks firefox as a
+# dependency, and makes dist-upgrade remove it. Only the apt method raises it to 1000.
 - name: Pin Firefox to the chosen install method
   ansible.builtin.copy:
     content: |
@@ -115,9 +112,8 @@
             org.mozilla.firefox
           changed_when: true
 
-# desktop_install_firefox: false converges the host to no Firefox, purging any copy an earlier
-# run installed. The pin above stays at -1 so apt cannot bring it back. The flatpak removal runs
-# as desktop_user because the install (method: user) was per-user.
+# Purge any copy an earlier run installed; the pin above stays at -1. The flatpak
+# removal runs as desktop_user because the install was per-user.
 - name: Remove Firefox
   when: not desktop_install_firefox
   block:

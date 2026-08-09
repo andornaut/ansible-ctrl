@@ -1,6 +1,6 @@
 ---
-# The bedrock tag does not select the flatpak tag that installs the binary, and
-# every install step here shells out to it.
+# The bedrock tag does not select the flatpak tag, and every step here shells out
+# to the binary.
 - name: Require flatpak
   ansible.builtin.include_tasks: require_tools.yml
   vars:
@@ -9,23 +9,20 @@
         probe: flatpak --version
         hint: "It comes from this role's flatpak tag: make games -- --tags flatpak"
 
-# BedrockOnLinux (github.com/Wyze3306/BedrockOnLinux) runs the Windows GDK build of Minecraft
-# Bedrock under a bundled Wine/vkd3d-proton engine. It ships only a release .flatpak bundle
-# (not on Flathub), which the community.general.flatpak module cannot install (it takes app IDs
-# and flatpakref URLs only). Track the latest release: resolve its tag and install when that
-# version is not already present. Install the launcher only: game files and Microsoft sign-in
-# are interactive per-user steps. The bundle's finish-args grant the access it needs to run.
-# Runtime resolution relies on the flathub remote added for games_user in flatpak.yml.
-# The repo also publishes the engine components it bundles (engine-*, vkd3d-*, winegdk-*, xcurl-*)
-# as full releases, so /releases/latest resolves to whichever of those was published most recently
-# rather than to an app version. List releases (newest first) and take the first vN.N.N tag.
+# github.com/Wyze3306/BedrockOnLinux ships only a release .flatpak bundle, which the
+# flatpak module cannot install: it takes app IDs and flatpakref URLs only.
+#
+# The launcher only; game files and Microsoft sign-in are interactive per-user steps.
+#
+# /releases/latest is unusable here: the repo publishes its bundled engine components
+# as full releases too, so list releases newest-first and take the first vN.N.N tag.
 - name: Resolve the BedrockOnLinux releases
   ansible.builtin.uri:
     url: https://api.github.com/repos/Wyze3306/BedrockOnLinux/releases?per_page=100
   register: games_bedrock_releases
   retries: 3
   delay: 5
-  # 4xx is deterministic: retry only network errors and 5xx.
+  # Retry network errors and 5xx only; 4xx is deterministic.
   until: >-
     games_bedrock_releases.status == 200 or
     (games_bedrock_releases.status >= 400 and games_bedrock_releases.status < 500)
@@ -38,9 +35,8 @@
     games_bedrock_latest_tag: "{{ games_bedrock_releases.json | rejectattr('draft') | rejectattr('prerelease')
       | map(attribute='tag_name') | select('match', '^v[0-9]+[.][0-9]+[.][0-9]+$') | first }}"
 
-# --columns emits one tab-separated line per app when stdout is not a terminal,
-# and neither an app ID nor a version can contain whitespace, so the pair below
-# either is a whole line or is not installed.
+# --columns emits one tab-separated line per app off a terminal, and neither field
+# can contain whitespace, so the pair below is a whole line or is not installed.
 - name: List the flatpak applications installed for {{ games_user }}
   ansible.builtin.command:
     cmd: flatpak list --user --app --columns=application,version
@@ -59,8 +55,8 @@
         state: directory
       register: games_bedrock_tmp
 
-    # get_url resolves the checksum for this bundle from the release's SHA256SUMS by matching
-    # the destination file name, so the download is verified without pinning a hash.
+    # get_url matches the destination file name against the release's SHA256SUMS,
+    # so the download is verified without pinning a hash.
     - name: Download the BedrockOnLinux flatpak bundle
       ansible.builtin.get_url:
         url: "{{ games_bedrock_release_base }}/{{ games_bedrock_bundle_name }}"
@@ -68,9 +64,8 @@
         checksum: "sha256:{{ games_bedrock_release_base }}/BedrockOnLinux-{{ games_bedrock_version }}-SHA256SUMS"
         mode: "0644"
 
-    # --or-update: the bundle's ref is always the "master" branch, so a new version keeps the same
-    # ref and a plain install would fail with "already installed"; --or-update installs when absent
-    # and updates in place when a prior version is present.
+    # The bundle's ref is always "master", so a new version keeps the same ref and a
+    # plain install fails with "already installed".
     - name: Install the BedrockOnLinux flatpak bundle
       ansible.builtin.command:
         cmd: >-
@@ -84,12 +79,9 @@
         state: absent
       when: games_bedrock_tmp.path is defined
 
-# A launch script plus a desktop entry that runs it, launching Minecraft directly instead of the
-# launcher GUI the flatpak's own entry opens. The script focuses an existing window if the game is
-# already running, otherwise runs `login` then `play`. login/play still require the one-time setup
-# (download a Minecraft version) and Microsoft sign-in through the GUI; without them BOL exits with
-# its own message rather than failing silently. The desktop entry reuses the flatpak-exported icon
-# by name (the exports are on the user's XDG_DATA_DIRS).
+# Launch the game directly rather than the launcher GUI the flatpak's own entry
+# opens: focus an existing window, else `login` then `play`. Both still need the
+# one-time GUI setup and sign-in, which BOL reports for itself.
 - name: Install the direct-launch Minecraft (Bedrock) script and desktop entry
   block:
     - name: Create the user bin directory
@@ -116,14 +108,10 @@
         dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
         mode: "0644"
 
-# The graphics safety check (bol/gpu_safety.py) runs inside the sandbox, where the freedesktop
-# runtime ships no xrandr, so on an X11 session it cannot confirm a hardware RandR provider and
-# fail-closes even on a healthy GPU. Rather than disable the check (BOL_ALLOW_UNSAFE_GPU) or expose
-# the whole host /usr (--filesystem=host-os, the narrowest flatpak grant that reaches a path under
-# the reserved /usr), vendor the host xrandr into a small directory granted read-only and put it on
-# PATH: the check finds it, counts the real providers, and passes, keeping every gpu_safety check
-# active. xrandr links only against runtime libraries, so the host binary runs unmodified. No-op on
-# Wayland, where the provider check never runs.
+# BOL's gpu_safety check fail-closes under X11 because the freedesktop runtime ships
+# no xrandr. Vendoring the host binary into a read-only grant on PATH keeps every
+# check active, unlike BOL_ALLOW_UNSAFE_GPU or a whole --filesystem=host-os grant.
+# xrandr links only against runtime libraries. No-op on Wayland.
 - name: Check for the host xrandr
   ansible.builtin.stat:
     path: /usr/bin/xrandr
@@ -147,9 +135,8 @@
         remote_src: true
         mode: "0755"
 
-    # Reset first so the override converges to exactly this set, dropping any prior
-    # BOL_ALLOW_UNSAFE_GPU or host-os grant. `flatpak override` rewrites the file unconditionally
-    # and reports nothing, so compare `--show` output either side to report changes honestly.
+    # Reset first so the override converges to exactly this set. `flatpak override`
+    # reports nothing, so diff `--show` either side of it.
     - name: Grant the vendored xrandr to the sandbox and put it on PATH
       ansible.builtin.shell:
         executable: /bin/bash

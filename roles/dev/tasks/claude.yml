@@ -6,9 +6,7 @@
     dev_cli_bin: claude
     dev_cli_url: https://claude.ai/install.sh
 
-# shell, because command is a builtin with no binary behind it: the command
-# module cannot exec it and exits 2 on every host, which failed_when hides and
-# the guard below then reads as "no VS Code".
+# shell, not command: `command -v` is a builtin with no binary to exec.
 - name: Check for VS Code
   ansible.builtin.shell:
     executable: /bin/bash
@@ -17,8 +15,7 @@
   changed_when: false
   failed_when: false
 
-# Extensions install per user, so this has to be dev_user's; run as the
-# connecting account it lands in whichever home that is.
+# Extensions install per user, so this has to be dev_user's.
 - name: Install Claude Code VS Code extension
   ansible.builtin.command:
     cmd: code --install-extension anthropic.claude-code
@@ -48,8 +45,7 @@
         state: present
         update_cache: true
 
-    # bubblewrap is Cowork's sandbox backend on Linux; without it Cowork runs
-    # with no isolation.
+    # bubblewrap is Cowork's sandbox backend; without it there is no isolation.
     - name: Install Claude Desktop (Cowork) and sandbox backend
       ansible.builtin.apt:
         name:

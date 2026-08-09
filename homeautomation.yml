@@ -1,15 +1,9 @@
 ---
 - name: Apply homeautomation role
   hosts: homeautomation
-  # Credentials arrive as a set, so one check answers for every secret_* this
-  # play reads: sops exec-env or the broker injects the whole env file, or
-  # nothing does. Here rather than left to the first task that reads one, which
-  # fails with the tasks before it already applied, and for a container means it
-  # is removed and not recreated.
-  #
-  # tags: always so a --tags run is checked too, and secrets_required=false is
-  # the operator saying this one reaches no credential. `make SECRETS=none`
-  # passes that through.
+  # Credentials arrive as a whole env file or not at all, so one check covers
+  # every secret_* this play reads. Up front, because a task that fails mid-run
+  # leaves earlier tasks applied. See README "Secrets".
   pre_tasks:
     - name: Require the credentials this play reads
       ansible.builtin.assert:

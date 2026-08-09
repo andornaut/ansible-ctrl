@@ -1,37 +1,14 @@
 ---
-# Fail with a named remediation when a tool this role uses is missing.
-#
-# Roles here declare no dependencies, and a tag selects one task file without
-# the tags that install what it needs. Either way the tool is an unstated
-# prerequisite, and without this the first task to use it fails with whatever
-# the missing binary prints, which never names the run that installs it. Each
-# probe carries that command.
-#
-# Copied into each role that needs it rather than shared, because roles share no
-# task files. Keep the copies in sync by hand.
+# Assert that the tools this role uses are present, naming what installs each.
+# Copied per role because roles share no task files; keep the copies in sync.
 #
 # Required vars:
-#   require_tools (list of dicts): each with
-#     name (str):  the tool, as the failure message should call it
-#     probe (str): shell command, exits 0 when the tool is usable
-#     hint (str):  what installs it, e.g. "make dev -- --tags rust"
+#   require_tools (list of dicts): name (str), probe (shell command, exit 0 when
+#     usable), hint (str, e.g. "make dev -- --tags rust")
 #
-# Callers must wrap the include in a tagged block, or include it from a file
-# imported under one: a tag on an include_tasks filters out what it includes.
-
-# Privilege is inherited here, never set. A probe carrying `become: false`
-# overrides an enclosing `become:` rather than deferring to it, so a guard for
-# privileged tasks would report on the connection user instead. include_tasks
-# takes no `become` of its own, so a caller whose guarded tasks are privileged
-# wraps the include in a block carrying the same `become`/`become_user`. It
-# matters because a per-account toolchain is present for one user and absent for
-# another, so a probe run as somebody else answers a question nobody asked.
-#
-# shell, not command: `command -v` is a builtin with no binary behind it, and a
-# probe may be a pipeline.
-#
-# check_mode: false so the assert below has an rc to read. A skipped probe fails
-# on an undefined variable instead of reporting what is missing.
+# Callers wrap the include in a tagged block (a tag on include_tasks filters out
+# what it includes) and put any become/become_user on that block: probes inherit
+# privilege and must never set it.
 - name: Probe for the tools this role needs
   ansible.builtin.shell:
     executable: /bin/bash
@@ -44,9 +21,6 @@
   loop_control:
     label: "{{ item.name }}"
 
-# stderr is quoted, not just the exit code: a shim that is installed but has no
-# toolchain, and a daemon that is installed but not running, both fail here and
-# neither is what "not installed" would send somebody to fix.
 - name: Require the tools this role needs
   ansible.builtin.assert:
     that: item.rc == 0

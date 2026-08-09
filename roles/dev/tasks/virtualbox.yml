@@ -1,9 +1,7 @@
 ---
-# Ubuntu's virtualbox packages are stuck at 7.0.x, whose vboxdrv does not build
-# on kernel 6.19+: the x86 virtualization symbols it uses moved into a KVM-private
-# module namespace that out-of-tree modules cannot import. Oracle's own repo
-# carries 7.2.x, which builds. Its virtualbox-{{ version }} package Conflicts with
-# every Ubuntu virtualbox package, so those are purged first.
+# Ubuntu ships 7.0.x, whose vboxdrv does not build on kernel 6.19+: the x86
+# virtualization symbols moved into a KVM-private module namespace. Oracle's repo
+# carries 7.2.x, which does, and Conflicts with the Ubuntu packages purged here.
 - name: Remove the distribution virtualbox packages
   ansible.builtin.apt:
     name:
@@ -35,9 +33,8 @@
 - name: Install VirtualBox
   ansible.builtin.apt:
     name:
-      # Oracle's package builds vboxdrv from /usr/share/virtualbox/src/vboxhost
-      # in its postinst rather than via DKMS, so it declares no headers
-      # dependency and they have to be requested explicitly.
+      # Oracle's postinst builds vboxdrv itself rather than via DKMS, so it
+      # declares no headers dependency.
       - "linux-headers-{{ ansible_facts['kernel'] }}"
       - "virtualbox-{{ dev_virtualbox_version }}"
     state: latest
@@ -50,8 +47,8 @@
 - name: Blacklist KVM modules to prevent conflict with VirtualBox
   ansible.builtin.copy:
     dest: /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf
-    # Both vendor modules, not just this host's: blacklisting kvm alone does not
-    # stop it, since kvm_intel and kvm_amd pull it in as a dependency.
+    # Both vendors: kvm_intel and kvm_amd pull in kvm, so blacklisting kvm alone
+    # does not stop it.
     content: |
       blacklist kvm_amd
       blacklist kvm_intel
@@ -63,8 +60,8 @@
 - name: Reconcile the virtualbox kernel modules
   become: true
   block:
-    # The postinst builds the modules once and never retries, so a kernel upgrade
-    # leaves vboxdrv unbuilt. vboxconfig rebuilds for the running kernel.
+    # The postinst builds once and never retries, so a kernel upgrade leaves
+    # vboxdrv unbuilt; vboxconfig rebuilds for the running kernel.
     - name: Check whether vboxdrv is built for the running kernel
       ansible.builtin.command: modinfo -k {{ ansible_facts['kernel'] }} vboxdrv
       register: dev_virtualbox_modinfo
@@ -76,9 +73,8 @@
       when: dev_virtualbox_modinfo.rc != 0
       changed_when: true
 
-    # Secure Boot rejects a module signed with an untrusted MOK, and enrolling one
-    # needs an interactive reboot. Report that case (authoritative from modprobe's
-    # own error) instead of aborting; every other error is fatal.
+    # Secure Boot rejects an untrusted MOK and enrolling one needs an interactive
+    # reboot, so report that case from modprobe's error; every other error is fatal.
     - name: Load the virtualbox kernel modules
       community.general.modprobe:
         name: "{{ item }}"
@@ -117,8 +113,7 @@
         enabled: true
       when: dev_virtualbox_modules_loaded | bool
 
-# The extension pack is not in the deb: it is a separate download that must match
-# the installed VirtualBox version exactly.
+# A separate download, which must match the installed VirtualBox version exactly.
 - name: Reconcile the VirtualBox extension pack
   become: true
   block:
@@ -134,13 +129,12 @@
 
     - name: Set the extension pack version
       ansible.builtin.set_fact:
-        # VBoxManage reports "7.2.12r174389"; the extension pack is versioned
-        # without the revision suffix.
+        # VBoxManage reports "7.2.12r174389"; the pack drops the revision suffix.
         dev_virtualbox_extpack_version: >-
           {{ dev_virtualbox_version_output.stdout | trim | regex_replace('r.*$', '') }}
 
-    # VBoxManage derives the pack name from the file name and rejects the install
-    # if it does not match the name in the pack's own XML, so keep it verbatim.
+    # VBoxManage derives the pack name from the file name and rejects a mismatch
+    # against the pack's own XML, so keep it verbatim.
     - name: Set the extension pack file name
       ansible.builtin.set_fact:
         dev_virtualbox_extpack_file: >-
@@ -161,12 +155,10 @@
             dest: "{{ dev_virtualbox_extpack_tmp.path }}/{{ dev_virtualbox_extpack_file }}"
             mode: "0644"
 
-        # --accept-license takes the SHA-256 of the pack's own licence text, which
-        # can change between releases, so read it out of the pack rather than
-        # pinning it. The pack carries a bad header after its first entry, so tar
-        # needs --ignore-zeros to reach the licence and always exits 2 even when
-        # the extraction is good: verify by checksumming the file, not by rc.
-        # unarchive cannot pass --ignore-zeros, so tar is called directly.
+        # --accept-license takes the SHA-256 of the pack's licence text, which
+        # changes between releases, so read it out of the pack. The pack has a bad
+        # header after its first entry: tar needs --ignore-zeros (which unarchive
+        # cannot pass) and exits 2 regardless, so verify by checksum, not rc.
         - name: Extract the extension pack license # noqa: command-instead-of-module
           ansible.builtin.command:
             cmd: >-

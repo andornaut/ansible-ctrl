@@ -1,13 +1,11 @@
 ---
-# The Betaflight version is pinned in defaults/main.yml, not resolved from the releases API:
-# recent releases are PWA-only and ship no Linux portable build. The portable zip needs a
-# wrapper to set LD_LIBRARY_PATH.
+# Pinned in defaults/main.yml rather than resolved from the releases API: recent
+# releases are PWA-only and ship no Linux portable build.
 - name: Install Betaflight Configurator
   tags: betaflight
   block:
-    # The zip's top-level dir is literally "Betaflight Configurator" (with a space). Extract
-    # each release into its own version-stamped dir, exposed as /opt/betaflight/current, so
-    # the space never reaches a launcher path.
+    # The zip's top-level directory has a space in it, so each release goes in a
+    # version-stamped directory exposed as /opt/betaflight/current.
     - name: Set Betaflight Configurator install path facts
       ansible.builtin.set_fact:
         hobbies_betaflight_release_dir: "/opt/betaflight/{{ hobbies_betaflight_version }}"
@@ -20,7 +18,7 @@
         mode: "0755"
       become: true
 
-    # creates is evaluated before download, so an already-installed release skips the fetch.
+    # creates is evaluated before the download, so an installed release skips it.
     - name: Download and extract Betaflight Configurator
       ansible.builtin.unarchive:
         src: "https://github.com/betaflight/betaflight-configurator/releases/download/\
@@ -32,9 +30,9 @@
       become: true
       register: hobbies_betaflight_unarchive
 
-    # The zip ships some files 0600 (binaries 0700), unreadable by the launching user. Capital
-    # X grants execute only where already set: libraries 0644, binaries 0755. Not a handler:
-    # the symlink below needs permissions already fixed, and handlers flush only at play end.
+    # The zip ships files 0600/0700, unreadable by the launching user. Capital X
+    # grants execute only where already set. Not a handler: the symlink below needs
+    # this done now, and handlers flush at play end.
     - name: Set Betaflight Configurator permissions # noqa: no-handler
       ansible.builtin.file:
         path: "{{ hobbies_betaflight_app_dir }}"
@@ -52,8 +50,8 @@
         force: true
       become: true
 
-    # Wrapper (not a symlink) so the app runs with its bundled libraries on LD_LIBRARY_PATH
-    # and its own directory as the working directory.
+    # A wrapper, not a symlink: the app needs its bundled libraries on
+    # LD_LIBRARY_PATH and its own directory as the working directory.
     - name: Install Betaflight Configurator launcher wrapper onto PATH
       ansible.builtin.copy:
         dest: /usr/local/bin/betaflight-configurator

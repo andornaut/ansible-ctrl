@@ -72,7 +72,7 @@
         release_repo: Kistler-Group/sdbus-cpp
         release_fact: niri_libsdbus_release
 
-    # Pin the install prefix so hypridle finds libsdbus:
+    # The prefix is pinned so hypridle finds libsdbus:
     # https://github.com/hyprwm/hypridle/issues/109#issuecomment-2678603712
     - name: Build and install libsdbus
       ansible.builtin.include_tasks: build_component.yml

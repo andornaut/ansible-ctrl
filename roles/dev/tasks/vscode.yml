@@ -2,10 +2,9 @@
 - name: Configure Visual Studio Code repository
   become: true
   block:
-    # Install via Microsoft's apt repo rather than the standalone .deb: the deb
-    # depends on libgtk-3-0 (>= 3.9.10), which noble satisfies only through the
-    # versioned Provides on libgtk-3-0t64. apt resolves that, but the apt module's
-    # deb pre-install check does not, so a direct deb install fails as unsatisfiable.
+    # Microsoft's apt repo, not the standalone .deb: noble satisfies the deb's
+    # libgtk-3-0 dependency through a versioned Provides, which apt resolves but
+    # the apt module's deb pre-install check does not.
     - name: Download Visual Studio Code GPG key
       ansible.builtin.get_url:
         url: https://packages.microsoft.com/keys/microsoft.asc
@@ -33,10 +32,8 @@
 - name: Configure Visual Studio Code for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/code.desktop
-    # Consume any existing run of the flag before re-adding a single copy, so
-    # that repeated runs neither match their own output nor accumulate flags.
-    # \s would match the newline and pull the next line into an Exec= that has
-    # no arguments, so the horizontal whitespace classes are load-bearing.
+    # Consume any existing copies of the flag before writing one back, so repeated
+    # runs do not accumulate. `\s` would match the newline and swallow the next line.
     regexp: '^Exec=(\S+)(?:[ \t]+--ozone-platform-hint=auto)*[ \t]*(.*)$'
     replace: 'Exec=\1 --ozone-platform-hint=auto \2'
   become: true

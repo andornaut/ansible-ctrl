@@ -1,29 +1,10 @@
 ---
-# What this role does that `faramir init` does not:
-#
-#   downloads the binary, which faramir publishes but does not install
-#   enrols this checkout as a project
-#   tells the agent how to run a playbook through the broker
-#   asks faramir doctor whether any of it works
-#
-# The accounts, the directories, the age key, .sops.yaml, the units and their
-# sandboxing belong to faramir and are not restated here: a setting named in
-# both places is one that can disagree with itself.
+# Install the broker on the controller. What this adds over `faramir init` is in
+# the README; the accounts, directories, age key and units belong to faramir.
 
-# Before anything else. This entry point installs the broker, so run against a
-# managed host it provisions that host instead, and ssh.yml next door is applied
-# over hosts: all: one tasks_from away from being this file. The working-tree
-# check below is not the backstop it looks like, a host with a directory at the
-# same path passing it.
-#
-# Against faramir_controller rather than membership of the faramir group, a group
-# being a list and the guard having to answer for one holding two.
-#
-# Not delegate_to: localhost, the torrent role's way of reaching the controller
-# from a play targeting somewhere else. It would not stop this: a delegated task
-# resolves plain variables from the play host rather than the delegate, so a role
-# applied to the fleet would still install here, once per host, each run using
-# that host's primary_user and config path.
+# First, and matched against faramir_controller rather than group membership: this
+# entry point provisions whichever host it runs on, and ssh.yml next door is
+# applied over hosts: all. The working-tree check below is not a backstop for it.
 - name: Require the controller
   ansible.builtin.assert:
     that: inventory_hostname == faramir_controller
@@ -38,8 +19,7 @@
     quiet: true
   tags: always
 
-# faramir_user_home indexes this, and the config directory, the store and the
-# age key all hang off it. tags: always so a --tags run cannot skip it.
+# faramir_user_home indexes this; the config dir, store and age key hang off it.
 - name: Read the passwd database
   ansible.builtin.getent:
     database: passwd
@@ -48,13 +28,11 @@
 - name: Validate the faramir account
   ansible.builtin.assert:
     that:
-      # primary_user is inventory data, so an inventory that omits it would
-      # otherwise fail on an undefined lookup several tasks later.
+      # Inventory data, so an omission would otherwise surface several tasks later.
       - faramir_user is defined and faramir_user | length > 0
       - faramir_user != "root"
-      # Membership too, and not only that a name was given: faramir_user_home
-      # indexes the passwd entry, so an account this host does not have fails
-      # there instead, on a missing dictionary key that names nothing.
+      # faramir_user_home indexes the passwd entry, so an account this host does
+      # not have would otherwise fail on a missing dictionary key.
       - faramir_user in ansible_facts["getent_passwd"]
     fail_msg: >-
       faramir_user must be an existing non-root account on this host. Set
@@ -63,10 +41,9 @@
     quiet: true
   tags: always
 
-# The tree brokered commands run in is the checkout this play was run from, so
-# playbook_dir names it and no variable can point somewhere the operator does not
-# actually work. That path is the controller's, so this also catches a remote
-# host in the faramir group, and runs before the install rather than after it.
+# Brokered commands run in the checkout this play was run from, which playbook_dir
+# names. That path is the controller's, so this also catches a remote host in the
+# faramir group.
 - name: Check for the working tree
   ansible.builtin.stat:
     path: "{{ playbook_dir }}"
@@ -81,10 +58,9 @@
       controller holding that checkout.
     quiet: true
 
-# sops is asserted rather than installed: roles here declare no dependencies, and
-# a second installer would drift from the dev role's. The keeper execs it to
-# decrypt, so it is a run-time requirement and not only an install-time one.
-# check_mode: false so the assert below has an rc to read.
+# Asserted, not installed: roles here declare no dependencies, and a second
+# installer would drift from the dev role's. check_mode: false so the assert
+# below has an rc to read.
 - name: Locate sops
   ansible.builtin.shell:
     executable: /bin/bash
@@ -100,13 +76,11 @@
     fail_msg: "sops is not installed. It comes from the dev role: make dev -- --tags sops"
     quiet: true
 
-# Staged in a temp directory rather than kept: init installs the binary it was
-# run from, so what is installed is init's own copy and one left behind here
-# would be a second copy that nothing updates. One ~7MB archive a run is the cost.
+# Staged, not kept: init installs the binary it was run from, so anything left
+# here would be a second copy nothing updates. ~7MB a run.
 #
-# The whole block runs under --check as well: init is given --dry-run there and
-# still has to find a binary to preflight against, and all of it lands in a
-# directory the always: below removes.
+# Runs under --check too: init gets --dry-run there and still needs a binary to
+# preflight with. The always: below removes the directory either way.
 - name: Install faramir from the dev release
   block:
     - name: Create a temporary directory for the faramir release
@@ -119,38 +93,31 @@
       ansible.builtin.get_url:
         url: "{{ faramir_release_url }}/{{ faramir_release_archive }}"
         dest: "{{ faramir_staging.path }}/{{ faramir_release_archive }}"
-        # checksums.txt is fetched from the same release and matched by asset
-        # name. `dev` is a moving tag, so a download that straddles a re-cut
-        # fails here rather than installing one build's binaries as another's.
+        # `dev` is a moving tag, so a download straddling a re-cut fails the
+        # checksum rather than installing mismatched binaries.
         checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
         mode: "0644"
       check_mode: false
-      # A release asset is a redirect to object storage, so a failure here is a
-      # network one and worth retrying.
+      # A redirect to object storage, so failures here are network failures.
       register: faramir_download
       until: faramir_download is succeeded
       retries: 3
       delay: 5
 
-    # Beside the archive rather than in a directory of its own: init installs the
-    # one binary it was run from and nothing else out of the directory it sits in.
+    # Beside the archive: init installs only the binary it was run from.
     - name: Unpack the faramir binary
       ansible.builtin.unarchive:
         src: "{{ faramir_staging.path }}/{{ faramir_release_archive }}"
         dest: "{{ faramir_staging.path }}"
         remote_src: true
-        # Applied to what came out of the archive, not to the directory holding
-        # it: tar drops the archive's mode through the umask, and the next task
-        # runs the binary unpacked here.
+        # Applied to the unpacked binary, whose archive mode tar drops through
+        # the umask; the next task runs it.
         mode: "0755"
       check_mode: false
 
-    # The whole install, in one command. It reports per step, so changed is what
-    # it says rather than something inferred from stat-ing the host.
-    #
-    # Guarded on stdout because changed_when is evaluated even when the command
-    # failed: init that exits before writing its report leaves stdout empty, and
-    # an unguarded filter reports a parse error beside the real one.
+    # init reports per step in JSON, so changed_when reads its answer rather than
+    # inferring one. Guarded on stdout because changed_when is evaluated even on
+    # failure, where an empty report would add a parse error to the real one.
     - name: Install faramir
       ansible.builtin.command:
         argv: "{{ faramir_init_argv }}"
@@ -168,24 +135,17 @@
         path: "{{ faramir_staging.path }}"
         state: absent
       when: faramir_staging.path is defined
-      # With the rest of the block: a removal that only simulated would leave
-      # the unpacked archive in /tmp on every check run.
+      # check_mode: false with the rest of the block, or every --check run leaks
+      # an unpacked archive into /tmp.
       check_mode: false
 
-# Enrolling the tree is separate from provisioning the host and runs after it: it
-# reads the client group out of the config init installed rather than being told
-# it a second time, which is what keeps a tree from being group-owned by
-# something the broker socket does not admit.
+# Enrolment runs after provisioning and reads the client group out of the config
+# init installed, rather than being told it twice.
 #
-# Only this checkout. A host is provisioned once and there is no limit to how
-# many trees you work in, so enrol another where it lives:
-# cd <dir> && sudo faramir init-project
+# Only this checkout; enrol another with `cd <dir> && sudo faramir init-project`.
 #
-# Unlike init above, this runs the installed binary rather than the staged one,
-# the staging directory being gone by now. Under --check that binary is only
-# there if a previous run installed it, so a first run on a fresh host has
-# nothing to preflight against and skips; anywhere else --dry-run reports what
-# enrolling would change, which a skipped task could not.
+# Runs the installed binary, the staging directory being gone, so a first --check
+# run on a fresh host has nothing to preflight and skips.
 - name: Check for the installed faramir binary
   ansible.builtin.stat:
     path: "{{ faramir_binary }}"
@@ -200,11 +160,9 @@
   changed_when: faramir_project.stdout | length > 0 and (faramir_project.stdout | from_json).changed
   when: faramir_binary_stat.stat.exists | default(false)
 
-# init and init-project both warn rather than fail on the things with a
-# legitimate shape that have nonetheless left somebody with a broker that
-# installs cleanly and does nothing: a group membership that needs a fresh
-# login, an executor in the broker's group, a hook registered account-wide.
-# One warning per line; an empty list skips the task.
+# init and init-project warn rather than fail on what installs cleanly and does
+# nothing: a group membership needing a fresh login, an executor in the broker's
+# group, an account-wide hook. One per line; an empty list skips the task.
 - name: Show what faramir warned about
   ansible.builtin.debug:
     msg: "{{ item }}"
@@ -213,23 +171,18 @@
 # This project names no secrets file: faramir's base config globs the store
 # directory, so a sops file is managed by being in it.
 
-# faramir's own agent snippet says how the broker works and nothing about this
-# repo. These two flags are what make a brokered run work here, and an agent
-# that has to guess them gets a run that reaches the wrong hosts or no
-# credentials at all.
+# faramir's own agent snippet covers the broker, not this repo. Without these two
+# flags a brokered run reaches the wrong hosts or no credentials at all.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
-    # AGENTS.md, which every coding agent reads and which CLAUDE.md is a symlink
-    # to here. blockinfile writes through a symlink, so naming either works, but
-    # naming the target keeps a host without that symlink from ending up with
-    # two files saying different things.
+    # The target, not the CLAUDE.md symlink: blockinfile writes through either,
+    # but a host without the symlink would end up with two divergent files.
     path: "{{ playbook_dir }}/AGENTS.md"
     create: true
     owner: "{{ faramir_user }}"
     group: "{{ faramir_dev_group }}"
-    # Group-writable, like every other file in the tree: init-project adds group
-    # write to all of them, so 0644 here is reverted on the next run and set back
-    # on the one after, and the task never converges.
+    # Group-writable like the rest of the tree: init-project adds group write to
+    # every file, so 0644 here would never converge.
     mode: "0664"
     marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
     block: |
@@ -252,13 +205,9 @@
       brokered command has no terminal to answer.
   become: true
 
-# The questions the install cannot answer about itself. A broker serving zero
-# refs, an ssh-agent holding no key, and a client group with members nobody
-# recognises all look exactly like a healthy install: every socket is active,
-# every unit is running, and nothing is redacted or reachable.
-#
-# The whole block is skipped under --check, where init wrote nothing and there
-# is nothing new to examine.
+# A broker serving zero refs, an agent holding no key and an unrecognised client
+# group all look like a healthy install: units up, nothing reachable. Skipped
+# under --check, where init wrote nothing to examine.
 - name: Check that the install works
   when: not ansible_check_mode
   block:
@@ -270,10 +219,8 @@
       changed_when: false
       failed_when: false
 
-    # Before the tasks below, which all read the report. Without this, a doctor
-    # that cannot run at all (missing binary, panic, or the failure path that
-    # writes its error to stderr) leaves stdout empty and fails on a parse error
-    # naming nothing.
+    # A doctor that cannot run at all leaves stdout empty, which the tasks below
+    # would report as a parse error naming nothing.
     - name: Require faramir doctor to have reported
       ansible.builtin.assert:
         that: faramir_doctor.stdout | length > 0
@@ -302,10 +249,8 @@
              | map(attribute='detail') | join('; ') }}
         quiet: true
 
-# Printed every run, not only when the key was just generated: it is what has to
-# be in authorized_keys on every managed host, and an install that never says so
-# is one where the fleet silently rejects the agent. tasks/ssh.yml, the play
-# after this one, is what puts it there.
+# Every run, not only when the key is new: it has to be in authorized_keys on
+# every managed host, which the play after this one does.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:

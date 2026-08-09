@@ -4,7 +4,7 @@
     daemon_reload: true
   become: true
 
-# Disable+enable updates the WantedBy symlink when the [Install] section changes
+# Disable then enable, to update the WantedBy symlink when [Install] changes.
 - name: Disable nas-mount.service
   ansible.builtin.systemd_service:
     name: nas-mount.service

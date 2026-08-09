@@ -55,7 +55,7 @@
         - option: Environment
           value: DISPLAY=:0
 
-    # Binary lives under /usr/local, so its unit belongs in /usr/local/lib/systemd/user.
+    # The binary is under /usr/local, so its unit belongs here.
     - name: Create the local systemd user unit directory
       ansible.builtin.file:
         path: /usr/local/lib/systemd/user

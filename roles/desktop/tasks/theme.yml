@@ -1,9 +1,6 @@
 ---
-# The theme tag does not select the flatpak tag that installs the binary, and
-# the override below is how flatpak applications get the theme at all. Required
-# rather than skipped: this role installs flatpak on every host it configures,
-# so an absent binary means the host is part-provisioned, and skipping would
-# leave the flatpaks on Adwaita with the run reporting success.
+# Required rather than skipped: the override below is the only way flatpaks get
+# the theme, so skipping would leave them on Adwaita and report success.
 - name: Require flatpak
   ansible.builtin.include_tasks: require_tools.yml
   vars:
@@ -29,9 +26,8 @@
     update_cache: true
   become: true
 
-# /etc/xdg rather than /etc/gtk-3.0, which GTK reads first but which is a dpkg conffile of
-# libgtk-3-0t64. Only bspwm and niri read these: GNOME takes the dconf keys below instead,
-# served over XSettings, which outranks any settings.ini.
+# /etc/xdg, not /etc/gtk-3.0, which GTK reads first but is a dpkg conffile. Only
+# bspwm and niri read these; GNOME takes the dconf keys below, over XSettings.
 - name: Configure the system GTK theme
   become: true
   block:
@@ -60,9 +56,8 @@
   become: true
   become_user: "{{ desktop_user }}"
   block:
-    # Set on every desktop, not just GNOME: xdg-desktop-portal-gtk serves these keys as the
-    # system appearance, which is how browsers and Electron apps decide whether to render dark.
-    # XDG_RUNTIME_DIR points dconf at desktop_user's session bus.
+    # Every desktop, not just GNOME: xdg-desktop-portal-gtk serves these keys as the
+    # system appearance that browsers and Electron apps read.
     - name: Configure the GNOME appearance
       community.general.dconf:
         key: "{{ item.key }}"
@@ -82,8 +77,8 @@
         state: directory
         mode: "0755"
 
-    # Copied, not symlinked: inside the sandbox a link into /usr/share/themes resolves against
-    # the flatpak runtime, which does not have the theme.
+    # Copied, not symlinked: inside the sandbox the link would resolve against the
+    # flatpak runtime, which has no such theme.
     - name: Copy the GTK themes where flatpak applications can find them
       ansible.builtin.copy:
         src: /usr/share/themes/{{ item }}
@@ -92,10 +87,9 @@
         mode: preserve
       loop: "{{ desktop_gtk_themes }}"
 
-    # Global (no application argument), so it also covers the flatpaks the games role installs.
-    # GTK_THEME rather than the settings portal: handed a name it cannot resolve, GTK falls back
-    # to Adwaita (light); naming the theme mounted at ~/.themes cannot miss. `flatpak override`
-    # rewrites the file unconditionally and reports nothing, so compare `--show` either side.
+    # Global, so it covers the games role's flatpaks too. GTK_THEME names the theme
+    # mounted at ~/.themes; the settings portal would fall back to Adwaita on a name
+    # GTK cannot resolve. `flatpak override` reports nothing, so diff `--show`.
     - name: Apply the flatpak theme override
       ansible.builtin.shell:
         cmd: |

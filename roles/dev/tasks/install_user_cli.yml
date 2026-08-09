@@ -1,13 +1,18 @@
 ---
 # Install a CLI for dev_user from an upstream shell installer.
-# Callers set dev_cli_name, dev_cli_url, and either dev_cli_bin (binary name under
-# ~/.local/bin) or dev_cli_creates (path that proves installation, for installers
-# that write elsewhere). Optionally dev_cli_shell.
+#
+# Required vars:
+#   dev_cli_name (str), dev_cli_url (str)
+#   dev_cli_bin (str): binary name under ~/.local/bin, or
+#   dev_cli_creates (str): path proving installation, for installers writing elsewhere
+#
+# Optional vars:
+#   dev_cli_shell (str): default bash
 - name: Install {{ dev_cli_name }} # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL {{ dev_cli_url }} | {{ dev_cli_shell | default('bash') }}
-    # Lazy conditional, not default(): a missing dev_cli_bin must fail as undefined
-    # rather than degrade creates to the existing ~/.local/bin/ directory.
+    # A conditional, not default(): a missing dev_cli_bin must fail as undefined
+    # rather than degrade `creates` to the ~/.local/bin/ directory itself.
     creates: "{{ dev_cli_creates if dev_cli_creates is defined else dev_user_home ~ '/.local/bin/' ~ dev_cli_bin }}"
     executable: /bin/bash
   become: true

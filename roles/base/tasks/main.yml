@@ -149,9 +149,8 @@
   become: true
   notify: Apply keyboard changes
 
-# GNOME builds its XKB config from dconf and never reads /etc/default/keyboard, so the remap has
-# to be repeated as a system-wide dconf default. Without a profile naming the local database,
-# db/local.d is not in the lookup path and is never read.
+# GNOME reads XKB from dconf, not /etc/default/keyboard, so repeat the remap as a
+# system-wide dconf default. The profile is what puts db/local.d in the lookup path.
 - name: Re-map capslock key to escape key in GNOME sessions
   become: true
   notify: Update dconf database

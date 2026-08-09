@@ -10,9 +10,8 @@
         purge: true
         state: absent
 
-    # A negative pin, not a dpkg hold: dpkg discards a hold for a package it has no record of,
-    # and a pin also refuses to install these to satisfy another package's dependency and makes
-    # dist-upgrade remove any that is somehow installed. One Package: line takes several names.
+    # A pin, not a dpkg hold: dpkg discards a hold for an unknown package, and the
+    # pin also blocks these as dependencies and has dist-upgrade remove them.
     - name: Pin packages replaced by flatpak
       ansible.builtin.copy:
         content: |
@@ -43,8 +42,8 @@
             flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
             method: user
 
-        # No org.gtk.Gtk3theme extensions: flathub carries only some themes, under names that
-        # do not always match the host's. theme.yml copies the host's own into ~/.themes.
+        # No org.gtk.Gtk3theme extensions: flathub's names do not always match the
+        # host's theme. theme.yml copies the host's own into ~/.themes.
         - name: Install flatpak applications
           community.general.flatpak:
             name: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"

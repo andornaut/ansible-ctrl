@@ -1,25 +1,20 @@
 ---
-# Fetch a repository's latest release from a GitHub-shaped releases API and store it as a
-# fact. Codeberg (Forgejo) serves the same endpoint and JSON shape.
+# Fetch owner/repo's latest release into a fact, from GitHub or a Forgejo forge
+# (Codeberg) serving the same JSON shape.
+# Copied per role because roles share no task files; keep the copies in sync.
 #
-# /releases/latest returns the release the project marks as latest, not whichever sorts first
-# in the release list. That is the right side of the trade for upstreams that tag deliberately,
-# because it cannot pick up a rolling build published alongside real tags. It does lag if a
-# project ships a newer stable release without moving the pointer, which is why
-# homeautomation/tasks/install_github_release_component.yml filters the list instead.
-#
-# Copied into each role that needs it rather than shared, because roles share no
-# task files. Keep the copies in sync by hand.
+# /releases/latest follows the project's "latest" pointer rather than sorting tags,
+# so it never picks up a rolling build but does lag a stable release published
+# without moving the pointer. See
+# homeautomation/tasks/install_github_release_component.yml, which filters instead.
 #
 # Required vars:
 #   release_repo (str): "owner/repo"
 #   release_fact (str): variable name to set with the release object
 #
 # Optional vars:
-#   release_api_base (str): forge API base, default "https://api.github.com/repos".
-#     Codeberg is "https://codeberg.org/api/v1/repos".
-#
-# The release object exposes .tag_name, .name, .tarball_url, .assets, etc. for the caller.
+#   release_api_base (str): default "https://api.github.com/repos"; Codeberg is
+#     "https://codeberg.org/api/v1/repos"
 - name: Get the latest release of {{ release_repo }}
   ansible.builtin.uri:
     url: "{{ release_api_base | default('https://api.github.com/repos') }}/{{ release_repo }}/releases/latest"
@@ -27,7 +22,7 @@
   register: hobbies_release_response
   retries: 3
   delay: 5
-  # 4xx (rate limit, missing repo) is deterministic: retry only network errors and 5xx.
+  # Retry network errors and 5xx only; 4xx (rate limit, missing repo) is deterministic.
   until: >-
     hobbies_release_response.status == 200 or
     (hobbies_release_response.status >= 400 and hobbies_release_response.status < 500)

@@ -2,16 +2,16 @@
 - name: Remove cloud-init
   become: true
   block:
-    # cloud-init (first-boot provisioning) is unused. A Recommends of the server/desktop
-    # metapackages, so the pin is what stops dist-upgrade pulling it back.
+    # Recommended by the server/desktop metapackages, so the pin is what stops
+    # dist-upgrade pulling it back.
     - name: Purge and pin cloud-init packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: cloud-init
         purge_pin_packages: "{{ base_cloud_init_packages }}"
 
-    # Not package-owned, so purge leaves them. /etc/netplan is left alone: subiquity wrote
-    # a static config there and nothing regenerates it.
+    # Not package-owned, so purge leaves them. /etc/netplan is left alone:
+    # subiquity wrote a static config there and nothing regenerates it.
     - name: Remove leftover cloud-init directories
       ansible.builtin.file:
         path: "{{ item }}"

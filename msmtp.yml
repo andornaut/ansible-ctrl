@@ -1,8 +1,7 @@
 ---
 - name: Apply msmtp role
   hosts: all
-  # Identical to the block in homeautomation.yml and webservers.yml, the other
-  # two playbooks that read a credential. See the reasoning there.
+  # See homeautomation.yml.
   pre_tasks:
     - name: Require the credentials this play reads
       ansible.builtin.assert:

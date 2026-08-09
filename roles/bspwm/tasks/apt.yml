@@ -1,13 +1,11 @@
 ---
-# X11 session tools and the build dependencies for bspwm_projects (compiled by bspwm.yml).
-# scrot, xsecurelock, xss-lock and xbacklight have Wayland replacements in the niri role;
+# X11 session tools and build dependencies for bspwm_projects (built by bspwm.yml).
 # X11 tools both sessions share live in the desktop role.
 - name: Install X11 system packages and build dependencies
   ansible.builtin.apt:
     name:
-      # Provides the /etc/X11/Xsession.d hook that imports the session environment
-      # (notably XDG_SESSION_TYPE) into the systemd --user manager. Without it, eww reads an
-      # empty XDG_SESSION_TYPE and hides the bspwm workspace switcher until the next login.
+      # Xsession.d hook that imports XDG_SESSION_TYPE into systemd --user.
+      # Without it eww hides the bspwm workspace switcher until the next login.
       - dbus-x11
       - dex
       - scrot

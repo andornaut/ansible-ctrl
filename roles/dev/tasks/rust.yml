@@ -8,9 +8,8 @@
     update_cache: true
   become: true
 
-# rustup installs into $HOME, and creates: checks dev_user's, so the two have to
-# be the same account: run as the connecting one instead, the guard never matches
-# and this reinstalls every run into the wrong home.
+# rustup installs into $HOME and `creates` checks dev_user's, so this must run as
+# dev_user or it reinstalls every run into the wrong home.
 - name: Install Rust toolchain
   ansible.builtin.command: rustup default stable
   args:

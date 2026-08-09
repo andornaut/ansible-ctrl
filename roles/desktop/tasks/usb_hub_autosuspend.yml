@@ -1,8 +1,6 @@
 ---
-# Gated inside this file (main.yml imports it unconditionally) so the removal
-# path runs when the vendor-id list is emptied, clearing the rule this role
-# previously installed. The file name carries the ansible-role marker so it is
-# identifiable as managed and safe to remove.
+# Gated here rather than at the import, so emptying the vendor-id list removes the
+# rule. The file name carries the ansible-role marker that makes it safe to remove.
 - name: Pin USB autosuspend off for reset-prone hubs
   become: true
   when: desktop_usb_no_autosuspend_vendor_ids | length > 0

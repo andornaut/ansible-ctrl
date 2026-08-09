@@ -13,8 +13,8 @@
     update_cache: true
   become: true
 
-# The "meson" package on noble is 1.3, which is too old to build rofi. Noble
-# also ships a versioned "meson-1.5" package; later releases do not.
+# noble's "meson" is 1.3, too old to build rofi; it ships meson-1.5 as well,
+# which later releases do not.
 - name: Install meson
   ansible.builtin.apt:
     name: "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
@@ -29,8 +29,7 @@
         state: directory
       register: desktop_rofi_tmp
 
-    # Fork of rofi that supports Wayland:
-    # https://github.com/lbonn/rofi?tab=readme-ov-file#wayland-support
+    # Wayland fork: https://github.com/lbonn/rofi#wayland-support
     - name: Get latest rofi release
       ansible.builtin.include_tasks: get_latest_release.yml
       vars:

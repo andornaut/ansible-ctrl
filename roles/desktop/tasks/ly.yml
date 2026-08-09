@@ -25,7 +25,7 @@
               register: desktop_zig_versions
               retries: 3
               delay: 5
-              # 4xx is deterministic: retry only network errors and 5xx.
+              # Retry network errors and 5xx only; 4xx is deterministic.
               until: >-
                 desktop_zig_versions.status == 200 or
                 (desktop_zig_versions.status >= 400 and desktop_zig_versions.status < 500)
@@ -45,9 +45,8 @@
                 state: directory
               register: desktop_zig_tmp
 
-            # ziglang.org serves this tarball slowly (donated bandwidth) and asks tooling to use a
-            # mirror from https://ziglang.org/download/community-mirrors.txt. Mirrors host it under
-            # its basename; verify the origin's shasum since mirrors are third parties.
+            # ziglang.org asks tooling to use a community mirror. Mirrors host the
+            # tarball under its basename; verify against the origin's shasum.
             - name: Download zig compiler archive
               ansible.builtin.get_url:
                 url: "{{ desktop_zig_mirror }}/{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].tarball | basename }}"
@@ -95,9 +94,8 @@
             release_fact: desktop_ly_release
             release_api_base: https://codeberg.org/api/v1/repos
 
-        # Codeberg's generated .tar.gz archive (tarball_url) returns HTTP 500, so fetch the
-        # .zip. unzip has no --strip-components, and the zip wraps its contents in a top-level
-        # `ly/` directory, so the build below chdirs into that subdir rather than flattening.
+        # Codeberg's tarball_url returns HTTP 500, so fetch the .zip. unzip has no
+        # --strip-components, so the build below chdirs into the wrapping ly/ dir.
         - name: Download and unarchive ly
           ansible.builtin.unarchive:
             src: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
@@ -111,8 +109,7 @@
           become: true
           changed_when: true
       always:
-        # zig builds as root and creates root-owned zig-out and zig-pkg
-        # directories, which the connecting user cannot unlink.
+        # zig builds as root, leaving zig-out and zig-pkg the connecting user cannot unlink.
         - name: Remove the temporary directory
           ansible.builtin.file:
             path: "{{ desktop_ly_tmp.path }}"
@@ -122,8 +119,8 @@
 
     - name: Configure ly
       block:
-        # installnoconf writes config.ini.example but not config.ini, so seed it once or the
-        # lineinfile tasks below have nothing to edit on a fresh host.
+        # installnoconf writes only config.ini.example, so seed the file the
+        # lineinfile tasks below edit.
         - name: Seed ly configuration from the example
           ansible.builtin.copy:
             src: /etc/ly/config.ini.example

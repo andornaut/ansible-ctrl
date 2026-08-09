@@ -1,10 +1,7 @@
 ---
-# Desktop-session utilities a tiling WM does not provide for itself. Not installed on GNOME
-# hosts, which ship their own equivalents.
-#
-# The X11 tools below serve both sessions (niri runs them as XWayland clients), so they
-# stay here. Tools with a true Wayland replacement live in the bspwm role (scrot,
-# xscreensaver, xbacklight) and the niri role (grim, slurp, hypridle, brightnessctl).
+# Session utilities a tiling WM does not provide for itself; GNOME ships its own.
+# X11 tools here serve both sessions (niri runs them under XWayland); tools with a
+# true Wayland replacement live in the bspwm and niri roles.
 - name: Install tiling window manager system packages
   ansible.builtin.apt:
     name:

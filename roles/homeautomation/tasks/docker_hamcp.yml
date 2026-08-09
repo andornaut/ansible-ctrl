@@ -4,8 +4,7 @@
   vars:
     service_account_name: "{{ item.name }}"
     service_account_uid: "{{ item.uid }}"
-    # Nothing bind-mounted: the server keeps no state, so the account exists
-    # only to give the process an identity of its own.
+    # The server keeps no state; the account exists only for the process identity.
     service_account_paths: []
     service_account_mode: "0700"
   loop: "{{ homeautomation_hamcp_instances }}"
@@ -17,8 +16,8 @@
   vars:
     container_names: "{{ homeautomation_hamcp_instances | map(attribute='name') | list }}"
 
-# One compose project per instance rather than one project of many services, so
-# that adding or removing an instance cannot disturb the others' containers.
+# One compose project per instance, so adding or removing one cannot disturb the
+# others' containers.
 - name: Start ha-mcp Docker containers
   vars:
     hamcp_base_environment:
@@ -48,8 +47,8 @@
     remove_orphans: true
     definition:
       networks: "{{ homeautomation_external_network }}"
-      # Built rather than written literally, because the service key is the
-      # instance name and a templated mapping key is not reliably rendered.
+      # Built, not written literally: a templated mapping key is not reliably
+      # rendered, and the service key is the instance name.
       services: "{{ {item.name: hamcp_service} }}"
   loop: "{{ homeautomation_hamcp_instances }}"
   loop_control:

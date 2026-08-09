@@ -1,8 +1,7 @@
 ---
-# ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards. The mainline
-# it87 driver only supports IT8705F/871xF/872xF, so this out-of-tree fork is
-# required to expose the fan pwm/hwmon that CoolerControl manages.
-# https://github.com/frankcrawford/it87
+# ITE IT8696E + IT8883 Super I/O driver for Gigabyte AM5 boards. The mainline it87
+# driver does not cover these chips, so the fan pwm/hwmon CoolerControl manages
+# needs this out-of-tree fork: https://github.com/frankcrawford/it87
 - name: Install it87 fan control driver
   become: true
   when: desktop_install_it87
@@ -29,8 +28,7 @@
       register: desktop_it87_dkms
       changed_when: false
 
-    # The Makefile "dkms" target copies the source to /usr/src/it87-<version>,
-    # then runs dkms add/build/install for the running kernel.
+    # The "dkms" target stages /usr/src/it87-<version>, then dkms add/build/install.
     - name: Build and install it87 via DKMS
       ansible.builtin.command:
         cmd: make dkms
@@ -44,8 +42,8 @@
         content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
         mode: "0644"
 
-    # Probing the chip at systemd-modules-load time fails with ENODEV, so the
-    # module is loaded later, before CoolerControl reads the hwmon, and retried.
+    # Probing at systemd-modules-load time fails with ENODEV, so load it later,
+    # with retries, before CoolerControl reads the hwmon.
     - name: Install the it87 load unit
       ansible.builtin.copy:
         dest: /etc/systemd/system/it87.service
@@ -71,9 +69,8 @@
         enabled: true
         state: started
 
-# Reconcile the disabled state: remove the managed drop-ins so the module options
-# do not persist after the driver is turned off. The DKMS module and it87.service
-# are left in place; a full teardown is out of scope.
+# Remove the managed drop-ins so the module options do not outlive the flag. The
+# DKMS module and it87.service stay; a full teardown is out of scope.
 - name: Remove the it87 module options when disabled
   become: true
   when: not desktop_install_it87

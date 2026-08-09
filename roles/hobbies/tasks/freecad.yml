@@ -1,10 +1,6 @@
 ---
-# Parametric CAD, used here to model 3D-printed and machined parts around PCBs. Bundles
-# OpenCascade, so `freecadcmd` also runs headless scripts that read and write STEP.
-#
-# Ubuntu 24.04 ships no freecad package: it was dropped from noble and returned in later
-# releases, and OpenCascade went with it. The maintainers' stable PPA is the only apt source
-# covering noble; it carries the 0.21 series rather than 1.x.
+# noble ships no freecad package, so the maintainers' stable PPA is the only apt
+# source there; it carries the 0.21 series rather than 1.x.
 - name: Install FreeCAD
   tags: freecad
   become: true
@@ -14,7 +10,7 @@
         repo: ppa:freecad-maintainers/freecad-stable
         update_cache: true
 
-    # freecad-python3 carries the Python bindings, which the GUI package does not require.
+    # freecad-python3 carries the bindings the GUI package does not require.
     - name: Install FreeCAD packages
       ansible.builtin.apt:
         name:

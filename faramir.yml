@@ -1,32 +1,22 @@
 ---
-# Its own playbook, and its own inventory group, rather than a tag in dev: this
-# installs the units and config that confine the coding agent, and restarts the
-# broker. Reached from a brokered run it would rewrite that confinement as root,
-# and kill the command doing the rewriting. Keeping it off every hosts: all play
-# and out of `make dev` means a brokered run cannot reach it by accident.
+# Own playbook and inventory group so a brokered run cannot reach it: this
+# rewrites the agent's own confinement and restarts the broker.
 - name: Apply faramir role
   hosts: faramir
   roles:
     - faramir
 
-# The fleet half of the same install, in the same run: a broker whose key no host
-# authorizes comes up green and reaches nothing, and the play above is what
-# generates the key this one distributes. Second for that reason.
-#
-# A brokered run cannot reach this to grant itself its own reach. It carries
-# --limit '!faramir', which leaves the play above with no hosts, so no key is
-# published and the assert in tasks/ssh.yml stops this play before it authorizes
-# anything.
-#
-# hosts: all, where this was three plays: roles/faramir/tasks/ssh.yml holds them
-# and says which block runs where.
+# The fleet half of the same install: the play above generates the key, this one
+# distributes it, and a broker whose key no host authorizes reaches nothing. A
+# brokered run cannot widen its own reach here, its --limit '!faramir' leaving
+# the play above with no hosts, so no key is published and ssh.yml's assert
+# stops this one.
 - name: Authorize the broker's key across the fleet
   hosts: all
   gather_facts: false
   tasks:
-    # tasks_from rather than the roles: keyword, which would apply main.yml to
-    # every host. Importing the role is also what defines faramir_broker_ssh_key
-    # here, from the same defaults the play above installs the key under.
+    # tasks_from, not roles:, which would apply main.yml to every host. The
+    # import also brings in the role defaults ssh.yml reads.
     - name: Authorize the broker's key
       ansible.builtin.import_role:
         name: faramir
