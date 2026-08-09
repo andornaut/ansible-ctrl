@@ -1,9 +1,8 @@
 ---
-# Authorize the broker's key on the hosts brokered playbooks reach.
-# Applied over the whole inventory as faramir.yml's second play; each block below
-# selects its hosts by comparing against faramir_controller. The linear strategy
-# is what orders them: the key is published before any host is asked to authorize
-# it, and every host has been asked before the brokered ping runs. See the README.
+# Authorize the broker's key on the hosts brokered playbooks reach. Applied over the
+# whole inventory as faramir.yml's second play, each block below selecting its hosts
+# against faramir_controller. The linear strategy is what orders them: publish,
+# authorize everywhere, then ping. See the README.
 
 # The key comes off faramir_controller and the play targets the faramir group, so
 # the two must agree. A group holding two hosts would distribute one broker's key
@@ -69,11 +68,10 @@
         exclusive: false
         comment: "faramir broker on {{ faramir_controller }}"
 
-    # The broker's key plus this entry means the agent is root here. Leave a host
-    # out of this play to keep it agent-free.
-    #
-    # Passwordless because no become password can live in the store: it is the
-    # operator's login password, and on the controller that reaches the age key.
+    # The broker's key plus this entry means the agent is root here; leave a host
+    # out of the play to keep it agent-free. Passwordless because no become password
+    # can live in the store: it is the operator's login password, and on the
+    # controller that reaches the age key.
     - name: Grant the ansible account passwordless sudo
       ansible.builtin.copy:
         dest: /etc/sudoers.d/faramir-agent

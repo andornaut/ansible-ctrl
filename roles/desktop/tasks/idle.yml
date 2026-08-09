@@ -1,11 +1,10 @@
 ---
-# Screen blanking, locking and monitor power-off. One policy
-# (desktop_screen_*_minutes), three mechanisms: GNOME dconf, bspwm xsecurelock,
-# niri hypridle. See the README for which timeouts each honours.
+# Blanking, locking and monitor power-off: one policy, three mechanisms. See the
+# README for which timeouts each honours.
 #
-# Files that may be dotfiles-repo symlinks are written with blockinfile/lineinfile,
-# which resolve the link; template/copy would corrupt the repo tree.
-# idle_check_dotfile.yml fails first on a dangling link.
+# Files that may be dotfiles symlinks take blockinfile/lineinfile, which resolve the
+# link where template/copy would corrupt the repo tree. idle_check_dotfile.yml
+# fails first on a dangling one.
 
 - name: Validate idle timeouts
   ansible.builtin.assert:

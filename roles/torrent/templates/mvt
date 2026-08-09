@@ -3,14 +3,12 @@
 set -euo pipefail
 
 QUIET=false
-# A .torrent file this new may still be being written. Uploading a truncated one
-# gives the remote watch directory a file rtorrent cannot load, and a successful
-# scp deletes the local copy, so nothing would be left to retry from.
+# A newer file may still be being written, and scp deletes the local copy on
+# success, so a truncated upload leaves nothing to retry from.
 MIN_AGE_SECONDS=30
-# Bound a stalled transfer: the run holds a lock for its whole duration, so a hang
-# blocks every later cron run. Without ConnectTimeout ssh waits out the kernel's TCP
-# connect timeout, which is longer than the interval cron fires at, and once a
-# transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+# Bound a stall: the run holds a lock throughout, so a hang blocks every later cron
+# run. ssh otherwise waits out the kernel's TCP connect timeout, and once a transfer
+# is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
 SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
@@ -29,9 +27,8 @@ EOF
     exit 0
 }
 
-# ANSI escapes only when the stream is a terminal: under cron this output goes to
-# a log file or a mail spool, where the codes are noise. Stdout and stderr are
-# tested separately because cron redirects them independently.
+# ANSI escapes only on a terminal: under cron this goes to a log or a mail spool.
+# The two streams are tested separately, cron redirecting them independently.
 O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
 [[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
 [[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
@@ -42,17 +39,15 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess. Matches a
-        # single dash followed by 2+ characters, so long options never reach it.
-        # Do not rewrite this using bash's parameter-length syntax: that opens a
-        # Jinja2 comment, and the template then fails to render.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
+        # and 2+ characters, so long options never match. Do not rewrite with
+        # bash's parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
             set -- "${bundle[@]/#/-}" "$@"
             ;;
-        # This script takes no positional arguments, so an unrecognized flag
-        # would otherwise be accepted and ignored.
+        # No positional arguments, so an unknown flag would be silently ignored.
         -*) error "unknown option: $1" ;;
         *) break ;;
     esac
@@ -62,15 +57,15 @@ header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 # shellcheck disable=SC2120  # ok() is intentionally called with no args (defaults to "OK")
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-# Not gated on --quiet, unlike the others: a warning names what went wrong, and the
-# cron job passes --quiet, so gating it leaves the final error unexplained in the log.
+# Ungated, unlike the others: the cron job passes --quiet, and gating this would
+# leave the final error unexplained in the log.
 warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 # Returns non-zero if any file in the source directory could not be uploaded.
 upload_torrent_files() {
     local src="${1}"
     local dst="${2}"
-    # Under `set -e` a failing `cd` would abandon the remaining watch directories.
+    # Under `set -e` a failing cd would abandon the remaining watch directories.
     [[ -d "${src}" ]] || { info "Skipping ${src}: not a directory"; return 0; }
     # Subshell: whatever happens below, the cd cannot leak back to the caller.
     (
@@ -85,15 +80,13 @@ upload_torrent_files() {
                 continue
             fi
             info "Copying ${f} to ${dst}"
-            # ./ prefix on both: a name beginning with a dash is otherwise read as
-            # an option, and the glob does not produce one. An unremoved file is
-            # uploaded again on the next run, and to every remaining host in this one.
+            # ./ on both: a name beginning with a dash reads as an option, and
+            # the glob does not produce one.
             if scp "${scp_opts[@]}" "./${f}" "${dst}"; then
                 rm "./${f}" || rc=1
             else
-                # Keep the file so the next run retries it. A failing scp is not
-                # fatal on its own: the remaining files and watch directories are
-                # still worth trying, and the caller reports the failure at the end.
+                # Kept, so the next run retries it. Not fatal on its own: the
+                # caller reports the failure at the end.
                 warn "Failed to copy ${f} to ${dst}"
                 rc=1
             fi
@@ -105,20 +98,17 @@ upload_torrent_files() {
 header "Uploading .torrent files to remote watch directories"
 
 failed=false
-# One lock for the whole run: cron fires every 2 minutes, which is tighter than a
-# stalled scp, and two overlapping runs race to rm the same file. flock holds the
-# lock for the guarded subshell and releases it however that subshell ends,
-# including a kill, which a pid check cannot see. The uid keeps the path from
-# colliding with another user's lock file.
+# One lock for the whole run: cron fires every 2 minutes, tighter than a stalled
+# scp, and two runs would race to rm the same file. flock releases however the
+# guarded subshell ends, including a kill, which a pid check cannot see.
 lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
 (
-    # A held lock means a prior run is wedged, not that runs overlap normally: an
-    # upload takes seconds and cron fires every 2 minutes. Fail so cron reports it.
+    # A held lock means a prior run is wedged, an upload taking seconds.
     flock -n 9 || error "A previous upload is still running"
     upload_failed=false
-    # The remote watch directory is derived from each host's own root: a delegated
-    # task resolves plain variables from the play host, so the role's
-    # torrent_watch_directory would name this host's path for every host.
+    # Derived from each host's own root: a delegated task resolves plain
+    # variables from the play host, so torrent_watch_directory would name this
+    # host's path for every host.
 {% for host in ansible_play_batch %}
 {% if host != "localhost" %}
 {% for watch_dir in torrent_local_watch_directories %}
@@ -130,6 +120,6 @@ lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
     exit 0
 ) 9>"${lock_file}" || failed=true
 
-# Exit non-zero so cron reports the run, which a per-file warning alone would not.
+# Non-zero so cron reports the run, which a per-file warning alone would not.
 "${failed}" && error "Some .torrent files could not be uploaded"
 ok

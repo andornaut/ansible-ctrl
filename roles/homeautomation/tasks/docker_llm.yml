@@ -63,10 +63,9 @@
     openwebui_volumes: "{{ homeautomation_common_volumes + openwebui_base_volumes }}"
 
     # Three paths that default into the image layer, which the uid cannot write:
-    # HOME, so libraries reading it directly follow the declared cache paths into
-    # the data dir; the secret key file, which was otherwise regenerated on every
-    # recreate and signed out every session; and STATIC_DIR, over which OpenWebUI
-    # recopies its branding assets at startup. A host-supplied env wins.
+    # HOME, so libraries reading it follow the declared cache paths; the secret key
+    # file, otherwise regenerated on every recreate, signing out every session; and
+    # STATIC_DIR, which OpenWebUI recopies over at startup. A host env wins.
     openwebui_base_environment:
       HOME: /app/backend/data
       STATIC_DIR: /app/backend/data/static

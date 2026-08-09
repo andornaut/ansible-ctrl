@@ -1,6 +1,5 @@
 ---
-# Target games user account. Defaults to primary_user from the inventory; override per host.
-# Flatpak apps install to this user via become_user (method: user, never root).
+# The account the user-scoped tasks act on. Flatpak installs are method: user.
 games_user: "{{ primary_user }}"
 
 # Flatpak applications installed and configured for games_user.
@@ -10,62 +9,52 @@ games_flatpak_apps:
   - com.valvesoftware.Steam
   - net.davidotek.pupgui2
   - net.lutris.Lutris
-  # Not a launcher like the rest: installed for its dolphin-tool CLI, which converts the GameCube
-  # disc images between .iso and .rvz offline. apt has no dolphin-emu on Ubuntu 24.04 (dropped from
-  # the official repos), so the flatpak is the packaged source. Run it with
+  # Not a launcher: installed for dolphin-tool, which converts GameCube disc images
+  # between .iso and .rvz. noble has no dolphin-emu package. Run it with
   #   flatpak run --command=dolphin-tool org.DolphinEmu.dolphin-emu convert ...
   - org.DolphinEmu.dolphin-emu
   - org.libretro.RetroArch
   - org.openjkdf2.OpenJKDF2
 
-# Base directory for Heroic's game installs and wine prefixes, under a per-launcher subdir of
-# ~/.local/games so Heroic, Lutris and Steam installs do not collide. Granted to the Heroic flatpak
-# in games_flatpak_overrides and written into Heroic's config.json by tasks/heroic.yml: the sandbox
-# can only stat paths it is granted, so games outside a granted path show as "not available".
+# Heroic's installs and wine prefixes, in its own ~/.local/games subdir. Granted in
+# games_flatpak_overrides and written into config.json by tasks/heroic.yml: the
+# sandbox can only stat granted paths, and shows anything else as "not available".
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
-# Base directory for Lutris's game installs, under its own ~/.local/games subdir like Heroic.
-# Written into Lutris's system.yml as system.game_path by tasks/lutris.yml. No flatpak override
-# needed: the Lutris flatpak already ships `home` filesystem access (Heroic does not).
+# Lutris's installs, in its own ~/.local/games subdir. Written into system.yml by
+# tasks/lutris.yml. No override needed: the flatpak already has `home` access.
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
-# How often the token-refresh --user timer (tasks/heroic.yml) exercises the Epic (legendary) and
-# GOG (gogdl) OAuth refresh tokens, so the Heroic store logins do not lapse while Heroic is closed.
-# A systemd OnUnitActiveSec value (validate with systemd-analyze). Kept under the hosts' 4h
-# idle-suspend threshold so a refresh lands before the machine suspends.
+# How often tasks/heroic.yml's timer exercises the Epic and GOG refresh tokens, as an
+# OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh
+# lands before the machine suspends.
 games_heroic_token_refresh_interval: "3h"
 
-# Cursor theme for the flatpak applications this role installs, which cannot see the host's
-# and otherwise draw the pointer at the wrong size. Duplicates desktop_cursor_theme, since
-# games installs its own flatpaks and depends on no other role.
-# https://www.reddit.com/r/linux/comments/ihsyf7/if_you_have_problems_with_mouse_pointer_size_in/
+# The sandboxes cannot see the host's and draw the pointer at the wrong size.
+# Duplicates desktop_cursor_theme, this role depending on no other.
 games_cursor_theme: Adwaita
 
-# The gamepad this host has, naming a key of games_retroarch_controllers. No default, and
-# tasks/retroarch.yml asserts it: RetroArch's hotkey bindings are *physical* device indices, not
-# RetroPad IDs, so they differ per pad and a guessed value binds real but wrong buttons. README.md
-# gives the grep that reads the indices out of the pad's autoconfig profile.
+# A key of games_retroarch_controllers. No default, and asserted: hotkey bindings are
+# physical device indices, so a guess binds real but wrong buttons. README.md gives
+# the grep that reads them out of the pad's autoconfig profile.
 games_retroarch_controller: ""
 
-# This host's panel refresh rate, as its actual mode (RetroArch's own "Estimate Screen Refresh Rate"
-# reports it). No default, and tasks/retroarch.yml asserts it: RetroArch derives the audio
-# resampling ratio from it, so its 60.0 default mistimes every core on a panel that is not 60Hz,
-# heard as drift rather than seen as tearing. Folded into games_retroarch_settings as
-# video_refresh_rate.
+# The panel's actual mode, as RetroArch's "Estimate Screen Refresh Rate" reports it.
+# No default, and asserted: RetroArch derives the audio resampling ratio from it, so
+# its 60.0 default mistimes every core, heard as drift rather than seen as tearing.
 games_retroarch_video_refresh_rate: ""
 
-# Per-host additions to games_retroarch_required_settings. Set in host_vars/ to override a
-# single key; the two are combined, so nothing has to be restated.
+# Combined over games_retroarch_required_settings, so one key can be set alone.
 games_retroarch_extra_settings: {}
 
-# Install /usr/local/bin/syncretroid, which mirrors this role's RetroArch config onto a Retroid
-# Pocket Flip 2 over adb. The handheld is a USB peripheral of the controller rather than an
-# inventory host, so the command lands on the controller and no playbook runs it; see
-# files/retroid/README.md. Set this in the host_vars of the host that is the controller.
+# Install /usr/local/bin/syncretroid, which mirrors this role's RetroArch config onto
+# a Retroid Pocket Flip 2 over adb. The handheld is a USB peripheral rather than an
+# inventory host, so the command lands on the controller and no playbook runs it.
+# Set it in the controller's host_vars. See files/retroid/README.md.
 games_install_retroid_sync: false
 
-# Where the controller mounts the ROM library, and the handheld's adb serial (`adb devices`), baked
-# into the installed syncretroid wrapper so the command takes no arguments. Site data, so no
-# defaults: tasks/retroid.yml asserts both when games_install_retroid_sync is on.
+# The controller's ROM library mount and the handheld's adb serial (`adb devices`),
+# baked into the wrapper so the command takes no arguments. Site data, so no
+# defaults; tasks/retroid.yml asserts both when the flag is on.
 games_retroid_library_dir: ""
 games_retroid_serial: ""

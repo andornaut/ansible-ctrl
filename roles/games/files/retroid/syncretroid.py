@@ -1,64 +1,42 @@
 #!/usr/bin/env python3
 """Mirror the games role's managed RetroArch config onto a Retroid Pocket Flip 2 over adb.
 
-The role converges a desktop's RetroArch install (cores, BIOS, a curated subset of retroarch.cfg,
-per-core overrides and options, generated playlists). The Flip 2 runs stock Android with ES-DE, where
-Ansible cannot, so this reproduces that convergence from the outside: it reads the role's own
-vars/main.yml as the source of truth, applies the Android divergences in profile.yml, and
-reconciles the result onto the device (add/update the managed items, delete the ones that were
-dropped, leave everything else the device has alone).
+The Flip 2 runs stock Android with ES-DE, where Ansible cannot, so this reproduces the
+role's convergence from the outside: it reads the role's vars/main.yml as the source of
+truth, applies the Android divergences in profile.yml, and reconciles the result onto
+the device, leaving everything the device has that it does not own alone.
 
-The games role installs a wrapper at /usr/local/bin/syncretroid that runs this file out of the
-checkout with the library path and adb serial passed in, so the command takes no arguments. No
-playbook runs it: run it by hand with the device on USB and its `adb` authorisation granted. adb is
-installed by the dev role.
-
-    syncretroid                                  # real run
-    syncretroid --dry-run                        # build + plan, no device writes
-    syncretroid --profile /path/to/other.yml     # same run against different device data
-
-Run it straight from the checkout to test an edit without re-running the role. Only the library
-mount has to be supplied; --serial is needed only when more than one device is on adb:
-
-    python3 syncretroid.py --library-dir <rom library mount> --dry-run
-
-Whichever device adb selects is identified before the run touches it (both the apps profile.yml
-names must be installed on it), so a serial is not what keeps the sync off the wrong device.
+Run it by hand, with the device on USB and its adb authorisation granted; no playbook
+does. The role's wrapper at /usr/local/bin/syncretroid passes the library path and adb
+serial in, so the command takes no arguments. See README.md and `--help`.
 
 What it owns, mirroring the role's ownership semantics:
 
-  * retroarch.cfg: only the enumerated keys are set (updated in place, appended if new) and the
-    dropped keys removed; every other line the device has is preserved.
-  * playlists: regenerated with device paths (the device's ES-DE short-name ROM dirs, and each
-    core_path under the app-private cores dir), and stale managed .lpl (ones whose scan_content_dir is
-    inside the device ROM dir, for a system no longer in the table) removed. Hand-built playlists are
-    left alone.
-  * BIOS: additive push from the library (only files missing or a different size on the device), no deletes.
-  * shaders (--skip-shaders to skip the push): the configured preset's file closure (its passes, whatever
-    those include, its mask textures) extracted from the libretro slang pack and pushed additively, plus a
-    per-core auto preset for every core whose effective video driver can load slang. A core pinned back to
-    the gl driver gets none, since gl loads GLSL only and a slang preset there is just a load error.
-  * thumbnails: mirrored from the library, on by default (--skip-thumbnails to skip): device thumbnails
-    the library dropped are deleted and only files missing or a different size are pushed. The frontend
-    here is ES-DE, which scrapes its own media; RetroArch's thumbnail cache is seen only when browsing
-    inside RetroArch itself (on-demand download is turned off in profile.yml, since the mirror owns this
-    tree). The generated playlists are likewise RetroArch-only, but still pushed.
-  * ES-DE emulators: each system's <alternativeEmulator> in its gamelist.xml is pinned to the core the
-    role prefers (profile.yml esde_cores), so ES-DE launches our core, not its default.
-  * ROM library (--skip-roms to skip): each library system is mirrored onto ROMS/<short name>, deleting
-    device games the library dropped and pushing only the files missing or a different size on the
-    device, so the long transfer resumes after an interruption and a converged re-run pushes nothing.
-    On by default; it is hundreds of GB over USB.
+  * retroarch.cfg: the enumerated keys set, the dropped keys removed, every other line
+    preserved.
+  * playlists: regenerated with device paths, and stale managed .lpl removed.
+    Hand-built playlists are left alone.
+  * BIOS: additive push from the library, no deletes.
+  * shaders: the configured preset's file closure, extracted from the libretro slang
+    pack and pushed additively, plus a per-core auto preset for every core whose
+    effective video driver can load slang. A core pinned back to gl gets none, gl
+    loading GLSL only.
+  * thumbnails: mirrored from the library. Seen only when browsing inside RetroArch,
+    ES-DE scraping its own media, but the mirror owns the tree so on-demand download is
+    off in profile.yml.
+  * ES-DE emulators: each system's <alternativeEmulator> pinned to the core the role
+    prefers, so ES-DE launches it rather than its own default.
+  * ROM library: each system mirrored onto ROMS/<short name>. Hundreds of GB over USB,
+    so only files missing or of a different size are pushed and an interrupted transfer
+    resumes.
 
-Cores are NOT managed here: the sdcard and emulated storage are mounted noexec, so RetroArch can only
-dlopen a core from the app-private dir the in-app Core Updater fills, which adb cannot write. Install
-the cores the table needs with that updater; the generated playlists point their core_path at it, and
-ES-DE is pointed at the same cores by name.
+Not cores: the sdcard and emulated storage are noexec, so RetroArch can only dlopen from
+the app-private dir the in-app Core Updater fills, which adb cannot write. Install the
+cores the table needs there; the playlists and ES-DE both point at them.
 
-RetroArch and ES-DE are force-stopped for the run, since both rewrite what they own (retroarch.cfg,
-gamelist.xml) on exit; reopen whichever is used afterwards.
+RetroArch and ES-DE are force-stopped for the run, both rewriting what they own on exit.
 
-The device library_names and the pad indices are the two things this cannot derive; see README.md.
+The device library_names and the pad indices are the two things this cannot derive.
 """
 
 import argparse
@@ -73,20 +51,16 @@ import tempfile
 import urllib.request
 import zipfile
 
-# This file runs from the role directory rather than from a copy, so an edit to it, to vars/main.yml
-# or to profile.yml reaches the next run on its own; only the values the wrapper passes in need the
-# role re-run. The role's files are located relative to this file, so a moved checkout needs nothing
-# but the wrapper re-rendered at its new path. realpath, so a symlink onto PATH resolves to the
-# checkout rather than to the directory the link sits in.
+# Runs from the role directory rather than a copy, so an edit here, to vars/main.yml or to
+# profile.yml reaches the next run; only the wrapper's own values need the role re-run.
+# realpath, so a symlink onto PATH resolves to the checkout rather than the link's dir.
 ROLE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-# The role's canonical RetroArch data, and this script's source of truth. vars/ rather than defaults/
-# because nothing here resolves inventory: a host_vars override would apply to the hosts the role
-# converges and silently not to the device, so the values it reads are the ones a host cannot change.
+# The role's canonical data. vars/ rather than defaults/ because nothing here resolves
+# inventory, so a host_vars override would silently miss the device.
 ROLE_VARS = os.path.join(ROLE_DIR, "vars", "main.yml")
 PROFILE = os.path.join(ROLE_DIR, "files", "retroid", "profile.yml")
 GENERATOR = os.path.join(ROLE_DIR, "files", "retroarch-generate-playlists.py")
-# Arcade romset -> full title map, read straight from the role (both this and the generator run on
-# the same host), so device playlists get the same readable labels the desktop does.
+# Read straight from the role, so device playlists get the desktop's labels.
 ARCADE_NAMES = os.path.join(ROLE_DIR, "files", "fbneo-arcade-names.json")
 # A rendered stand-in for the sdcard UUID when --dry-run runs with no device attached.
 DRY_RUN_UUID = "SDCARD"
@@ -114,11 +88,10 @@ def build_model(role_vars, profile):
     for name, spec in (profile.get("systems_add") or {}).items():
         systems[name] = spec
 
-    # Settings: base, less the dropped keys and the base's directory keys, then the Android
-    # overrides, the explicit device directories, and the pad's rewind/fast-forward bindings. The
-    # directory keys are Jinja host paths that only Ansible resolves, and reading the YAML directly
-    # leaves them unrendered, so the filter drops any templated value: a directory key added to the
-    # role later cannot leak a host path onto the device.
+    # Base, less the dropped and directory keys, then the Android overrides, the device
+    # directories and the pad bindings. The directory keys are Jinja host paths only
+    # Ansible resolves, so the filter drops any templated value: one added to the role
+    # later cannot leak a host path onto the device.
     drop = set(profile["settings_drop"])
     settings = {
         key: value
@@ -193,8 +166,8 @@ class Device:
                 stderr=subprocess.PIPE if capture else None,
             )
         except FileNotFoundError:
-            # Reachable only in a dry run, which skips require_adb(): reads still shell out, so with
-            # no adb installed they report the device as absent rather than raising.
+            # Only in a dry run, which skips require_adb(): reads still shell out, and
+            # report the device absent rather than raising.
             if check:
                 raise
             return subprocess.CompletedProcess(args, 1, "", "")
@@ -353,8 +326,7 @@ def require_expected_device(device, profile):
     picked instead fails here, before a plan is printed or anything is written.
     """
     listing = device.read_shell("pm list packages")
-    # An empty listing is the package manager not answering (a device that just booted), not a device
-    # without the apps: distinguished here so it does not read as the wrong device.
+    # An empty listing is the package manager not answering, not a missing app.
     if not listing.strip():
         sys.exit("`pm list packages` returned nothing. The device is on adb but its package manager is "
                  "not up yet; wait for it to finish booting and re-run.")
@@ -393,7 +365,7 @@ def discover_cfg(device, ctx):
     ):
         if device.exists(path):
             return path
-    # Default to the app-scoped path; the first sync creates it.
+    # The app-scoped path, which the first sync creates.
     return "%s/retroarch.cfg" % ctx["app_files"]
 
 
@@ -483,15 +455,13 @@ def io_bytes(data):
 # --------------------------------------------------------------------------- shaders
 
 
-# Video drivers that load slang presets. Android's build has gl and vulkan only, and gl loads GLSL, so
-# vulkan is the sole slang-capable driver here; glcore is listed because the role's desktop global is
-# glcore and this predicate reads the same settings.
+# Android's build has gl and vulkan only, and gl loads GLSL, so vulkan is the only one
+# that applies here; glcore is listed because this predicate reads the desktop's settings.
 SLANG_DRIVERS = {"vulkan", "glcore"}
-# The shader-pack files worth parsing for further references. Everything else a preset names (its mask
-# textures) is copied as-is.
+# Worth parsing for further references; everything else a preset names is copied as-is.
 PARSEABLE_SHADERS = (".slangp", ".slang", ".inc", ".h")
 SHADER_PASS = re.compile(r"^shader\d+$")
-# #include pulls in source, #reference chains one preset onto another; both name a file the device needs.
+# #include pulls in source, #reference chains presets; both name a file the device needs.
 SHADER_DIRECTIVE = re.compile(r'^\s*#(?:include|reference)\s+"([^"]+)"')
 
 
@@ -508,7 +478,7 @@ def preset_refs(text):
         if match:
             pairs[match.group(1)] = match.group(2).strip().strip('"')
     refs.extend(value for key, value in pairs.items() if SHADER_PASS.match(key))
-    # textures = "aperture;slot;delta", each name then keyed to its own path.
+    # textures = "aperture;slot;delta", each name keyed to its own path.
     for name in (pairs.get("textures") or "").split(";"):
         if name.strip() in pairs:
             refs.append(pairs[name.strip()])
@@ -616,16 +586,16 @@ def generate_playlists(model, library_dir, dirs, profile, cores_ref, info_dir, p
     config = {
         "library_dir": library_dir,
         "emit_library_dir": dirs["roms"],
-        # The device's per-system ROM folders are ES-DE short names, not the library's No-Intro ones.
+        # The device's ROM folders are ES-DE short names, not the library's No-Intro ones.
         "emit_system_dirs": profile.get("rom_dir_names") or {},
         "playlist_dir": playlist_dir,
-        # core_path points at the app-private cores dir, the only place RetroArch can dlopen from.
+        # The app-private cores dir, the only place RetroArch can dlopen from.
         "cores_dir": cores_ref,
         "core_filename_suffix": profile["core_suffix"],
         "info_dir": info_dir,
         "cores": model["probe"],
         "systems": model["systems"],
-        # Arcade labels: same map and same core list the desktop uses.
+        # Arcade labels, from the same map and core list the desktop uses.
         "arcade_names_path": ARCADE_NAMES,
         "arcade_name_cores": model["arcade_name_cores"],
     }

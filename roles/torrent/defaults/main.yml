@@ -2,39 +2,32 @@
 torrent_root_directory: "{{ torrent_user_home }}/torrents"
 torrent_completed_directory: "{{ torrent_root_directory }}/completed"
 torrent_incoming_directory: "{{ torrent_root_directory }}/incoming"
-# rtorrent.rc, rtorrent.service and tasks/main.yml must agree on these, so derive them once.
-# The controller scripts cannot use them: a delegated task resolves plain variables from the
-# play host, so each appends its own subdirectory name to that host's torrent_root_directory.
+# Derived once, rtorrent.rc, rtorrent.service and tasks/main.yml having to agree.
+# The controller scripts cannot use them: a delegated task resolves plain variables
+# from the play host, so each appends its own subdirectory name instead.
 torrent_session_directory: "{{ torrent_root_directory }}/session"
 torrent_watch_directory: "{{ torrent_root_directory }}/watch"
-# A private tmux socket. On the default socket the service and the user share a server:
-# KillMode=mixed would kill the user's other sessions on stop, ExecStartPre could kill a
-# session they created, and `tmux new-session -A` from a shell would start a second
-# rtorrent outside the unit. Attach with `tmux -L rtorrent attach -t rtorrent`.
+# A private socket: on the default one the service and the user share a server, and
+# stopping the unit would take the user's other sessions with it. Attach with
+# `tmux -L rtorrent attach -t rtorrent`.
 torrent_tmux_socket: rtorrent
 # torrent_local_incoming_directory:
 torrent_local_synct_log_file: /tmp/synct.log
 # torrent_local_watch_directories: []
-# The account rtorrent runs as and whose home holds .rtorrent.rc. Defaults to primary_user
-# (inventory data) so it means the same however ansible is invoked. Override in host_vars
-# where the target is a different account. torrent_user_home is derived in vars/main.yml.
+# The account rtorrent runs as, whose home holds .rtorrent.rc.
 torrent_user: "{{ primary_user }}"
 torrent_group: "{{ torrent_user }}"
-# Local user that owns the cron jobs installed via delegate_to: localhost.
+# Owns the cron jobs installed via delegate_to: localhost.
 torrent_local_user: "{{ primary_user }}"
 torrent_download_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
 torrent_upload_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
-# Address space rtorrent maps piece data into, and the value rtorrent's stock rtorrent.rc
-# ships. This is file-backed page cache the kernel reclaims under pressure, not anonymous
-# memory, so on 64-bit it does not have to fit in physical RAM. Do not size it to the host's
-# RAM: libtorrent >= 0.16 rejects anything below 512M outright ("memory limit too low"), and
-# its compiled-in default on 64-bit is 32768M.
+# Address space for piece data, and rtorrent's own stock value. File-backed page
+# cache the kernel reclaims, not anonymous memory, so it need not fit in RAM and
+# must not be sized to it: libtorrent rejects anything under 512M outright.
 torrent_pieces_memory_max: 1800M
-# Random peer port, chosen per start. Above 1024 (no privileges) and below the kernel's
-# ephemeral range (net.ipv4.ip_local_port_range, 32768-60999) so it cannot collide with an
-# outgoing socket. Nothing forwards it, so it need not be stable.
+# Chosen per start, above 1024 and below the kernel's ephemeral range so it cannot
+# collide with an outgoing socket. Nothing forwards it, so it need not be stable.
 torrent_port_range: 20000-20999
-# DHT's UDP port, which rtorrent would otherwise leave on the well-known 6881. It takes a
-# single value, so use the top of the peer range: same band by construction, and UDP, so it
-# cannot collide with the TCP port.
+# rtorrent would otherwise leave DHT on the well-known 6881. The top of the peer
+# range: same band by construction, and UDP, so it cannot collide with the TCP port.
 torrent_dht_port: "{{ torrent_port_range.split('-') | last }}"

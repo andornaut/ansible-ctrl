@@ -29,9 +29,8 @@ EOF
     exit 0
 }
 
-# ANSI escapes only when the stream is a terminal: redirected to a file or a pipe
-# the codes are noise. Stdout and stderr are tested separately because they can
-# be redirected independently.
+# ANSI escapes only on a terminal. The two streams are tested separately, being
+# redirectable independently.
 O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
 [[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
 [[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
@@ -43,17 +42,15 @@ while [[ $# -gt 0 ]]; do
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess. Matches a
-        # single dash followed by 2+ characters, so long options never reach it.
-        # Do not rewrite this using bash's parameter-length syntax: that opens a
-        # Jinja2 comment, and the template then fails to render.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
+        # and 2+ characters, so long options never match. Do not rewrite with
+        # bash's parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
             set -- "${bundle[@]/#/-}" "$@"
             ;;
-        # Without this, a typo falls through to the positional branch and is
-        # read as the incoming directory.
+        # Or a typo falls through and is read as the incoming directory.
         -*) error "unknown option: $1" ;;
         *) break ;;
     esac
@@ -62,8 +59,7 @@ done
 header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
 info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
 ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
-# Not gated on --quiet, unlike the others: a warning names an entry this run left
-# behind, which the operator needs whether or not they asked for a quiet run.
+# Ungated, unlike the others: it names an entry this run left behind.
 warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 
 incoming_dir="${1:-{{ torrent_local_incoming_directory }}}"
@@ -75,21 +71,18 @@ command -v jq >/dev/null || error "jq is not installed"
 
 remote_entries="$(mktemp)"
 eligible="$(mktemp)"
-# INT and TERM as well as EXIT: bash does not run an EXIT trap when a signal it
-# has not trapped kills the shell, and the ssh listing below is the likeliest
-# point to interrupt.
+# INT and TERM too: bash runs no EXIT trap when an untrapped signal kills the
+# shell, and the ssh listing below is the likeliest point to interrupt.
 trap 'rm -f "${remote_entries}" "${eligible}"' EXIT INT TERM
 
-# Collect the entry names present in every remote host's completed directory.
-# synct rsyncs completed/ into the incoming directory, so a name still present
-# there would be re-downloaded if we moved it out. If any remote cannot be
-# listed we cannot tell which of its entries are still downloading, so abort
-# rather than risk moving one out (synct would re-download it).
+# synct rsyncs completed/ into the incoming directory, so an entry still on a
+# remote would be re-downloaded if moved out. A remote that cannot be listed
+# aborts the run rather than risk that.
 list_remote_entries() {
     local src_host="${1}"
     local src_dir="${2}"
     info "Listing ${src_host}:${src_dir}"
-    # src_dir is a rendered path; expanding it client-side is intended.
+    # src_dir is a rendered path, so expanding it client-side is intended.
     # shellcheck disable=SC2029
     ssh "${src_host}" "ls -1 -- '${src_dir}'" >>"${remote_entries}" \
         || error "Could not list ${src_host}:${src_dir}; refusing to organize"
@@ -103,18 +96,16 @@ list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory | def
 {% endif -%}
 {% endfor -%}
 
-# Eligible = incoming entries not present on any remote and not a guide file.
-# The listing is NUL-separated bare names ('%f'), so an entry containing a
-# newline stays one entry instead of splitting into fragments that could each
-# look eligible. '[!.]*' skips dotfiles and sort gives the listing a stable order.
+# Eligible: incoming entries on no remote and not a guide file. NUL-separated bare
+# names, so an entry containing a newline stays whole rather than splitting into
+# fragments that each look eligible. '[!.]*' skips dotfiles.
 while IFS= read -r -d '' entry; do
-    # Guide files and the .uncategorized holding directory are not downloads.
+    # Not downloads.
     case "${entry}" in
         AGENTS.md|CLAUDE.md|.uncategorized) continue ;;
     esac
-    # The prompt and the eligible list are both one entry per line, so a name
-    # containing a newline cannot be passed on unambiguously. Leave it in place
-    # rather than hand Claude two fragments that each look like an entry.
+    # The prompt and the eligible list are one entry per line, so a name with a
+    # newline in it cannot be passed on unambiguously. Leave it in place.
     if [[ "${entry}" == *$'\n'* ]]; then
         warn "Skipping an entry whose name contains a newline: ${entry}"
         continue
@@ -129,16 +120,16 @@ if [[ ! -s "${eligible}" ]]; then
 fi
 
 info "$(wc -l <"${eligible}") entr(ies) to organize:"
-# Printing this list is the whole point of --dry-run, so it outranks --quiet.
+# The point of --dry-run, so it outranks --quiet.
 if "${DRY_RUN}" || ! "${QUIET}"; then
     sed 's/^/    /' "${eligible}"
 fi
 
 "${DRY_RUN}" && exit 0
 
-# Release names are chosen by whoever packaged the download and this run has every
-# permission check disabled, so the entry list is fenced and labelled as data. The
-# '- ' prefix is load-bearing too: it keeps a name from reproducing the end marker.
+# Release names come from whoever packaged the download and this run has every
+# permission check off, so the list is fenced and labelled as data. The '- ' prefix
+# is load-bearing: it keeps a name from reproducing the end marker.
 prompt="$(cat <<EOF
 Organize the completed downloads listed below into the correct media library
 under ${base_dir}. Before moving anything, read ${base_dir}/AGENTS.md and the
@@ -177,21 +168,18 @@ EOF
 )"
 
 header "Asking Claude to organize the eligible entries"
-# Run from the library root, not the incoming directory: every destination is a
-# sibling of incoming/, so this is the smallest cwd that covers them all without
-# an --add-dir grant. Claude buckets sessions by cwd, so this is also what keeps
-# every run resumable from one place (`claude --resume` in ${base_dir}).
+# The library root, not the incoming directory: every destination is a sibling of
+# incoming/, so this is the smallest cwd covering them without an --add-dir grant.
+# Claude buckets sessions by cwd, so it is also what keeps runs resumable here.
 cd "${base_dir}"
 
-# Text output prints nothing until the run ends, so stream the events and render
-# one line per tool call. Reading with -R + fromjson keeps a line jq cannot parse
-# from exiting jq, which would SIGPIPE claude mid-batch. The result event prints
-# unclipped: the pipe consumes claude's stdout, so it is the only copy of the
-# run's report. See README.md.
+# Text output prints nothing until the run ends, so stream the events instead, one
+# line per tool call. -R + fromjson keeps an unparseable line from exiting jq,
+# which would SIGPIPE claude mid-batch. The result event prints unclipped, the pipe
+# having consumed the only copy of the report. See README.md.
 claude --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" \
     | jq --unbuffered -rR --arg cwd "${PWD}" '
-        # Collapse whitespace before truncating: a multi-line command or
-        # narration would otherwise break the one-line-per-event layout.
+        # Collapsed before truncating, or a multi-line command breaks the layout.
         def clip($n): tostring | gsub("\\s+"; " ") | if length > $n then .[:$n] + "..." else . end;
         def stamp: now | localtime | strftime("%H:%M:%S");
         fromjson? // empty
@@ -201,8 +189,7 @@ claude --dangerously-skip-permissions --verbose --output-format stream-json -p "
           elif .type == "assistant" then
             .message.content[]?
             | if .type == "tool_use" then
-                # command first: for Bash it names the paths being moved,
-                # which description only summarizes.
+                # command first: for Bash it names the paths being moved.
                 "\(stamp)  \(.name)  \((.input.command // .input.file_path // .input.query // .input.url // .input.description // .input) | clip(240))"
               elif .type == "text" and (.text | length) > 0 then
                 "\(stamp)  \(.text | clip(400))"

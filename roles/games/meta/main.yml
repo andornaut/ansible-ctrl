@@ -14,6 +14,5 @@ galaxy_info:
     - steam
     - ubuntu
 
-# No dependencies. The desktop role also installs flatpak and adds the flathub remote,
-# but it adds the remote for desktop_user, and flatpak's per-user state is not shared
-# between accounts, so flatpak.yml bootstraps both for games_user itself.
+# None. The desktop role installs flatpak too, but adds the remote for desktop_user,
+# and per-user state is not shared, so flatpak.yml bootstraps both for games_user.

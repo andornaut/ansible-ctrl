@@ -1,7 +1,8 @@
 ---
-# Derived from niri_user, not operator knobs. In vars/ (not defaults/) so role vars
-# outrank host_vars: a host cannot desync a derived value from its source. The getent
-# lookup runs in tasks/main.yml.
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
+
+# From the getent in tasks/main.yml.
 niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
 
 niri_hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"

@@ -1,44 +1,40 @@
 # https://wiki.archlinux.org/index.php/RTorrent#With_screen
 [Unit]
 Description=rTorrent
-# Implies After=, and unlike a named mount unit it follows torrent_root_directory.
+# Implies After=, and unlike a named mount unit follows torrent_root_directory.
 RequiresMountsFor={{ torrent_root_directory }}
 After=network.target
 
 [Service]
 Type=forking
-# rtorrent is the tmux server's child, so systemd cannot guess the main pid. ExecStart
-# writes it before returning, which is when systemd reads this file.
+# rtorrent is the tmux server's child, so systemd cannot guess the main pid.
+# ExecStart writes it before returning, which is when systemd reads the file.
 PIDFile={{ torrent_session_directory }}/rtorrent.pid
-# SIGTERM goes to rtorrent alone, which saves its session and exits; the tmux server on the
-# private socket then has no sessions left and exits too. systemd waits for the whole
-# cgroup, bounded by TimeoutStopSec, so nothing outlives the unit and the mount is not
-# pulled out mid-write.
+# SIGTERM reaches rtorrent alone, which saves its session and exits, leaving the
+# private tmux server with nothing to hold it open. systemd waits for the whole
+# cgroup, so nothing outlives the unit and the mount is not pulled out mid-write.
 KillMode=mixed
 User={{ torrent_user }}
 Group={{ torrent_group }}
 WorkingDirectory={{ torrent_root_directory }}
 
-# Refuse to start unless the data directories exist and are writable. RequiresMountsFor above
-# blocks a start when the array is unmounted; this also catches a mounted-but-read-only array
-# (btrfs drops to read-only on I/O error) and missing dirs, so rtorrent never starts only to
-# fail every write. A non-"-" ExecStartPre that exits non-zero aborts the start, and
-# Restart=on-failure then retries every RestartSec until the array is writable again.
+# RequiresMountsFor above catches an unmounted array; this also catches one mounted
+# read-only, as btrfs drops to on an I/O error, so rtorrent never starts only to fail
+# every write. Restart=on-failure retries until the array is writable again.
 ExecStartPre=/usr/bin/test -w {{ torrent_completed_directory }}
 ExecStartPre=/usr/bin/test -w {{ torrent_incoming_directory }}
 
-# Must run first: new-session fails with "duplicate session" if one outlived its rtorrent.
-# No wait needed, because rtorrent refuses to open a session another process holds and
-# exits 255, so a start that races a dying instance fails safely and Restart= retries.
+# First: new-session fails on a session that outlived its rtorrent. No wait needed,
+# rtorrent refusing a session another process holds and exiting 255, so a start that
+# races a dying instance fails safely and Restart= retries.
 ExecStartPre=-/usr/bin/tmux -L {{ torrent_tmux_socket }} kill-session -t rtorrent
 
-# Only now is a lock without an rtorrent stale. `pidof` avoids a $(...) systemd would not
-# substitute.
+# Only now is a lock without an rtorrent stale. pidof avoids a $(...) systemd would
+# not substitute.
 ExecStartPre=-/bin/sh -c 'pidof rtorrent >/dev/null || rm -f {{ torrent_session_directory }}/rtorrent.lock'
 
-# The pane's process is rtorrent itself, so pane_pid is the pid systemd must supervise.
-# Writing it here rather than from rtorrent.rc means the file exists, and is current, by
-# the time ExecStart returns.
+# The pane's process is rtorrent, so pane_pid is what systemd must supervise. Written
+# here rather than from rtorrent.rc, so the file is current when ExecStart returns.
 ExecStart=/bin/sh -c '/usr/bin/tmux -L {{ torrent_tmux_socket }} new-session -DXds rtorrent -n rtorrent rtorrent && /usr/bin/tmux -L {{ torrent_tmux_socket }} list-panes -t rtorrent -F "#{pane_pid}" > {{ torrent_session_directory }}/rtorrent.pid'
 
 # Saving the session is slow with many torrents.

@@ -45,12 +45,11 @@
         state: latest
         install_recommends: false
 
-    # CLEANUP (added 2026-07-09): drop this task, the three below and the filter
-    # compilation once malcontent's postinst creates its own users, then reconverge.
+    # CLEANUP (added 2026-07-09): drop this, the three below and the filter
+    # compilation once malcontent's postinst creates its own users.
     #
-    # Ubuntu packaging bug: malcontent ships sysusers.d declarations but never runs
-    # systemd-sysusers, so its daemons die 217/USER. check_mode: false because the
-    # tasks below branch on this rc.
+    # It ships sysusers.d declarations but never runs systemd-sysusers, so its
+    # daemons die 217/USER. check_mode: false, the tasks below branching on this rc.
     - name: Check whether the malcontent service users exist
       ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
       register: desktop_malcontent_getent
@@ -123,10 +122,10 @@
               nss-malcontent must precede the resolvers that would answer a blocked name.
             success_msg: nss-malcontent precedes the resolvers in the hosts lookup chain
 
-# Chrome merges every file in the policy directory, later name winning, so a stray
-# family.json.bak would outrank family.json. The role owns the directory and sweeps
-# what it did not deploy, which is also how the policy is lifted. The malcontent
-# packages stay: libnss-malcontent must outlive the nsswitch entry above.
+# Chrome merges every file in the directory, later name winning, so a stray
+# family.json.bak would outrank family.json. The role owns it and sweeps what it did
+# not deploy, which is also how the policy is lifted. The malcontent packages stay:
+# libnss-malcontent must outlive the nsswitch entry above.
 - name: Find Chrome managed policies the role did not deploy
   ansible.builtin.find:
     paths: "{{ desktop_chrome_policies_dir }}"
@@ -142,10 +141,9 @@
     label: "{{ item.path }}"
   become: true
 
-# The filters are daemon state: set-app-filter/set-web-filter overwrite the whole
-# filter and an empty one clears it, so enforcing and lifting are the same task.
-# Guarded on the client, since a host that never enabled the controls has nothing
-# to clear.
+# Daemon state: set-app-filter and set-web-filter overwrite the whole filter and an
+# empty one clears it, so enforcing and lifting are the same task. Guarded on the
+# client, a host that never enabled the controls having nothing to clear.
 - name: Check whether the malcontent client is installed
   ansible.builtin.stat:
     path: "{{ desktop_malcontent_client }}"

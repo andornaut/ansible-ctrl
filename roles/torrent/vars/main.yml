@@ -1,5 +1,6 @@
 ---
-# Derived value, not an operator knob. In vars/ (not defaults/) so role vars outrank
-# host_vars and a host cannot desync it from torrent_user. The getent lookup in
-# tasks/main.yml populates getent_passwd; field 4 is the home directory.
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
+
+# From the getent in tasks/main.yml.
 torrent_user_home: "{{ ansible_facts['getent_passwd'][torrent_user][4] }}"

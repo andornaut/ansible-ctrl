@@ -20,46 +20,31 @@ homeautomation_avahi_interfaces: ""
 homeautomation_esphome_docker_image: ghcr.io/esphome/esphome:stable
 homeautomation_esphome_required_volumes:
   config: /var/docker-volumes/homeautomation/esphome/config
-  # The entrypoint uses /cache as the PlatformIO core dir when it is mounted,
-  # and it doubles as $HOME so PlatformIO's appstate.json has somewhere to go.
-  # Kept out of /config because that directory is version controlled.
+  # The entrypoint's PlatformIO core dir, and $HOME. Out of /config, which the
+  # dashboard version-controls.
   cache: /var/docker-volumes/homeautomation/esphome/cache
-# The dashboard is host-networked and unauthenticated out of the box, which is
-# firmware-flash access to every ESP device and read access to the wifi and OTA
-# passwords in secrets.yaml, from anywhere on the LAN. Setting both enables its
-# login; leaving either empty leaves it open. The password is a secret, so
-# host_vars references a secret_* name rather than holding a value.
-#
-# Only the API is gated, so the page itself still answers 200 either way. Check
-# with /devices, which answers 401 once these are set.
+# Host-networked and unauthenticated out of the box: firmware-flash access to
+# every ESP device and the wifi and OTA passwords, from anywhere on the LAN.
+# Both enable the login; either empty leaves it open. Only the API is gated, so
+# check with /devices, which answers 401 once these are set.
 homeautomation_esphome_username: ""
 homeautomation_esphome_password: ""
-# Both empty is refused rather than served: the role installs the dashboard on
-# purpose, so an empty pair is a host that has not been given credentials yet,
-# not a host that wants none. Set this true to run it open deliberately.
+# Two empties are refused rather than served, being a host not yet given
+# credentials. Set this to run the dashboard open deliberately.
 homeautomation_esphome_allow_unauthenticated: false
-# The image's default user is root, but the dashboard only reads and writes
-# these two directories, so it is run as this uid:gid.
-#
-# The config directory is a git repository, but not one the operator keeps: the
-# dashboard's Device Builder initialises it, authors its commits and writes the
-# .gitignore, and there is no remote. So there is no second writer to share the
-# directory with, and this is an ordinary dedicated account like every other
-# service here rather than the operator's uid.
+# The image runs as root, but the dashboard only reads and writes its two
+# directories. The config directory is a git repository, but the dashboard's own:
+# it initialises it, authors the commits and has no remote, so there is no second
+# writer to share the account with.
 homeautomation_esphome_uid: "10001"
 homeautomation_esphome_gid: "10001"
 
 # Frigate
-# The address the unauthenticated UI is published on. Frigate serves the same
-# application on two ports: the authenticated one below, and this one with no
-# login at all, so on 0.0.0.0 it hands the whole camera system to anyone on the
-# LAN. Loopback keeps it for host-local tooling without that. Nothing consumes
-# it over the network: the reverse proxy uses the authenticated port over
-# loopback, and Home Assistant reaches that port on the container's own bridge
-# address, which no published port is involved in.
-#
-# Only this one is narrowed. The WebRTC port carries media straight from the
-# browser and has to stay reachable.
+# Frigate serves the same application on two ports, and this one has no login at
+# all, so on 0.0.0.0 it hands the camera system to the LAN. Nothing reaches it
+# over the network: the proxy uses the authenticated port over loopback and Home
+# Assistant uses the container's bridge address. The WebRTC port stays open,
+# carrying media straight from the browser.
 homeautomation_frigate_bind_http_unauthenticated: "127.0.0.1"
 homeautomation_frigate_devices: []
 # https://github.com/blakeblackshear/frigate/pkgs/container/frigate
@@ -83,33 +68,28 @@ homeautomation_frigate_tmpfs_size_mb: 128
 # ha-mcp
 homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
 homeautomation_hamcp_env: {}
-# One entry per Home Assistant an agent drives, not per host running Home
-# Assistant: the server is an adapter holding a token and speaking HTTP, so a
-# remote instance is reached by pointing url at it rather than by deploying
-# alongside it. Keeping them all on the agent's own host means no MCP port is
-# published anywhere, and ha-mcp authenticates no one who reaches it.
+# One entry per Home Assistant an agent drives, not per host running one: the
+# server is an adapter holding a token and speaking HTTP, so a remote instance is
+# reached by pointing url at it. Keeping them all on the agent's host means no MCP
+# port is published, and ha-mcp authenticates nobody who reaches it.
 #
 # Each entry takes:
-#   name  (str): container name, and so its <name>.internal host on the bridge.
-#                Also the service account name, so it must be a valid user name.
-#   url   (str): the Home Assistant to drive. host.docker.internal (mapped to
-#                host-gateway in docker_hamcp.yml) reaches this host's own,
-#                which is host-networked; anything else is a URL.
-#   token (str): long-lived access token (Profile > Security) of that instance.
-#   uid   (str): as below, and distinct across every service in this role.
+#   name  (str): container name, its <name>.internal host on the bridge, and the
+#                service account name, so it must be a valid user name
+#   url   (str): the Home Assistant to drive. host.docker.internal reaches this
+#                host's own, which is host-networked
+#   token (str): that instance's long-lived access token (Profile > Security)
+#   uid   (str): distinct across every service in this role
 #
-# The image's own mcpuser is uid 999, which is a system account on the host
-# (systemd-coredump on Ubuntu), so each container is given its own uid:gid
-# instead. They bind-mount nothing, so the accounts own no paths; the point is
-# that the process does not carry an unrelated system account's identity.
+# The image's mcpuser is uid 999, a system account on the host, so each container
+# gets its own. They bind-mount nothing; the point is the process identity.
 homeautomation_hamcp_instances: []
 homeautomation_install_hamcp: false
 
 # Govee2mqtt
 homeautomation_govee2mqtt_env: {}
 homeautomation_govee2mqtt_docker_image: ghcr.io/wez/govee2mqtt:latest
-# The image's own user is govee:govee (1000:1000), which is the operator's uid
-# on the host, so the container is given this uid:gid instead.
+# The image's govee:govee is 1000:1000, the operator's uid on the host.
 homeautomation_govee2mqtt_uid: "10002"
 homeautomation_govee2mqtt_gid: "10002"
 homeautomation_govee2mqtt_required_volumes:
@@ -119,11 +99,9 @@ homeautomation_govee2mqtt_required_volumes:
 homeautomation_homeassistant_devices: []
 homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
 homeautomation_homeassistant_extra_volumes: []
-# Patch aioruckus HEAD->GET for ruckus_unleashed on aiohttp 3.14+ (see
-# tasks/patch_aioruckus_head.yml). Enable on hosts using the Ruckus integration.
+# tasks/patch_aioruckus_head.yml. Enable where the Ruckus integration is used.
 homeautomation_homeassistant_patch_aioruckus_head: false
-# Host-side port. Home Assistant runs with network_mode: host, so no port
-# mapping is needed; this is used by the container healthcheck.
+# Host-networked, so nothing is mapped; the healthcheck uses this.
 homeautomation_homeassistant_port: 8123
 homeautomation_homeassistant_required_volumes:
   config: /var/docker-volumes/homeautomation/homeassistant/config
@@ -134,10 +112,9 @@ homeautomation_homeassistant_required_volumes:
 # llama.cpp
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
-# Router mode spawns a child server per model with no --ctx-size, so each would
-# default to 4096. These are inherited by the children: raise the per-request
-# context to 128k (native for both models below, no YaRN) and pin one slot so
-# the context is not divided across parallel slots. See README.
+# Router mode spawns a child server per model with no --ctx-size, defaulting each
+# to 4096. Inherited by the children: 128k per request, native for both models
+# below, and one slot so the context is not divided. See README.
 homeautomation_llamacpp_env:
   LLAMA_ARG_CTX_SIZE: "131072"
   LLAMA_ARG_N_PARALLEL: "1"
@@ -146,19 +123,17 @@ homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
-  # $HOME for the container, holding the Mesa/RADV shader caches. A dir of its
-  # own so the models stay mounted read-only.
+  # $HOME, holding the Mesa/RADV shader caches. Its own directory, so the models
+  # stay mounted read-only.
   cache: /var/docker-volumes/homeautomation/llamacpp/cache
-# The image's default user is root, but GPU access comes from the render and
-# video groups rather than the uid, so it is run as this uid:gid.
+# The image runs as root, but GPU access comes from the render and video groups.
 homeautomation_llamacpp_uid: "10004"
 homeautomation_llamacpp_gid: "10004"
 
 # Matter.js
 homeautomation_matterjs_docker_image: ghcr.io/matter-js/matterjs-server:stable
-# The image's own user is 1000:1000, which is the operator's uid on the host,
-# so the container is given this uid:gid instead. Its data directory holds the
-# Matter fabric credentials.
+# The image's 1000:1000 is the operator's uid on the host. The data directory
+# holds the Matter fabric credentials.
 homeautomation_matterjs_uid: "10005"
 homeautomation_matterjs_gid: "10005"
 homeautomation_matterjs_required_volumes:
@@ -177,20 +152,16 @@ homeautomation_memryx_version: "2.1"
 homeautomation_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
 # Mosquitto
-# The address the broker is published on. mosquitto.conf enables anonymous
-# access, so on 0.0.0.0 any host on the LAN can publish to the topics Home
-# Assistant acts on. Loopback covers the clients there are: the containers on
-# the shared bridge reach the broker by its container address without the
-# published port at all, and the host-networked ones connect over loopback.
-# Override per host only if a device outside this host has to publish.
+# mosquitto.conf allows anonymous access, so on 0.0.0.0 any LAN host could publish
+# to the topics Home Assistant acts on. Loopback covers every client there is:
+# bridged containers use the container address, host-networked ones loopback.
+# Override only for a device outside this host.
 homeautomation_mosquitto_bind: "127.0.0.1"
 homeautomation_mosquitto_docker_image: eclipse-mosquitto
 homeautomation_mosquitto_host: localhost
 homeautomation_mosquitto_port: 1883
-# The image's own mosquitto user, which owns the directories it ships and is
-# what its entrypoint drops to. Not a service account from service_account.yml:
-# the uid is baked into the image, so the host account follows it rather than
-# the other way round.
+# The image's own mosquitto user, owning the directories it ships and what its
+# entrypoint drops to. Baked into the image, so the host account follows it.
 homeautomation_mosquitto_uid: "1883"
 homeautomation_mosquitto_gid: "1883"
 homeautomation_mosquitto_required_volumes:
@@ -217,8 +188,7 @@ homeautomation_openwebui_docker_image: ghcr.io/open-webui/open-webui:main
 homeautomation_openwebui_env: {}
 homeautomation_openwebui_required_volumes:
   data: /var/docker-volumes/homeautomation/openwebui/data
-# The image declares USER 0:0, but the server only reads and writes its data
-# dir, so it is run as this uid:gid and the dir is chowned to match.
+# The image declares USER 0:0, but the server only touches its data dir.
 homeautomation_openwebui_uid: "10006"
 homeautomation_openwebui_gid: "10006"
 
@@ -228,8 +198,7 @@ homeautomation_piper_docker_image: rhasspy/wyoming-piper
 homeautomation_piper_required_volumes:
   data: /var/docker-volumes/homeautomation/piper/data
 homeautomation_piper_port: 10200
-# The image's default user is root, but the server only reads and writes its
-# data dir, so it is run as this uid:gid and the dir is chowned to match.
+# The image runs as root, but the server only touches its data dir.
 homeautomation_piper_uid: "10007"
 homeautomation_piper_gid: "10007"
 
@@ -239,8 +208,7 @@ homeautomation_whisper_docker_image: rhasspy/wyoming-whisper
 homeautomation_whisper_required_volumes:
   data: /var/docker-volumes/homeautomation/whisper/data
 homeautomation_whisper_port: 10300
-# The image's default user is root, but the server only reads and writes its
-# data dir (the HuggingFace model cache), so it is run as this uid:gid and the
-# dir is chowned to match.
+# The image runs as root, but the server only touches its data dir, the
+# HuggingFace model cache.
 homeautomation_whisper_uid: "10008"
 homeautomation_whisper_gid: "10008"

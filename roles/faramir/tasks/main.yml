@@ -76,11 +76,9 @@
     fail_msg: "sops is not installed. It comes from the dev role: make dev -- --tags sops"
     quiet: true
 
-# Staged, not kept: init installs the binary it was run from, so anything left
-# here would be a second copy nothing updates. ~7MB a run.
-#
-# Runs under --check too: init gets --dry-run there and still needs a binary to
-# preflight with. The always: below removes the directory either way.
+# Staged, not kept: init installs the binary it was run from, so anything left here
+# would be a second copy nothing updates. ~7MB a run. Runs under --check too, where
+# init gets --dry-run and still needs a binary to preflight with.
 - name: Install faramir from the dev release
   block:
     - name: Create a temporary directory for the faramir release
@@ -139,13 +137,10 @@
       # an unpacked archive into /tmp.
       check_mode: false
 
-# Enrolment runs after provisioning and reads the client group out of the config
-# init installed, rather than being told it twice.
-#
-# Only this checkout; enrol another with `cd <dir> && sudo faramir init-project`.
-#
-# Runs the installed binary, the staging directory being gone, so a first --check
-# run on a fresh host has nothing to preflight and skips.
+# After provisioning, so it can read the client group out of the config init
+# installed rather than being told it twice. Only this checkout; enrol another with
+# `cd <dir> && sudo faramir init-project`. Runs the installed binary, the staging
+# directory being gone, so a first --check run on a fresh host skips.
 - name: Check for the installed faramir binary
   ansible.builtin.stat:
     path: "{{ faramir_binary }}"

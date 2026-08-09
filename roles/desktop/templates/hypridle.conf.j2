@@ -21,18 +21,17 @@ listener {
     timeout = {{ desktop_screen_off_seconds }} # {{ desktop_screen_off_minutes }}min
     on-timeout = niri msg action power-off-monitors
 
-    # Workaround: eww closes all windows when its monitor is powered-off
+    # eww closes all windows when its monitor powers off:
     # https://github.com/elkowar/eww/issues/477#issuecomment-1159530928
     on-resume = niri msg action power-on-monitors && eww open {{ desktop_eww_bar }}
 }
 
 {% if desktop_suspend_inactive_managed and desktop_suspend_inactive_seconds | int > 0 %}
-# Idle suspend: hypridle runs the suspend itself (logind's IdleAction can't fire because
-# nothing here calls SetIdleHint).
+# hypridle suspends itself: logind's IdleAction cannot fire, nothing here calling
+# SetIdleHint.
 #
-# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so per-host timeouts get
-# committed for all hosts, and two niri hosts with different values would fight over it. See
-# the role README.
+# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so two niri hosts with
+# different timeouts would fight over it. See the role README.
 listener {
     timeout = {{ desktop_suspend_inactive_seconds }} # {{ desktop_suspend_inactive_minutes }}min
     on-timeout = systemctl suspend
