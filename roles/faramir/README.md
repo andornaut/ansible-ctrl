@@ -16,7 +16,7 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 | Path | Mode | Contents |
 | --- | --- | --- |
 | `~/.faramir/config.toml` | `0644 root` | faramir's own, rewritten by `init` on every run, carrying `[ssh] keys` from `faramir_broker_ssh_key`. Do not edit it. |
-| `~/.faramir/config.d/` | `0644 root` | drop-ins, merged over the base. This role writes none: `init` writes its own for the SSH key, and the store needs no naming. |
+| `~/.faramir/config.d/` | `0644 root` | drop-ins, merged over the base. Empty here: `init` creates the directory and writes nothing into it, the SSH key going into `config.toml` from `--ssh-key`, and the store needing no naming. |
 | `~/.faramir/age.key` | `0400 faramir-keeper` | decrypts the store; the operator can unlink it but not read it. |
 | `~/.faramir/secrets/` | `2750 root:faramir-keeper` | the keeper's own group, and the keeper is the only account that opens one of these files; neither the operator nor the broker is in it, so reading or editing a managed file needs sudo. |
 | `~/.faramir/secrets/ansible-ctrl.sops.yml` | | every credential this repo uses. Managed by being in the store: `[secrets] files` globs the directory, so nothing names this file. |
@@ -24,7 +24,7 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 
 Config and store both sit in the operator's encrypted home, so a powered-off disk carries neither the ciphertext nor the key that opens it. Point `faramir_config_dir` at an unencrypted filesystem and that no longer holds.
 
-Drop-ins merge over the base in lexical order and face every check the base file does, so a typo is a hard error naming the alternatives. `faramir status` reports `configs`: the base file plus every drop-in that contributed. Neither daemon re-reads its config while running, so a run that changes one also runs `faramir reload`.
+Drop-ins merge over the base in lexical order and face every check the base file does, so a typo is a hard error naming the alternatives. `faramir status` reports `configs`: the base file plus every drop-in that contributed. Neither daemon re-reads its config while running, so adding a drop-in by hand means `sudo faramir reload` after it.
 
 Adding a credential does not change any config. `[secrets] files` in the base config globs `~/.faramir/secrets/*.sops.yml`, and the keeper expands that per request, so a sops file put there is picked up within `refresh_interval_sec` with no daemon restarted.
 
@@ -74,7 +74,7 @@ What belongs to this project rather than to faramir:
 
 One executable. The daemons, the MCP server and the PreToolUse hook are subcommands (`faramir broker`, `keeper`, `exec`, `mcp`, `guard`), separated by the `User=` each unit runs its subcommand as. Units, base config, agent hook and docs are embedded in it; `/usr/local/libexec/faramir/` holds the hook's deny list and wrap script, rendered per install.
 
-faramir's CI cuts a `dev` release on every push to its `main`: one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive into a temp directory, unpacks it, hands the directory to `init`, and removes it. One ~7MB archive a run, no Go toolchain and no faramir checkout on the controller.
+faramir's CI cuts a `dev` release on every push to its `main`: one `faramir_linux_{arch}.tar.gz` per architecture plus `checksums.txt`, laid out as goreleaser names a tagged release. The role downloads the archive into a temp directory, unpacks it, runs the unpacked binary's `init`, which installs the binary it was run from, and removes the directory. One ~7MB archive a run, no Go toolchain and no faramir checkout on the controller.
 
 `get_url` verifies against `checksums.txt` from the same release. `dev` is deleted and re-cut on every push, so a download straddling a re-cut fails the checksum rather than installing a build that was never verified.
 
@@ -84,7 +84,9 @@ faramir's CI cuts a `dev` release on every push to its `main`: one `faramir_linu
 
 Brokered commands run in the checkout the play was run from, `playbook_dir`. No variable names it, and the role checks that the tree exists on the target before installing anything.
 
-`faramir init-project` group-owns that tree, sets the setgid bits, and makes every directory group-executable from the home down, so `faramir-exec` and the operator stop fighting over each other's files. Not `chmod o+x`, which under `umask 002` would open the whole home rather than a path through it. It also registers the `PreToolUse` hook in `.claude/settings.json`, writes `.mcp.json`, splices faramir's credentials block into `AGENTS.md`, and reads the shared group out of the installed config.
+`faramir init-project` group-owns that tree, sets the setgid bits, adds group write to every file in it, and makes every directory group-executable from the home down, so `faramir-exec` and the operator stop fighting over each other's files. Not `chmod o+x`, which under `umask 002` would open the whole home rather than a path through it. It also registers the `PreToolUse` hook in `.claude/settings.json`, writes `.mcp.json`, splices faramir's credentials block into `AGENTS.md`, and reads the client group out of the installed config.
+
+Anything this role writes into the tree is written group-writable to match, `AGENTS.md` included. A mode withheld from one file there is re-granted by the next enrolment and withheld again by the next run, which is a task that reports a change forever and protects nothing.
 
 Enrol another tree with `cd <dir> && sudo faramir init-project`, which defaults to where you are standing. Nothing the broker reads names a tree: file modes plus `ProtectSystem=strict` are what keep brokered commands out of everything else.
 
@@ -128,7 +130,6 @@ sudo faramir doctor
 | `faramir_project_hook` | `true` | Register the `PreToolUse` hook in the checkout. Redacts everything the agent runs here, and auto-approves Bash here as a consequence. |
 | `faramir_project_agents` | `[claude]` | Agents this checkout is enrolled for, one `--agent` each. |
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml`, `config.d/` and the age key live. |
-| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives, derived rather than passed: `init` takes no flag for it. Its contents need no listing either, the base config globbing the directory. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends, generated when missing. Empty leaves `[ssh] keys` unset. |
 | `faramir_account_agents` | `[claude]` | Agents whose own settings get faramir's `Read` deny rules, one `--agent` each. Empty installs none. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
