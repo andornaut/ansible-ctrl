@@ -173,7 +173,7 @@
               tar -xz --ignore-zeros -f {{ dev_virtualbox_extpack_file }}
               -C {{ dev_virtualbox_extpack_tmp.path }} ./ExtPack-license.txt
             chdir: "{{ dev_virtualbox_extpack_tmp.path }}"
-          changed_when: false
+          changed_when: true
           failed_when: false
 
         - name: Resolve the extension pack license hash
