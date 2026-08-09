@@ -32,28 +32,25 @@
 
 - name: Determine the latest BedrockOnLinux version
   ansible.builtin.set_fact:
-    games_bedrock_tag: "{{ games_bedrock_releases.json | rejectattr('draft') | rejectattr('prerelease')
+    games_bedrock_tag: "{{ games_bedrock_latest_tag }}"
+    games_bedrock_version: "{{ games_bedrock_latest_tag | regex_replace('^v', '') }}"
+  vars:
+    games_bedrock_latest_tag: "{{ games_bedrock_releases.json | rejectattr('draft') | rejectattr('prerelease')
       | map(attribute='tag_name') | select('match', '^v[0-9]+[.][0-9]+[.][0-9]+$') | first }}"
 
-- name: Determine the latest BedrockOnLinux version number
-  ansible.builtin.set_fact:
-    games_bedrock_version: "{{ games_bedrock_tag | regex_replace('^v', '') }}"
-
-- name: Check whether the latest BedrockOnLinux version is installed
-  ansible.builtin.shell:
-    cmd: |
-      set -o pipefail
-      flatpak list --user --app --columns=application,version \
-        | awk -v a=io.github.wyze3306.BedrockOnLinux -v v='{{ games_bedrock_version }}' \
-          '$1 == a && $2 == v { found = 1 } END { exit found ? 0 : 1 }'
-    executable: /bin/bash
-  register: games_bedrock_installed
+# --columns emits one tab-separated line per app when stdout is not a terminal,
+# and neither an app ID nor a version can contain whitespace, so the pair below
+# either is a whole line or is not installed.
+- name: List the flatpak applications installed for {{ games_user }}
+  ansible.builtin.command:
+    cmd: flatpak list --user --app --columns=application,version
+  register: games_bedrock_flatpaks
   changed_when: false
-  failed_when: false
 
 - name: Install the latest BedrockOnLinux from the release bundle
-  when: games_bedrock_installed.rc != 0
+  when: games_bedrock_installed not in games_bedrock_flatpaks.stdout_lines
   vars:
+    games_bedrock_installed: "io.github.wyze3306.BedrockOnLinux\t{{ games_bedrock_version }}"
     games_bedrock_release_base: "https://github.com/Wyze3306/BedrockOnLinux/releases/download/{{ games_bedrock_tag }}"
     games_bedrock_bundle_name: "BedrockOnLinux-{{ games_bedrock_version }}-x86_64.flatpak"
   block:
