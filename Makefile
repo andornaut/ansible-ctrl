@@ -5,6 +5,22 @@ SHELL := /bin/bash
 # (make rejects bare --flags, so the `--` separator is required.)
 ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
+# An argument containing = does not survive that route: make takes any such
+# argument as a variable assignment before the goal list is built, so
+# `-- --extra-vars foo=bar` forwards --extra-vars with nothing after it, and
+# `-- --start-at-task=Foo` forwards nothing at all and says nothing. What make
+# took lands here, and the run is refused rather than performed with the
+# argument missing.
+#
+# Passing ARGS directly is the way to send one:
+#   make desktop ARGS='--extra-vars foo=bar'
+# which suppresses the check, every assignment on that line being deliberate.
+ifeq ($(origin ARGS),command line)
+STRAY_ARGS :=
+else
+STRAY_ARGS := $(filter-out SECRETS=% ASK_PASS=%,$(MAKEOVERRIDES))
+endif
+
 # Swallow the forwarded tokens (e.g. --limit, example) as no-op goals so make
 # does not error with "No rule to make target". Real targets have explicit
 # rules, which take precedence over this pattern.
@@ -18,6 +34,28 @@ PLAYBOOKS := base desktop dev docker faramir faramir_fleet \
 .DEFAULT_GOAL := help
 
 .PHONY: help clean lint requirements $(PLAYBOOKS)
+
+# Root needs neither a become password nor the operator's age identity, and the
+# decisions below read this.
+IS_ROOT := $(filter 0,$(shell id -u))
+
+# The galaxy content and the secret store both sit under an account rather than
+# a fixed path, so it has to be resolved rather than named: a root run has
+# HOME=/root, and SUDO_USER is the account that invoked it. Only a root run
+# reads SUDO_USER, because any other run is being made by the account it is
+# running as, whatever a stale SUDO_USER inherited from an outer sudo says.
+# getent rather than ~, which expands to the wrong home for exactly the run that
+# needs this.
+OPERATOR := $(or $(and $(IS_ROOT),$(SUDO_USER)),$(shell id -un))
+OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
+
+# What a recipe writes into the work tree is written as the operator, so a root
+# run leaves nothing the operator cannot update afterwards: .ansible/ is
+# rebuilt by an unprivileged `make`, which cannot overwrite root's copy of it.
+# runuser rather than sudo, because this is already root: nothing to
+# authenticate and sudoers is not consulted. A real root login has no
+# SUDO_USER, so OPERATOR is root and this drops nothing.
+AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@echo "Available targets:"
@@ -46,6 +84,13 @@ help:
 	@echo ""
 	@echo "Forward extra ansible-playbook arguments after --, e.g.:"
 	@echo "  make desktop -- --limit example --tags alacritty"
+	@echo ""
+	@echo "An argument containing = has to be passed as ARGS instead, e.g.:"
+	@echo "  make desktop ARGS='--extra-vars foo=bar'"
+	@echo ""
+	@echo "Variables:"
+	@echo "  SECRETS=none          - Skip the sops re-entry, for a run that reads no credential"
+	@echo "  ASK_PASS=1            - Force --ask-become-pass"
 
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
@@ -54,39 +99,44 @@ clean:
 # there. Depends on requirements: ansible-lint's syntax-check resolves the
 # collections' modules, and reports every one of them as unknown without them.
 lint: requirements
-	@tests/lint.sh
+	@$(AS_OPERATOR) tests/lint.sh
 
 # A stamp rather than a phony recipe: a wrapped target runs make twice, and a
 # phony prerequisite would install the galaxy content on both passes. `make
 # clean` removes it along with what it stands for.
 requirements: .ansible/.requirements
 
+# Everything under .ansible/ belongs to the operator, and a root run takes the
+# chance to say so: runuser cannot write into a root-owned tree, so one left
+# that way stops an unprivileged make with a permission error. tests/lint.sh
+# builds its venv in the same directory and is subject to the same thing.
 .ansible/.requirements: requirements.yml
-	@mkdir -p $(@D)
-	ansible-galaxy role install -r requirements.yml
-	ansible-galaxy collection install -r requirements.yml
-	@touch $@
-
+	@$(AS_OPERATOR) mkdir -p $(@D)
+	@$(if $(IS_ROOT),chown -R $(OPERATOR) $(@D))
+	$(AS_OPERATOR) ansible-galaxy role install -r requirements.yml
+	$(AS_OPERATOR) ansible-galaxy collection install -r requirements.yml
+	@$(AS_OPERATOR) touch $@
 
 # Not $(MAKE): make runs any recipe line containing that string even under -n,
 # which makes a dry run wet.
 SUBMAKE := $(MAKE)
 
-# Root needs neither a become password nor the operator's age identity, and both
-# decisions below read this.
-IS_ROOT := $(filter 0,$(shell id -u))
-
-# The store lives in the operator's home, so it has to be resolved rather than
-# named: a root run has HOME=/root, and SUDO_USER is the account that invoked it.
-# getent rather than ~, which expands to the wrong home for exactly that run.
-OPERATOR := $(if $(SUDO_USER),$(SUDO_USER),$(shell id -un))
-OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
+# The store lives in the operator's home, resolved above for the same reason.
 SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
 
-# sops looks for an identity under $HOME, which is /root for a root run, so it
-# would find none. The keeper's key is already a recipient and root can read it
-# whatever its mode. It sits beside the store, so it is resolved from the
-# operator's home the same way. ?= leaves an operator-set value alone.
+# sops looks for an identity under $HOME, and root's is /root, so the key is
+# named rather than left to be found. The keeper's key is already a recipient
+# and root can read it whatever its mode. It sits beside the store, so it is
+# resolved from the operator's home the same way. ?= leaves an operator-set
+# value alone. The renewal cron in the letsencrypt_nginx role names it for the
+# same reason, being the other root-run entry point.
+#
+# Nothing here redirects ssh. Root's own ~/.ssh reaches the fleet, and pointing
+# it at the operator's config would supply aliases without an identity: ~ in an
+# IdentityFile expands against the running uid, so every path in that config
+# resolves under /root. -F would also suppress /etc/ssh/ssh_config, and
+# UserKnownHostsFile would replace a host key store that already holds the
+# fleet.
 ifdef IS_ROOT
 export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.faramir/age.key
 endif
@@ -150,6 +200,12 @@ $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   done)))
 endef
 
+# POSIX shell quoting for a string that is about to be nested inside single
+# quotes: close, escape the quote, reopen. The forwarded arguments reach sops as
+# part of a command string, and one of them carrying a quote of its own
+# (--extra-vars "a='b'") would otherwise end the string early.
+shquote = '$(subst ','\'',$(1))'
+
 # A secret-bearing run whose store cannot be read is stopped rather than
 # attempted. Every secret_* variable would be undefined, and the first task to
 # read one fails with the tasks before it already applied, which for a container
@@ -157,30 +213,44 @@ endef
 # apart, because for these playbooks either one ends the same way.
 #
 # The store belongs to a group the operator is not in, so the two accounts that
-# can serve such a run are root and the broker's executor, and neither covers the
-# whole fleet: root reads the store but has no key for any host it must reach
-# over ssh, and the executor authenticates everywhere but has no sudo on the
-# controller, deliberately. So the message names both and leaves the --limit to
-# the operator rather than guessing at one.
+# can serve such a run are root and the broker's executor. Root covers the whole
+# run: it reads the store, and its own ~/.ssh reaches the fleet. The executor
+# authenticates everywhere but has no sudo on the controller, deliberately, so
+# its half stops one host short. The message names both, the second carrying the
+# --limit that difference forces.
 #
 # The `--` is repeated on the re-entry for the same reason it is required on the
 # way in: the inner make parses ARGS as its own options and rejects the first
 # --flag among them.
+#
+# Only the first goal is applied. A forwarded argument is a goal like any other,
+# and most of them name something: every inventory group is also a playbook
+# here, so `make base -- --limit desktop` would otherwise apply desktop as
+# well. ARGS is defined as everything after the first goal, so a
+# playbook reached as any later goal is one of those arguments and does nothing.
 $(PLAYBOOKS): %: requirements
-	@if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
-	   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts) | head -1); \
+	@if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
+	 if [ -n "$(STRAY_ARGS)" ]; then \
+	   echo "make read these as variable assignments rather than forwarding them:" >&2; \
+	   echo "  $(STRAY_ARGS)" >&2; \
+	   echo "An argument containing = never reaches ansible-playbook. Pass the whole" >&2; \
+	   echo "list as one variable instead:" >&2; \
+	   echo "  make $* ARGS='...'" >&2; \
+	   exit 1; \
+	 fi; \
+	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
 	   echo "$(SOPS_FILE): not readable by $(OPERATOR)" >&2; \
 	   echo "Refusing to run $*.yml: every secret_* variable would be undefined," >&2; \
 	   echo "and the first task to read one fails with the tasks before it already" >&2; \
-	   echo "applied. Run it as root, which reads the store:" >&2; \
-	   echo "  sudo make $* -- --limit $$controller$(if $(ARGS), $(ARGS))" >&2; \
+	   echo "applied. Run it as root, which reads the store and reaches every host:" >&2; \
+	   echo "  sudo make $*$(if $(ARGS), -- $(ARGS))" >&2; \
 	   echo "or through the broker, for every host but the controller:" >&2; \
 	   echo "  faramir run --env-file faramir.env -- \\" >&2; \
 	   echo "      ansible-playbook $*.yml --limit '!faramir'$(if $(ARGS), $(ARGS))" >&2; \
 	   exit 1; \
 	 fi; \
 	 if [ -n "$(LOAD_SECRETS)" ]; then \
-	   sops exec-env $(SOPS_FILE) 'SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)'; \
+	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)); \
 	 else \
 	   ansible-playbook $(call become_flag,$*) $(SECRETS_FLAG) $*.yml $(ARGS); \
 	 fi
