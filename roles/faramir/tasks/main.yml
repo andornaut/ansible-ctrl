@@ -110,10 +110,6 @@
         # fails here rather than installing one build's binaries as another's.
         checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
         mode: "0644"
-      # A fresh temp directory means every download is a new file, so this would
-      # report changed on every run. What changed on the host is what init says
-      # below, which compares each binary against the installed one.
-      changed_when: false
       check_mode: false
       # A release asset is a redirect to object storage, so a failure here is a
       # network one and worth retrying.
@@ -122,7 +118,7 @@
       retries: 3
       delay: 5
 
-    # A directory of its own, so what init is handed as --binaries is what the
+    # A directory of its own, so what init copies onto the host is what the
     # archive held and not the archive as well. unarchive does not create it.
     - name: Create the directory to unpack the binaries into
       ansible.builtin.file:
@@ -137,7 +133,6 @@
         dest: "{{ faramir_binaries_dir }}"
         remote_src: true
         mode: "0755"
-      changed_when: false
       check_mode: false
 
     # The whole install, in one command. It is idempotent and reports per step,
@@ -188,16 +183,7 @@
 # cd <dir> && sudo faramir init-project
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:
-    argv:
-      - /usr/local/bin/faramir
-      - init-project
-      - --json
-      - --operator
-      - "{{ faramir_user }}"
-      - --config-dir
-      - "{{ faramir_config_dir }}"
-      - "--hook={{ faramir_project_hook | bool | lower }}"
-      - "{{ playbook_dir }}"
+    argv: "{{ faramir_init_project_argv }}"
   become: true
   register: faramir_project
   check_mode: false
@@ -220,41 +206,22 @@
     msg: "{{ faramir_report.warnings }}"
   when: faramir_report.warnings | default([]) | length > 0
 
-# Which sops files the broker manages belongs to this project, not to faramir,
-# and faramir ships no list of them. It goes in a drop-in so the base config
-# stays faramir's and neither has to be merged by hand.
+# This project names no secrets file. faramir's base config globs the store
+# directory, so a sops file is managed by being in it, and the keeper expands
+# that pattern per request: a file added there is picked up without a config
+# edit and without restarting a daemon.
 #
-# Written every run, unlike the base config, which init installs once and then
-# keeps: a setting that only lands on a first install is one this role cannot
-# reconcile afterwards.
-#
-# The SSH key is not named here. init generates it and writes it into its own
-# drop-in, config.d/00-faramir-init.toml, so it is named once; naming it again
-# here would put the same path in the merged list twice.
-#
-# Skipped under --check on a host init has not provisioned: --dry-run writes no
-# config.d, and copy fails on a missing destination directory before it consults
-# check mode, which would abort a check run against a fresh controller.
-- name: Check for the config drop-in directory
-  ansible.builtin.stat:
-    path: "{{ faramir_config_dir }}/config.d"
-  register: faramir_configd
+# CLEANUP (added 2026-08-08): remove once every host in the faramir group has
+# run this play. The drop-in named one file explicitly, which the glob now
+# covers. Left behind it is a second name for the same store that nothing
+# reconciles, and renaming the file would then fail the load gate on an entry
+# no longer written from here.
+- name: Remove the superseded secrets drop-in
+  ansible.builtin.file:
+    path: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
+    state: absent
+  register: faramir_dropin_removed
   become: true
-
-- name: Name this project's secrets in a config drop-in
-  ansible.builtin.copy:
-    dest: "{{ faramir_config_dir }}/config.d/ansible-ctrl.toml"
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # Managed by ansible-ctrl's faramir role. Merged over
-      # the base config, which is faramir's own and not edited here.
-      [secrets]
-      files = {{ faramir_secrets_files | to_json }}
-  register: faramir_dropin
-  become: true
-  when: faramir_configd.stat.isdir | default(false)
 
 # Neither daemon re-reads its config while running, and the keeper has to lead:
 # it decrypts the file list the broker is then served, so restarting the broker
@@ -263,11 +230,11 @@
 #
 # A task rather than a handler, hence the noqa: doctor below reads what the
 # broker loaded, so a restart deferred to the end of the play would report the
-# state the drop-in was written to replace.
-- name: Restart the daemons onto the new drop-in # noqa: no-handler
+# state this run was meant to replace.
+- name: Restart the daemons onto the changed config # noqa: no-handler
   ansible.builtin.command:
     cmd: /usr/local/bin/faramir reload
-  when: faramir_dropin.changed
+  when: faramir_dropin_removed.changed
   changed_when: true
   become: true
 
