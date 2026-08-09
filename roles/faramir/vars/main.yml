@@ -45,7 +45,7 @@ faramir_binaries_dir: "{{ faramir_staging.path }}/binaries"
 # the broker manages, and how a brokered playbook is run.
 #
 # No tree is named here. init provisions the host; enrolling a tree is
-# `faramir init-project`, which is per project and reads the shared group out of
+# `faramir init-project`, which is per project and reads the client group out of
 # the config init installed rather than being told it a second time.
 #
 # faramir_binaries_dir hangs off the temp directory the install block registers.
@@ -55,14 +55,11 @@ faramir_init_argv: >-
   {{
     [faramir_binaries_dir ~ '/faramir', 'init', '--json',
      '--operator', faramir_user,
-     '--group', faramir_dev_group,
+     '--client-group', faramir_dev_group,
      '--broker-user', faramir_broker_user,
      '--keeper-user', faramir_keeper_user,
      '--exec-user', faramir_exec_user,
-     '--config-dir', faramir_config_dir,
-     '--secrets-dir', faramir_secrets_dir]
-    + (['--operator-age-key', faramir_operator_age_key]
-       if faramir_operator_age_key | length > 0 else [])
+     '--config-dir', faramir_config_dir]
     + (['--ssh-key', faramir_broker_ssh_key]
        if faramir_broker_ssh_key | length > 0 else [])
     + (['--agent'] | product(faramir_account_agents) | flatten)

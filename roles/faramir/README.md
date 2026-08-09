@@ -35,7 +35,7 @@ Adding a credential does not change any config. `[secrets] files` in the base co
 - **The store must not be in the checkout.** This is a public repo, and a store inside it is ciphertext of every credential one `git add -f` from publication.
 - **No sudo password in the store.** `ansible_become_password` for the operator is their login password, and the agent already runs as that account: with the password it has sudo, on the controller that is root, and root reads the keeper's age key. The fleet gets NOPASSWD sudo instead, installed by `faramir_fleet.yml`.
 - **A brokered run reaches the fleet, not the controller.** Commands run as `faramir-exec`, which has no sudo, hence `--limit '!faramir'`. Granting that uid sudo here would hand the agent root on the machine holding the age key. Apply the controller's own playbooks as the operator.
-- **The keeper cannot see the rest of the home.** Its unit carries `ProtectHome=tmpfs` plus `BindReadOnlyPaths` of `faramir_config_dir` alone, rendered by `init` in the unit rather than a drop-in. Move `faramir_secrets_dir` outside the config dir and init emits a second bind for it.
+- **The keeper cannot see the rest of the home.** Its unit carries `ProtectHome=tmpfs` plus `BindReadOnlyPaths` of `faramir_config_dir` alone, rendered by `init` in the unit rather than a drop-in. The store is under that directory and cannot be moved out of it, so one bind covers both.
 - **Nothing under the home is readable before first login.** A reboot leaves the store absent and a 03:00 renewal on an unmounted home does not run. The bind carries no leading `-`, so the keeper fails to start rather than coming up empty, and an absent `[secrets]` file counts as a load failure so `--check` fails too.
 - **Group membership is read at login.** Log out and back in before `dev` takes effect.
 - **`faramir_dev_group` grants traversal of the operator's home**, through ordinary group ownership, so keep it to the accounts that need it. It is not the store's group.
@@ -128,9 +128,8 @@ sudo faramir doctor
 | `faramir_project_hook` | `true` | Register the `PreToolUse` hook in the checkout. Redacts everything the agent runs here, and auto-approves Bash here as a consequence. |
 | `faramir_project_agents` | `[claude]` | Agents this checkout is enrolled for, one `--agent` each. |
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml`, `config.d/` and the age key live. |
-| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. Its contents need no listing: the base config globs it. |
+| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives, derived rather than passed: `init` takes no flag for it. Its contents need no listing either, the base config globbing the directory. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends, generated when missing. Empty leaves `[ssh] keys` unset. |
-| `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, minted when missing and added to `.sops.yaml` as a second recipient. Empty leaves the keeper as the only one. |
 | `faramir_account_agents` | `[claude]` | Agents whose own settings get faramir's `Read` deny rules, one `--agent` each. Empty installs none. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
 

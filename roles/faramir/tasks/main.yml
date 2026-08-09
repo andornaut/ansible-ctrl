@@ -294,7 +294,7 @@
       - "{{ faramir_config_dir }}"
       - --operator
       - "{{ faramir_user }}"
-      - --group
+      - --client-group
       - "{{ faramir_dev_group }}"
       - --broker-user
       - "{{ faramir_broker_user }}"
