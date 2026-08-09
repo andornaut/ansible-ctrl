@@ -1,7 +1,5 @@
 ---
-# Backstop against games_user resolving to root, which would write user-scoped state to /root.
-# It defaults to primary_user (inventory data) rather than to a fact describing whoever ansible
-# runs as. tags: always so a --tags run cannot skip it.
+# games_user must not resolve to root, or user-scoped state lands in /root.
 - name: Validate games_user
   ansible.builtin.assert:
     that:
@@ -14,10 +12,8 @@
     success_msg: 'games_user "{{ games_user }}" is valid'
   tags: always
 
-# The ROM library path is site data, so it has no default and host_vars/ must set it. Asserted
-# rather than left to fail on its own: the first thing to dereference it is a flatpak override
-# argument, whose undefined-variable error names neither the role nor the fix. tags: always so a
-# --tags run cannot skip it.
+# Site data, so no default: host_vars must set it. Asserted here because the first
+# use is a flatpak override argument, whose error names neither role nor fix.
 - name: Validate games_retroarch_library_dir
   ansible.builtin.assert:
     that:
@@ -30,9 +26,7 @@
     success_msg: 'games_retroarch_library_dir "{{ games_retroarch_library_dir | default("") }}" is set'
   tags: always
 
-# Populates ansible_facts['getent_passwd'][games_user] so games_user_home (and the
-# paths derived from it) resolve. tags: always so it still runs under --tags
-# flatpak/heroic, both of which depend on games_user_home.
+# games_user_home and every path built from it index this.
 - name: Look up games_user home directory
   ansible.builtin.getent:
     database: passwd
@@ -47,7 +41,7 @@
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
 
-# After flatpak.yml: relies on the flathub remote it adds for games_user to resolve the runtime.
+# After flatpak.yml, whose flathub remote resolves the runtime.
 - name: Install BedrockOnLinux
   ansible.builtin.import_tasks: bedrock.yml
   become: true
@@ -72,8 +66,7 @@
   become_user: "{{ games_user }}"
   tags: retroarch
 
-# No become here: retroid.yml installs to /usr/local/bin on the controller, so it takes root there
-# rather than becoming games_user on this host.
+# No become: retroid.yml installs to the controller and takes root there.
 - name: Install the Retroid handheld sync command
   ansible.builtin.import_tasks: retroid.yml
   when: games_install_retroid_sync | bool

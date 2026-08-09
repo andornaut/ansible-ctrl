@@ -1,10 +1,6 @@
 ---
-# Usage:
-#   ansible.builtin.include_tasks: remove_docker_containers.yml
-#   vars:
-#     container_names:
-#       - container1
-#       - container2
+# Required vars:
+#   container_names (list): containers to remove
 - name: "Remove Docker containers: {{ container_names | join(', ') }}"
   community.docker.docker_container:
     name: "{{ item }}"

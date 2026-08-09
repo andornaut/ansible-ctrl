@@ -1,10 +1,6 @@
 ---
-# nas_user names the account this role's user-scoped tasks act on, so a wrong value acts
-# on the wrong account. It used to default to ansible_facts["user_id"], which is whoever
-# ansible happens to be running as on the target, and so became root whenever ansible itself
-# ran as root, as the nightly cert-renewal cron does. It now defaults to primary_user, which
-# is inventory data and does not depend on the invocation. This assert is the backstop.
-# tags: always so a --tags run cannot skip it.
+# The account this role's user-scoped tasks act on. Defaults to primary_user
+# (inventory data), not to whoever ansible connects as, which is root under cron.
 - name: Validate nas_user
   ansible.builtin.assert:
     that:

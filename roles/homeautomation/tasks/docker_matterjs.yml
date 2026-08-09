@@ -6,8 +6,7 @@
     service_account_uid: "{{ homeautomation_matterjs_uid }}"
     service_account_paths:
       - "{{ homeautomation_matterjs_required_volumes.data }}"
-    # Holds the Matter fabric credentials: the keys that make this controller
-    # the one the commissioned devices trust.
+    # Holds the Matter fabric credentials the commissioned devices trust.
     service_account_mode: "0700"
 
 - name: Remove Matter.js container if it exists
@@ -34,25 +33,19 @@
           container_name: matterjs
           hostname: matterjs-{{ ansible_facts['hostname'] }}
           image: "{{ homeautomation_matterjs_docker_image }}"
-          # No cap_add, and the default set dropped: the server runs as a
-          # non-root uid, and cap_add fills the permitted set but not the
-          # ambient set, so no capability can become effective for it either
-          # way. Naming NET_ADMIN and NET_RAW here would only suggest they do
-          # something. Host networking, not a capability, is what lets it see
-          # the mDNS it needs.
+          # No cap_add, and the default set dropped: cap_add fills the permitted
+          # set but not the ambient set, so nothing becomes effective for a
+          # non-root uid anyway. Host networking is what gets it the mDNS.
           cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
-          # Host networking is required to see the _matter._tcp mDNS OTBR
-          # advertises on the LAN; those multicasts don't cross the bridge, so a
-          # bridged server never resolves Thread nodes and all Matter devices
-          # show unavailable.
+          # The _matter._tcp mDNS OTBR advertises does not cross the bridge, and
+          # without it no Thread node resolves.
           network_mode: host
           restart: unless-stopped
           # apparmor=unconfined for Bluetooth via dbus.
           security_opt: >-
             {{ homeautomation_no_new_privileges + ["apparmor=unconfined"] }}
-          # Overrides the image's own 1000:1000, which is the operator's uid on
-          # the host.
+          # The image's own 1000:1000 is the operator's uid on the host.
           user: "{{ homeautomation_matterjs_uid }}:{{ homeautomation_matterjs_gid }}"
           volumes: "{{ matterjs_volumes }}"
   notify: Update /etc/hosts

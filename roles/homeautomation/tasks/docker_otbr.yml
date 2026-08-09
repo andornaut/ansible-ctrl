@@ -6,10 +6,9 @@
       {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}
     resolved_var_name: homeautomation_otbr_devices_resolved
 
-# Root-owned because the agent runs as root to manage the wpan interface, and
-# closed because thread/ under it holds the Thread network key, which is what
-# admits a device to the mesh. Docker would otherwise create this directory
-# implicitly on first start, world-readable.
+# Root-owned, the agent needing root for the wpan interface, and closed because
+# thread/ holds the Thread network key. Docker would otherwise create it
+# world-readable on first start.
 - name: Create the OTBR data directory
   ansible.builtin.file:
     path: "{{ homeautomation_otbr_required_volumes.data }}"
@@ -46,8 +45,8 @@
       - FLOW_CONTROL=1
       - NAT64=1
       - OTBR_REST_PORT={{ homeautomation_otbr_rest_port }}
-      # The image only starts otbr-web when OTBR_WEB is set (see the image's
-      # enable-check.sh); OTBR_WEB_PORT alone is not enough.
+      # The image starts otbr-web only when OTBR_WEB is set; the port alone is
+      # not enough.
       - OTBR_WEB=1
       - OTBR_WEB_PORT={{ homeautomation_otbr_web_port }}
     # NETWORK_DEVICE makes socat bridge the TCP socket to /tmp/ttyOTBR.

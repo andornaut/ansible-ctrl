@@ -1,8 +1,7 @@
 ---
-# Nuvoton NCT6687D Super I/O driver for MSI boards. The mainline kernel binds
-# these chips to nct6683, which misreports fans, so blacklist it and use this
-# out-of-tree fork to expose the fan pwm/hwmon that CoolerControl manages.
-# https://github.com/Fred78290/nct6687d
+# Nuvoton NCT6687D Super I/O driver for MSI boards. The mainline nct6683 misreports
+# fans, so blacklist it and use this out-of-tree fork for the pwm/hwmon
+# CoolerControl manages: https://github.com/Fred78290/nct6687d
 - name: Install nct6687d fan control driver
   become: true
   when: desktop_install_nct6687d
@@ -59,10 +58,8 @@
         name: nct6687
         state: present
 
-# Reconcile the disabled state: remove the managed drop-ins so the nct6683
-# blacklist and the boot-time module load do not persist after the driver is
-# turned off. The DKMS module itself is left in place; a full teardown is out of
-# scope.
+# Remove the managed drop-ins so the blacklist and boot-time load do not outlive
+# the flag. The DKMS module stays; a full teardown is out of scope.
 - name: Remove the nct6687d drop-ins when disabled
   become: true
   when: not desktop_install_nct6687d

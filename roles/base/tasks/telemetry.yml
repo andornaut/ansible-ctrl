@@ -2,17 +2,15 @@
 - name: Disable telemetry and crash reporting
   become: true
   block:
-    # apport/whoopsie/kerneloops/ubuntu-report/popularity-contest are default reporters.
-    # ubuntu-server* Depend on apport, so the pin makes dist-upgrade drop them (already
-    # gone via the snapd purge); desktop metapackages only Recommend them.
+    # ubuntu-server* depend on apport, so the pin makes dist-upgrade drop them;
+    # desktop metapackages only recommend the reporters.
     - name: Purge and pin telemetry packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: telemetry
         purge_pin_packages: "{{ base_telemetry_packages }}"
 
-    # ubuntu-insights leaves per-user state (~/.config, ~/.cache) that purge doesn't touch.
-    # Sweep every home; depth 3 reaches <home>/.cache/ubuntu-insights.
+    # Purge leaves per-user state behind; depth 3 reaches <home>/.cache/ubuntu-insights.
     - name: Find leftover ubuntu-insights user state
       ansible.builtin.find:
         depth: 3
@@ -32,9 +30,8 @@
       loop_control:
         label: "{{ item.path }}"
 
-    # update-notifier-crash.service is static (mask, not disable) and fails once whoopsie is
-    # purged. Mask both it and its triggering .path unit; masking in /etc/systemd/user covers
-    # every user. No handler: it affects only per-user managers, which pick it up on next load.
+    # Static unit, so mask rather than disable; it fails once whoopsie is purged.
+    # /etc/systemd/user covers every user, and per-user managers reload on their own.
     - name: Mask update-notifier-crash units for all users
       ansible.builtin.file:
         dest: "/etc/systemd/user/{{ item }}"

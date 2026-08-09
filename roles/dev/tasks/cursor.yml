@@ -6,7 +6,7 @@
   register: dev_cursor_api_response
   retries: 3
   delay: 5
-  # 4xx is deterministic: retry only network errors and 5xx.
+  # Retry network errors and 5xx only; 4xx is deterministic.
   until: >-
     dev_cursor_api_response.status == 200 or
     (dev_cursor_api_response.status >= 400 and dev_cursor_api_response.status < 500)
@@ -23,8 +23,8 @@
     dest: /etc/apparmor.d/usr.local.bin.cursor
     mode: "0644"
     content: |
-      # This profile allows the Cursor AppImage to use unprivileged user namespaces
-      # without disabling the restriction globally.
+      # Lets the AppImage use unprivileged user namespaces without lifting the
+      # restriction globally.
       abi <abi/4.0>,
       include <tunables/global>
 

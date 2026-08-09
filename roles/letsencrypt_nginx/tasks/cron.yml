@@ -1,7 +1,6 @@
 ---
-# The store and the age key are in the operator's home, and this job runs as root, so their
-# paths have to be resolved rather than assumed: root's own ~ is /root, and a home is not
-# always /home/<user>.
+# The store and age key are in the operator's home and this job runs as root, so
+# resolve the paths: root's own ~ is /root.
 - name: Read the operator's passwd entry
   ansible.builtin.getent:
     database: passwd
@@ -12,8 +11,7 @@
     letsencrypt_nginx_operator_home: >-
       {{ ansible_facts['getent_passwd'][letsencrypt_nginx_operator][4] }}
 
-# state is derived from the flag rather than gated with `when`, so clearing the flag removes
-# the job from a host that used to run it.
+# Derived from the flag rather than gated on it, so clearing the flag removes the job.
 - name: Configure the certificate renewal cron job
   ansible.builtin.cron:
     name: Let's Encrypt certificate renewal
@@ -21,26 +19,16 @@
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
-    # Wrapped in sops exec-env, because credentials reach a play through the environment: without
-    # it the Cloudflare token is undefined and the run fails naming it. The wildcard certificates
-    # need dns-01, which needs that token, so this is not a job that can do without credentials.
+    # sops exec-env, because credentials reach a play through the environment, and
+    # the wildcard certificates need dns-01 and so the Cloudflare token. Not `make`,
+    # whose requirements stamp would run ansible-galaxy as root into the operator's
+    # home. The key is named explicitly, root's own ~ being /root.
     #
-    # sops rather than make: every make target depends on the requirements stamp, so this would run
-    # ansible-galaxy install as root into .ansible/ inside the operator's home and leave root-owned
-    # files there. Root's own ~ is /root, so the key is named explicitly rather than left to sops to
-    # find.
-    #
-    # The checkout, the sops file and the age key are all in the operator's home: cron has no
-    # session, so if the operator is logged out an encrypted home is not mounted and none of the
-    # three exists. The preflight below is what turns that from silence into mail.
-    #
-    # It writes to stderr OUTSIDE the log redirect on purpose. Everything inside the redirect goes
-    # to a file nobody reads, which is how a job like this fails for months; anything cron sees on
-    # stderr it mails instead. The run's own failure is reported the same way, as one line pointing
-    # at the log rather than the whole play.
-    #
-    # Checked rather than assumed, one message per cause: "certificates were not renewed" with no
-    # reason is a message that gets ignored twice and then filtered.
+    # The checkout, store and key are all in the operator's home, which is not
+    # mounted while they are logged out. The preflight turns that into mail: it
+    # writes to stderr outside the log redirect, and cron mails what it sees there.
+    # One message per cause, since "certificates were not renewed" alone gets
+    # ignored and then filtered.
     job: >-
       { [ -d {{ letsencrypt_nginx_renewal_cron_directory }} ] ||
       { echo "letsencrypt renewal SKIPPED: {{ letsencrypt_nginx_renewal_cron_directory }} does not
@@ -67,10 +55,9 @@
     state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"
   become: true
 
-# The redirect above creates this with root's umask, which leaves it world-readable, and it holds
-# the full output of every renewal run. The credentials in it are no_log, nothing else is. Created
-# here so the mode is in place before the first run rather than after it. The timestamps are
-# preserved so that a run that changes nothing reports nothing.
+# The redirect above would create this world-readable under root's umask, and it
+# holds the full output of every renewal run. Created here so the mode is in place
+# before the first run; timestamps preserved so an unchanged run reports nothing.
 - name: Restrict the certificate renewal log
   ansible.builtin.file:
     path: "{{ letsencrypt_nginx_renewal_cron_log }}"

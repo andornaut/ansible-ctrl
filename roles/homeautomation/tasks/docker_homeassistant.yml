@@ -12,8 +12,7 @@
     service_account_uid: "{{ homeautomation_govee2mqtt_uid }}"
     service_account_paths:
       - "{{ homeautomation_govee2mqtt_required_volumes.data }}"
-    # iot.key and iot.cert are the device credentials for Govee's LAN API, so
-    # nothing outside the service reads this directory.
+    # iot.key and iot.cert are the device credentials for Govee's LAN API.
     service_account_mode: "0700"
   when: homeautomation_install_govee2mqtt
 
@@ -62,20 +61,19 @@
         image: "{{ homeautomation_govee2mqtt_docker_image }}"
         cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
         depends_on:
-          # Broker must be ready; HA need only have started (govee reads state
-          # over MQTT, so gating on HA's health just delays govee needlessly).
+          # govee reads state over MQTT, so it needs the broker ready but only
+          # needs HA started.
           homeassistant:
             condition: service_started
           mosquitto:
             condition: service_healthy
         environment: "{{ govee2mqtt_environment }}"
         logging: "{{ homeautomation_default_logging }}"
-        # Host networking required for UDP broadcast-based Govee LAN device discovery
+        # Govee LAN discovery is UDP broadcast.
         network_mode: host
         restart: unless-stopped
         security_opt: "{{ homeautomation_no_new_privileges }}"
-        # Overrides the image's own govee:govee, which is 1000:1000 and so the
-        # operator's uid on the host.
+        # The image's own govee:govee is 1000:1000, the operator's uid on the host.
         user: "{{ homeautomation_govee2mqtt_uid }}:{{ homeautomation_govee2mqtt_gid }}"
         volumes: "{{ govee2mqtt_volumes }}"
 
@@ -91,8 +89,8 @@
           mosquitto:
             condition: service_healthy
         devices: "{{ homeautomation_homeassistant_devices_resolved }}"
-        # Gates govee2mqtt via depends_on. A healthcheck does not restart an
-        # unhealthy container (no autoheal watcher runs here); it only reports.
+        # Gates govee2mqtt via depends_on. Reports only: nothing here restarts an
+        # unhealthy container.
         healthcheck:
           test: ["CMD", "curl", "-sf", "http://localhost:{{ homeautomation_homeassistant_port }}/manifest.json"]
           interval: 30s
@@ -100,8 +98,7 @@
           retries: 3
           start_period: 120s
         logging: "{{ homeautomation_default_logging }}"
-        # Host networking required for mDNS discovery (Google Cast, Bluetooth)
-        # and direct LAN access, which the bridge cannot provide.
+        # mDNS discovery and direct LAN access, neither of which the bridge gives.
         network_mode: host
         restart: unless-stopped
         security_opt: >-
@@ -112,8 +109,8 @@
         # http://mosquitto.internal:1883
         container_name: mosquitto
         image: "{{ homeautomation_mosquitto_docker_image }}"
-        # Anonymous access is on, so no credentials. 1883 is the in-container
-        # listener (mosquitto.conf), not the published host port.
+        # Anonymous access is on. 1883 is the in-container listener, not the
+        # published host port.
         healthcheck:
           test: ["CMD", "mosquitto_pub", "-h", "localhost", "-p", "1883", "-t", "healthcheck", "-m", "ping"]
           interval: 30s
@@ -126,10 +123,8 @@
           - "{{ homeautomation_mosquitto_bind }}:{{ homeautomation_mosquitto_port }}:1883"
         restart: unless-stopped
         security_opt: "{{ homeautomation_no_new_privileges }}"
-        # The image's entrypoint su-execs to this uid anyway, and the config,
-        # data and log directories it ships are owned by it. Naming it here
-        # means the container never has a root phase at all, and the volumes
-        # below stay readable by the broker.
+        # The entrypoint su-execs to this uid anyway; naming it here means the
+        # container never has a root phase at all.
         user: "{{ homeautomation_mosquitto_uid }}:{{ homeautomation_mosquitto_gid }}"
         volumes: "{{ mosquitto_volumes }}"
 
@@ -149,21 +144,16 @@
           required_services | combine(govee2mqtt_service if homeautomation_install_govee2mqtt else {})
         }}
   notify: Update /etc/hosts
-  # Govee2MQTT's environment contains the Govee account password and API key. Conditional
-  # rather than always on: this task pulls images and starts the stack, so hiding its output
-  # costs the only diagnostic a pull or startup failure has, and the secret is only in the
-  # definition when govee2mqtt is installed.
+  # Govee2MQTT's environment holds the account password and API key. Conditional,
+  # because hiding this task's output costs the only diagnostic a failure has.
   no_log: "{{ homeautomation_install_govee2mqtt }}"
 
-# Home Assistant runs as root, and its Bluetooth, dbus and udev access is why:
-# the dbus socket admits only root by default. So it keeps its uid, and these
-# files are closed to everything else instead.
+# Home Assistant runs as root for its Bluetooth, dbus and udev access, the dbus
+# socket admitting only root, so close the files to everything else instead.
 #
-# The directory rather than the files under it, for the same reason .storage is
-# closed below: zigbee.db holds the Zigbee network key and home-assistant_v2.db
-# holds every recorded state, both are rewritten constantly with Home
-# Assistant's own umask, and a per-file mode would drift back. Nothing else
-# mounts this directory, so closing it costs no other service anything.
+# The directory, not the files: zigbee.db holds the Zigbee network key and
+# home-assistant_v2.db every recorded state, both rewritten constantly with Home
+# Assistant's umask, so per-file modes drift back. Nothing else mounts it.
 - name: Restrict the Home Assistant configuration directory to root
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}"
@@ -173,9 +163,8 @@
     mode: "0700"
   become: true
 
-# Reasserted after the container starts, every run, because Home Assistant
-# creates these itself and which ones exist changes with the integrations
-# configured and with the image.
+# After the container starts, every run: Home Assistant creates these itself, and
+# which exist changes with the integrations and the image.
 - name: Find the Home Assistant credential files
   ansible.builtin.find:
     paths: "{{ homeautomation_homeassistant_required_volumes.config }}"
@@ -203,10 +192,9 @@
   register: homeautomation_homeassistant_storage
   become: true
 
-# The directory rather than the files in it: Home Assistant rewrites .storage
-# on its own schedule with its own umask, so per-file modes drift back and a
-# closed directory does not. core.config_entries holds an access token for
-# every configured integration, in plaintext JSON.
+# The directory, not the files: Home Assistant rewrites .storage on its own
+# schedule and umask, so per-file modes drift back. core.config_entries holds a
+# plaintext access token for every configured integration.
 - name: Restrict the Home Assistant storage directory to root
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/.storage"

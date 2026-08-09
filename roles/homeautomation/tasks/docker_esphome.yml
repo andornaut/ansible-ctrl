@@ -1,9 +1,7 @@
 ---
-# The dashboard enables its login only when it gets both, so a username with an
-# empty password starts it open on the LAN: firmware-flash access to every ESP
-# device, and secrets.yaml readable. Asserted rather than left to the auth gate
-# below, which reads an empty value as "this host wants no login" and would
-# start the container unauthenticated without reporting anything.
+# The dashboard enables its login only when it gets both, so a half pair starts it
+# open on the LAN: firmware-flash access to every ESP device, and a readable
+# secrets.yaml. The auth gate below would read that as "this host wants no login".
 - name: Assert that the ESPHome dashboard credentials are a complete pair
   ansible.builtin.assert:
     that:
@@ -13,9 +11,8 @@
       One of the ESPHome username/password is set and the other is empty, which
       would start the dashboard unauthenticated.
 
-# The pair check above passes when both are empty, which is the same open
-# dashboard reached by a different route: a host that has not been given
-# credentials yet, rather than one that asked for none.
+# The check above passes on two empties, which is a host that has not been given
+# credentials yet rather than one that asked for none.
 - name: Assert that the ESPHome dashboard has a login
   ansible.builtin.assert:
     that:
@@ -37,17 +34,14 @@
     service_account_paths:
       - "{{ homeautomation_esphome_required_volumes.config }}"
       - "{{ homeautomation_esphome_required_volumes.cache }}"
-    # secrets.yaml holds the wifi and OTA passwords, and the config directory is
-    # also where the dashboard keeps the git repository it writes.
+    # secrets.yaml holds the wifi and OTA passwords.
     service_account_mode: "0700"
 
-# The dashboard pings devices to track whether they are online. An unprivileged
-# ICMP datagram socket is the only way a non-root uid can do that: Docker's
-# cap_add fills the permitted set but not the ambient set, so NET_RAW never
-# becomes effective for a non-root process and both icmplib modes fail. Such a
-# socket sends echo requests and reads their replies and nothing else, unlike
-# the raw socket NET_RAW would grant. Set on the host because the container is
-# host-networked and so shares the host's network namespace.
+# The dashboard pings devices to track whether they are online, and an unprivileged
+# ICMP datagram socket is the only way a non-root uid can: cap_add fills the
+# permitted set but not the ambient set, so NET_RAW never becomes effective. Such a
+# socket only sends echo requests and reads the replies. On the host, the container
+# being host-networked.
 - name: Allow the ESPHome group to open unprivileged ICMP sockets
   ansible.posix.sysctl:
     name: net.ipv4.ping_group_range
@@ -72,15 +66,12 @@
 
     esphome_base_environment:
       ESPHOME_DASHBOARD_USE_PING: "true"
-      # PlatformIO stores appstate.json in its core dir, which it derives from
-      # $HOME and which the entrypoint cannot override. The image default of
-      # /root is not writable by the uid, and was discarded on every recreate
-      # even when it was.
+      # PlatformIO derives its core dir from $HOME, and the image's /root is
+      # neither writable by the uid nor kept across a recreate.
       HOME: /cache
-    # ESPHOME_-prefixed, not the USERNAME and PASSWORD the older dashboard took:
-    # those are ignored, silently, leaving the dashboard open. The equivalent
-    # --username and --password flags are deprecated and would put the password
-    # in the host's process list.
+    # ESPHOME_-prefixed: the older USERNAME and PASSWORD are silently ignored,
+    # leaving the dashboard open. The equivalent flags are deprecated and would
+    # put the password in the host's process list.
     esphome_auth_environment:
       ESPHOME_USERNAME: "{{ homeautomation_esphome_username }}"
       ESPHOME_PASSWORD: "{{ homeautomation_esphome_password }}"
@@ -102,8 +93,7 @@
           image: "{{ homeautomation_esphome_docker_image }}"
           cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
-          # Host networking required for mDNS ESP device discovery; the
-          # multicast does not cross the Docker bridge.
+          # mDNS device discovery: the multicast does not cross the bridge.
           network_mode: host
           # ports:
           #   - "6052:6052"
@@ -112,20 +102,14 @@
           user: "{{ homeautomation_esphome_uid }}:{{ homeautomation_esphome_gid }}"
           volumes: "{{ esphome_volumes }}"
   notify: Update /etc/hosts
-  # The environment contains the dashboard password. Conditional rather than always on:
-  # this task pulls the image and starts the container, so hiding its output costs the
-  # only diagnostic a pull or startup failure has, and there is no secret to hide until
-  # a host configures one.
+  # The environment holds the dashboard password. Conditional, because hiding this
+  # task's output costs the only diagnostic a pull or startup failure has.
   no_log: "{{ homeautomation_esphome_auth_configured | bool }}"
 
-# secrets.yaml holds the wifi password and the OTA password; every device YAML
-# holds that device's API encryption key. The directory above is already 0700
-# and owned by the service account, so this is the second of the two rather than
-# the control that matters: it keeps a file readable only by its owner if the
-# directory's mode is ever loosened.
-#
-# Reasserted every run: the dashboard creates a file per device as devices are
-# adopted, and each one is born with the dashboard's umask.
+# secrets.yaml holds the wifi and OTA passwords, and each device YAML that device's
+# API encryption key. Defence in depth behind the 0700 directory above, for if its
+# mode is ever loosened. Reasserted every run, the dashboard writing a file per
+# device with its own umask as devices are adopted.
 - name: Find the ESPHome configuration files
   ansible.builtin.find:
     paths: "{{ homeautomation_esphome_required_volumes.config }}"

@@ -8,8 +8,7 @@
     manager: apt
 
 # Outside the reinstall block below: a kernel upgrade leaves the new kernel
-# without headers, so DKMS cannot rebuild the driver and modprobe fails even
-# though the MemryX packages are already at the desired version.
+# without headers, so DKMS cannot rebuild even at the desired package version.
 - name: Install DKMS and kernel headers
   ansible.builtin.apt:
     name:
@@ -19,8 +18,8 @@
     update_cache: true
   become: true
 
-# Only (re)install when the desired version isn't already installed. The apt pin
-# uses a "{{ version }}.*" glob, so match the installed version on the same prefix.
+# The apt pin globs "{{ version }}.*", so match the installed version on the same
+# prefix.
 - name: Determine whether MemryX (re)install is needed
   ansible.builtin.set_fact:
     homeautomation_memryx_reinstall: >-
@@ -39,7 +38,7 @@
         - memx-accl
         - memx-drivers
         - mxa-manager
-      # Packages may not be installed yet (first run), so dpkg can't find them to unhold.
+      # On a first run there is nothing to unhold.
       failed_when: false
 
     - name: Remove existing MemryX packages
@@ -95,8 +94,8 @@
   become: true
   changed_when: true
 
-# "dkms status -k <kernel>" exits 0 whether or not the module is built for that
-# kernel; only the presence of the kernel in its output distinguishes the two.
+# dkms status exits 0 either way; only the kernel's presence in its output says
+# whether the module is built.
 - name: Check whether the MemryX driver is built for the running kernel
   ansible.builtin.command: dkms status -m memx-drivers -k {{ ansible_facts['kernel'] }}
   register: homeautomation_memryx_dkms_status

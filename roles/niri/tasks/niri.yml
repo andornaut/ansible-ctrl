@@ -2,8 +2,7 @@
 - name: Install niri
   tags: [niri]
   block:
-    # Before the download, so a host without a toolchain fails in a sentence
-    # rather than after fetching and unpacking a source tree.
+    # Before the download, so a host without a toolchain fails early.
     - name: Require the Rust toolchain
       ansible.builtin.include_tasks: require_tools.yml
       vars:

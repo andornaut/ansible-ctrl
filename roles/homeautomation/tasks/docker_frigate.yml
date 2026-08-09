@@ -1,13 +1,10 @@
 ---
-# Frigate runs as root and creates everything under these itself, so the modes
-# of the individual files follow its umask and cannot be held. Closing the
-# directories is what holds instead, and nothing else mounts them.
+# Frigate runs as root and writes everything under these with its own umask, so
+# close the directories instead of the files. Nothing else mounts them, and Docker
+# would otherwise create both world-readable on first start.
 #
-# config holds the camera RTSP passwords in plaintext, in config.yml, in the
-# backup Frigate writes before a UI edit and again in the go2rtc stream URLs,
-# plus .jwt_secret, which signs its session tokens, and frigate.db, which holds
-# its user table. media holds the recordings and snapshots. Docker would
-# otherwise create both implicitly on first start, world-readable.
+# config holds the camera RTSP passwords in plaintext, .jwt_secret, and the user
+# table in frigate.db; media holds the recordings and snapshots.
 - name: Create the Frigate directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -68,7 +65,7 @@
             - >-
               {{ homeautomation_frigate_bind_http_unauthenticated }}:{{
               homeautomation_frigate_port_http_unauthenticated }}:5000
-            # RTSP restream https://docs.frigate.video/configuration/restream/
+            # RTSP restream: https://docs.frigate.video/configuration/restream/
             - "{{ homeautomation_frigate_port_rtsp }}:8554"
             # WebRTC
             - "{{ homeautomation_frigate_port_webrtc }}:8555/tcp"

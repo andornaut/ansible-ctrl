@@ -1,19 +1,16 @@
 ---
-# Screen blanking, session locking and monitor power-off. The policy (desktop_screen_*_minutes)
-# is shared across desktop environments; the mechanism is not: GNOME uses dconf, bspwm
-# xsecurelock, niri hypridle. Which of the three timeouts each honours differs; see the README.
+# Screen blanking, locking and monitor power-off. One policy
+# (desktop_screen_*_minutes), three mechanisms: GNOME dconf, bspwm xsecurelock,
+# niri hypridle. See the README for which timeouts each honours.
 #
-# Files that may be a dotfiles-repo symlink (hypridle.conf, .Xresources) are written with
-# blockinfile/lineinfile/replace, which resolve the link: template/copy would corrupt a repo
-# tree under a `$HOME`-named directory (their no-op path re-runs the file module, which expands
-# that path). idle_check_dotfile.yml fails first on a dangling link. The session script and
-# xss-lock autostart entry are role-owned, so they are templated.
+# Files that may be dotfiles-repo symlinks are written with blockinfile/lineinfile,
+# which resolve the link; template/copy would corrupt the repo tree.
+# idle_check_dotfile.yml fails first on a dangling link.
 
 - name: Validate idle timeouts
   ansible.builtin.assert:
     that:
-      # A zero blank timeout disables the screensaver (xset s 0 / GNOME idle-delay 0), so the
-      # session never blanks and never locks.
+      # Zero disables the screensaver outright, so the session never locks.
       - desktop_screen_blank_minutes | int > 0
       - desktop_screen_lock_minutes | int >= desktop_screen_blank_minutes | int
       - desktop_screen_off_minutes | int >= desktop_screen_lock_minutes | int
@@ -27,8 +24,7 @@
       {{ desktop_screen_lock_minutes }}m, monitor powers off after
       {{ desktop_screen_off_minutes }}m
 
-# dconf writes the invoking user's database, so run as desktop_user with XDG_RUNTIME_DIR
-# pointing at that user's session bus.
+# dconf writes the invoking user's database; XDG_RUNTIME_DIR finds their session bus.
 - name: Configure GNOME idle timeouts
   when: desktop_environment == "gnome"
   become: true
@@ -36,8 +32,7 @@
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
   block:
-    # Needs the dconf binary from dconf.yml, so `--tags idle` alone only works on a host that
-    # has had a full desktop run.
+    # Needs the dconf binary from dconf.yml, so --tags idle wants a prior full run.
     - name: Set the GNOME screen blank timeout
       community.general.dconf:
         key: /org/gnome/desktop/session/idle-delay
@@ -56,9 +51,7 @@
         value: "uint32 {{ desktop_screen_lock_delay_seconds }}"
         state: present
 
-    # Separate suspend action and timeout per power source; all four keys take the one variable
-    # (the role can't tell mains from battery). Skipped when desktop_suspend_inactive_minutes is
-    # unset, leaving the shipped policy alone.
+    # AC and battery take the same value; the role does not distinguish them.
     - name: Set the GNOME idle-suspend policy
       when: desktop_suspend_inactive_managed
       community.general.dconf:
@@ -80,8 +73,7 @@
 - name: Configure bspwm idle timeouts
   when: desktop_environment == "bspwm"
   block:
-    # Role-owned, not a dotfile: it carries per-host policy (the timeouts) and the dotfiles repo
-    # is shared across hosts.
+    # Role-owned, not a dotfile: it carries per-host timeouts.
     - name: Install the xsecurelock session script
       ansible.builtin.template:
         src: xsecurelock-session.j2
@@ -91,9 +83,8 @@
         mode: "0755"
       become: true
 
-    # Must stay an autostart entry, not a systemd --user unit: those run under user@.service,
-    # outside the logind session scope, and an xss-lock that cannot identify its session ignores
-    # the Lock signal the session's keybinding sends.
+    # An autostart entry, not a --user unit: user@.service is outside the logind
+    # session scope, and xss-lock there ignores the session's Lock signal.
     - name: Configure the xss-lock autostart entry
       become: true
       become_user: "{{ desktop_user }}"
@@ -124,8 +115,8 @@
         path: "{{ desktop_hypridle_conf | dirname }}"
         state: directory
 
-    # eww closes all of its windows when the monitor it is on is powered off, so the
-    # template reopens the bar on resume: https://github.com/elkowar/eww/issues/477
+    # eww closes its windows when the monitor powers off, so the template reopens
+    # the bar on resume: https://github.com/elkowar/eww/issues/477
     - name: Configure hypridle
       ansible.builtin.blockinfile:
         path: "{{ desktop_hypridle_conf }}"
@@ -134,20 +125,16 @@
         mode: "0644"
       notify: Restart hypridle
 
-# bspwm idle suspend: xss-lock sets the session's idle hint when the X screensaver activates,
-# and this drop-in tells logind what to do about it (logind can't detect idle itself). An unset
-# desktop_suspend_inactive_minutes writes nothing, leaving the host's policy alone; 0 writes
-# IdleAction=ignore.
+# xss-lock sets the session idle hint at blank time; this drop-in tells logind what
+# to do about it. Unset writes nothing; 0 writes IdleAction=ignore.
 - name: Configure bspwm idle suspend
   when:
     - desktop_environment == "bspwm"
     - desktop_suspend_inactive_managed
   become: true
   block:
-    # logind counts from the idle hint (set at blank time), not from the last input, so the
-    # drop-in gets the suspend timeout less the blank timeout. That difference must be positive:
-    # logind reads IdleActionSec=0 as "no idle action". Asserted rather than floored, so the host
-    # suspends exactly desktop_suspend_inactive_minutes after the last input, as on the others.
+    # The drop-in gets suspend minus blank, because logind counts from the idle
+    # hint. That must be positive: IdleActionSec=0 means "no idle action".
     - name: Assert that idle suspend outlasts screen blanking
       ansible.builtin.assert:
         that:
@@ -180,12 +167,9 @@
         mode: "0644"
       notify: Reload systemd-logind
 
-# The bspwm mechanism's off switch, not a one-shot migration: it stays. A host that moves off
-# bspwm must have the logind drop-in removed, because logind applies it to every session (unlike
-# the session script and autostart entry, which only an X session reads), so the host would keep
-# suspending to a policy nothing manages. The niri hypridle block needs no such switch: it is
-# dead text off niri, and hypridle.conf may be a shared dotfile removing the block would strip
-# from the niri hosts.
+# A permanent off switch, not a migration: logind applies the drop-in to every
+# session, so a host that leaves bspwm would keep suspending to an unmanaged policy.
+# The niri hypridle block needs none: it is inert off niri, and may be a shared dotfile.
 - name: Remove the bspwm idle configuration
   when: desktop_environment != "bspwm"
   become: true

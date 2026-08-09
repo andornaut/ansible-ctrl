@@ -1,25 +1,21 @@
 ---
-# The image's entrypoint chowns /mosquitto/data only when it starts as uid 0,
-# and the container names a user, so it never does. Nothing else would create
-# these either: Docker makes a missing bind-mount source root-owned, and the
-# broker cannot write its persistence database or its log into that. So they
-# are created here, before the container starts.
+# The image's entrypoint chowns /mosquitto/data only when it starts as uid 0, and
+# the container names a user. Docker would otherwise create the bind-mount sources
+# root-owned, which the broker cannot write its database or log into.
 - name: Create the Mosquitto service account
   ansible.builtin.include_tasks: service_account.yml
   vars:
     service_account_name: mosquitto
     service_account_uid: "{{ homeautomation_mosquitto_uid }}"
-    # 1883 is below the range the other service accounts come from because it
-    # is the image's own uid, not one allocated here.
+    # The image's own uid, not one allocated from this role's range.
     service_account_uid_from_image: true
     service_account_paths:
       - "{{ homeautomation_mosquitto_required_volumes.data }}"
       - "{{ homeautomation_mosquitto_required_volumes.log }}"
     service_account_mode: "0700"
 
-# Not owned by the broker, which only reads it: the config is mounted read-only
-# and this role is its only writer. Group-readable rather than world-readable so
-# the traversal the broker needs is the only access anything else gets.
+# Not owned by the broker, which only reads it: this role is the only writer, and
+# group-readable gives the broker the traversal it needs and nothing wider.
 - name: Create the Mosquitto configuration directory
   ansible.builtin.file:
     path: "{{ homeautomation_mosquitto_required_volumes.config }}"

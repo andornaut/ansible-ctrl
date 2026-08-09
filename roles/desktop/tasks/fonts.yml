@@ -66,9 +66,8 @@
         group: root
       become: true
 
-    # `find` warns and returns an empty list for a missing path rather than failing, so
-    # a release that moves the fonts out of TTF/ would install nothing and still report
-    # a green run. Fail instead.
+    # find returns an empty list for a missing path, so a release that moves the
+    # fonts out of TTF/ would install nothing and still report success.
     - name: Find extracted Source Code Pro font files
       ansible.builtin.find:
         paths: "{{ desktop_source_code_pro_tmp.path }}/TTF"
@@ -76,9 +75,8 @@
       register: desktop_source_code_pro_files
       failed_when: desktop_source_code_pro_files.matched == 0
 
-    # Copy the fonts individually. A recursive copy of the TTF/ directory would
-    # apply `mode` to the destination directory as well, stripping its search
-    # bit (`directory_mode` only covers directories the module creates).
+    # Individually: a recursive copy would apply `mode` to the destination
+    # directory too, stripping its search bit.
     - name: Install Source Code Pro font files
       ansible.builtin.copy:
         src: "{{ item.path }}"

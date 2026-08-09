@@ -7,10 +7,8 @@
     state: latest
   become: true
 
-# Everything below writes under dev_user_home, so it runs as dev_user rather
-# than as whoever ansible connects as: the cron entry runs the script as
-# dev_user, and a root-driven run would otherwise leave it root-owned in their
-# home.
+# Everything below writes under dev_user_home, so run as dev_user: the cron entry
+# runs the script as that account.
 - name: Install the ai-maintainer script
   become: true
   become_user: "{{ dev_user }}"

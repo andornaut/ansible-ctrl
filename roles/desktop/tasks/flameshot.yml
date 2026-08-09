@@ -1,18 +1,13 @@
 ---
-# flameshot is installed by apt.yml on every desktop. Only the tiling hosts need a unit: there
-# the tray is eww's systray widget, which is StatusNotifierItem-only, and flameshot binds to
-# whichever org.kde.StatusNotifierWatcher owns the name when it starts and never re-registers.
-# A restarted eww therefore leaves it running with no icon. PartOf makes systemd propagate
-# eww's restarts to it, so the icon comes back on its own.
+# apt.yml installs flameshot everywhere; only tiling hosts need a unit. flameshot
+# binds to the StatusNotifierWatcher present at start and never re-registers, so a
+# restarted eww leaves it icon-less. PartOf propagates eww's restarts.
 #
-# This unit and the XDG autostart entry are two launchers for one app, so the entry carries
-# NotShowIn=bspwm to stop `dex --autostart --environment bspwm` starting a second copy. Keep the
-# two in step: an environment that gets a unit here must be listed there, or flameshot is
-# started twice. The gnome hosts get no unit and start it from the entry alone.
-# https://github.com/andornaut/dotfiles/blob/master/$HOME/.config/autostart/Flameshot.desktop
+# The unit and the dotfiles' XDG autostart entry are two launchers for one app, and
+# the entry's NotShowIn must list every environment given a unit here.
 - name: Configure flameshot service
   block:
-    # eww.yml creates this too, but a `--tags flameshot` run skips eww.yml.
+    # eww.yml creates this too, but --tags flameshot skips eww.yml.
     - name: Create the local systemd user unit directory
       ansible.builtin.file:
         path: /usr/local/lib/systemd/user
@@ -33,10 +28,8 @@
 
           [Service]
           Type=exec
-          # eww.service counts as started once `eww open` returns, which is not the same moment
-          # the systray widget claims the watcher name. Wait for the name, so flameshot does not
-          # register against a watcher that is not there yet. A timeout fails the unit rather
-          # than leaving a silently icon-less flameshot behind.
+          # eww.service is "started" before its systray claims the watcher name, so
+          # wait for the name; a timeout fails the unit rather than losing the icon.
           ExecStartPre=/usr/bin/gdbus wait --session --timeout 10 org.kde.StatusNotifierWatcher
           ExecStart=/usr/bin/flameshot
           Slice=session.slice

@@ -1,8 +1,7 @@
 ---
-# Root-owned because the server runs as root for dbus and Bluetooth, and closed
-# because the directory holds the Matter fabric credentials: the keys that make
-# this controller the one the commissioned devices trust. The directory rather
-# than the files, which the server rewrites with its own umask.
+# Root-owned, the server needing root for dbus and Bluetooth, and closed because it
+# holds the Matter fabric credentials. The directory, not the files, which the
+# server rewrites with its own umask.
 - name: Create Python Matter Server data directory
   ansible.builtin.file:
     path: "{{ homeautomation_pythonmatterserver_required_volumes.data }}"
@@ -40,10 +39,8 @@
             - NET_ADMIN
             - NET_RAW
           logging: "{{ homeautomation_default_logging }}"
-          # Host networking is required to see the _matter._tcp mDNS OTBR
-          # advertises on the LAN; those multicasts don't cross the bridge, so a
-          # bridged server never resolves Thread nodes and all Matter devices
-          # show unavailable.
+          # The _matter._tcp mDNS OTBR advertises does not cross the bridge, and
+          # without it no Thread node resolves.
           network_mode: host
           restart: unless-stopped
           # apparmor=unconfined for Bluetooth via dbus.

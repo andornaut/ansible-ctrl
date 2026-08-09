@@ -1,7 +1,5 @@
 ---
-# niri_user must not be root, or user-scoped tasks write to /root. It defaults to
-# primary_user (inventory data), never a fact describing who ansible runs as. This assert
-# is the backstop. tags: always so a --tags run cannot skip it.
+# niri_user must not resolve to root, or user-scoped tasks write to /root.
 - name: Validate niri_user
   ansible.builtin.assert:
     that:

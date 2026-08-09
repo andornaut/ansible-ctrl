@@ -1,24 +1,17 @@
 ---
-# Purge unwanted apt packages and negatively pin them so apt cannot reinstall them (see
-# README for what the pin buys over a dpkg hold). Run under a `become: true` block.
+# Purge apt packages and negatively pin them so apt cannot reinstall them.
+# See README for what the pin buys over a dpkg hold. Include under `become: true`.
 #
-# Usage:
-#   ansible.builtin.include_tasks: purge-and-pin.yml
-#   vars:
-#     purge_pin_name: snap                 # /etc/apt/preferences.d/no-<name>, and the label
-#     purge_pin_packages:                  # packages to purge and pin
-#       - package1
-#       - package2
-#
-# autoremove/clean omitted: disk-cleanup runs `apt-get autoremove --purge` weekly.
+# Required vars:
+#   purge_pin_name (str): /etc/apt/preferences.d/no-<name>, and the label
+#   purge_pin_packages (list): packages to purge and pin
 - name: "Purge apt packages: {{ purge_pin_name }}"
   ansible.builtin.apt:
     name: "{{ purge_pin_packages }}"
     purge: true
     state: absent
 
-# apt_preferences(5) accepts several names on one Package: line, so this is one record
-# rather than one per package.
+# apt_preferences(5) takes several names on one Package: line, so one record.
 - name: "Pin apt packages: {{ purge_pin_name }}"
   ansible.builtin.copy:
     content: |

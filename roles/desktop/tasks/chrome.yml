@@ -11,15 +11,12 @@
   become: true
   when: desktop_chrome_check.rc != 0
 
-# google-chrome.desktop is a plain package file, not a conffile, so dpkg overwrites it on every
-# Chrome self-update, reverting the flag. Patch it, then shadow it below: XDG_DATA_DIRS puts
-# /usr/local/share (where dpkg never writes) ahead of /usr/share, so the copy is what launches
-# Chrome. Patching the packaged file first keeps the copy idempotent and picks up Actions or
-# MimeTypes Chrome adds upstream.
+# Not a conffile, so dpkg reverts the flag on every Chrome self-update: patch it
+# here and shadow it below under /usr/local/share, which XDG_DATA_DIRS ranks first
+# and dpkg never writes. Patching first keeps the copy idempotent.
 #
-# The repeating group swallows any flags already after the binary and writes exactly one back,
-# repairing a wrong value or duplicates. The separator is `[ \t]+`, not `\s+`, because `\s`
-# matches a newline and would swallow the line after Exec=.
+# The repeating group replaces any existing flags with exactly one. `[ \t]+` rather
+# than `\s+`, which would match a newline and swallow the line after Exec=.
 - name: Configure Google Chrome for Wayland
   ansible.builtin.replace:
     path: /usr/share/applications/google-chrome.desktop
@@ -34,8 +31,7 @@
     mode: "0755"
   become: true
 
-# Same desktop id ("google-chrome.desktop"), so xdg-settings and the default-browser
-# tasks are unaffected: they resolve the id through XDG_DATA_DIRS and find this first.
+# Same desktop id, resolved through XDG_DATA_DIRS, so default_browser.yml is unaffected.
 - name: Shadow the Google Chrome desktop entry so the Wayland flag survives dpkg
   ansible.builtin.copy:
     src: /usr/share/applications/google-chrome.desktop

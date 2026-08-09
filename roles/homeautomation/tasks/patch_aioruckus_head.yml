@@ -1,10 +1,9 @@
 ---
-# aioruckus (ruckus_unleashed's dependency) sends HTTP HEAD during login, but the
-# Ruckus Unleashed controller returns a body on HEAD, which aiohttp 3.14+ rejects
-# as a fatal parse error, so the integration fails to set up. Patching HEAD to GET
-# avoids it (identical status/headers/Location; the small body is harmless). Home
-# Assistant reinstalls aioruckus on every container recreate, so this reapplies
-# each time. Remove once fixed: https://github.com/ms264556/aioruckus/issues/14
+# aioruckus sends HTTP HEAD during login, the controller answers with a body, and
+# aiohttp 3.14+ rejects that as a fatal parse error. GET returns the same status,
+# headers and Location, and the small body is harmless. Reapplied every run, Home
+# Assistant reinstalling aioruckus on each container recreate.
+# Remove once fixed: https://github.com/ms264556/aioruckus/issues/14
 - name: Wait for aioruckus to be installed in the Home Assistant container
   community.docker.docker_container_exec:
     container: homeassistant
