@@ -40,6 +40,10 @@ faramir_config_dir: "{{ faramir_user_home }}/.faramir"
 #
 # No list of files goes with it. faramir's base config globs this directory, so
 # a sops file put here is managed by being here.
+#
+# Derived rather than passed: init takes no flag for it and always puts the
+# store under the config directory, so the age key cannot be left behind by a
+# store that moved. Named here because the checks and the docs refer to it.
 faramir_secrets_dir: "{{ faramir_config_dir }}/secrets"
 
 # The SSH identity the broker lends to brokered commands through an agent it
@@ -55,20 +59,6 @@ faramir_secrets_dir: "{{ faramir_config_dir }}/secrets"
 # read them. The public key is printed at the end of every run; it opens nothing
 # until faramir_fleet.yml puts it in authorized_keys on the managed hosts.
 faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
-
-# An age identity for the operator, listed in .sops.yaml alongside the keeper's,
-# so the store has a second recipient. It is the answer to a lost keeper key: a
-# backup copy of the ciphertext still opens with this one.
-#
-# It grants no ordinary read. Being a recipient decides what can decrypt a file
-# you already hold, and the store is 2750 with a group this account is not in, so
-# neither sops nor the agent running as this account can open one to try. Reading
-# or editing a value is `sudo faramir edit`, which runs as root, uses the keeper's
-# key, and re-encrypts to whichever recipients the file already had.
-#
-# Set empty to leave the keeper as the only recipient, at the cost of that key
-# being the only copy of the way in.
-faramir_operator_age_key: "{{ faramir_user_home }}/.config/sops/age/keys.txt"
 
 # Register faramir's PreToolUse hook in this checkout's own agent settings, which
 # is what redacts the output of everything the agent runs here.
