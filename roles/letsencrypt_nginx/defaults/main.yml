@@ -20,8 +20,8 @@ letsencrypt_nginx_hidden_patterns: []
 letsencrypt_nginx_websites: []
 
 # Renewal re-runs this playbook, reissuing any cert within
-# letsencrypt_nginx_remaining_days of expiry. Only the controller has a checkout,
-# so enable it there; the nightly run reapplies the whole role.
+# letsencrypt_nginx_remaining_days of expiry. Only the controller has a checkout, so enable
+# it there; the nightly run reapplies the whole role.
 letsencrypt_nginx_install_renewal_cron: false
 letsencrypt_nginx_renewal_cron_hour: "22"
 letsencrypt_nginx_renewal_cron_minute: "11"
@@ -31,15 +31,15 @@ letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
 # The account whose home holds the store. cron.yml resolves the home with getent.
 letsencrypt_nginx_operator: "{{ primary_user }}"
 
-# Where the renewal run reads its credentials. Resolved from primary_user rather
-# than named, this job running as root, whose own ~ is /root. Paired with
-# SOPS_FILE in the Makefile. The job runs from playbook_dir in that same home
-# anyway, so an unmounted home stops it either way; see the role README.
+# Where the renewal run reads its credentials. Resolved from primary_user rather than
+# named, this job running as root, whose own ~ is /root. Paired with SOPS_FILE in the
+# Makefile. The job runs from playbook_dir in that same home anyway, so an unmounted home
+# stops it either way; see the role README.
 letsencrypt_nginx_renewal_cron_sops_file: >-
   {{ letsencrypt_nginx_operator_home }}/.faramir/secrets/ansible-ctrl.sops.yml
-# The keeper's key, already a recipient and readable by root whatever its mode, so
-# naming it grants nothing. Beside the broker's config in the same home as the
-# store, so one preflight guards both. SOPS_AGE_KEY_FILE takes a path, not a
-# value, so only sops reads the material.
+# The keeper's key, already a recipient and readable by root whatever its mode, so naming
+# it grants nothing. Beside the broker's config in the same home as the store, so one
+# preflight guards both. SOPS_AGE_KEY_FILE takes a path, not a value, so only sops reads
+# the material.
 letsencrypt_nginx_renewal_cron_age_key_file: >-
   {{ letsencrypt_nginx_operator_home }}/.faramir/age.key

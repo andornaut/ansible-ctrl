@@ -1,7 +1,7 @@
 ---
-# Classify one path idle.yml writes, which may be a symlink into a dotfiles repo.
-# A dangling link means the repo has not been applied, and lineinfile/replace abort
-# on one, so fail here instead.
+# Classify one path idle.yml writes, which may be a symlink into a dotfiles repo. A
+# dangling link means the repo has not been applied, and lineinfile/replace abort on one,
+# so fail here instead.
 #
 # Required vars:
 #   idle_dotfile_path (str): the path to classify

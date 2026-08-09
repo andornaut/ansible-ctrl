@@ -19,15 +19,15 @@
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
-    # sops exec-env, credentials reaching a play through the environment and the
-    # wildcard certificates needing dns-01. Not `make`, whose requirements stamp
-    # would run ansible-galaxy as root into the operator's home. The key is named
-    # explicitly, root's own ~ being /root.
+    # sops exec-env, credentials reaching a play through the environment and the wildcard
+    # certificates needing dns-01. Not `make`, whose requirements stamp would run
+    # ansible-galaxy as root into the operator's home. The key is named explicitly, root's
+    # own ~ being /root.
     #
-    # The checkout, store and key are all in that home, which is not mounted while
-    # the operator is logged out. The preflight turns that into mail by writing to
-    # stderr outside the log redirect; one message per cause, since "certificates
-    # were not renewed" alone gets ignored and then filtered.
+    # The checkout, store and key are all in that home, unmounted while the operator is
+    # logged out. The preflight turns that into mail by writing to stderr outside the log
+    # redirect; one message per cause, since "certificates were not renewed" alone gets
+    # ignored and then filtered.
     job: >-
       { [ -d {{ letsencrypt_nginx_renewal_cron_directory }} ] ||
       { echo "letsencrypt renewal SKIPPED: {{ letsencrypt_nginx_renewal_cron_directory }} does not

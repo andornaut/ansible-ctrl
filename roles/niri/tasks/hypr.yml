@@ -1,8 +1,8 @@
 ---
-# Hyprland ecosystem tools, each built by build_hypr_component.yml. Ordered:
-# hyprutils, hyprlang, hyprgraphics and hyprwayland-scanner are build dependencies of
-# hypridle, hyprlock and hyprpaper. Each include is wrapped in a tagged block, a tag
-# on a dynamic include filtering out what it includes rather than propagating in.
+# Hyprland ecosystem tools, each built by build_hypr_component.yml. Ordered: hyprutils,
+# hyprlang, hyprgraphics and hyprwayland-scanner are build dependencies of hypridle,
+# hyprlock and hyprpaper. Each include is wrapped in a tagged block, a tag on a dynamic
+# include filtering out what it includes rather than propagating in.
 
 - name: Install hyprutils
   tags: [hyprutils]

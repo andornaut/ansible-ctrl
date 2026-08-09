@@ -7,10 +7,9 @@
     - faramir
 
 # The fleet half of the same install: the play above generates the key, this one
-# distributes it, and a broker whose key no host authorizes reaches nothing. A
-# brokered run cannot widen its own reach here, its --limit '!faramir' leaving
-# the play above with no hosts, so no key is published and ssh.yml's assert
-# stops this one.
+# distributes it, and a broker whose key no host authorizes reaches nothing. A brokered run
+# cannot widen its own reach here: its --limit '!faramir' leaves the play above with no
+# hosts, so no key is published and ssh.yml's assert stops this one.
 - name: Authorize the broker's key across the fleet
   hosts: all
   gather_facts: false

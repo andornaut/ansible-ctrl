@@ -2,16 +2,14 @@
 #
 # RetroArch's udev input driver reads /dev/input/event* directly, and the distro's rules
 # grant the seat user an ACL on joysticks alone, so it has a gamepad, no pointer and no
-# keys. Tag the rest for uaccess too.
-#
-# Sorts after 60-input-id.rules, which classifies each device, and before
-# 73-seat-late.rules, which turns the tag into the ACL.
+# keys. Tag the rest for uaccess too. Sorts after 60-input-id.rules, which classifies each
+# device, and before 73-seat-late.rules, which turns the tag into the ACL.
 
 # A KVM presents an idle mouse that emits nothing and enumerates ahead of the real one,
-# taking pointer 0. RetroArch aggregates motion across all mice, so the cursor moves
-# while every click lands on the dead device. Enumeration order is not stable, so an
-# index cannot fix it: drop this device's mouse classification instead. Harmless on a
-# host without it, and matched by USB id rather than host name, the repo being public.
+# taking pointer 0. RetroArch aggregates motion across all mice, so the cursor moves while
+# every click lands on the dead device. Enumeration order is not stable, so drop this
+# device's mouse classification rather than fix an index. Harmless on a host without it,
+# and matched by USB id rather than host name, the repo being public.
 SUBSYSTEM=="input", ATTRS{idVendor}=="09eb", ATTRS{idProduct}=="0131", ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_MOUSE}="0"
 
 # After the rule above, so the suppressed device is skipped here too.

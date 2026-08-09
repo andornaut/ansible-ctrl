@@ -44,8 +44,8 @@ desktop_xsecurelock_password_prompt: asterisks
 desktop_xsecurelock_auth_background_color: ""
 
 # Unset leaves the host's policy alone, 0 disables idle suspend, N suspends after N
-# minutes, on mains and battery alike. Locking is separate. Under bspwm it must be 0
-# or above desktop_screen_blank_minutes, which idle.yml asserts. See README.md.
+# minutes, on mains and battery alike. Locking is separate. Under bspwm it must be 0 or
+# above desktop_screen_blank_minutes, asserted in idle.yml. See README.md.
 desktop_suspend_inactive_minutes: ~
 
 # Directory names under /usr/share/themes. theme.yml also copies each into ~/.themes,
@@ -79,16 +79,16 @@ desktop_file_roller_mime_types:
   - application/x-zstd-compressed-tar
 
 # malcontent OARS filter and Chrome SafeSearch. False lifts whatever an earlier run
-# enforced, and the host's desktop_parental_controls_* settings must be removed with
-# it: the role asserts none is left describing a policy nothing enforces. README.md.
+# enforced; the host's desktop_parental_controls_* settings must go with it, the role
+# asserting none is left describing a policy nothing enforces. README.md.
 desktop_install_parental_controls: false
 # Ceilings above which apps are hidden in gnome-software: none < mild < moderate <
-# intense. Any entry also disallows flatpak installs from the system repository, which
-# emptying the dict restores.
+# intense. Any entry also disallows flatpak installs from the system repository, restored
+# by emptying the dict.
 desktop_parental_controls_oars: {}
 # Written to family.json when the controls are on. Beyond SafeSearch and YouTube these
-# close the in-browser bypass paths. A non-sudo user can still install a flatpak
-# browser, so an egress lockdown is what makes them hold.
+# close the in-browser bypass paths. A non-sudo user can still install a flatpak browser,
+# so an egress lockdown is what makes them hold.
 desktop_chrome_family_policies:
   ForceGoogleSafeSearch: true
   ForceYouTubeRestrict: 1
@@ -106,16 +106,16 @@ desktop_chrome_family_policies:
     - cjpalhdlnbpafiamejdnhcphjbkeiagm  # uBlock Origin
     - ddkjiahejlhfcafbddmgiahcphecmpfh  # uBlock Origin Lite
 
-# Enforced by the nss-malcontent module, not the browser (README.md). "none" disables
-# it, "block-list" allows all but the listed, "allow-list" blocks all but the listed
-# and breaks a site over one missing CDN. Either list must have entries, which the
-# role asserts, or malcontent sinkholes every hostname. Enabling edits
-# /etc/nsswitch.conf system-wide. DnsOverHttpsMode "off" keeps Chrome resolving
-# through it; Firefox is held off DoH by malcontent's own canary block.
+# Enforced by the nss-malcontent module, not the browser (README.md). "none" disables it,
+# "block-list" allows all but the listed, "allow-list" blocks all but the listed and breaks
+# a site over one missing CDN. Either list must have entries, asserted by the role, or
+# malcontent sinkholes every hostname. Enabling edits /etc/nsswitch.conf system-wide.
+# DnsOverHttpsMode "off" keeps Chrome resolving through it; Firefox is held off DoH by
+# malcontent's own canary block.
 desktop_parental_controls_web_filter_type: none
-# {id: HTTPS URI}, id being a free-form label. Each list must be newline-separated
-# bare hostnames, not hosts-file lines; one malformed line aborts the whole update,
-# leaving the previous list and an error in /var/lib/malcontent-webd/update-error.
+# {id: HTTPS URI}, id being a free-form label. Each list must be newline-separated bare
+# hostnames, not hosts-file lines; one malformed line aborts the whole update, leaving the
+# previous list and an error in /var/lib/malcontent-webd/update-error.
 desktop_parental_controls_web_block_lists: {}
 desktop_parental_controls_web_allow_lists: {}
 # Added alongside the fetched lists. Matching is exact, subdomains included, so name

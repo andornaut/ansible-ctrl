@@ -23,28 +23,26 @@ homeautomation_esphome_required_volumes:
   # The entrypoint's PlatformIO core dir, and $HOME. Out of /config, which the
   # dashboard version-controls.
   cache: /var/docker-volumes/homeautomation/esphome/cache
-# Host-networked and unauthenticated out of the box: firmware-flash access to
-# every ESP device and the wifi and OTA passwords, from anywhere on the LAN.
-# Both enable the login; either empty leaves it open. Only the API is gated, so
-# check with /devices, which answers 401 once these are set.
+# Host-networked and unauthenticated out of the box: firmware-flash access to every ESP
+# device plus the wifi and OTA passwords, from anywhere on the LAN. Both enable the login;
+# either empty leaves it open. Only the API is gated, so check with /devices, which
+# answers 401 once these are set.
 homeautomation_esphome_username: ""
 homeautomation_esphome_password: ""
 # Two empties are refused rather than served, being a host not yet given
 # credentials. Set this to run the dashboard open deliberately.
 homeautomation_esphome_allow_unauthenticated: false
-# The image runs as root, but the dashboard only reads and writes its two
-# directories. The config directory is a git repository, but the dashboard's own:
-# it initialises it, authors the commits and has no remote, so there is no second
-# writer to share the account with.
+# The image runs as root, but the dashboard only reads and writes its two directories. The
+# config directory is a git repository the dashboard owns outright -- it initialises it,
+# authors the commits and has no remote -- so there is no second writer.
 homeautomation_esphome_uid: "10001"
 homeautomation_esphome_gid: "10001"
 
 # Frigate
-# Frigate serves the same application on two ports, and this one has no login at
-# all, so on 0.0.0.0 it hands the camera system to the LAN. Nothing reaches it
-# over the network: the proxy uses the authenticated port over loopback and Home
-# Assistant uses the container's bridge address. The WebRTC port stays open,
-# carrying media straight from the browser.
+# Frigate serves the same application on two ports and this one has no login, so on
+# 0.0.0.0 it hands the camera system to the LAN. Nothing reaches it over the network: the
+# proxy uses the authenticated port over loopback, Home Assistant the container's bridge
+# address. The WebRTC port stays open, carrying media straight from the browser.
 homeautomation_frigate_bind_http_unauthenticated: "127.0.0.1"
 homeautomation_frigate_devices: []
 # https://github.com/blakeblackshear/frigate/pkgs/container/frigate
@@ -68,10 +66,10 @@ homeautomation_frigate_tmpfs_size_mb: 128
 # ha-mcp
 homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
 homeautomation_hamcp_env: {}
-# One entry per Home Assistant an agent drives, not per host running one: the
-# server is an adapter holding a token and speaking HTTP, so a remote instance is
-# reached by pointing url at it. Keeping them all on the agent's host means no MCP
-# port is published, and ha-mcp authenticates nobody who reaches it.
+# One entry per Home Assistant an agent drives, not per host running one: the server is an
+# adapter holding a token and speaking HTTP, so a remote instance is reached by pointing
+# url at it. Keeping them all on the agent's host means no MCP port is published, and
+# ha-mcp authenticates nobody who reaches it.
 #
 # Each entry takes:
 #   name  (str): container name, its <name>.internal host on the bridge, and the
@@ -81,8 +79,8 @@ homeautomation_hamcp_env: {}
 #   token (str): that instance's long-lived access token (Profile > Security)
 #   uid   (str): distinct across every service in this role
 #
-# The image's mcpuser is uid 999, a system account on the host, so each container
-# gets its own. They bind-mount nothing; the point is the process identity.
+# The image's mcpuser is uid 999, a system account on the host, so each container gets its
+# own. They bind-mount nothing; the point is the process identity.
 homeautomation_hamcp_instances: []
 homeautomation_install_hamcp: false
 
@@ -112,9 +110,9 @@ homeautomation_homeassistant_required_volumes:
 # llama.cpp
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
-# Router mode spawns a child server per model with no --ctx-size, defaulting each
-# to 4096. Inherited by the children: 128k per request, native for both models
-# below, and one slot so the context is not divided. See README.
+# Router mode spawns a child server per model with no --ctx-size, defaulting each to 4096.
+# Inherited by the children: 128k per request, native for both models below, and one slot
+# so the context is not divided. See README.
 homeautomation_llamacpp_env:
   LLAMA_ARG_CTX_SIZE: "131072"
   LLAMA_ARG_N_PARALLEL: "1"
@@ -152,10 +150,10 @@ homeautomation_memryx_version: "2.1"
 homeautomation_microwakeword_docker_image: rhasspy/wyoming-microwakeword
 
 # Mosquitto
-# mosquitto.conf allows anonymous access, so on 0.0.0.0 any LAN host could publish
-# to the topics Home Assistant acts on. Loopback covers every client there is:
-# bridged containers use the container address, host-networked ones loopback.
-# Override only for a device outside this host.
+# mosquitto.conf allows anonymous access, so on 0.0.0.0 any LAN host could publish to the
+# topics Home Assistant acts on. Loopback covers every client there is: bridged containers
+# use the container address, host-networked ones loopback. Override only for a device
+# outside this host.
 homeautomation_mosquitto_bind: "127.0.0.1"
 homeautomation_mosquitto_docker_image: eclipse-mosquitto
 homeautomation_mosquitto_host: localhost

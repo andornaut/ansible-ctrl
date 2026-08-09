@@ -1,7 +1,7 @@
 ---
-# The dashboard enables its login only when it gets both, so a half pair starts it
-# open on the LAN: firmware-flash access to every ESP device, and a readable
-# secrets.yaml. The auth gate below would read that as "this host wants no login".
+# The dashboard enables its login only when it gets both, so a half pair starts it open on
+# the LAN: firmware-flash access to every ESP device, and a readable secrets.yaml. The auth
+# gate below would read that as "this host wants no login".
 - name: Assert that the ESPHome dashboard credentials are a complete pair
   ansible.builtin.assert:
     that:
@@ -37,11 +37,10 @@
     # secrets.yaml holds the wifi and OTA passwords.
     service_account_mode: "0700"
 
-# The dashboard pings devices to track whether they are online, and an unprivileged
-# ICMP datagram socket is the only way a non-root uid can: cap_add fills the permitted
-# set but not the ambient one, so NET_RAW never becomes effective. Such a socket only
-# sends echo requests and reads the replies. On the host, the container being
-# host-networked.
+# The dashboard pings devices to track whether they are online, and an unprivileged ICMP
+# datagram socket is the only way a non-root uid can: cap_add fills the permitted set but
+# not the ambient one, so NET_RAW never becomes effective. Such a socket only sends echo
+# requests and reads the replies. On the host, the container being host-networked.
 - name: Allow the ESPHome group to open unprivileged ICMP sockets
   ansible.posix.sysctl:
     name: net.ipv4.ping_group_range
@@ -69,9 +68,9 @@
       # PlatformIO derives its core dir from $HOME, and the image's /root is
       # neither writable by the uid nor kept across a recreate.
       HOME: /cache
-    # ESPHOME_-prefixed: the older USERNAME and PASSWORD are silently ignored,
-    # leaving the dashboard open. The equivalent flags are deprecated and would
-    # put the password in the host's process list.
+    # ESPHOME_-prefixed: the older USERNAME and PASSWORD are silently ignored, leaving the
+    # dashboard open. The equivalent flags are deprecated and would put the password in the
+    # host's process list.
     esphome_auth_environment:
       ESPHOME_USERNAME: "{{ homeautomation_esphome_username }}"
       ESPHOME_PASSWORD: "{{ homeautomation_esphome_password }}"
@@ -106,9 +105,9 @@
   # task's output costs the only diagnostic a pull or startup failure has.
   no_log: "{{ homeautomation_esphome_auth_configured | bool }}"
 
-# secrets.yaml holds the wifi and OTA passwords, and each device YAML that device's
-# API encryption key. Defence in depth behind the 0700 directory above, and reasserted
-# every run, the dashboard writing a file per device as they are adopted.
+# secrets.yaml holds the wifi and OTA passwords, and each device YAML that device's API
+# encryption key. Defence in depth behind the 0700 directory above, reasserted every run,
+# the dashboard writing a file per device as they are adopted.
 - name: Find the ESPHome configuration files
   ansible.builtin.find:
     paths: "{{ homeautomation_esphome_required_volumes.config }}"

@@ -27,14 +27,14 @@ faramir_project_warnings: >-
   {{ (faramir_project.stdout | from_json).warnings | default([])
      if faramir_project.stdout | default('') | length > 0 else [] }}
 
-# The whole invocation in one place. argv rather than a command string: the paths
-# come from the inventory, and quoting an unusual one is not this role's problem.
+# The whole invocation in one place. argv rather than a command string: the paths come from
+# the inventory, and quoting an unusual one is not this role's problem.
 #
-# No tree is named: init provisions the host, and init-project below enrols the
-# tree, reading the client group out of the config init installed.
+# No tree is named: init provisions the host, and init-project below enrols the tree,
+# reading the client group out of the config init installed.
 #
-# The staged binary, init installing the one it was run from, so this resolves
-# only inside the install block that registers faramir_staging.
+# The staged binary, init installing the one it was run from, so this resolves only inside
+# the install block that registers faramir_staging.
 faramir_init_argv: >-
   {{
     [faramir_staging.path ~ '/faramir', 'init', '--json',

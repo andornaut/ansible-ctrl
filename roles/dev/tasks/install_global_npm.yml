@@ -4,8 +4,8 @@
 # Required vars:
 #   dev_npm_package (str)
 #
-# npm is required, not assumed: every caller has its own tag, and none of them
-# selects the javascript tag that installs node.
+# npm is required, not assumed: every caller has its own tag, and none selects the
+# javascript tag that installs node.
 - name: Require npm
   ansible.builtin.include_tasks: require_tools.yml
   vars:

@@ -6,9 +6,9 @@ QUIET=false
 # A newer file may still be being written, and scp deletes the local copy on
 # success, so a truncated upload leaves nothing to retry from.
 MIN_AGE_SECONDS=30
-# Bound a stall: the run holds a lock throughout, so a hang blocks every later cron
-# run. ssh otherwise waits out the kernel's TCP connect timeout, and once a transfer
-# is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+# Bound a stall: the run holds a lock throughout, so a hang blocks every later cron run.
+# ssh otherwise waits out the kernel's TCP connect timeout, and once a transfer is under
+# way only TCPKeepAlive notices a dead peer, after ~2 hours.
 SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
@@ -39,9 +39,9 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
-        # and 2+ characters, so long options never match. Do not rewrite with
-        # bash's parameter-length syntax: it opens a Jinja2 comment.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash and
+        # 2+ characters, so long options never match. Do not rewrite with bash's
+        # parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
@@ -98,17 +98,16 @@ upload_torrent_files() {
 header "Uploading .torrent files to remote watch directories"
 
 failed=false
-# One lock for the whole run: cron fires every 2 minutes, tighter than a stalled
-# scp, and two runs would race to rm the same file. flock releases however the
-# guarded subshell ends, including a kill, which a pid check cannot see.
+# One lock for the whole run: cron fires every 2 minutes, tighter than a stalled scp, and
+# two runs would race to rm the same file. flock releases however the guarded subshell
+# ends, including a kill, which a pid check cannot see.
 lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
 (
     # A held lock means a prior run is wedged, an upload taking seconds.
     flock -n 9 || error "A previous upload is still running"
     upload_failed=false
-    # Derived from each host's own root: a delegated task resolves plain
-    # variables from the play host, so torrent_watch_directory would name this
-    # host's path for every host.
+    # Derived from each host's own root: a delegated task resolves plain variables from
+    # the play host, so torrent_watch_directory would name this host's path for every.
 {% for host in ansible_play_batch %}
 {% if host != "localhost" %}
 {% for watch_dir in torrent_local_watch_directories %}
