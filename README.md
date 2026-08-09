@@ -95,52 +95,33 @@ msmtp_password: "{{ secret_msmtp_password }}"
 
 [vars_plugins/secret_env.py](vars_plugins/secret_env.py) binds the two: every `secret_*` environment variable becomes an inventory variable of the same name, so there is no per-credential mapping to keep in step with anything. Adding a credential is three edits: the value into the sops file, the `secret://` ref into `faramir.env`, and the reference into `host_vars/`.
 
-A credential that is not in the environment is absent rather than empty, so the first task to use it fails naming it instead of applying a blank credential and reporting success. An empty value counts as absent for the same reason. Enabling the plugin in [ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it, because `vars_plugins_enabled` replaces the default list rather than adding to it.
+A credential that is not in the environment is absent rather than empty, so a task that reads one fails naming it instead of applying a blank and reporting success. Enabling the plugin in [ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it, because `vars_plugins_enabled` replaces the default list rather than adding to it.
 
 A value only ever reaches a play through the environment. Three paths put it there:
 
 | Path | How |
 | --- | --- |
-| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the other targets read no credential and run straight through. The store belongs to a group the operator is not in, so the re-entry succeeds only as root, which also reads the keeper's age key. A secret-bearing target `make` cannot serve is refused rather than run with every `secret_*` undefined. |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook homeautomation.yml --limit '!faramir'`. `faramir.env` holds `secret://` references and no values, and is gitignored because those references map this repo's variable names onto the store's layout. |
-| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` directly rather than through `make`, because every make target depends on the `requirements` stamp and a root cron would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
+| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Only root can, the store's group holding no human, so a target `make` cannot serve is refused rather than run with every `secret_*` undefined. See the [faramir role](roles/faramir/README.md). |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout. |
+| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`: every make target depends on the `requirements` stamp, and a root cron would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
 
-Where things live and why:
+Gotchas:
 
-- **The store is in the operator's home**, alongside the age key that opens it, so a powered-off disk carries neither. Being in that home grants its owner nothing: what confines the agent is mode and uid, not location.
-- **Not in this repo.** It is public, so a store inside it is ciphertext of every credential one `git add -f` or one broken ignore rule from publication, which rotating afterwards does not undo.
-- **`~/.faramir/secrets` is `2750 root:faramir-secrets`**, a group holding the keeper and the broker and no human. The operator is not in it, so `sops -d` and `sops exec-env` fail for want of a readable file whatever identities are recipients; `sudo faramir edit` is the way in. The keeper reaches it through a unit that sets `ProtectHome=tmpfs` and binds only that one directory back in.
-- **Every play that reads a credential checks first.** Credentials arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that something was injected. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
+- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key. The repo is public, so a store inside it is one `git add -f` or one broken ignore rule from publication, which rotating afterwards does not undo. Being in that home grants its owner nothing: `~/.faramir/secrets` is `2750 root:faramir-secrets`, a group holding no human.
+- **Every play that reads a credential asserts one arrived.** They arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` check in `pre_tasks`. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
 - **Nothing under the home is readable before first login**, so a reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not happen. The cron's preflight mails in that case rather than failing quietly.
-- **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git. rsnapshot covers them only if each path is listed for it, and losing the key that opens the store loses every credential it ever encrypted. This does put the keys and the ciphertext they open in the same snapshot.
+- **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git, and rsnapshot covers them only if each path is listed for it. Losing the key loses every credential it ever encrypted. This does put the keys and the ciphertext they open in one snapshot.
 
 ## Getting started with the secret broker
 
 [faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is worth reading before trusting it.
 
-1. **Install sops**, which the [dev](roles/dev/README.md) role provides: `make dev`. The faramir binary is downloaded from a release, so no faramir checkout and no Go toolchain are needed.
-2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this target asks for a sudo password.
-3. **Log out and back in.** The install adds you to the `dev` group and group membership is read at login. Until then the broker refuses your connections.
-4. **Check what it loaded.** A ref count of zero is a failure, not a fresh start: the broker is running and protecting nothing.
-
-   ```bash
-   faramir doctor          # whether the install is doing its job, not just running
-   faramir status          # config path, the sops files it manages, and the ref count
-   faramir list-secrets    # the names, never the values
-   ```
-
-5. **Authorize its SSH key on the managed hosts**: `make faramir_fleet ASK_PASS=1`. `ASK_PASS=1` is required because this is the run that establishes the NOPASSWD sudo the others rely on.
-6. **Prove the chain end to end:**
-
-   ```bash
-   faramir run --env-file faramir.env -- \
-       ansible <host> -m debug -a 'var=secret_msmtp_password'
-   # -> "secret_msmtp_password": "«SECRET:secret_msmtp_password»"
-   ```
-
-   Anything else is a fault; the [faramir role](roles/faramir/README.md) says what each one means.
-
-After that, playbooks run through the broker rather than through `make`. `--limit '!faramir'` excludes the controller, which a brokered run cannot configure: commands run as a uid with no sudo there. The controller's own playbooks stay yours to apply.
+1. **Install sops**, from the [dev](roles/dev/README.md) role: `make dev`. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
+2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this asks for a sudo password.
+3. **Log out and back in.** The install adds you to the `dev` group, and group membership is read at login. Until then the broker refuses your connections.
+4. **Check what it loaded** with `faramir doctor`, `faramir status` and `faramir list-secrets` (names, never values). A ref count of zero is a failure, not a fresh start: the broker is running and protecting nothing.
+5. **Authorize its SSH key on the fleet**: `make faramir_fleet ASK_PASS=1`, required because this run establishes the NOPASSWD sudo the others rely on.
+6. **Prove the chain end to end**, per [Verification](roles/faramir/README.md#verification). Anything but a `«SECRET:...»` token is a fault, and that table says which.
 
 ## Operations
 
