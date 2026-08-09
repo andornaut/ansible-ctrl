@@ -26,7 +26,7 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | Rule | Detail |
 | --- | --- |
 | Arguments after `--` | forwarded to `ansible-playbook` |
-| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment, so `-- --extra-vars k=v` forwards a bare `--extra-vars` and ansible exits with a usage message. Assign `ARGS` instead, which overrides the value the target derives from the goals. |
+| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead. |
 | `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost`. A run that is already root never gets one. |
 | `ASK_PASS=1` | forces the prompt |
 | `SECRETS=none` | skips the `sops exec-env` re-entry, and tells the play the run reads no credential. For a `--tags` run of a secret-bearing playbook that reaches none. |
@@ -93,7 +93,7 @@ Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assist
 msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
-[vars_plugins/secret_env.py](vars_plugins/secret_env.py) binds the two: every `secret_*` environment variable becomes an inventory variable of the same name, so there is no per-credential mapping to keep in step with anything. Adding a credential is three edits: the value into the sops file, the `secret://` ref into `faramir.env`, and the reference into `host_vars/`.
+[vars_plugins/secret_env.py](vars_plugins/secret_env.py) binds the two: every `secret_*` environment variable becomes an inventory variable of the same name. Adding a credential is three edits: the value into the sops file, the `secret://` ref into `faramir.env`, and the reference into `host_vars/`.
 
 A credential that is not in the environment is absent rather than empty, so a task that reads one fails naming it instead of applying a blank and reporting success. Enabling the plugin in [ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it, because `vars_plugins_enabled` replaces the default list rather than adding to it.
 
@@ -101,26 +101,26 @@ A value only ever reaches a play through the environment. Three paths put it the
 
 | Path | How |
 | --- | --- |
-| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Only root can, the store's group holding no human, so a target `make` cannot serve is refused rather than run with every `secret_*` undefined. See the [faramir role](roles/faramir/README.md). |
+| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Only root can, the store's group holding no human, so a target `make` cannot serve is refused. See the [faramir role](roles/faramir/README.md). |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout. |
-| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`: every make target depends on the `requirements` stamp, and a root cron would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
+| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
 
 Gotchas:
 
-- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key. The repo is public, so a store inside it is one `git add -f` or one broken ignore rule from publication, which rotating afterwards does not undo. Being in that home grants its owner nothing: `~/.faramir/secrets` is `2750 root:faramir-secrets`, a group holding no human.
+- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key, and this repo is public. Being in that home grants its owner nothing: `~/.faramir/secrets` is `2750 root:faramir-secrets`, a group holding no human.
 - **Every play that reads a credential asserts one arrived.** They arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` check in `pre_tasks`. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
 - **Nothing under the home is readable before first login**, so a reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not happen. The cron's preflight mails in that case rather than failing quietly.
 - **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git, and rsnapshot covers them only if each path is listed for it. Losing the key loses every credential it ever encrypted. This does put the keys and the ciphertext they open in one snapshot.
 
 ## Getting started with the secret broker
 
-[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) explains what it protects against, which is worth reading before trusting it.
+[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects against.
 
 1. **Install sops**, from the [dev](roles/dev/README.md) role: `make dev`. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
 2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this asks for a sudo password.
 3. **Log out and back in.** The install adds you to the `dev` group, and group membership is read at login. Until then the broker refuses your connections.
-4. **Check what it loaded** with `faramir doctor`, `faramir status` and `faramir list-secrets` (names, never values). A ref count of zero is a failure, not a fresh start: the broker is running and protecting nothing.
-5. **Authorize its SSH key on the fleet**: `make faramir_fleet ASK_PASS=1`, required because this run establishes the NOPASSWD sudo the others rely on.
+4. **Check what it loaded** with `faramir doctor`, `faramir status` and `faramir list-secrets` (names, never values). A ref count of zero is a failure: the broker is running and protecting nothing.
+5. **Authorize its SSH key on the fleet**: `make faramir_fleet ASK_PASS=1`, the run that establishes the NOPASSWD sudo the others rely on.
 6. **Prove the chain end to end**, per [Verification](roles/faramir/README.md#verification). Anything but a `«SECRET:...»` token is a fault, and that table says which.
 
 ## Operations
@@ -136,6 +136,6 @@ ansible-galaxy collection install --upgrade -r requirements.yml
 make clean
 ```
 
-[.github/workflows/lint.yml](.github/workflows/lint.yml) runs on every pull request: `ansible-lint`, `syntax-check`, `shellcheck` (every shell script under `roles/`, discovered by shebang), and `python-syntax` (every Python file under `roles/*/files/`). All four are [tests/lint.sh](tests/lint.sh), which CI calls one check per job and `make lint` calls in full, so what passes locally is what passes there. The gate is the whole file, not the lines a change touched.
+[.github/workflows/lint.yml](.github/workflows/lint.yml) runs on every pull request: `ansible-lint`, `syntax-check`, `shellcheck` (every shell script under `roles/`, discovered by shebang), and `python-syntax` (every Python file under `roles/*/files/`). All four are [tests/lint.sh](tests/lint.sh), which CI calls one check per job and `make lint` calls in full. The gate is the whole file, not the lines a change touched.
 
 `ansible-lint` is not packaged for Ubuntu, so `tests/lint.sh` keeps it in a venv under `.ansible/`, built on first use. CI installs it with `pip` instead and the script uses whichever it finds on `PATH`.
