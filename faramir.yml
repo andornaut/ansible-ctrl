@@ -8,3 +8,26 @@
   hosts: faramir
   roles:
     - faramir
+
+# The fleet half of the same install, in the same run: a broker whose key no host
+# authorizes comes up green and reaches nothing, and the play above is what
+# generates the key this one distributes. Second for that reason.
+#
+# A brokered run cannot reach this to grant itself its own reach. It carries
+# --limit '!faramir', which leaves the play above with no hosts, so no key is
+# published and the assert in tasks/ssh.yml stops this play before it authorizes
+# anything.
+#
+# hosts: all, where this was three plays: roles/faramir/tasks/ssh.yml holds them
+# and says which block runs where.
+- name: Authorize the broker's key across the fleet
+  hosts: all
+  gather_facts: false
+  tasks:
+    # tasks_from rather than the roles: keyword, which would apply main.yml to
+    # every host. Importing the role is also what defines faramir_broker_ssh_key
+    # here, from the same defaults the play above installs the key under.
+    - name: Authorize the broker's key
+      ansible.builtin.import_role:
+        name: faramir
+        tasks_from: ssh
