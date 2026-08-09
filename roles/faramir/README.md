@@ -15,8 +15,7 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 
 | Path | Mode | Contents |
 | --- | --- | --- |
-| `~/.faramir/config.toml` | `0644 root` | faramir's base config, rendered by `init`. `[secrets] files` and `[ssh] keys` are left empty here and set in drop-ins. |
-| `~/.faramir/config.d/00-faramir-init.toml` | `0644 root` | `[ssh] keys`, written by `faramir init` |
+| `~/.faramir/config.toml` | `0644 root` | faramir's own, rewritten by `init` on every run, carrying `[ssh] keys` from `faramir_broker_ssh_key`. Do not edit it. |
 | `~/.faramir/config.d/ansible-ctrl.toml` | `0644 root` | `[secrets] files`, written by this role every run |
 | `~/.faramir/age.key` | `0400 faramir-keeper` | decrypts the store. Owning the directory is permission to unlink it, not to read it. |
 | `~/.faramir/secrets/` | `2750 root:faramir-secrets` | the keeper and the broker are in that group; the operator is not, so reading or editing a managed file needs sudo. |
@@ -130,7 +129,6 @@ git clone git@github.com:andornaut/faramir.git && cd faramir && sudo tests/verif
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml`, `config.d/` and the age key live. |
 | `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. |
 | `faramir_secrets_files` | `[{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml]` | The managed sops files, written to the drop-in every run. |
-| `faramir_overwrite_config` | `false` | Have init rewrite the base config instead of keeping it. Destructive. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends, generated when missing. Empty leaves `[ssh] keys` unset. |
 | `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, minted when missing and added to `.sops.yaml` as a second recipient. Empty leaves the keeper as the only one. |
 | `faramir_install_agent_config` | `true` | Install faramir's `Read` deny rules into the operator's Claude settings. |
@@ -138,8 +136,4 @@ git clone git@github.com:andornaut/faramir.git && cd faramir && sudo tests/verif
 
 Service account names and `faramir_dev_group` are free to change here: `init` renders the config the sockets check and the units that reach the working tree from the same values, so `allowed_groups` and `SupplementaryGroups=` cannot disagree.
 
-`faramir_overwrite_config` is assigned rather than passed after `--`, because make reads a word containing `=` as a variable assignment:
-
-```bash
-make faramir ARGS="--extra-vars faramir_overwrite_config=true"
-```
+`config.toml` is faramir's own and `init` rewrites it every run, so nothing here edits it and an edit made by hand is replaced. Settings that belong to this repo go in the `config.d/ansible-ctrl.toml` drop-in, which `init` never touches; anything else you want to set goes in a drop-in of your own beside it.

@@ -67,6 +67,5 @@ faramir_init_argv: >-
     + (['--ssh-key', faramir_broker_ssh_key]
        if faramir_broker_ssh_key | length > 0 else [])
     + (['--agent-config'] if faramir_install_agent_config | bool else [])
-    + (['--overwrite-config'] if faramir_overwrite_config | bool else [])
     + (['--dry-run'] if ansible_check_mode else [])
   }}
