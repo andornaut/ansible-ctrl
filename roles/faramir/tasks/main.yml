@@ -17,9 +17,9 @@
 # host instead, and the working-tree check further down is not the backstop it
 # looks like, a host with a directory at the same path passing it.
 #
-# The faramir group names the one host meant to get all that, so membership of it
-# is the whole condition. Nothing here reads a hostname: which host is the
-# controller is the inventory's to say, not this role's.
+# faramir_controller names the one host meant to get all that, and this compares
+# against it rather than against membership of the faramir group: a group is a
+# list, and the guard has to answer for the case where it holds two.
 #
 # ssh.yml is the entry point for every other host, and faramir_fleet.yml applies
 # it over hosts: all, so the file next door is one tasks_from away from being
@@ -33,13 +33,15 @@
 # would land on the controller and describe someone else.
 - name: Require the controller
   ansible.builtin.assert:
-    that: inventory_hostname in groups['faramir'] | default([])
+    that: inventory_hostname == faramir_controller
     fail_msg: >-
-      {{ inventory_hostname }} is not in the faramir group, and this role
-      installs the broker on the controller: service accounts, systemd units,
-      the age key and root's config directory. Apply it with make faramir, which
-      targets that group. To authorize the broker's key on this host instead,
-      that is make faramir_fleet, which applies tasks/ssh.yml.
+      This role installs the broker on {{ faramir_controller }}, the controller:
+      service accounts, systemd units, the age key and root's config directory.
+      {{ inventory_hostname }} is not that host. Apply it with make faramir,
+      which targets the faramir group. To authorize the broker's key on this
+      host instead, that is make faramir_fleet, which applies tasks/ssh.yml. If
+      the controller was renamed or replaced, faramir_controller is where its
+      name is set.
     quiet: true
   tags: always
 

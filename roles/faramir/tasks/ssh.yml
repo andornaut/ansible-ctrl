@@ -8,31 +8,33 @@
 # something. faramir_fleet.yml applies them, and applies nothing else.
 #
 # One task file over the whole inventory, where this was three plays split by
-# hosts: pattern. What the pattern used to say, each block now says as a
-# condition on group membership. The default linear strategy runs every task on
+# hosts: pattern. What the pattern used to say, each block now says by comparing
+# against faramir_controller. The default linear strategy runs every task on
 # every host before starting the next, so the key is still read and published
 # before the first host is asked to authorize it, and every host has been asked
 # before the brokered ping goes looking for it.
 
-# The blocks below take the controller as groups['faramir'][0]: the key comes off
-# it, every other host authorizes that one key, and the brokered ping is asked of
-# it. An empty group fails those several tasks later on a lookup that names
-# nothing, and a second member is worse than that: [0] picks one of them by
-# inventory order, so the fleet would authorize one controller's broker and the
-# other's brokered runs would be refused everywhere, with nothing in this run
-# saying so. One member, named here rather than discovered by index.
-- name: Require exactly one controller in the inventory
+# The key comes off faramir_controller, every other host authorizes that one key,
+# and the brokered ping is asked of it. The faramir group is what the plays
+# target, so the two have to agree: a group holding some other host would leave
+# this run reading a key from a host it never reached, and a group holding two
+# would distribute one of the two brokers' keys and refuse the other's brokered
+# runs everywhere. Both are inventory mistakes, and both are errors here rather
+# than something to be resolved by picking a member.
+- name: Require the faramir group to hold the controller alone
   ansible.builtin.assert:
-    that: groups['faramir'] | default([]) | length == 1
+    that: groups['faramir'] | default([]) == [faramir_controller]
     fail_msg: >-
-      The faramir group holds {{ groups['faramir'] | default([]) | length }}
-      hosts ({{ groups['faramir'] | default([]) | join(', ') or 'none' }}), and
-      these tasks distribute one broker's key. It names the controller, which is
-      the one host make faramir installs the broker on.
+      The faramir group holds
+      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}, and the
+      controller is {{ faramir_controller }}. These tasks distribute one
+      broker's key, from the one host make faramir installs a broker on, so that
+      group has to hold that host and no other. If the controller was renamed or
+      replaced, faramir_controller is where its name is set.
     quiet: true
 
 - name: Read the broker's public key from the controller
-  when: inventory_hostname in groups['faramir']
+  when: inventory_hostname == faramir_controller
   block:
     # 0700 faramir-broker, so root reads it. The public half is not a secret;
     # the private half never leaves this host, which is the point of lending it
@@ -64,7 +66,7 @@
 # the lowest precedence there is, so host_vars still outranks them and a host
 # can be set false and have the teardown below run against it.
 - name: Authorize the broker's key on the managed hosts
-  when: inventory_hostname not in groups['faramir']
+  when: inventory_hostname != faramir_controller
   block:
     # The block above sets that fact, and it is skipped when the controller is
     # not in the run. It is one play now, so these hosts carry on past a
@@ -72,7 +74,7 @@
     # the run; without this they fail on a lookup that names nothing.
     - name: Require the broker's key to have been read
       ansible.builtin.assert:
-        that: "'faramir_broker_authorized_key' in hostvars[groups['faramir'][0]]"
+        that: "'faramir_broker_authorized_key' in hostvars[faramir_controller]"
         fail_msg: >-
           The controller published no public key, so there is nothing to
           authorize here. It is in this run only when the run reaches it, and
@@ -83,12 +85,12 @@
     - name: Authorize the broker's key for the ansible account
       ansible.posix.authorized_key:
         user: "{{ ansible_user | default(primary_user) }}"
-        key: "{{ hostvars[groups['faramir'][0]]['faramir_broker_authorized_key'] }}"
+        key: "{{ hostvars[faramir_controller]['faramir_broker_authorized_key'] }}"
         state: "{{ 'present' if faramir_fleet_authorize_key | bool else 'absent' }}"
         # Not exclusive: this account's other keys, including the operator's own,
         # are what this play would otherwise lock out of the host it runs on.
         exclusive: false
-        comment: "faramir broker on {{ groups['faramir'][0] }}"
+        comment: "faramir broker on {{ faramir_controller }}"
 
     # No become password can safely live in the secret store: it is the
     # operator's login password, an agent that extracts it can su to the
@@ -125,7 +127,7 @@
 # and reaches nothing. Asked through the broker, in the agent's own worktree,
 # because that is the path a brokered playbook actually takes.
 - name: Prove a brokered run reaches the fleet
-  when: inventory_hostname in groups['faramir']
+  when: inventory_hostname == faramir_controller
   block:
     - name: Ping every managed host through the broker
       ansible.builtin.command:
