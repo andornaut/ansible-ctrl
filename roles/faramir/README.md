@@ -16,15 +16,17 @@ Both are operator actions. `faramir.yml` applies this role to the `faramir` inve
 | Path | Mode | Contents |
 | --- | --- | --- |
 | `~/.faramir/config.toml` | `0644 root` | faramir's own, rewritten by `init` on every run, carrying `[ssh] keys` from `faramir_broker_ssh_key`. Do not edit it. |
-| `~/.faramir/config.d/ansible-ctrl.toml` | `0644 root` | `[secrets] files`, written by this role every run |
+| `~/.faramir/config.d/` | `0644 root` | drop-ins, merged over the base. This role writes none: `init` writes its own for the SSH key, and the store needs no naming. |
 | `~/.faramir/age.key` | `0400 faramir-keeper` | decrypts the store; the operator can unlink it but not read it. |
 | `~/.faramir/secrets/` | `2750 root:faramir-keeper` | the keeper's own group, and the keeper is the only account that opens one of these files; neither the operator nor the broker is in it, so reading or editing a managed file needs sudo. |
-| `~/.faramir/secrets/ansible-ctrl.sops.yml` | | every credential this repo uses |
+| `~/.faramir/secrets/ansible-ctrl.sops.yml` | | every credential this repo uses. Managed by being in the store: `[secrets] files` globs the directory, so nothing names this file. |
 | `/var/lib/faramir-broker/.ssh/id_ed25519` | broker | the key the broker lends to brokered commands |
 
 Config and store both sit in the operator's encrypted home, so a powered-off disk carries neither the ciphertext nor the key that opens it. Point `faramir_config_dir` at an unencrypted filesystem and that no longer holds.
 
-Drop-ins merge over the base in lexical order and face every check the base file does, so a typo is a hard error naming the alternatives. `faramir status` reports `configs`: the base file plus every drop-in that contributed. Neither daemon re-reads its config while running, so the role runs `faramir reload`.
+Drop-ins merge over the base in lexical order and face every check the base file does, so a typo is a hard error naming the alternatives. `faramir status` reports `configs`: the base file plus every drop-in that contributed. Neither daemon re-reads its config while running, so a run that changes one also runs `faramir reload`.
+
+Adding a credential does not change any config. `[secrets] files` in the base config globs `~/.faramir/secrets/*.sops.yml`, and the keeper expands that per request, so a sops file put there is picked up within `refresh_interval_sec` with no daemon restarted.
 
 ## Constraints
 
@@ -65,8 +67,6 @@ What belongs to this project rather than to faramir:
 | Step | Why it is here |
 | --- | --- |
 | `faramir init-project` against `playbook_dir` | which tree the agent works in is this repo's to say |
-| the `config.d/ansible-ctrl.toml` drop-in | which sops files the broker manages is this repo's, and faramir ships no list |
-| `faramir reload` when that changes | the drop-in is the role's to write, so triggering the daemons is the role's too |
 | the `AGENTS.md` block | how to run *these* playbooks through the broker |
 | `faramir doctor` and its assert | the run has to fail when the result does not work, and a playbook is what fails |
 
@@ -110,10 +110,10 @@ faramir run --env-file faramir.env -- \
 
 A broker whose secrets file it cannot read comes up healthy and protects nothing, so the role fails when a managed sops file exists and yielded no refs. `faramir doctor` reports what the broker loaded. `faramir run -- ssh-add -l` asks what a brokered command actually gets.
 
-faramir also ships a verification matrix that runs against the live install. It needs a checkout, which the role does not install:
+Run it as root to get the boundary checks as well, which ask each account what it can reach and need a uid other than your own:
 
 ```bash
-git clone git@github.com:andornaut/faramir.git && cd faramir && sudo tests/verify.sh
+sudo faramir doctor
 ```
 
 ## Variables
@@ -126,14 +126,14 @@ git clone git@github.com:andornaut/faramir.git && cd faramir && sudo tests/verif
 | `faramir_keeper_user` | `faramir-keeper` | Holds the age key; execs nothing but sops. |
 | `faramir_exec_user` | `faramir-exec` | Forks brokered commands; holds nothing. |
 | `faramir_project_hook` | `true` | Register the `PreToolUse` hook in the checkout. Redacts everything the agent runs here, and auto-approves Bash here as a consequence. |
+| `faramir_project_agents` | `[claude]` | Agents this checkout is enrolled for, one `--agent` each. |
 | `faramir_config_dir` | `{{ faramir_user_home }}/.faramir` | Where `config.toml`, `config.d/` and the age key live. |
-| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. |
-| `faramir_secrets_files` | `[{{ faramir_secrets_dir }}/ansible-ctrl.sops.yml]` | The managed sops files, written to the drop-in every run. |
+| `faramir_secrets_dir` | `{{ faramir_config_dir }}/secrets` | Where the store lives. Its contents need no listing: the base config globs it. |
 | `faramir_broker_ssh_key` | `/var/lib/faramir-broker/.ssh/id_ed25519` | The key the broker lends, generated when missing. Empty leaves `[ssh] keys` unset. |
 | `faramir_operator_age_key` | `{{ faramir_user_home }}/.config/sops/age/keys.txt` | The operator's own age identity, minted when missing and added to `.sops.yaml` as a second recipient. Empty leaves the keeper as the only one. |
-| `faramir_install_agent_config` | `true` | Install faramir's `Read` deny rules into the operator's Claude settings. |
+| `faramir_account_agents` | `[claude]` | Agents whose own settings get faramir's `Read` deny rules, one `--agent` each. Empty installs none. |
 | `faramir_fleet_authorize_key` | `true` | Whether `faramir_fleet.yml` adds or removes the broker's key. |
 
 Service account names and `faramir_dev_group` are free to change here; `init` renders both the config and the units from the same values.
 
-`config.toml` is faramir's own and `init` rewrites it every run, so nothing here edits it and an edit made by hand is replaced. Settings that belong to this repo go in the `config.d/ansible-ctrl.toml` drop-in, which `init` never touches; anything else you want to set goes in a drop-in of your own beside it.
+`config.toml` is faramir's own and `init` rewrites it every run, so nothing here edits it and an edit made by hand is replaced. Anything this repo needs to set goes in a `config.d/` drop-in of its own, which `init` never touches. There is none today: the store is discovered rather than named.
