@@ -107,14 +107,14 @@ A value only ever reaches a play through the environment. Three paths put it the
 
 Gotchas:
 
-- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key, and this repo is public. Being in that home grants its owner nothing: `~/.faramir/secrets` is `2750 root:faramir-secrets`, a group holding no human.
+- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key, and this repo is public. Being in that home grants its owner nothing: `~/.faramir/secrets` is group-owned by the keeper's group, which holds no human, so reading or editing a managed file needs sudo.
 - **Every play that reads a credential asserts one arrived.** They arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` check in `pre_tasks`. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
 - **Nothing under the home is readable before first login**, so a reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not happen. The cron's preflight mails in that case rather than failing quietly.
 - **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git, and rsnapshot covers them only if each path is listed for it. Losing the key loses every credential it ever encrypted. This does put the keys and the ciphertext they open in one snapshot.
 
 ## Getting started with the secret broker
 
-[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects against.
+[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller, and Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects against and how it works; the [faramir role](roles/faramir/README.md) covers what is specific to this repo.
 
 1. **Install sops**, from the [dev](roles/dev/README.md) role: `make dev`. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
 2. **Install the broker**: `make faramir`. It runs `faramir init` as root, so this asks for a sudo password.
