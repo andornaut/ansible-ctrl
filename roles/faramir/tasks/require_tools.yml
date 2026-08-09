@@ -1,0 +1,33 @@
+---
+# Assert that the tools this role uses are present, naming what installs each.
+# Copied per role because roles share no task files; keep the copies in sync.
+#
+# Required vars:
+#   require_tools (list of dicts): name (str), probe (shell command, exit 0 when usable),
+#     hint (str, e.g. "make dev -- --tags rust")
+#
+# Callers wrap the include in a tagged block (a tag on include_tasks filters out what it
+# includes) and put any become/become_user on that block: probes inherit privilege and
+# must never set it.
+- name: Probe for the tools this role needs
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: "{{ item.probe }}"
+  register: faramir_required_tools
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  loop: "{{ require_tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Require the tools this role needs
+  ansible.builtin.assert:
+    that: item.rc == 0
+    fail_msg: >-
+      {{ item.item.name }} is not usable{{ (': ' ~ item.stderr) if item.stderr else '' }}.
+      {{ item.item.hint }}
+    quiet: true
+  loop: "{{ faramir_required_tools.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"

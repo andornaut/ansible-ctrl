@@ -1,10 +1,15 @@
 ---
 # Own playbook and inventory group so a brokered run cannot reach it: this
 # rewrites the agent's own confinement and restarts the broker.
-- name: Apply faramir role
+- name: Install the broker on the controller
   hosts: faramir
-  roles:
-    - faramir
+  tasks:
+    # tasks_from, not roles:, which would apply the fleet half here too, where its
+    # brokered ping runs before any host has authorized the key.
+    - name: Install the broker
+      ansible.builtin.import_role:
+        name: faramir
+        tasks_from: broker
 
 # The fleet half of the same install: the play above generates the key, this one
 # distributes it, and a broker whose key no host authorizes reaches nothing. A brokered run
@@ -14,7 +19,7 @@
   hosts: all
   gather_facts: false
   tasks:
-    # tasks_from, not roles:, which would apply main.yml to every host. The
+    # tasks_from, not roles:, which would apply both halves to every host. The
     # import also brings in the role defaults ssh.yml reads.
     - name: Authorize the broker's key
       ansible.builtin.import_role:

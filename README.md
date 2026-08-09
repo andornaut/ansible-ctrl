@@ -2,6 +2,13 @@
 
 Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com/).
 
+## Terms
+
+| Term | Meaning |
+| --- | --- |
+| controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir` group |
+| fleet | Every other inventory host, reached over SSH with NOPASSWD sudo |
+
 ## Requirements
 
 - Ubuntu >= 24.04
@@ -33,36 +40,24 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 
-## Roles
+## Playbooks and roles
 
-| Role | Purpose |
-| --- | --- |
-| [base](roles/base/README.md) | Base packages and system configuration, applied to every host |
-| [bspwm](roles/bspwm/README.md) | BSPWM window manager and X11 utilities |
-| [desktop](roles/desktop/README.md) | Desktop environment (display manager, browser, fonts, themes) |
-| [dev](roles/dev/README.md) | Development tools and programming languages |
-| [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
-| [faramir](roles/faramir/README.md) | Secret broker, so an agent can run credentialed commands without seeing the values |
-| [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
-| [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
-| [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
-| [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
-| [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
-| [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
-| [niri](roles/niri/README.md) | Niri Wayland compositor and Wayland utilities |
-| [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
-| [torrent](roles/torrent/README.md) | rtorrent on the remote host, plus torrent scripts and cron jobs on the controller |
-
-Most playbooks apply one role to one group. The exceptions:
-
-| Playbook | Behaviour |
-| --- | --- |
-| [desktop.yml](desktop.yml) | Applies `desktop` to the whole `desktop` group, then `bspwm` or `niri` per host's `desktop_environment` |
-| [docker.yml](docker.yml) | Applies `docker` to `dev`, `homeautomation` and `webservers` in one run |
-| [webservers.yml](webservers.yml) | Applies the `letsencrypt_nginx` role, which does not share the playbook's name |
-| [faramir.yml](faramir.yml) | Applies the `faramir` role's `main` entry point to the `faramir` group, then its `ssh` entry point (`tasks_from`) over `hosts: all`: authorizes the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
-| [torrent.yml](torrent.yml) | Applies `torrent` to the `torrent` group, and in the same run delegates the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs to the controller (the implicit localhost) |
-| [upgrade.yml](upgrade.yml) | Uses no role: apt dist-upgrade and flatpak upgrade |
+| Playbook | Hosts | Role | Purpose |
+| --- | --- | --- | --- |
+| [base.yml](base.yml) | `all` | [base](roles/base/README.md) | Base packages and system configuration |
+| [desktop.yml](desktop.yml) | `desktop` | [desktop](roles/desktop/README.md), then [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) per the host's `desktop_environment` | Display manager, browser, fonts and themes, plus the window manager and its X11 or Wayland utilities |
+| [dev.yml](dev.yml) | `dev` | [dev](roles/dev/README.md) | Development tools and programming languages |
+| [docker.yml](docker.yml) | `dev`, `homeautomation`, `webservers` | [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
+| [faramir.yml](faramir.yml) | `faramir`, then `all` | [faramir](roles/faramir/README.md), then its `ssh` entry point (`tasks_from`) | Secret broker on the controller, so an agent can run credentialed commands without seeing the values, then the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
+| [games.yml](games.yml) | `games` | [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
+| [hobbies.yml](hobbies.yml) | `hobbies` | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
+| [homeautomation.yml](homeautomation.yml) | `homeautomation` | [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
+| [msmtp.yml](msmtp.yml) | `all` | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
+| [nas.yml](nas.yml) | `nas` | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
+| [rsnapshot.yml](rsnapshot.yml) | `rsnapshot` | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
+| [torrent.yml](torrent.yml) | `torrent` | [torrent](roles/torrent/README.md) | rtorrent on the remote host, and in the same run the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs delegated to the controller (the implicit localhost) |
+| [upgrade.yml](upgrade.yml) | `all` | none | apt dist-upgrade and flatpak upgrade |
+| [webservers.yml](webservers.yml) | `webservers` | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
 
 ## Inventory
 
@@ -86,7 +81,7 @@ example
 
 ## Secrets
 
-Every credential (API tokens, SMTP passwords, camera RTSP passwords, Home Assistant long-lived tokens) lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`, encrypted with [sops](https://github.com/getsops/sops) and age, and named `secret_<purpose>`. `host_vars/` holds no values, only references:
+Every credential lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`, encrypted with [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named `secret_<purpose>`. `host_vars/` holds no values, only references:
 
 ```yaml
 # host_vars/example.yml
@@ -95,22 +90,18 @@ msmtp_password: "{{ secret_msmtp_password }}"
 
 [vars_plugins/secret_env.py](vars_plugins/secret_env.py) binds the two: every `secret_*` environment variable becomes an inventory variable of the same name. Adding a credential is three edits: the value into the sops file, the `secret://` ref into `faramir.env`, and the reference into `host_vars/`.
 
-A credential that is not in the environment is absent rather than empty, so a task that reads one fails naming it instead of applying a blank and reporting success. Enabling the plugin in [ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it, because `vars_plugins_enabled` replaces the default list rather than adding to it.
-
 A value only ever reaches a play through the environment. Three paths put it there:
 
 | Path | How |
 | --- | --- |
-| `make` (root) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Only root can, the store's group holding no human, so a target `make` cannot serve is refused. See the [faramir role](roles/faramir/README.md). |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout. |
-| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home. It names the keeper's age key explicitly, root's own `~` being `/root`. |
+| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
+| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
 Gotchas:
 
-- **The store is in the operator's home and not in this repo.** A powered-off disk then carries neither the ciphertext nor the key, and this repo is public. Being in that home grants its owner nothing: `~/.faramir/secrets` is group-owned by the keeper's group, which holds no human, so reading or editing a managed file needs sudo.
+- **Enabling the plugin in [ansible.cfg](ansible.cfg) means naming `host_group_vars` alongside it**, because `vars_plugins_enabled` replaces the default list rather than adding to it.
 - **Every play that reads a credential asserts one arrived.** They arrive as a set, so `homeautomation.yml`, `msmtp.yml` and `webservers.yml` check in `pre_tasks`. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated.
-- **Nothing under the home is readable before first login**, so a reboot leaves brokered runs failing until then, and a renewal at 03:00 on an unmounted home does not happen. The cron's preflight mails in that case rather than failing quietly.
-- **Back up `~/.faramir/` (store and keeper key) and `~/.config/` (operator identity).** None of it is in git, and rsnapshot covers them only if each path is listed for it. Losing the key loses every credential it ever encrypted. This does put the keys and the ciphertext they open in one snapshot.
 
 ## Getting started with the secret broker
 
