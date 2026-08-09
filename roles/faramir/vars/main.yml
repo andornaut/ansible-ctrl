@@ -7,8 +7,8 @@ faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
 # Where the binaries are downloaded from. `dev` is a rolling release, deleted and
 # re-cut by CI on every push to faramir's main. Its assets are named and laid out
-# exactly as goreleaser names the ones a tagged release publishes, so moving to a
-# tag means changing this URL and nothing else. faramir has no v tag yet.
+# exactly as a tagged release's, so moving to a tag means changing this URL and
+# nothing else. faramir has no v tag yet.
 faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 
 # Architecture name in the release asset, which is goreleaser's rather than
@@ -17,15 +17,9 @@ faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 faramir_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# One archive per platform, holding one binary. The three daemons, the MCP
-# server and the guard are subcommands of it: what separates them is
-# the uid each systemd unit runs its subcommand as. init installs it into
-# /usr/local/bin, and libexec holds the hook's deny list and wrap script but no
-# binary.
-#
-# Linux only, and unmapped for that reason: the broker reads peer credentials
-# with SO_PEERCRED and the executor allocates PTYs with TIOCGPTN, so faramir
-# builds for no other kernel and there is nothing for a system fact to select.
+# One archive per platform, holding one binary. Linux only, and unmapped for that
+# reason: faramir builds for no other kernel, so there is nothing for a system
+# fact to select.
 faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 
 # Where init puts the binary, and so what every later invocation runs.
@@ -37,16 +31,14 @@ faramir_project_warnings: >-
   {{ (faramir_project.stdout | from_json).warnings | default([])
      if faramir_project.stdout | default('') | length > 0 else [] }}
 
-# The whole invocation, assembled once. An argv list rather than a command
-# string: paths here come from the inventory and a shell-quoted string would
-# make an unusual one this role's problem.
+# The whole invocation, assembled once, so there is no second place a value can
+# be set differently. An argv list rather than a command string: paths here come
+# from the inventory and a shell-quoted string would make an unusual one this
+# role's problem.
 #
-# Everything init needs is on this line, so there is no second place a value can
-# be set differently.
-#
-# No tree is named here. init provisions the host; enrolling a tree is
-# `faramir init-project`, which is per project and reads the client group out of
-# the config init installed rather than being told it a second time.
+# No tree is named. init provisions the host; enrolling a tree is init-project
+# below, which reads the client group out of the config init installed rather
+# than being told it a second time.
 #
 # The binary is the staged one, init installing the binary it was itself run
 # from. faramir_staging.path is the temp directory the install block registers,
