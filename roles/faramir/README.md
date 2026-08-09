@@ -17,6 +17,10 @@ Log out and back in after the first install. It adds you to `faramir_dev_group`,
 
 The role has two entry points. `tasks/main.yml` installs the broker on the controller, and is what `faramir.yml` applies. `tasks/ssh.yml` authorizes that broker's key across the fleet, and is what `faramir_fleet.yml` applies, over `hosts: all` and with `tasks_from: ssh` so nothing else in the role runs there: it reads the key off the controller, installs it on every other host without `exclusive`, grants that account NOPASSWD sudo, then pings every host back through the broker. Separate because the second writes to production hosts and is useful only once the first has produced a key to distribute.
 
+`main.yml` refuses to run on a host outside the `faramir` group, before it reads anything: the install creates the service accounts, the units and the age key, so a `hosts:` pattern meant for the controller that reached the fleet instead would provision the fleet. The working-tree check further down is not that backstop, a host with a directory at the same path passing it. `ssh.yml` requires the group to hold exactly one host, taking it as `groups['faramir'][0]`: two would authorize one controller's broker and leave the other's brokered runs refused everywhere, silently.
+
+Asserted rather than `delegate_to: localhost`, which is how the `torrent` role reaches the controller from a play targeting somewhere else. Delegation would not stop this and would hide it: a delegated task resolves plain variables from the play host rather than the delegate, so a role applied to the fleet would install here once per host, each run using that host's `primary_user` and config path.
+
 One play, where that was three. The default linear strategy runs each task on every host before starting the next, so the key is published before the first host is asked to authorize it, and every host has been asked before the brokered ping goes looking for it.
 
 ## Running playbooks
