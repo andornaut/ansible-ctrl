@@ -1,12 +1,11 @@
 ---
-# Fetch owner/repo's latest release into a fact, from GitHub or a Forgejo forge
-# (Codeberg) serving the same JSON shape.
+# Fetch owner/repo's latest release into a fact, from GitHub or a Forgejo forge (Codeberg)
+# serving the same JSON shape.
 # Copied per role because roles share no task files; keep the copies in sync.
 #
-# /releases/latest follows the project's "latest" pointer rather than sorting tags,
-# so it never picks up a rolling build but does lag a stable release published
-# without moving the pointer. See
-# homeautomation/tasks/install_github_release_component.yml, which filters instead.
+# /releases/latest follows the project's "latest" pointer rather than sorting tags, so it
+# never picks up a rolling build but does lag a stable release published without moving the
+# pointer. See homeautomation/tasks/install_github_release_component.yml, which filters.
 #
 # Required vars:
 #   release_repo (str): "owner/repo"

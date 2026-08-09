@@ -1,12 +1,12 @@
-# Every secret_* environment variable becomes an inventory variable of the same name,
-# so host_vars can reference one without this repo holding a mapping for it.
+# Every secret_* environment variable becomes an inventory variable of the same name, so
+# host_vars can reference one without this repo holding a mapping for it.
 #
-# A credential not in the environment is absent rather than empty, so the first task
-# to use it fails naming it rather than applying a blank and reporting success. An
-# empty value counts as absent for the same reason.
+# A credential not in the environment is absent rather than empty, so the first task to use
+# it fails naming it rather than applying a blank and reporting success. An empty value
+# counts as absent for the same reason.
 #
-# The values arrive from `sops exec-env` or from the broker; nothing here reads the
-# store. See the README.
+# The values arrive from `sops exec-env` or from the broker; nothing here reads the store.
+# See the README.
 from os import environ
 
 from ansible.plugins.vars import BaseVarsPlugin
@@ -26,13 +26,12 @@ DOCUMENTATION = """
 
 SECRET_PREFIX = "secret_"
 
-# How many were injected, so a play can require that credentials arrived without
-# naming each one: the whole env file arrives or nothing does, so one count answers
-# for all of them, on every host.
+# How many were injected, so a play can require that credentials arrived without naming each
+# one: the whole env file arrives or nothing does, so one count answers for all.
 #
-# Not prefixed secret_, which names a credential. This is a count and safe to print,
-# and `ansible <host> -m debug -a 'var=secrets_injected'` tells an uninjected run
-# from a misnamed reference.
+# Not prefixed secret_, which names a credential. This is a count and safe to print, and
+# `ansible <host> -m debug -a 'var=secrets_injected'` tells an uninjected run from a
+# misnamed reference.
 COUNT_VAR = "secrets_injected"
 
 

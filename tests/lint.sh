@@ -35,10 +35,10 @@ check_syntax() {
     return "${status}"
 }
 
-# Found by shebang rather than an enumerated list, so a new script needs no edit
-# here. Line 1 only, so a #! deeper in another file is not mistaken for one.
-# ShellCheck cannot parse Jinja2, so templates are rendered first. Output names are
-# the flattened repo-relative path, so a shared basename cannot overwrite.
+# Found by shebang rather than an enumerated list, so a new script needs no edit here. Line
+# 1 only, so a #! deeper in another file is not mistaken for one. ShellCheck cannot parse
+# Jinja2, so templates are rendered first, named by flattened repo-relative path so a shared
+# basename cannot overwrite.
 check_shell() {
     local dir src first dest status
     dir=$(mktemp -d) || return 1
@@ -61,10 +61,10 @@ check_shell() {
     return "${status}"
 }
 
-# By extension or shebang, for the same reason: a .py needs no shebang to be Python,
-# and a script run from one needs no extension. templates/ is not scanned, no role
-# rendering Python from Jinja2. The roles copy these verbatim and no task parses
-# them, so without this a syntax error ships and surfaces only when one is run.
+# By extension or shebang, for the same reason: a .py needs no shebang to be Python, and a
+# script run from one needs no extension. templates/ is not scanned, no role rendering
+# Python from Jinja2. The roles copy these verbatim and no task parses them, so without this
+# a syntax error ships and surfaces only when one is run.
 check_python() {
     local status=0 src first
     while IFS= read -r src; do

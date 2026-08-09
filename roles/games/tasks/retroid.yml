@@ -30,10 +30,9 @@
       both be set in host_vars/ for this host. Both are site data, so the role has no default.
     success_msg: syncretroid inputs are set
 
-# A wrapper, not a copy: the script runs from the role directory and reads the vars
-# and profile beside it, so edits to any of them apply without re-running this. It
-# bakes in the library path, adb serial and checkout location, which is why the
-# command takes no arguments.
+# A wrapper, not a copy: the script runs from the role directory and reads the vars and
+# profile beside it, so edits to any apply without re-running this. It bakes in the library
+# path, adb serial and checkout location, which is why the command takes no arguments.
 - name: Install syncretroid on the controller
   ansible.builtin.template:
     src: syncretroid.j2

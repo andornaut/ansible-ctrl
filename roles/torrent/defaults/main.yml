@@ -2,14 +2,14 @@
 torrent_root_directory: "{{ torrent_user_home }}/torrents"
 torrent_completed_directory: "{{ torrent_root_directory }}/completed"
 torrent_incoming_directory: "{{ torrent_root_directory }}/incoming"
-# Derived once, rtorrent.rc, rtorrent.service and tasks/main.yml having to agree.
-# The controller scripts cannot use them: a delegated task resolves plain variables
-# from the play host, so each appends its own subdirectory name instead.
+# Derived once, rtorrent.rc, rtorrent.service and tasks/main.yml having to agree. The
+# controller scripts cannot use them: a delegated task resolves plain variables from the
+# play host, so each appends its own subdirectory name instead.
 torrent_session_directory: "{{ torrent_root_directory }}/session"
 torrent_watch_directory: "{{ torrent_root_directory }}/watch"
 # A private socket: on the default one the service and the user share a server, and
-# stopping the unit would take the user's other sessions with it. Attach with
-# `tmux -L rtorrent attach -t rtorrent`.
+# stopping the unit would take the user's other sessions with it. Attach with `tmux -L
+# rtorrent attach -t rtorrent`.
 torrent_tmux_socket: rtorrent
 # torrent_local_incoming_directory:
 torrent_local_synct_log_file: /tmp/synct.log
@@ -21,9 +21,9 @@ torrent_group: "{{ torrent_user }}"
 torrent_local_user: "{{ primary_user }}"
 torrent_download_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
 torrent_upload_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
-# Address space for piece data, and rtorrent's own stock value. File-backed page
-# cache the kernel reclaims, not anonymous memory, so it need not fit in RAM and
-# must not be sized to it: libtorrent rejects anything under 512M outright.
+# Address space for piece data, and rtorrent's own stock value. File-backed page cache the
+# kernel reclaims, not anonymous memory, so it need not fit in RAM and must not be sized to
+# it: libtorrent rejects anything under 512M outright.
 torrent_pieces_memory_max: 1800M
 # Chosen per start, above 1024 and below the kernel's ephemeral range so it cannot
 # collide with an outgoing socket. Nothing forwards it, so it need not be stable.

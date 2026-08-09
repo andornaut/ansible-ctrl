@@ -42,9 +42,9 @@ while [[ $# -gt 0 ]]; do
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
-        # and 2+ characters, so long options never match. Do not rewrite with
-        # bash's parameter-length syntax: it opens a Jinja2 comment.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash and
+        # 2+ characters, so long options never match. Do not rewrite with bash's
+        # parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
@@ -75,9 +75,8 @@ eligible="$(mktemp)"
 # shell, and the ssh listing below is the likeliest point to interrupt.
 trap 'rm -f "${remote_entries}" "${eligible}"' EXIT INT TERM
 
-# synct rsyncs completed/ into the incoming directory, so an entry still on a
-# remote would be re-downloaded if moved out. A remote that cannot be listed
-# aborts the run rather than risk that.
+# synct rsyncs completed/ into the incoming directory, so an entry still on a remote would
+# be re-downloaded if moved out. A remote that cannot be listed aborts the run.
 list_remote_entries() {
     local src_host="${1}"
     local src_dir="${2}"
@@ -96,9 +95,9 @@ list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory | def
 {% endif -%}
 {% endfor -%}
 
-# Eligible: incoming entries on no remote and not a guide file. NUL-separated bare
-# names, so an entry containing a newline stays whole rather than splitting into
-# fragments that each look eligible. '[!.]*' skips dotfiles.
+# Eligible: incoming entries on no remote and not a guide file. NUL-separated bare names,
+# so an entry containing a newline stays whole rather than splitting into fragments that
+# each look eligible. '[!.]*' skips dotfiles.
 while IFS= read -r -d '' entry; do
     # Not downloads.
     case "${entry}" in
@@ -127,9 +126,9 @@ fi
 
 "${DRY_RUN}" && exit 0
 
-# Release names come from whoever packaged the download and this run has every
-# permission check off, so the list is fenced and labelled as data. The '- ' prefix
-# is load-bearing: it keeps a name from reproducing the end marker.
+# Release names come from whoever packaged the download and this run has every permission
+# check off, so the list is fenced and labelled as data. The '- ' prefix is load-bearing:
+# it keeps a name from reproducing the end marker.
 prompt="$(cat <<EOF
 Organize the completed downloads listed below into the correct media library
 under ${base_dir}. Before moving anything, read ${base_dir}/AGENTS.md and the
@@ -169,14 +168,14 @@ EOF
 
 header "Asking Claude to organize the eligible entries"
 # The library root, not the incoming directory: every destination is a sibling of
-# incoming/, so this is the smallest cwd covering them without an --add-dir grant.
-# Claude buckets sessions by cwd, so it is also what keeps runs resumable here.
+# incoming/, so this is the smallest cwd covering them without an --add-dir grant. Claude
+# buckets sessions by cwd, so it also keeps runs resumable here.
 cd "${base_dir}"
 
-# Text output prints nothing until the run ends, so stream the events instead, one
-# line per tool call. -R + fromjson keeps an unparseable line from exiting jq,
-# which would SIGPIPE claude mid-batch. The result event prints unclipped, the pipe
-# having consumed the only copy of the report. See README.md.
+# Text output prints nothing until the run ends, so stream the events instead, one line
+# per tool call. -R + fromjson keeps an unparseable line from exiting jq, which would
+# SIGPIPE claude mid-batch. The result event prints unclipped, the pipe having consumed
+# the only copy of the report. See README.md.
 claude --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" \
     | jq --unbuffered -rR --arg cwd "${PWD}" '
         # Collapsed before truncating, or a multi-line command breaks the layout.

@@ -32,10 +32,10 @@ fi
 
 log "No running BedrockOnLinux instance detected."
 
-# A force-killed session leaves this lock behind and BOL refuses to launch while it
-# exists. The check above proved nothing is running, so it is stale. Clearing it rather
-# than setting BOL_ALLOW_UNSAFE_GPU, which would disable every gpu_safety check,
-# including the RandR one the role vendors a host xrandr to satisfy.
+# A force-killed session leaves this lock behind and BOL refuses to launch while it exists.
+# The check above proved nothing is running, so it is stale. Cleared rather than setting
+# BOL_ALLOW_UNSAFE_GPU, which would disable every gpu_safety check, including the RandR one
+# the role vendors a host xrandr to satisfy.
 marker="${XDG_DATA_HOME:-$HOME/.local/share}/bedrock-on-linux/.gpu-launch-in-progress.json"
 if [ -e "$marker" ]; then
     log "Clearing stale GPU-session lock: $marker"

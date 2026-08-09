@@ -1,8 +1,8 @@
 ---
-# Frigate runs as root and writes everything under these with its own umask, so close
-# the directories rather than the files. Nothing else mounts them, and Docker would
-# otherwise create both world-readable. config holds the camera RTSP passwords in
-# plaintext, .jwt_secret and frigate.db's user table; media the recordings.
+# Frigate runs as root and writes everything under these with its own umask, so close the
+# directories rather than the files. Nothing else mounts them, and Docker would otherwise
+# create both world-readable. config holds the camera RTSP passwords in plaintext,
+# .jwt_secret and frigate.db's user table; media the recordings.
 - name: Create the Frigate directories
   ansible.builtin.file:
     path: "{{ item }}"

@@ -55,24 +55,22 @@ systems_set:
     core: yabasanshiro
     extensions: [chd, m3u]
 
-# The four SNK/arcade systems carry over unchanged and all run here. Each needs a
-# core_probe entry and rom_dir_names / esde_cores mappings below, or the sync aborts.
-# Both cores must be installed on the device through the Core Updater.
+# The four SNK/arcade systems carry over unchanged. Each needs a core_probe entry and
+# rom_dir_names / esde_cores mappings below, or the sync aborts. Both cores must be
+# installed on the device through the Core Updater.
 
 # --- retroarch.cfg transforms (over games_retroarch_required_settings) ---
 
 # Android drivers replace the desktop-Linux ones; menu ozone is kept from the base.
 #
-# vulkan rather than glcore, which the Android build does not compile in: slang shaders
-# load under neither gl nor GLES, so vulkan is the only driver that can run the CRT
-# preset below. The two cores whose renderer cannot follow are pinned back to gl in
-# core_overrides_set.
+# vulkan rather than glcore, absent from the Android build: slang shaders load under
+# neither gl nor GLES, so vulkan is the only driver that can run the CRT preset below.
+# The two cores whose renderer cannot follow are pinned back to gl in core_overrides_set.
 #
-# rewind_buffer_size drops to 64MB, the desktop's 256MB being sized for a desktop.
-# video_refresh_rate is the panel's actual mode, as RetroArch's "Estimate Screen Refresh
-# Rate" reports it. audio_latency is RetroArch's own default, the device having shipped
-# an audibly laggy 128ms; raise it to 96 if a core crackles. fastforward_ratio caps
-# fast-forward, which the device shipped uncapped.
+# rewind_buffer_size drops to 64MB from the desktop's 256MB. video_refresh_rate is the
+# panel's actual mode, per RetroArch's "Estimate Screen Refresh Rate". audio_latency is
+# RetroArch's default, the device having shipped an audibly laggy 128ms; raise it to 96
+# if a core crackles. fastforward_ratio caps fast-forward, shipped uncapped.
 settings_override:
   video_driver: vulkan
   audio_driver: audiotrack
@@ -89,18 +87,16 @@ settings_override:
   # ES-DE's A=OK/B=Back. The device ships the Western south-confirms orientation.
   menu_swap_ok_cancel_buttons: "false"
   # The 865 has headroom, so RetroArch delays the core to present closer to vsync,
-  # backing off automatically before it would drop a frame. Needs video_threaded off,
-  # which the base pins.
+  # backing off before it would drop a frame. Needs video_threaded off, pinned in base.
   video_frame_delay_auto: "true"
-  # The two keys the per-core presets hang off: the master toggle, which the device
-  # ships off, and what makes RetroArch read the preset on core load. Either off leaves
-  # the shaders section below silently inert.
+  # The two keys the per-core presets hang off: the master toggle, shipped off, and what
+  # makes RetroArch read the preset on core load. Either off leaves the shaders inert.
   video_shader_enable: "true"
   auto_shaders_enable: "true"
 
-# Base keys removed from the device's retroarch.cfg. The mouse, lightgun and menu-mouse
-# keys need a pointer it has no equivalent for, windowed_fullscreen is a desktop concept,
-# and the keyboard binds are moot without a keyboard.
+# Base keys removed from the device's retroarch.cfg: the mouse, lightgun and menu-mouse
+# keys need a pointer, windowed_fullscreen is a desktop concept, and the keyboard binds
+# are moot without a keyboard.
 settings_drop:
   # Names nothing on Android, so dropped rather than failing to init the subsystem.
   - camera_driver
@@ -150,14 +146,13 @@ directory_settings:
   rgui_browser_directory: roms
 
 # Library system (No-Intro directory name) -> ES-DE short name, North-America variants.
-# Feeds the playlist generator's emit_system_dirs and the ROM mirror's ROMS/<short name>.
-# A system absent here is not synced. GameCube and PS2 stay for the ROM mirror though
-# they left the RetroArch table; the generator only looks up its own systems.
+# Feeds the generator's emit_system_dirs and the ROM mirror's ROMS/<short name>. A system
+# absent here is not synced. GameCube and PS2 stay for the ROM mirror though they left the
+# RetroArch table; the generator only looks up its own systems.
 rom_dir_names:
   # ES-DE's arcade system, matching the library directory and the desktop playlist. Its
-  # command list carries fourteen emulators, mostly MAME, but esde_cores pins FinalBurn
-  # Neo as the <alternativeEmulator>. Fall back to the single-emulator fbneo system if
-  # that pin ever proves unreliable.
+  # command list carries fourteen emulators, mostly MAME; esde_cores pins FinalBurn Neo.
+  # Fall back to the single-emulator fbneo system if that pin proves unreliable.
   Arcade: arcade
   Atari - 2600: atari2600
   Atari - 7800: atari7800
@@ -190,10 +185,10 @@ rom_dir_names:
   Sony - PlayStation Portable: psp
   The 3DO Company - 3DO: 3do
 
-# ES-DE picks its own emulator per system, independent of the RetroArch playlists. This
-# pins each to the core the games role prefers, as the <alternativeEmulator> in ROMS'
-# gamelist.xml. Labels must match an ES-DE <command label> for that system exactly.
-# pico8 is omitted: which runtime is installed is not knowable here.
+# ES-DE picks its own emulator per system, independent of the RetroArch playlists. Pins
+# each to the core the games role prefers, as the <alternativeEmulator> in ROMS'
+# gamelist.xml. Labels must match an ES-DE <command label> for that system exactly. pico8
+# is omitted: which runtime is installed is not knowable here.
 esde_cores:
   atari2600: Stella
   arcade: FinalBurn Neo
@@ -221,9 +216,8 @@ esde_cores:
   neogeocd: NeoCD
   ngpc: Beetle NeoPop
   psx: Beetle PSX HW
-  # Not in ES-DE's bundle: it comes from the GlazedBelmont custom_systems, whose
-  # es_find_rules.xml must target the installed package rather than the .custom fork
-  # it ships with. See README.
+  # Not in ES-DE's bundle: from the GlazedBelmont custom_systems, whose es_find_rules.xml
+  # must target the installed package, not the .custom fork it ships with. See README.
   ps2: AetherSX2-Turnip (Standalone)
   psp: PPSSPP
   3do: Opera
@@ -234,8 +228,8 @@ esde_gamelists_dir: "/storage/emulated/0/ES-DE/gamelists"
 esde_package: org.es_de.frontend
 
 # Rewind and fast-forward on the pad, as Android keycodes: L3=106 rewinds, R3=107
-# fast-forwards, both held. The right-stick axes stay nul: this pad's right stick is
-# Z/RZ, which N64, PSP, DS and Dreamcast use in-game.
+# fast-forwards, both held. The right-stick axes stay nul: this pad's is Z/RZ, which N64,
+# PSP, DS and Dreamcast use in-game.
 controller:
   input_rewind_axis: "nul"
   input_hold_fast_forward_axis: "nul"
@@ -244,18 +238,17 @@ controller:
 
 # --- Shaders ---
 
-# CRT Geom Deluxe adds halation, phosphor persistence, raster bloom and real mask
-# textures to plain crt-geom. It ships only as a slang preset, which is what settles the
-# video driver above.
+# CRT Geom Deluxe adds halation, phosphor persistence, raster bloom and real mask textures
+# to plain crt-geom. slang-only, which is what settles the video driver above.
 #
 # syncretroid extracts the preset's file closure from the libretro pack into
-# device_dirs.shaders and writes a per-core auto preset for every vulkan core. The pack
-# carries ~5500 files at one adb push each, so only the dozen the preset opens are
-# pushed; installing the rest in-app afterwards is additive and never pruned.
+# device_dirs.shaders and writes a per-core auto preset for every vulkan core. The pack is
+# ~5500 files at one adb push each, so only the dozen the preset opens are pushed;
+# installing the rest in-app afterwards is additive and never pruned.
 #
 # params are keyed by the #pragma names in geom-deluxe-params.inc and appended to each
-# preset. Masks come out dim at 1080p, so aperture_brightboost is the first knob;
-# zeroing halation and phosphor_amplitude drops the expensive passes.
+# preset. Masks come out dim at 1080p, so aperture_brightboost is the first knob; zeroing
+# halation and phosphor_amplitude drops the expensive passes.
 shaders:
   zip_url: "https://buildbot.libretro.com/assets/frontend/shaders_slang.zip"
   preset: crt/crt-geom-deluxe.slangp
@@ -271,23 +264,21 @@ core_overrides_remove:
 # The two cores taken back off the global vulkan driver, both hardware renderers whose
 # build follows the frontend's. slang needs vulkan, so neither can have a shader preset.
 core_overrides_set:
-  # No Adreno driver can run ParaLLEl-RDP, so this stays on GLideN64 HLE, which under
-  # the vulkan driver does not merely lose the shader but fails to load content at
-  # all. Pinned rather than left to driver_switch_enable, which switches after the
-  # core is instantiated and is itself a crash trigger here.
+  # No Adreno driver runs ParaLLEl-RDP, so this stays on GLideN64 HLE, which under the
+  # vulkan driver fails to load content at all. Pinned rather than left to
+  # driver_switch_enable, which switches after instantiation and crashes here.
   mupen64plus_next:
     video_driver: gl
-  # PPSSPP's docs recommend Vulkan, and that holds for the standalone app, but the
-  # libretro core's Vulkan path on Android has an unbroken run of crash reports. gl is
-  # what is verified here.
+  # PPSSPP's docs recommend Vulkan, true of the standalone app, but the libretro core's
+  # Vulkan path on Android has an unbroken run of crash reports. gl is verified here.
   ppsspp:
     video_driver: gl
 
 # --- Per-core option transforms (over games_retroarch_core_options) ---
 
-# N64 swaps ParaLLEl for GLideN64 HLE. Beetle PSX HW is pinned to Vulkan, silently
-# falling back to software at 1x otherwise, at 2x internal resolution: an 845 collapsed
-# at 4x and the core has no dynarec.
+# N64 swaps ParaLLEl for GLideN64 HLE. Beetle PSX HW is pinned to Vulkan, falling back to
+# software at 1x otherwise, at 2x internal resolution: an 845 collapsed at 4x and the core
+# has no dynarec.
 core_options_set:
   mupen64plus_next:
     mupen64plus-rdp-plugin: gliden64
@@ -297,8 +288,8 @@ core_options_set:
     beetle_psx_hw_internal_resolution: 2x
 
 # Stands in for files/retroarch-probe-cores.py, which cannot dlopen an ARM .so from the
-# x86 controller. library_name must match the core's runtime name exactly (README,
-# "Verify the core names"); the other two feed the generator's validation.
+# x86 controller. library_name must match the core's runtime name exactly (README, "Verify
+# the core names"); the other two feed the generator's validation.
 core_probe:
   stella:
     library_name: Stella

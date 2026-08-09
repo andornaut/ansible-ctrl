@@ -149,9 +149,9 @@
   no_log: "{{ homeautomation_install_govee2mqtt }}"
 
 # Home Assistant runs as root for its Bluetooth, dbus and udev access, the dbus socket
-# admitting only root, so close the files to everything else instead. The directory,
-# not the files: zigbee.db holds the Zigbee network key and home-assistant_v2.db every
-# recorded state, both rewritten constantly, so per-file modes drift back.
+# admitting only root, so close the files to everything else instead. The directory, not the
+# files: zigbee.db holds the Zigbee network key and home-assistant_v2.db every recorded
+# state, both rewritten constantly, so per-file modes drift back.
 - name: Restrict the Home Assistant configuration directory to root
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}"

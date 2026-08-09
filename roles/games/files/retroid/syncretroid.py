@@ -53,7 +53,7 @@ import zipfile
 
 # Runs from the role directory rather than a copy, so an edit here, to vars/main.yml or to
 # profile.yml reaches the next run; only the wrapper's own values need the role re-run.
-# realpath, so a symlink onto PATH resolves to the checkout rather than the link's dir.
+# realpath, so a symlink onto PATH resolves to the checkout, not the link's dir.
 ROLE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 # The role's canonical data. vars/ rather than defaults/ because nothing here resolves
 # inventory, so a host_vars override would silently miss the device.
@@ -89,9 +89,9 @@ def build_model(role_vars, profile):
         systems[name] = spec
 
     # Base, less the dropped and directory keys, then the Android overrides, the device
-    # directories and the pad bindings. The directory keys are Jinja host paths only
-    # Ansible resolves, so the filter drops any templated value: one added to the role
-    # later cannot leak a host path onto the device.
+    # directories and the pad bindings. The directory keys are Jinja host paths only Ansible
+    # resolves, so the filter drops any templated value: one added later cannot leak a host
+    # path onto the device.
     drop = set(profile["settings_drop"])
     settings = {
         key: value
@@ -655,9 +655,9 @@ def stale_playlists(device, dirs, systems):
 # --------------------------------------------------------------------------- ROM library
 
 
-# Files that live alongside ROMs but are not games and are not this sync's to delete: the Retroid
-# firmware/frontend drops a systeminfo.txt in each system directory, and a mirror that pruned by
-# "not in the library" would wrongly take it (and any similar per-system metadata) with it.
+# Files that live alongside ROMs but are not games and are not this sync's to delete: the
+# firmware drops a systeminfo.txt in each system directory, and a mirror that pruned by "not
+# in the library" would take it and any similar per-system metadata with it.
 PRESERVE_IN_ROMS = {"systeminfo.txt"}
 
 
@@ -677,10 +677,10 @@ def device_file_sizes(device, root):
         size, tab, path = line.partition("\t")
         if tab and size.isdigit() and path.startswith(prefix):
             sizes[path[len(prefix):]] = int(size)
-    # Both the prune and the size comparison in the mirror callers rely on this, so an empty result must
-    # mean an empty directory, not a stat that silently failed: if `stat` is unavailable and only stderr
-    # got the errors, the caller would keep stale files and re-push everything, reporting success. Confirm the
-    # directory really is empty with a plain find before trusting an empty map, and fail loudly if not.
+    # The prune and the mirror's size comparison both rely on this, so an empty result must mean
+    # an empty directory rather than a stat that failed to stderr: the caller would keep stale
+    # files, re-push everything and report success. Confirm emptiness with a plain find before
+    # trusting an empty map, and fail loudly if not.
     if not sizes and device.read_shell("find %s -type f 2>/dev/null" % shq(root)).strip():
         sys.exit("Could not read file sizes under %s: `find -exec stat -c` returned nothing for a "
                  "non-empty directory. The device's toybox `stat` likely lacks `-c`, which the "
@@ -698,9 +698,9 @@ def local_file_sizes(src):
             try:
                 files[key] = os.path.getsize(os.path.join(dirpath, name))
             except OSError as error:
-                # A broken symlink or unreadable entry is not a pushable file: warn and skip it rather
-                # than let one bad file abort the whole mirror (mirror_roms only catches adb errors).
-                # Leaving it out of the map also keeps the prune from acting on a phantom.
+                # A broken symlink or unreadable entry is not a pushable file: warn and skip
+                # rather than let one abort the whole mirror (mirror_roms catches only adb
+                # errors). Leaving it out of the map also keeps the prune off a phantom.
                 print("  skip unreadable %s: %s" % (key, error), file=sys.stderr)
     return files
 
@@ -727,9 +727,9 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             print("  skip %s: no library directory" % lib_name)
             continue
         dst = "%s/%s" % (roms_root, dev_name)
-        # mkdir/rm/push each survive a transient disconnect on their own (Device retries and waits for
-        # re-enumeration). This catch is only for a persistent failure once those retries are spent, so
-        # one dead system is left for the next (resumable) run instead of aborting a several-hour mirror.
+        # mkdir/rm/push each survive a transient disconnect (Device retries and waits for
+        # re-enumeration), so this catches only a persistent failure once those are spent: one
+        # dead system is left for the next run rather than aborting a several-hour mirror.
         try:
             device.mkdirs(dst)
             wanted = local_file_sizes(src)
@@ -750,9 +750,9 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
                     device.push(os.path.join(src, rel), "%s/%s" % (dst, rel))
             else:
                 print("%s -> %s: up to date" % (lib_name, dev_name))
-            # A game dropped from the library leaves its hidden .dir behind once the prune removes the
-            # discs inside it (device_file_sizes lists files, not dirs), so clear what the prune emptied
-            # and the tree stays an exact mirror.
+            # A game dropped from the library leaves its hidden .dir behind once the prune
+            # removes the discs inside (device_file_sizes lists files, not dirs), so clear what
+            # the prune emptied and the tree stays an exact mirror.
             device.rmdir_empty(dst)
             ok = True
         except subprocess.CalledProcessError:
@@ -892,9 +892,9 @@ def main():
     model = build_model(role_vars, profile)
     device = Device(args.serial, args.dry_run)
 
-    # Reads shell out to adb in a dry run too, so it is probed like any other run: planning against
-    # the attached device is the point of --dry-run. Only a run that writes insists on the binary and
-    # its version; without adb a dry run plans as if no device were attached.
+    # Reads shell out to adb in a dry run too, planning against the attached device being the
+    # point of --dry-run. Only a run that writes insists on the binary and its version; without
+    # adb a dry run plans as if no device were attached.
     if args.dry_run:
         adb_present = shutil.which("adb") is not None
     else:
@@ -916,10 +916,10 @@ def main():
         sys.exit("no device reachable over adb (check the cable and `adb devices`).")
 
     ctx, dirs = resolve_dirs(profile, uuid)
-    # discover_uuid validates the card it found, but a pinned sdcard_uuid goes stale when the card is
-    # reformatted or swapped, since Android assigns a new uuid. /storage is root-owned, so the first
-    # mkdir would then fail three write retries deep rather than naming the cause. Checked before the
-    # apps are stopped, so a run that cannot proceed does not close what someone is playing.
+    # discover_uuid validates the card it found, but a pinned sdcard_uuid goes stale when the
+    # card is reformatted or swapped, Android assigning a new uuid. /storage is root-owned, so
+    # the first mkdir would fail three write retries deep rather than naming the cause. Checked
+    # before the apps are stopped, so a run that cannot proceed closes nobody's game.
     if online and not device.exists(ctx["sdcard_root"]):
         sys.exit("%s: no such directory on the device (sdcard_uuid in %s pinned to a card that is not "
                  "in it? clear it to discover the card at run time)."
@@ -953,18 +953,19 @@ def main():
         shader_stage = os.path.join(staging, "shaders")
         shaders = profile.get("shaders") or {}
 
-        # .info drives the generator's extension validation. Best-effort in a dry run (no network):
-        # fall back to the host's flatpak info set. Cores are neither fetched nor pushed (see module
-        # docstring); cores_ref points playlists at the app-private dir the Core Updater fills.
+        # .info drives the generator's extension validation. Best-effort in a dry run (no
+        # network): fall back to the host's flatpak info set. Cores are neither fetched nor
+        # pushed; cores_ref points playlists at the app-private dir the Core Updater fills.
         if not args.dry_run:
             section("Fetching core info")
             fetch_info(profile, info_dir)
         if not os.path.isdir(info_dir):
             info_dir = host_info_dir()
 
-        # Fetched here for the same reason as the .info set (network, so not in a dry run), pushed with
-        # the other sdcard trees below. The per-core presets that point at it are staged either way, so a
-        # --dry-run still shows which cores get a shader and which are pinned to a driver that cannot.
+        # Fetched here for the same reason as the .info set (network, so not in a dry run),
+        # pushed with the other sdcard trees below. The per-core presets are staged either way,
+        # so --dry-run still shows which cores get a shader and which are pinned to a driver
+        # that cannot.
         if shaders and not args.skip_shaders and not args.dry_run:
             section("Fetching shaders")
             fetch_shaders(shaders, shader_stage)
@@ -984,11 +985,11 @@ def main():
         # The sdcard dirs are public storage; adb can always create them.
         device.mkdirs(*dirs.values())
 
-        # retroarch.cfg and the per-core overrides live in the app files dir, which adb may not be
-        # allowed to write on Android 11+. Attempt it, but treat a denial as the documented manual
-        # fallback rather than a crash, and carry on with the sdcard content either way. A transient
-        # disconnect no longer lands here (Device._write retries through it), so this catches only a
-        # genuine permission denial, which is what the message describes.
+        # retroarch.cfg and the per-core overrides live in the app files dir, which adb may not
+        # be allowed to write on Android 11+. Attempt it, treat a denial as the documented
+        # manual fallback rather than a crash, and carry on with the sdcard content either way.
+        # Device._write retries through a transient disconnect, so only a genuine permission
+        # denial reaches here, which is what the message describes.
         merged = merge_cfg(existing_cfg, model["settings"], set(profile["settings_drop"]))
         section("retroarch.cfg", "merge with prune")
         try:
@@ -1006,9 +1007,9 @@ def main():
                 file=sys.stderr,
             )
 
-        # Push the staged playlists (trailing "/." copies contents into the existing dir), then remove
-        # the stale managed .lpl of a system that left the table. Cores are never touched (app-private,
-        # the Core Updater's to manage; see module docstring).
+        # Push the staged playlists (trailing "/." copies contents into the existing dir), then
+        # remove the stale managed .lpl of a system that left the table. Cores are never touched
+        # -- app-private, the Core Updater's to manage.
         section("playlists", "push always + prune")
         device.push(playlist_dir + "/.", dirs["playlists"])
         if online:
@@ -1031,10 +1032,9 @@ def main():
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
-    # ES-DE emulator choices and (optionally) the ROM library. These need no staging, so they run
-    # outside the temp dir's lifetime. Run them under --dry-run too (Device prints the planned writes)
-    # so a preview of the destructive ROM-mirror deletes and pushes is not silently skipped for want of
-    # a device.
+    # ES-DE emulator choices and optionally the ROM library. No staging needed, so they run
+    # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned
+    # writes), or a preview of the destructive ROM-mirror deletes would be silently skipped.
     section("ES-DE emulators", "merge")
     configure_esde_cores(device, profile["esde_gamelists_dir"], profile["esde_cores"])
     if not args.skip_roms:

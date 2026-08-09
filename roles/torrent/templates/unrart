@@ -44,9 +44,9 @@ while [[ $# -gt 0 ]]; do
             DELETE_ARCHIVES=true
             shift
             ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
-        # and 2+ characters, so long options never match. Do not rewrite with
-        # bash's parameter-length syntax: it opens a Jinja2 comment.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash and
+        # 2+ characters, so long options never match. Do not rewrite with bash's
+        # parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
@@ -84,9 +84,9 @@ directory="${1:-{{ torrent_local_incoming_directory }}}"
 # would not resolve after the cd.
 directory="$(cd "${directory}" && pwd)"
 
-# A RAR set spans volumes, so deleting the extracted archive alone leaves the rest.
-# The stem is compared as a literal string: release names routinely contain '.'
-# and '[', which find's -iregex and -name would interpret.
+# A RAR set spans volumes, so deleting the extracted archive alone leaves the rest. The
+# stem is compared as a literal string: release names routinely contain '.' and '[',
+# which find's -iregex and -name would interpret.
 delete_rar_volumes() {
     local archive_dir="${1}"
     local archive="${2}"
@@ -104,9 +104,9 @@ delete_rar_volumes() {
     done
 }
 
-# unrar follows a set from its first volume, so later parts are not separate
-# archives. Old-style .r00 volumes miss the find below, but every .partN.rar
-# matches: part1, part01 and part001 are first volumes, part2 and part10 are not.
+# unrar follows a set from its first volume, so later parts are not separate archives.
+# Old-style .r00 volumes miss the find below, but every .partN.rar matches: part1, part01
+# and part001 are first volumes, part2 and part10 are not.
 is_later_rar_volume() {
     local name="${1,,}"
     # The number, not its spelling. 10#, or a leading zero reads as octal and
@@ -155,15 +155,15 @@ extract() {
 
 header "Extracting archives in ${directory} (max depth: ${MAX_DEPTH})"
 
-# Collected before extracting anything: find streams its results, so an archive
-# unpacked into a directory it has not reached would join the same pass. -print0
-# keeps a name containing a newline whole, and -type f keeps a directory named
-# like an archive away from the extractors and from --delete-archives.
+# Collected before extracting anything: find streams its results, so an archive unpacked
+# into a directory it has not reached would join the same pass. -print0 keeps a name
+# containing a newline whole, and -type f keeps a directory named like an archive away
+# from the extractors and from --delete-archives.
 #
-# Dot-directories are pruned: the media libraries use them for content that must
-# stay packed, and unpacking a quarantined arcade romset would scatter chip dumps
-# out of the TorrentZip they are checksummed in. The prune comes before -type f, a
-# directory not being a regular file, and -mindepth 1 keeps it off the start point.
+# Dot-directories are pruned: the media libraries use them for content that must stay
+# packed, and unpacking a quarantined arcade romset would scatter chip dumps out of the
+# TorrentZip they are checksummed in. The prune comes before -type f, a directory not
+# being a regular file, and -mindepth 1 keeps it off the start point.
 archives=()
 mapfile -d '' -t archives < <(
     find "${directory}" -mindepth 1 -maxdepth "${MAX_DEPTH}" \

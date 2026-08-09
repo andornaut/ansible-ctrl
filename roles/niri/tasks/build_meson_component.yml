@@ -1,7 +1,7 @@
 ---
-# Build one meson/ninja component from a source tarball into /usr/local, via the
-# scaffold in build_component.yml. Fetching the release and resolving the tarball
-# URL belong at the call site.
+# Build one meson/ninja component from a source tarball into /usr/local, via the scaffold in
+# build_component.yml. Fetching the release and resolving the tarball URL belong at the call
+# site.
 #
 # Required vars:
 #   meson_component_name (str): display name, e.g. "wayland-protocols"

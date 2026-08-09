@@ -44,9 +44,8 @@ games_retroarch_system_dir: "{{ games_retroarch_config_dir }}/system"
 # so get_url can compare against the installed build and report a real change.
 games_retroarch_core_archives_dir: "{{ games_user_home }}/.cache/libretro-cores"
 
-# Core metadata (<core>_libretro.info), read by the playlist generator for
-# display_name and supported_extensions. This path is where a --user flatpak install
-# exposes the sandbox's copy on the host, which is the side the generator runs on.
+# Core metadata (<core>_libretro.info): display_name and supported_extensions for the
+# playlist generator. Where a --user flatpak exposes the sandbox's copy on the host.
 games_retroarch_info_dir: >-
   {{ games_user_home }}/.local/share/flatpak/app/{{ games_retroarch_app_id
   }}/current/active/files/share/libretro/info
@@ -71,10 +70,9 @@ games_retroarch_installed_core_names: >-
      | map('regex_replace', '_libretro\.so$', '') | list }}
 games_retroarch_dropped_cores: "{{ games_retroarch_installed_core_names | difference(games_retroarch_cores) }}"
 
-# What files/retroarch-probe-cores.py got from each core: buildbot name ->
-# {library_name, valid_extensions, block_extract}. None is in the .info file and all
-# three are properties of the build, so hosts on different nightlies differ and none
-# can be hardcoded. Undefined until tasks/retroarch.yml has run.
+# files/retroarch-probe-cores.py output: buildbot name -> {library_name,
+# valid_extensions, block_extract}. Properties of the build, absent from the .info, so
+# hosts on different nightlies differ. Undefined until tasks/retroarch.yml has run.
 games_retroarch_cores_probed: "{{ games_retroarch_core_probe.stdout | from_json }}"
 
 # What the tasks writing config/<library_name>/ need.
@@ -82,15 +80,14 @@ games_retroarch_core_library_names: >-
   {{ dict(games_retroarch_cores_probed.keys()
           | zip(games_retroarch_cores_probed.values() | map(attribute='library_name'))) }}
 
-# Only the host with a writable mount fills the cache; RetroArch defaults this on, so
-# the rest would retry an unsaveable download on every scroll. Derived per host, so
-# not part of the static games_retroarch_required_settings.
+# Only the host with a writable mount fills the cache; on by default, so the rest would
+# retry an unsaveable download on every scroll. Per host, hence not in the static set.
 games_retroarch_thumbnails_settings:
   network_on_demand_thumbnails: "{{ games_retroarch_thumbnails_writable | bool | ternary('true', 'false') }}"
 
-# The enforced retroarch.cfg keys, in ascending specificity: the role's set, this
-# host's hardware, what its mount allows, then per-host additions. Refresh rate and
-# pad get their own variables because the role asserts both, so they are inputs.
+# The enforced retroarch.cfg keys, in ascending specificity: the role's set, this host's
+# hardware, what its mount allows, then per-host additions. Refresh rate and pad are
+# separate variables because the role asserts both.
 games_retroarch_settings: >-
   {{ games_retroarch_required_settings
      | combine({"video_refresh_rate": games_retroarch_video_refresh_rate})
@@ -103,8 +100,8 @@ games_retroarch_settings: >-
 games_retroarch_arcade_names_dest: "{{ games_retroarch_config_dir }}/fbneo-arcade-names.json"
 
 # Input to files/retroarch-generate-playlists.py, in the environment because it carries
-# the whole systems table. It is handed what the cores reported inside the sandbox
-# rather than probing them, a core needing a runtime library not loading on the host.
+# the whole systems table. Handed what the cores reported inside the sandbox: a core
+# needing a runtime library will not load on the host.
 games_retroarch_generator_config:
   library_dir: "{{ games_retroarch_library_dir }}"
   playlist_dir: "{{ games_retroarch_playlists_dir }}"
@@ -123,31 +120,26 @@ games_retroarch_thumbnails_config:
   thumbnails_dir: "{{ games_retroarch_thumbnails_dir }}"
 
 # ---------------------------------------------------------------------------------------------
-# Canonical RetroArch data: the systems table, the enforced retroarch.cfg keys, and the
-# per-core overrides and options. Not overridable per host, and one reason beyond the
-# above: files/retroid/syncretroid.py reads this file directly and resolves no
-# inventory, so a host_vars override would silently miss the handheld. A host diverges
-# through the three variables in defaults/.
+# Canonical RetroArch data: systems table, enforced retroarch.cfg keys, per-core overrides
+# and options. Not overridable per host, files/retroid/syncretroid.py reading this file
+# directly and resolving no inventory. Diverge through defaults/.
 # ---------------------------------------------------------------------------------------------
 
-# ROM library subdirectory -> the core that runs it and the launchable extensions.
-# Cores are the x64 column of
+# ROM library subdirectory -> the core that runs it and the launchable extensions. Cores
+# are the x64 column of
 # https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores.
 #
-# Multi-disc games need no extension: their discs sit in a dot-prefixed directory the
-# generator skips, and the .m3u beside it is the entry. The 3DO and GameCube are the
-# exceptions, and the generator points at disc 1 under the directory's name.
+# Multi-disc games need no extension: the discs sit in a dot-prefixed directory the
+# generator skips and the .m3u beside it is the entry. 3DO and GameCube excepted, where the
+# generator points at disc 1 under the directory's name.
 #
-# Optional "game_cores" maps a playlist label to the core one title needs instead of
-# the system's. Not games_retroarch_core_overrides below, which is settings.
+# Optional "game_cores" maps a playlist label to the core one title needs -- a core, not the
+# settings in games_retroarch_core_overrides below.
 games_retroarch_systems:
   # FinalBurn Neo's non-Neo-Geo romsets, in one directory: an arcade set spans
-  # manufacturers, so there is no "Manufacturer - System Name" to name it after.
-  # thumbnail_db is the one case where displayed name and art name differ: the
-  # thumbnail repository publishes only "FBNeo - Arcade Games", which is the db_name
-  # RetroArch resolves art by. Drop the key and the art 404s.
-  # zip on a block_extract core is fine: fbneo lists zip itself and opens the romset.
-  # fbneo is in games_retroarch_arcade_name_cores, so labels come from the name map.
+  # manufacturers, so there is no "Manufacturer - System Name" to name it after. The one
+  # case where displayed and art names differ -- the repository publishes only "FBNeo -
+  # Arcade Games", so dropping thumbnail_db 404s the art.
   Arcade:
     core: fbneo
     extensions: [zip]
@@ -196,16 +188,14 @@ games_retroarch_systems:
   Nintendo - Nintendo Entertainment System:
     core: mesen
     extensions: [zip]
-  # snes9x, not a bsnes-family core: the handheld sharing this library cannot afford
-  # bsnes, so every device runs the same core. The gap is timing edge cases, and
-  # snes9x keeps rewind and MSU-1, which bsnes does not.
+  # snes9x, not bsnes: the handheld sharing this library cannot afford bsnes and every
+  # device runs the same core. Costs timing edge cases, keeps rewind and MSU-1.
   Nintendo - Super Nintendo Entertainment System:
     core: snes9x
     extensions: [zip]
   # Retro8 reimplements the PICO-8 runtime, so no paid binary is needed. Cartridges are
-  # PNGs with the game steganographed in, hence the compound suffix, matched whole so
-  # the label keeps no ".p8" tail. Bare "png" is excluded: it would make a playlist
-  # entry of any cover art dropped here.
+  # PNGs with the game steganographed in, hence the compound suffix, matched whole so the
+  # label keeps no ".p8" tail. Bare "png" would catch any cover art dropped here.
   Pico-8:
     core: retro8
     extensions: [p8.png]
@@ -228,24 +218,22 @@ games_retroarch_systems:
     core: genesis_plus_gx
     extensions: [chd, m3u]
     game_cores:
-      # A Sega CD disc that also needs the 32X, which genesis_plus_gx does not emulate
-      # and picodrive does. Catalogued as Sega CD, so it stays here and its art
-      # resolves here; the 32X thumbnail repository has no Night Trap at all.
+      # Needs the 32X, which genesis_plus_gx does not emulate and picodrive does.
+      # Catalogued as Sega CD, so it stays here and its art resolves here; the 32X
+      # thumbnail repository has no Night Trap.
       Night Trap (USA) (Sega CD 32X) (RE-1): picodrive
   Sega - Saturn:
     core: mednafen_saturn
     extensions: [chd, m3u]
-  # Romsets are .zip named by short arcade ID (mslug.zip). fbneo sets block_extract
-  # and opens the archive itself, which the generator allows because fbneo lists .zip
-  # among its own extensions. fbneo is in games_retroarch_arcade_name_cores, so the
-  # label is the mapped title, which is what the thumbnail fetcher resolves against.
-  # BIOS: neogeo.zip, in the set's fbneo/ subdir.
+  # Romsets are .zip named by short arcade ID (mslug.zip). fbneo sets block_extract and
+  # opens the archive itself, allowed because it lists .zip among its extensions. BIOS:
+  # neogeo.zip, in the set's fbneo/ subdir.
   SNK - Neo Geo:
     core: fbneo
     extensions: [zip]
-  # No m3u, unlike the other disc systems: these are all single-disc and neocd does
-  # not list m3u, so the generator would reject the entry. Needs the Neo Geo CD BIOS,
-  # which the cartridge fbneo set does not include; see the README.
+  # No m3u, unlike the other disc systems: all single-disc, and neocd does not list m3u,
+  # so the generator would reject it. Needs the Neo Geo CD BIOS, absent from the cartridge
+  # fbneo set; see the README.
   SNK - Neo Geo CD:
     core: neocd
     extensions: [chd]
@@ -259,12 +247,9 @@ games_retroarch_systems:
   Sony - PlayStation 2:
     core: pcsx2
     extensions: [chd, m3u]
-  # No m3u, a core limitation rather than an oversight: ppsspp sets need_fullpath, so
-  # it receives the .m3u path itself, and its loader knows only elf|iso|cso|prx|pbp|chd.
-  # Adding m3u would pass the generator's check and emit an entry that fails at launch.
-  # The working layout is one root disc image per disc, which the library uses only
-  # where a title shipped as two separately purchasable PSN products; a genuine
-  # disc-swap UMD title is skipped.
+  # No m3u: ppsspp sets need_fullpath, so it receives the .m3u path itself and its loader
+  # knows only elf|iso|cso|prx|pbp|chd. Adding it would pass the generator's check and fail
+  # at launch. Multi-disc is one root image per disc; a disc-swap UMD title is skipped.
   Sony - PlayStation Portable:
     core: ppsspp
     # .chd, about three-quarters the size of the .iso it is made from.
@@ -273,16 +258,16 @@ games_retroarch_systems:
     core: opera
     extensions: [chd]
 
-# Cores whose romsets are named by short MAME id, so the generator labels each from
-# files/fbneo-arcade-names.json instead of the filename. Every other system keeps its
-# filename. Regenerate the map with files/gen-fbneo-arcade-names.py.
+# Cores whose romsets are named by short MAME id; the generator labels these from
+# files/fbneo-arcade-names.json instead of the filename. Regenerate the map with
+# files/gen-fbneo-arcade-names.py.
 games_retroarch_arcade_name_cores: [fbneo]
 
 # The retroarch.cfg keys this role owns; every other key is left alone, so in-app
 # changes persist. games_retroarch_extra_settings is merged over this.
 games_retroarch_required_settings:
-  # Per the til notes' driver table, less two: input udev rather than "x", which needs
-  # an X11 video context and these hosts run both sessions (hence the uaccess rule in
+  # Per the til notes' driver table, less two: input udev rather than "x", which needs an
+  # X11 context and these hosts run both sessions (hence the uaccess rule in
   # tasks/retroarch.yml), and audio pipewire rather than the pipewire-pulse shim.
   audio_driver: pipewire
   camera_driver: video4linux2
@@ -304,9 +289,9 @@ games_retroarch_required_settings:
   # works anyway, through the built-in keyboard driver. Success toasts stay on.
   notification_show_autoconfig_fails: "false"
 
-  # Lets a core pick its own driver, which the overrides below rely on. glcore stays
-  # the global: a vulkan one would move PPSSPP and Dolphin onto their Vulkan backends
-  # too, where their libretro bugs live. slang shaders work on both.
+  # Lets a core pick its own driver, which the overrides below rely on. glcore stays the
+  # global: vulkan would move PPSSPP and Dolphin onto their Vulkan backends, where their
+  # libretro bugs live. slang shaders work on both.
   driver_switch_enable: "true"
 
   # RetroArch defaults to a window, where the compositor owns frame pacing. Borderless
@@ -326,12 +311,9 @@ games_retroarch_required_settings:
   # which for a PICO-8 cartridge shows the label instead of running the game.
   builtin_imageviewer_enable: "false"
 
-  # Local, except the thumbnail cache: the rest is written on every launch, and the
-  # library is read-only on the hosts mounting it over the network. The cache
-  # directory stops cores littering content directories with temp files on a crash.
-  #
-  # network_on_demand_thumbnails is derived per host, in
-  # games_retroarch_thumbnails_settings.
+  # Local, except the thumbnail cache: the rest is written on every launch and the library
+  # is read-only on the hosts mounting it. The cache directory stops cores littering content
+  # directories with temp files on a crash.
   cache_directory: "{{ games_retroarch_cache_dir }}"
   playlist_directory: "{{ games_retroarch_playlists_dir }}"
   savefile_directory: "{{ games_retroarch_config_dir }}/saves"
@@ -361,18 +343,16 @@ games_retroarch_required_settings:
   savestate_auto_index: "true"
   savestate_max_keep: "100"
 
-  # Preemptive frames hide the 1-3 frames of lag the original hardware had, and are
-  # the cheaper half of a mutually exclusive pair: run-ahead re-runs every frame,
-  # preemptive frames only when the controller state changes.
+  # Hides the 1-3 frames of lag the original hardware had, and the cheaper half of a
+  # mutually exclusive pair: run-ahead re-runs every frame, this only on controller input.
   #
-  # Off globally, on per core, unlike rewind: RetroArch allows them only where the
-  # .info declares savestate_features = "deterministic", and puts the refusal on
-  # screen otherwise. List the cores that qualify with:
+  # Off globally, on per core, unlike rewind: RetroArch allows it only where the .info
+  # declares savestate_features = "deterministic". The qualifying cores:
   #
   #   grep -l 'savestate_features = "deterministic"' {{ games_retroarch_info_dir }}/*.info
   #
-  # One frame is conservative: more is free only until it exceeds a game's own
-  # internal lag, past which the picture jitters, and that threshold is per-game.
+  # More than one frame is free until it exceeds a game's own internal lag, past which the
+  # picture jitters.
   preemptive_frames_enable: "false"
   run_ahead_enabled: "false"
   run_ahead_frames: "1"
@@ -381,14 +361,11 @@ games_retroarch_required_settings:
   # not miss a deadline on 2D consoles. Raise back to 3 if pacing hiccups.
   video_max_swapchain_images: "2"
 
-  # The three preconditions of vrr_runloop_enable, which a host with a VRR panel turns
-  # on in host_vars. Each already defaults to the value VRR sync needs; they are
-  # pinned because they are preconditions, sit one click from the VRR toggle, and the
-  # symptom of a conflict is audio drift with nothing visibly wrong.
-  #
-  # games_retroarch_extra_settings wins over this dict, so tasks/retroarch.yml asserts
-  # the combination. BFI is the one a host might genuinely want, in place of VRR sync
-  # on a fixed-refresh panel, and the assert allows that pairing.
+  # The three preconditions of vrr_runloop_enable, which a VRR host turns on in host_vars.
+  # Each already defaults to what VRR sync needs; pinned because they sit one click from the
+  # VRR toggle and a conflict shows up as audio drift with nothing visibly wrong.
+  # games_retroarch_extra_settings wins over this dict, so tasks/retroarch.yml asserts the
+  # combination, allowing BFI instead on a fixed-refresh panel.
   video_vsync: "true"
   video_swap_interval: "1"
   video_black_frame_insertion: "0"
@@ -430,9 +407,9 @@ games_retroarch_required_settings:
   input_player1_gun_trigger_mbtn: "1"
   input_player1_gun_offscreen_shot_mbtn: "2"
 
-  # Off by default: ozone hovers and clicks on the same events the lightgun binds
-  # read. The pointer comes from raw evdev deltas, so the desktop cursor moves under
-  # RetroArch's at the same time, harmless fullscreen. Needs the uaccess rule above.
+  # Off by default: ozone hovers and clicks on the same events the lightgun binds read.
+  # The pointer is raw evdev deltas, so the desktop cursor moves along under it, harmless
+  # fullscreen. Needs the uaccess rule above.
   menu_mouse_enable: "true"
 
   # Trim the top-row tabs to what is wired up here; 0 hides the contentless cores.
@@ -452,17 +429,17 @@ games_retroarch_required_settings:
   playlist_entry_rename: "false"
 
 # Per-core overrides, keyed by buildbot core name. RetroArch keeps the file under
-# config/<library_name>/, which only the built core knows, so tasks/retroarch.yml
-# resolves the directory per host.
+# config/<library_name>/, which only the built core knows, so tasks/retroarch.yml resolves
+# the directory per host.
 #
-# Every key is an exception to a global (README.md): rewind off where RetroArch would
-# refuse it anyway, the right-stick axes unbound on the dual-analog consoles, where
-# the stick is a camera and looking right would otherwise run the game at 3x,
-# preemptive frames on for the cheap deterministic cores, and vulkan where wanted.
+# Every key is an exception to a global (README.md): rewind off where RetroArch would refuse
+# it anyway, right-stick axes unbound where the stick is a camera and looking right would
+# run the game at 3x, preemptive frames on for the deterministic cores, vulkan where
+# wanted.
 games_retroarch_core_overrides:
-  # The libretro docs put "all games" on the OpenGL renderer at "graphical glitches
-  # and rendering issues of varying severity"; Vulkan is the stable one, and the
-  # core's renderer follows the frontend driver. Right stick is the camera.
+  # The libretro docs put "all games" on OpenGL at "graphical glitches and rendering
+  # issues of varying severity"; Vulkan is the stable one, and the core's renderer follows
+  # the frontend driver. Right stick is the camera.
   mednafen_psx_hw:
     input_hold_fast_forward_axis: "nul"
     input_rewind_axis: "nul"
@@ -506,10 +483,10 @@ games_retroarch_core_overrides:
   stella:
     preemptive_frames_enable: "true"
 
-  # ParaLLEl-RDP, selected in games_retroarch_core_options, is Vulkan-only, and the
-  # core requests a Vulkan context only when rdp-plugin is "parallel", so the two must
-  # be set together. An override rather than driver_switch_enable, because
-  # hot-switching this core mid-session crashes it (mupen64plus-libretro-nx#370).
+  # ParaLLEl-RDP, selected in games_retroarch_core_options, is Vulkan-only, and the core
+  # requests a Vulkan context only when rdp-plugin is "parallel", so the two go together.
+  # An override rather than driver_switch_enable, which crashes this core mid-session
+  # (mupen64plus-libretro-nx#370).
   mupen64plus_next:
     video_driver: vulkan
   # No savestates, so no rewind. No analog stick either, so the pad bindings stay.
@@ -517,9 +494,9 @@ games_retroarch_core_overrides:
     rewind_enable: "false"
 
 # The core's own settings, not RetroArch's, so a different file from
-# games_retroarch_core_overrides: config/<library_name>/<library_name>.opt, while
-# global_core_options stays false. Only the keys named here are enforced. The README
-# gives the command that reads the available ones out of the .so.
+# games_retroarch_core_overrides: config/<library_name>/<library_name>.opt, with
+# global_core_options false. Only the keys named here are enforced; the README gives the
+# command that lists the available ones.
 games_retroarch_core_options:
   # The default FM synthesis is MAME's, fast and approximate; Nuked is cycle-accurate.
   # ym2612 is the Mega Drive's chip, ym2413 the Master System's FM add-on.
@@ -528,36 +505,34 @@ games_retroarch_core_options:
     genesis_plus_gx_ym2413_core: nuked
 
   # Low-level emulations of the N64's graphics hardware, where the default GLideN64
-  # reimplements it and guesses. ParaLLEl is what renders the framebuffer effects
-  # correctly. Vulkan-only, hence the video_driver override.
+  # reimplements and guesses; ParaLLEl gets the framebuffer effects right. Vulkan-only,
+  # hence the video_driver override.
   mupen64plus_next:
     mupen64plus-rdp-plugin: parallel
     mupen64plus-rsp-plugin: parallel
 
-# The org.freedesktop.Platform version every game runtime here accepts. Verify after a
-# bump with `flatpak remote-info flathub com.valvesoftware.Steam | grep Runtime`.
-# community.general.flatpak matches on application ID only, so an extension already
-# installed on an older branch has to be uninstalled by hand.
+# The org.freedesktop.Platform version every game runtime here accepts. Verify a bump with
+# `flatpak remote-info flathub com.valvesoftware.Steam | grep Runtime`. The flatpak module
+# matches on application ID only, so an extension on an older branch needs a manual
+# uninstall.
 games_flatpak_runtime_branch: "25.08"
 
 # Copied into RetroArch's system directory rather than pointed at in place: cores
 # treat that directory as writable scratch space, so it has to be local.
 games_retroarch_bios_dir: "{{ games_retroarch_library_dir }}/_BIOS/retroarch-system-folder"
 
-# Box art, in the library because it is the one thing RetroArch writes that every host
-# can share (README.md). Owned by the library: the role points RetroArch at it and
-# only checks that it exists. Nothing else may move here, the rest being written on
-# every launch and the library read-only on most hosts.
+# Box art, the one thing RetroArch writes that every host can share (README.md). The role
+# points RetroArch at it and checks only that it exists. Nothing else belongs here: the rest
+# is written on every launch and the library is read-only on most hosts.
 games_retroarch_thumbnails_dir: "{{ games_retroarch_library_dir }}/_Thumbnails"
 
 # Cores are packaged for neither apt nor flatpak; the in-app Core Updater fetches them
 # from here, one manual download per core per host.
 games_retroarch_buildbot_url: https://buildbot.libretro.com/nightly/linux/{{ games_retroarch_arch }}/latest
 
-# Rewind and fast-forward on the pad, per model: right stick up and down, free on
-# almost every console here, with L3/R3 as the fallback the dual-analog ones use.
-# Not a Hotkey-Enable combo: that gates every hotkey, so the right stick would need
-# Select held too. See README.md.
+# Rewind and fast-forward on the pad, per model: right stick up and down, free on almost
+# every console here, L3/R3 as the dual-analog fallback. Not a Hotkey-Enable combo, which
+# gates every hotkey and would need Select held too. See README.md.
 games_retroarch_controllers:
   # Microsoft_X-Box_Series_XS_pad.cfg, shared with the Xbox One and 360 pads. The
   # Xbox One BT profile differs at axis 3, 8BitDo's Ultimate at buttons 13/14.
@@ -594,6 +569,6 @@ games_flatpak_overrides:
     # RetroArch writes to. Effective only where the mount itself is writable.
     - "--filesystem={{ games_retroarch_thumbnails_dir }}"
 
-# games_retroarch_library_dir has no default: the mount point is site data and this
-# repo is public. Set it in host_vars/; tasks/main.yml asserts it. A read-only mount
-# is enough for every host but the one keeping the thumbnails current.
+# games_retroarch_library_dir has no default: the mount point is site data and this repo
+# is public. Set it in host_vars/; tasks/main.yml asserts it. Read-only is enough for
+# every host but the one keeping the thumbnails current.

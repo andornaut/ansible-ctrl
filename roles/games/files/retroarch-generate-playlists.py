@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate RetroArch playlists (.lpl) from the ROM library.
 
-RetroArch builds playlists with its in-app content scanner, which needs a display and must
-be driven by hand on every host. Regenerating from the library instead keeps the ROM
-directory -> core association in the games role (games_retroarch_systems).
+Replaces RetroArch's in-app scanner, which needs a display and a human on every host, and
+keeps the ROM directory -> core association in games_retroarch_systems.
 
 Configured by RETROARCH_GENERATOR_CONFIG, a JSON document tasks/retroarch.yml puts in the
 environment (games_retroarch_generator_config):
@@ -22,43 +21,33 @@ environment (games_retroarch_generator_config):
       }
     }
 
-Optional keys let another host build playlists for a device it does not itself mount (the
-Retroid sync, files/retroid/); absent, a same-host run is unchanged:
+Optional keys let one host build playlists for a device it does not mount (the Retroid sync,
+files/retroid/); absent, a same-host run is unchanged:
 
-  * "core_filename_suffix" (default "_libretro.so"): the tail of a core's file
-    ("_libretro_android.so" on Android), used to build core_path;
-  * "emit_library_dir" (default = "library_dir"): the library root as the target sees it.
-    The library is still scanned at "library_dir", but every path written into a playlist
-    (each item's "path", and "scan_content_dir") has its "library_dir" prefix rewritten to
-    this, so entries resolve on the device though the generator ran against another mount;
+  * "core_filename_suffix" (default "_libretro.so"): tail of a core's file, used to build
+    core_path ("_libretro_android.so" on Android);
+  * "emit_library_dir" (default = "library_dir"): library root as the target sees it. Scanning
+    still happens at "library_dir", but every emitted path has that prefix rewritten to this;
   * "emit_system_dirs" (default {}): per-system rename of the directory under emit_library_dir,
-    for a target whose per-system folders are named differently. The Retroid's ES-DE tree uses
-    short names ("snes") where the library uses No-Intro names ("Super Nintendo..."); a system
-    absent from the map keeps its library name.
+    for a target naming its folders differently (ES-DE's "snes" vs No-Intro). Unlisted systems
+    keep their library name.
 
-Two more keys give arcade systems readable labels (both host-agnostic, so the desktop sets them too):
+Two host-agnostic keys give arcade systems readable labels:
 
-  * "arcade_names_path" (default none): a JSON file mapping romset shortname -> full title
-    (files/fbneo-arcade-names.json). A system whose core is in "arcade_name_cores" labels each
-    file by its title ("Metal Slug - Super Vehicle-001") instead of its MAME id ("mslug"); the
-    file on disk is untouched. Absent, every label stays the filename.
-  * "arcade_name_cores" (default []): the cores that the map applies to (fbneo). Off this set the
-    lookup never runs, so a console filename can never collide with a romset id.
+  * "arcade_names_path" (default none): JSON mapping romset shortname -> full title
+    (files/fbneo-arcade-names.json);
+  * "arcade_name_cores" (default []): cores the map applies to (fbneo). Off this set labels
+    stay the filename, so a console filename cannot collide with a romset id.
 
-A system may also carry "game_cores", mapping a playlist label to the core that one title needs
-instead of the system's own. A Sega CD disc that additionally requires the 32X is a Sega CD game to
-every naming authority, so it belongs in the Sega CD directory and resolves its art there, but
-genesis_plus_gx does not emulate the 32X. Only that entry's core_path differs; its playlist,
-label and thumbnails are untouched. Each is validated like a system: the core must be installed and
-must accept the system's extensions, and a label matching no content is an error, since a silently
-inert entry reads as a fix that is in place.
+A system may carry "game_cores", mapping a playlist label to the core one title needs instead of
+the system's own -- a Sega CD disc that also needs the 32X stays a Sega CD game everywhere except
+core_path. Validated like a system, and a label matching no content is an error.
 
-"cores" is what the cores reported, collected by files/retroarch-probe-cores.py inside the
-flatpak sandbox. Not gathered here: this runs on the host, where a core needing a library only
-the runtime carries (LRPS2 wants libaio) will not load, leaving exactly those cores unchecked.
+"cores" is what the cores reported, collected by files/retroarch-probe-cores.py inside the flatpak
+sandbox. Not gathered here: a core needing a runtime-only library (LRPS2 wants libaio) will not
+load on the host, leaving exactly those cores unchecked.
 
-Run-time behaviour (system validation, write-on-change, pruning only playlists it can prove it
-wrote) and the read-only-library property are in files/README.md.
+Run-time behaviour and the read-only-library property are in files/README.md.
 """
 
 import functools
@@ -66,27 +55,24 @@ import json
 import os
 import sys
 
-# Playlist fields RetroArch fills in when it scans, reproduced verbatim so a generated playlist
-# is indistinguishable from a scanned one and RetroArch does not rewrite it on load.
-# label_display_mode 3 hides the (Region) and [tag] suffixes in the UI while "label" keeps the
-# full No-Intro name, which is what the thumbnail lookup matches on.
+# Reproduced verbatim from what RetroArch writes when it scans, so it does not rewrite a generated
+# playlist on load. label_display_mode 3 hides the (Region) and [tag] suffixes in the UI while
+# "label" keeps the full No-Intro name, which is what the thumbnail lookup matches on.
 PLAYLIST_VERSION = "1.5"
 LABEL_DISPLAY_MODE = 3
 THUMBNAIL_MODE = 0
 SORT_MODE = 0
 
-# RetroArch stores a CRC as "<hex>|crc" and accepts an all-zero one, meaning "not computed".
-# Hashing every ROM on a network-mounted library would cost minutes per run for a field only
-# used for DAT matching, which this library does not rely on: it names files to No-Intro.
+# All-zero means "not computed", which RetroArch accepts. The field is only used for DAT matching;
+# this library names files to No-Intro instead, so hashing every ROM over the network is wasted.
 CRC32_UNKNOWN = "00000000|crc"
 
 
 def accepted_extensions(info_dir, probed, core):
-    """Return every extension a core will take, the union of two sources.
+    """Return every extension a core will take: the probe's valid_extensions plus the .info's.
 
-    The core's own valid_extensions (from the probe) is narrower and not what RetroArch enforces:
-    content given as an explicit path is not filtered on extension at all, so Virtual Jaguar reports
-    "j64|jag" yet loads this library's .rom files. The .info carries the superset RetroArch goes by.
+    The probe's list is narrower than what RetroArch enforces -- explicit paths are not filtered on
+    extension at all, so Virtual Jaguar reports "j64|jag" yet loads this library's .rom files.
     """
     declared = set(core_info_field(info_dir, core, "supported_extensions").split("|"))
     return (set(probed[core]["valid_extensions"]) | declared) - {""}
@@ -95,23 +81,18 @@ def accepted_extensions(info_dir, probed, core):
 def validate_system(info_dir, probed, core, extensions):
     """Return the reasons a core cannot launch the extensions its system declares.
 
-    Turns breakage that otherwise only shows when a human clicks a game into a failed run: a zip
-    extension on a core that sets block_extract yet cannot open the archive itself segfaults
-    RetroArch at load.
+    Turns breakage that otherwise waits for a human to click the game into a failed run.
     """
     accepted = accepted_extensions(info_dir, probed, core)
 
     reasons = []
     for extension in extensions:
-        # RetroArch matches on the final suffix, so Pico-8's compound "p8.png" is a "png" as
-        # far as the core is concerned.
+        # RetroArch matches on the final suffix only, so Pico-8's compound "p8.png" is a "png".
         effective = extension.rsplit(".", 1)[-1].lower()
         if effective == "zip":
-            # RetroArch normally unpacks a .zip and hands the core what is inside. A core that sets
-            # block_extract is handed the archive unopened: that breaks a core expecting the
-            # extracted ROM (Dolphin), but is exactly what an arcade core wants, since its romset is
-            # a multi-file .zip it opens itself and lists .zip among its own extensions. So reject
-            # zip + block_extract only when the core does not itself accept .zip.
+            # block_extract hands the core the archive unopened. That breaks a core expecting the
+            # extracted ROM (Dolphin) but suits an arcade core, whose romset is a multi-file .zip it
+            # opens itself and lists among its extensions -- hence the second condition.
             if probed[core]["block_extract"] and "zip" not in accepted:
                 reasons.append(
                     '"zip" is not launchable by %s: the core sets block_extract, so RetroArch '
@@ -129,8 +110,8 @@ def validate_system(info_dir, probed, core, extensions):
 def core_info_field(info_dir, core, field, default=""):
     """Return one field from a core's .info file, or default when it is missing.
 
-    Read from the .info rather than duplicated in the role's systems table, so it cannot drift from
-    the installed core. Memoised because several systems share a core and would each reparse the file.
+    Read from the .info rather than duplicated in the systems table, so it cannot drift from the
+    installed core. Memoised because systems sharing a core would each reparse the file.
     """
     path = os.path.join(info_dir, "%s_libretro.info" % core)
     try:
@@ -147,9 +128,8 @@ def core_info_field(info_dir, core, field, default=""):
 def content_label(name, extensions):
     """Return a file's playlist label: its name with the system's extension taken off.
 
-    Longest match wins, so Pico-8's compound "p8.png" is matched whole and "Celeste.p8.png" is
-    labelled "Celeste" rather than "Celeste.p8". Returns None when the file is not launchable
-    content for this system.
+    Longest match wins, so "Celeste.p8.png" is labelled "Celeste", not "Celeste.p8". None when the
+    file is not launchable content for this system.
     """
     lowered = name.lower()
     for extension in sorted(extensions, key=len, reverse=True):
@@ -162,11 +142,10 @@ def content_label(name, extensions):
 def disc_entry(directory, extensions):
     """Return the disc a visible subdirectory of a system directory should launch.
 
-    3DO and GameCube use these: their multi-disc games sit in a visible directory with no .m3u
-    (Opera and Dolphin swap discs themselves), so the playlist points at disc 1 while the label
-    stays the directory name, which is therefore also the name the art is cached under. Every other
-    system hides its multi-disc directory behind a dot prefix and exposes an .m3u; dot-prefixed
-    directories never reach here.
+    3DO and GameCube only: Opera and Dolphin swap discs themselves, so their multi-disc games sit in
+    a visible directory with no .m3u. The playlist points at disc 1 and the label stays the
+    directory name, which is also what the art is cached under. Elsewhere the directory is
+    dot-prefixed and never reaches here.
     """
     discs = sorted(
         entry.path
@@ -183,15 +162,14 @@ def system_items(
 ):
     """Build the playlist items for one system directory.
 
-    Scanned at system_dir but written under emit_system_dir (see the module docstring's
-    emit_system_dirs), equal for a same-host run. names maps romset shortname -> full title for
-    arcade systems, empty elsewhere. game_cores maps a label -> (core_path, core_name) for the
-    titles the system's own core cannot launch, and is empty for most systems.
+    Scanned at system_dir, written under emit_system_dir; equal for a same-host run. names maps
+    romset shortname -> full title on arcade systems, game_cores maps label -> (core_path,
+    core_name) for titles the system's core cannot launch; both empty elsewhere.
     """
     items = []
     for entry in sorted(os.scandir(system_dir), key=lambda e: e.name.lower()):
-        # Dot-prefixed entries are the hidden per-game directories holding the discs of a
-        # multi-disc game; the .m3u beside them is the launchable entry.
+        # Hidden per-game directories hold the discs of a multi-disc game; the .m3u beside them
+        # is the launchable entry.
         if entry.name.startswith("."):
             continue
 
@@ -204,20 +182,17 @@ def system_items(
             label = content_label(entry.name, extensions)
             if label is None:
                 continue
-            # Arcade romsets are named by short MAME id; show the full title as the label while the
-            # path stays the romset file. The board-id suffix the title carries ("(NGM-2650)") is
-            # hidden by label_display_mode 3, as "(USA)" is on a console. A no-op off arcade systems.
+            # Label arcade romsets by title, not MAME id; the path stays the romset file. The
+            # title's board-id suffix is hidden by label_display_mode 3, as "(USA)" is elsewhere.
             label = names.get(label, label)
-            # A .zip is listed by its own path, not "archive.zip#rom.sfc" as RetroArch's scanner
-            # writes it: the frontend resolves a bare archive to the ROM inside on load either way,
-            # and taking the path as-is means never opening archives across a network-mounted library.
+            # A .zip is listed by its own path, not "archive.zip#rom.sfc" as the scanner writes
+            # it: RetroArch resolves a bare archive on load, and this never opens one over NFS.
             path = entry.path
 
-        # Rewrite the scanned path onto the target's mount. path is always under system_dir.
+        # Onto the target's mount. path is always under system_dir.
         path = emit_system_dir + path[len(system_dir):]
 
-        # A title the system's core cannot launch carries its own core; everything else about the
-        # entry, db_name included, stays the system's, so art still resolves off the one playlist.
+        # Only core_path differs; db_name stays the system's, so art resolves off the one playlist.
         item_core_path, item_core_name = game_cores.get(label, (core_path, core_name))
 
         items.append(
@@ -236,11 +211,9 @@ def system_items(
 def is_generated_playlist(path, library_dir):
     """Whether this .lpl is one this generator wrote, rather than one the user built.
 
-    RetroArch's own playlists (Manual Scan, custom collections) land in the same directory with
-    nothing in the filename to tell them apart, so ownership comes from the content: a playlist
-    written here points scan_content_dir inside the ROM library, anything else does not.
-
-    The answer decides whether a file is deleted, so every uncertainty resolves to "keep it".
+    RetroArch's own playlists land in the same directory with nothing in the filename to tell them
+    apart, so ownership comes from the content: only a generated playlist points scan_content_dir
+    inside the ROM library. The answer decides whether a file is deleted, so uncertainty means keep.
     """
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
@@ -251,9 +224,8 @@ def is_generated_playlist(path, library_dir):
         return False
 
     scanned = playlist.get("scan_content_dir") or ""
-    # commonpath raises rather than returning a mismatch when the paths are not both absolute,
-    # so a relative scan_content_dir ("roms/snes", "~/roms") would otherwise take down a run
-    # that merely walked past it.
+    # commonpath raises rather than returning a mismatch on a relative path, which would take
+    # down a run that merely walked past a playlist carrying one.
     if not isinstance(scanned, str) or not os.path.isabs(scanned):
         return False
     return os.path.commonpath([scanned, library_dir]) == library_dir
@@ -262,11 +234,9 @@ def is_generated_playlist(path, library_dir):
 def prune_playlists(playlist_dir, library_dir, systems):
     """Remove the generated playlists of systems that games_retroarch_systems no longer lists.
 
-    Otherwise a dropped system leaves its .lpl behind while tasks/retroarch.yml deletes its core,
-    so RetroArch goes on offering the system with every entry pointing at a missing core file.
-
-    Only .lpl files directly in this directory, and only ones this generator wrote: RetroArch's own
-    favourites and history live one level down in builtin/.
+    tasks/retroarch.yml deletes the dropped system's core, so a left-behind .lpl would go on
+    offering the system with every entry pointing at a missing file. Only .lpl files directly in
+    this directory and only ones this generator wrote: favourites and history live in builtin/.
     """
     removed = []
     for name in sorted(os.listdir(playlist_dir)):
@@ -292,38 +262,34 @@ def main():
     info_dir = config["info_dir"]
     probed = config["cores"]
     systems = sorted(config["systems"].items())
-    # Target-mount overrides (library root, per-system dir renames, core file tail); all default to
-    # a same-host run.
+    # Target-mount overrides; all default to a same-host run.
     emit_library_dir = config.get("emit_library_dir", library_dir)
     emit_system_dirs = config.get("emit_system_dirs", {})
     core_suffix = config.get("core_filename_suffix", "_libretro.so")
-    # Arcade romset -> full title map, applied only to systems whose core is listed in
-    # arcade_name_cores (fbneo), whose files are named by short MAME id. Both absent by default, so
-    # off arcade systems the lookup never happens and labels stay the filename.
+    # Romset -> title map, applied only to systems whose core is in arcade_name_cores. Both absent
+    # by default, so elsewhere the lookup never happens and labels stay the filename.
     arcade_name_cores = set(config.get("arcade_name_cores", []))
     arcade_names = {}
     if config.get("arcade_names_path"):
         with open(config["arcade_names_path"], encoding="utf-8") as handle:
             arcade_names = json.load(handle)
 
-    # An unmounted network share looks like an empty directory, and regenerating from that would
-    # replace every playlist with an empty one.
+    # An unmounted share looks like an empty directory, which would empty every playlist.
     if not os.path.isdir(library_dir):
         sys.exit("%s: ROM library is not a directory" % library_dir)
 
-    # The probe covers every installed core and the role installs every core the table names, so a
-    # system naming a core that did not answer means the two disagree, not that the core is quiet.
-    # A game_cores core is held to the same bar as a system's own, or one naming a core the role
-    # does not install would write entries pointing at a missing core file.
+    # The probe covers every installed core and the role installs every core the table names, so an
+    # unanswered core means the two disagree. game_cores is held to the same bar, or it would write
+    # entries pointing at a missing core file.
     declared = {spec["core"] for _, spec in systems}
     declared.update(core for _, spec in systems for core in spec.get("game_cores", {}).values())
     unknown = sorted(declared - set(probed))
     if unknown:
         sys.exit("no installed core reported itself as: %s" % ", ".join(unknown))
 
-    # Check the whole table before writing anything, reporting problems together: fixing them one
-    # failed run at a time is worse. A game_cores core is checked against the system's extensions:
-    # it launches that system's content, so it has to accept the same formats.
+    # Whole table before writing anything, so problems are reported together rather than one failed
+    # run at a time. A game_cores core launches the system's content, so it faces the same
+    # extensions.
     problems = [
         "%s: %s" % (system, reason)
         for system, spec in systems
@@ -344,19 +310,17 @@ def main():
             continue
 
         core = spec["core"]
-        # Two different names. The filename is what RetroArch displays for the playlist; db_name is
-        # what it resolves thumbnails by, and files/retroarch-fetch-thumbnails.py reads that same
-        # field to pick the cache directory. They match for most systems. thumbnail_db splits them
-        # for one whose art the repository publishes under a name other than the one shown here.
+        # The filename is what RetroArch displays; db_name is what it resolves thumbnails by, and
+        # what retroarch-fetch-thumbnails.py reads to pick the cache directory. thumbnail_db splits
+        # the two for a system whose art the repository publishes under another name.
         playlist_name = "%s.lpl" % system
         db_name = "%s.lpl" % spec.get("thumbnail_db", system)
         core_path = os.path.join(cores_dir, "%s%s" % (core, core_suffix))
         emit_system_dir = os.path.join(emit_library_dir, emit_system_dirs.get(system, system))
-        # Falls back to the core's file name when the .info is missing, which costs only a
-        # cosmetic label.
+        # A missing .info costs only a cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
         names = arcade_names if core in arcade_name_cores else {}
-        # label -> (core_path, core_name) for the titles this system's core cannot launch.
+        # label -> (core_path, core_name) for titles this system's core cannot launch.
         game_cores = {
             label: (
                 os.path.join(cores_dir, "%s%s" % (game_core, core_suffix)),
@@ -375,16 +339,14 @@ def main():
             db_name,
         )
 
-        # An existing playlist is never replaced by an empty one: a system directory that
-        # scans to nothing means the extension list is wrong or the mount is half up, and
-        # neither is worth discarding a good playlist over.
+        # Never replace an existing playlist with an empty one: scanning to nothing means a wrong
+        # extension list or a half-mounted share, neither worth discarding a good playlist over.
         if not items:
             print("skipped %s: no content matched %s" % (system, spec["extensions"]), file=sys.stderr)
             continue
 
-        # Checked after the empty guard, so a half-mounted share reports as the skip above rather
-        # than as drift. An entry matching no label is drift: the title was renamed or left the
-        # library, and the entry now does nothing while still reading as a fix in place.
+        # After the empty guard, so a half-mounted share reports as the skip above rather than as
+        # drift. A game_cores label matching nothing is inert while still reading as a fix.
         stale = sorted(set(game_cores) - {item["label"] for item in items})
         if stale:
             sys.exit(
@@ -402,8 +364,8 @@ def main():
             "left_thumbnail_mode": THUMBNAIL_MODE,
             "thumbnail_match_mode": THUMBNAIL_MODE,
             "sort_mode": SORT_MODE,
-            # Set so that RetroArch's in-app "Refresh Playlist" rescans the right directory, and it
-            # is the marker prune_playlists proves ownership by, so it takes the target's mount.
+            # Where in-app "Refresh Playlist" rescans, and the marker prune_playlists reads,
+            # so it takes the target's mount.
             "scan_content_dir": emit_system_dir,
             "scan_file_exts": "",
             "scan_dat_file_path": "",
@@ -415,9 +377,8 @@ def main():
         }
         content = (json.dumps(playlist, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
-        # Compared as bytes, not text: a playlist RetroArch scanned itself is not necessarily
-        # valid UTF-8, and decoding one to test whether it is already current would fail before
-        # it could be replaced.
+        # Bytes, not text: a playlist RetroArch scanned is not necessarily valid UTF-8, and
+        # decoding one to test whether it is current would fail before it could be replaced.
         path = os.path.join(playlist_dir, playlist_name)
         try:
             with open(path, "rb") as handle:

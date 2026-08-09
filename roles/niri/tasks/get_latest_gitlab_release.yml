@@ -1,7 +1,7 @@
 ---
-# Store the .tar.gz source URL of a gitlab.freedesktop.org project's latest release
-# as a fact. GitLab returns releases newest first and has no draft or prerelease
-# flags, so the first entry is it.
+# Store the .tar.gz source URL of a gitlab.freedesktop.org project's latest release as a
+# fact. GitLab returns releases newest first and has no draft or prerelease flags, so the
+# first entry is it.
 #
 # Required vars:
 #   gitlab_release_project (int): numeric project ID, e.g. 121 for wayland
