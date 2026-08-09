@@ -38,7 +38,7 @@ Installed to `/usr/local/bin/` on the controller:
 
 - Each script is generated with one call per host in the `torrent` group, each built from that host's own
   `hostvars[host].torrent_root_directory` (falling back to the play host's value). The role's
-  `torrent_watch_directory` and `torrent_completed_directory` cannot be used here — a delegated task resolves
+  `torrent_watch_directory` and `torrent_completed_directory` cannot be used here: a delegated task resolves
   plain variables from the play host, so they would name one host's paths for every host, and which host that is
   would depend on render order. The scripts append the `watch/` and `completed/` subdirectory names instead.
 - `mvt`, `synct` and `unrart` keep going when one host, file or archive fails, and report at the end with a

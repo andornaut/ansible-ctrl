@@ -19,11 +19,11 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.mozilla.org/firefox/), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control |
 | [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources) |
-| display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly) — *tiling* |
-| [dunst](https://dunst-project.org/) | Notification daemon, built from source — *tiling* |
-| [eww](https://github.com/elkowar/eww) | Widget daemon — *tiling* |
+| display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly), *tiling* |
+| [dunst](https://dunst-project.org/) | Notification daemon, built from source, *tiling* |
+| [eww](https://github.com/elkowar/eww) | Widget daemon, *tiling* |
 | [file-roller](https://gitlab.gnome.org/GNOME/file-roller) | Default handler for archive MIME types |
-| [flameshot](https://flameshot.org/) | Screenshot tool's systemd user unit, tied to eww's tray — *tiling* |
+| [flameshot](https://flameshot.org/) | Screenshot tool's systemd user unit, tied to eww's tray, *tiling* |
 | [flatpak](https://flatpak.org/) | Flatpak runtime and Flathub apps |
 | fonts | System fonts |
 | gnome | GNOME Shell and gdm3, gnome only |
@@ -34,8 +34,8 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
 | [nct6687d](https://github.com/Fred78290/nct6687d) | DKMS Super I/O driver for Nuvoton chips on MSI boards (`desktop_install_nct6687d`) |
 | parental-controls | [malcontent](https://gitlab.freedesktop.org/pwithnall/malcontent) filter, web filter, and Chrome policies |
-| [pavolume](https://github.com/andornaut/pavolume) | PulseAudio volume controller — *tiling* |
-| [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source) — *tiling* |
+| [pavolume](https://github.com/andornaut/pavolume) | PulseAudio volume controller, *tiling* |
+| [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source), *tiling* |
 | theme | GTK themes, the GNOME colour scheme, and the flatpak theme override |
 | usb-autosuspend | udev rule pinning autosuspend off for `desktop_usb_no_autosuspend_vendor_ids` |
 

@@ -44,7 +44,7 @@ where a guessed value would fail silently.
 
 | Setting | Why |
 | --- | --- |
-| `games_retroarch_library_dir` | Where the host mounts the ROM library. Site data, so it is not in `defaults/` either: `host_vars/` must set it. The tag also asserts the library is mounted — an unmounted share looks exactly like an empty one |
+| `games_retroarch_library_dir` | Where the host mounts the ROM library. Site data, so it is not in `defaults/` either: `host_vars/` must set it. The tag also asserts the library is mounted: an unmounted share looks exactly like an empty one |
 | `games_retroarch_controller` | Names a key of `games_retroarch_controllers`. RetroArch's `input_*_btn` and `input_*_axis` are *physical* device indices, not RetroPad IDs, so a wrong value binds a different button rather than no-oping |
 | `games_retroarch_video_refresh_rate` | RetroArch derives the audio resampling ratio from it, so its 60.0 default mistimes every core on a high-refresh panel, heard as drift. "Estimate Screen Refresh Rate" in the menu reports it |
 | `games_retroid_library_dir`, `games_retroid_serial` | Baked into `syncretroid`. Asserted only when `games_install_retroid_sync` is on |
@@ -77,7 +77,7 @@ What the role owns, and the constraint that shapes it:
 - **`retroarch.cfg`, key by key.** The file holds thousands of keys; the role owns only those in
   `games_retroarch_required_settings`. Settings changed in the app persist, and the managed keys snap back.
 - **The cores directory.** Libretro cores are not packaged for apt or flatpak, so they come from the same nightly
-  buildbot the in-app Core Updater uses. Nightlies, so there is nothing to pin, and every run refetches — which
+  buildbot the in-app Core Updater uses. Nightlies, so there is nothing to pin, and every run refetches, which
   also repairs a core the flatpak runtime can no longer load after a runtime upgrade. A core no system runs is
   removed so it cannot linger in "Load Core". Each is dlopened inside the sandbox to read its reported name, which
   doubles as the load check. The set is the desktop (x64) column of the
@@ -87,7 +87,7 @@ What the role owns, and the constraint that shapes it:
 - **The playlists**, regenerated from the library rather than scanned in-app, so the ROM-directory-to-core
   association lives in `games_retroarch_systems`. Adding a ROM means re-running the `retroarch` tag.
 - **The per-core overrides and core options**, under `config/<library_name>/`, where `library_name` is what the
-  built core reports at runtime — a third name for the same core (the GameCube core is `dolphin` on the buildbot,
+  built core reports at runtime, a third name for the same core (the GameCube core is `dolphin` on the buildbot,
   `Dolphin` in its `.info`, and reports `dolphin-emu`). It is a property of the build, so the role asks the cores
   rather than writing it down.
 - **The shared thumbnail cache** in the library, the one thing RetroArch writes that hosts can share. Only the host

@@ -18,7 +18,7 @@ is what it is, and the failure modes.
 Already installed on the device: RetroArch, ES-DE, the standalone emulators (Dolphin, NetherSX2-Turnip), the
 sdcard folder layout, and the ES-DE custom systems. The ROM library must be mounted on this host.
 
-`syncretroid` checks the library mount, the sdcard root, and both apps before doing anything — the app check is
+`syncretroid` checks the library mount, the sdcard root, and both apps before doing anything. The app check is
 also how it confirms `adb` selected the handheld and not some other device, so `--serial` matters only when more
 than one is attached. It does not check the standalone emulators or the custom systems.
 
@@ -93,7 +93,7 @@ relative paths.
   which `syncretroid` discovers), or copy the staged cfg in with an on-device file manager.
 - **Changing a system's ES-DE short name strands its old directories.** `mirror_roms` and `configure_esde_cores`
   iterate the current `rom_dir_names` / `esde_cores` maps, so a name no longer in them is never visited and never
-  pruned — ES-DE keeps showing the old system alongside the new one, listing the same games from a copy that is
+  pruned: ES-DE keeps showing the old system alongside the new one, listing the same games from a copy that is
   never updated again. After editing a `rom_dir_names` value, remove three directories on the device by hand:
 
   ```bash
