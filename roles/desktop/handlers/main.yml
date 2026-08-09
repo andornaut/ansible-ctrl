@@ -22,8 +22,8 @@
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
 
-# hypridle is built and started by the niri role, applied after this one. The unit may not
-# exist yet on a --tags idle run, which failed_when below tolerates.
+# Built by the niri role, applied after this one, so the unit may not exist yet
+# on a --tags idle run; failed_when below tolerates that.
 - name: Restart hypridle
   ansible.builtin.systemd_service:
     name: hypridle.service
@@ -39,17 +39,16 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
-# logind reloads its configuration in place (CanReload=yes), so the idle-action drop-in takes
-# effect without a restart. Restarting it would be needless risk on a host with a live
-# graphical session.
+# CanReload=yes, so the drop-in takes effect without restarting logind under a
+# live graphical session.
 - name: Reload systemd-logind
   ansible.builtin.systemd_service:
     name: systemd-logind
     state: reloaded
   become: true
 
-# Oneshot with RemainAfterExit, so restart rather than start; it refetches every filter
-# list, so only a changed filter fires it.
+# Oneshot with RemainAfterExit, so restart rather than start. Refetches every
+# filter list, so only a changed filter fires it.
 - name: Recompile the malcontent web filter lists
   ansible.builtin.systemd_service:
     name: malcontent-webd-update.service
@@ -61,7 +60,7 @@
   become: true
   changed_when: true
 
-# GTK reads hicolor's icon-theme.cache in preference to scanning, so a new icon stays
+# GTK prefers hicolor's icon-theme.cache over scanning, so a new icon stays
 # invisible until it is rebuilt.
 - name: Update hicolor icon cache
   ansible.builtin.command: gtk-update-icon-cache --force /usr/share/icons/hicolor
@@ -73,9 +72,8 @@
   become: true
   changed_when: true
 
-# udev reads its rules as devices appear, so a rule installed now reaches an already-plugged
-# hub only if the rules are reloaded and the devices re-triggered. Two handlers, run in the
-# order defined here (not the order notified), and the reload has to come first.
+# Reload then re-trigger, so a new rule reaches already-plugged hubs. Handlers run
+# in definition order, so the reload must stay above.
 - name: Reload the udev rules
   ansible.builtin.command:
     argv:
@@ -85,8 +83,7 @@
   changed_when: false
   become: true
 
-# --action=change re-runs the rules against the USB devices already present, which re-asserts
-# power/control on the reset-prone hubs without a reboot.
+# --action=change re-asserts power/control on plugged hubs without a reboot.
 - name: Apply the udev rules to the USB devices
   ansible.builtin.command:
     argv:

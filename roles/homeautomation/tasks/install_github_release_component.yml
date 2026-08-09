@@ -1,32 +1,28 @@
 ---
-# Download the latest stable GitHub release of a component and install
-# a subpath of its archive to a destination directory.
-#
-# Skipped when the installed component's manifest.json already names the latest
-# tag. The archive is the repository source rather than a release asset, so the
-# manifest holds whatever the project committed: one that leaves a placeholder
-# there, or bumps the version after tagging, never matches and is downloaded
-# and reinstalled on every run. So is a component installed as a bare file,
-# which has no manifest to read.
+# Install a subpath of a GitHub project's latest stable release archive.
 #
 # Required vars:
-#   github_component_name (str): Display name (used in task names)
+#   github_component_name (str): display name, used in task names
 #   github_component_repo (str): "owner/repo"
-#   github_component_src  (str): Path inside the extracted archive (file or directory)
+#   github_component_src  (str): path inside the extracted archive
+#
 # Optional vars:
-#   github_component_dest (str): Destination directory on the target host
-#     (defaults to the Home Assistant custom_components/ directory)
+#   github_component_dest (str): destination directory, defaulting to Home
+#     Assistant's custom_components/
+#
+# Skipped when the installed manifest.json names the latest tag. The archive is
+# repository source, so a project that leaves a placeholder version there, or
+# bumps it after tagging, is reinstalled every run; so is a bare-file component,
+# which has no manifest.
 - name: Install the latest GitHub release of {{ github_component_name }}
   vars:
     github_component_dest_dir: >-
       {{ github_component_dest
       | default(homeautomation_homeassistant_required_volumes.config + '/custom_components/') }}
   block:
-    # Filter the release list rather than calling /releases/latest, which returns the release a
-    # project marks as latest: a component tracked here has shipped a newer stable release
-    # without moving that pointer, so following it would silently downgrade the install. The
-    # other roles' get_latest_release.yml follows the pointer for the opposite reason, to avoid
-    # picking up rolling builds published alongside real tags.
+    # The release list, not /releases/latest: a component tracked here has shipped
+    # a newer stable release without moving that pointer, and following it would
+    # silently downgrade the install.
     - name: Get releases of {{ github_component_name }}
       ansible.builtin.uri:
         url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
@@ -34,7 +30,7 @@
       register: homeautomation_github_component_releases
       retries: 3
       delay: 5
-      # 4xx is deterministic: retry only network errors and 5xx.
+      # Retry network errors and 5xx only; 4xx is deterministic.
       until: >-
         homeautomation_github_component_releases.status == 200 or
         (homeautomation_github_component_releases.status >= 400 and homeautomation_github_component_releases.status < 500)
@@ -47,8 +43,8 @@
           | selectattr('draft', 'equalto', false)
           | list | first).tag_name }}
 
-    # A missing directory, a missing manifest and an unreadable one all register
-    # as a failure, which leaves the version below empty and reinstalls.
+    # A missing or unreadable manifest fails here, leaving the version below empty,
+    # which reinstalls.
     - name: Read the installed manifest of {{ github_component_name }}
       ansible.builtin.slurp:
         src: "{{ github_component_dest_dir }}/{{ github_component_src | basename }}/manifest.json"

@@ -5,9 +5,8 @@
     - docker
     - matter
   block:
-    # OTBR and the host-networked Matter server each run a host mDNS responder;
-    # Avahi is a third. Multiple responders on UDP 5353 conflict, so Avahi and
-    # Matter/Thread cannot both run.
+    # OTBR, the host-networked Matter server and Avahi each run an mDNS responder,
+    # and they conflict on UDP 5353.
     - name: Check for mDNS service conflicts
       ansible.builtin.assert:
         that:
@@ -32,9 +31,8 @@
       ansible.builtin.import_tasks: avahi.yml
       when: homeautomation_install_avahi
 
-    # Ubuntu Server does not ship avahi-daemon, and systemd_service fails on a
-    # unit it cannot find whenever enabled is set, so a host that never had it
-    # would abort here before any container is configured.
+    # Ubuntu Server ships no avahi-daemon, and systemd_service fails on a unit it
+    # cannot find whenever enabled is set.
     - name: Check for the host Avahi units
       ansible.builtin.stat:
         path: "/usr/lib/systemd/system/{{ item }}"
@@ -50,7 +48,7 @@
         state: stopped
         enabled: false
       become: true
-      # Stop the socket first, b/c it can spawn the service
+      # The socket first: it can spawn the service.
       loop: "{{ homeautomation_avahi_units.results | default([]) }}"
       loop_control:
         label: "{{ item.item }}"
@@ -96,22 +94,21 @@
         - mosquitto
         - voice
 
-    # Before the imports below, so a component being removed releases its name,
-    # ports and devices before another run claims them.
+    # Before the imports below, so a removed component releases its name, ports
+    # and devices first.
     - name: Remove the components this host does not install
       ansible.builtin.import_tasks: teardown.yml
       tags: teardown
 
-    # After the prerequisites, which read the passwd database its service
-    # account is checked against, and before Home Assistant, which is where the
-    # broker container is defined.
+    # After the prerequisites, which read the passwd database, and before Home
+    # Assistant, where the broker container is defined.
     - name: Import Mosquitto tasks
       ansible.builtin.import_tasks: mosquitto.yml
       tags:
         - homeassistant
         - mosquitto
 
-    # Must come first, because it creates the shared bridge network
+    # First: it creates the shared bridge network.
     - name: Import Home Assistant Docker tasks
       ansible.builtin.import_tasks: docker_homeassistant.yml
       tags: homeassistant
@@ -121,13 +118,13 @@
       tags: homeassistant
       when: homeautomation_homeassistant_patch_aioruckus_head
 
-    # Must come before docker_frigate, b/c Frigate may depend on Llama.cpp
+    # Before docker_frigate, which may depend on llama.cpp.
     - name: Import LLM Docker tasks
       ansible.builtin.import_tasks: docker_llm.yml
       tags: llm
       when: homeautomation_install_llm
 
-    # OTBR must come before the matter server containers
+    # Before the matter server containers.
     - name: Import OTBR Docker tasks
       ansible.builtin.import_tasks: docker_otbr.yml
       tags: matter
@@ -143,7 +140,7 @@
       tags: matter
       when: homeautomation_install_legacy_pythonmatterserver
 
-    # The remaining do not have a required ordering
+    # The rest are unordered.
     - name: Import ESPHome Docker tasks
       ansible.builtin.import_tasks: docker_esphome.yml
       tags: esphome

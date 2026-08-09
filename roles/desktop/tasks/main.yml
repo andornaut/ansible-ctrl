@@ -1,8 +1,6 @@
 ---
-# desktop_user names the account this role's user-scoped tasks act on. It defaults to
-# primary_user (inventory data), not a fact describing who ansible runs as, which would resolve
-# to root under the cert-renewal cron. This assert is the backstop; tags: always so a --tags
-# run cannot skip it.
+# The account this role's user-scoped tasks act on. Defaults to primary_user
+# (inventory data), not to whoever ansible connects as, which is root under cron.
 - name: Validate desktop_user
   ansible.builtin.assert:
     that:
@@ -30,9 +28,8 @@
       Set it in host_vars for this host.
     success_msg: Desktop environment "{{ desktop_environment }}" is valid
 
-# Fail here rather than in default_browser.yml, which resolves the value through a dict
-# lookup in vars/main.yml and so would raise an opaque templating error, and only after
-# chrome.yml, flatpak.yml and firefox.yml have already purged and pinned packages.
+# Here rather than in default_browser.yml, which would raise an opaque templating
+# error, and only after the browser installs have purged and pinned packages.
 - name: Validate default browser
   ansible.builtin.assert:
     that:
@@ -42,8 +39,7 @@
       desktop_default_browser must be "firefox" or "google-chrome", and cannot be
       "firefox" when desktop_install_firefox is false.
     success_msg: Default browser "{{ desktop_default_browser }}" is valid
-  # Tagged browser to match chrome/firefox/default_browser: a `--tags browser` run must
-  # validate the pairing first, or default_browser.yml fails opaquely on a removed Firefox.
+  # Tagged browser so a --tags browser run validates the pairing first.
   tags: browser
 
 - name: Install common system packages
@@ -91,8 +87,7 @@
         state: absent
       become: true
 
-    # Both ly (ly@tty2) and lemurs run their greeter on tty2, so free it before either
-    # enables its unit. Shared here rather than duplicated in each DM's task file.
+    # ly and lemurs both greet on tty2, so free it before either unit is enabled.
     - name: Prevent TTY conflicts
       ansible.builtin.systemd_service:
         name: getty@tty2.service
@@ -123,8 +118,7 @@
       ansible.builtin.import_tasks: coolercontrol.yml
       tags: coolercontrol
 
-    # Imported unconditionally: each file gates its install on the feature flag
-    # and reconciles the disabled state (removing its managed drop-ins) when off.
+    # Unconditional: each file gates on its own flag and removes its drop-ins when off.
     - name: Install it87 fan control driver
       ansible.builtin.import_tasks: it87.yml
       tags: it87
@@ -160,9 +154,8 @@
       ansible.builtin.import_tasks: firefox.yml
       tags: browser
 
-    # After chrome.yml and firefox.yml, which install the .desktop files it selects
-    # between. Shares the browser tag with them, so that `--tags browser`
-    # still repoints the default browser after switching install methods.
+    # After chrome.yml and firefox.yml, which install the .desktop files it picks
+    # between, and sharing their tag so --tags browser repoints the default.
     - name: Configure the default browser
       ansible.builtin.import_tasks: default_browser.yml
       tags: browser
@@ -171,9 +164,7 @@
       ansible.builtin.import_tasks: fonts.yml
       tags: fonts
 
-    # After dconf.yml, which installs the dconf-cli that the GNOME appearance keys are set
-    # with, and after flatpak.yml, which installs the flatpak the theme override is applied
-    # with.
+    # After dconf.yml (dconf-cli) and flatpak.yml (the theme override).
     - name: Configure GTK themes
       ansible.builtin.import_tasks: theme.yml
       tags: theme
@@ -191,8 +182,8 @@
       ansible.builtin.import_tasks: lact.yml
       tags: lact
 
-    # No `when`, unlike the feature flags above: the file runs even when the flag is off, to
-    # lift the filters a previous run enforced. It branches on the flag itself.
+    # No `when`: the file branches on the flag itself, so that turning it off lifts
+    # the filters an earlier run enforced.
     - name: Configure parental controls
       ansible.builtin.import_tasks: parental_controls.yml
       tags: parental-controls

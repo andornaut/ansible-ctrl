@@ -1,8 +1,7 @@
 ---
-# community.docker reports a missing daemon as a connection error against the
-# socket, which reads as a broken install rather than an absent one.
-# become: true, matching the container task below, so the probe reports on the
-# account that will run it rather than on whoever ansible connects as.
+# community.docker reports a missing daemon as a socket connection error, which
+# reads as a broken install rather than an absent one. become: true to match the
+# container task, so the probe answers for the account that runs it.
 - name: Require Docker
   become: true
   block:
@@ -16,11 +15,8 @@
               It comes from the docker role, which webservers.yml applies only
               once its commented-out entry is uncommented for a host's first
               run.
-          # Three packages, not one: the docker role purges Ubuntu's docker.io
-          # and installs the engine, the compose plugin and the SDK separately,
-          # so each of the three can be absent while the others work.
-          # docker_compose_v2 below needs the plugin; the restart handler's
-          # docker_container needs the SDK.
+          # Three separate packages, any of which can be absent alone:
+          # docker_compose_v2 needs the plugin, the restart handler needs the SDK.
           - name: The Docker Compose plugin
             probe: docker compose version
             hint: "It is the docker-compose-plugin package, which the docker role installs."
@@ -38,8 +34,7 @@
     owner: root
     group: root
   loop:
-    # The parent as well: nothing created it, so it was left with whatever mode
-    # the first mkdir gave it, and a stray setuid bit on it went unnoticed.
+    # The parent too, which nothing else creates or checks the mode of.
     - "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.config }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.www }}"
@@ -62,10 +57,9 @@
         nginx:
           container_name: nginx
           image: "{{ letsencrypt_nginx_docker_image }}"
-          # The master stays root to read the config and bind 80 and 443, then
-          # drops to the worker uid, so only the four capabilities that takes
-          # are kept: NET_BIND_SERVICE for the ports, SETUID and SETGID for the
-          # drop, CHOWN for the log and cache paths it hands to the worker.
+          # The master reads the config and binds 80/443 as root, then drops to
+          # the worker uid: NET_BIND_SERVICE for the ports, SETUID/SETGID for the
+          # drop, CHOWN for the log and cache paths handed over.
           cap_drop:
             - ALL
           cap_add:
@@ -76,8 +70,8 @@
           logging: "{{ letsencrypt_nginx_default_logging }}"
           network_mode: host
           restart: unless-stopped
-          # The master drops privileges with setuid() rather than by exec'ing a
-          # setuid binary, and only the latter is what this blocks.
+          # Safe: the master drops privileges with setuid(), not by exec'ing a
+          # setuid binary, which is all this blocks.
           security_opt:
             - no-new-privileges:true
           volumes: "{{ required_volumes + letsencrypt_nginx_docker_extra_volumes }}"

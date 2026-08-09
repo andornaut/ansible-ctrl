@@ -1,7 +1,7 @@
 ---
-# Fetch a gitlab.freedesktop.org project's latest release and store the URL of its .tar.gz
-# source archive as a fact. GitLab returns releases newest first and has no draft/prerelease
-# flags, so the newest entry is the latest release.
+# Store the .tar.gz source URL of a gitlab.freedesktop.org project's latest release
+# as a fact. GitLab returns releases newest first and has no draft or prerelease
+# flags, so the first entry is it.
 #
 # Required vars:
 #   gitlab_release_project (int): numeric project ID, e.g. 121 for wayland
@@ -13,7 +13,7 @@
   register: niri_gitlab_release_response
   retries: 3
   delay: 5
-  # 4xx (rate limit, missing project) is deterministic: retry only network errors and 5xx.
+  # Retry network errors and 5xx only; 4xx (rate limit, missing project) is deterministic.
   until: >-
     niri_gitlab_release_response.status == 200 or
     (niri_gitlab_release_response.status >= 400 and niri_gitlab_release_response.status < 500)

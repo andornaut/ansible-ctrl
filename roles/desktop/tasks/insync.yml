@@ -27,10 +27,8 @@
         install_recommends: false
 
     - name: Fix Wayland compatibility
-      # Workaround error when starting insync in Wayland (niri window manager):
-      # QSocketNotifier: Can only be used with threads started with QThread
-      # /usr/lib/insync/insync: symbol lookup error: /opt/amdgpu/lib/x86_64-linux-gnu/libEGL_mesa.so.0:
-      # undefined symbol: wl_display_create_queue_with_name
+      # Insync's bundled libwayland-client is too old for the amdgpu libEGL under
+      # Wayland: "undefined symbol: wl_display_create_queue_with_name".
       ansible.builtin.file:
         path: /usr/lib/insync/libwayland-client.so.0
         state: absent

@@ -16,8 +16,7 @@
       ansible.builtin.package_facts:
 
     - name: Upgrade flatpak system packages
-      # LC_ALL=C pins the "Nothing to do." string the changed_when check greps for;
-      # a localized flatpak would otherwise always report changed.
+      # LC_ALL=C pins the "Nothing to do." string changed_when greps for.
       ansible.builtin.command: flatpak --noninteractive --system upgrade
       environment:
         LC_ALL: C

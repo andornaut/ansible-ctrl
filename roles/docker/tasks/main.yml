@@ -1,7 +1,6 @@
 ---
-# docker_user names the account user-scoped tasks act on; "root" would write state to /root.
-# Must not derive from a fact describing who ansible runs as (root under the cert-renewal cron).
-# tags: always so a --tags run cannot skip the backstop.
+# The account user-scoped tasks act on. Must not resolve to root, and must not
+# derive from whoever ansible connects as, which is root under cron.
 - name: Validate docker_user
   ansible.builtin.assert:
     that:

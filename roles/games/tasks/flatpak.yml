@@ -1,8 +1,6 @@
 ---
-# The flatpak and flatpak_remote modules both resolve the flatpak executable and fail if
-# it is absent. The desktop role installs it too, but package installs stay scoped to
-# their own role, so games.yml can run on a host that has never had the desktop role
-# applied.
+# The desktop role installs flatpak too, but package installs stay scoped to their
+# own role so games.yml runs on a host the desktop role never touched.
 - name: Install flatpak package
   ansible.builtin.apt:
     name: flatpak
@@ -14,8 +12,7 @@
   become: true
   become_user: "{{ games_user }}"
   block:
-    # The desktop role adds this remote for desktop_user. A per-user flatpak
-    # installation has its own remotes, so games_user needs its own.
+    # Per-user installations have their own remotes, so games_user needs its own.
     - name: Add flathub repository
       community.general.flatpak_remote:
         name: flathub
@@ -32,8 +29,7 @@
         name: "{{ games_flatpak_extensions }}"
         method: user
 
-    # `flatpak override` rewrites the per-user override file unconditionally and reports
-    # nothing, so compare `--show` output either side of it to report changes honestly.
+    # `flatpak override` reports nothing, so diff `--show` either side of it.
     - name: Apply flatpak overrides
       ansible.builtin.shell:
         cmd: |
@@ -43,8 +39,7 @@
           [ "${before}" = "${after}" ] || echo CHANGED
         executable: /bin/bash
       vars:
-        # The blanket grants plus this app's own. Both defaulted: an app with no entry of its own is
-        # the common case, and "default" is absent from a games_flatpak_overrides that sets none.
+        # Blanket grants plus this app's own; either may be absent.
         grants: >-
           {{ (games_flatpak_overrides['default'] | default([]))
              + (games_flatpak_overrides[item] | default([])) }}

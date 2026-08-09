@@ -1,11 +1,10 @@
 ---
-# Hyprland ecosystem tools. Every component uses the shared cmake sequence in
-# build_hypr_component.yml; the calls below supply only what differs. Order matters:
+# Hyprland ecosystem tools, each built by build_hypr_component.yml. Ordered:
 # hyprutils, hyprlang, hyprgraphics and hyprwayland-scanner are build dependencies of
 # hypridle, hyprlock and hyprpaper.
 #
-# Each include is wrapped in a tagged block; tagging a dynamic include directly filters
-# out the included tasks, while a block's tag propagates into them.
+# Each include is wrapped in a tagged block, a tag on a dynamic include filtering out
+# what it includes rather than propagating into it.
 
 - name: Install hyprutils
   tags: [hyprutils]
@@ -37,7 +36,7 @@
 - name: Install hyprwayland-scanner
   tags: [hyprscanner]
   block:
-    # Builds as root; no named target, so cmake builds its default.
+    # Builds as root, and takes cmake's default target.
     - name: Build and install hyprwayland-scanner
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:

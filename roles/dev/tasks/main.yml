@@ -1,6 +1,5 @@
 ---
 # dev_user must not resolve to root, or user-scoped tasks write to /root. See README.
-# tags: always so a --tags run cannot skip the backstop.
 - name: Validate dev_user
   ansible.builtin.assert:
     that:
@@ -20,7 +19,7 @@
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
 
-# Programming languages must be installed before tools that depend on them
+# Languages first: the tools below depend on them.
 - name: Import go tasks
   ansible.builtin.import_tasks: go.yml
   tags: go
@@ -80,9 +79,8 @@
   tags: virtualbox
   when: dev_install_virtualbox | bool
 
-# Reconcile the disabled state: drop the KVM blacklist so it does not keep KVM
-# disabled after VirtualBox is turned off. VirtualBox packages and modules are
-# left in place; a full teardown is out of scope.
+# Drop the KVM blacklist so it does not outlive the flag. VirtualBox packages and
+# modules stay; a full teardown is out of scope.
 - name: Remove the VirtualBox KVM blacklist when disabled
   ansible.builtin.file:
     path: /etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf

@@ -1,5 +1,5 @@
 ---
-# Install system-wide nodejs/npm for use by all users or for Ansible tasks, where nvm may not be sourced.
+# System-wide, for other users and for Ansible tasks, which do not source nvm.
 - name: Install system nodejs and npm
   ansible.builtin.apt:
     name:
@@ -9,7 +9,7 @@
     update_cache: true
   become: true
 
-# Install nvm for user-specific nodejs/npm management
+# nvm, for per-user node versions.
 - name: Get latest nvm release
   ansible.builtin.include_tasks: get_latest_release.yml
   vars:

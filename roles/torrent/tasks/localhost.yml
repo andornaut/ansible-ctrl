@@ -18,7 +18,7 @@
     cron_file: /etc/cron.d/ansible-role-torrent
     user: "{{ torrent_local_user }}"
     minute: "*/2"
-    # mvt skips any watch directory that does not exist, so no test -d guard is needed here.
+    # mvt skips a watch directory that does not exist, so no test -d guard.
     job: /usr/local/bin/mvt --quiet
   become: true
   delegate_to: localhost
@@ -29,8 +29,8 @@
     cron_file: /etc/cron.d/ansible-role-torrent
     user: "{{ torrent_local_user }}"
     minute: "*/2"
-    # unrart runs after a successful sync: extraction is cheap, and it skips the
-    # dot-directories that the other writers to incoming/ use for quarantine.
+    # After a successful sync: extraction is cheap, and unrart skips the
+    # dot-directories the other writers to incoming/ quarantine into.
     job: >-
       test -d "{{ torrent_local_incoming_directory }}"
       && /usr/local/bin/synct --quiet >> {{ torrent_local_synct_log_file }} 2>&1

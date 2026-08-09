@@ -2,39 +2,33 @@
 - name: Install common system packages
   ansible.builtin.apt:
     name:
-      # adwaita-icon-theme supplies the Adwaita cursor theme, selected by
-      # gtk-cursor-theme-name in the dotfiles:
-      # https://github.com/andornaut/dotfiles/blob/master/$HOME/.config/gtk-3.0/settings.ini
-      # The GTK widget themes are installed by theme.yml instead, which also selects one.
+      # Cursor theme, selected by gtk-cursor-theme-name in the dotfiles. GTK widget
+      # themes come from theme.yml.
       - adwaita-icon-theme
       - desktop-file-utils
       - file-roller
-      # flameshot from apt, not flatpak: the sandboxed flatpak captures through the
-      # org.freedesktop.portal.Screenshot portal, which no backend implements on a
-      # minimal X11 WM, so capture times out. The apt build grabs X11 directly.
+      # apt, not flatpak: the sandboxed build captures through the Screenshot
+      # portal, which no backend implements on a minimal X11 WM.
       - flameshot
-      # gnome-keyring is only a Recommends of ubuntu-desktop-minimal, which
-      # gnome.yml installs with recommends disabled, so it must be listed here.
+      # Only a Recommends of ubuntu-desktop-minimal, which gnome.yml installs
+      # with recommends disabled.
       - gnome-keyring
       - gvfs-backends
       - imagemagick
       - jq
       - libnotify-bin
       - network-manager
-      # pavucontrol supports per-app routing and port selection that the GNOME
-      # sound panel does not, so it is installed on every desktop.
+      # Per-app routing and port selection the GNOME sound panel lacks.
       - pavucontrol
       - playerctl
       - python3-pip
       - python3-setuptools
       - xdg-user-dirs
       - xdg-utils
-      # xdotool is X11-only, but the shell functions in ~/.bashrc are sourced on every
-      # desktop, GNOME included, so it cannot live in the bspwm role.
+      # X11-only, but ~/.bashrc sources functions using it on every desktop.
       - xdotool
-      # yaru-theme-icon is the icon theme selected by /etc/gtk-3.0/settings.ini, and
-      # the only theme packaged for Ubuntu that ships system-software-update-symbolic,
-      # which eww.yml copies into the hicolor theme.
+      # Icon theme selected by /etc/gtk-3.0/settings.ini, and the only packaged one
+      # shipping system-software-update-symbolic, which eww.yml copies to hicolor.
       - yaru-theme-icon
       - zenity
     state: latest
@@ -42,8 +36,7 @@
     update_cache: true
   become: true
 
-# Papers (GTK4) is the successor to Evince and replaced it as GNOME's document
-# viewer. It is only packaged on Ubuntu >= 26.04; fall back to Evince on older.
+# Papers replaced Evince, but is only packaged on Ubuntu >= 26.04.
 - name: Install document viewer
   ansible.builtin.apt:
     name: "{{ 'papers' if ansible_facts['distribution_version'] is version('26.04', '>=') else 'evince' }}"
@@ -52,9 +45,8 @@
     update_cache: true
   become: true
 
-# Disable systemd-networkd, which conflicts with NetworkManager and causes a
-# 2-minute boot delay (systemd-networkd-wait-online times out waiting for
-# interfaces that NetworkManager manages).
+# Conflicts with NetworkManager: systemd-networkd-wait-online times out on
+# NetworkManager's interfaces, costing 2 minutes at boot.
 - name: Disable systemd-networkd
   ansible.builtin.systemd_service:
     name: "{{ item }}"

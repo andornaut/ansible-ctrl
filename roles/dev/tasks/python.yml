@@ -2,7 +2,7 @@
 - name: Install Python system packages
   ansible.builtin.apt:
     name:
-      # Avoid error: fatal error: ffi.h: No such file or directory
+      # ffi.h, for building C extensions.
       - libffi-dev
       - pipenv
       - python3-dev

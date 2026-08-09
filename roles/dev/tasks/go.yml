@@ -6,7 +6,7 @@
   register: dev_go_releases
   retries: 3
   delay: 5
-  # 4xx is deterministic: retry only network errors and 5xx.
+  # Retry network errors and 5xx only; 4xx is deterministic.
   until: >-
     dev_go_releases.status == 200 or
     (dev_go_releases.status >= 400 and dev_go_releases.status < 500)
@@ -15,8 +15,7 @@
   ansible.builtin.set_fact:
     dev_go_version: "{{ dev_go_releases.json[0].version }}"
 
-# unarchive can't compare versions before extracting, so the installed version
-# (from `go version`) gates the download and extract instead.
+# unarchive cannot compare versions before extracting, so gate on `go version`.
 - name: Get installed Go version
   ansible.builtin.command:
     cmd: /usr/local/go/bin/go version
@@ -50,8 +49,7 @@
         dest: "{{ dev_go_tmp.path }}/go.tar.gz"
         mode: "0644"
 
-    # unarchive merges into an existing "go" directory rather than replacing it,
-    # so remove the old tree first.
+    # unarchive merges into an existing tree rather than replacing it.
     - name: Remove old Go installation
       ansible.builtin.file:
         path: /usr/local/go

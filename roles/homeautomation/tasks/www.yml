@@ -33,8 +33,7 @@
         src: "{{ homeautomation_advanced_camera_card_tmp.path }}/advanced-camera-card.zip"
         dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
         remote_src: true
-        # -j flattens paths, dropping the archive's ./dist directory so files
-        # land directly in the destination.
+        # -j flattens the archive's ./dist directory into the destination.
         extra_opts: "-j"
       become: true
   always:

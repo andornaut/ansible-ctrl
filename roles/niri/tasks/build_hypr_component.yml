@@ -1,8 +1,7 @@
 ---
-# Build and install one github.com/hyprwm/{name} component from its latest stable
-# release, using the shared cmake commands in vars/main.yml and the shared build
-# scaffold in build_component.yml. Post-install steps (enabling a systemd unit)
-# belong at the call site.
+# Build one github.com/hyprwm/{name} component from its latest stable release, with
+# the cmake commands in vars/main.yml and the scaffold in build_component.yml.
+# Post-install steps belong at the call site.
 #
 # Required vars:
 #   hypr_component_name (str): repository name under github.com/hyprwm/, e.g. "hyprlock"

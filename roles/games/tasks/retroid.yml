@@ -1,13 +1,9 @@
 ---
-# The handheld is not an inventory host: it is a USB peripheral of the controller, which is also
-# where the ansible-ctrl checkout and the ROM library mount live. So the command is installed on the
-# controller rather than on the host being converged, and games_install_retroid_sync is set in the
-# host_vars of the one host that is the controller.
+# The handheld is a USB peripheral of the controller, not an inventory host, so the
+# command is installed on the controller rather than on the host being converged.
 
-# The command is one file on the controller, so two hosts enabling the flag would render it from
-# different host_vars and overwrite each other on every run. run_once would not catch that: it
-# evaluates the condition against the play's first host only, so a run where that host has the flag
-# off would skip the install for the host that has it on.
+# One file on the controller, so two hosts with the flag set would overwrite each
+# other every run. run_once would not catch it: it tests the play's first host only.
 - name: Assert only one host installs syncretroid
   ansible.builtin.assert:
     that:
@@ -34,11 +30,10 @@
       both be set in host_vars/ for this host. Both are site data, so the role has no default.
     success_msg: syncretroid inputs are set
 
-# A wrapper rather than a copy of the script: files/retroid/syncretroid.py runs from the role
-# directory, reading the role's vars/main.yml and profile.yml beside it, so an edit to any of the
-# three applies on the next run. Only a change to the library path, the adb serial or the location of
-# the checkout itself needs this task re-run, since the wrapper bakes in all three (which is also why
-# the command takes no arguments).
+# A wrapper, not a copy: the script runs from the role directory and reads the
+# vars and profile beside it, so edits to any of them apply without re-running
+# this. The wrapper bakes in the library path, adb serial and checkout location,
+# which is why the command takes no arguments.
 - name: Install syncretroid on the controller
   ansible.builtin.template:
     src: syncretroid.j2

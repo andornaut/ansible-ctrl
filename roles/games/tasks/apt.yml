@@ -2,26 +2,25 @@
 - name: Install common system packages
   ansible.builtin.apt:
     name:
-      # gamemode adjusts the CPU governor and process priority during play.
-      # Flatpak games call gamemoderun, which talks to the host daemon over D-Bus.
+      # CPU governor and process priority during play. Flatpak games reach the
+      # host daemon through gamemoderun over D-Bus.
       - gamemode
-      # For `chdman` to create .chd archives
+      # chdman, for .chd archives.
       - mame-tools
-      # mangohud is the performance overlay for native games. Flatpak games load
-      # the Vulkan layer extension installed by flatpak.yml instead.
+      # Performance overlay for native games; flatpak games use the Vulkan layer
+      # extension from flatpak.yml.
       - mangohud
-      # retroarch.yml copies the ~600MB BIOS set out of the ROM library with rsync, which
-      # compares size and mtime rather than checksumming every file across the network.
+      # retroarch.yml copies the ~600MB BIOS set out of the ROM library with it.
       - rsync
-      # Configures udev rules to support gamepads, etc.
+      # udev rules for gamepads.
       - steam-devices
     state: latest
     install_recommends: false
     update_cache: true
   become: true
 
-# Only packaged on Ubuntu >= 26.04. Native games use this binary; flatpak games
-# load the Vulkan layer extension installed by flatpak.yml instead.
+# Only packaged on Ubuntu >= 26.04, and only native games use it; flatpak games
+# use the Vulkan layer extension from flatpak.yml.
 - name: Install gamescope
   ansible.builtin.apt:
     name: gamescope

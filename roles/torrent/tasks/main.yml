@@ -1,7 +1,6 @@
 ---
-# torrent_user names the account this role acts on, so a wrong value acts on the wrong
-# account. It defaults to primary_user (inventory data); this assert is the backstop
-# against it resolving to root. tags: always so a --tags run cannot skip it.
+# The account this role acts on. Defaults to primary_user (inventory data), and must
+# not resolve to root.
 - name: Validate torrent_user
   ansible.builtin.assert:
     that:

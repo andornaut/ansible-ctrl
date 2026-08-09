@@ -2,8 +2,8 @@
 - name: Install OrcaSlicer
   tags: orcaslicer
   block:
-    # flatpak/flatpak_remote modules need the flatpak binary. Install it here (not via the
-    # desktop role) so hobbies.yml runs on a host that never had the desktop role applied.
+    # Here rather than via the desktop role, so hobbies.yml runs on a host the
+    # desktop role never touched.
     - name: Install flatpak package
       ansible.builtin.apt:
         name: flatpak
@@ -26,10 +26,9 @@
             name: com.orcaslicer.OrcaSlicer
             method: user
 
-        # WebKit env works around the Devices-tab crash:
+        # Works around the Devices-tab crash:
         # https://github.com/OrcaSlicer/OrcaSlicer/issues/10756
-        # `flatpak override` rewrites the override file unconditionally and reports nothing;
-        # diff `--show` either side to detect a real change.
+        # `flatpak override` reports nothing, so diff `--show` either side of it.
         - name: Configure OrcaSlicer WebKit environment
           ansible.builtin.shell:
             cmd: |

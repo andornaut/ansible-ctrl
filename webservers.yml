@@ -1,17 +1,8 @@
 ---
-# The renewal cron job that re-runs this playbook is set by the role, on the host whose
-# host_vars sets letsencrypt_nginx_install_renewal_cron. It used to be a second play here,
-# against localhost, which no tag selected: the nightly run passes --tags letsencrypt and so
-# never reconciled it, and only a full run did. Being in the role, it is now reconciled by
-# the run it schedules.
 - name: Apply letsencrypt_nginx role
   hosts: webservers
-  # Identical to the block in homeautomation.yml and msmtp.yml, the other two
-  # playbooks that read a credential. See the reasoning in homeautomation.yml.
-  #
-  # This one also guards the renewal cron, which runs this playbook as root under
-  # sops exec-env: a store it cannot read now stops the run instead of reissuing
-  # nothing and reporting success.
+  # See homeautomation.yml. Also guards the renewal cron, which re-runs this
+  # playbook under sops exec-env.
   pre_tasks:
     - name: Require the credentials this play reads
       ansible.builtin.assert:

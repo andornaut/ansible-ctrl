@@ -6,8 +6,7 @@
     service_account_uid: "{{ homeautomation_piper_uid }}"
     service_account_paths:
       - "{{ homeautomation_piper_required_volumes.data }}"
-    # Downloaded voice models, not credentials, but nothing outside the service
-    # reads them either.
+    # Downloaded voice models; nothing outside the service reads them.
     service_account_mode: "0700"
 
 - name: Create the Whisper service account
@@ -88,10 +87,8 @@
           image: "{{ homeautomation_whisper_docker_image }}"
           cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           command: "{{ homeautomation_whisper_command }}"
-          # faster-whisper fetches its tokenizer through huggingface_hub, which
-          # caches under $HOME rather than --data-dir. The uid has no passwd
-          # entry, so $HOME would be / and unwritable; pointing it at the volume
-          # also stops the tokenizer being re-downloaded on every restart.
+          # huggingface_hub caches the tokenizer under $HOME, not --data-dir, and
+          # the uid has no passwd entry, so $HOME would be / and unwritable.
           environment:
             HOME: /data
           logging: "{{ homeautomation_default_logging }}"

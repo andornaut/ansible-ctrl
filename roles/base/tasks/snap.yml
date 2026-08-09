@@ -2,8 +2,7 @@
 - name: Remove snap
   become: true
   block:
-    # Purging snapd also removes ubuntu-server-minimal (hard-dependency); nothing else is
-    # orphaned. See README.
+    # Also removes ubuntu-server-minimal, which hard-depends on snapd. See README.
     - name: Purge and pin snap packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
@@ -25,16 +24,15 @@
         state: absent
       loop: "{{ base_snap_directories_result.files + ['/root/snap', '/var/cache/snapd'] }}"
 
-    # Purging snapd leaves dangling .wants symlinks in per-user ~/.config/systemd/user;
-    # resolved by unit name, they outlive the units and systemd reports not-found at login.
+    # Purging snapd leaves dangling .wants symlinks in ~/.config/systemd/user,
+    # which systemd reports as not-found at login.
     - name: Find user systemd unit directories
       ansible.builtin.find:
         paths: /home
         file_type: directory
       register: base_home_directories_result
 
-    # snap.* matches the per-snap units; snapd.* matches snapd's own session-agent units,
-    # which snap.* misses (it requires a literal dot after "snap").
+    # snap.* misses snapd's own session-agent units: it needs a literal dot.
     - name: Find leftover snap enable symlinks
       ansible.builtin.find:
         paths: "{{ (base_home_directories_result.files | map(attribute='path') | list + ['/root'])

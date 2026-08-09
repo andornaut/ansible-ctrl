@@ -1,6 +1,5 @@
 ---
-# Before the build dependencies, so a host without a toolchain fails in a
-# sentence rather than after an apt install and a clone.
+# Before the build dependencies, so a host without a toolchain fails early.
 - name: Require the Rust toolchain
   ansible.builtin.include_tasks: require_tools.yml
   vars:
@@ -52,8 +51,7 @@
       notify: Restart eww
       become: true
   always:
-    # A release build leaves ~1GB of cargo output, and /tmp is a tmpfs at half of RAM, so a few
-    # leaked runs exhaust it.
+    # ~1GB of cargo output, on a /tmp tmpfs sized at half of RAM.
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ desktop_eww_tmp.path }}"
@@ -61,10 +59,9 @@
       when: desktop_eww_tmp.path is defined
       become: true
 
-# eww's systray resolves StatusNotifierItem icons through the hicolor fallback only, ignoring
-# gtk-icon-theme-name. update-notifier publishes system-software-update-symbolic, which hicolor
-# does not ship, so eww logs a warning every start. Copy it from Yaru (the only Ubuntu-packaged
-# theme that has it) into hicolor. The Yaru file is a symlink, so remote_src copies the target.
+# eww's systray resolves icons through hicolor only, which does not ship the icon
+# update-notifier publishes. Yaru is the only Ubuntu-packaged theme that has it.
+# The Yaru file is a symlink, so remote_src copies the target.
 - name: Install system-software-update-symbolic into the hicolor icon theme
   ansible.builtin.copy:
     src: /usr/share/icons/Yaru/scalable/apps/software-updater-symbolic.svg
@@ -78,9 +75,8 @@
 
 - name: Configure eww service
   block:
-    # eww is under /usr/local, so its unit belongs in /usr/local/lib/systemd/user.
-    # /etc/systemd/user is reserved for the administrator and outranks it, so a copy left there
-    # would silently shadow this one.
+    # eww is under /usr/local, so its unit belongs here. /etc/systemd/user is the
+    # administrator's and outranks it, so a copy left there would shadow this one.
     - name: Create the local systemd user unit directory
       ansible.builtin.file:
         path: /usr/local/lib/systemd/user
@@ -103,9 +99,8 @@
 
           [Service]
           Type=exec
-          # The daemon does not exit on SIGTERM once its windows are mapped, so stop it through
-          # `eww kill` (ExecStop) instead. TimeoutStopSec and ExecStartPre kill are backstops
-          # against a surviving server that would refuse to serve ("Eww server already running").
+          # The daemon ignores SIGTERM once its windows are mapped, so ExecStop uses
+          # `eww kill`. The timeout and ExecStartPre catch a server that survives anyway.
           TimeoutStopSec=5
           ExecStartPre=-/usr/local/bin/eww kill
           ExecStart=/usr/local/bin/eww daemon --no-daemonize --logs

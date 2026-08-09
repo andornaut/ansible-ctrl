@@ -1,9 +1,7 @@
 ---
-# Associate genuine archive formats with GNOME file-roller as the default
-# handler for the desktop user (desktop_file_roller_mime_types in defaults).
-# mimeapps.list is written directly rather than shelling out to xdg-mime, which
-# resolves the path from $HOME and so needs the environment fixed up under
-# become_user.
+# Default archive handler for desktop_user; formats in
+# desktop_file_roller_mime_types. mimeapps.list is written directly rather than
+# via xdg-mime, which resolves its path from $HOME.
 - name: Set file-roller as the default archive handler
   become: true
   become_user: "{{ desktop_user }}"

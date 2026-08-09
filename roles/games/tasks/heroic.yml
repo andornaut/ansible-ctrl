@@ -1,19 +1,16 @@
 ---
-# Enforce Heroic's install and wine-prefix paths so they stay under games_heroic_dir and match the
-# flatpak filesystem grant, plus its close behaviour. config.json is owned and rewritten by Heroic,
-# so only these keys are merged; the rest is left intact. It exists only after Heroic has run once;
-# on a fresh host it is absent, so this warns and makes no change (Heroic writes it on first launch,
-# the next converge moves it under games_heroic_dir).
+# Keep Heroic's install and wine-prefix paths under games_heroic_dir, matching the
+# flatpak filesystem grant. config.json is Heroic's, so only these keys are merged.
+# It exists only after a first launch; before that this warns and changes nothing.
 - name: Check whether Heroic is running for games_user
   ansible.builtin.command:
     cmd: pgrep -u {{ games_user }} -f heroic-run
   register: games_heroic_running
   changed_when: false
-  # pgrep exits 0 (found) or 1 (none); any other rc is a real error (e.g. pgrep
-  # missing). Fail loudly on those rather than reading them as "not running",
-  # which would let the rewrite below clobber a running Heroic's config.
+  # Any rc but 0 or 1 is a real error, not "not running": reading it as the latter
+  # would let the rewrite below clobber a running Heroic's config.
   failed_when: games_heroic_running.rc not in [0, 1]
-  # Read-only; run it in --check too so the fail-guard below previews accurately.
+  # Read-only, and the fail-guard below needs it under --check too.
   check_mode: false
 
 - name: Read Heroic config.json
@@ -41,18 +38,15 @@
       defaultWinePrefix: "{{ games_heroic_dir }}/Prefixes"
       defaultWinePrefixDir: "{{ games_heroic_dir }}/Prefixes"
       winePrefix: "{{ games_heroic_dir }}/Prefixes/shared"
-      # Closing the window quits Heroic rather than hiding it in the tray. Its close handler hides
-      # only when exitToTray and not noTrayIcon, while the tray icon is governed by noTrayIcon alone,
-      # so this keeps the icon while Heroic runs. Pinned to revert an accidental toggle of
-      # Settings > General > "Exit to System Tray".
+      # Close quits rather than hiding, while noTrayIcon alone keeps the icon during
+      # a session. Pinned to revert an accidental toggle in Settings > General.
       exitToTray: false
-    # True when applying the desired keys would actually change the settings.
+    # Whether the desired keys would change anything.
     games_heroic_change_needed: >-
       {{ (games_heroic_settings | combine(games_heroic_desired)) != games_heroic_settings }}
   block:
-    # Writing while Heroic runs is pointless: it rewrites config.json on exit and
-    # would revert the change. Fail with an actionable message. Guarded on a change
-    # actually being needed so idempotent converges stay green with Heroic open.
+    # Heroic rewrites config.json on exit, so a write now would be reverted. Guarded
+    # on a change being needed, so converged runs stay green with Heroic open.
     - name: Fail when a settings change is needed while Heroic is running
       ansible.builtin.fail:
         msg: >-
@@ -73,12 +67,9 @@
              | to_nice_json }}
         mode: "0644"
 
-# Keep the Epic (legendary) and GOG (gogdl) store logins from lapsing between Heroic sessions. Heroic
-# refreshes its own tokens while open; a systemd --user timer runs the same refresh as games_user
-# otherwise. User-scoped (no root, no linger): without linger the user manager starts at login, so
-# OnStartupSec fires a catch-up run after each login and OnUnitActiveSec keeps it going during the
-# session. Where the user is not logged in at converge time it is only enabled (symlinked) and starts
-# on their next login.
+# Heroic refreshes the Epic and GOG store tokens only while open, so a --user timer
+# runs the same refresh otherwise. No linger: the user manager starts at login, so
+# OnStartupSec catches up then and OnUnitActiveSec carries the session.
 - name: Validate the token-refresh interval
   ansible.builtin.command:
     cmd: systemd-analyze timespan {{ games_heroic_token_refresh_interval | quote }}
@@ -114,9 +105,8 @@
     mode: "0644"
   register: games_heroic_refresh_timer
 
-# Enabling by symlink works even when the user manager is not running, so the timer
-# activates on next login regardless; the systemd_service task below then reloads
-# and starts it immediately when a session is present.
+# Symlinking works with the user manager down, so the timer activates on next login
+# either way; the task below starts it now when a session is present.
 - name: Enable the token-refresh timer
   ansible.builtin.file:
     src: ../heroic-token-refresh.timer

@@ -8,10 +8,9 @@
     group: root
   become: true
 
-# Owned by the worker uid and readable by nobody else: the file is a password
-# hash, and the worker is the only thing that reads it. Not root-owned, even
-# group-readable: the worker is not root and not in root's group, so nginx
-# fails the request with a 500 rather than falling back to a challenge.
+# Owned by the worker uid and readable by nobody else. Not root-owned even
+# group-readable: the worker is in neither, and nginx answers 500 rather than
+# falling back to a challenge.
 - name: Configure basicauth .htpasswd files for main domains
   community.general.htpasswd:
     path: >-

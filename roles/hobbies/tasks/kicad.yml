@@ -17,8 +17,8 @@
         install_recommends: false
         update_cache: true
 
-# JLCPCB catalog / LCSC part lookup. Per-user plugin, so no become. Pinned to the latest
-# release tag; update: true re-checks it out on re-run so it advances.
+# JLCPCB catalog / LCSC part lookup. Per-user, so no become. Pinned to the latest
+# release tag, which update: true advances on re-run.
 - name: Install kicad-jlcpcb-tools plugin
   tags: kicad
   block:
@@ -35,9 +35,9 @@
         version: "{{ hobbies_jlcpcb_release.tag_name }}"
         update: true
 
-# PCB panelizer. KiCad 10 support is only in KiKit + pcbnewTransition git master (no PyPI
-# release yet). Dedicated venv isolates the git-master pin; --system-site-packages exposes
-# KiCad's pcbnew (a C extension from the kicad apt package, not pip-installable).
+# PCB panelizer. KiCad 10 support is git-master only, so far from PyPI; the venv
+# isolates that pin, and --system-site-packages exposes KiCad's own pcbnew, a C
+# extension from the apt package.
 - name: Install KiKit panelizer into a dedicated venv
   tags: kicad
   become: true
@@ -48,9 +48,9 @@
         state: present
 
     - name: Install KiKit and pcbnewTransition into /opt/kikit
-      # state: latest tracks master HEAD; switch to plain 'kikit' once upstream ships a KiCad
-      # 10 PyPI release. --ignore-installed makes the venv build its own copies of every pip
-      # dependency instead of borrowing system site-packages; only pcbnew is borrowed.
+      # state: latest tracks master HEAD; use plain 'kikit' once upstream ships a
+      # KiCad 10 PyPI release. --ignore-installed keeps the venv from borrowing any
+      # system site-package but pcbnew.
       ansible.builtin.pip:
         name:
           - git+https://github.com/yaqwsx/pcbnewTransition.git
@@ -61,8 +61,7 @@
         virtualenv_command: python3 -m venv
         virtualenv_site_packages: true
 
-# Upstream ships a self-contained jpackage app-image (bundled JRE) as a linux-x64
-# zip; the bin/freerouting launcher runs in-place, so no system Java is needed.
+# A self-contained jpackage app-image with a bundled JRE, so no system Java.
 - name: Install Freerouting
   tags: freerouting
   block:
@@ -72,7 +71,7 @@
         release_repo: freerouting/freerouting
         release_fact: hobbies_freerouting_release
 
-    # Match the 'linux-x64' substring to avoid regex-escape differences across Jinja.
+    # A substring match, to avoid regex-escape differences across Jinja.
     - name: Set Freerouting download URL fact
       ansible.builtin.set_fact:
         hobbies_freerouting_download_url: >-
@@ -107,8 +106,8 @@
         force: true
       become: true
 
-    # Wrapper (not a symlink) to default -da, opting out of upstream's analytics phone-home;
-    # callers can still pass routing args, e.g. freerouting -de board.dsn -do board.ses -mp 100
+    # A wrapper, not a symlink, to default -da, opting out of upstream's analytics.
+    # Routing arguments still pass through.
     - name: Install freerouting launcher wrapper onto PATH
       ansible.builtin.copy:
         dest: /usr/local/bin/freerouting

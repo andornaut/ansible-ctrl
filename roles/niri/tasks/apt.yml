@@ -1,7 +1,6 @@
 ---
-# Wayland-only utilities for the niri session; X11 equivalents live in the bspwm role.
-# The idle/lock/wallpaper equivalents (hypridle, hyprlock, hyprpaper) are built from
-# source in hypr.yml.
+# Wayland-only utilities for the niri session; X11 equivalents live in the bspwm
+# role, and idle/lock/wallpaper are built from source in hypr.yml.
 - name: Install Wayland system packages
   ansible.builtin.apt:
     name:
