@@ -39,9 +39,9 @@ rsync_long_args	--delete --numeric-ids --relative --delete-excluded --rsync-path
 
 # Backup points: directories pulled per host, then backup_script output.
 #
-# Remote paths name primary_user rather than leaving the account to ssh: the cron
-# runs as root, and an unprefixed path would authenticate as root, which no
-# managed host authorizes. It is also the account rsnapshot_sudo relies on.
+# Remote paths name primary_user rather than leaving the account to ssh: the cron runs as
+# root, and an unprefixed path would authenticate as root, which no managed host authorizes.
+# It is also the account rsnapshot_sudo relies on.
 {% for host in rsnapshot_hosts %}
 {% for directory in host.directories|default((), true) %}
 backup	{% if not host.local|default(false) and host.name != 'localhost' %}{{ primary_user }}@{{ host.name }}:{% endif %}{{ directory }}	{{ host.name }}/

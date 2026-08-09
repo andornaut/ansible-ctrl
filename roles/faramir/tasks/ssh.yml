@@ -1,12 +1,12 @@
 ---
-# Authorize the broker's key on the hosts brokered playbooks reach. Applied over the
-# whole inventory as faramir.yml's second play, each block below selecting its hosts
-# against faramir_controller. The linear strategy is what orders them: publish,
-# authorize everywhere, then ping. See the README.
+# Authorize the broker's key on the hosts brokered playbooks reach. Applied over the whole
+# inventory as faramir.yml's second play, each block below selecting its hosts against
+# faramir_controller. The linear strategy orders them: publish, authorize everywhere, then
+# ping. See the README.
 
-# The key comes off faramir_controller and the play targets the faramir group, so
-# the two must agree. A group holding two hosts would distribute one broker's key
-# and silently refuse the other's runs everywhere.
+# The key comes off faramir_controller and the play targets the faramir group, so the two
+# must agree. A group holding two hosts would distribute one broker's key and silently
+# refuse the other's runs everywhere.
 - name: Require the faramir group to hold the controller alone
   ansible.builtin.assert:
     that: groups['faramir'] | default([]) == [faramir_controller]
@@ -41,9 +41,9 @@
           make faramir first; it generates the pair and prints the public half.
         quiet: true
 
-# Every managed host but the controller, which connects locally and involves no
-# key. faramir_fleet_authorize_key is a role default, so host_vars outranks it and
-# a host set false runs the teardown below instead.
+# Every managed host but the controller, which connects locally and involves no key.
+# faramir_fleet_authorize_key is a role default, so host_vars outranks it and a host set
+# false runs the teardown below instead.
 - name: Authorize the broker's key on the managed hosts
   when: inventory_hostname != faramir_controller
   block:
@@ -68,10 +68,10 @@
         exclusive: false
         comment: "faramir broker on {{ faramir_controller }}"
 
-    # The broker's key plus this entry means the agent is root here; leave a host
-    # out of the play to keep it agent-free. Passwordless because no become password
-    # can live in the store: it is the operator's login password, and on the
-    # controller that reaches the age key.
+    # The broker's key plus this entry means the agent is root here; leave a host out of the
+    # play to keep it agent-free. Passwordless because no become password can live in the
+    # store: it is the operator's login password, which on the controller reaches the age
+    # key.
     - name: Grant the ansible account passwordless sudo
       ansible.builtin.copy:
         dest: /etc/sudoers.d/faramir-agent

@@ -1,8 +1,8 @@
 ---
-# aioruckus sends HTTP HEAD during login, the controller answers with a body, and
-# aiohttp 3.14+ rejects that as a fatal parse error. GET returns the same status,
-# headers and Location. Reapplied every run, Home Assistant reinstalling aioruckus on
-# each recreate. Remove once fixed: https://github.com/ms264556/aioruckus/issues/14
+# aioruckus sends HTTP HEAD during login, the controller answers with a body, and aiohttp
+# 3.14+ rejects that as a fatal parse error. GET returns the same status, headers and
+# Location. Reapplied every run, Home Assistant reinstalling aioruckus on each recreate.
+# Remove once fixed: https://github.com/ms264556/aioruckus/issues/14
 - name: Wait for aioruckus to be installed in the Home Assistant container
   community.docker.docker_container_exec:
     container: homeassistant

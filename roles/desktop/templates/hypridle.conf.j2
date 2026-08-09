@@ -30,8 +30,8 @@ listener {
 # hypridle suspends itself: logind's IdleAction cannot fire, nothing here calling
 # SetIdleHint.
 #
-# KNOWN ISSUE: this file is usually a shared dotfiles symlink, so two niri hosts with
-# different timeouts would fight over it. See the role README.
+# KNOWN ISSUE: usually a shared dotfiles symlink, so two niri hosts with different timeouts
+# would fight over it. See the role README.
 listener {
     timeout = {{ desktop_suspend_inactive_seconds }} # {{ desktop_suspend_inactive_minutes }}min
     on-timeout = systemctl suspend

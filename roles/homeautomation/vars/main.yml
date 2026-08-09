@@ -16,26 +16,26 @@ homeautomation_external_network:
     external: true
     name: "{{ homeautomation_docker_network_name }}"
 
-# For the non-root containers, whose processes cannot use Docker's default
-# capability set anyway: cap_add fills the permitted set but not the ambient one.
-# Dropping it costs nothing now and matters if something gains uid 0 later. Not
-# applied to the containers that keep uid 0, several of which need those caps.
+# For the non-root containers, whose processes cannot use Docker's default capability set
+# anyway: cap_add fills the permitted set but not the ambient one. Free now, and matters
+# if something gains uid 0 later. Not applied to the containers that keep uid 0, several
+# of which need those caps.
 homeautomation_unprivileged_cap_drop:
   - ALL
 
-# Every container, root or not: it blocks the setuid transition that would make a
-# permitted capability effective. Nothing here loses by it, dropping privileges
-# with setuid() rather than by exec'ing a setuid binary.
+# Every container, root or not: blocks the setuid transition that would make a permitted
+# capability effective. Nothing here loses by it, all dropping privileges with setuid()
+# rather than by exec'ing a setuid binary.
 homeautomation_no_new_privileges:
   - no-new-privileges:true
 
-# Every uid a container here runs as. Each account owns its files exclusively,
-# which holds only if no two services share a uid; docker_prerequisites.yml
-# asserts that before any are created.
+# Every uid a container here runs as. Each account owns its files exclusively, which holds
+# only if no two share a uid; docker_prerequisites.yml asserts that before any are
+# created.
 #
-# Append-only: a new service takes the next free number, whatever its name sorts
-# as. A uid is an identity on disk, so moving one drags every file it owns.
-# mosquitto is the exception at 1883, which its image bakes in.
+# Append-only: a new service takes the next free number, whatever its name sorts as. A uid
+# is an identity on disk, so moving one drags every file it owns. mosquitto is the
+# exception at 1883, baked into its image.
 #
 # ha-mcp is merged in rather than listed, its accounts coming one per entry in
 # homeautomation_hamcp_instances.
@@ -65,12 +65,12 @@ homeautomation_esphome_auth_configured: >-
   {{ (homeautomation_esphome_username | length > 0)
      and (homeautomation_esphome_password | length > 0) }}
 
-# What each optional component leaves on the host, so clearing its flag removes it.
-# Never volumes: they hold the only copy of a service's data.
+# What each optional component leaves on the host, so clearing its flag removes it. Never
+# volumes: they hold the only copy of a service's data.
 #
-# Absent on purpose: home assistant and mosquitto, which have no flag; avahi, a
-# host daemon rather than a container; and memryx, whose DKMS driver and apt
-# sources are not the reverse of a compose definition.
+# Absent on purpose: home assistant and mosquitto, which have no flag; avahi, a host daemon
+# rather than a container; and memryx, whose DKMS driver and apt sources are not the
+# reverse of a compose definition.
 homeautomation_teardown:
   - install: "{{ homeautomation_install_esphome }}"
     containers: [esphome]

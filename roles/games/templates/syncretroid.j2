@@ -1,9 +1,8 @@
 #!/bin/sh
-# Installed by the games role's retroid tag. The sync itself runs from the checkout
-# rather than a copy, so an edit to it, to vars/main.yml or to profile.yml applies on
-# the next run. This wrapper carries only the checkout path and the two site values the
-# script cannot derive; re-render it when one of the three changes. They are passed
-# ahead of "$@", so a command line can override either.
+# Installed by the games role's retroid tag. The sync runs from the checkout rather than a
+# copy, so an edit to it, to vars/main.yml or to profile.yml applies on the next run. This
+# wrapper carries only the checkout path and the two site values the script cannot derive;
+# re-render it when one changes. Passed ahead of "$@", so a command line can override.
 script={{ (role_path ~ "/files/retroid/syncretroid.py") | quote }}
 if [ ! -f "$script" ]; then
     echo "$script is missing: the ansible-ctrl checkout it lives in has moved or gone. Re-run the games role's retroid tag to point this wrapper at the new path." >&2

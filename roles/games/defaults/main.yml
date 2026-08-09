@@ -17,8 +17,8 @@ games_flatpak_apps:
   - org.openjkdf2.OpenJKDF2
 
 # Heroic's installs and wine prefixes, in its own ~/.local/games subdir. Granted in
-# games_flatpak_overrides and written into config.json by tasks/heroic.yml: the
-# sandbox can only stat granted paths, and shows anything else as "not available".
+# games_flatpak_overrides and written into config.json by tasks/heroic.yml: the sandbox can
+# only stat granted paths and shows anything else as "not available".
 games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 
 # Lutris's installs, in its own ~/.local/games subdir. Written into system.yml by
@@ -26,8 +26,8 @@ games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
 # How often tasks/heroic.yml's timer exercises the Epic and GOG refresh tokens, as an
-# OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh
-# lands before the machine suspends.
+# OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh lands
+# before the machine suspends.
 games_heroic_token_refresh_interval: "3h"
 
 # The sandboxes cannot see the host's and draw the pointer at the wrong size.
@@ -35,26 +35,26 @@ games_heroic_token_refresh_interval: "3h"
 games_cursor_theme: Adwaita
 
 # A key of games_retroarch_controllers. No default, and asserted: hotkey bindings are
-# physical device indices, so a guess binds real but wrong buttons. README.md gives
-# the grep that reads them out of the pad's autoconfig profile.
+# physical device indices, so a guess binds real but wrong buttons. README.md gives the
+# grep that reads them out of the pad's autoconfig profile.
 games_retroarch_controller: ""
 
-# The panel's actual mode, as RetroArch's "Estimate Screen Refresh Rate" reports it.
-# No default, and asserted: RetroArch derives the audio resampling ratio from it, so
-# its 60.0 default mistimes every core, heard as drift rather than seen as tearing.
+# The panel's actual mode, as RetroArch's "Estimate Screen Refresh Rate" reports it. No
+# default, and asserted: RetroArch derives the audio resampling ratio from it, so its 60.0
+# default mistimes every core, heard as drift rather than seen as tearing.
 games_retroarch_video_refresh_rate: ""
 
 # Combined over games_retroarch_required_settings, so one key can be set alone.
 games_retroarch_extra_settings: {}
 
-# Install /usr/local/bin/syncretroid, which mirrors this role's RetroArch config onto
-# a Retroid Pocket Flip 2 over adb. The handheld is a USB peripheral rather than an
-# inventory host, so the command lands on the controller and no playbook runs it.
-# Set it in the controller's host_vars. See files/retroid/README.md.
+# Install /usr/local/bin/syncretroid, which mirrors this role's RetroArch config onto a
+# Retroid Pocket Flip 2 over adb. The handheld is a USB peripheral rather than an inventory
+# host, so the command lands on the controller and no playbook runs it. Set it in the
+# controller's host_vars. See files/retroid/README.md.
 games_install_retroid_sync: false
 
-# The controller's ROM library mount and the handheld's adb serial (`adb devices`),
-# baked into the wrapper so the command takes no arguments. Site data, so no
-# defaults; tasks/retroid.yml asserts both when the flag is on.
+# The controller's ROM library mount and the handheld's adb serial (`adb devices`), baked
+# into the wrapper so the command takes no arguments. Site data, so no defaults;
+# tasks/retroid.yml asserts both when the flag is on.
 games_retroid_library_dir: ""
 games_retroid_serial: ""

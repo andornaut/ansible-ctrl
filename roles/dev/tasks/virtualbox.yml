@@ -155,10 +155,10 @@
             dest: "{{ dev_virtualbox_extpack_tmp.path }}/{{ dev_virtualbox_extpack_file }}"
             mode: "0644"
 
-        # --accept-license takes the SHA-256 of the pack's own licence text, so
-        # read it out of the pack. The bad header after its first entry needs
-        # --ignore-zeros, which unarchive cannot pass, and makes tar exit 2
-        # regardless, so verify by checksum rather than rc.
+        # --accept-license takes the SHA-256 of the pack's own licence text, so read it
+        # out of the pack. The bad header after its first entry needs --ignore-zeros,
+        # which unarchive cannot pass, and makes tar exit 2 regardless, so verify by
+        # checksum rather than rc.
         - name: Extract the extension pack license # noqa: command-instead-of-module
           ansible.builtin.command:
             cmd: >-

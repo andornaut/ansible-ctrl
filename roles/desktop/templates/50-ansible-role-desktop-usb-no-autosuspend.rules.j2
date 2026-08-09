@@ -1,7 +1,7 @@
 # Managed by Ansible (desktop role). Do not edit.
-# USB hubs whose port suspend times out and resets the whole downstream tree,
-# dropping every input and audio device for seconds. Pinning power/control "on" stops
-# the kernel attempting it. No ACTION filter, so change events re-assert it.
+# USB hubs whose port suspend times out and resets the whole downstream tree, dropping
+# every input and audio device for seconds. Pinning power/control "on" stops the kernel
+# attempting it. No ACTION filter, so change events re-assert it.
 {% for vid in desktop_usb_no_autosuspend_vendor_ids %}
 SUBSYSTEM=="usb", ATTR{idVendor}=="{{ vid }}", ATTR{power/control}="on"
 {% endfor %}

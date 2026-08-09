@@ -3,9 +3,9 @@
 set -euo pipefail
 
 QUIET=false
-# Bound a stall: a sync holds its host's lock throughout, so a hang blocks every
-# later cron run. ssh otherwise waits out the kernel's TCP connect timeout, and once
-# a transfer is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+# Bound a stall: a sync holds its host's lock throughout, so a hang blocks every later
+# cron run. ssh otherwise waits out the kernel's TCP connect timeout, and once a transfer
+# is under way only TCPKeepAlive notices a dead peer, after ~2 hours.
 SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 usage() {
@@ -37,9 +37,9 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         -q|--quiet) QUIET=true; shift ;;
-        # Split a bundled short group (-hq) into -h -q and reprocess; one dash
-        # and 2+ characters, so long options never match. Do not rewrite with
-        # bash's parameter-length syntax: it opens a Jinja2 comment.
+        # Split a bundled short group (-hq) into -h -q and reprocess; one dash and
+        # 2+ characters, so long options never match. Do not rewrite with bash's
+        # parameter-length syntax: it opens a Jinja2 comment.
         -[!-]?*)
             mapfile -t bundle < <(fold -w1 <<<"${1#-}")
             shift
@@ -81,9 +81,9 @@ sync_host() {
     # keeps the path off another user's lock file.
     lock_file="${TMPDIR:-/tmp}/synct-$(id -u)-${src_host}${src_dir//\//_}.lock"
     header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
-    # flock releases however the guarded subshell ends, including a kill, which a
-    # pid check cannot see. A held lock means a prior sync is wedged, so fail
-    # rather than skip: the chained unrart must not see a half-synced directory.
+    # flock releases however the guarded subshell ends, including a kill, which a pid
+    # check cannot see. A held lock means a prior sync is wedged, so fail rather than
+    # skip: the chained unrart must not see a half-synced directory.
     (
         flock -n 9 || error "A previous sync of ${src_host}:${src_dir} is still running"
         info "Starting sync on $(date)"

@@ -10,10 +10,9 @@
 #   github_component_dest (str): destination directory, defaulting to Home
 #     Assistant's custom_components/
 #
-# Skipped when the installed manifest.json names the latest tag. The archive is
-# repository source, so a project that leaves a placeholder version there, or
-# bumps it after tagging, is reinstalled every run; so is a bare-file component,
-# which has no manifest.
+# Skipped when the installed manifest.json names the latest tag. The archive is repository
+# source, so a project leaving a placeholder version there, or bumping it after tagging, is
+# reinstalled every run; so is a bare-file component, which has no manifest.
 - name: Install the latest GitHub release of {{ github_component_name }}
   vars:
     github_component_dest_dir: >-

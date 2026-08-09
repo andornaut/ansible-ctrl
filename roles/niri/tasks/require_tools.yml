@@ -3,12 +3,12 @@
 # Copied per role because roles share no task files; keep the copies in sync.
 #
 # Required vars:
-#   require_tools (list of dicts): name (str), probe (shell command, exit 0 when
-#     usable), hint (str, e.g. "make dev -- --tags rust")
+#   require_tools (list of dicts): name (str), probe (shell command, exit 0 when usable),
+#     hint (str, e.g. "make dev -- --tags rust")
 #
-# Callers wrap the include in a tagged block (a tag on include_tasks filters out
-# what it includes) and put any become/become_user on that block: probes inherit
-# privilege and must never set it.
+# Callers wrap the include in a tagged block (a tag on include_tasks filters out what it
+# includes) and put any become/become_user on that block: probes inherit privilege and
+# must never set it.
 - name: Probe for the tools this role needs
   ansible.builtin.shell:
     executable: /bin/bash

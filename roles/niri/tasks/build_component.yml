@@ -1,7 +1,7 @@
 ---
-# Unpack a source tarball into a temporary directory, run the supplied
-# configure/build/install commands from its root, and clean up. Fetching the release
-# and resolving the tarball URL belong at the call site.
+# Unpack a source tarball into a temporary directory, run the supplied configure/build/
+# install commands from its root, and clean up. Fetching the release and resolving the
+# tarball URL belong at the call site.
 #
 # Required vars:
 #   build_component_name (str): display name, e.g. "wayland-protocols"

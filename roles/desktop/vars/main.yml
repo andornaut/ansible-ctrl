@@ -35,9 +35,8 @@ desktop_chrome_family_policy_path: "{{ desktop_chrome_policies_dir }}/family.jso
 # "none" is malcontent's disabled filter type, so it doubles as the feature flag.
 desktop_parental_controls_web_filter_enabled: "{{ desktop_parental_controls_web_filter_type != 'none' }}"
 
-# set-app-filter overwrites the whole filter, so no OARS pairs lifts it. The
-# installation permissions are stated either way, which is what restores the system
-# repository.
+# set-app-filter overwrites the whole filter, so no OARS pairs lifts it. The installation
+# permissions are stated either way, which is what restores the system repository.
 desktop_parental_controls_app_filter_args: >-
   {{ ['--allow-user-installation']
      + (['--disallow-system-installation'] if desktop_parental_controls_oars | length > 0
