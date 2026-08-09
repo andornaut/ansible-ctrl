@@ -2,7 +2,7 @@
 # Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
 # a host cannot desync one from its source.
 
-# From the getent in tasks/main.yml.
+# From the getent in tasks/broker.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
 # `dev` is rolling, re-cut by CI on every push to faramir's main; faramir has no v
@@ -21,12 +21,6 @@ faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 # Where init puts the binary, and so what every later invocation runs.
 faramir_binary: /usr/local/bin/faramir
 
-# Enrolment is skipped under --check on a host with no binary yet, leaving the
-# register without stdout.
-faramir_project_warnings: >-
-  {{ (faramir_project.stdout | from_json).warnings | default([])
-     if faramir_project.stdout | default('') | length > 0 else [] }}
-
 # The whole invocation in one place. argv rather than a command string: the paths come from
 # the inventory, and quoting an unusual one is not this role's problem.
 #
@@ -34,44 +28,39 @@ faramir_project_warnings: >-
 # reading the client group out of the config init installed.
 #
 # The staged binary, init installing the one it was run from, so this resolves only inside
-# the install block that registers faramir_staging.
+# the install block that registers faramir_release_tmp.
 faramir_init_argv: >-
   {{
-    [faramir_staging.path ~ '/faramir', 'init', '--json',
+    [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
      '--operator', faramir_user,
-     '--client-group', faramir_dev_group,
-     '--broker-user', faramir_broker_user,
-     '--keeper-user', faramir_keeper_user,
-     '--exec-user', faramir_exec_user,
+     '--client-group', faramir_client_group,
      '--config-dir', faramir_config_dir]
     + (['--ssh-key', faramir_broker_ssh_key]
        if faramir_broker_ssh_key | length > 0 else [])
-    + (['--agent'] | product(faramir_account_agents) | flatten)
+    + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
 # The same, for the one tree this repo enrols. The directory is an argument rather
-# than a flag, and naming it pins the enrolment to playbook_dir.
+# than a flag, and naming it pins the enrolment to playbook_dir. The redaction hook is
+# left to faramir's default, on being the only setting worth enrolling a tree for.
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
      '--operator', faramir_user,
-     '--config-dir', faramir_config_dir,
-     '--hook=' ~ (faramir_project_hook | bool | lower)]
-    + (['--agent'] | product(faramir_project_agents) | flatten)
+     '--config-dir', faramir_config_dir]
+    + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]
   }}
 
 # doctor checks the install against the names it is given rather than the config
-# it finds, so passing these is what makes drift a finding.
+# it finds, so passing these is what makes drift a finding. The service accounts are
+# left to faramir's own defaults, which is what init created them from.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',
      '--operator', faramir_user,
-     '--client-group', faramir_dev_group,
-     '--broker-user', faramir_broker_user,
-     '--keeper-user', faramir_keeper_user,
-     '--exec-user', faramir_exec_user,
+     '--client-group', faramir_client_group,
      '--config-dir', faramir_config_dir]
   }}
