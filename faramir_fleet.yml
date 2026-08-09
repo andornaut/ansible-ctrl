@@ -6,125 +6,24 @@
 # with a key to distribute. faramir.yml prints that key and fails when the
 # broker's agent holds none; this play is what makes the key mean something.
 #
-# Reached from a brokered run it would grant the agent's own reach, so it is
-# kept out of every hosts: all play for the same reason faramir.yml is.
-- name: Read the broker's public key from the controller
-  hosts: faramir
+# Reached from a brokered run it would grant the agent's own reach, so it is a
+# playbook of its own rather than tasks folded into a play every run applies,
+# for the same reason faramir.yml is.
+#
+# hosts: all, where this was three plays: the tasks read the broker's key off
+# the controller, install it on every other host, then ask the controller
+# whether a brokered run reaches them. roles/faramir/tasks/ssh.yml holds them
+# and says which block runs where.
+- name: Authorize the broker's key across the fleet
+  hosts: all
   gather_facts: false
   tasks:
-    # 0700 faramir-broker, so root reads it. The public half is not a secret;
-    # the private half never leaves this host, which is the point of lending it
-    # through an agent rather than copying it around.
-    - name: Read the broker's public key
-      ansible.builtin.slurp:
-        src: "{{ faramir_broker_ssh_key }}.pub"
-      become: true
-      register: faramir_broker_pubkey
-
-    - name: Publish it to the other plays
-      ansible.builtin.set_fact:
-        faramir_broker_authorized_key: "{{ faramir_broker_pubkey.content | b64decode | trim }}"
-
-    - name: Require a public key
-      ansible.builtin.assert:
-        that: faramir_broker_authorized_key.startswith("ssh-")
-        fail_msg: >-
-          {{ faramir_broker_ssh_key }}.pub does not look like a public key. Run
-          make faramir first; it generates the pair and prints the public half.
-        quiet: true
-
-# Every managed host except the controller, which reaches itself with
-# ansible_connection=local, so no key is involved there and a brokered run
-# against it is bounded by what faramir-exec can do locally rather than by SSH.
-- name: Authorize the broker's key on the managed hosts
-  hosts: all:!faramir
-  gather_facts: false
-  vars:
-    # Read into a second name rather than defaulted in place. This play applies
-    # no role, so roles/faramir/defaults/main.yml is not loaded and the flag
-    # needs a default here; but binding that default to its own name, at play or
-    # task scope, outranks host_vars and would pin it to true. Setting it false
-    # would then be silently ignored and the teardown below could never run.
-    faramir_fleet_authorize: "{{ faramir_fleet_authorize_key | default(true) | bool }}"
-  tasks:
-    - name: Authorize the broker's key for the ansible account
-      ansible.posix.authorized_key:
-        user: "{{ ansible_user | default(primary_user) }}"
-        key: "{{ hostvars[groups['faramir'][0]]['faramir_broker_authorized_key'] }}"
-        state: "{{ 'present' if faramir_fleet_authorize else 'absent' }}"
-        # Not exclusive: this account's other keys, including the operator's own,
-        # are what this play would otherwise lock out of the host it runs on.
-        exclusive: false
-        comment: "faramir broker on {{ groups['faramir'][0] }}"
-
-    # No become password can safely live in the secret store: it is the
-    # operator's login password, an agent that extracts it can su to the
-    # operator, and on the controller that reaches the age key.  So a brokered
-    # run has no password to offer, and sudo here must not ask for one.
-    #
-    # This is the grant, stated plainly: the broker's key plus this entry means
-    # the agent is root on this host.  That is what "the agent configures the
-    # fleet" means.  Leave a host out of this play to keep it agent-free.
-    #
-    # validate: a malformed sudoers file locks everyone out, including the
-    # account that would fix it, so visudo checks it before it is installed.
-    - name: Grant the ansible account passwordless sudo
-      ansible.builtin.copy:
-        dest: /etc/sudoers.d/faramir-agent
-        content: "{{ ansible_user | default(primary_user) }} ALL=(ALL) NOPASSWD:ALL\n"
-        owner: root
-        group: root
-        mode: "0440"
-        validate: visudo -cf %s
-      become: true
-      when: faramir_fleet_authorize
-
-    - name: Remove the passwordless sudo grant
-      ansible.builtin.file:
-        path: /etc/sudoers.d/faramir-agent
-        state: absent
-      become: true
-      when: not faramir_fleet_authorize
-
-# The role verifies the broker's agent holds a key. That it *opens* anything is
-# a different claim, and the one that matters: a key authorized for the wrong
-# account, or a host this play skipped, leaves an install that comes up green
-# and reaches nothing. Asked through the broker, in the agent's own worktree,
-# because that is the path a brokered playbook actually takes.
-- name: Prove a brokered run reaches the fleet
-  hosts: faramir
-  gather_facts: false
-  tasks:
-    - name: Ping every managed host through the broker
-      ansible.builtin.command:
-        argv:
-          - /usr/local/bin/faramir
-          - run
-          - --quiet
-          - --
-          - ansible
-          - all
-          - -m
-          - ping
-          - --limit
-          - "!faramir"
-          - -o
-      become: true
-      register: faramir_fleet_ping
-      changed_when: false
-      failed_when: false
-
-    - name: Require every host to answer
-      ansible.builtin.assert:
-        that:
-          - "'UNREACHABLE' not in faramir_fleet_ping.stdout"
-          - "'SUCCESS' in faramir_fleet_ping.stdout"
-        fail_msg: >-
-          A brokered ping did not reach every host. The broker holds a key; this
-          says whether the fleet accepts it. Likeliest causes: this play has not
-          authorized the account ansible connects as on every host, or
-          ansible.cfg names a path that is ~-relative and so resolves to nothing
-          for the executor's uid, which ansible exits 1 over rather than warning.
-          Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
-          {{ faramir_fleet_ping.stderr | default('') | trim }}
-        quiet: true
+    # tasks_from rather than the roles: keyword, which applies main.yml and
+    # would install the broker on every host in the inventory. Importing the
+    # role is also what defines faramir_broker_ssh_key here, from the same
+    # defaults faramir.yml installs the key under, rather than leaving these
+    # tasks to name the path a second time.
+    - name: Authorize the broker's key
+      ansible.builtin.import_role:
+        name: faramir
+        tasks_from: ssh

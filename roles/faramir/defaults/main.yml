@@ -25,8 +25,8 @@ faramir_config_dir: "{{ faramir_user_home }}/.faramir"
 # it is named. Set empty to leave [ssh] keys unset, which works but puts the keys
 # where the executor's own uid can read them.
 #
-# It opens nothing until faramir_fleet.yml puts the public half in
-# authorized_keys on the managed hosts. Every run prints it.
+# It opens nothing until tasks/ssh.yml puts the public half in authorized_keys
+# on the managed hosts. Every run prints it.
 faramir_broker_ssh_key: /var/lib/faramir-broker/.ssh/id_ed25519
 
 # Register faramir's PreToolUse hook in this checkout's own agent settings, which
@@ -51,9 +51,9 @@ faramir_project_agents:
 faramir_account_agents:
   - claude
 
-# Whether faramir_fleet.yml authorizes the broker's public key on the managed
-# hosts and grants that account NOPASSWD sudo, or removes both. This role never
-# reads it; the entry is here so the flag is documented with the rest. That play
-# applies no role and so defaults it itself, taking care not to bind this name at
-# play or task scope, which would outrank host_vars and pin it to true.
+# Whether tasks/ssh.yml authorizes the broker's public key on the managed hosts
+# and grants that account NOPASSWD sudo, or removes both. Read only there, and
+# main.yml never looks at it. A default rather than a play var, so host_vars
+# outranks it and a host set false gets the teardown rather than being pinned to
+# true.
 faramir_fleet_authorize_key: true

@@ -276,8 +276,8 @@
 
 # Printed every run, not only when the key was just generated: it is what has to
 # be in authorized_keys on every managed host, and an install that never says so
-# is one where the fleet silently rejects the agent. faramir_fleet.yml is what
-# puts it there.
+# is one where the fleet silently rejects the agent. tasks/ssh.yml, which
+# faramir_fleet.yml applies, is what puts it there.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:
