@@ -14,16 +14,21 @@
 # before the first host is asked to authorize it, and every host has been asked
 # before the brokered ping goes looking for it.
 
-# The blocks below read the controller out of this group and index it, so a
-# group with no member would otherwise fail several tasks later on a lookup that
-# names nothing.
-- name: Require a controller in the inventory
+# The blocks below take the controller as groups['faramir'][0]: the key comes off
+# it, every other host authorizes that one key, and the brokered ping is asked of
+# it. An empty group fails those several tasks later on a lookup that names
+# nothing, and a second member is worse than that: [0] picks one of them by
+# inventory order, so the fleet would authorize one controller's broker and the
+# other's brokered runs would be refused everywhere, with nothing in this run
+# saying so. One member, named here rather than discovered by index.
+- name: Require exactly one controller in the inventory
   ansible.builtin.assert:
-    that: groups['faramir'] | default([]) | length > 0
+    that: groups['faramir'] | default([]) | length == 1
     fail_msg: >-
-      No host is in the faramir group. These tasks read the broker's key off the
-      controller and install it everywhere else, so the group naming the
-      controller has to have a member.
+      The faramir group holds {{ groups['faramir'] | default([]) | length }}
+      hosts ({{ groups['faramir'] | default([]) | join(', ') or 'none' }}), and
+      these tasks distribute one broker's key. It names the controller, which is
+      the one host make faramir installs the broker on.
     quiet: true
 
 - name: Read the broker's public key from the controller
