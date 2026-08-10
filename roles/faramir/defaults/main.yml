@@ -33,6 +33,13 @@ faramir_agents:
 # A default rather than a play var, so host_vars can turn it off per host.
 faramir_fleet_authorize_key: true
 
+# The connection failures that mean a host is off and nothing more. What the fleet ping
+# proves is that the fleet accepts the broker's key, and a host that never completed a TCP
+# connect has neither accepted nor refused it, so it is reported and passed over rather
+# than failing the run. Every other outcome, a rejected key and an unverified host among
+# them, is an answer and is held to.
+faramir_fleet_ping_offline_pattern: 'Connection timed out|Connection refused|No route to host|Host is down'
+
 # Where tasks/ssh.yml pins the fleet's SSH host keys. System-wide rather than under the
 # executor's home: ssh reads it for every uid on the controller, so one file covers the
 # executor, the cert-renewal cron's root and the operator alike, and it survives the
