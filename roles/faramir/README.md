@@ -23,13 +23,24 @@ An operator action. Log out and back in after the first install: it adds you to 
 
 `homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other targets run straight through.
 
-| Run | Command |
-| --- | --- |
-| no credential | `make <playbook>` |
-| credential, controller | `sudo make <playbook> -- --limit <controller>` |
-| credential, fleet | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'` |
+Once the broker is installed the store stops being readable by the operator, so those three re-enter through it instead. `make` does the routing:
 
-`make` refuses a run it cannot serve and prints both commands. `faramir.env` holds refs and never values.
+| Run | What `make <playbook>` does |
+| --- | --- |
+| no credential | one `ansible-playbook`, as the operator |
+| credential, store readable | one `ansible-playbook`, under `sops exec-env` |
+| credential, store unreadable | splits along what each account can apply: the controller through `sudo make`, the rest through `faramir run` |
+
+The split is the store's own boundary showing through. Only root and the executor can read it, and they reach different hosts: root reaches all of them, while the executor authenticates everywhere but has no sudo here. So `make webservers` and `make homeautomation` are brokered entire and prompt for nothing, both being remote groups, while `make msmtp` reaches every host and asks once for the controller's half. The prompt comes first, so a refused password stops the run with nothing applied.
+
+Either half alone is still a command:
+
+```bash
+sudo make <playbook> -- --limit <controller>
+faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'
+```
+
+`faramir.env` holds refs and never values. Without it, or without the binary, `make` refuses the run and says to install the broker.
 
 ## Constraints
 

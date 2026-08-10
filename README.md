@@ -38,6 +38,7 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost`. A run that is already root never gets one. |
 | `ASK_PASS=1` | forces the prompt |
 | `SECRETS=none` | skips the `sops exec-env` re-entry, and tells the play the run reads no credential. For a `--tags` run of a secret-bearing playbook that reaches none. |
+| `PREFLIGHT=none` | skips the reachability probe, and attempts every host whatever it would have found |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 
@@ -95,7 +96,7 @@ A value only ever reaches a play through the environment. Three paths put it the
 
 | Path | How |
 | --- | --- |
-| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential |
+| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Where the store is not readable by the operator, the same targets [split the run](roles/faramir/README.md#running-playbooks) between root and the broker instead of refusing |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
