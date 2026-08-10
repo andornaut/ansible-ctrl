@@ -42,17 +42,10 @@ if [ -e "$marker" ]; then
     rm -f "$marker"
 fi
 
-# Not running: login and launch
-log "Running login..."
-$FLATPAK_CMD login
-login_status=$?
-log "Login finished (exit code: $login_status)."
-
-if [ "$login_status" -eq 0 ]; then
-    log "Launching Minecraft..."
-    $FLATPAK_CMD play
-    log "Play exited (exit code: $?)."
-else
-    log "Login failed, skipping launch."
-    exit "$login_status"
-fi
+# `play` is the whole launch: it starts offline when no Microsoft account is linked, and
+# reports a refused launch as a desktop notification, which is the only channel a desktop
+# entry has. Signing in stays a launcher step, its device-code flow having nowhere to
+# display from here.
+log "Launching Minecraft..."
+$FLATPAK_CMD play
+log "Play exited (exit code: $?)."

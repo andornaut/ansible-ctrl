@@ -79,8 +79,10 @@
       when: games_bedrock_tmp.path is defined
 
 # Launch the game directly rather than the launcher GUI the flatpak's own entry opens: focus
-# an existing window, else `login` then `play`. Both still need the one-time GUI setup and
-# sign-in, which BOL reports for itself.
+# an existing window, else `play`. The entry's own "Play without the launcher" action runs the
+# same `play`, but refuses while the Wine prefix is active instead of focusing the window, and
+# `bedrock-on-linux shortcut` cannot write an entry the host desktop can see from inside the
+# sandbox. The one-time version install and sign-in remain launcher steps.
 - name: Install the direct-launch Minecraft (Bedrock) script and desktop entry
   block:
     - name: Create the user bin directory
