@@ -43,3 +43,12 @@ letsencrypt_nginx_renewal_cron_sops_file: >-
 # the material.
 letsencrypt_nginx_renewal_cron_age_key_file: >-
   {{ letsencrypt_nginx_operator_home }}/.config/faramir/age.key
+# The identity the run connects to the web servers with. Root's own ~/.ssh holds whatever
+# it was given by hand, which is not the fleet, and a run that offers an identity the fleet
+# does not know fails host by host. The broker's key is the one that reaches every host:
+# roles/faramir authorizes it fleet-wide, it carries no passphrase, and root reads it
+# whatever its mode. Paired with BROKER_KEY in the Makefile, which names it for the same
+# reason. Host keys need no equivalent, roles/faramir pinning the fleet's in
+# /etc/ssh/ssh_known_hosts, which ssh reads for every uid.
+letsencrypt_nginx_renewal_cron_ssh_key_file: >-
+  {{ letsencrypt_nginx_operator_home }}/.config/faramir/id_ed25519
