@@ -36,10 +36,10 @@ letsencrypt_nginx_operator: "{{ primary_user }}"
 # Makefile. The job runs from playbook_dir in that same home anyway, so an unmounted home
 # stops it either way; see the role README.
 letsencrypt_nginx_renewal_cron_sops_file: >-
-  {{ letsencrypt_nginx_operator_home }}/.faramir/secrets/ansible-ctrl.sops.yml
+  {{ letsencrypt_nginx_operator_home }}/.config/faramir/secrets/ansible-ctrl.sops.yml
 # The keeper's key, already a recipient and readable by root whatever its mode, so naming
 # it grants nothing. Beside the broker's config in the same home as the store, so one
 # preflight guards both. SOPS_AGE_KEY_FILE takes a path, not a value, so only sops reads
 # the material.
 letsencrypt_nginx_renewal_cron_age_key_file: >-
-  {{ letsencrypt_nginx_operator_home }}/.faramir/age.key
+  {{ letsencrypt_nginx_operator_home }}/.config/faramir/age.key

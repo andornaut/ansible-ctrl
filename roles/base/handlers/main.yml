@@ -19,6 +19,29 @@
   changed_when: false
   become: true
 
+# Reload, not restart: established connections survive it, so a run that gets the config
+# wrong leaves the session that can undo it.
+#
+# Gated on ssh.service actually running, because the module's `reloaded` starts a unit
+# that is not: under socket activation ssh.service is inactive by design and ssh.socket
+# holds the port, so an unguarded reload would start a second listener. Nothing is lost by
+# skipping it there, a socket-activated sshd reading the config afresh per connection.
+- name: Reload sshd
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: reloaded
+  become: true
+  when: ansible_facts['services']['ssh.service'].state | default('stopped') == 'running'
+
+# Skipped under --check for the same reason the enable task is: the install was simulated,
+# so there is no unit and the module fails rather than reporting a would-be restart.
+- name: Restart fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    state: restarted
+  become: true
+  when: not ansible_check_mode
+
 - name: Restart systemd-journald
   ansible.builtin.systemd_service:
     name: systemd-journald

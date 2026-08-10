@@ -101,7 +101,7 @@ requirements: .ansible/.requirements
 SUBMAKE := $(MAKE)
 
 # In the operator's home, resolved above.
-SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
+SOPS_FILE := $(OPERATOR_HOME)/.config/faramir/secrets/ansible-ctrl.sops.yml
 
 # sops looks for an identity under $HOME, and root's is /root, so the key is named. The
 # keeper's key is already a recipient and root reads it whatever its mode. ?= leaves an
@@ -111,7 +111,7 @@ SOPS_FILE := $(OPERATOR_HOME)/.faramir/secrets/ansible-ctrl.sops.yml
 # ssh is not redirected: root's own ~/.ssh reaches the fleet, and the operator's config
 # would supply aliases without an identity, every ~ in it expanding to /root.
 ifdef IS_ROOT
-export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.faramir/age.key
+export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.config/faramir/age.key
 endif
 
 # The runs that read a secret_* variable, and so the only ones that re-enter under sops.

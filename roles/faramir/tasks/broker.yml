@@ -70,6 +70,52 @@
         hint: "It comes from the dev role: make dev -- --tags sops"
 
 # CLEANUP (added 2026-08-09): remove once the controller has run this play. Earlier
+# versions put the config directory at ~/.faramir; faramir_config_dir now names faramir's
+# documented placement. Moved rather than left for init, which installs and never
+# migrates: a fresh directory means a fresh age key, and every managed value is encrypted
+# to the old one. Before the install, so init writes the units and the deny patterns
+# against the path the store is already at. Between the move and that install the running
+# daemons read a directory that is gone, so a failure here leaves the broker serving
+# nothing until the play is re-run, which converges.
+- name: Move the config directory to its current path
+  become: true
+  block:
+    - name: Check for a config directory at the previous path
+      ansible.builtin.stat:
+        path: "{{ faramir_user_home }}/.faramir"
+      register: faramir_previous_config_dir
+
+    - name: Check for a config directory at the current path
+      ansible.builtin.stat:
+        path: "{{ faramir_config_dir }}"
+      register: faramir_current_config_dir
+
+    # mv, which keeps every owner and mode inside: the age key is the keeper's 0400 and
+    # the secrets directory is setgid, neither of which a copy would preserve. The parent
+    # is the operator's own ~/.config, which init refuses to create rather than hand to
+    # root, so it has to be there already.
+    # Both present is a split store, and the failure it leads to is silent: init would
+    # provision the current path, mint an age key there, and leave every value encrypted
+    # to the key at the other one. Refused rather than skipped, a skip reporting success.
+    - name: Refuse a config directory at both paths
+      ansible.builtin.assert:
+        that: not (faramir_previous_config_dir.stat.exists and faramir_current_config_dir.stat.exists)
+        fail_msg: >-
+          {{ faramir_user_home }}/.faramir and {{ faramir_config_dir }} both exist, so
+          which one holds the age key and the store is not something this can decide.
+          Keep whichever has secrets/ and age.key, remove the other, and re-run.
+        quiet: true
+
+    - name: Move the directory
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ faramir_user_home }}/.faramir"
+          - "{{ faramir_config_dir }}"
+      changed_when: true
+      when: faramir_previous_config_dir.stat.isdir | default(false)
+
+# CLEANUP (added 2026-08-09): remove once the controller has run this play. Earlier
 # versions kept the broker's key in the broker account's home. Moved rather than left for
 # init to regenerate: the managed hosts authorize this key, and a new one would reach none
 # of them until the fleet play had run. init re-asserts the directory and both halves'
@@ -89,31 +135,24 @@
         path: "{{ faramir_broker_ssh_key }}"
       register: faramir_current_ssh_key
 
+    # mv, which keeps the owner and mode init refuses to repair on a key it did not
+    # write, and leaves no window with the key in two places. The destination is the
+    # config directory, so this runs after the move above and the two go together.
     - name: Move both halves
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ item.src }}"
+          - "{{ item.dest }}"
+      loop:
+        - src: /var/lib/faramir-broker/.ssh/id_ed25519
+          dest: "{{ faramir_broker_ssh_key }}"
+        - src: /var/lib/faramir-broker/.ssh/id_ed25519.pub
+          dest: "{{ faramir_broker_ssh_key }}.pub"
+      changed_when: true
       when:
         - faramir_previous_ssh_key.stat.exists
         - not faramir_current_ssh_key.stat.exists
-      block:
-        - name: Create the key directory
-          ansible.builtin.file:
-            path: "{{ faramir_broker_ssh_key | dirname }}"
-            state: directory
-            mode: "0700"
-
-        # mv, which keeps the owner and mode the broker needs and leaves no window
-        # with the key in two places.
-        - name: Move the key
-          ansible.builtin.command:
-            argv:
-              - mv
-              - "{{ item.src }}"
-              - "{{ item.dest }}"
-          loop:
-            - src: /var/lib/faramir-broker/.ssh/id_ed25519
-              dest: "{{ faramir_broker_ssh_key }}"
-            - src: /var/lib/faramir-broker/.ssh/id_ed25519.pub
-              dest: "{{ faramir_broker_ssh_key }}.pub"
-          changed_when: true
 
 # Staged, not kept: init installs the binary it was run from, so anything left here would
 # be a second copy nothing updates. ~7MB a run. Runs under --check too, where init gets
@@ -209,6 +248,45 @@
     msg: "{{ item }}"
   loop: "{{ (faramir_report.warnings | default([])) + (faramir_project_report.warnings | default([])) }}"
 
+# init grants the client group traversal of every directory from the home down to the
+# config directory, so ~/.config is passable by the broker and the executor. Traversal is
+# execute without read, and what that reaches is whatever the `other` bits allow: the
+# group is the operator's own everywhere in here, and the executor is not in it. The
+# umask is 0002, so a directory created later arrives 0775 and is readable by every
+# account on the host, this one included.
+#
+# The immediate children only. Reaching a file needs execute on every directory above it,
+# so a top-level directory closed to other closes the tree under it, and a recursive walk
+# would cost a stat per file to reach the same state.
+- name: Close the operator's ~/.config to accounts outside it
+  become: true
+  block:
+    - name: List what sits beside the config directory
+      ansible.builtin.find:
+        paths: "{{ faramir_user_home }}/.config"
+        file_type: any
+        recurse: false
+      register: faramir_config_siblings
+
+    # The config directory is exempt and must stay so: it is root's, 0755, and the three
+    # service accounts reach config.toml and the store through those `other` bits. They
+    # are in none of its groups, so closing it stops every daemon.
+    - name: Close each one to other
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: o-rwx
+        # The symlink, not whatever it points at, which is somewhere this task has no
+        # business changing the mode of.
+        follow: false
+      loop: >-
+        {{ faramir_config_siblings.files
+           | rejectattr('path', 'equalto', faramir_config_dir)
+           | rejectattr('islnk')
+           | selectattr('mode', 'search', '[^0]$')
+           | list }}
+      loop_control:
+        label: "{{ item.path | basename }} ({{ item.mode }})"
+
 # This project names no secrets file: faramir's base config globs the store
 # directory, so a sops file is managed by being in it.
 
@@ -290,14 +368,15 @@
              | map(attribute='detail') | join('; ') }}
         quiet: true
 
-# Every run, not only when the key is new: it has to be in authorized_keys on
-# every managed host, which the play after this one does.
+# Every run, not only when the key is new: init mints one whether or not this host
+# needs it, and it has to be in authorized_keys on every managed host, which the play
+# after this one does.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:
       - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
-      - "{{ faramir_report.broker_public_key | default('none; faramir_broker_ssh_key is empty') }}"
+      # Absent under --check, where init runs --dry-run and mints nothing.
+      - "{{ faramir_report.broker_public_key | default('not reported') }}"
       - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
          on every managed host, or brokered playbooks authenticate as nobody. The
          next play of this run puts it there, over the whole inventory."
-  when: faramir_broker_ssh_key | length > 0

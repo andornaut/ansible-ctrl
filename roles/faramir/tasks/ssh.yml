@@ -67,11 +67,22 @@
         # Not exclusive: that would lock out the operator's own keys.
         exclusive: false
         comment: "faramir broker on {{ faramir_controller }}"
+        # Default everywhere but the routers, which name authorized_keys2: pfSense writes
+        # authorized_keys from config.xml whenever the user is saved or the host boots, so
+        # a key put there is gone by morning. sshd reads both files by default.
+        path: "{{ faramir_fleet_authorized_keys_path | default(omit) }}"
+        # The module creates ~/.ssh when it owns the path. Where the path is named, the
+        # directory is the host's own and already correct.
+        manage_dir: "{{ faramir_fleet_authorized_keys_path is not defined }}"
 
     # The broker's key plus this entry means the agent is root here; leave a host out of the
     # play to keep it agent-free. Passwordless because no become password can live in the
     # store: it is the operator's login password, which on the controller reaches the age
     # key.
+    #
+    # Skipped where ansible already connects as root, which is every pfSense host: the
+    # grant exists to make an unprivileged account root, and those carry no sudo, no visudo
+    # and no /etc/sudoers.d to write it into. The key alone is the whole grant there.
     - name: Grant the ansible account passwordless sudo
       ansible.builtin.copy:
         dest: /etc/sudoers.d/faramir-agent
@@ -81,14 +92,18 @@
         mode: "0440"
         validate: visudo -cf %s
       become: true
-      when: faramir_fleet_authorize_key | bool
+      when:
+        - faramir_fleet_authorize_key | bool
+        - ansible_user | default(primary_user) != "root"
 
     - name: Remove the passwordless sudo grant
       ansible.builtin.file:
         path: /etc/sudoers.d/faramir-agent
         state: absent
       become: true
-      when: not faramir_fleet_authorize_key | bool
+      when:
+        - not faramir_fleet_authorize_key | bool
+        - ansible_user | default(primary_user) != "root"
 
 # broker.yml checks the agent holds a key; this checks the fleet accepts it. Asked
 # through the broker, which is the path a brokered playbook takes.

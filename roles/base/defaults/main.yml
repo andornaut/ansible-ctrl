@@ -1,2 +1,35 @@
 ---
 base_timezone: America/Toronto
+
+# Applied to /etc/login.defs by tasks/lockdown.yml. USERGROUPS_ENAB drops the group bits
+# to match the owner's, so this is the effective value either way.
+base_lockdown_umask: "007"
+
+# For homes created after this runs. Group read and traversal, no world bits: the roles
+# that share a directory across accounts share it by group.
+base_lockdown_home_mode: "0750"
+
+# The floor for a login account, and so for a home this role closes. Ubuntu's UID_MIN.
+base_lockdown_min_uid: 1000
+
+# The port sshd listens on. 22 everywhere but the controller, which host_vars moves. Read
+# by both the socket unit and the fail2ban jail, so the two cannot disagree.
+base_lockdown_ssh_port: 22
+
+# fail2ban's sshd jail. Loopback only by default: with key-only sshd the operator never
+# produces a failure to count, so a wider list is for hosts that need one. Add addresses
+# in host_vars rather than widening this.
+base_fail2ban_ignore_ips:
+  - 127.0.0.1/8
+  - ::1
+base_fail2ban_bantime: 1h
+base_fail2ban_findtime: 10m
+base_fail2ban_maxretry: 5
+
+# passwd entries that name no home. Excluded by path rather than by uid: an installer that
+# creates a service account without --system takes a uid from the login range, and several
+# such accounts point at the same placeholder. Add a path here to leave a home alone.
+base_lockdown_exclude_homes:
+  - /nonexistent
+  - /dev/null
+  - /

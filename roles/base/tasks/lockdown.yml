@@ -1,0 +1,277 @@
+---
+# How ansible reached this host: whether over SSH, and so whether locking sshd down can
+# cost access, and as whom and at what address. Read here rather than at the proof below,
+# which is delegated to the controller, where the connection variables are the delegate's
+# and ansible_host is localhost.
+- name: Note how ansible reached this host
+  ansible.builtin.set_fact:
+    base_lockdown_over_ssh: "{{ ansible_connection | default('ssh') != 'local' }}"
+    base_lockdown_ssh_target: "{{ ansible_host | default(inventory_hostname) }}"
+    base_lockdown_ssh_user: "{{ ansible_user | default(primary_user) }}"
+
+# Close every account's files to the accounts outside it. Group access is left alone:
+# USERGROUPS_ENAB gives each account a private group of its own, so the group bits grant
+# nobody anything by default, and the places that do share across accounts share by group
+# (faramir's enrolled tree, the nas share). Taking the group bits would break those and
+# protect nothing.
+
+# 007, not 006: other loses traversal along with read. Nothing here needs it. The one
+# service that crosses accounts is faramir, whose executor reaches an enrolled tree
+# through the client group, which the role grants by chgrp and g+x rather than through
+# the world bits.
+#
+# Directories become 0770 and files 0660, group-writable as they already were: the
+# effective umask is 002 on every host, so this changes the world bits and nothing else.
+#
+# Read by pam_umask, which is in common-session, so it governs login shells and SSH
+# sessions. systemd services take UMask= from their unit and are unaffected, which is the
+# right scope: a daemon's files are the unit's business.
+- name: Set the login umask
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^\s*#?\s*UMASK\b'
+    line: "UMASK\t\t{{ base_lockdown_umask }}"
+    mode: "0644"
+  become: true
+
+# For accounts created from here on. The existing ones are converged below.
+- name: Set the mode of home directories created later
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    mode: "0644"
+  loop:
+    - path: /etc/login.defs
+      regexp: '^\s*#?\s*HOME_MODE\b'
+      line: "HOME_MODE\t{{ base_lockdown_home_mode }}"
+    - path: /etc/adduser.conf
+      regexp: '^\s*#?\s*DIR_MODE\s*='
+      line: "DIR_MODE={{ base_lockdown_home_mode }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true
+
+# The umask governs what is created next, not what is already there. o-rwx rather than a
+# fixed mode: the owner and group arrangement differs per host and is not this task's to
+# decide. The controller's home is 0710 andornaut:dev, faramir having given the client
+# group traversal without a listing, and a fixed 0750 would hand that group the listing.
+- name: Close the existing home directories to other
+  become: true
+  block:
+    - name: Read the passwd database
+      ansible.builtin.getent:
+        database: passwd
+
+    # Login accounts only, and a home named in passwd need not exist: an account can be
+    # created before its home is, and the file module below reports a missing path as a
+    # failure rather than skipping. The uid comparison is what selects them, so it is a
+    # when: rather than a filter, Jinja's selectattr comparing passwd's uids as the
+    # strings they are and ordering 999 above 1000.
+    - name: Check which login accounts have a home
+      ansible.builtin.stat:
+        path: "{{ item.value[4] }}"
+      register: base_lockdown_home_stat
+      loop: "{{ ansible_facts['getent_passwd'] | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when:
+        # Below the threshold are the service accounts, whose homes are each their own
+        # unit's business, and nobody's uid is the other end. Not a sufficient test on its
+        # own: an installer that omits --system takes a uid from the login range, so the
+        # placeholder below catches the ones that did.
+        - item.value[1] | int >= base_lockdown_min_uid
+        - item.value[1] | int != 65534
+        # An account with no home. Debian's convention, and a real directory on a host
+        # where something created it, shared by every account pointed at it.
+        - item.value[4] not in base_lockdown_exclude_homes
+
+    - name: Close each one to other
+      ansible.builtin.file:
+        path: "{{ item.stat.path }}"
+        mode: o-rwx
+        # The directory, not a symlink's target, which is somewhere else and not covered
+        # by the reasoning above.
+        follow: false
+      loop: "{{ base_lockdown_home_stat.results | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir') | list }}"
+      loop_control:
+        label: "{{ item.stat.path }}"
+      # A home belongs to its account. A passwd entry pointing at a directory owned by
+      # somebody else names a shared area instead: the printer account's home is a NAS
+      # share, root-owned and world-readable on purpose, and closing it would take the
+      # share away from every client not in its group.
+      when: item.stat.pw_name == item.item.key
+
+# Password authentication is a second way in that no key rotation reaches, and every
+# managed host grants the account ansible connects as NOPASSWD sudo, so guessing one
+# password is root there. There is no opt-out: the proof below is what decides, refusing
+# the change on a host where key authentication is not already working rather than leaving
+# a flag that has to be right.
+- name: Refuse password authentication over SSH
+  become: true
+  block:
+    # No sshd, nothing to lock down, and no validate binary to check the file with. base
+    # installs the ssh package, but not under --tags lockdown, which skips that task.
+    - name: Check for sshd
+      ansible.builtin.stat:
+        path: /usr/sbin/sshd
+      register: base_lockdown_sshd_binary
+
+    - name: Take the password away
+      when: base_lockdown_sshd_binary.stat.exists
+      block:
+        # Ubuntu socket-activates sshd, so the listening port is ssh.socket's ListenStream
+        # and sshd_config's Port is not read by the daemon. It is still the place to set
+        # it: sshd-socket-generator parses Port out of sshd_config at daemon-reload and
+        # writes the socket drop-in from it. A hand-written replacement unit at
+        # /etc/systemd/system/ssh.socket overrides the vendor unit the generator's drop-in
+        # applies to, so it has to go or the port here means nothing.
+        - name: Drop a replacement ssh.socket unit
+          ansible.builtin.file:
+            path: /etc/systemd/system/ssh.socket
+            state: absent
+          register: base_lockdown_socket_override
+
+        - name: Set the SSH port
+          ansible.builtin.copy:
+            dest: /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf
+            content: "Port {{ base_lockdown_ssh_port }}\n"
+            owner: root
+            group: root
+            mode: "0644"
+            validate: /usr/sbin/sshd -t -f %s
+          register: base_lockdown_sshd_port_file
+
+        # daemon-reload re-runs the generator, restart rebinds. Inline rather than a
+        # handler: the proof below has to run after the port has actually moved, and a
+        # handler fires at the end of the play.
+        - name: Rebind the SSH listener
+          when:
+            - base_lockdown_socket_override.changed or base_lockdown_sshd_port_file.changed
+            # Under --check the two above only reported what they would write, so there is
+            # nothing bound to the new port and the proof would refuse a change never made.
+            - not ansible_check_mode
+          block:
+            - name: Reload systemd so the generator re-reads the port
+              ansible.builtin.systemd_service:
+                daemon_reload: true
+
+            # Restarting the socket drops the listener, not the established sessions:
+            # each is its own ssh@N.service and survives, which is what leaves a way in
+            # when the new port turns out to be wrong.
+            - name: Restart the SSH socket
+              ansible.builtin.systemd_service:
+                name: ssh.socket
+                state: restarted
+
+            - name: Prove the new port answers
+              ansible.builtin.command:
+                argv: >-
+                  {{
+                    ['ssh', '-o', 'BatchMode=yes',
+                     '-o', 'PreferredAuthentications=publickey',
+                     '-o', 'ConnectTimeout=10',
+                     '-p', base_lockdown_ssh_port | string]
+                    + (['-i', ansible_ssh_private_key_file]
+                       if ansible_ssh_private_key_file is defined else [])
+                    + (ansible_ssh_common_args | default('') | trim | split)
+                    + ['-l', base_lockdown_ssh_user, base_lockdown_ssh_target, 'true']
+                  }}
+              delegate_to: localhost
+              become: false
+              register: base_lockdown_port_proof
+              changed_when: false
+              failed_when: false
+              when: base_lockdown_over_ssh
+
+            - name: Require the new port to answer
+              ansible.builtin.assert:
+                that: base_lockdown_port_proof.rc | default(1) == 0
+                fail_msg: >-
+                  {{ inventory_hostname }} does not answer on port
+                  {{ base_lockdown_ssh_port }} after moving to it, so the next connection
+                  has nowhere to go. The session running this play is still open and is
+                  the way back: on that host, remove
+                  /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf, run systemctl
+                  daemon-reload and systemctl restart ssh.socket, then work out why the
+                  port did not bind before re-running.
+                  {{ base_lockdown_port_proof.stderr | default('') | trim }}
+                quiet: true
+              when: base_lockdown_over_ssh
+
+        # From the controller, as the account and address ansible itself uses, that being
+        # the access which has to survive. Proven before the change rather than reverted
+        # after: withdrawing password authentication cannot break a key that already
+        # works, so a pass here is the whole proof and there is no state to roll back.
+        #
+        # Carries ansible's own connection settings, or the proof answers about a
+        # different connection than the one being protected and fails a host whose key
+        # authentication demonstrably works. Each is passed only when the inventory sets
+        # it, for the same reason ansible does: the fleet takes its port from the
+        # operator's ~/.ssh/config, and a -p defaulted to 22 here reaches nothing.
+        # ansible_ssh_common_args is split on whitespace, so a ProxyCommand containing
+        # spaces would need quoting here.
+        #
+        # Skipped where ansible connects locally, which reaches the host whether or not
+        # sshd runs, so there is no access to lose and nothing to prove.
+        - name: Prove key-only authentication already works
+          ansible.builtin.command:
+            argv: >-
+              {{
+                ['ssh', '-o', 'BatchMode=yes',
+                 '-o', 'PreferredAuthentications=publickey',
+                 '-o', 'ConnectTimeout=10']
+                + (['-p', ansible_port | string] if ansible_port is defined else [])
+                + (['-i', ansible_ssh_private_key_file]
+                   if ansible_ssh_private_key_file is defined else [])
+                + (ansible_ssh_common_args | default('') | trim | split)
+                + ['-l', base_lockdown_ssh_user, base_lockdown_ssh_target, 'true']
+              }}
+          delegate_to: localhost
+          become: false
+          register: base_lockdown_key_auth
+          changed_when: false
+          failed_when: false
+          # Opens a connection and runs true, so it is safe under --check, where the
+          # command module otherwise skips and leaves the assert below nothing to read.
+          check_mode: false
+          when: base_lockdown_over_ssh
+
+        # default(1), so a proof that did not run refuses the change rather than passing.
+        - name: Require it before taking the password away
+          ansible.builtin.assert:
+            that: base_lockdown_key_auth.rc | default(1) == 0
+            fail_msg: >-
+              Key-only SSH to {{ inventory_hostname }} as {{ base_lockdown_ssh_user }}
+              failed, so disabling password authentication would leave no way in. Add the
+              key first:
+              ssh-copy-id {{ base_lockdown_ssh_user }}@{{ base_lockdown_ssh_target }}
+              then re-run. Refused rather than skipped, a skip leaving a host that looks
+              hardened and is not.
+              {{ base_lockdown_key_auth.stderr | default('') | trim }}
+            quiet: true
+          when: base_lockdown_over_ssh
+
+        # A drop-in rather than an edit: sshd_config Includes this directory near the top
+        # and takes the first setting of a keyword, so 00- wins over the shipped file
+        # below it. Validated with an absolute path, /usr/sbin not being on every PATH.
+        - name: Install the sshd drop-in
+          ansible.builtin.copy:
+            dest: /etc/ssh/sshd_config.d/00-ansible-role-base.conf
+            content: |
+              PasswordAuthentication no
+              KbdInteractiveAuthentication no
+              PubkeyAuthentication yes
+              PermitRootLogin no
+            owner: root
+            group: root
+            mode: "0644"
+            validate: /usr/sbin/sshd -t -f %s
+          notify: Reload sshd
+
+        # For the handler, which must not reload a unit that is not running: the module
+        # starts one instead, and under socket activation ssh.service is inactive by
+        # design, so that would bind a second listener on whatever port the socket is not
+        # using. Read every run, a fact the handler needs being no use only when it fired.
+        - name: Read the service states
+          ansible.builtin.service_facts:
