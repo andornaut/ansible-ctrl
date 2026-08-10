@@ -9,8 +9,8 @@ host_vars/
 
 # Secret material, encrypted or not: ciphertext is a standing offer to whoever later
 # obtains the key. The generic patterns (*.sops.yml, *.key, .env) are in the global ignore
-# file. The managed store lives in /etc/faramir/secrets, outside this checkout, so this
-# entry guards against the directory reappearing.
+# file. The managed store lives in ~/.config/faramir/secrets, outside this checkout, so
+# this entry guards against the directory reappearing.
 secrets/
 
 # Holds no value, only secret:// references, but those references map this

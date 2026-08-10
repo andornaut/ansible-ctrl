@@ -96,7 +96,7 @@ A value only ever reaches a play through the environment. Three paths put it the
 
 | Path | How |
 | --- | --- |
-| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Where the store is not readable by the operator, the same targets [split the run](roles/faramir/README.md#running-playbooks) between root and the broker instead of refusing |
+| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Where the store is not readable by the operator, the same targets [re-enter as root](roles/faramir/README.md#running-playbooks) instead of refusing |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
