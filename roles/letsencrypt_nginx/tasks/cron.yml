@@ -21,8 +21,8 @@
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"
     # sops exec-env, credentials reaching a play through the environment and the wildcard
     # certificates needing dns-01. Not `make`, whose requirements stamp would run
-    # ansible-galaxy as root into the operator's home. The key is named explicitly, root's
-    # own ~ being /root.
+    # ansible-galaxy as root into the operator's home. Both keys are named explicitly,
+    # root's own ~ being /root.
     #
     # The checkout, store and key are all in that home, unmounted while the operator is
     # logged out. The preflight turns that into mail by writing to stderr outside the log
@@ -44,8 +44,15 @@
       {{ letsencrypt_nginx_renewal_cron_age_key_file }}. Certificates were NOT renewed." >&2;
       exit 1; }; }
       &&
+      { [ -r {{ letsencrypt_nginx_renewal_cron_ssh_key_file }} ] ||
+      { echo "letsencrypt renewal SKIPPED: cannot read
+      {{ letsencrypt_nginx_renewal_cron_ssh_key_file }}, so the run has no identity the
+      web servers accept. Certificates were NOT renewed." >&2;
+      exit 1; }; }
+      &&
       { { cd {{ letsencrypt_nginx_renewal_cron_directory }} &&
       SOPS_AGE_KEY_FILE={{ letsencrypt_nginx_renewal_cron_age_key_file }}
+      ANSIBLE_PRIVATE_KEY_FILE={{ letsencrypt_nginx_renewal_cron_ssh_key_file }}
       sops exec-env {{ letsencrypt_nginx_renewal_cron_sops_file }}
       'ansible-playbook webservers.yml --tags letsencrypt'; }
       >> {{ letsencrypt_nginx_renewal_cron_log }} 2>&1 ||
