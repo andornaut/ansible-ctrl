@@ -249,12 +249,17 @@
               ansible.builtin.assert:
                 that: not base_lockdown_port_untrusted | bool
                 fail_msg: >-
-                  {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }};
-                  the controller's known_hosts entry is filed under the old port. The key
-                  is unchanged, so carry it across:
-                  ssh-keygen -F '[{{ base_lockdown_ssh_target }}]:OLDPORT', add that key
-                  under {{ base_lockdown_known_hosts_name }}, then ssh-keygen -R
-                  '[{{ base_lockdown_ssh_target }}]:OLDPORT'.
+                  {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }},
+                  so the move worked; what is missing is an entry under
+                  {{ base_lockdown_known_hosts_name }}. The key itself is unchanged, so
+                  carry the old entry across rather than accept a new one. It is filed
+                  under {{ base_lockdown_ssh_target }} if the previous port was 22 and
+                  under [{{ base_lockdown_ssh_target }}]:PORT otherwise, in
+                  {{ base_lockdown_known_hosts_path }}, which ssh-keygen reads only when
+                  -f names it:
+                  ssh-keygen -f {{ base_lockdown_known_hosts_path }} -F OLDNAME to print
+                  it, add that key under {{ base_lockdown_known_hosts_name }}, then the
+                  same command with -R to drop it.
                 quiet: true
               when: base_lockdown_over_ssh
 

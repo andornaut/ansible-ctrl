@@ -48,10 +48,10 @@ See [defaults/main.yml](./defaults/main.yml).
   proves key-only SSH already works, from the controller and with ansible's own connection settings, and **fails
   the play** where it does not, naming the `ssh-copy-id` to run. A skip would leave a host that looks hardened and
   is not. Validated with `sshd -t` before it lands, applied with a reload that established connections survive.
-- **The SSH port** comes from `base_lockdown_ssh_port` (22, `1922` on the controller). Set through `sshd_config`,
+- **The SSH port** comes from `base_lockdown_ssh_port`, 22 unless `host_vars` names another. Set through `sshd_config`,
   which `sshd-socket-generator` turns into `ssh.socket`'s `ListenStream` at `daemon-reload`; a `Port` left anywhere
   else is cleared, sshd accumulating them rather than taking the first. Before the port moves, the host's keys are
-  pinned on the controller under the new `[host]:port` name, which is how `known_hosts` files them.
+  pinned on the controller under the name ssh will look them up by: the bare address on 22, `[host]:port` otherwise.
 
 ## Operations
 
