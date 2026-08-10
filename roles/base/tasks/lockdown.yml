@@ -8,6 +8,13 @@
     base_lockdown_over_ssh: "{{ ansible_connection | default('ssh') != 'local' }}"
     base_lockdown_ssh_target: "{{ ansible_host | default(inventory_hostname) }}"
     base_lockdown_ssh_user: "{{ ansible_user | default(primary_user) }}"
+    # OpenSSH files a host key under the bare name on 22 and under [name]:port otherwise,
+    # and matches the line as written, so the port is part of the name. Resolved here for
+    # the same reason as the two above: the task that uses it is delegated.
+    base_lockdown_known_hosts_name: >-
+      {{ ('[' ~ (ansible_host | default(inventory_hostname)) ~ ']:' ~ (base_lockdown_ssh_port | int))
+         if (base_lockdown_ssh_port | int) != 22
+         else (ansible_host | default(inventory_hostname)) }}
 
 # Close every account's files to the accounts outside it. Group access is left alone:
 # USERGROUPS_ENAB gives each account a private group of its own, so the group bits grant
@@ -132,6 +139,18 @@
             state: absent
           register: base_lockdown_socket_override
 
+        # sshd accumulates Port directives rather than taking the first, so one left in
+        # the shipped config adds a listener beside the drop-in's and the host answers on
+        # both the old port and the new one. The drop-in owns the port; this clears the
+        # other claim on it.
+        - name: Drop any port set outside the drop-in
+          ansible.builtin.lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^\s*Port\s+[0-9]+\s*$'
+            state: absent
+            validate: /usr/sbin/sshd -t -f %s
+          register: base_lockdown_sshd_port_main
+
         - name: Set the SSH port
           ansible.builtin.copy:
             dest: /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf
@@ -148,10 +167,56 @@
         - name: Rebind the SSH listener
           when:
             - base_lockdown_socket_override.changed or base_lockdown_sshd_port_file.changed
+              or base_lockdown_sshd_port_main.changed
             # Under --check the two above only reported what they would write, so there is
             # nothing bound to the new port and the proof would refuse a change never made.
             - not ansible_check_mode
           block:
+            # Before the listener moves, so the proof below has something to verify
+            # against: known_hosts files a key by host and port, and an entry made at the
+            # old port does not match the new one. Read over this run's own connection,
+            # which the controller already verified, so the key is carried across
+            # authenticated rather than accepted at first contact.
+            - name: Find this host's public SSH host keys
+              ansible.builtin.find:
+                paths: /etc/ssh
+                patterns: ssh_host_*_key.pub
+              register: base_lockdown_host_key_files
+              when: base_lockdown_over_ssh
+
+            - name: Read them
+              ansible.builtin.slurp:
+                src: "{{ item.path }}"
+              loop: "{{ base_lockdown_host_key_files.files | default([]) }}"
+              loop_control:
+                label: "{{ item.path }}"
+              register: base_lockdown_host_keys
+              when: base_lockdown_over_ssh
+
+            # System-wide rather than the operator's own file: ssh reads it for every uid
+            # on the controller, so one entry covers the operator, the renewal cron's root
+            # and the broker's executor. One call per key type, the module replacing the
+            # line of a matching type and leaving the rest, so the host stays pinned for
+            # whichever algorithm ssh negotiates. The entry at the old port is left alone:
+            # it matches nothing once the port has moved.
+            - name: Pin them on the controller under the new port
+              ansible.builtin.known_hosts:
+                path: "{{ base_lockdown_known_hosts_path }}"
+                name: "{{ base_lockdown_known_hosts_name }}"
+                key: >-
+                  {{ base_lockdown_known_hosts_name }}
+                  {{ base_lockdown_host_key_fields[0] }}
+                  {{ base_lockdown_host_key_fields[1] }}
+                state: present
+              vars:
+                base_lockdown_host_key_fields: "{{ (item.content | b64decode).split() }}"
+              loop: "{{ base_lockdown_host_keys.results | default([]) }}"
+              loop_control:
+                label: "{{ item.item.path }}"
+              delegate_to: localhost
+              become: true
+              when: base_lockdown_over_ssh
+
             - name: Reload systemd so the generator re-reads the port
               ansible.builtin.systemd_service:
                 daemon_reload: true
@@ -184,9 +249,21 @@
               failed_when: false
               when: base_lockdown_over_ssh
 
-            - name: Require the new port to answer
+            # Two different failures wear the same exit code. A refused connection means
+            # nothing bound, which is a lockout. A host key complaint means sshd answered
+            # on the new port and only the controller's record of it is stale: known_hosts
+            # indexes a key by host and port, so the entry written at the old port does
+            # not match the new one. That is not a lockout and must not read as one.
+            - name: Note whether the host answered but went unrecognised
+              ansible.builtin.set_fact:
+                base_lockdown_port_untrusted: >-
+                  {{ 'Host key verification failed'
+                     in (base_lockdown_port_proof.stderr | default('')) }}
+              when: base_lockdown_over_ssh
+
+            - name: Require the new port to be listening
               ansible.builtin.assert:
-                that: base_lockdown_port_proof.rc | default(1) == 0
+                that: base_lockdown_port_proof.rc | default(1) == 0 or base_lockdown_port_untrusted | bool
                 fail_msg: >-
                   {{ inventory_hostname }} does not answer on port
                   {{ base_lockdown_ssh_port }} after moving to it, so the next connection
@@ -196,6 +273,22 @@
                   daemon-reload and systemctl restart ssh.socket, then work out why the
                   port did not bind before re-running.
                   {{ base_lockdown_port_proof.stderr | default('') | trim }}
+                quiet: true
+              when: base_lockdown_over_ssh
+
+            - name: Require the controller to recognise it there
+              ansible.builtin.assert:
+                that: not base_lockdown_port_untrusted | bool
+                fail_msg: >-
+                  {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }},
+                  so the move worked and nothing needs rolling back. What is stale is the
+                  controller's known_hosts, which files a host key under the port it was
+                  first seen on. Until the entry is re-indexed neither ssh nor ansible can
+                  reconnect. The key itself has not changed, so carry the existing one
+                  across rather than accepting a new one:
+                  ssh-keygen -F '[{{ base_lockdown_ssh_target }}]:OLDPORT' to print it,
+                  add that key under {{ base_lockdown_ssh_target }}, then
+                  ssh-keygen -R '[{{ base_lockdown_ssh_target }}]:OLDPORT'.
                 quiet: true
               when: base_lockdown_over_ssh
 
