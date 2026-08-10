@@ -232,19 +232,60 @@
       changed_when: false
       failed_when: false
 
-    - name: Require every host to answer
+    # Each host judged on its own line. A substring over the whole output passed on any
+    # one host answering, and passed a host that produced no line at all.
+    - name: Sort the answers by host
+      ansible.builtin.set_fact:
+        faramir_fleet_ping_answered: >-
+          {{ faramir_fleet_ping_lines | select('search', '\|\s*SUCCESS')
+             | map('regex_replace', faramir_fleet_ping_host, '\1') | list }}
+        faramir_fleet_ping_offline: >-
+          {{ faramir_fleet_ping_lines | select('search', 'UNREACHABLE')
+             | select('search', faramir_fleet_ping_offline_pattern)
+             | map('regex_replace', faramir_fleet_ping_host, '\1') | list }}
+        faramir_fleet_ping_refused: >-
+          {{ faramir_fleet_ping_lines | select('search', 'UNREACHABLE|FAILED')
+             | reject('search', faramir_fleet_ping_offline_pattern)
+             | map('regex_replace', faramir_fleet_ping_host, '\1') | list }}
+      vars:
+        # Only the callback's per-host lines; the rest is warnings addressed to nobody.
+        faramir_fleet_ping_lines: >-
+          {{ faramir_fleet_ping.stdout_lines | default([]) | select('search', '^\S+\s*\|') }}
+        faramir_fleet_ping_host: '^(\S+)\s*\|.*$'
+
+    # Named even when the run passes: they are the part of the fleet this proved nothing
+    # about, and silence would read as having covered them.
+    - name: Report the hosts that were off
+      ansible.builtin.debug:
+        msg: >-
+          Off during this run, so neither proven nor disproven:
+          {{ faramir_fleet_ping_offline | join(', ') }}. Re-run once they are up.
+      when: faramir_fleet_ping_offline | length > 0
+
+    - name: Require every host that answered to have accepted the key
       ansible.builtin.assert:
         that:
-          - "'UNREACHABLE' not in faramir_fleet_ping.stdout"
-          - "'SUCCESS' in faramir_fleet_ping.stdout"
+          - faramir_fleet_ping_refused | length == 0
+          - faramir_fleet_ping_missing | length == 0
+          - faramir_fleet_ping_answered | length > 0
         fail_msg: >-
-          A brokered ping did not reach every host. The broker holds a key; this
-          says whether the fleet accepts it. Likeliest causes: these tasks have
-          not authorized the account ansible connects as on every host, the
-          inventory leaves a host's address, port or login to the operator's ssh
-          config, which the executor does not have and so dials the wrong one, or
-          ansible.cfg names a path that is ~-relative and so resolves to nothing
-          for the executor's uid, which ansible exits 1 over rather than warning.
+          A brokered ping did not clear the fleet. The broker holds a key; this
+          says which hosts accept it.
+          Refused ({{ faramir_fleet_ping_refused | join(', ') or 'none' }}):
+          reached, and would not have it. Either these tasks have not authorized
+          the account ansible connects as, or the host is not pinned in
+          {{ faramir_fleet_known_hosts_path }} under the address and port the
+          inventory dials, an entry being filed under both.
+          Unaccounted for ({{ faramir_fleet_ping_missing | join(', ') or 'none' }}):
+          in the inventory and absent from the output entirely.
+          Answered: {{ faramir_fleet_ping_answered | join(', ') or 'none' }}.
+          Off: {{ faramir_fleet_ping_offline | join(', ') or 'none' }}.
           Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
           {{ faramir_fleet_ping.stderr | default('') | trim }}
         quiet: true
+      vars:
+        faramir_fleet_ping_missing: >-
+          {{ groups['all'] | difference([faramir_controller])
+             | difference(faramir_fleet_ping_answered)
+             | difference(faramir_fleet_ping_offline)
+             | difference(faramir_fleet_ping_refused) }}

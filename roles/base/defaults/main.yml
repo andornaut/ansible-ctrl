@@ -16,6 +16,12 @@ base_lockdown_min_uid: 1000
 # by both the socket unit and the fail2ban jail, so the two cannot disagree.
 base_lockdown_ssh_port: 22
 
+# Where the controller records a host key when tasks/lockdown.yml moves a port. System-wide
+# rather than the operator's own file: ssh reads it for every uid there. The faramir role
+# pins the same path for the same reason, and the duplication is deliberate, no role here
+# reading another's variables.
+base_lockdown_known_hosts_path: /etc/ssh/ssh_known_hosts
+
 # fail2ban's sshd jail. Loopback only by default: with key-only sshd the operator never
 # produces a failure to count, so a wider list is for hosts that need one. Add addresses
 # in host_vars rather than widening this.
