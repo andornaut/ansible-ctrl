@@ -120,8 +120,10 @@
 # init to regenerate: the managed hosts authorize this key, and a new one would reach none
 # of them until the fleet play had run. init re-asserts the directory and both halves'
 # ownership afterwards, so nothing here needs the broker account's name. Only the two
-# files move: the directory they came out of is the broker account's .ssh, holding the
-# known_hosts brokered runs verify the fleet against.
+# files move: the directory they came out of is the broker account's own .ssh, which this
+# role did not create and does not remove. The fleet's host keys are not in it; commands
+# run as the executor account, so ssh reads that account's home, and ssh.yml pins them
+# system-wide instead.
 - name: Move the broker's SSH key under the config directory
   become: true
   block:
