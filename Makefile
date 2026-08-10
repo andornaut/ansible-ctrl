@@ -75,6 +75,7 @@ help:
 	@echo "Variables:"
 	@echo "  SECRETS=none          - Skip the sops re-entry, for a run that reads no credential"
 	@echo "  ASK_PASS=1            - Force --ask-become-pass"
+	@echo "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
 
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
@@ -102,16 +103,26 @@ SUBMAKE := $(MAKE)
 
 # In the operator's home, resolved above.
 SOPS_FILE := $(OPERATOR_HOME)/.config/faramir/secrets/ansible-ctrl.sops.yml
+BROKER_KEY := $(OPERATOR_HOME)/.config/faramir/id_ed25519
 
 # sops looks for an identity under $HOME, and root's is /root, so the key is named. The
 # keeper's key is already a recipient and root reads it whatever its mode. ?= leaves an
 # operator-set value alone; the letsencrypt_nginx renewal cron names it for the same
 # reason, being the other root-run entry point.
 #
-# ssh is not redirected: root's own ~/.ssh reaches the fleet, and the operator's config
-# would supply aliases without an identity, every ~ in it expanding to /root.
+# ssh is named for the same reason. Root's own ~/.ssh holds whatever it was given by hand,
+# which is not the fleet, and a run that offers an identity the fleet does not know fails
+# host by host with the plays before it already applied. The broker's key is the identity
+# that does reach every host: faramir.yml authorizes it fleet-wide, it carries no
+# passphrase, and root reads it whatever its mode, so naming it here grants nothing root
+# could not already do. The operator's ssh config is still not read: it supplies aliases
+# without an identity, and every ~ in it expands to /root.
+#
+# Host keys need no equivalent. roles/faramir pins the fleet's in /etc/ssh/ssh_known_hosts,
+# which ssh reads for every uid on this host, root included.
 ifdef IS_ROOT
 export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.config/faramir/age.key
+export ANSIBLE_PRIVATE_KEY_FILE ?= $(BROKER_KEY)
 endif
 
 # The runs that read a secret_* variable, and so the only ones that re-enter under sops.
@@ -131,10 +142,35 @@ LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter 
 # arrived, and that assert must not outlive the decision to skip the injection.
 SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
 
-# Prompt only when the run reaches the controller, the one host whose sudo asks. Asked of
-# ansible rather than assumed, so a --limit in ARGS counts: one startup connecting to
-# nothing, ~0.4s. Two ways to reach it, hence the two checks below: the host list, and a
-# role with a become task under delegate_to.
+# Whether to prove the invoking uid reaches this run's hosts before any play applies. A
+# host that is down is dropped from the run through --limit, the play otherwise spending
+# the connection timeout a second time to reach the conclusion the probe already reached.
+# One that answers and refuses the connection stops the run instead. PREFLIGHT=none skips
+# both, for a run that should attempt every host whatever the probe found.
+#
+# The --limit goes last and so outranks one in ARGS, which is correct rather than lossy:
+# the host list it is built from comes from list_run, which already applied that one.
+#
+# raw, the question being whether ssh authenticates rather than whether python answers, and
+# so needing neither an interpreter nor a module transfer. The timeout is the whole cost of
+# the probe, every host that is up answering well inside a second, and it is not free to
+# shorten: a host wrongly called down is dropped rather than merely reported.
+#
+# What survives is the probed list less what failed, never the lines that succeeded: those
+# carry the module's own output, whose shape differs per module and per host, and a host
+# whose line does not parse would be dropped from the run without saying so.
+RUN_PREFLIGHT = $(if $(filter none,$(PREFLIGHT)),,1)
+
+# The connection failures that mean a host is off and nothing more, which the preflight
+# reports and carries on past. Anything else is an identity or a host key the fleet does
+# not accept, a fault in the run rather than in the host. Kept in step with
+# faramir_fleet_ping_offline_pattern in roles/faramir/defaults/main.yml, which sorts the
+# broker's own fleet ping by the same rule.
+PREFLIGHT_OFFLINE := Connection timed out|Connection refused|No route to host|Host is down
+
+# What this run resolves to, asked of ansible rather than assumed so a --limit in ARGS
+# counts. One startup connecting to nothing, ~0.3s, and the recipe runs it once into $$run
+# for both readers: the preflight, which probes the host list, and become_flag below.
 list_run = ansible-playbook $(1).yml $(ARGS) --list-hosts --list-tasks 2>/dev/null
 
 # Host names sit under "hosts (N):" and stop where the task list starts.
@@ -148,9 +184,11 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 # reads as needing none. `make faramir` is not one: the controller is in its first play,
 # so that prompt also serves the second, which establishes the NOPASSWD the rest rely
 # on.
+#
+# Reads $$run, which the recipe sets from list_run before reaching here. Prompt or not, the
+# playbook it describes is the one about to run.
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
-  run=$$($(call list_run,$(1))); \
   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts)); \
   for h in $$(echo "$$run" | $(pick_hosts)); do \
     for c in $$controller; do [ "$$h" = "$$c" ] && { echo --ask-become-pass; exit 0; }; done; \
@@ -186,6 +224,14 @@ $(PLAYBOOKS): %: requirements
 	   echo "  make $* ARGS='...'" >&2; \
 	   exit 1; \
 	 fi; \
+	 if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ]; then \
+	   echo "Refusing to run faramir.yml as root: it is what authorizes the key a" >&2; \
+	   echo "root run connects with, so on a controller that has none there is no" >&2; \
+	   echo "identity to reach the fleet with and the run fails host by host with" >&2; \
+	   echo "the broker already installed. Run it as the operator:" >&2; \
+	   echo "  make faramir" >&2; \
+	   exit 1; \
+	 fi; \
 	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
 	   echo "$(SOPS_FILE): not readable by $(OPERATOR)" >&2; \
 	   echo "Refusing to run $*.yml: every secret_* variable would be undefined," >&2; \
@@ -200,5 +246,35 @@ $(PLAYBOOKS): %: requirements
 	 if [ -n "$(LOAD_SECRETS)" ]; then \
 	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)); \
 	 else \
-	   ansible-playbook $(call become_flag,$*) $(SECRETS_FLAG) $*.yml $(ARGS); \
+	   limit=""; \
+	   run=$$($(call list_run,$*)); \
+	   if [ -n "$(RUN_PREFLIGHT)" ]; then \
+	     hosts=$$(echo "$$run" | $(pick_hosts) | paste -sd,); \
+	     if [ -n "$$hosts" ]; then \
+	       probe=$$(ansible "$$hosts" -m raw -a true -o -T 3 2>&1); \
+	       off=$$(echo "$$probe" | grep UNREACHABLE | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1 | paste -sd' '); \
+	       bad=$$(echo "$$probe" | grep UNREACHABLE | grep -vE '$(PREFLIGHT_OFFLINE)'); \
+	       if [ -n "$$bad" ]; then \
+	         echo "$$bad" >&2; \
+	         echo "Preflight: refusing to run $*.yml, because $$(id -un) cannot" >&2; \
+	         echo "authenticate to the hosts above, and ansible would find that out one" >&2; \
+	         echo "host at a time, mid-run, with the plays before it already applied." >&2; \
+	         echo "A run connects with the invoking account's own ~/.ssh unless" >&2; \
+	         echo "ANSIBLE_PRIVATE_KEY_FILE names an identity the fleet accepts, which" >&2; \
+	         echo "this Makefile does for root and root alone." >&2; \
+	         echo "Skip this check with PREFLIGHT=none." >&2; \
+	         exit 1; \
+	       fi; \
+	       if [ -n "$$off" ]; then \
+	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$(echo "$$off" | tr ' ' '\n')" | paste -sd,); \
+	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
+	         if [ -z "$$reachable" ]; then \
+	           echo "Preflight: nothing left to apply $*.yml to." >&2; \
+	           exit 1; \
+	         fi; \
+	         limit="--limit $$reachable"; \
+	       fi; \
+	     fi; \
+	   fi; \
+	   ansible-playbook $(call become_flag,$*) $(SECRETS_FLAG) $*.yml $(ARGS) $$limit; \
 	 fi

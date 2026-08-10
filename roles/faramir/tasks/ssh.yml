@@ -276,6 +276,11 @@
           the account ansible connects as, or the host is not pinned in
           {{ faramir_fleet_known_hosts_path }} under the address and port the
           inventory dials, an entry being filed under both.
+          Dropped ({{ faramir_fleet_ping_dropped | join(', ') or 'none' }}):
+          ansible itself lost these earlier in this play, so their keys were never
+          collected and never pinned, and a refusal above is that and not a bad
+          pin. Fix what dropped them, higher up in this run's output, before
+          reading anything else here.
           Unaccounted for ({{ faramir_fleet_ping_missing | join(', ') or 'none' }}):
           in the inventory and absent from the output entirely.
           Answered: {{ faramir_fleet_ping_answered | join(', ') or 'none' }}.
@@ -289,3 +294,10 @@
              | difference(faramir_fleet_ping_answered)
              | difference(faramir_fleet_ping_offline)
              | difference(faramir_fleet_ping_refused) }}
+        # What ansible started this play with, less what is still in it. A host ansible
+        # lost has run none of the tasks above, so it contributed no host key and holds no
+        # pin, and the brokered ping then refuses it for a reason that has nothing to do
+        # with the pinning.
+        faramir_fleet_ping_dropped: >-
+          {{ ansible_play_hosts_all | difference(ansible_play_hosts)
+             | difference([faramir_controller]) }}
