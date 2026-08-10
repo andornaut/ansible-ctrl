@@ -1,6 +1,7 @@
 ---
 - name: Apply msmtp role
-  hosts: all
+  # Every Ubuntu host. The routers have no apt, and pfSense sends its own mail.
+  hosts: all:!routers
   # See homeautomation.yml.
   pre_tasks:
     - name: Require the credentials this play reads

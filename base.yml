@@ -1,5 +1,6 @@
 ---
 - name: Apply base role
-  hosts: all
+  # Every Ubuntu host. The routers are pfSense and have none of what this installs.
+  hosts: all:!routers
   roles:
     - base

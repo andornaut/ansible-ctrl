@@ -1,6 +1,7 @@
 ---
 - name: Upgrade all packages
-  hosts: all
+  # Every Ubuntu host. The routers have no apt and no flatpak; pfSense updates itself.
+  hosts: all:!routers
   tasks:
     - name: Apt autoremove, clean, and dist-upgrade
       ansible.builtin.apt:

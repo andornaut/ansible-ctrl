@@ -1,0 +1,15 @@
+# Managed by the base role. jail.conf is replaced on upgrade; this file is not.
+[DEFAULT]
+# The journal, not /var/log/auth.log: the file is there today only because rsyslog is,
+# and a host without it would leave every jail reading nothing and reporting healthy.
+backend = systemd
+bantime = {{ base_fail2ban_bantime }}
+findtime = {{ base_fail2ban_findtime }}
+maxretry = {{ base_fail2ban_maxretry }}
+ignoreip = {{ base_fail2ban_ignore_ips | join(' ') }}
+
+[sshd]
+enabled = true
+# The port sshd actually listens on, which is what the ban rule filters. A default 22 here
+# would install rules that never match the traffic being banned.
+port = {{ base_lockdown_ssh_port }}

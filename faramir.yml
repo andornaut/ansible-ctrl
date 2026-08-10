@@ -16,6 +16,9 @@
 # cannot widen its own reach here: its --limit '!faramir' leaves the play above with no
 # hosts, so no key is published and ssh.yml's assert stops this one.
 - name: Authorize the broker's key across the fleet
+  # The routers included, unlike the Ubuntu-only plays: this one distributes a key rather
+  # than installing anything, and both connect as root, which is what the agent gets there.
+  # ssh.yml handles what pfSense does differently.
   hosts: all
   gather_facts: false
   tasks:
