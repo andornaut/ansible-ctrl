@@ -210,23 +210,22 @@
 
 # broker.yml checks the agent holds a key; this checks the fleet accepts it. Asked
 # through the broker, which is the path a brokered playbook takes.
+#
+# The hosts this play authorized, not the whole inventory: under a --limit the rest were
+# never reached, so pinging them proves nothing and fails the assert below for a run that
+# did what it was asked. Skipped where that leaves nothing, a controller-only run.
 - name: Prove a brokered run reaches the fleet
-  when: inventory_hostname == faramir_controller
+  when:
+    - inventory_hostname == faramir_controller
+    - faramir_fleet_ping_hosts | length > 0
+  vars:
+    faramir_fleet_ping_hosts: "{{ ansible_play_hosts_all | difference([faramir_controller]) }}"
   block:
-    - name: Ping every managed host through the broker
+    - name: Ping the hosts this run authorized, through the broker
       ansible.builtin.command:
-        argv:
-          - /usr/local/bin/faramir
-          - run
-          - --quiet
-          - --
-          - ansible
-          - all
-          - -m
-          - ping
-          - --limit
-          - "!faramir"
-          - -o
+        argv: >-
+          {{ [faramir_binary, 'run', '--quiet', '--',
+              'ansible', faramir_fleet_ping_hosts | join(','), '-m', 'ping', '-o'] }}
       become: true
       register: faramir_fleet_ping
       changed_when: false
@@ -282,7 +281,7 @@
           pin. Fix what dropped them, higher up in this run's output, before
           reading anything else here.
           Unaccounted for ({{ faramir_fleet_ping_missing | join(', ') or 'none' }}):
-          in the inventory and absent from the output entirely.
+          in this play and absent from the output entirely.
           Answered: {{ faramir_fleet_ping_answered | join(', ') or 'none' }}.
           Off: {{ faramir_fleet_ping_offline | join(', ') or 'none' }}.
           Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
@@ -290,14 +289,13 @@
         quiet: true
       vars:
         faramir_fleet_ping_missing: >-
-          {{ groups['all'] | difference([faramir_controller])
+          {{ faramir_fleet_ping_hosts
              | difference(faramir_fleet_ping_answered)
              | difference(faramir_fleet_ping_offline)
              | difference(faramir_fleet_ping_refused) }}
-        # What ansible started this play with, less what is still in it. A host ansible
-        # lost has run none of the tasks above, so it contributed no host key and holds no
-        # pin, and the brokered ping then refuses it for a reason that has nothing to do
-        # with the pinning.
+        # What this play started with, less what is still in it. A host ansible lost has
+        # run none of the tasks above, so it contributed no host key and holds no pin, and
+        # the brokered ping then refuses it for a reason that has nothing to do with the
+        # pinning.
         faramir_fleet_ping_dropped: >-
-          {{ ansible_play_hosts_all | difference(ansible_play_hosts)
-             | difference([faramir_controller]) }}
+          {{ faramir_fleet_ping_hosts | difference(ansible_play_hosts) }}

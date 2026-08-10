@@ -2,7 +2,11 @@ SHELL := /bin/bash
 
 # Arguments after `--` are forwarded verbatim to ansible-playbook; the separator is
 # required, make rejecting bare --flags. See README.
-ARGS = $(filter-out $(firstword $(MAKECMDGOALS)),$(MAKECMDGOALS))
+#
+# Every goal but the first, rather than every goal that is not the target: a forwarded
+# token that happens to equal the target name (`make desktop -- --limit desktop`) would
+# otherwise be dropped from its own argument list.
+ARGS = $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
 # An argument containing = does not survive that route: make takes it as a variable
 # assignment before the goal list is built, and the flag forwards with nothing after it.
@@ -120,9 +124,14 @@ BROKER_KEY := $(OPERATOR_HOME)/.config/faramir/id_ed25519
 #
 # Host keys need no equivalent. roles/faramir pins the fleet's in /etc/ssh/ssh_known_hosts,
 # which ssh reads for every uid on this host, root included.
+#
+# The key is named only where it exists: ssh warns per host about an identity file it
+# cannot open, and a controller with no broker has root's own ~/.ssh and nothing else.
 ifdef IS_ROOT
 export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.config/faramir/age.key
+ifneq ($(wildcard $(BROKER_KEY)),)
 export ANSIBLE_PRIVATE_KEY_FILE ?= $(BROKER_KEY)
+endif
 endif
 
 # The runs that read a secret_* variable, and so the only ones that re-enter under sops.
@@ -142,25 +151,12 @@ LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter 
 # arrived, and that assert must not outlive the decision to skip the injection.
 SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
 
-# The other way to put a credential in a play's environment, for a secret-bearing run whose
-# store the operator cannot read. Both halves have to be there: roles/faramir installs the
-# binary, and faramir.env maps this repo's secret_* names onto the store's layout and is
-# gitignored, so a checkout that was never enrolled has neither.
-FARAMIR_ENV := faramir.env
-BROKER_INSTALLED := $(if $(and $(shell command -v faramir 2>/dev/null),$(wildcard $(FARAMIR_ENV))),1)
-
-# No --env-file: the probe asks whether ssh authenticates, which needs the executor's
-# identity and none of the values, and injecting a credential into `true` would put
-# plaintext in a process for nothing and an injection in the audit log for less.
-BROKER_PROBE := $(if $(BROKER_INSTALLED),faramir run --)
-BROKER_RUN := $(if $(BROKER_INSTALLED),faramir run --env-file $(FARAMIR_ENV) --)
-
-# Whether to prove that whatever will run the play reaches this run's hosts before any of it
-# applies -- the invoking uid, or the executor for the brokered half of a split run. A
-# host that is down is dropped from the run through --limit, the play otherwise spending
-# the connection timeout a second time to reach the conclusion the probe already reached.
-# One that answers and refuses the connection stops the run instead. PREFLIGHT=none skips
-# both, for a run that should attempt every host whatever the probe found.
+# Whether to prove that the invoking account reaches this run's hosts before any of it
+# applies. A host that is down is dropped from the run through --limit, the play otherwise
+# spending the connection timeout a second time to reach the conclusion the probe already
+# reached. One that answers and refuses the connection stops the run instead.
+# PREFLIGHT=none skips it, for a run that should attempt every host whatever the probe
+# would have found.
 #
 # The --limit goes last and so outranks one in ARGS, which is correct rather than lossy:
 # the host list it is built from comes from list_run, which already applied that one.
@@ -187,8 +183,10 @@ PREFLIGHT_OFFLINE := Connection timed out|Connection refused|No route to host|Ho
 # for both readers: the preflight, which probes the host list, and become_flag below.
 list_run = ansible-playbook $(1).yml $(ARGS) --list-hosts --list-tasks 2>/dev/null
 
-# Host names sit under "hosts (N):" and stop where the task list starts.
-pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:space:]]*$$/{f=0} f{gsub(/^[[:space:]]+|[[:space:]]+$$/,"");print}'
+# Host names sit under "hosts (N):" and stop where the task list starts. Deduplicated: a
+# host in two plays of one playbook is listed once per play, and the probe pattern and the
+# --limit are built from this list.
+pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:space:]]*$$/{f=0} f{gsub(/^[[:space:]]+|[[:space:]]+$$/,"");if(!seen[$$0]++)print}'
 
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
@@ -204,50 +202,31 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts)); \
-  for h in $$(echo "$$run" | $(pick_hosts)); do \
-    for c in $$controller; do [ "$$h" = "$$c" ] && { echo --ask-become-pass; exit 0; }; done; \
-  done; \
+  echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo --ask-become-pass; exit 0; }; \
   for r in $$(echo "$$run" | $(pick_roles)); do \
     grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo --ask-become-pass; exit 0; }; \
   done)))
 endef
 
-# Why the identity that just failed to authenticate has the reach it has. One per caller of
-# preflight below, which picks between them: a refusal that names the wrong identity sends
-# the reader to the wrong file.
-define preflight_hint_operator
-	         echo "A run connects with the invoking account's own ~/.ssh unless" >&2; \
-	         echo "ANSIBLE_PRIVATE_KEY_FILE names an identity the fleet accepts, which" >&2; \
-	         echo "this Makefile does for root and root alone." >&2;
-endef
-
-define preflight_hint_broker
-	         echo "A brokered run connects as the executor with the broker's key. Its" >&2; \
-	         echo "public half is authorized fleet-wide by faramir.yml; a host that" >&2; \
-	         echo "refuses it either sat out that run or has replaced the" >&2; \
-	         echo "authorized_keys the play wrote. Re-run: make faramir" >&2;
-endef
-
-# Reads $$hosts, a comma-separated list, and $$who, what to call the identity in a refusal.
-# Sets $$limit to what survived. $(1) prefixes the probe with whatever will run the play, so
-# the question is put as the account that will connect: empty is the invoking one, and
-# $(BROKER_PROBE) the executor. A probe put as the wrong account answers about the wrong
-# ~/.ssh, which is worse than not probing.
+# Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
+# as the account that will run the play, so it answers about the ~/.ssh that will connect.
 define preflight
-	       probe=$$($(1) ansible "$$hosts" -m raw -a true -o -T 3 2>&1); \
-	       off=$$(echo "$$probe" | grep UNREACHABLE | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1 | paste -sd' '); \
-	       bad=$$(echo "$$probe" | grep UNREACHABLE | grep -vE '$(PREFLIGHT_OFFLINE)'); \
+	       probe=$$(ansible "$$hosts" -m raw -a true -o -T 3 2>&1 | grep UNREACHABLE); \
+	       off=$$(echo "$$probe" | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1); \
+	       bad=$$(echo "$$probe" | grep -vE '$(PREFLIGHT_OFFLINE)'); \
 	       if [ -n "$$bad" ]; then \
 	         echo "$$bad" >&2; \
-	         echo "Preflight: refusing to run $*.yml, because $$who cannot" >&2; \
+	         echo "Preflight: refusing to run $*.yml, because $$(id -un) cannot" >&2; \
 	         echo "authenticate to the hosts above, and ansible would find that out one" >&2; \
 	         echo "host at a time, mid-run, with the plays before it already applied." >&2; \
-	         $(if $(1),$(preflight_hint_broker),$(preflight_hint_operator)) \
+	         echo "A run connects with the invoking account's own ~/.ssh unless" >&2; \
+	         echo "ANSIBLE_PRIVATE_KEY_FILE names an identity the fleet accepts, which" >&2; \
+	         echo "this Makefile does for root, from the broker's key." >&2; \
 	         echo "Skip this check with PREFLIGHT=none." >&2; \
 	         exit 1; \
 	       fi; \
 	       if [ -n "$$off" ]; then \
-	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$(echo "$$off" | tr ' ' '\n')" | paste -sd,); \
+	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
 	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
 	         if [ -z "$$reachable" ]; then \
 	           echo "Preflight: nothing left to apply $*.yml to." >&2; \
@@ -261,26 +240,15 @@ endef
 # where one carrying a quote of its own would end the string early.
 shquote = '$(subst ','\'',$(1))'
 
-# A secret-bearing run whose store cannot be read is served rather than refused, where the
-# broker is installed: every secret_* would otherwise be undefined, and the first task to
-# read one fails with the tasks before it already applied.
+# A secret-bearing run whose store the operator cannot read is served rather than refused:
+# every secret_* would otherwise be undefined, and the first task to read one fails with the
+# tasks before it already applied. The store's group holds no human, so the run re-enters
+# as root, which reads it and reaches every host, the broker's key being the identity a root
+# run connects with. One password, and the whole run is one play as written.
 #
-# The store's group holds no human, so only root and the broker's executor can serve such a
-# run, and they cover different hosts: root covers all of them, while the executor
-# authenticates everywhere but has no sudo on the controller. So the run is split along that
-# line rather than handed to one of them whole, and the halves are what each account can
-# actually apply. Most such runs resolve to no controller at all -- webservers and
-# homeautomation are remote groups -- and those go through the broker entire, with nothing
-# to prompt for.
-#
-# The controller's half goes first, so its one sudo prompt is answered before the brokered
-# half spends minutes on the fleet, and a refused password stops the run with nothing
-# applied. Splitting costs the linear strategy's lockstep across the two halves, which none
-# of SECRET_PLAYBOOKS depends on: each applies a per-host role. A playbook whose plays
-# publish from one host and consume on another (faramir.yml) must not be added to that list
-# without revisiting this.
-#
-# The `--` is repeated on both re-entries for the reason it is required on the way in.
+# Both re-entries hand the forwarded arguments over as ARGS rather than as goals: make
+# passes a command-line ARGS down through MAKEFLAGS, where it outranks anything the child
+# derives from its own goals, so a goal-borne argument list is silently the parent's.
 #
 # Only the first goal is applied: every inventory group is also a playbook here, so
 # `make base -- --limit desktop` would otherwise apply desktop as well.
@@ -302,59 +270,27 @@ $(PLAYBOOKS): %: requirements
 	   echo "  make faramir" >&2; \
 	   exit 1; \
 	 fi; \
-	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ] && [ -z "$(BROKER_INSTALLED)" ]; then \
-	   echo "$(SOPS_FILE): not readable by $(OPERATOR)" >&2; \
-	   echo "Refusing to run $*.yml: every secret_* variable would be undefined," >&2; \
-	   echo "and the first task to read one fails with the tasks before it already" >&2; \
-	   echo "applied. Run it as root, which reads the store and reaches every host:" >&2; \
-	   echo "  sudo make $*$(if $(ARGS), -- $(ARGS))" >&2; \
-	   echo "Installing the broker would let this run serve itself, splitting the" >&2; \
-	   echo "fleet off to it and asking for a password only if the controller is in" >&2; \
-	   echo "the run:" >&2; \
-	   echo "  make faramir" >&2; \
-	   exit 1; \
-	 fi; \
 	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
-	   run=$$($(call list_run,$*)); \
-	   every=$$(echo "$$run" | $(pick_hosts)); \
-	   controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts)); \
-	   if [ -n "$$controller" ]; then \
-	     ctrl=$$(echo "$$every" | grep -xF "$$controller" | paste -sd,); \
-	     fleet=$$(echo "$$every" | grep -vxF "$$controller" | paste -sd,); \
-	   else \
-	     ctrl=""; \
-	     fleet=$$(echo "$$every" | paste -sd,); \
-	   fi; \
-	   if [ -z "$$ctrl$$fleet" ]; then \
-	     echo "$*.yml resolves to no hosts." >&2; \
+	   if [ -n "$(IS_ROOT)" ]; then \
+	     echo "$(SOPS_FILE): not readable by root, so it is missing or its home is" >&2; \
+	     echo "not mounted. Refusing to run $*.yml: every secret_* variable would be" >&2; \
+	     echo "undefined, and the first task to read one fails with the tasks before" >&2; \
+	     echo "it already applied." >&2; \
 	     exit 1; \
 	   fi; \
-	   echo "$(SOPS_FILE) is not readable by $(OPERATOR), so this run is split:" >&2; \
-	   if [ -n "$$ctrl" ]; then echo "  $$ctrl -> as root, which reads the store" >&2; fi; \
-	   if [ -n "$$fleet" ]; then echo "  $$fleet -> through the broker" >&2; fi; \
-	   if [ -n "$$ctrl" ]; then \
-	     sudo $(SUBMAKE) --no-print-directory $* -- $(ARGS) --limit "$$ctrl" || exit 1; \
-	   fi; \
-	   if [ -n "$$fleet" ]; then \
-	     limit="--limit $$fleet"; \
-	     if [ -n "$(RUN_PREFLIGHT)" ]; then \
-	       hosts="$$fleet"; \
-	       who="the broker's executor"; \
-	       $(call preflight,$(BROKER_PROBE)) \
-	     fi; \
-	     $(BROKER_RUN) ansible-playbook $*.yml $(ARGS) $$limit; \
-	   fi; \
+	   echo "$(SOPS_FILE) is not readable by $(OPERATOR), so this run re-enters as" >&2; \
+	   echo "root, which reads the store and reaches every host." >&2; \
+	   sudo $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS)); \
 	 elif [ -n "$(LOAD_SECRETS)" ]; then \
-	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* -- $(ARGS)); \
+	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS))); \
 	 else \
 	   limit=""; \
 	   run=$$($(call list_run,$*)); \
 	   if [ -n "$(RUN_PREFLIGHT)" ]; then \
 	     hosts=$$(echo "$$run" | $(pick_hosts) | paste -sd,); \
-	     who=$$(id -un); \
 	     if [ -n "$$hosts" ]; then \
-	       $(call preflight,) \
+	       $(preflight) \
 	     fi; \
 	   fi; \
-	   ansible-playbook $(call become_flag,$*) $(SECRETS_FLAG) $*.yml $(ARGS) $$limit; \
+	   ansible-playbook $(become_flag) $(SECRETS_FLAG) $*.yml $(ARGS) $$limit; \
 	 fi

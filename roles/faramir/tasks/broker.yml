@@ -114,9 +114,12 @@
       check_mode: false
       changed_when: faramir_init.stdout | length > 0 and (faramir_init.stdout | from_json).changed
 
+    # Guarded like the changed_when above, and for the same reason: an empty report would
+    # turn into a parse error naming nothing.
     - name: Read what the install did
       ansible.builtin.set_fact:
         faramir_report: "{{ faramir_init.stdout | from_json }}"
+      when: faramir_init.stdout | length > 0
   always:
     - name: Remove the temporary directory for the faramir binaries
       ansible.builtin.file:
