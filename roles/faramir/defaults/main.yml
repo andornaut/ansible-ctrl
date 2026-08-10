@@ -33,6 +33,20 @@ faramir_agents:
 # A default rather than a play var, so host_vars can turn it off per host.
 faramir_fleet_authorize_key: true
 
+# Where tasks/ssh.yml pins the fleet's SSH host keys. System-wide rather than under the
+# executor's home: ssh reads it for every uid on the controller, so one file covers the
+# executor, the cert-renewal cron's root and the operator alike, and it survives the
+# service accounts being recreated. Public keys only, hence world-readable.
+faramir_fleet_known_hosts_path: /etc/ssh/ssh_known_hosts
+
+# The name ssh looks an entry up under: the address ansible dials, bracketed with the port
+# when that is not 22. An entry filed under any other name is never consulted, so this has
+# to track whatever the inventory sets rather than the host's own idea of its name.
+faramir_fleet_known_hosts_name: >-
+  {{ ('[' ~ (ansible_host | default(inventory_hostname)) ~ ']:' ~ (ansible_port | int))
+     if (ansible_port | default(22) | int) != 22
+     else (ansible_host | default(inventory_hostname)) }}
+
 # Where tasks/ssh.yml writes the broker's key, when the host's own default will not hold
 # it. Undefined here, so the authorized_key module picks ~/.ssh/authorized_keys; set in
 # host_vars for a host that manages that file itself. The pfSense routers do: it is
