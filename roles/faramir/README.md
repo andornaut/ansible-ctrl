@@ -33,7 +33,7 @@ An operator action. Log out and back in after the first install: it adds you to 
 
 ## Constraints
 
-- **The config directory is `~/.config/faramir`**, holding the age key, the broker's SSH key and the store, so an encrypted home carries all three. `init` grants the client group traversal of every directory from the home down, which makes `~/.config` passable by `faramir-broker` and `faramir-exec`: execute without read, so everything else in there is still governed by its own mode. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
+- **The config directory is `~/.config/faramir`**, holding the age key, the broker's SSH key and the store, so an encrypted home carries all three. `init` grants the client group traversal from the home down, making `~/.config` passable by `faramir-broker` and `faramir-exec`: execute without read. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
 - **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml`. One held anywhere else is neither injectable through `--env` nor known to the redactor, so a playbook that prints it prints plaintext.
 - **The store must not sit under `group_vars/` or `host_vars/`**, where Ansible auto-loads every `.yml`: a sops file is valid YAML, so each var binds to its `ENC[...]` ciphertext and hosts get the ciphertext as the password. Nor in the checkout, this repo being public. `faramir init` refuses both.
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir'`: commands run as `faramir-exec`, which has no sudo here. Apply the controller's own playbooks as the operator.

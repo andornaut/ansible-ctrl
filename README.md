@@ -8,7 +8,7 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 | --- | --- |
 | controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir` group |
 | fleet | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo |
-| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs anything on them: the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, authorizing the broker's key, and they connect as `root`, so the agent is root there and no sudoers grant is involved |
+| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them: they connect as `root`, so the broker's key makes the agent root there and no sudoers grant is involved |
 
 ## Requirements
 
@@ -45,7 +45,7 @@ Tags that are not playbooks run through the playbook that owns them, e.g. `make 
 
 | Playbook | Hosts | Role | Purpose |
 | --- | --- | --- | --- |
-| [base.yml](base.yml) | `all` | [base](roles/base/README.md) | Base packages and system configuration |
+| [base.yml](base.yml) | `all:!routers` | [base](roles/base/README.md) | Base packages and system configuration |
 | [desktop.yml](desktop.yml) | `desktop` | [desktop](roles/desktop/README.md), then [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) per the host's `desktop_environment` | Display manager, browser, fonts and themes, plus the window manager and its X11 or Wayland utilities |
 | [dev.yml](dev.yml) | `dev` | [dev](roles/dev/README.md) | Development tools and programming languages |
 | [docker.yml](docker.yml) | `dev`, `homeautomation`, `webservers` | [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
@@ -53,11 +53,11 @@ Tags that are not playbooks run through the playbook that owns them, e.g. `make 
 | [games.yml](games.yml) | `games` | [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
 | [hobbies.yml](hobbies.yml) | `hobbies` | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
 | [homeautomation.yml](homeautomation.yml) | `homeautomation` | [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
-| [msmtp.yml](msmtp.yml) | `all` | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
+| [msmtp.yml](msmtp.yml) | `all:!routers` | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
 | [nas.yml](nas.yml) | `nas` | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
 | [rsnapshot.yml](rsnapshot.yml) | `rsnapshot` | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
 | [torrent.yml](torrent.yml) | `torrent` | [torrent](roles/torrent/README.md) | rtorrent on the remote host, and in the same run the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs delegated to the controller (the implicit localhost) |
-| [upgrade.yml](upgrade.yml) | `all` | none | apt dist-upgrade and flatpak upgrade |
+| [upgrade.yml](upgrade.yml) | `all:!routers` | none | apt dist-upgrade and flatpak upgrade |
 | [webservers.yml](webservers.yml) | `webservers` | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
 
 ## Inventory

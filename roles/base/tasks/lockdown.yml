@@ -1,38 +1,21 @@
 ---
-# How ansible reached this host: whether over SSH, and so whether locking sshd down can
-# cost access, and as whom and at what address. Read here rather than at the proof below,
-# which is delegated to the controller, where the connection variables are the delegate's
-# and ansible_host is localhost.
+# Resolved here because the tasks that read them are delegated to the controller, where
+# the connection variables are the delegate's and ansible_host is localhost.
 - name: Note how ansible reached this host
   ansible.builtin.set_fact:
     base_lockdown_over_ssh: "{{ ansible_connection | default('ssh') != 'local' }}"
     base_lockdown_ssh_target: "{{ ansible_host | default(inventory_hostname) }}"
     base_lockdown_ssh_user: "{{ ansible_user | default(primary_user) }}"
-    # OpenSSH files a host key under the bare name on 22 and under [name]:port otherwise,
-    # and matches the line as written, so the port is part of the name. Resolved here for
-    # the same reason as the two above: the task that uses it is delegated.
+    # ssh files a host key under the bare name on 22 and under [name]:port otherwise.
     base_lockdown_known_hosts_name: >-
       {{ ('[' ~ (ansible_host | default(inventory_hostname)) ~ ']:' ~ (base_lockdown_ssh_port | int))
          if (base_lockdown_ssh_port | int) != 22
          else (ansible_host | default(inventory_hostname)) }}
 
-# Close every account's files to the accounts outside it. Group access is left alone:
-# USERGROUPS_ENAB gives each account a private group of its own, so the group bits grant
-# nobody anything by default, and the places that do share across accounts share by group
-# (faramir's enrolled tree, the nas share). Taking the group bits would break those and
-# protect nothing.
-
-# 007, not 006: other loses traversal along with read. Nothing here needs it. The one
-# service that crosses accounts is faramir, whose executor reaches an enrolled tree
-# through the client group, which the role grants by chgrp and g+x rather than through
-# the world bits.
-#
-# Directories become 0770 and files 0660, group-writable as they already were: the
-# effective umask is 002 on every host, so this changes the world bits and nothing else.
-#
-# Read by pam_umask, which is in common-session, so it governs login shells and SSH
-# sessions. systemd services take UMask= from their unit and are unaffected, which is the
-# right scope: a daemon's files are the unit's business.
+# 007 rather than 027: dirs 0770, files 0660, so other loses traversal as well as read.
+# Group bits are left alone because USERGROUPS_ENAB makes each account's group its own, and
+# what is shared across accounts is shared by group (faramir's tree, the nas share).
+# pam_umask reads this, so it governs login shells and SSH sessions; units take UMask=.
 - name: Set the login umask
   ansible.builtin.lineinfile:
     path: /etc/login.defs
@@ -41,7 +24,6 @@
     mode: "0644"
   become: true
 
-# For accounts created from here on. The existing ones are converged below.
 - name: Set the mode of home directories created later
   ansible.builtin.lineinfile:
     path: "{{ item.path }}"
@@ -59,10 +41,8 @@
     label: "{{ item.path }}"
   become: true
 
-# The umask governs what is created next, not what is already there. o-rwx rather than a
-# fixed mode: the owner and group arrangement differs per host and is not this task's to
-# decide. The controller's home is 0710 andornaut:dev, faramir having given the client
-# group traversal without a listing, and a fixed 0750 would hand that group the listing.
+# o-rwx rather than a fixed mode: the controller's home is 0710 andornaut:dev, faramir
+# having granted the client group traversal, and 0750 would hand that group a listing.
 - name: Close the existing home directories to other
   become: true
   block:
@@ -70,11 +50,9 @@
       ansible.builtin.getent:
         database: passwd
 
-    # Login accounts only, and a home named in passwd need not exist: an account can be
-    # created before its home is, and the file module below reports a missing path as a
-    # failure rather than skipping. The uid comparison is what selects them, so it is a
-    # when: rather than a filter, Jinja's selectattr comparing passwd's uids as the
-    # strings they are and ordering 999 above 1000.
+    # A when: rather than a selectattr filter, which would compare passwd's uids as the
+    # strings they are and order 999 above 1000. Stat first: the file module fails on a
+    # home that passwd names and the host does not have.
     - name: Check which login accounts have a home
       ansible.builtin.stat:
         path: "{{ item.value[4] }}"
@@ -83,42 +61,31 @@
       loop_control:
         label: "{{ item.key }}"
       when:
-        # Below the threshold are the service accounts, whose homes are each their own
-        # unit's business, and nobody's uid is the other end. Not a sufficient test on its
-        # own: an installer that omits --system takes a uid from the login range, so the
-        # placeholder below catches the ones that did.
+        # The uid range is not enough on its own: an installer that omits --system takes
+        # one from the login range, so the placeholder home excludes those.
         - item.value[1] | int >= base_lockdown_min_uid
         - item.value[1] | int != 65534
-        # An account with no home. Debian's convention, and a real directory on a host
-        # where something created it, shared by every account pointed at it.
         - item.value[4] not in base_lockdown_exclude_homes
 
     - name: Close each one to other
       ansible.builtin.file:
         path: "{{ item.stat.path }}"
         mode: o-rwx
-        # The directory, not a symlink's target, which is somewhere else and not covered
-        # by the reasoning above.
         follow: false
       loop: "{{ base_lockdown_home_stat.results | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir') | list }}"
       loop_control:
         label: "{{ item.stat.path }}"
-      # A home belongs to its account. A passwd entry pointing at a directory owned by
-      # somebody else names a shared area instead: the printer account's home is a NAS
-      # share, root-owned and world-readable on purpose, and closing it would take the
-      # share away from every client not in its group.
+      # A home is owned by its account. A passwd entry pointing at a directory owned by
+      # somebody else names a shared area: the printer account's home is a NAS share.
       when: item.stat.pw_name == item.item.key
 
-# Password authentication is a second way in that no key rotation reaches, and every
-# managed host grants the account ansible connects as NOPASSWD sudo, so guessing one
-# password is root there. There is no opt-out: the proof below is what decides, refusing
-# the change on a host where key authentication is not already working rather than leaving
-# a flag that has to be right.
+# Every managed host grants the account ansible connects as NOPASSWD sudo, so a password
+# is a second way to root that no key rotation reaches. No opt-out flag: the proof below
+# decides, refusing a host where key authentication is not already working.
 - name: Refuse password authentication over SSH
   become: true
   block:
-    # No sshd, nothing to lock down, and no validate binary to check the file with. base
-    # installs the ssh package, but not under --tags lockdown, which skips that task.
+    # --tags lockdown skips the task that installs the ssh package.
     - name: Check for sshd
       ansible.builtin.stat:
         path: /usr/sbin/sshd
@@ -127,22 +94,18 @@
     - name: Take the password away
       when: base_lockdown_sshd_binary.stat.exists
       block:
-        # Ubuntu socket-activates sshd, so the listening port is ssh.socket's ListenStream
-        # and sshd_config's Port is not read by the daemon. It is still the place to set
-        # it: sshd-socket-generator parses Port out of sshd_config at daemon-reload and
-        # writes the socket drop-in from it. A hand-written replacement unit at
-        # /etc/systemd/system/ssh.socket overrides the vendor unit the generator's drop-in
-        # applies to, so it has to go or the port here means nothing.
+        # sshd is socket-activated, so the port is ssh.socket's ListenStream and the daemon
+        # never reads Port. Setting it here still works: sshd-socket-generator parses Port
+        # at daemon-reload and writes the socket drop-in. A replacement unit shadows the
+        # vendor one that drop-in applies to.
         - name: Drop a replacement ssh.socket unit
           ansible.builtin.file:
             path: /etc/systemd/system/ssh.socket
             state: absent
           register: base_lockdown_socket_override
 
-        # sshd accumulates Port directives rather than taking the first, so one left in
-        # the shipped config adds a listener beside the drop-in's and the host answers on
-        # both the old port and the new one. The drop-in owns the port; this clears the
-        # other claim on it.
+        # sshd accumulates Port directives rather than taking the first, so one left
+        # anywhere Include reaches adds a listener beside this role's.
         - name: Drop any port set outside the drop-in
           ansible.builtin.lineinfile:
             path: /etc/ssh/sshd_config
@@ -151,9 +114,6 @@
             validate: /usr/sbin/sshd -t -f %s
           register: base_lockdown_sshd_port_main
 
-        # The shipped config is not the only place one hides: a drop-in of the operator's
-        # own beside this role's counts the same, Include pulling them all in. Filtered on
-        # the directive, so the loop is empty once they are clear.
         - name: Find another drop-in setting a port
           ansible.builtin.find:
             paths: /etc/ssh/sshd_config.d
@@ -183,23 +143,18 @@
             validate: /usr/sbin/sshd -t -f %s
           register: base_lockdown_sshd_port_file
 
-        # daemon-reload re-runs the generator, restart rebinds. Inline rather than a
-        # handler: the proof below has to run after the port has actually moved, and a
-        # handler fires at the end of the play.
+        # Inline rather than a handler, which fires after the proof below would run.
         - name: Rebind the SSH listener
           when:
             - base_lockdown_socket_override.changed or base_lockdown_sshd_port_file.changed
               or base_lockdown_sshd_port_main.changed or base_lockdown_sshd_port_dropins.changed
-            # Under --check the tasks above only reported what they would write, so there
-            # is nothing bound to the new port and the proof would refuse a change never
-            # made.
+            # Nothing is bound to the new port under --check, so the proof would refuse a
+            # change that was never made.
             - not ansible_check_mode
           block:
-            # Before the listener moves, so the proof below has something to verify
-            # against: known_hosts files a key by host and port, and an entry made at the
-            # old port does not match the new one. Read over this run's own connection,
-            # which the controller already verified, so the key is carried across
-            # authenticated rather than accepted at first contact.
+            # Before the port moves, so the proof has an entry to match: known_hosts files
+            # a key by host and port. Read over this run's verified connection rather than
+            # scanned, so the key is carried across authenticated.
             - name: Find this host's public SSH host keys
               ansible.builtin.find:
                 paths: /etc/ssh
@@ -216,12 +171,9 @@
               register: base_lockdown_host_keys
               when: base_lockdown_over_ssh
 
-            # System-wide rather than the operator's own file: ssh reads it for every uid
-            # on the controller, so one entry covers the operator, the renewal cron's root
-            # and the broker's executor. One call per key type, the module replacing the
-            # line of a matching type and leaving the rest, so the host stays pinned for
-            # whichever algorithm ssh negotiates. The entry at the old port is left alone:
-            # it matches nothing once the port has moved.
+            # One call per key type, the module replacing the line of a matching type, so
+            # the host stays pinned for whichever algorithm ssh negotiates. The old port's
+            # entry is left: it matches nothing once the port has moved.
             - name: Pin them on the controller under the new port
               ansible.builtin.known_hosts:
                 path: "{{ base_lockdown_known_hosts_path }}"
@@ -244,9 +196,8 @@
               ansible.builtin.systemd_service:
                 daemon_reload: true
 
-            # Restarting the socket drops the listener, not the established sessions:
-            # each is its own ssh@N.service and survives, which is what leaves a way in
-            # when the new port turns out to be wrong.
+            # Drops the listener, not the established sessions: each is its own
+            # ssh@N.service, which is the way back in if the new port is wrong.
             - name: Restart the SSH socket
               ansible.builtin.systemd_service:
                 name: ssh.socket
@@ -272,11 +223,9 @@
               failed_when: false
               when: base_lockdown_over_ssh
 
-            # Two different failures wear the same exit code. A refused connection means
-            # nothing bound, which is a lockout. A host key complaint means sshd answered
-            # on the new port and only the controller's record of it is stale: known_hosts
-            # indexes a key by host and port, so the entry written at the old port does
-            # not match the new one. That is not a lockout and must not read as one.
+            # A refused connection means nothing bound. A host key complaint means sshd
+            # answered and only the controller's record is stale. Same exit code, so the
+            # two are told apart here and asserted separately below.
             - name: Note whether the host answered but went unrecognised
               ansible.builtin.set_fact:
                 base_lockdown_port_untrusted: >-
@@ -288,13 +237,10 @@
               ansible.builtin.assert:
                 that: base_lockdown_port_proof.rc | default(1) == 0 or base_lockdown_port_untrusted | bool
                 fail_msg: >-
-                  {{ inventory_hostname }} does not answer on port
-                  {{ base_lockdown_ssh_port }} after moving to it, so the next connection
-                  has nowhere to go. The session running this play is still open and is
-                  the way back: on that host, remove
-                  /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf, run systemctl
-                  daemon-reload and systemctl restart ssh.socket, then work out why the
-                  port did not bind before re-running.
+                  Nothing answers on {{ inventory_hostname }} port
+                  {{ base_lockdown_ssh_port }}. The session running this play is still
+                  open: remove /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf there,
+                  then systemctl daemon-reload && systemctl restart ssh.socket.
                   {{ base_lockdown_port_proof.stderr | default('') | trim }}
                 quiet: true
               when: base_lockdown_over_ssh
@@ -303,33 +249,23 @@
               ansible.builtin.assert:
                 that: not base_lockdown_port_untrusted | bool
                 fail_msg: >-
-                  {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }},
-                  so the move worked and nothing needs rolling back. What is stale is the
-                  controller's known_hosts, which files a host key under the port it was
-                  first seen on. Until the entry is re-indexed neither ssh nor ansible can
-                  reconnect. The key itself has not changed, so carry the existing one
-                  across rather than accepting a new one:
-                  ssh-keygen -F '[{{ base_lockdown_ssh_target }}]:OLDPORT' to print it,
-                  add that key under {{ base_lockdown_ssh_target }}, then
-                  ssh-keygen -R '[{{ base_lockdown_ssh_target }}]:OLDPORT'.
+                  {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }};
+                  the controller's known_hosts entry is filed under the old port. The key
+                  is unchanged, so carry it across:
+                  ssh-keygen -F '[{{ base_lockdown_ssh_target }}]:OLDPORT', add that key
+                  under {{ base_lockdown_known_hosts_name }}, then ssh-keygen -R
+                  '[{{ base_lockdown_ssh_target }}]:OLDPORT'.
                 quiet: true
               when: base_lockdown_over_ssh
 
-        # From the controller, as the account and address ansible itself uses, that being
-        # the access which has to survive. Proven before the change rather than reverted
-        # after: withdrawing password authentication cannot break a key that already
-        # works, so a pass here is the whole proof and there is no state to roll back.
+        # From the controller, as the account and address ansible uses, that being the
+        # access which has to survive. Proven before the change, not reverted after:
+        # withdrawing a password cannot break a key that already works.
         #
-        # Carries ansible's own connection settings, or the proof answers about a
-        # different connection than the one being protected and fails a host whose key
-        # authentication demonstrably works. Each is passed only when the inventory sets
-        # it, for the same reason ansible does: the fleet takes its port from the
-        # operator's ~/.ssh/config, and a -p defaulted to 22 here reaches nothing.
-        # ansible_ssh_common_args is split on whitespace, so a ProxyCommand containing
-        # spaces would need quoting here.
-        #
-        # Skipped where ansible connects locally, which reaches the host whether or not
-        # sshd runs, so there is no access to lose and nothing to prove.
+        # Each connection setting is passed only when the inventory sets it, as ansible
+        # does; a -p defaulted to 22 would dial the wrong port on a host whose port comes
+        # from ssh_config. ansible_ssh_common_args splits on whitespace, so a ProxyCommand
+        # containing spaces would need quoting.
         - name: Prove key-only authentication already works
           ansible.builtin.command:
             argv: >-
@@ -348,29 +284,28 @@
           register: base_lockdown_key_auth
           changed_when: false
           failed_when: false
-          # Opens a connection and runs true, so it is safe under --check, where the
-          # command module otherwise skips and leaves the assert below nothing to read.
+          # Only opens a connection, so it runs under --check too, where the command
+          # module would otherwise skip and leave the assert nothing to read.
           check_mode: false
           when: base_lockdown_over_ssh
 
-        # default(1), so a proof that did not run refuses the change rather than passing.
+        # default(1): a proof that did not run refuses the change rather than passing it.
         - name: Require it before taking the password away
           ansible.builtin.assert:
             that: base_lockdown_key_auth.rc | default(1) == 0
             fail_msg: >-
               Key-only SSH to {{ inventory_hostname }} as {{ base_lockdown_ssh_user }}
-              failed, so disabling password authentication would leave no way in. Add the
-              key first:
+              failed, so this would leave no way in. Run
               ssh-copy-id {{ base_lockdown_ssh_user }}@{{ base_lockdown_ssh_target }}
-              then re-run. Refused rather than skipped, a skip leaving a host that looks
+              first. Refused rather than skipped, a skip leaving a host that looks
               hardened and is not.
               {{ base_lockdown_key_auth.stderr | default('') | trim }}
             quiet: true
           when: base_lockdown_over_ssh
 
-        # A drop-in rather than an edit: sshd_config Includes this directory near the top
-        # and takes the first setting of a keyword, so 00- wins over the shipped file
-        # below it. Validated with an absolute path, /usr/sbin not being on every PATH.
+        # sshd_config Includes this directory near the top and takes the first setting of
+        # a keyword, so 00- wins over the shipped file. Absolute validate path, /usr/sbin
+        # not being on every PATH.
         - name: Install the sshd drop-in
           ansible.builtin.copy:
             dest: /etc/ssh/sshd_config.d/00-ansible-role-base.conf
@@ -385,9 +320,7 @@
             validate: /usr/sbin/sshd -t -f %s
           notify: Reload sshd
 
-        # For the handler, which must not reload a unit that is not running: the module
-        # starts one instead, and under socket activation ssh.service is inactive by
-        # design, so that would bind a second listener on whatever port the socket is not
-        # using. Read every run, a fact the handler needs being no use only when it fired.
+        # The handler needs this every run, not only when it fires: state=reloaded starts
+        # a unit that is not running, and ssh.service is inactive under socket activation.
         - name: Read the service states
           ansible.builtin.service_facts:

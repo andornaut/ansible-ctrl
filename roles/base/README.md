@@ -37,20 +37,21 @@ See [defaults/main.yml](./defaults/main.yml).
   `cache-command` and [storage-space-alert](https://github.com/andornaut/storage-space-alert).
 - **Cron** (`/etc/cron.d/ansible-role-base`): `storage-space-alert` hourly, `disk-cleanup` weekly.
 - **Accounts are closed to each other** ([tasks/lockdown.yml](./tasks/lockdown.yml), tag `lockdown`): `UMASK 007`
-  in `/etc/login.defs`, `HOME_MODE` and `adduser`'s `DIR_MODE` at `0750`, and `o-rwx` on every existing login
-  account's home. Group access is untouched, `USERGROUPS_ENAB` giving each account a private group of its own and
-  the roles that share a directory across accounts sharing it by group. A home with no world execute bit is a
-  chokepoint, so nothing below it needs converging: a world-readable file deep in a home is unreachable once the
-  home refuses traversal. `base_lockdown_exclude_homes` leaves a path alone; service accounts an installer created
-  without `--system` land in the login uid range and are excluded by their `/nonexistent` home rather than by uid.
-- **SSH accepts keys only** (same tag): `/etc/ssh/sshd_config.d/00-ansible-role-base.conf` sets
-  `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes` and
-  `PermitRootLogin no`. There is no opt-out flag. Instead the role proves, from the controller and as the account
-  and address ansible itself connects with, that key-only SSH already works, and **fails the play** on a host
-  where it does not, naming the `ssh-copy-id` to run first. Proving it beforehand is sufficient: withdrawing
-  password authentication cannot break a key that already works, so there is nothing to roll back. A skip would
-  instead leave a host that looks hardened and is not. The file is validated with `sshd -t` before it lands and
-  applied with a reload, which established connections survive.
+  in `/etc/login.defs`, `HOME_MODE` and `adduser`'s `DIR_MODE` at `0750`, and `o-rwx` on each login account's home.
+  Group access is untouched: `USERGROUPS_ENAB` gives each account a private group, and what is shared across
+  accounts is shared by group. A home with no world execute bit is a chokepoint, so nothing below it needs
+  converging. A home is closed only when its account owns it, so a passwd entry naming a shared directory is left
+  alone; `base_lockdown_exclude_homes` excludes the placeholder homes that service accounts created without
+  `--system` point at.
+- **SSH accepts keys only** (same tag): `sshd_config.d/00-ansible-role-base.conf` sets `PasswordAuthentication no`,
+  `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`. No opt-out flag: the role
+  proves key-only SSH already works, from the controller and with ansible's own connection settings, and **fails
+  the play** where it does not, naming the `ssh-copy-id` to run. A skip would leave a host that looks hardened and
+  is not. Validated with `sshd -t` before it lands, applied with a reload that established connections survive.
+- **The SSH port** comes from `base_lockdown_ssh_port` (22, `1922` on the controller). Set through `sshd_config`,
+  which `sshd-socket-generator` turns into `ssh.socket`'s `ListenStream` at `daemon-reload`; a `Port` left anywhere
+  else is cleared, sshd accumulating them rather than taking the first. Before the port moves, the host's keys are
+  pinned on the controller under the new `[host]:port` name, which is how `known_hosts` files them.
 
 ## Operations
 
