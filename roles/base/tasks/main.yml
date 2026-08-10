@@ -209,6 +209,14 @@
   vars:
     base_tool_name: mrs
 
+- name: Import lockdown tasks
+  ansible.builtin.import_tasks: lockdown.yml
+  tags: lockdown
+
+- name: Import fail2ban tasks
+  ansible.builtin.import_tasks: fail2ban.yml
+  tags: fail2ban
+
 - name: Import disk-cleanup tasks
   ansible.builtin.import_tasks: disk-cleanup.yml
 

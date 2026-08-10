@@ -21,8 +21,19 @@ faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 # Where init puts the binary, and so what every later invocation runs.
 faramir_binary: /usr/local/bin/faramir
 
+# The identity the broker lends to brokered commands. Mirrors faramir's default rather
+# than being passed as --ssh-key: init mints one every run whether or not a host needs it,
+# so the flag relocates rather than enables, and this role has no reason to relocate. Not
+# a knob for the same reason, an override here naming a path init would not write to;
+# tasks/ssh.yml reads the public half from it, and a stale value fails there on a missing
+# file. Opens nothing until that has run.
+faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
+
 # The whole invocation in one place. argv rather than a command string: the paths come from
 # the inventory, and quoting an unusual one is not this role's problem.
+#
+# Only what this role decides: the service accounts and the SSH key path are faramir's
+# defaults, and restating one here would be a second place for it to drift from.
 #
 # No tree is named: init provisions the host, and init-project below enrols the tree,
 # reading the client group out of the config init installed.
@@ -32,11 +43,9 @@ faramir_binary: /usr/local/bin/faramir
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
-     '--operator', faramir_user,
+     '--operator-user', faramir_user,
      '--client-group', faramir_client_group,
      '--config-dir', faramir_config_dir]
-    + (['--ssh-key', faramir_broker_ssh_key]
-       if faramir_broker_ssh_key | length > 0 else [])
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
   }}
@@ -47,20 +56,21 @@ faramir_init_argv: >-
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
-     '--operator', faramir_user,
+     '--operator-user', faramir_user,
      '--config-dir', faramir_config_dir]
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]
   }}
 
-# doctor checks the install against the names it is given rather than the config
-# it finds, so passing these is what makes drift a finding. The service accounts are
-# left to faramir's own defaults, which is what init created them from.
+# Only the two doctor cannot work out for itself. It reads the client group from [server]
+# allowed_group and each service account from its unit, so every other name is an override
+# for examining a host whose install is not this one, and passing faramir_client_group here
+# would answer about the group this role wants rather than the one the sockets admit.
+# --operator-user has no such source: doctor fails rather than guess who the agent runs as.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',
-     '--operator', faramir_user,
-     '--client-group', faramir_client_group,
+     '--operator-user', faramir_user,
      '--config-dir', faramir_config_dir]
   }}

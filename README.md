@@ -7,7 +7,8 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 | Term | Meaning |
 | --- | --- |
 | controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir` group |
-| fleet | Every other inventory host, reached over SSH with NOPASSWD sudo |
+| fleet | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo |
+| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs anything on them: the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, authorizing the broker's key, and they connect as `root`, so the agent is root there and no sudoers grant is involved |
 
 ## Requirements
 
@@ -66,7 +67,7 @@ Tags that are not playbooks run through the playbook that owns them, e.g. `make 
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
 | [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each `secret_*` environment variable into a variable of the same name |
-| `~/.faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
+| `~/.config/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
 ```ini
@@ -81,7 +82,7 @@ example
 
 ## Secrets
 
-Every credential lives in `~/.faramir/secrets/ansible-ctrl.sops.yml`, encrypted with [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named `secret_<purpose>`. `host_vars/` holds no values, only references:
+Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named `secret_<purpose>`. `host_vars/` holds no values, only references:
 
 ```yaml
 # host_vars/example.yml

@@ -36,6 +36,21 @@ See [defaults/main.yml](./defaults/main.yml).
   manager), [gog](https://github.com/andornaut/gog), and [mrs](https://github.com/andornaut/mrs). Plus
   `cache-command` and [storage-space-alert](https://github.com/andornaut/storage-space-alert).
 - **Cron** (`/etc/cron.d/ansible-role-base`): `storage-space-alert` hourly, `disk-cleanup` weekly.
+- **Accounts are closed to each other** ([tasks/lockdown.yml](./tasks/lockdown.yml), tag `lockdown`): `UMASK 007`
+  in `/etc/login.defs`, `HOME_MODE` and `adduser`'s `DIR_MODE` at `0750`, and `o-rwx` on every existing login
+  account's home. Group access is untouched, `USERGROUPS_ENAB` giving each account a private group of its own and
+  the roles that share a directory across accounts sharing it by group. A home with no world execute bit is a
+  chokepoint, so nothing below it needs converging: a world-readable file deep in a home is unreachable once the
+  home refuses traversal. `base_lockdown_exclude_homes` leaves a path alone; service accounts an installer created
+  without `--system` land in the login uid range and are excluded by their `/nonexistent` home rather than by uid.
+- **SSH accepts keys only** (same tag): `/etc/ssh/sshd_config.d/00-ansible-role-base.conf` sets
+  `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes` and
+  `PermitRootLogin no`. There is no opt-out flag. Instead the role proves, from the controller and as the account
+  and address ansible itself connects with, that key-only SSH already works, and **fails the play** on a host
+  where it does not, naming the `ssh-copy-id` to run first. Proving it beforehand is sufficient: withdrawing
+  password authentication cannot break a key that already works, so there is nothing to roll back. A skip would
+  instead leave a host that looks hardened and is not. The file is validated with `sshd -t` before it lands and
+  applied with a reload, which established connections survive.
 
 ## Operations
 
