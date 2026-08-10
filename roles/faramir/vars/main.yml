@@ -21,25 +21,15 @@ faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 # Where init puts the binary, and so what every later invocation runs.
 faramir_binary: /usr/local/bin/faramir
 
-# The identity the broker lends to brokered commands. Mirrors faramir's default rather
-# than being passed as --ssh-key: init mints one every run whether or not a host needs it,
-# so the flag relocates rather than enables, and this role has no reason to relocate. Not
-# a knob for the same reason, an override here naming a path init would not write to;
-# tasks/ssh.yml reads the public half from it, and a stale value fails there on a missing
-# file. Opens nothing until that has run.
+# The identity the broker lends to brokered commands. Mirrors faramir's default instead of
+# passing --ssh-key, which relocates a key init mints either way. Not a knob: an override
+# would name a path init never writes, and tasks/ssh.yml reads the public half from here.
 faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 
-# The whole invocation in one place. argv rather than a command string: the paths come from
-# the inventory, and quoting an unusual one is not this role's problem.
-#
-# Only what this role decides: the service accounts and the SSH key path are faramir's
-# defaults, and restating one here would be a second place for it to drift from.
-#
-# No tree is named: init provisions the host, and init-project below enrols the tree,
-# reading the client group out of the config init installed.
-#
-# The staged binary, init installing the one it was run from, so this resolves only inside
-# the install block that registers faramir_release_tmp.
+# argv rather than a command string: the paths come from the inventory and may need
+# quoting. Only what this role decides is passed; the service accounts and the SSH key
+# path stay at faramir's defaults. No tree is named, init-project below enrolling it.
+# Resolves only inside the install block, which registers faramir_release_tmp.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -63,11 +53,9 @@ faramir_init_project_argv: >-
     + [playbook_dir]
   }}
 
-# Only the two doctor cannot work out for itself. It reads the client group from [server]
-# allowed_group and each service account from its unit, so every other name is an override
-# for examining a host whose install is not this one, and passing faramir_client_group here
-# would answer about the group this role wants rather than the one the sockets admit.
-# --operator-user has no such source: doctor fails rather than guess who the agent runs as.
+# Only the two doctor cannot read off the host: it takes the client group from [server]
+# allowed_group and each service account from its unit, and every other flag overrides
+# those. --operator-user has no such source and doctor fails rather than guess it.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',

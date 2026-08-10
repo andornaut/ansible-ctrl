@@ -1,24 +1,20 @@
 ---
-# Ban the hosts that keep knocking. Worth less than it looks now that sshd takes keys only:
-# a bot with no password to try never reaches a failure fail2ban counts. What it still does
-# is drop repeat scanners before they fill the journal, and catch the invalid-user and
-# malformed-auth probes that key-only sshd still logs.
-#
-# The routers are not here: base.yml is all:!routers, and pfSense ships sshguard.
+# Drops repeat scanners before they fill the journal. Modest with key-only sshd: a bot
+# with no password to try produces no failure to count. The routers are out of scope,
+# base.yml being all:!routers, and pfSense ships sshguard.
 
 - name: Install fail2ban
   ansible.builtin.apt:
     name:
       - fail2ban
-      # The systemd backend below reads the journal through this. fail2ban only recommends
-      # it, so an install that skips recommends leaves every jail failing to start.
+      # How the systemd backend reads the journal. Only recommended by fail2ban, so an
+      # install without recommends leaves every jail failing to start.
       - python3-systemd
     state: present
     update_cache: true
   become: true
 
-# jail.local, not jail.conf, which the package replaces on upgrade. Only the sshd jail:
-# nothing else here listens for a password.
+# jail.local, not jail.conf, which the package replaces on upgrade.
 - name: Configure the sshd jail
   ansible.builtin.template:
     dest: /etc/fail2ban/jail.local
@@ -29,9 +25,8 @@
   become: true
   notify: Restart fail2ban
 
-# The package enables and starts it on install; this is for a host where somebody turned
-# it off. Skipped under --check, where the install above was only simulated and there is
-# no unit to enable, which the module reports as a failure rather than a would-be change.
+# The package starts it on install; this catches a host where it was turned off. Skipped
+# under --check, where the install was simulated and the missing unit reads as a failure.
 - name: Enable fail2ban
   ansible.builtin.systemd_service:
     name: fail2ban

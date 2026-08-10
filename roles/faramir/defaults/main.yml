@@ -12,15 +12,10 @@ faramir_user: "{{ primary_user }}"
 # boundaries are file modes.
 faramir_client_group: dev
 
-# The base config and its drop-ins, with the age key, the broker's SSH key and the store
-# under it. In the operator's encrypted home, so a powered-off disk carries none of them,
-# and at faramir's documented per-operator placement, which its deny rules name by hand as
-# well as deriving from the installed path. The units are socket activated, so nothing
-# reads it before first login.
-#
-# init grants the client group traversal of every directory from the home down, so this
-# also makes ~/.config passable by the broker and the executor: execute without read, so
-# what is inside stays governed by its own mode.
+# Holds the age key, the broker's SSH key and the store. In the operator's encrypted home,
+# so a powered-off disk carries none of them; the units are socket activated, so nothing
+# reads it before first login. init grants the client group traversal from the home down,
+# which makes ~/.config passable by the broker and executor: execute without read.
 faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 
 # One --agent each, passed to both init and init-project: the account-wide Read deny
@@ -33,30 +28,24 @@ faramir_agents:
 # A default rather than a play var, so host_vars can turn it off per host.
 faramir_fleet_authorize_key: true
 
-# The connection failures that mean a host is off and nothing more. What the fleet ping
-# proves is that the fleet accepts the broker's key, and a host that never completed a TCP
-# connect has neither accepted nor refused it, so it is reported and passed over rather
-# than failing the run. Every other outcome, a rejected key and an unverified host among
-# them, is an answer and is held to.
+# A host that never completed a TCP connect has neither accepted nor refused the broker's
+# key, so it is reported and passed over. Every other outcome is an answer and is held to.
 faramir_fleet_ping_offline_pattern: 'Connection timed out|Connection refused|No route to host|Host is down'
 
-# Where tasks/ssh.yml pins the fleet's SSH host keys. System-wide rather than under the
-# executor's home: ssh reads it for every uid on the controller, so one file covers the
-# executor, the cert-renewal cron's root and the operator alike, and it survives the
-# service accounts being recreated. Public keys only, hence world-readable.
+# Where the fleet's host keys are pinned. System-wide, so one file covers the executor,
+# the renewal cron's root and the operator, and survives a service account being recreated.
+# Public keys only, hence world-readable.
 faramir_fleet_known_hosts_path: /etc/ssh/ssh_known_hosts
 
 # The name ssh looks an entry up under: the address ansible dials, bracketed with the port
-# when that is not 22. An entry filed under any other name is never consulted, so this has
-# to track whatever the inventory sets rather than the host's own idea of its name.
+# when that is not 22. An entry under any other name is never consulted.
 faramir_fleet_known_hosts_name: >-
   {{ ('[' ~ (ansible_host | default(inventory_hostname)) ~ ']:' ~ (ansible_port | int))
      if (ansible_port | default(22) | int) != 22
      else (ansible_host | default(inventory_hostname)) }}
 
-# Where tasks/ssh.yml writes the broker's key, when the host's own default will not hold
-# it. Undefined here, so the authorized_key module picks ~/.ssh/authorized_keys; set in
-# host_vars for a host that manages that file itself. The pfSense routers do: it is
-# generated from config.xml on boot and on every user save, so their key goes in
-# ~/.ssh/authorized_keys2, which sshd reads by default and pfSense leaves alone.
+# Where the broker's key is written when the host's default file will not hold it.
+# Undefined, so the module picks ~/.ssh/authorized_keys; set in host_vars for a host that
+# regenerates that file. The pfSense routers do, from config.xml on boot and on every user
+# save, so theirs goes in ~/.ssh/authorized_keys2, which sshd reads and pfSense ignores.
 # faramir_fleet_authorized_keys_path: /root/.ssh/authorized_keys2
