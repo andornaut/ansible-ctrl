@@ -151,6 +151,28 @@
             validate: /usr/sbin/sshd -t -f %s
           register: base_lockdown_sshd_port_main
 
+        # The shipped config is not the only place one hides: a drop-in of the operator's
+        # own beside this role's counts the same, Include pulling them all in. Filtered on
+        # the directive, so the loop is empty once they are clear.
+        - name: Find another drop-in setting a port
+          ansible.builtin.find:
+            paths: /etc/ssh/sshd_config.d
+            patterns: "*.conf"
+            excludes: 00-ansible-role-base-port.conf
+            contains: '^\s*Port\s+[0-9]+\s*$'
+          register: base_lockdown_sshd_other_dropins
+
+        - name: Drop the port it sets
+          ansible.builtin.lineinfile:
+            path: "{{ item.path }}"
+            regexp: '^\s*Port\s+[0-9]+\s*$'
+            state: absent
+            validate: /usr/sbin/sshd -t -f %s
+          loop: "{{ base_lockdown_sshd_other_dropins.files }}"
+          loop_control:
+            label: "{{ item.path }}"
+          register: base_lockdown_sshd_port_dropins
+
         - name: Set the SSH port
           ansible.builtin.copy:
             dest: /etc/ssh/sshd_config.d/00-ansible-role-base-port.conf
@@ -167,9 +189,10 @@
         - name: Rebind the SSH listener
           when:
             - base_lockdown_socket_override.changed or base_lockdown_sshd_port_file.changed
-              or base_lockdown_sshd_port_main.changed
-            # Under --check the two above only reported what they would write, so there is
-            # nothing bound to the new port and the proof would refuse a change never made.
+              or base_lockdown_sshd_port_main.changed or base_lockdown_sshd_port_dropins.changed
+            # Under --check the tasks above only reported what they would write, so there
+            # is nothing bound to the new port and the proof would refuse a change never
+            # made.
             - not ansible_check_mode
           block:
             # Before the listener moves, so the proof below has something to verify
