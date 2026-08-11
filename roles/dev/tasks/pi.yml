@@ -1,0 +1,8 @@
+---
+# --ignore-scripts is upstream's own installer's flag: nothing in the dependency
+# tree needs a build step, and the install runs as root.
+- name: Install Pi
+  ansible.builtin.include_tasks: install_global_npm.yml
+  vars:
+    dev_npm_package: "@earendil-works/pi-coding-agent"
+    dev_npm_ignore_scripts: true
