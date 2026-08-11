@@ -1,12 +1,4 @@
 ---
-# The scan does not need this, but the fix it prints does: apply drives
-# git-filter-repo, which the package of that name puts at /usr/bin.
-- name: Install git-filter-repo
-  ansible.builtin.apt:
-    name: git-filter-repo
-    state: present
-  become: true
-
 # Everything below writes under dev_user_home, so run as dev_user: the cron entry
 # runs the script as that account.
 - name: Install ai-attributions
@@ -19,43 +11,57 @@
         state: directory
         mode: "0755"
 
-    - name: Check for a local ai-attributions project checkout
-      ansible.builtin.stat:
-        path: "{{ dev_ai_attributions_project_dir }}/go.mod"
-      register: dev_ai_attributions_project
+    - name: Create a temporary directory for the ai-attributions release
+      ansible.builtin.tempfile:
+        state: directory
+      register: dev_ai_attributions_release_tmp
+      check_mode: false
 
-    # go build and go install rewrite the binary whether or not its inputs
-    # changed, and report nothing either way, so neither can be told apart from
-    # a no-op. Reported unchanged rather than changed on every run.
-    - name: Build ai-attributions from the local checkout
-      ansible.builtin.command:
-        cmd: /usr/local/go/bin/go build -o {{ dev_ai_attributions_binary_path }} .
-        chdir: "{{ dev_ai_attributions_project_dir }}"
-      changed_when: false
-      environment:
-        HOME: "{{ dev_user_home }}"
-      when: dev_ai_attributions_project.stat.exists
+    - name: Download the ai-attributions release archive
+      ansible.builtin.get_url:
+        url: "{{ dev_ai_attributions_release_url }}/{{ dev_ai_attributions_release_archive }}"
+        dest: "{{ dev_ai_attributions_release_tmp.path }}/{{ dev_ai_attributions_release_archive }}"
+        # `dev` is a moving tag: a download straddling a re-cut fails the
+        # checksum rather than installing a mismatched binary.
+        checksum: "sha256:{{ dev_ai_attributions_release_url }}/checksums.txt"
+        mode: "0644"
+      check_mode: false
+      register: dev_ai_attributions_download
+      until: dev_ai_attributions_download is succeeded
+      retries: 3
+      delay: 5
 
-    - name: Install ai-attributions from its module
-      ansible.builtin.command:
-        cmd: /usr/local/go/bin/go install {{ dev_ai_attributions_module }}
-      changed_when: false
-      environment:
-        HOME: "{{ dev_user_home }}"
-        GOBIN: "{{ dev_ai_attributions_binary_path | dirname }}"
-      when: not dev_ai_attributions_project.stat.exists
+    - name: Unpack the ai-attributions binary
+      ansible.builtin.unarchive:
+        src: "{{ dev_ai_attributions_release_tmp.path }}/{{ dev_ai_attributions_release_archive }}"
+        dest: "{{ dev_ai_attributions_release_tmp.path }}"
+        remote_src: true
+        # The archive mode goes through the umask, and the binary is copied to
+        # its destination by mode rather than by content.
+        mode: "0755"
+      check_mode: false
+
+    # Left to run under --check, unlike the staging above: the unpacked binary is
+    # really there, so the module reports whether this host's binary is stale
+    # instead of skipping.
+    - name: Install the ai-attributions binary
+      ansible.builtin.copy:
+        src: "{{ dev_ai_attributions_release_tmp.path }}/ai-attributions"
+        dest: "{{ dev_ai_attributions_binary_path }}"
+        remote_src: true
+        mode: "0755"
 
     - name: Install the ai-attributions scan script
       ansible.builtin.template:
         src: ai_attributions_scan.j2
         dest: "{{ dev_ai_attributions_script_path }}"
         mode: "0755"
-
-- name: Create cron file for the daily attribution scan
-  ansible.builtin.template:
-    src: ai_attributions_cron.j2
-    dest: /etc/cron.d/ansible-role-dev-ai-attributions
-    mode: "0644"
-    owner: root
-    group: root
-  become: true
+  always:
+    - name: Remove the temporary directory for the ai-attributions release
+      ansible.builtin.file:
+        path: "{{ dev_ai_attributions_release_tmp.path }}"
+        state: absent
+      when: dev_ai_attributions_release_tmp.path is defined
+      # check_mode: false with the rest of the block, or every --check leaks an
+      # unpacked archive into /tmp.
+      check_mode: false

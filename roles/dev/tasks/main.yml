@@ -98,3 +98,11 @@
   ansible.builtin.import_tasks: ai_maintainer.yml
   tags: ai_maintainer
   when: dev_install_ai_maintainer
+
+# Last, and gated on neither flag: the file it writes holds every scheduled
+# entry the role owns, so it is rendered from the flags rather than skipped.
+- name: Import cron tasks
+  ansible.builtin.import_tasks: cron.yml
+  tags:
+    - ai_attributions
+    - ai_maintainer
