@@ -1,5 +1,4 @@
 ---
-# hobbies_user must not resolve to root, or user-scoped tasks write to /root.
 - name: Validate hobbies_user
   ansible.builtin.assert:
     that:

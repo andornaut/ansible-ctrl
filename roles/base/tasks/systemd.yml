@@ -1,5 +1,4 @@
 ---
-# Unit start timeout (Default: 90s)
 - name: Configure Systemd DefaultTimeoutStartSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -8,7 +7,6 @@
   become: true
   notify: Reload systemd
 
-# Unit stop timeout (Default: 90s)
 - name: Configure Systemd DefaultTimeoutStopSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -17,7 +15,6 @@
   become: true
   notify: Reload systemd
 
-# Delay between automatic unit restarts (Default: 100s)
 - name: Configure Systemd DefaultRestartSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -26,7 +23,6 @@
   become: true
   notify: Reload systemd
 
-# Max unit starts per interval before systemd refuses further starts (Default: 5)
 - name: Configure Systemd DefaultStartLimitBurst
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -35,7 +31,6 @@
   become: true
   notify: Reload systemd
 
-# Start-limit interval span (Default: 10s)
 - name: Configure Systemd DefaultStartLimitIntervalSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
@@ -44,7 +39,6 @@
   become: true
   notify: Reload systemd
 
-# Cap total journal disk usage (Default: 10% of the filesystem).
 - name: Configure journald SystemMaxUse
   ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf
@@ -53,8 +47,7 @@
   become: true
   notify: Restart systemd-journald
 
-# Cap journal retention by age; with SystemMaxUse, whichever limit hits first wins
-# (Default: none).
+# With SystemMaxUse, whichever limit hits first wins.
 - name: Configure journald MaxRetentionSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf

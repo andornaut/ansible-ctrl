@@ -81,7 +81,7 @@
 
 # Every managed host grants the account ansible connects as NOPASSWD sudo, so a password
 # is a second way to root that no key rotation reaches. No opt-out flag: the proof below
-# decides, refusing a host where key authentication is not already working.
+# decides.
 - name: Refuse password authentication over SSH
   become: true
   block:

@@ -1,7 +1,6 @@
 ---
-# The dashboard enables its login only when it gets both, so a half pair starts it open on
-# the LAN: firmware-flash access to every ESP device, and a readable secrets.yaml. The auth
-# gate below would read that as "this host wants no login".
+# The dashboard enables its login only when it gets both, and the auth gate below would
+# read a half pair as "this host wants no login".
 - name: Assert that the ESPHome dashboard credentials are a complete pair
   ansible.builtin.assert:
     that:

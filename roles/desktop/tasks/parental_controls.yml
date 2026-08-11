@@ -1,6 +1,4 @@
 ---
-# Runs whether or not the controls are enabled: turning the flag off has to lift
-# what an earlier run enforced. See the README.
 - name: Validate the parental controls configuration
   ansible.builtin.assert:
     that:
@@ -15,8 +13,6 @@
       policy that nothing enforces.
     success_msg: Parental controls configuration is valid
 
-# Both fail silently: an empty block list enforces nothing, and an empty allow list
-# sinkholes every hostname.
 - name: Validate the web filter entries
   ansible.builtin.assert:
     that:

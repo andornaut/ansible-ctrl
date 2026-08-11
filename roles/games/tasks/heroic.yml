@@ -1,7 +1,6 @@
 ---
 # Keep Heroic's install and wine-prefix paths under games_heroic_dir, matching the
 # flatpak filesystem grant. config.json is Heroic's, so only these keys are merged.
-# It exists only after a first launch; before that this warns and changes nothing.
 - name: Check whether Heroic is running for games_user
   ansible.builtin.command:
     cmd: pgrep -u {{ games_user }} -f heroic-run
@@ -41,12 +40,10 @@
       # Close quits rather than hiding, while noTrayIcon alone keeps the icon during
       # a session. Pinned to revert an accidental toggle in Settings > General.
       exitToTray: false
-    # Whether the desired keys would change anything.
     games_heroic_change_needed: >-
       {{ (games_heroic_settings | combine(games_heroic_desired)) != games_heroic_settings }}
   block:
-    # Heroic rewrites config.json on exit, so a write now would be reverted. Guarded
-    # on a change being needed, so converged runs stay green with Heroic open.
+    # Guarded on a change being needed, so converged runs stay green with Heroic open.
     - name: Fail when a settings change is needed while Heroic is running
       ansible.builtin.fail:
         msg: >-

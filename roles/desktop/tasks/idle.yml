@@ -132,8 +132,8 @@
     - desktop_suspend_inactive_managed
   become: true
   block:
-    # The drop-in gets suspend minus blank, because logind counts from the idle
-    # hint. That must be positive: IdleActionSec=0 means "no idle action".
+    # The drop-in gets suspend minus blank, which must be positive:
+    # IdleActionSec=0 means "no idle action".
     - name: Assert that idle suspend outlasts screen blanking
       ansible.builtin.assert:
         that:

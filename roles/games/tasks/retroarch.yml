@@ -3,9 +3,8 @@
 # its per-user tree. The shared thumbnail cache is the one exception; the library is
 # otherwise only read.
 
-# config_save_on_exit means RetroArch undoes anything converged while it runs, so it must
-# be closed. First, being the one precondition fixable on the spot. --exact matches the
-# process name; -f would match the ansible-playbook running this.
+# First, being the one precondition fixable on the spot. --exact matches the process name;
+# -f would match the ansible-playbook running this.
 - name: Check whether RetroArch is running
   ansible.builtin.command:
     argv:
@@ -63,8 +62,6 @@
       changed.
     success_msg: "ROM library found at {{ games_retroarch_library_dir }}"
 
-# Part of the library, like _BIOS: the role points RetroArch at it and never creates
-# it, so a missing cache means the library is not set up.
 - name: Check the shared thumbnail cache
   ansible.builtin.stat:
     path: "{{ games_retroarch_thumbnails_dir }}"
@@ -79,7 +76,7 @@
       {{ games_retroarch_thumbnails_stat.stat.writeable | default(false) | bool }}
 
 # The flatpak grant makes the library read-only around it, so RetroArch cannot create it
-# and every download would fail to save silently. Checked on every host; all read it.
+# and every download would fail to save silently.
 - name: Validate the shared thumbnail cache
   ansible.builtin.assert:
     that:
@@ -93,9 +90,8 @@
       ({{ games_retroarch_thumbnails_writable | ternary('writable: this host fills it',
       'read-only: this host reads it') }})
 
-# Bindings are physical device indices, so a wrong pad is a different button, not a
-# near-miss. First of the host-data asserts: games_retroarch_settings folds the pad's
-# bindings in and would otherwise fail there with less to go on.
+# First of the host-data asserts: games_retroarch_settings folds the pad's bindings in and
+# would otherwise fail there with less to go on.
 - name: Validate games_retroarch_controller
   ansible.builtin.assert:
     that:
@@ -108,9 +104,9 @@
       host_vars/, and add the pad to games_retroarch_controllers if it is not there yet.
     success_msg: 'games_retroarch_controller "{{ games_retroarch_controller }}" is known'
 
-# RetroArch derives the audio resampling ratio from this, so a wrong value mistimes every
-# core, heard as drift rather than seen as tearing. | float, not | length: the value is
-# naturally unquoted, and | float yields 0.0 for anything non-numeric.
+# Mistiming is heard as audio drift rather than seen as tearing, RetroArch deriving the
+# resampling ratio from this. | float, not | length: the value is naturally unquoted, and
+# | float yields 0.0 for anything non-numeric.
 - name: Validate the display refresh rate
   ansible.builtin.assert:
     that:
@@ -123,11 +119,11 @@
       it).
     success_msg: 'games_retroarch_video_refresh_rate "{{ games_retroarch_video_refresh_rate }}" is set'
 
-# vsync, a swap interval above 1, BFI and vrr_runloop_enable are four ways to sync video to
-# audio; stacking them paces worse than any one, and the symptom is audio drift with nothing
-# visibly wrong. Only games_retroarch_extra_settings can trip it, and the last condition
-# catches the same conflict reached per-core. Coerced before comparing, YAML delivering both
-# "1" and 1. No default(): all three are pinned, and combine() never removes a key.
+# Stacking these four ways of syncing video to audio paces worse than any one, and the
+# symptom is audio drift with nothing visibly wrong. Only games_retroarch_extra_settings can
+# trip it, and the last condition catches the same conflict reached per-core. Coerced before
+# comparing, YAML delivering both "1" and 1. No default(): all three are pinned, and
+# combine() never removes a key.
 - name: Validate the VRR sync preconditions
   ansible.builtin.assert:
     that:
