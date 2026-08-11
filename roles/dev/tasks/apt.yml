@@ -6,6 +6,7 @@
       - gh
       - git
       - git-delta
+      - git-filter-repo
       - jq
       - libmysqlclient-dev
       - libxml2-dev

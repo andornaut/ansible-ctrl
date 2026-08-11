@@ -21,11 +21,6 @@ dev_ai_attributions_cron_hour: "4"
 dev_ai_attributions_exclude_repositories: []
 dev_ai_attributions_binary_path: "{{ dev_user_home }}/.local/bin/ai-attributions"
 dev_ai_attributions_script_path: "{{ dev_user_home }}/.local/bin/ai-attributions-scan"
-dev_ai_attributions_module: "github.com/andornaut/ai-attributions@latest"
-
-# When this project checkout exists, the role builds the binary from it instead
-# of installing the published module.
-dev_ai_attributions_project_dir: "{{ dev_user_home }}/src/github.com/andornaut/ai-attributions"
 
 # The cron job runs a coding agent against every checkout under
 # dev_ai_maintainer_src_base_dir, so enable it only where those checkouts are.

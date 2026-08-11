@@ -1,0 +1,29 @@
+---
+# One cron file for the role, written from one template: a second task writing
+# the same path would replace what the first put there, and a per-feature file
+# leaves an entry behind on the host when its flag goes false.
+- name: Create cron file for the dev role
+  ansible.builtin.template:
+    src: dev_cron.j2
+    dest: /etc/cron.d/ansible-role-dev
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+  when: dev_install_ai_attributions or dev_install_ai_maintainer
+
+- name: Remove the dev cron file where nothing is scheduled
+  ansible.builtin.file:
+    path: /etc/cron.d/ansible-role-dev
+    state: absent
+  become: true
+  when: not (dev_install_ai_attributions or dev_install_ai_maintainer)
+
+# CLEANUP (added 2026-08-11): the attribution scan had a cron file of its own
+# before it moved into the role's. Remove this task once every dev host has run
+# the role since.
+- name: Remove the standalone ai-attributions cron file
+  ansible.builtin.file:
+    path: /etc/cron.d/ansible-role-dev-ai-attributions
+    state: absent
+  become: true

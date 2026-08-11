@@ -44,13 +44,18 @@ configure their cron jobs and the directories they operate on.
   globally.
 - `ai_maintainer` symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout
   (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
-- `ai_attributions` builds the binary from a local checkout (`dev_ai_attributions_project_dir`) when present,
-  and installs the published module otherwise. Its cron entry runs the scan in `--exit-code` mode and prints
+- `ai_attributions` installs the binary from the `dev` release archive, which CI re-cuts on every push to the
+  project's main branch. The download is verified against the release's `checksums.txt`, so one straddling a
+  re-cut fails rather than installing a mismatched binary; a tagged release is `dev_ai_attributions_release_url`
+  and nothing else. Its cron entry runs the scan in `--exit-code` mode and prints
   nothing when every repository is clean, so mail arrives only when something needs an answer. Each repository
   it reports comes with the `apply --push` command that fixes and publishes it. Forks are skipped by the tool itself, since a fork's
   history is mostly another project's.
-- `git-filter-repo` is installed for `ai_attributions`. Scanning does not need it; the `apply` the scan
-  suggests does.
+- Both cron entries live in `/etc/cron.d/ansible-role-dev`, rendered from one template. An entry appears only
+  where its flag is set, so clearing a flag drops its entry on the next run, and the file is removed where
+  neither is set.
+- `git-filter-repo` is a system package rather than an `ai_attributions` dependency. Scanning does not need it,
+  but the `apply` the scan suggests does, and that is run by hand on hosts where the scan is not scheduled.
 - Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
   packages and modules are left in place; remove them by hand.
 - The `age` package is deliberately not installed. SOPS links the age library, and faramir mints keypairs with
