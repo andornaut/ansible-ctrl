@@ -1,0 +1,44 @@
+---
+# The release binary rather than the npm package: `@oh-my-pi/pi-coding-agent`
+# declares `engines.bun` and its entrypoint runs under bun, which this role does
+# not install. The published binary is bun-compiled with the runtime inside it.
+- name: Get the latest oh-my-pi release
+  ansible.builtin.include_tasks: get_latest_release.yml
+  vars:
+    release_repo: "{{ dev_oh_my_pi_repository }}"
+    release_fact: dev_oh_my_pi_release
+
+# Everything below writes under dev_user_home, so run as dev_user.
+- name: Install oh-my-pi
+  become: true
+  become_user: "{{ dev_user }}"
+  vars:
+    dev_oh_my_pi_release_url: >-
+      https://github.com/{{ dev_oh_my_pi_repository }}/releases/download/{{ dev_oh_my_pi_release.tag_name }}
+  block:
+    - name: Create the oh-my-pi binary directory
+      ansible.builtin.file:
+        path: "{{ dev_oh_my_pi_binary_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    # The binary is ~180MB and carries no version in its name, so it is fetched
+    # only when the installed one is not already the latest release.
+    - name: Check the installed oh-my-pi version
+      ansible.builtin.command:
+        cmd: "{{ dev_oh_my_pi_binary_path }} --version"
+      register: dev_oh_my_pi_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Install the oh-my-pi binary
+      ansible.builtin.get_url:
+        url: "{{ dev_oh_my_pi_release_url }}/{{ dev_oh_my_pi_release_binary }}"
+        dest: "{{ dev_oh_my_pi_binary_path }}"
+        checksum: "sha256:{{ dev_oh_my_pi_release_url }}/SHA256SUMS.txt"
+        mode: "0755"
+      register: dev_oh_my_pi_download
+      until: dev_oh_my_pi_download is succeeded
+      retries: 3
+      delay: 5
+      when: dev_oh_my_pi_release.tag_name | regex_replace('^v', '') not in dev_oh_my_pi_installed.stdout

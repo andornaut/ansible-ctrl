@@ -21,6 +21,16 @@ dev_ai_attributions_arch: >-
 
 dev_ai_attributions_release_archive: "ai-attributions_linux_{{ dev_ai_attributions_arch }}.tar.gz"
 
+dev_oh_my_pi_repository: can1357/oh-my-pi
+
+# bun's names rather than Debian's, so dev_arch does not serve here: x86_64 to
+# x64, aarch64 to arm64. The glibc build, because every host here is Ubuntu; the
+# project's musl builds are named linux-musl-*.
+dev_oh_my_pi_arch: >-
+  {{ {'x86_64': 'x64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
+dev_oh_my_pi_release_binary: "omp-linux-{{ dev_oh_my_pi_arch }}"
+
 # System PATH plus the directories the role's cron scripts live in. Not for cron, which
 # runs both by absolute path, but for what those scripts then invoke: the agent command
 # ai-maintainer is given by name resolves here. One file schedules both, so one PATH

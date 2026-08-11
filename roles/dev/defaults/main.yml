@@ -7,6 +7,9 @@ dev_install_virtualbox: false
 # Oracle publishes one apt package per minor series (virtualbox-7.2).
 dev_virtualbox_version: "7.2"
 
+# Where upstream's own installer puts it.
+dev_oh_my_pi_binary_path: "{{ dev_user_home }}/.local/bin/omp"
+
 # The cron job scans every checkout under dev_ai_attributions_src_base_dir, so
 # enable it only where those checkouts are.
 dev_install_ai_attributions: false

@@ -69,6 +69,16 @@
   ansible.builtin.import_tasks: opencode.yml
   tags: opencode
 
+# Two projects under one tag: oh-my-pi is a fork of pi, and the two install
+# separate binaries that coexist.
+- name: Import pi tasks
+  ansible.builtin.import_tasks: pi.yml
+  tags: pi
+
+- name: Import oh-my-pi tasks
+  ansible.builtin.import_tasks: oh_my_pi.yml
+  tags: pi
+
 - name: Import sops tasks
   ansible.builtin.import_tasks: sops.yml
   tags: sops

@@ -4,6 +4,10 @@
 # Required vars:
 #   dev_npm_package (str)
 #
+# Optional vars:
+#   dev_npm_ignore_scripts (bool): default false, for a package whose upstream
+#     documents installing without running lifecycle scripts
+#
 # npm is required, not assumed: every caller has its own tag, and none selects the
 # javascript tag that installs node.
 - name: Require npm
@@ -19,4 +23,5 @@
     name: "{{ dev_npm_package }}"
     global: true
     state: latest
+    ignore_scripts: "{{ dev_npm_ignore_scripts | default(false) }}"
   become: true
