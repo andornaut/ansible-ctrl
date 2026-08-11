@@ -29,10 +29,6 @@ faramir_allow_sudo: false
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 faramir_fleet_authorize_key: true
 
-# A host that never completed a TCP connect has neither accepted nor refused the broker's
-# key, so it is reported and passed over. Every other outcome is an answer and is held to.
-faramir_fleet_ping_offline_pattern: 'Connection timed out|Connection refused|No route to host|Host is down'
-
 # System-wide, so one file covers the executor, the renewal cron's root and the operator,
 # and survives a service account being recreated.
 faramir_fleet_known_hosts_path: /etc/ssh/ssh_known_hosts

@@ -15,7 +15,7 @@ An operator action. Log out and back in after the first install: it adds you to 
 | Play | Entry point | Hosts | Effect |
 | --- | --- | --- | --- |
 | first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on the controller |
-| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, then pings every host back through the broker |
+| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, then pings back through the broker every host it still holds |
 
 `faramir_controller` names the one host it may install on: `broker.yml` refuses to run anywhere else, and `ssh.yml` requires the `faramir` group to hold that host and no other.
 

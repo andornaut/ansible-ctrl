@@ -217,9 +217,10 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 # No -o: it selects the oneline callback, and both flag and callback are removed in
 # ansible-core 2.23, which the collections' requires_ansible floor brings in on its own.
 #
-# The same fold in Jinja is faramir_fleet_ping_lines in roles/faramir/tasks/ssh.yml, which
-# reads the broker's own fleet ping. That one goes on to sort the failures by kind, its
-# assert turning on the difference; this one does not.
+# The same fold in Jinja is faramir_fleet_ping_lines in roles/faramir/tasks/ssh.yml, over
+# the broker's own fleet ping. Neither sorts what it finds by kind: a host that cannot be
+# reached is one the caller cannot use, and which of the reasons it was does not change
+# what happens next.
 pick_unreachable = sed -E ':a;N;$$!ba;s/\n[ \t]+/ /g' | grep -E '^[^[:space:]]+ \| .*UNREACHABLE!'
 
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
