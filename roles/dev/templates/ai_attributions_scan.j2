@@ -89,10 +89,11 @@ printf 'AI attributions in %d of %d repositories under %s\n' \
 	"${#names[@]}" "$scanned" "$base_dir"
 
 for i in "${!names[@]}"; do
-	printf '\n%s\n  %s\n  fix: %s apply %s/%s\n' \
+	printf '\n%s\n  %s\n  fix: %s apply --push %s/%s\n' \
 		"${names[$i]}" "${summaries[$i]}" "$binary" "$base_dir" "${names[$i]}"
 done
 
-printf '\napply rewrites history and prints the push command it did not run.\n'
+printf '\nthat rewrites the history and force pushes it. The refs it replaces are\n'
+printf 'saved first: %s backups, then restore <timestamp>.\n' "$binary"
 exit 1
 {% endraw %}
