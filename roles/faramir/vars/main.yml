@@ -5,6 +5,11 @@
 # From the getent in tasks/broker.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
+# The account ansible connects to a managed host as, and so the one tasks/ssh.yml
+# authorizes the key for and grants sudo to. From the inventory, which sets it per host;
+# primary_user is the fallback for a host that names none.
+faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
+
 # `dev` is rolling, re-cut by CI on every push to faramir's main; faramir has no v
 # tag yet. Its assets match a tagged release's, so moving to one is this URL alone.
 faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
@@ -37,6 +42,7 @@ faramir_init_argv: >-
      '--client-group', faramir_client_group,
      '--config-dir', faramir_config_dir]
     + (['--agent'] | product(faramir_agents) | flatten)
+    + (['--allow-sudo'] if faramir_allow_sudo | bool else [])
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
