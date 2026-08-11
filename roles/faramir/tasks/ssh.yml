@@ -225,6 +225,8 @@
         #
         # No -o: it selects the oneline callback, and both flag and callback are removed in
         # ansible-core 2.23.
+        #
+        # The same fold is pick_unreachable in the Makefile, over the preflight probe.
         faramir_fleet_ping_lines: >-
           {{ faramir_fleet_ping.stdout | default('') | regex_replace('\n[ \t]+', ' ')
              | regex_findall('^\S+\s*\|.*$', multiline=True) }}

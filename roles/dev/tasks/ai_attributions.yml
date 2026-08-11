@@ -1,6 +1,11 @@
 ---
 # Everything below writes under dev_user_home, so run as dev_user: the cron entry
 # runs the script as that account.
+#
+# The staging half (tempfile, checksummed get_url, unarchive, the always: cleanup) is the
+# same sequence as roles/faramir/tasks/broker.yml, which installs the other checksummed
+# goreleaser release this repo consumes. Roles share no task files, so a fix to the
+# retry idiom or the check_mode placement belongs in both.
 - name: Install ai-attributions
   become: true
   become_user: "{{ dev_user }}"
@@ -36,8 +41,8 @@
         src: "{{ dev_ai_attributions_release_tmp.path }}/{{ dev_ai_attributions_release_archive }}"
         dest: "{{ dev_ai_attributions_release_tmp.path }}"
         remote_src: true
-        # The archive mode goes through the umask, and the binary is copied to
-        # its destination by mode rather than by content.
+        # tar records a mode that extraction puts through the umask, so it is
+        # set here rather than inherited.
         mode: "0755"
       check_mode: false
 
