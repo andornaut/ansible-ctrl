@@ -163,10 +163,12 @@ LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter 
 # arrived, and that assert must not outlive the decision to skip the injection.
 SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
 
-# Whether to prove that the invoking account reaches this run's hosts before any of it
-# applies. A host that is down is dropped from the run through --limit, the play otherwise
-# spending the connection timeout a second time to reach the conclusion the probe already
-# reached. One that answers and refuses the connection stops the run instead.
+# Whether to find out which of this run's hosts the invoking account reaches, before any of
+# it applies. A host the probe cannot reach is dropped from the run through --limit, the
+# play otherwise spending the connection timeout a second time to reach the conclusion the
+# probe already reached. Why it could not be reached is not sorted: off, refusing the
+# identity, a host key that moved and a wedged sshd are all a host this run cannot apply to,
+# and the probe's own output says which it was. A run left with no hosts at all stops.
 # PREFLIGHT=none skips it, for a run that should attempt every host whatever the probe
 # would have found.
 #
@@ -182,26 +184,11 @@ SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=fals
 RUN_PREFLIGHT = $(if $(filter none,$(PREFLIGHT)),,1)
 
 # Every host that is up answers in well under a second, the site VPN included, so the
-# timeout is paid only by hosts that are off and is the whole cost of the probe. 1 is the
-# floor: both --timeout and the ConnectTimeout it becomes take whole seconds.
+# timeout is paid only by hosts the probe cannot reach and is the whole cost of it. 1 is the
+# floor: both --timeout and the ConnectTimeout it becomes take whole seconds. It also bounds
+# the banner exchange, so a host loaded enough to be slow answering is dropped rather than
+# waited for, which is the price of the one second.
 PREFLIGHT_TIMEOUT := 1
-
-# ConnectTimeout bounds the banner exchange as well as the connect, so a host that is up
-# but loaded fails the one-second probe reporting this, and calling that off would drop it
-# from the run. It answered TCP, so it is not off: those hosts are probed once more at a
-# timeout long enough for a busy sshd, which a host that is off never reaches and so never
-# pays for.
-PREFLIGHT_SLOW := during banner exchange
-PREFLIGHT_SLOW_TIMEOUT := 15
-
-# The connection failures that mean a host is off and nothing more, which the preflight
-# reports and carries on past. Anything else is an identity or a host key the fleet does
-# not accept, a fault in the run rather than in the host. Kept in step with
-# faramir_fleet_ping_offline_pattern in roles/faramir/defaults/main.yml, which sorts the
-# broker's own fleet ping by the same list. The banner-exchange case above has no
-# counterpart there: that ping runs at the default timeout, where the exchange failing
-# means a wedged sshd rather than a busy one.
-PREFLIGHT_OFFLINE := Connection timed out|Connection refused|No route to host|Host is down
 
 # What this run resolves to, asked of ansible rather than assumed so a --limit in ARGS
 # counts. One startup connecting to nothing, ~0.3s, and the recipe runs it once into $$run
@@ -231,7 +218,8 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 # ansible-core 2.23, which the collections' requires_ansible floor brings in on its own.
 #
 # The same fold in Jinja is faramir_fleet_ping_lines in roles/faramir/tasks/ssh.yml, which
-# sorts the broker's own fleet ping by the same rule.
+# reads the broker's own fleet ping. That one goes on to sort the failures by kind, its
+# assert turning on the difference; this one does not.
 pick_unreachable = sed -E ':a;N;$$!ba;s/\n[ \t]+/ /g' | grep -E '^[^[:space:]]+ \| .*UNREACHABLE!'
 
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
@@ -255,29 +243,16 @@ endef
 # as the account that will run the play, so it answers about the ~/.ssh that will connect.
 define preflight
 	       probe=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
-	       slow=$$(echo "$$probe" | grep -F '$(PREFLIGHT_SLOW)' | cut -d' ' -f1 | paste -sd,); \
-	       if [ -n "$$slow" ]; then \
-	         probe=$$( { echo "$$probe" | grep -vF '$(PREFLIGHT_SLOW)'; \
-	                     ansible "$$slow" -m raw -a true -T $(PREFLIGHT_SLOW_TIMEOUT) 2>&1 | $(pick_unreachable); } ); \
-	       fi; \
-	       off=$$(echo "$$probe" | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1); \
-	       bad=$$(echo "$$probe" | grep -vE '$(PREFLIGHT_OFFLINE)'); \
-	       if [ -n "$$bad" ]; then \
-	         echo "$$bad" >&2; \
-	         echo "Preflight: refusing to run $*.yml, because $$(id -un) cannot" >&2; \
-	         echo "authenticate to the hosts above, and ansible would find that out one" >&2; \
-	         echo "host at a time, mid-run, with the plays before it already applied." >&2; \
-	         echo "A run connects with the invoking account's own ~/.ssh unless" >&2; \
-	         echo "ANSIBLE_PRIVATE_KEY_FILE names an identity the fleet accepts, which" >&2; \
-	         echo "this Makefile does for root, from the broker's key." >&2; \
-	         echo "Skip this check with PREFLIGHT=none." >&2; \
-	         exit 1; \
-	       fi; \
+	       off=$$(echo "$$probe" | cut -d' ' -f1); \
 	       if [ -n "$$off" ]; then \
+	         echo "$$probe" >&2; \
+	         echo "Preflight: dropped the hosts above from $*.yml." >&2; \
 	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
-	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
 	         if [ -z "$$reachable" ]; then \
-	           echo "Preflight: nothing left to apply $*.yml to." >&2; \
+	           echo "Preflight: nothing left to apply $*.yml to. A run connects with the" >&2; \
+	           echo "invoking account's own ~/.ssh unless ANSIBLE_PRIVATE_KEY_FILE names an" >&2; \
+	           echo "identity the fleet accepts, which this Makefile does for root, from the" >&2; \
+	           echo "broker's key. Skip this check with PREFLIGHT=none." >&2; \
 	           exit 1; \
 	         fi; \
 	         limit="--limit $$reachable"; \
