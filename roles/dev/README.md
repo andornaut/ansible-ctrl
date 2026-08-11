@@ -45,10 +45,11 @@ configure their cron jobs and the directories they operate on.
   globally.
 - `ai_maintainer` symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout
   (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
-- `ai_attributions` installs the binary from the `dev` release archive, which CI re-cuts on every push to the
-  project's main branch. The download is verified against the release's `checksums.txt`, so one straddling a
-  re-cut fails rather than installing a mismatched binary; a tagged release is `dev_ai_attributions_release_url`
-  and nothing else. Its cron entry runs the scan in `--exit-code` mode and prints
+- `ai_attributions` installs the binary from the project's newest version tag, through GitHub's latest-release
+  redirect, so a run follows releases rather than every push to its main branch. The download is verified
+  against the release's `checksums.txt`, so one straddling a publish fails rather than installing a mismatched
+  binary; pinning a version, or following the rolling `dev` release, is `dev_ai_attributions_release_url` and
+  nothing else. Its cron entry runs the scan in `--exit-code` mode and prints
   nothing when every repository is clean, so mail arrives only when something needs an answer. Each repository
   it reports comes with the `apply --push` command that fixes and publishes it. Forks are skipped by the tool itself, since a fork's
   history is mostly another project's.

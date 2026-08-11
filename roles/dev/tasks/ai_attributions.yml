@@ -26,8 +26,9 @@
       ansible.builtin.get_url:
         url: "{{ dev_ai_attributions_release_url }}/{{ dev_ai_attributions_release_archive }}"
         dest: "{{ dev_ai_attributions_release_tmp.path }}/{{ dev_ai_attributions_release_archive }}"
-        # `dev` is a moving tag: a download straddling a re-cut fails the
-        # checksum rather than installing a mismatched binary.
+        # The archive and the checksums both resolve through the latest-release
+        # redirect, so a download straddling a publish fails the checksum rather
+        # than installing a mismatched binary.
         checksum: "sha256:{{ dev_ai_attributions_release_url }}/checksums.txt"
         mode: "0644"
       check_mode: false
