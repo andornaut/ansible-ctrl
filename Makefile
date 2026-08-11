@@ -248,6 +248,16 @@ endef
 # where one carrying a quote of its own would end the string early.
 shquote = '$(subst ','\'',$(1))'
 
+# sudo resets the environment, and MAKEFLAGS goes with it, which is where make carries a
+# command-line assignment down to a child. So each is named again on the sudo re-entry, or
+# `make homeautomation PREFLIGHT=none` would probe anyway under root and drop a host the
+# operator asked to attempt. The sops re-entry runs no sudo and needs none of this.
+#
+# Anything the makefile itself does not assign, so an origin of undefined means unset and
+# the variable is left out rather than passed empty, which the child reads as a value.
+REENTRY_VARS = $(strip $(foreach v,SECRETS ASK_PASS PREFLIGHT,\
+                 $(if $(filter-out undefined default,$(origin $(v))),$(v)=$(call shquote,$($(v))))))
+
 # A secret-bearing run whose store the operator cannot read is served rather than refused:
 # every secret_* would otherwise be undefined, and the first task to read one fails with the
 # tasks before it already applied. The store's group holds no human, so the run re-enters
@@ -297,7 +307,7 @@ $(PLAYBOOKS): %: requirements
 	   fi; \
 	   echo "$(SOPS_FILE) is not readable by $(OPERATOR), so this run re-enters as" >&2; \
 	   echo "root, which reads the store and reaches every host." >&2; \
-	   sudo $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS)); \
+	   sudo $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS)) $(REENTRY_VARS); \
 	 elif [ -n "$(LOAD_SECRETS)" ]; then \
 	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS))); \
 	 else \
