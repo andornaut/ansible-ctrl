@@ -49,10 +49,9 @@ configure their cron jobs and the directories they operate on.
   redirect, so a run follows releases rather than every push to its main branch. The download is verified
   against the release's `checksums.txt`, so one straddling a publish fails rather than installing a mismatched
   binary; pinning a version, or following the rolling `dev` release, is `dev_ai_attributions_release_url` and
-  nothing else. Its cron entry runs the scan in `--exit-code` mode and prints
-  nothing when every repository is clean, so mail arrives only when something needs an answer. Each repository
-  it reports comes with the `apply --push` command that fixes and publishes it. Forks are skipped by the tool itself, since a fork's
-  history is mostly another project's.
+  nothing else. Its cron entry runs the scan in `--exit-code` mode and prints nothing when every repository is
+  clean, so mail arrives only when something needs an answer, and each repository it reports comes with the
+  `apply --push` command that fixes and publishes it. Forks are skipped by the tool itself.
 - Both cron entries live in `/etc/cron.d/ansible-role-dev`, rendered from one template. An entry appears only
   where its flag is set, so clearing a flag drops its entry on the next run, and the file is removed where
   neither is set.
