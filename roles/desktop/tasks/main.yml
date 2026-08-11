@@ -1,6 +1,6 @@
 ---
-# The account this role's user-scoped tasks act on. Defaults to primary_user
-# (inventory data), not to whoever ansible connects as, which is root under cron.
+# desktop_user must not derive from whoever ansible connects as, which is root
+# under cron.
 - name: Validate desktop_user
   ansible.builtin.assert:
     that:

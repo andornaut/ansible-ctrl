@@ -3,8 +3,8 @@
 # its per-user tree. The shared thumbnail cache is the one exception; the library is
 # otherwise only read.
 
-# First, being the one precondition fixable on the spot. --exact matches the process name;
-# -f would match the ansible-playbook running this.
+# First of the preconditions, being the one fixable on the spot. --exact matches the process
+# name; -f would match the ansible-playbook running this.
 - name: Check whether RetroArch is running
   ansible.builtin.command:
     argv:
@@ -104,9 +104,9 @@
       host_vars/, and add the pad to games_retroarch_controllers if it is not there yet.
     success_msg: 'games_retroarch_controller "{{ games_retroarch_controller }}" is known'
 
-# Mistiming is heard as audio drift rather than seen as tearing, RetroArch deriving the
-# resampling ratio from this. | float, not | length: the value is naturally unquoted, and
-# | float yields 0.0 for anything non-numeric.
+# RetroArch derives the audio resampling ratio from this, so a wrong value is heard as audio
+# drift rather than seen as tearing. | float, not | length: the value is naturally unquoted,
+# and | float yields 0.0 for anything non-numeric.
 - name: Validate the display refresh rate
   ansible.builtin.assert:
     that:
@@ -119,11 +119,11 @@
       it).
     success_msg: 'games_retroarch_video_refresh_rate "{{ games_retroarch_video_refresh_rate }}" is set'
 
-# Stacking these four ways of syncing video to audio paces worse than any one, and the
-# symptom is audio drift with nothing visibly wrong. Only games_retroarch_extra_settings can
-# trip it, and the last condition catches the same conflict reached per-core. Coerced before
-# comparing, YAML delivering both "1" and 1. No default(): all three are pinned, and
-# combine() never removes a key.
+# vsync, a swap interval above 1, BFI and vrr_runloop_enable are four ways to sync video to
+# audio; stacking them paces worse than any one, and the symptom is audio drift with nothing
+# visibly wrong. Only games_retroarch_extra_settings can trip it, and the last condition
+# catches the same conflict reached per-core. Coerced before comparing, YAML delivering both
+# "1" and 1. No default(): all three are pinned, and combine() never removes a key.
 - name: Validate the VRR sync preconditions
   ansible.builtin.assert:
     that:
