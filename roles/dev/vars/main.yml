@@ -9,9 +9,11 @@ dev_arch: >-
 # From the getent in tasks/main.yml.
 dev_user_home: "{{ ansible_facts['getent_passwd'][dev_user][4] }}"
 
-# `dev` is rolling, re-cut by CI on every push to ai-attributions' main. Its assets
-# match a tagged release's, so moving to one is this URL alone.
-dev_ai_attributions_release_url: https://github.com/andornaut/ai-attributions/releases/download/dev
+# GitHub's redirect to the newest release not marked as a pre-release, which is the
+# newest version tag: ai-attributions publishes `dev` from every push to its main with
+# make_latest false, so this follows releases rather than commits. A version pins:
+# .../releases/download/v1.2.3.
+dev_ai_attributions_release_url: https://github.com/andornaut/ai-attributions/releases/latest/download
 
 # goreleaser's names rather than Debian's, so dev_arch does not serve here: x86_64
 # kept, aarch64 to arm64. The kernel is unmapped: ai-attributions builds for no other.
