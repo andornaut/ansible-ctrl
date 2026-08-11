@@ -10,4 +10,7 @@ dev_arch: >-
 dev_user_home: "{{ ansible_facts['getent_passwd'][dev_user][4] }}"
 
 # System PATH plus the script's directory, so cron finds the wrapper.
+dev_ai_attributions_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_attributions_script_path | dirname }}"
+
+# System PATH plus the script's directory, so cron finds the wrapper.
 dev_ai_maintainer_cron_path: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ dev_ai_maintainer_script_path | dirname }}"

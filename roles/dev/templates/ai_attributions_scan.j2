@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Ansible managed - daily ai-attributions scan
+#
+# Scans every checkout under a directory and reports the repositories that carry
+# AI attributions, with the command that fixes each. Silent when there is
+# nothing to report, so cron mails only what needs an answer.
+#
+# Usage: ai-attributions-scan [--verbose]
+
+set -uo pipefail
+
+readonly base_dir="{{ dev_ai_attributions_src_base_dir }}"
+readonly binary="{{ dev_ai_attributions_binary_path }}"
+{% raw %}
+verbose=0
+case "${1:-}" in
+	--verbose) verbose=1 ;;
+	"") ;;
+	*)
+		echo "usage: $(basename "$0") [--verbose]" >&2
+		exit 2
+		;;
+esac
+{% endraw %}
+exclude=({% for repo in dev_ai_attributions_exclude_repositories %}"{{ repo }}" {% endfor %})
+{% raw %}
+is_excluded() {
+	local candidate=$1 name
+	# The +"..." guard keeps an empty exclude list from tripping set -u.
+	for name in ${exclude[@]+"${exclude[@]}"}; do
+		[[ $candidate == "$name" ]] && return 0
+	done
+	return 1
+}
+
+if [[ ! -x $binary ]]; then
+	echo "$binary is not installed" >&2
+	exit 1
+fi
+
+scanned=0
+skipped=0
+names=()
+summaries=()
+
+for path in "$base_dir"/*/; do
+	path=${path%/}
+	name=$(basename "$path")
+	[[ -d $path/.git ]] || continue
+	if is_excluded "$name"; then
+		continue
+	fi
+
+	output=$("$binary" --exit-code "$path" 2>&1)
+	status=$?
+
+	# A fork reports nothing and exits 0. Counting it apart from a clean
+	# repository keeps the totals honest about what was actually read.
+	if [[ $output == skipping\ * ]]; then
+		skipped=$((skipped + 1))
+		[[ $verbose -eq 1 ]] && printf '  skipped   %s\n' "$name"
+		continue
+	fi
+
+	scanned=$((scanned + 1))
+	if [[ $status -eq 0 ]]; then
+		[[ $verbose -eq 1 ]] && printf '  clean     %s\n' "$name"
+		continue
+	fi
+
+	names+=("$name")
+	summary=$(printf '%s\n' "$output" | grep -m1 'carry AI attributions')
+	summaries+=("${summary:-attributions found}")
+	[[ $verbose -eq 1 ]] && printf '  FOUND     %s\n' "$name"
+done
+
+if [[ ${#names[@]} -eq 0 ]]; then
+	if [[ $verbose -eq 1 ]]; then
+		forks=""
+		[[ $skipped -eq 1 ]] && forks=" (1 fork skipped)"
+		[[ $skipped -gt 1 ]] && forks=" ($skipped forks skipped)"
+		printf '\nno AI attributions in %d repositories under %s%s\n' \
+			"$scanned" "$base_dir" "$forks"
+	fi
+	exit 0
+fi
+
+printf 'AI attributions in %d of %d repositories under %s\n' \
+	"${#names[@]}" "$scanned" "$base_dir"
+
+for i in "${!names[@]}"; do
+	printf '\n%s\n  %s\n  fix: %s apply %s/%s\n' \
+		"${names[$i]}" "${summaries[$i]}" "$binary" "$base_dir" "${names[$i]}"
+done
+
+printf '\napply rewrites history and prints the push command it did not run.\n'
+exit 1
+{% endraw %}
