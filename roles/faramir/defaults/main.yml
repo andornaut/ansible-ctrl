@@ -24,6 +24,13 @@ faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 faramir_agents:
   - claude
 
+# Whether a brokered command may ASK to sudo on the controller. It cannot sudo on its
+# own: the executor's sudoers entry authenticates through a PAM service that asks the
+# broker whether a human approved that command, answered by `sudo faramir approve`, so
+# no password exists anywhere. Off, and an install that has never passed --allow-sudo
+# grants nothing; turning it back off removes the grant on the next run.
+faramir_allow_sudo: false
+
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 # A default rather than a play var, so host_vars can turn it off per host.
 faramir_fleet_authorize_key: true
