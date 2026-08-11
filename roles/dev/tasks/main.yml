@@ -1,12 +1,11 @@
 ---
-# dev_user must not resolve to root, or user-scoped tasks write to /root. See README.
 - name: Validate dev_user
   ansible.builtin.assert:
     that:
       - dev_user != "root"
     fail_msg: >-
-      dev_user resolved to "root". Set primary_user in the inventory
-      (or dev_user in host_vars) to the target account.
+      dev_user resolved to "root", which would write user-scoped state to /root.
+      Set primary_user in the inventory (or dev_user in host_vars) to the target account.
     success_msg: 'dev_user "{{ dev_user }}" is valid'
   tags: always
 

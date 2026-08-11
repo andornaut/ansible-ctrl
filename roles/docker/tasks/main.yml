@@ -1,6 +1,6 @@
 ---
-# The account user-scoped tasks act on. Must not resolve to root, and must not
-# derive from whoever ansible connects as, which is root under cron.
+# docker_user must not derive from whoever ansible connects as, which is root
+# under cron.
 - name: Validate docker_user
   ansible.builtin.assert:
     that:
