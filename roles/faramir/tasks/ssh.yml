@@ -1,6 +1,5 @@
 ---
-# Applied over the whole inventory as faramir.yml's second play. The linear strategy is
-# what lets the controller publish a fact the rest of the play then reads.
+# The linear strategy is what lets the controller publish a fact the rest of this play reads.
 
 - name: Require the faramir group to hold the controller alone
   ansible.builtin.assert:
@@ -63,11 +62,10 @@
         # The module creates ~/.ssh when it owns the path; a named path is the host's own.
         manage_dir: "{{ faramir_fleet_authorized_keys_path is not defined }}"
 
-    # The broker's key plus this entry means the agent is root here; leave a host out of the
-    # play to keep it agent-free. Passwordless because no become password can live in the
-    # store: it is the operator's login password, which on the controller reaches the age
-    # key. Skipped where ansible connects as root, which is every pfSense host: those carry
-    # no sudo, no visudo and no /etc/sudoers.d, and the key alone is the whole grant there.
+    # The broker's key plus this entry makes the agent root here; leave a host out of the
+    # play to keep it agent-free. Passwordless because the store cannot hold a become
+    # password: it is the operator's login password, which reaches the age key. Skipped for
+    # root, which is every pfSense host: no sudo, no visudo, no /etc/sudoers.d.
     - name: Grant the ansible account passwordless sudo
       ansible.builtin.copy:
         dest: /etc/sudoers.d/faramir-agent
@@ -91,9 +89,8 @@
         - faramir_fleet_account != "root"
 
 # ssh verifies a host before it authenticates to it and the executor has no known_hosts, so
-# without this a brokered run fails before the key above is ever offered. The keys are read
-# over this run's own connection, which the operator's known_hosts verified, so what gets
-# pinned is authenticated rather than taken on trust at first contact.
+# without this a brokered run fails before the key above is ever offered. Read over this
+# run's own connection, so what gets pinned is authenticated rather than trusted on sight.
 - name: Collect the fleet's SSH host keys
   when: inventory_hostname != faramir_controller
   block:
@@ -113,8 +110,7 @@
         label: "{{ item.path }}"
       register: faramir_fleet_host_key_contents
 
-    # An entry is name, type and key, which ssh matches as a whole; the .pub's trailing
-    # comment is not part of it.
+    # An entry is name, type and key; the .pub's trailing comment is not part of it.
     - name: Publish them as known_hosts entries
       ansible.builtin.set_fact:
         faramir_fleet_known_hosts_entries: >-
@@ -160,9 +156,8 @@
           rekeys a host on its own.
         quiet: true
       vars:
-        # The first two fields are what ssh looks an entry up under, so a line that is not
-        # pinned whole but whose first two fields are is that name and type under a new key.
-        # An unpinned name is not this: it is added below, having never been seen.
+        # The first two fields are what ssh looks an entry up under, so a line unpinned as
+        # a whole whose first two fields are pinned is that name and type under a new key.
         faramir_fleet_known_hosts_prefix_pattern: '^(\S+\s+\S+).*$'
         faramir_fleet_known_hosts_pinned_prefixes: >-
           {{ faramir_fleet_known_hosts_pinned
@@ -174,8 +169,8 @@
              | select('in', faramir_fleet_known_hosts_pinned_prefixes) | list }}
 
     # Kept rather than rewritten from this run alone: a host that was down or left out by a
-    # --limit contributes nothing here, and dropping its entry would let the next run accept
-    # a fresh key for it as though never seen.
+    # --limit contributes nothing, and dropping its entry would let the next run take a
+    # fresh key for it as though never seen.
     - name: Pin them
       ansible.builtin.copy:
         dest: "{{ faramir_fleet_known_hosts_path }}"
@@ -189,8 +184,7 @@
              | unique | sort }}
 
 # The hosts this play authorized, not the whole inventory: under a --limit the rest were
-# never reached, so pinging them proves nothing and fails the assert below for a run that
-# did what it was asked. Skipped where that leaves nothing, a controller-only run.
+# never reached, so pinging them fails the assert below for a run that did what it was asked.
 - name: Prove a brokered run reaches the fleet
   when:
     - inventory_hostname == faramir_controller
@@ -227,8 +221,7 @@
           {{ faramir_fleet_ping.stdout_lines | default([]) | select('search', '^\S+\s*\|') }}
         faramir_fleet_ping_host: '^(\S+)\s*\|.*$'
 
-    # Named even when the run passes: they are the part of the fleet this proved nothing
-    # about, and silence would read as having covered them.
+    # Named even when the run passes: silence would read as having covered them.
     - name: Report the hosts that were off
       ansible.builtin.debug:
         msg: >-
@@ -268,7 +261,6 @@
              | difference(faramir_fleet_ping_answered)
              | difference(faramir_fleet_ping_offline)
              | difference(faramir_fleet_ping_refused) }}
-        # A host ansible lost has run none of the tasks above, so it holds no pin and the
-        # brokered ping refuses it for a reason that has nothing to do with the pinning.
+        # A host ansible lost holds no pin, so the ping refuses it for an unrelated reason.
         faramir_fleet_ping_dropped: >-
           {{ faramir_fleet_ping_hosts | difference(ansible_play_hosts) }}

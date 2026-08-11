@@ -5,12 +5,11 @@
 # From the getent in tasks/broker.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# The account ansible connects to a managed host as, which is the one tasks/ssh.yml
-# authorizes the key for and grants sudo to. Set per host by the inventory.
+# The account ansible connects to a managed host as, set per host by the inventory.
 faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 
-# `dev` is rolling, re-cut by CI on every push to faramir's main; faramir has no v
-# tag yet. Its assets match a tagged release's, so moving to one is this URL alone.
+# `dev` is rolling, re-cut by CI on every push to faramir's main. Its assets match a tagged
+# release's, so moving to one is this URL alone.
 faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 
 # goreleaser's names rather than Debian's: x86_64 kept, aarch64 to arm64. Same
@@ -25,14 +24,12 @@ faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 faramir_binary: /usr/local/bin/faramir
 
 # The identity the broker lends to brokered commands. Mirrors faramir's default instead of
-# passing --ssh-key, which relocates a key init mints either way. Not a knob: an override
-# would name a path init never writes, and tasks/ssh.yml reads the public half from here.
+# passing --ssh-key, which relocates a key init mints either way: an override here would
+# name a path init never writes, and tasks/ssh.yml reads the public half from it.
 faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 
 # argv rather than a command string: the paths come from the inventory and may need
-# quoting. Only what this role decides is passed; the service accounts and the SSH key path
-# stay at faramir's defaults. Resolves only inside the install block, which registers
-# faramir_release_tmp.
+# quoting. Resolves only inside the install block, which registers faramir_release_tmp.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -45,8 +42,7 @@ faramir_init_argv: >-
   }}
 
 # The same, for the one tree this repo enrols. The directory is an argument rather than a
-# flag, and naming it pins the enrolment to playbook_dir. The redaction hook is left to
-# faramir's default, on being the only setting worth enrolling a tree for.
+# flag, and naming it pins the enrolment to playbook_dir.
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
@@ -57,9 +53,9 @@ faramir_init_project_argv: >-
     + [playbook_dir]
   }}
 
-# Only the two doctor cannot read off the host: it takes the client group from [server]
-# allowed_group and each service account from its unit, and every other flag overrides
-# those. --operator-user has no such source and doctor fails rather than guess it.
+# Only the two doctor cannot read off the host: it takes the client group and the service
+# accounts from the config and the units, but --operator-user has no such source and doctor
+# fails rather than guess it.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',

@@ -1,7 +1,6 @@
 ---
-# Two halves, one per play of faramir.yml, which names each with tasks_from rather than
-# applying the role bare: broker.yml provisions the controller, ssh.yml authorizes the
-# broker's key across the fleet. Tagged here, so a bare role application can select one.
+# faramir.yml names each half with tasks_from rather than applying the role bare. Tagged
+# here, so a bare application can select one.
 
 - name: Install the broker on the controller
   ansible.builtin.import_tasks: broker.yml
