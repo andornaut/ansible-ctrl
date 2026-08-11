@@ -25,8 +25,14 @@ check_ansible_lint() {
 
 # The real inventory is gitignored, so parse against tests/inventory.ini, which has
 # a resolvable member for every targeted group.
+#
+# ansible.cfg first: an ini key ansible does not recognize is ignored in every other run,
+# so a setting reads as made and is not. -t all covers the plugin options too, which is
+# where the keys that do not match their option name live.
 check_syntax() {
     local status=0 playbook
+    echo "== ansible.cfg =="
+    ansible-config validate -t all || status=1
     for playbook in *.yml; do
         [[ ${playbook} == requirements.yml ]] && continue
         echo "== ${playbook} =="

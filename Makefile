@@ -6,7 +6,13 @@ SHELL := /bin/bash
 # Every goal but the first, rather than every goal that is not the target: a forwarded
 # token that happens to equal the target name (`make desktop -- --limit desktop`) would
 # otherwise be dropped from its own argument list.
-ARGS = $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+GOAL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+ARGS = $(GOAL_ARGS)
+
+# The knobs this makefile reads from the command line, listed once. Both readers below are
+# silent about a name they do not know: one would forward it to ansible-playbook, and the
+# other would drop it across the sudo re-entry.
+KNOBS := SECRETS ASK_PASS PREFLIGHT
 
 # An argument containing = does not survive that route: make takes it as a variable
 # assignment before the goal list is built, and the flag forwards with nothing after it.
@@ -18,9 +24,9 @@ ARGS = $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 # without a word. What the goal list held lands here and that run is refused too.
 ifeq ($(origin ARGS),command line)
 STRAY_ARGS :=
-DROPPED_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+DROPPED_ARGS := $(GOAL_ARGS)
 else
-STRAY_ARGS := $(filter-out SECRETS=% ASK_PASS=% PREFLIGHT=%,$(MAKEOVERRIDES))
+STRAY_ARGS := $(filter-out $(addsuffix =%,$(KNOBS)),$(MAKEOVERRIDES))
 DROPPED_ARGS :=
 endif
 
@@ -167,7 +173,6 @@ SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=fals
 # The --limit goes last and so outranks one in ARGS, which is correct rather than lossy:
 # the host list it is built from comes from list_run, which already applied that one.
 #
-#
 # raw, the question being whether ssh authenticates rather than whether python answers, and
 # so needing neither an interpreter nor a module transfer.
 #
@@ -193,7 +198,9 @@ PREFLIGHT_SLOW_TIMEOUT := 15
 # reports and carries on past. Anything else is an identity or a host key the fleet does
 # not accept, a fault in the run rather than in the host. Kept in step with
 # faramir_fleet_ping_offline_pattern in roles/faramir/defaults/main.yml, which sorts the
-# broker's own fleet ping by the same rule.
+# broker's own fleet ping by the same list. The banner-exchange case above has no
+# counterpart there: that ping runs at the default timeout, where the exchange failing
+# means a wedged sshd rather than a busy one.
 PREFLIGHT_OFFLINE := Connection timed out|Connection refused|No route to host|Host is down
 
 # What this run resolves to, asked of ansible rather than assumed so a --limit in ARGS
@@ -215,12 +222,17 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 # is named on. Folding also survives an ssh that writes a line of its own ahead of the real
 # error, which reads as an authentication fault when only the first line is kept.
 #
-# Only indented lines fold in, a line at column 0 belonging to no host: ansible writes its
-# warnings and error headers there, and the block would otherwise absorb them.
+# Only indented lines fold in: ansible writes its warnings and error headers at column 0,
+# and a block would otherwise absorb whichever of them followed it. [ \t] rather than
+# [[:space:]], which matches the newline the fold is looking for and would join the whole
+# probe into one line.
 #
 # No -o: it selects the oneline callback, and both flag and callback are removed in
 # ansible-core 2.23, which the collections' requires_ansible floor brings in on its own.
-pick_unreachable = awk '/^[^[:space:]]+ \| /{if(h)printf "\n";h=($$0~/UNREACHABLE!/)?$$1:"";if(h)printf "%s",$$0;next} /^[[:space:]]/{if(h){gsub(/^[[:space:]]+|[[:space:]]+$$/,"");printf " %s",$$0}next} {if(h){printf "\n";h=""}} END{if(h)printf "\n"}'
+#
+# The same fold in Jinja is faramir_fleet_ping_lines in roles/faramir/tasks/ssh.yml, which
+# sorts the broker's own fleet ping by the same rule.
+pick_unreachable = sed -E ':a;N;$$!ba;s/\n[ \t]+/ /g' | grep -E '^[^[:space:]]+ \| .*UNREACHABLE!'
 
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
 # password is used. Then ASK_PASS=1, which forces the prompt for a run the check below
@@ -245,8 +257,8 @@ define preflight
 	       probe=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
 	       slow=$$(echo "$$probe" | grep -F '$(PREFLIGHT_SLOW)' | cut -d' ' -f1 | paste -sd,); \
 	       if [ -n "$$slow" ]; then \
-	         retry=$$(ansible "$$slow" -m raw -a true -T $(PREFLIGHT_SLOW_TIMEOUT) 2>&1 | $(pick_unreachable)); \
-	         probe=$$( { echo "$$probe" | grep -vF '$(PREFLIGHT_SLOW)'; echo "$$retry"; } | grep -v '^$$'); \
+	         probe=$$( { echo "$$probe" | grep -vF '$(PREFLIGHT_SLOW)'; \
+	                     ansible "$$slow" -m raw -a true -T $(PREFLIGHT_SLOW_TIMEOUT) 2>&1 | $(pick_unreachable); } ); \
 	       fi; \
 	       off=$$(echo "$$probe" | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1); \
 	       bad=$$(echo "$$probe" | grep -vE '$(PREFLIGHT_OFFLINE)'); \
@@ -281,10 +293,9 @@ shquote = '$(subst ','\'',$(1))'
 # `make homeautomation PREFLIGHT=none` would probe anyway under root and drop a host the
 # operator asked to attempt. The sops re-entry runs no sudo and needs none of this.
 #
-# Anything the makefile itself does not assign, so an origin of undefined means unset and
-# the variable is left out rather than passed empty, which the child reads as a value.
-REENTRY_VARS = $(strip $(foreach v,SECRETS ASK_PASS PREFLIGHT,\
-                 $(if $(filter-out undefined default,$(origin $(v))),$(v)=$(call shquote,$($(v))))))
+# An empty value is left out rather than passed on, every reader of these three treating
+# empty and unset alike.
+REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
 
 # A secret-bearing run whose store the operator cannot read is served rather than refused:
 # every secret_* would otherwise be undefined, and the first task to read one fails with the

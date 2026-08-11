@@ -10,14 +10,14 @@
     owner: root
     group: root
   become: true
-  when: dev_install_ai_attributions or dev_install_ai_maintainer
+  when: dev_cron_scheduled | bool
 
 - name: Remove the dev cron file where nothing is scheduled
   ansible.builtin.file:
     path: /etc/cron.d/ansible-role-dev
     state: absent
   become: true
-  when: not (dev_install_ai_attributions or dev_install_ai_maintainer)
+  when: not dev_cron_scheduled | bool
 
 # CLEANUP (added 2026-08-11): the attribution scan had a cron file of its own
 # before it moved into the role's. Remove this task once every dev host has run

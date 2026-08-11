@@ -15,13 +15,20 @@ dev_ai_attributions_release_url: https://github.com/andornaut/ai-attributions/re
 
 # goreleaser's names rather than Debian's, so dev_arch does not serve here: x86_64
 # kept, aarch64 to arm64. The kernel is unmapped: ai-attributions builds for no other.
+# Same mapping as faramir_arch, which reads assets from the same CI.
 dev_ai_attributions_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
 dev_ai_attributions_release_archive: "ai-attributions_linux_{{ dev_ai_attributions_arch }}.tar.gz"
 
-# System PATH plus the directories the role's cron scripts live in, so cron
-# finds them. One file schedules both, so one PATH covers both.
+# System PATH plus the directories the role's cron scripts live in. Not for cron, which
+# runs both by absolute path, but for what those scripts then invoke: the agent command
+# ai-maintainer is given by name resolves here. One file schedules both, so one PATH
+# covers both, and the two directories are the same wherever neither path is overridden.
 dev_cron_path: >-
   /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{
   [dev_ai_attributions_script_path | dirname, dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
+
+# Stated once, both halves of cron.yml reading it, so a third scheduled component does not
+# have to be added to a condition and to its hand-written negation.
+dev_cron_scheduled: "{{ dev_install_ai_attributions or dev_install_ai_maintainer }}"
