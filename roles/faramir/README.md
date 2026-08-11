@@ -15,7 +15,7 @@ An operator action. Log out and back in after the first install: it adds you to 
 | Play | Entry point | Hosts | Effect |
 | --- | --- | --- | --- |
 | first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on the controller |
-| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, then pings back through the broker every host it still holds |
+| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, then pings the hosts it still holds back through the broker |
 
 `faramir_controller` names the one host it may install on: `broker.yml` refuses to run anywhere else, and `ssh.yml` requires the `faramir` group to hold that host and no other.
 
@@ -23,7 +23,7 @@ An operator action. Log out and back in after the first install: it adds you to 
 
 `homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other targets run straight through.
 
-Once the broker is installed the store stops being readable by the operator, so those three re-enter as root, which reads it. `make` does the routing:
+Once the broker is installed the store stops being readable by the operator. `make` routes around that:
 
 | Run | What `make <playbook>` does |
 | --- | --- |
@@ -31,7 +31,7 @@ Once the broker is installed the store stops being readable by the operator, so 
 | credential, store readable | one `ansible-playbook`, under `sops exec-env` |
 | credential, store unreadable | `sudo make <playbook>`, then the row above |
 
-Root is the account that can serve such a run whole: it reads the store, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every managed host. One password prompt, before anything applies, so a refused password stops the run with nothing done.
+Root serves such a run whole: it reads the store, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every managed host. The one password prompt comes before anything applies, so a refused password stops the run with nothing done.
 
 The agent's route is the other one, and takes no password:
 
