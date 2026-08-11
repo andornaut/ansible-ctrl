@@ -47,7 +47,7 @@ configure their cron jobs and the directories they operate on.
 - `ai_attributions` builds the binary from a local checkout (`dev_ai_attributions_project_dir`) when present,
   and installs the published module otherwise. Its cron entry runs the scan in `--exit-code` mode and prints
   nothing when every repository is clean, so mail arrives only when something needs an answer. Each repository
-  it reports comes with the `apply` command that fixes it. Forks are skipped by the tool itself, since a fork's
+  it reports comes with the `apply --push` command that fixes and publishes it. Forks are skipped by the tool itself, since a fork's
   history is mostly another project's.
 - `git-filter-repo` is installed for `ai_attributions`. Scanning does not need it; the `apply` the scan
   suggests does.
@@ -65,6 +65,13 @@ configure their cron jobs and the directories they operate on.
 # Run the attribution scan by hand, reporting every repository it reads
 ~/.local/bin/ai-attributions-scan --verbose
 
-# Fix one repository, which prints the push command it did not run
+# Fix one repository and publish it, which is what the scan's summary suggests
+~/.local/bin/ai-attributions apply --push ~/src/github.com/andornaut/<repo>
+
+# Or rewrite without publishing, which prints the push command it did not run
 ~/.local/bin/ai-attributions apply ~/src/github.com/andornaut/<repo>
+
+# Undo a rewrite
+~/.local/bin/ai-attributions backups ~/src/github.com/andornaut/<repo>
+~/.local/bin/ai-attributions restore <timestamp> ~/src/github.com/andornaut/<repo>
 ```
