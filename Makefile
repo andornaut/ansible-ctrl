@@ -12,10 +12,16 @@ ARGS = $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 # assignment before the goal list is built, and the flag forwards with nothing after it.
 # What make took lands here and the run is refused rather than run short. ARGS='...'
 # sends one and suppresses the check.
+#
+# The two routes do not combine: a command-line ARGS outranks the list built from the goal
+# list, whose leftovers the %: rule below swallows, so the tokens after -- would be lost
+# without a word. What the goal list held lands here and that run is refused too.
 ifeq ($(origin ARGS),command line)
 STRAY_ARGS :=
+DROPPED_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 else
 STRAY_ARGS := $(filter-out SECRETS=% ASK_PASS=% PREFLIGHT=%,$(MAKEOVERRIDES))
+DROPPED_ARGS :=
 endif
 
 # Swallow the forwarded tokens as no-op goals, or make errors with "No rule to make
@@ -262,6 +268,15 @@ $(PLAYBOOKS): %: requirements
 	   echo "An argument containing = never reaches ansible-playbook. Pass the whole" >&2; \
 	   echo "list as one variable instead:" >&2; \
 	   echo "  make $* ARGS='...'" >&2; \
+	   exit 1; \
+	 fi; \
+	 if [ -n "$(DROPPED_ARGS)" ]; then \
+	   echo "ARGS was set on the command line, so these were dropped rather than" >&2; \
+	   echo "forwarded:" >&2; \
+	   echo "  $(DROPPED_ARGS)" >&2; \
+	   echo "A command-line ARGS outranks the list built from what follows --. Pass" >&2; \
+	   echo "the whole argument list as the one variable instead:" >&2; \
+	   echo "  make $* ARGS='$(DROPPED_ARGS) ...'" >&2; \
 	   exit 1; \
 	 fi; \
 	 if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ]; then \
