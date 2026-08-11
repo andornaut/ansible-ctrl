@@ -180,17 +180,14 @@ pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
 
-# One line per unreachable host, its whole message folded onto it: the callback renders a
-# result as a block, the host on the first line and the rest indented under it. Only
-# indented lines fold in, ansible writing its warnings at column 0. [ \t] rather than
-# [[:space:]], which matches the newline the fold looks for and would join the whole probe
-# into one line.
+# The name of each unreachable host, one per line. The callback renders a result as a
+# block, "<host> | UNREACHABLE!" on the first line and the message indented under it, so
+# only that line is read: why a host did not answer is the probe's business, not the
+# operator's.
 #
 # No -o: it selects the oneline callback, and flag and callback alike are removed in
 # ansible-core 2.23.
-#
-# The same fold in Jinja is faramir_fleet_ping_lines in roles/faramir/tasks/ssh.yml.
-pick_unreachable = sed -E ':a;N;$$!ba;s/\n[ \t]+/ /g' | grep -E '^[^[:space:]]+ \| .*UNREACHABLE!'
+pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
 # password is used. Then ASK_PASS=1, which forces the prompt for a run the check below
@@ -210,11 +207,9 @@ endef
 # Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
 # as the account that will run the play, so it answers about the ~/.ssh that will connect.
 define preflight
-	       probe=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
-	       off=$$(echo "$$probe" | cut -d' ' -f1); \
+	       off=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
 	       if [ -n "$$off" ]; then \
-	         echo "$$probe" >&2; \
-	         echo "Preflight: dropped the hosts above from $*.yml." >&2; \
+	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
 	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
 	         if [ -z "$$reachable" ]; then \
 	           echo "Preflight: nothing left to apply $*.yml to. A run connects with the" >&2; \
