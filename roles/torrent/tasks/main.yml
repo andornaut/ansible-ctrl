@@ -1,6 +1,4 @@
 ---
-# The account this role acts on. Defaults to primary_user (inventory data), and must
-# not resolve to root.
 - name: Validate torrent_user
   ansible.builtin.assert:
     that:

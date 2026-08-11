@@ -1,5 +1,4 @@
 ---
-# niri_user must not resolve to root, or user-scoped tasks write to /root.
 - name: Validate niri_user
   ansible.builtin.assert:
     that:

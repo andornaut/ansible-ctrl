@@ -1,6 +1,4 @@
 ---
-# Install and configure the BSPWM window manager and related X11 tools
-
 - name: Install X11 system packages and build dependencies
   ansible.builtin.import_tasks: apt.yml
   tags:

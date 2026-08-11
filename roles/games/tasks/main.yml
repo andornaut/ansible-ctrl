@@ -1,5 +1,4 @@
 ---
-# games_user must not resolve to root, or user-scoped state lands in /root.
 - name: Validate games_user
   ansible.builtin.assert:
     that:

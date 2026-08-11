@@ -5,8 +5,6 @@
     - docker
     - matter
   block:
-    # OTBR, the host-networked Matter server and Avahi each run an mDNS responder,
-    # and they conflict on UDP 5353.
     - name: Check for mDNS service conflicts
       ansible.builtin.assert:
         that:
