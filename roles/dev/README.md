@@ -13,6 +13,7 @@ make dev -- --tags rust
 
 | Tag | Description |
 | --- | --- |
+| [ai_attributions](https://github.com/andornaut/ai-attributions) | Daily cron job that scans every checkout for AI attributions, gated on `dev_install_ai_attributions` |
 | [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
@@ -34,8 +35,8 @@ that names no `--tags`, and skipped by every run that does.
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml). The `dev_ai_maintainer_*` vars configure the cron job and the
-directory it operates on.
+See [defaults/main.yml](./defaults/main.yml). The `dev_ai_maintainer_*` and `dev_ai_attributions_*` vars
+configure their cron jobs and the directories they operate on.
 
 ## Notes
 
@@ -43,6 +44,13 @@ directory it operates on.
   globally.
 - `ai_maintainer` symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout
   (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise.
+- `ai_attributions` builds the binary from a local checkout (`dev_ai_attributions_project_dir`) when present,
+  and installs the published module otherwise. Its cron entry runs the scan in `--exit-code` mode and prints
+  nothing when every repository is clean, so mail arrives only when something needs an answer. Each repository
+  it reports comes with the `apply` command that fixes it. Forks are skipped by the tool itself, since a fork's
+  history is mostly another project's.
+- `git-filter-repo` is installed for `ai_attributions`. Scanning does not need it; the `apply` the scan
+  suggests does.
 - Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
   packages and modules are left in place; remove them by hand.
 - The `age` package is deliberately not installed. SOPS links the age library, and faramir mints keypairs with
@@ -53,4 +61,10 @@ directory it operates on.
 ```bash
 # Run ai-maintainer by hand
 ~/.local/bin/ai-maintainer --dry-run --verbose
+
+# Run the attribution scan by hand, reporting every repository it reads
+~/.local/bin/ai-attributions-scan --verbose
+
+# Fix one repository, which prints the push command it did not run
+~/.local/bin/ai-attributions apply ~/src/github.com/andornaut/<repo>
 ```

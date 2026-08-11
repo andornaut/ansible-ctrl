@@ -89,6 +89,11 @@
   tags: virtualbox
   notify: Update initramfs
 
+- name: Import ai-attributions tasks
+  ansible.builtin.import_tasks: ai_attributions.yml
+  tags: ai_attributions
+  when: dev_install_ai_attributions
+
 - name: Import ai-maintainer tasks
   ansible.builtin.import_tasks: ai_maintainer.yml
   tags: ai_maintainer

@@ -1,0 +1,61 @@
+---
+# The scan does not need this, but the fix it prints does: apply drives
+# git-filter-repo, which the package of that name puts at /usr/bin.
+- name: Install git-filter-repo
+  ansible.builtin.apt:
+    name: git-filter-repo
+    state: present
+  become: true
+
+# Everything below writes under dev_user_home, so run as dev_user: the cron entry
+# runs the script as that account.
+- name: Install ai-attributions
+  become: true
+  become_user: "{{ dev_user }}"
+  block:
+    - name: Create the ai-attributions binary directory
+      ansible.builtin.file:
+        path: "{{ dev_ai_attributions_binary_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check for a local ai-attributions project checkout
+      ansible.builtin.stat:
+        path: "{{ dev_ai_attributions_project_dir }}/go.mod"
+      register: dev_ai_attributions_project
+
+    # go build and go install rewrite the binary whether or not its inputs
+    # changed, and report nothing either way, so neither can be told apart from
+    # a no-op. Reported unchanged rather than changed on every run.
+    - name: Build ai-attributions from the local checkout
+      ansible.builtin.command:
+        cmd: /usr/local/go/bin/go build -o {{ dev_ai_attributions_binary_path }} .
+        chdir: "{{ dev_ai_attributions_project_dir }}"
+      changed_when: false
+      environment:
+        HOME: "{{ dev_user_home }}"
+      when: dev_ai_attributions_project.stat.exists
+
+    - name: Install ai-attributions from its module
+      ansible.builtin.command:
+        cmd: /usr/local/go/bin/go install {{ dev_ai_attributions_module }}
+      changed_when: false
+      environment:
+        HOME: "{{ dev_user_home }}"
+        GOBIN: "{{ dev_ai_attributions_binary_path | dirname }}"
+      when: not dev_ai_attributions_project.stat.exists
+
+    - name: Install the ai-attributions scan script
+      ansible.builtin.template:
+        src: ai_attributions_scan.j2
+        dest: "{{ dev_ai_attributions_script_path }}"
+        mode: "0755"
+
+- name: Create cron file for the daily attribution scan
+  ansible.builtin.template:
+    src: ai_attributions_cron.j2
+    dest: /etc/cron.d/ansible-role-dev-ai-attributions
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
