@@ -184,13 +184,11 @@
              | unique | sort }}
 
 # The hosts this play still holds, not the whole inventory: under a --limit the rest were
-# never targeted, and one ansible lost earlier never had a key written or a host key pinned,
-# so neither is this play's to prove. What is left was reached as the operator moments ago,
-# which is what makes a silent answer from the broker a failure rather than a maybe.
+# never targeted, and one ansible lost earlier had no key written and no host key pinned.
+# What is left was reached as the operator moments ago, so a silent answer is a failure.
 #
-# Measured from ansible's own play list rather than by probing through the broker: a host
-# that answers and refuses the broker's key is indistinguishable from one that is off when
-# the broker does the asking, and that host is the whole point of the assert.
+# Read off ansible's play list, not probed through the broker: asked by the broker, a host
+# that refuses its key looks exactly like one that is off, which is what the assert is for.
 - name: Prove a brokered run reaches the fleet
   when:
     - inventory_hostname == faramir_controller
@@ -208,23 +206,19 @@
       changed_when: false
       failed_when: false
 
-    # Only the hosts that answered. Everything else is a failure whatever it says, so the
-    # rest of the output is read by the operator rather than by this play.
+    # Only the answers. Everything else is a failure whatever it says.
     - name: Collect the hosts that answered
       ansible.builtin.set_fact:
         faramir_fleet_ping_answered: >-
           {{ faramir_fleet_ping_lines | select('search', '\|\s*SUCCESS')
              | map('regex_replace', faramir_fleet_ping_host, '\1') | list }}
       vars:
-        # One line per host, its result folded onto it. The callback renders a result as a
-        # block, the host and its state on the first line and the rest indented under it, so
-        # a host whose result runs to several lines would otherwise be read by its first.
-        # What stays at column 0 and names no host is a warning addressed to nobody.
+        # One line per host, its result folded onto it: the callback renders a result as a
+        # block, the host on the first line and the rest indented under it. What stays at
+        # column 0 and names no host is a warning addressed to nobody.
         #
-        # No -o: it selects the oneline callback, and both flag and callback are removed in
-        # ansible-core 2.23.
-        #
-        # The same fold is pick_unreachable in the Makefile, over the preflight probe.
+        # No -o: it selects the oneline callback, and flag and callback alike are removed in
+        # ansible-core 2.23. The same fold is pick_unreachable in the Makefile.
         faramir_fleet_ping_lines: >-
           {{ faramir_fleet_ping.stdout | default('') | regex_replace('\n[ \t]+', ' ')
              | regex_findall('^\S+\s*\|.*$', multiline=True) }}
@@ -234,8 +228,8 @@
     - name: Report the hosts this run never reached
       ansible.builtin.debug:
         msg: >-
-          Not authorized and not pinged, ansible having lost them earlier in this
-          run: {{ faramir_fleet_ping_dropped | join(', ') }}. Fix what dropped them,
+          Lost earlier in this run, so neither authorized nor pinged:
+          {{ faramir_fleet_ping_dropped | join(', ') }}. Fix what dropped them,
           higher up in this run's output, and re-run.
       when: faramir_fleet_ping_dropped | length > 0
       vars:
@@ -248,22 +242,21 @@
         that:
           - faramir_fleet_ping_silent | length == 0
         fail_msg: >-
-          A brokered ping did not clear the fleet. The broker holds a key; this
-          says which hosts accept it.
-          Did not answer ({{ faramir_fleet_ping_silent | join(', ') }}): this run
-          reached each of them as the operator and wrote the key, so the broker
-          not reaching them is the run's own work not having landed. Either
+          A brokered ping did not clear the fleet. This run reached each of these
+          as the operator and wrote the key, so the broker not reaching them is
+          this run's own work not having landed.
+          Did not answer: {{ faramir_fleet_ping_silent | join(', ') }}. Either
           these tasks have not authorized the account ansible connects as, or the
           host is not pinned in {{ faramir_fleet_known_hosts_path }} under the
-          address and port the inventory dials, an entry being filed under both,
-          or the executor has no route to the name: it carries no ssh config, so
-          an inventory alias does not resolve for it and the FQDN is what it dials.
+          address and port the inventory dials, or the executor has no route to
+          the name: it carries no ssh config, so an inventory alias does not
+          resolve for it.
           Answered: {{ faramir_fleet_ping_answered | join(', ') or 'none' }}.
           Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
           {{ faramir_fleet_ping.stderr | default('') | trim }}
         quiet: true
       vars:
         # Everything that is not an answer, so a host absent from the output entirely
-        # counts alongside one the ping named and could not reach.
+        # counts alongside one the ping reached and could not.
         faramir_fleet_ping_silent: >-
           {{ faramir_fleet_ping_hosts | difference(faramir_fleet_ping_answered) }}
