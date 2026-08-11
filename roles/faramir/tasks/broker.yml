@@ -1,11 +1,7 @@
 ---
-# Install the broker on the controller. Applied to the faramir group as faramir.yml's first
-# play, through main.yml. What this adds over `faramir init` is in the README; the accounts,
-# directories, age key and units belong to faramir.
+# Install the broker on the controller, as faramir.yml's first play. What this adds over
+# `faramir init` is in the README; the accounts, directories, age key and units are its.
 
-# First, and matched against faramir_controller rather than group membership: this entry
-# point provisions whichever host it runs on, while ssh.yml next door covers hosts: all.
-# The working-tree check below is not a backstop for it.
 - name: Require the controller
   ansible.builtin.assert:
     that: inventory_hostname == faramir_controller
@@ -29,11 +25,8 @@
 - name: Validate the faramir account
   ansible.builtin.assert:
     that:
-      # Inventory data, so an omission would otherwise surface several tasks later.
       - faramir_user is defined and faramir_user | length > 0
       - faramir_user != "root"
-      # faramir_user_home indexes the passwd entry, so an account this host does
-      # not have would otherwise fail on a missing dictionary key.
       - faramir_user in ansible_facts["getent_passwd"]
     fail_msg: >-
       faramir_user must be an existing non-root account on this host. Set
@@ -42,9 +35,6 @@
     quiet: true
   tags: always
 
-# Brokered commands run in the checkout this play was run from, which playbook_dir names.
-# That path is the controller's, so this also catches a remote host in the faramir
-# group.
 - name: Check for the working tree
   ansible.builtin.stat:
     path: "{{ playbook_dir }}"
@@ -86,7 +76,6 @@
         checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
         mode: "0644"
       check_mode: false
-      # A redirect to object storage, so failures here are network failures.
       register: faramir_download
       until: faramir_download is succeeded
       retries: 3
@@ -98,14 +87,12 @@
         src: "{{ faramir_release_tmp.path }}/{{ faramir_release_archive }}"
         dest: "{{ faramir_release_tmp.path }}"
         remote_src: true
-        # Applied to the unpacked binary, whose archive mode tar drops through
-        # the umask; the next task runs it.
+        # The archive mode goes through the umask, and the next task runs this.
         mode: "0755"
       check_mode: false
 
-    # init reports per step in JSON, so changed_when reads its answer rather than
-    # inferring one. Guarded on stdout: changed_when is evaluated even on failure, where
-    # an empty report would add a parse error to the real one.
+    # Guarded on stdout: changed_when is evaluated even on failure, where an empty
+    # report would add a parse error to the real one.
     - name: Install faramir
       ansible.builtin.command:
         argv: "{{ faramir_init_argv }}"
@@ -114,8 +101,6 @@
       check_mode: false
       changed_when: faramir_init.stdout | length > 0 and (faramir_init.stdout | from_json).changed
 
-    # Guarded like the changed_when above, and for the same reason: an empty report would
-    # turn into a parse error naming nothing.
     - name: Read what the install did
       ansible.builtin.set_fact:
         faramir_report: "{{ faramir_init.stdout | from_json }}"
@@ -130,10 +115,9 @@
       # an unpacked archive into /tmp.
       check_mode: false
 
-# After provisioning, so it reads the client group out of the config init installed rather
-# than being told twice. Only this checkout; enrol another with `cd <dir> && sudo faramir
-# init-project`. Runs the installed binary, the staging directory being gone, so a first
-# --check run on a fresh host skips.
+# After provisioning, so the client group is read out of the config init installed rather
+# than passed twice. Runs the installed binary, the staging directory being gone, so a
+# first --check run on a fresh host has none and skips.
 - name: Check for the installed faramir binary
   ansible.builtin.stat:
     path: "{{ faramir_binary }}"
@@ -148,31 +132,23 @@
   changed_when: faramir_project.stdout | length > 0 and (faramir_project.stdout | from_json).changed
   when: faramir_binary_stat.stat.exists | default(false)
 
-# Guarded, the task above being skipped under --check on a host with no binary yet,
-# which leaves the register without stdout.
 - name: Read what the enrolment did
   ansible.builtin.set_fact:
     faramir_project_report: "{{ faramir_project.stdout | from_json }}"
   when: faramir_project.stdout | default('') | length > 0
 
-# init and init-project warn rather than fail on what installs cleanly and does nothing: a
-# group membership needing a fresh login, an executor in the broker's group, an
-# account-wide hook. One per line; an empty list skips the task.
+# init and init-project warn rather than fail on what installs cleanly and does nothing:
+# a group membership needing a fresh login, an account-wide hook.
 - name: Show what faramir warned about
   ansible.builtin.debug:
     msg: "{{ item }}"
   loop: "{{ (faramir_report.warnings | default([])) + (faramir_project_report.warnings | default([])) }}"
 
-# init grants the client group traversal of every directory from the home down to the
-# config directory, so ~/.config is passable by the broker and the executor. Traversal is
-# execute without read, and what that reaches is whatever the `other` bits allow: the
-# group is the operator's own everywhere in here, and the executor is not in it. The
-# umask is 0002, so a directory created later arrives 0775 and is readable by every
-# account on the host, this one included.
-#
-# The immediate children only. Reaching a file needs execute on every directory above it,
-# so a top-level directory closed to other closes the tree under it, and a recursive walk
-# would cost a stat per file to reach the same state.
+# init grants the client group traversal from the home down to the config directory, which
+# is execute without read; what that reaches is whatever the `other` bits allow. The umask
+# is 0002, so a directory created later arrives 0775 and is readable by every account on
+# the host. The immediate children only: reaching a file needs execute on every directory
+# above it, so a top-level directory closed to other closes the tree under it.
 - name: Close the operator's ~/.config to accounts outside it
   become: true
   block:
@@ -202,15 +178,12 @@
       loop_control:
         label: "{{ item.path | basename }} ({{ item.mode }})"
 
-# This project names no secrets file: faramir's base config globs the store
-# directory, so a sops file is managed by being in it.
-
-# faramir's own agent snippet covers the broker, not this repo. Without these two
-# flags a brokered run reaches the wrong hosts or no credentials at all.
+# faramir's own agent snippet covers the broker, not this repo. Without these two flags a
+# brokered run reaches the wrong hosts or no credentials at all.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
-    # The target, not the CLAUDE.md symlink: blockinfile writes through either,
-    # but a host without the symlink would end up with two divergent files.
+    # The target, not a symlink to it: blockinfile writes through either, but a host
+    # without the symlink would end up with two divergent files.
     path: "{{ playbook_dir }}/AGENTS.md"
     create: true
     owner: "{{ faramir_user }}"
@@ -240,8 +213,7 @@
   become: true
 
 # A broker serving zero refs, an agent holding no key and an unrecognised client group all
-# look like a healthy install: units up, nothing reachable. Skipped under --check, where
-# init wrote nothing to examine.
+# look like a healthy install: units up, nothing reachable.
 - name: Check that the install works
   when: not ansible_check_mode
   block:
@@ -253,8 +225,6 @@
       changed_when: false
       failed_when: false
 
-    # A doctor that cannot run at all leaves stdout empty, which the tasks below
-    # would report as a parse error naming nothing.
     - name: Require faramir doctor to have reported
       ansible.builtin.assert:
         that: faramir_doctor.stdout | length > 0
@@ -283,9 +253,7 @@
              | map(attribute='detail') | join('; ') }}
         quiet: true
 
-# Every run, not only when the key is new: init mints one whether or not this host
-# needs it, and it has to be in authorized_keys on every managed host, which the play
-# after this one does.
+# Every run, not only when the key is new: init mints one whether or not this host needs it.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:
