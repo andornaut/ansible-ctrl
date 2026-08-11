@@ -1,6 +1,6 @@
 ---
-# Install the broker on the controller, as faramir.yml's first play. What this adds over
-# `faramir init` is in the README; the accounts, directories, age key and units are its.
+# What this adds over `faramir init` is in the README; the accounts, directories, age key
+# and units are its.
 
 - name: Require the controller
   ansible.builtin.assert:
@@ -49,7 +49,7 @@
       controller holding that checkout.
     quiet: true
 
-# Asserted, not installed: roles here declare no dependencies, and a second installer
+# Asserted, not installed: no role here declares dependencies, and a second installer
 # would drift from the dev role's.
 - name: Require sops
   ansible.builtin.include_tasks: require_tools.yml
@@ -71,7 +71,7 @@
       ansible.builtin.get_url:
         url: "{{ faramir_release_url }}/{{ faramir_release_archive }}"
         dest: "{{ faramir_release_tmp.path }}/{{ faramir_release_archive }}"
-        # `dev` is a moving tag, so a download straddling a re-cut fails the
+        # `dev` is a moving tag: a download straddling a re-cut fails the
         # checksum rather than installing mismatched binaries.
         checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
         mode: "0644"
@@ -91,8 +91,8 @@
         mode: "0755"
       check_mode: false
 
-    # Guarded on stdout: changed_when is evaluated even on failure, where an empty
-    # report would add a parse error to the real one.
+    # changed_when runs even on failure, where an empty report would add a parse
+    # error to the real one.
     - name: Install faramir
       ansible.builtin.command:
         argv: "{{ faramir_init_argv }}"
@@ -111,13 +111,12 @@
         path: "{{ faramir_release_tmp.path }}"
         state: absent
       when: faramir_release_tmp.path is defined
-      # check_mode: false with the rest of the block, or every --check run leaks
-      # an unpacked archive into /tmp.
+      # check_mode: false with the rest of the block, or every --check leaks an
+      # unpacked archive into /tmp.
       check_mode: false
 
-# After provisioning, so the client group is read out of the config init installed rather
-# than passed twice. Runs the installed binary, the staging directory being gone, so a
-# first --check run on a fresh host has none and skips.
+# Runs the installed binary, the staging directory being gone, so a first --check run on a
+# fresh host has none and skips.
 - name: Check for the installed faramir binary
   ansible.builtin.stat:
     path: "{{ faramir_binary }}"
@@ -137,18 +136,17 @@
     faramir_project_report: "{{ faramir_project.stdout | from_json }}"
   when: faramir_project.stdout | default('') | length > 0
 
-# init and init-project warn rather than fail on what installs cleanly and does nothing:
-# a group membership needing a fresh login, an account-wide hook.
+# init and init-project warn rather than fail on what installs cleanly but does nothing,
+# such as a group membership needing a fresh login.
 - name: Show what faramir warned about
   ansible.builtin.debug:
     msg: "{{ item }}"
   loop: "{{ (faramir_report.warnings | default([])) + (faramir_project_report.warnings | default([])) }}"
 
-# init grants the client group traversal from the home down to the config directory, which
-# is execute without read; what that reaches is whatever the `other` bits allow. The umask
-# is 0002, so a directory created later arrives 0775 and is readable by every account on
-# the host. The immediate children only: reaching a file needs execute on every directory
-# above it, so a top-level directory closed to other closes the tree under it.
+# init grants the client group traversal from the home down, and what that reaches is
+# whatever the `other` bits allow: the umask is 0002, so a directory created later arrives
+# 0775. The immediate children suffice, a directory closed to other closing the tree under
+# it.
 - name: Close the operator's ~/.config to accounts outside it
   become: true
   block:
@@ -159,15 +157,14 @@
         recurse: false
       register: faramir_config_siblings
 
-    # The config directory is exempt and must stay so: it is root's, 0755, and the three
-    # service accounts reach config.toml and the store through those `other` bits. They
-    # are in none of its groups, so closing it stops every daemon.
+    # The config directory is exempt and must stay so: it is root's, 0755, and the service
+    # accounts are in none of its groups, so they reach config.toml and the store through
+    # those `other` bits alone. Closing it stops every daemon.
     - name: Close each one to other
       ansible.builtin.file:
         path: "{{ item.path }}"
         mode: o-rwx
-        # The symlink, not whatever it points at, which is somewhere this task has no
-        # business changing the mode of.
+        # The symlink, not whatever it points at, which is out of this task's scope.
         follow: false
       loop: >-
         {{ faramir_config_siblings.files
@@ -182,14 +179,13 @@
 # brokered run reaches the wrong hosts or no credentials at all.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
-    # The target, not a symlink to it: blockinfile writes through either, but a host
-    # without the symlink would end up with two divergent files.
+    # The target, not a symlink to it: a host without the symlink would end up with two
+    # divergent files.
     path: "{{ playbook_dir }}/AGENTS.md"
     create: true
     owner: "{{ faramir_user }}"
     group: "{{ faramir_client_group }}"
-    # Group-writable like the rest of the tree: init-project adds group write to
-    # every file, so 0644 here would never converge.
+    # init-project adds group write to every file, so 0644 here would never converge.
     mode: "0664"
     marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
     block: |
@@ -212,8 +208,8 @@
       brokered command has no terminal to answer.
   become: true
 
-# A broker serving zero refs, an agent holding no key and an unrecognised client group all
-# look like a healthy install: units up, nothing reachable.
+# A broker serving zero refs and an agent holding no key both look like a healthy install:
+# units up, nothing reachable.
 - name: Check that the install works
   when: not ansible_check_mode
   block:
@@ -253,7 +249,6 @@
              | map(attribute='detail') | join('; ') }}
         quiet: true
 
-# Every run, not only when the key is new: init mints one whether or not this host needs it.
 - name: Show the public key the fleet has to authorize
   ansible.builtin.debug:
     msg:
