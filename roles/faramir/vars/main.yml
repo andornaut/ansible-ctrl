@@ -5,9 +5,8 @@
 # From the getent in tasks/broker.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
-# The account ansible connects to a managed host as, and so the one tasks/ssh.yml
-# authorizes the key for and grants sudo to. From the inventory, which sets it per host;
-# primary_user is the fallback for a host that names none.
+# The account ansible connects to a managed host as, which is the one tasks/ssh.yml
+# authorizes the key for and grants sudo to. Set per host by the inventory.
 faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 
 # `dev` is rolling, re-cut by CI on every push to faramir's main; faramir has no v
@@ -19,8 +18,7 @@ faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
 faramir_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
-# One archive per platform, holding one binary. The kernel is unmapped: faramir
-# builds for no other.
+# The kernel is unmapped: faramir builds for no other.
 faramir_release_archive: "faramir_linux_{{ faramir_arch }}.tar.gz"
 
 # Where init puts the binary, and so what every later invocation runs.
@@ -32,9 +30,9 @@ faramir_binary: /usr/local/bin/faramir
 faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 
 # argv rather than a command string: the paths come from the inventory and may need
-# quoting. Only what this role decides is passed; the service accounts and the SSH key
-# path stay at faramir's defaults. No tree is named, init-project below enrolling it.
-# Resolves only inside the install block, which registers faramir_release_tmp.
+# quoting. Only what this role decides is passed; the service accounts and the SSH key path
+# stay at faramir's defaults. Resolves only inside the install block, which registers
+# faramir_release_tmp.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -46,9 +44,9 @@ faramir_init_argv: >-
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
-# The same, for the one tree this repo enrols. The directory is an argument rather
-# than a flag, and naming it pins the enrolment to playbook_dir. The redaction hook is
-# left to faramir's default, on being the only setting worth enrolling a tree for.
+# The same, for the one tree this repo enrols. The directory is an argument rather than a
+# flag, and naming it pins the enrolment to playbook_dir. The redaction hook is left to
+# faramir's default, on being the only setting worth enrolling a tree for.
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',

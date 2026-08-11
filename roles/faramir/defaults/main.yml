@@ -1,7 +1,6 @@
 ---
 # The one host the broker is installed on, and whose key the fleet authorizes. Named rather
 # than taken as the faramir group's first member, which would let a second in silently.
-# Matched against inventory_hostname exactly.
 faramir_controller: tron
 
 # The operator's login account, owning the working tree. Never created here, and
@@ -14,8 +13,7 @@ faramir_client_group: dev
 
 # Holds the age key, the broker's SSH key and the store. In the operator's encrypted home,
 # so a powered-off disk carries none of them; the units are socket activated, so nothing
-# reads it before first login. init grants the client group traversal from the home down,
-# which makes ~/.config passable by the broker and executor: execute without read.
+# reads it before first login.
 faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 
 # One --agent each, passed to both init and init-project: the account-wide Read deny
@@ -24,24 +22,22 @@ faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 faramir_agents:
   - claude
 
-# Whether a brokered command may ASK to sudo on the controller. It cannot sudo on its
-# own: the executor's sudoers entry authenticates through a PAM service that asks the
-# broker whether a human approved that command, answered by `sudo faramir approve`, so
-# no password exists anywhere. Off, and an install that has never passed --allow-sudo
-# grants nothing; turning it back off removes the grant on the next run.
+# Whether a brokered command may ASK to sudo on the controller. It cannot sudo on its own:
+# the executor's sudoers entry authenticates through a PAM service that asks the broker
+# whether a human approved that command, so no password exists anywhere and `sudo faramir
+# approve` answers per command. An install that has never passed --allow-sudo grants
+# nothing, and re-running without it takes the grant away.
 faramir_allow_sudo: false
 
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
-# A default rather than a play var, so host_vars can turn it off per host.
 faramir_fleet_authorize_key: true
 
 # A host that never completed a TCP connect has neither accepted nor refused the broker's
 # key, so it is reported and passed over. Every other outcome is an answer and is held to.
 faramir_fleet_ping_offline_pattern: 'Connection timed out|Connection refused|No route to host|Host is down'
 
-# Where the fleet's host keys are pinned. System-wide, so one file covers the executor,
-# the renewal cron's root and the operator, and survives a service account being recreated.
-# Public keys only, hence world-readable.
+# Where the fleet's host keys are pinned. System-wide, so one file covers the executor, the
+# renewal cron's root and the operator, and survives a service account being recreated.
 faramir_fleet_known_hosts_path: /etc/ssh/ssh_known_hosts
 
 # The name ssh looks an entry up under: the address ansible dials, bracketed with the port
@@ -53,6 +49,5 @@ faramir_fleet_known_hosts_name: >-
 
 # Where the broker's key is written when the host's default file will not hold it.
 # Undefined, so the module picks ~/.ssh/authorized_keys; set in host_vars for a host that
-# regenerates that file. The pfSense routers do, from config.xml on boot and on every user
-# save, so theirs goes in ~/.ssh/authorized_keys2, which sshd reads and pfSense ignores.
+# regenerates that file, as the pfSense routers do.
 # faramir_fleet_authorized_keys_path: /root/.ssh/authorized_keys2
