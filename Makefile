@@ -162,9 +162,11 @@ SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=fals
 # the host list it is built from comes from list_run, which already applied that one.
 #
 # raw, the question being whether ssh authenticates rather than whether python answers, and
-# so needing neither an interpreter nor a module transfer. The timeout is the whole cost of
-# the probe, every host that is up answering well inside a second, and it is not free to
-# shorten: a host wrongly called down is dropped rather than merely reported.
+# so needing neither an interpreter nor a module transfer. Every host that is up answers in
+# well under a second, the site VPN included, so the timeout is paid only by hosts that are
+# off and is the whole cost of the probe. 1 is the floor: both --timeout and the
+# ConnectTimeout it becomes take whole seconds, and a host wrongly called down is dropped
+# rather than merely reported.
 #
 # What survives is the probed list less what failed, never the lines that succeeded: those
 # carry the module's own output, whose shape differs per module and per host, and a host
@@ -211,7 +213,7 @@ endef
 # Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
 # as the account that will run the play, so it answers about the ~/.ssh that will connect.
 define preflight
-	       probe=$$(ansible "$$hosts" -m raw -a true -o -T 3 2>&1 | grep UNREACHABLE); \
+	       probe=$$(ansible "$$hosts" -m raw -a true -o -T 1 2>&1 | grep UNREACHABLE); \
 	       off=$$(echo "$$probe" | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1); \
 	       bad=$$(echo "$$probe" | grep -vE '$(PREFLIGHT_OFFLINE)'); \
 	       if [ -n "$$bad" ]; then \
