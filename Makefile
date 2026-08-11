@@ -167,17 +167,27 @@ SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=fals
 # The --limit goes last and so outranks one in ARGS, which is correct rather than lossy:
 # the host list it is built from comes from list_run, which already applied that one.
 #
+#
 # raw, the question being whether ssh authenticates rather than whether python answers, and
-# so needing neither an interpreter nor a module transfer. Every host that is up answers in
-# well under a second, the site VPN included, so the timeout is paid only by hosts that are
-# off and is the whole cost of the probe. 1 is the floor: both --timeout and the
-# ConnectTimeout it becomes take whole seconds, and a host wrongly called down is dropped
-# rather than merely reported.
+# so needing neither an interpreter nor a module transfer.
 #
 # What survives is the probed list less what failed, never the lines that succeeded: those
 # carry the module's own output, whose shape differs per module and per host, and a host
 # whose line does not parse would be dropped from the run without saying so.
 RUN_PREFLIGHT = $(if $(filter none,$(PREFLIGHT)),,1)
+
+# Every host that is up answers in well under a second, the site VPN included, so the
+# timeout is paid only by hosts that are off and is the whole cost of the probe. 1 is the
+# floor: both --timeout and the ConnectTimeout it becomes take whole seconds.
+PREFLIGHT_TIMEOUT := 1
+
+# ConnectTimeout bounds the banner exchange as well as the connect, so a host that is up
+# but loaded fails the one-second probe reporting this, and calling that off would drop it
+# from the run. It answered TCP, so it is not off: those hosts are probed once more at a
+# timeout long enough for a busy sshd, which a host that is off never reaches and so never
+# pays for.
+PREFLIGHT_SLOW := during banner exchange
+PREFLIGHT_SLOW_TIMEOUT := 15
 
 # The connection failures that mean a host is off and nothing more, which the preflight
 # reports and carries on past. Anything else is an identity or a host key the fleet does
@@ -199,6 +209,19 @@ pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:
 # Task lines read "  <role> : <name>", so the role is everything before " : ".
 pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
 
+# One line per unreachable host, its whole message folded onto it. The ad-hoc callback
+# renders a result as a block, the host and "UNREACHABLE!" on the first line and the rest
+# indented under it, so the error the classification turns on is never on the line the host
+# is named on. Folding also survives an ssh that writes a line of its own ahead of the real
+# error, which reads as an authentication fault when only the first line is kept.
+#
+# Only indented lines fold in, a line at column 0 belonging to no host: ansible writes its
+# warnings and error headers there, and the block would otherwise absorb them.
+#
+# No -o: it selects the oneline callback, and both flag and callback are removed in
+# ansible-core 2.23, which the collections' requires_ansible floor brings in on its own.
+pick_unreachable = awk '/^[^[:space:]]+ \| /{if(h)printf "\n";h=($$0~/UNREACHABLE!/)?$$1:"";if(h)printf "%s",$$0;next} /^[[:space:]]/{if(h){gsub(/^[[:space:]]+|[[:space:]]+$$/,"");printf " %s",$$0}next} {if(h){printf "\n";h=""}} END{if(h)printf "\n"}'
+
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
 # password is used. Then ASK_PASS=1, which forces the prompt for a run the check below
 # reads as needing none. `make faramir` is not one: the controller is in its first play,
@@ -219,7 +242,12 @@ endef
 # Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
 # as the account that will run the play, so it answers about the ~/.ssh that will connect.
 define preflight
-	       probe=$$(ansible "$$hosts" -m raw -a true -o -T 1 2>&1 | grep UNREACHABLE); \
+	       probe=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
+	       slow=$$(echo "$$probe" | grep -F '$(PREFLIGHT_SLOW)' | cut -d' ' -f1 | paste -sd,); \
+	       if [ -n "$$slow" ]; then \
+	         retry=$$(ansible "$$slow" -m raw -a true -T $(PREFLIGHT_SLOW_TIMEOUT) 2>&1 | $(pick_unreachable)); \
+	         probe=$$( { echo "$$probe" | grep -vF '$(PREFLIGHT_SLOW)'; echo "$$retry"; } | grep -v '^$$'); \
+	       fi; \
 	       off=$$(echo "$$probe" | grep -E '$(PREFLIGHT_OFFLINE)' | cut -d' ' -f1); \
 	       bad=$$(echo "$$probe" | grep -vE '$(PREFLIGHT_OFFLINE)'); \
 	       if [ -n "$$bad" ]; then \

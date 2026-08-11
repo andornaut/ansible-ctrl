@@ -196,7 +196,7 @@
       ansible.builtin.command:
         argv: >-
           {{ [faramir_binary, 'run', '--quiet', '--',
-              'ansible', faramir_fleet_ping_hosts | join(','), '-m', 'ping', '-o'] }}
+              'ansible', faramir_fleet_ping_hosts | join(','), '-m', 'ping'] }}
       become: true
       register: faramir_fleet_ping
       changed_when: false
@@ -216,9 +216,18 @@
              | reject('search', faramir_fleet_ping_offline_pattern)
              | map('regex_replace', faramir_fleet_ping_host, '\1') | list }}
       vars:
-        # Only the callback's per-host lines; the rest is warnings addressed to nobody.
+        # One line per host, its result folded onto it. The callback renders a result as a
+        # block, the host and its state on the first line and the rest indented under it, so
+        # the error this sorting turns on is never on the line the host is named on. Folding
+        # also survives an ssh that writes a line of its own ahead of the real error, which
+        # reads as a refusal when only the first line is kept. What stays at column 0 and
+        # names no host is a warning addressed to nobody.
+        #
+        # No -o: it selects the oneline callback, and both flag and callback are removed in
+        # ansible-core 2.23.
         faramir_fleet_ping_lines: >-
-          {{ faramir_fleet_ping.stdout_lines | default([]) | select('search', '^\S+\s*\|') }}
+          {{ faramir_fleet_ping.stdout | default('') | regex_replace('\n[ \t]+', ' ')
+             | regex_findall('^\S+\s*\|.*$', multiline=True) }}
         faramir_fleet_ping_host: '^(\S+)\s*\|.*$'
 
     # Named even when the run passes: silence would read as having covered them.
