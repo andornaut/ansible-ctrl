@@ -96,6 +96,11 @@ homeautomation_govee2mqtt_required_volumes:
 # Home Assistant
 homeautomation_homeassistant_devices: []
 homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
+# Modules the frontend loads on every page, as opposed to the Lovelace resources
+# registered through the UI. card-mod has to load this way: it patches other
+# cards rather than providing one, so it must be present before they render.
+homeautomation_homeassistant_extra_module_urls:
+  - /local/card-mod.js
 homeautomation_homeassistant_extra_volumes: []
 # tasks/patch_aioruckus_head.yml. Enable where the Ruckus integration is used.
 homeautomation_homeassistant_patch_aioruckus_head: false

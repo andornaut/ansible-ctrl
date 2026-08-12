@@ -75,6 +75,9 @@
       ansible.builtin.import_tasks: themes.yml
     - name: Import www tasks
       ansible.builtin.import_tasks: www.yml
+    # After www.yml, so the modules it names are on disk before HA restarts.
+    - name: Import frontend tasks
+      ansible.builtin.import_tasks: frontend.yml
 
 - name: Configure Docker containers
   tags: docker

@@ -1,0 +1,15 @@
+# Managed by ansible: roles/homeautomation/tasks/frontend.yml. Edits are lost.
+#
+# The frontend integration's configuration, included from configuration.yaml,
+# which stays hand-maintained because it is mostly per-host.
+#
+# `!include_dir_merge_named` resolves relative to the file holding the tag, and
+# this file sits in the config directory, so the path is the same as it was
+# inline.
+{% if homeautomation_homeassistant_extra_module_urls %}
+extra_module_url:
+{% for url in homeautomation_homeassistant_extra_module_urls %}
+  - {{ url }}
+{% endfor %}
+{% endif %}
+themes: !include_dir_merge_named themes
