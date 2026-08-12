@@ -15,11 +15,13 @@ make dev -- --tags rust
 | --- | --- |
 | [ai_attributions](https://github.com/andornaut/ai-attributions) | Daily cron job that scans every checkout for AI attributions, gated on `dev_install_ai_attributions` |
 | [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
+| [android_sdk](https://developer.android.com/tools) | Android command line tools, platform and build-tools, gated on `dev_install_android_sdk` |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
 | [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
 | [go](https://go.dev/) | Go toolchain |
+| java | [OpenJDK](https://openjdk.org/) 17 and 21 |
 | javascript | [Node.js](https://nodejs.org/) and [nvm](https://github.com/nvm-sh/nvm) |
 | [kilocode](https://github.com/Kilo-Org/kilocode) | Kilo Code CLI and VS Code extension |
 | [opencode](https://github.com/opencode-ai/opencode) | OpenCode AI tool |
@@ -64,6 +66,15 @@ configure their cron jobs and the directories they operate on.
   ~180MB, and its release asset name carries no version, so the task compares `omp --version` against the
   latest release tag and downloads only on a mismatch. The download is verified against the release's
   `SHA256SUMS.txt`.
+- `java` installs two JDKs. 21 is Ubuntu's default and answers a plain `java`; 17 is what Gradle's Android
+  plugin is built against, so `android_sdk` sets `JAVA_HOME` to 17 rather than taking the default. A Gradle
+  build that picks the default JDK fails with a toolchain error naming the JDK it found.
+- `android_sdk` installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google
+  names the command line tools archive after a build number with no stable alias for the newest, so
+  `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. The archive expands to a
+  directory named `cmdline-tools`, which sdkmanager requires be installed as `cmdline-tools/latest`, so it is
+  unpacked to a temporary directory and moved. Licenses are accepted non-interactively, because sdkmanager
+  installs nothing until the hash files under `licenses/` exist and only offers the prompt on a terminal.
 - Setting `dev_install_virtualbox` back to `false` drops the KVM blacklist, so KVM works again. The VirtualBox
   packages and modules are left in place; remove them by hand.
 - The `age` package is deliberately not installed. SOPS links the age library, and faramir mints keypairs with

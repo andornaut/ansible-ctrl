@@ -23,6 +23,10 @@
   ansible.builtin.import_tasks: go.yml
   tags: go
 
+- name: Import java tasks
+  ansible.builtin.import_tasks: java.yml
+  tags: java
+
 - name: Import javascript tasks
   ansible.builtin.import_tasks: javascript.yml
   tags: javascript
@@ -40,6 +44,11 @@
   tags: rust
 
 # Tools
+- name: Import android-sdk tasks
+  ansible.builtin.import_tasks: android_sdk.yml
+  tags: android_sdk
+  when: dev_install_android_sdk | bool
+
 - name: Import antigravity tasks
   ansible.builtin.import_tasks: antigravity.yml
   tags: antigravity
