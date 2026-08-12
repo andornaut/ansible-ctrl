@@ -9,6 +9,29 @@
         probe: flatpak --version
         hint: "It comes from this role's flatpak tag: make games -- --tags flatpak"
 
+# Wine 11 has no esync/fsync, so /dev/ntsync is its only fast synchronization path: without
+# the device every Win32 wait is a wineserver round-trip, and the wineserver serialises them,
+# so Minecraft's worker threads queue behind one another. The module ships from Linux 6.14 and
+# nothing autoloads it, the device matching no bus. The engine must also carry the backend,
+# which is a launcher-side Install / Update, and BOL's doctor reports both halves.
+- name: Enable Wine's fast synchronization path
+  become: true
+  become_user: root
+  block:
+    - name: Check whether the kernel ships the ntsync module
+      ansible.builtin.command:
+        cmd: modinfo ntsync
+      register: games_bedrock_ntsync
+      changed_when: false
+      failed_when: false
+
+    - name: Load ntsync, now and at every boot
+      when: games_bedrock_ntsync.rc == 0
+      community.general.modprobe:
+        name: ntsync
+        state: present
+        persistent: present
+
 # github.com/Wyze3306/BedrockOnLinux ships only a release .flatpak bundle, which the flatpak
 # module cannot install, taking app IDs and flatpakref URLs only. The launcher only: game
 # files and Microsoft sign-in are interactive per-user steps.
