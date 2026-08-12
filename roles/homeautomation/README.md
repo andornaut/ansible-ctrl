@@ -156,6 +156,13 @@ docker exec homeassistant hass --config /config --script check_config
 docker exec homeassistant hass --config /config --script check_config --secrets
 ```
 
+`configuration.yaml` is hand-maintained per host, except for the `frontend:` key, which is
+`!include frontend.yaml` and written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2).
+
+A frontend module loads only if `homeautomation_homeassistant_extra_module_urls` names it. A host
+carrying the file in `www/` without the entry renders every card that depends on the module as though
+it were absent, and reports no error.
+
 ### Nginx
 
 Configure reverse proxies via the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables:

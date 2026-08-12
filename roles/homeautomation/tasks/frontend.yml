@@ -1,0 +1,46 @@
+---
+# configuration.yaml is mostly per-host, so ansible takes the frontend key
+# through an include rather than templating the whole file. www.yml installs
+# card-mod.js, but a module is only loaded if extra_module_url names it: a host
+# that has the file and not the setting renders every card_mod block as though
+# it were absent, and reports no error.
+- name: Configure the frontend integration
+  become: true
+  block:
+    - name: Install frontend.yaml
+      ansible.builtin.template:
+        src: frontend.yaml.j2
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/frontend.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart homeassistant
+
+    # CLEANUP (added 2026-08-12): delete once every homeautomation host has run
+    # this. The inline block cannot come back, because frontend.yaml owns the key
+    # from here on. Matches the whole block so a hand-edited one is left alone
+    # and caught by the assertion below rather than half-rewritten.
+    - name: Replace the inline frontend block with the include
+      ansible.builtin.replace:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"
+        regexp: "^frontend:\n  extra_module_url:\n(?:    - \\S+\n)+  themes: !include_dir_merge_named themes\n"
+        replace: "frontend: !include frontend.yaml\n"
+        backup: true
+      notify: Restart homeassistant
+
+    - name: Read configuration.yaml
+      ansible.builtin.slurp:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"
+      register: homeautomation_configuration_yaml
+
+    # The replace above is a no-op on a host whose block has drifted, which would
+    # otherwise leave the frontend key unmanaged and silently unchanged.
+    - name: Assert that configuration.yaml includes frontend.yaml
+      ansible.builtin.assert:
+        that:
+          - "'frontend: !include frontend.yaml' in (homeautomation_configuration_yaml.content | b64decode)"
+        fail_msg: >-
+          configuration.yaml does not include frontend.yaml, so extra_module_url is
+          unmanaged and card-mod will not load. Replace its frontend: block with
+          "frontend: !include frontend.yaml" and re-run.
+        quiet: true
