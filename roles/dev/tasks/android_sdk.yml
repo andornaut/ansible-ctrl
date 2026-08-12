@@ -1,0 +1,76 @@
+---
+- name: Install the Android SDK
+  become: true
+  become_user: "{{ dev_user }}"
+  block:
+    # Google publishes the command line tools for linux x64 only.
+    - name: Validate architecture for the Android SDK
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["architecture"] == "x86_64"
+        fail_msg: >-
+          Google publishes the Android command line tools for linux x64 only,
+          and this host reports {{ ansible_facts["architecture"] }}.
+        quiet: true
+
+    - name: Require the tools the Android SDK needs
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: javac
+            probe: command -v javac
+            hint: "make dev -- --tags java"
+
+    - name: Create the Android SDK command line tools directory
+      ansible.builtin.file:
+        path: "{{ dev_android_sdk_cmdline_tools_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create a temporary directory for the Android command line tools
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: android-cmdline-tools
+      register: dev_android_sdk_tempdir
+
+    # The archive expands to a directory named cmdline-tools, which sdkmanager
+    # requires be installed as cmdline-tools/<channel>, so it is unpacked aside
+    # and moved into place rather than extracted over the target.
+    - name: Download and unpack the Android command line tools
+      ansible.builtin.unarchive:
+        src: "{{ dev_android_sdk_cmdline_tools_url }}"
+        dest: "{{ dev_android_sdk_tempdir.path }}"
+        remote_src: true
+        creates: "{{ dev_android_sdk_sdkmanager }}"
+
+    - name: Install the Android command line tools
+      ansible.builtin.command:
+        cmd: mv {{ dev_android_sdk_tempdir.path }}/cmdline-tools {{ dev_android_sdk_cmdline_tools_dir }}/latest
+        creates: "{{ dev_android_sdk_sdkmanager }}"
+
+    # sdkmanager writes one hash file per accepted license and installs nothing
+    # until they exist, and it only offers the prompt on a terminal. Redirected
+    # from a process substitution rather than piped from `yes`, whose SIGPIPE
+    # exit status would fail the task under pipefail.
+    - name: Accept the Android SDK licenses
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: "{{ dev_android_sdk_sdkmanager }} --licenses < <(yes)"
+        creates: "{{ dev_android_sdk_root }}/licenses/android-sdk-license"
+      environment: "{{ dev_android_sdk_environment }}"
+
+    - name: Install the Android SDK packages
+      ansible.builtin.command:
+        cmd: >-
+          {{ dev_android_sdk_sdkmanager }}
+          platform-tools
+          platforms;android-{{ dev_android_sdk_platform_version }}
+          build-tools;{{ dev_android_sdk_build_tools_version }}
+        creates: "{{ dev_android_sdk_root }}/build-tools/{{ dev_android_sdk_build_tools_version }}/aapt2"
+      environment: "{{ dev_android_sdk_environment }}"
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ dev_android_sdk_tempdir.path }}"
+        state: absent
+      when: dev_android_sdk_tempdir.path is defined

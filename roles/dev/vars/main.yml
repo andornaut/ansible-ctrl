@@ -44,3 +44,16 @@ dev_cron_path: >-
 # Stated once, both halves of cron.yml reading it, so a third scheduled component does not
 # have to be added to a condition and to its hand-written negation.
 dev_cron_scheduled: "{{ dev_install_ai_attributions or dev_install_ai_maintainer }}"
+
+dev_android_sdk_cmdline_tools_dir: "{{ dev_android_sdk_root }}/cmdline-tools"
+dev_android_sdk_sdkmanager: "{{ dev_android_sdk_cmdline_tools_dir }}/latest/bin/sdkmanager"
+dev_android_sdk_cmdline_tools_url: >-
+  https://dl.google.com/android/repository/commandlinetools-linux-{{
+  dev_android_sdk_cmdline_tools_build }}_latest.zip
+
+# JAVA_HOME names 17 rather than letting the default JDK answer: Gradle's Android
+# plugin is built against 17, and Ubuntu's default is 21.
+dev_android_sdk_environment:
+  ANDROID_HOME: "{{ dev_android_sdk_root }}"
+  ANDROID_SDK_ROOT: "{{ dev_android_sdk_root }}"
+  JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-{{ dev_arch }}"

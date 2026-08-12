@@ -1,0 +1,13 @@
+---
+# Two JDKs on purpose. 21 is the distro default and what a plain `java` resolves
+# to; 17 is what Gradle's Android plugin is built and tested against, so an
+# Android build sets JAVA_HOME to it rather than taking the default.
+- name: Install Java system packages
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jdk
+      - openjdk-21-jdk
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true

@@ -2,6 +2,18 @@
 # The account the user-scoped tasks act on.
 dev_user: "{{ primary_user }}"
 
+# Several GB of SDK, useful only where Android apps are built.
+dev_install_android_sdk: false
+# Google names the command line tools archive after a build number, and offers no
+# stable alias for the newest one.
+dev_android_sdk_cmdline_tools_build: "13114758"
+# The API level and build-tools an Android project compiles against. Both are
+# what its Gradle files name, so raise them when a project does.
+dev_android_sdk_platform_version: "35"
+dev_android_sdk_build_tools_version: "35.0.0"
+# Where Android Studio also looks, so a later IDE install finds this one.
+dev_android_sdk_root: "{{ dev_user_home }}/Android/Sdk"
+
 # Secure Boot refuses the DKMS modules until the machine owner key is enrolled.
 dev_install_virtualbox: false
 # Oracle publishes one apt package per minor series (virtualbox-7.2).
