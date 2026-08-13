@@ -132,7 +132,7 @@ ansible-galaxy collection install --upgrade -r requirements.yml
 make clean
 ```
 
-[tests/lint.sh](tests/lint.sh) is what [CI](.github/workflows/lint.yml) runs on every pull request, one check per job, and what `make lint` runs in full. The gate is the whole file, not the lines a change touched.
+[tests/lint.sh](tests/lint.sh) is what [CI](.github/workflows/lint.yml) runs on every branch and pull request, one check per job, and what `make lint` runs in full. The gate is the whole file, not the lines a change touched.
 
 | Check | Covers |
 | --- | --- |
@@ -143,4 +143,4 @@ make clean
 
 A second workflow, which `make lint` does not run:
 [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) fails a push or pull request whose
-added commits carry an AI attribution. It runs on every branch, not only on pull requests.
+added commits carry an AI attribution.
