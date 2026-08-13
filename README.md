@@ -100,13 +100,13 @@ A value reaches a play only through the environment. Three paths put it there:
 
 | Path | How |
 | --- | --- |
-| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Where the store is not readable by the operator, the same targets [re-enter as root](roles/faramir/README.md#running-playbooks) instead of refusing |
+| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and the same targets [re-enter as root](roles/faramir/README.md#running-playbooks) instead of refusing |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
 | Gotcha | Detail |
 | --- | --- |
-| `vars_plugins_enabled` replaces the default list rather than adding to it | so [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `secret_env` |
+| `vars_plugins_enabled` replaces the default list rather than adding to it | [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `secret_env`, or `host_vars/` stops loading |
 | Credentials arrive as a set | `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that one did. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated |
 
 ## Getting started with the secret broker
@@ -141,4 +141,6 @@ make clean
 | `shell` | every shell script under `roles/`, discovered by shebang |
 | `python` | every Python file under `roles/*/files/` |
 
-[.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) runs on every branch and pull request, and fails the run when what it adds carries an AI attribution.
+A second workflow, which `make lint` does not run:
+[.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) fails a push or pull request whose
+added commits carry an AI attribution. It runs on every branch, not only on pull requests.
