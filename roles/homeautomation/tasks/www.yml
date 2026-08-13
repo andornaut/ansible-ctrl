@@ -15,11 +15,17 @@
         state: directory
       register: homeautomation_advanced_camera_card_tmp
 
+    # GitHub closes some connections without a response, and one failed fetch aborts every
+    # card after it. See tasks/install_github_release_component.yml, which retries the same way.
     - name: Download advanced-camera-card
       ansible.builtin.get_url:
         url: https://github.com/dermotduffy/advanced-camera-card/releases/latest/download/advanced-camera-card.zip
         dest: "{{ homeautomation_advanced_camera_card_tmp.path }}/advanced-camera-card.zip"
         mode: "0644"
+      register: homeautomation_advanced_camera_card_download
+      retries: 3
+      delay: 5
+      until: homeautomation_advanced_camera_card_download is succeeded
 
     - name: Create advanced-camera-card directory
       ansible.builtin.file:
@@ -50,6 +56,10 @@
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
     mode: "0644"
   become: true
+  register: homeautomation_button_card_download
+  retries: 3
+  delay: 5
+  until: homeautomation_button_card_download is succeeded
 
 - name: Install Card Mod
   ansible.builtin.include_tasks: install_github_release_component.yml
@@ -73,6 +83,10 @@
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
     mode: "0644"
   become: true
+  register: homeautomation_decluttering_card_download
+  retries: 3
+  delay: 5
+  until: homeautomation_decluttering_card_download is succeeded
 
 - name: Install Slider Entry Row Card
   ansible.builtin.include_tasks: install_github_release_component.yml

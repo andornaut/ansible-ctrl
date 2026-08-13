@@ -68,6 +68,10 @@
             state: directory
           register: homeautomation_github_component_tmp
 
+        # GitHub closes some connections without a response, and one failed fetch aborts
+        # every component after it. Retried unconditionally: the module raises the same
+        # failure for a transient close as for a deterministic one, so the two cannot be
+        # told apart the way the release listing's status code tells them apart above.
         - name: Download and unarchive {{ github_component_name }}
           ansible.builtin.unarchive:
             src: >-
@@ -78,6 +82,10 @@
             extra_opts:
               - --strip-components
               - 1
+          register: homeautomation_github_component_unarchive
+          retries: 3
+          delay: 5
+          until: homeautomation_github_component_unarchive is succeeded
 
         - name: Install files for {{ github_component_name }}
           ansible.builtin.copy:
