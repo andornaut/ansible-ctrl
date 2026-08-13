@@ -69,7 +69,7 @@ The pipe consumes Claude's stdout, so two properties of that filter are load-bea
 
 Prompt and safety:
 
-| Property | Constraint |
+| Rule | Why |
 | --- | --- |
 | Invoking the script is the up-front sign-off, for exactly the listed entries | The media-root guides require sign-off for a batch over 10 items or spanning libraries, which nobody can give under `-p`: an unanswered question ends the run having moved nothing. Every other safety rule stands (per-pass dry-run, collision detection, non-overwriting moves, post-verify counts, `HISTORY.md`), and anything it would otherwise ask about is deferred rather than guessed. A deferred entry stays in the incoming directory and is reported at the end |
 | The entry list is fenced between `BEGIN ENTRIES`/`END ENTRIES` and labelled as data the run must not act on, each line prefixed with dash-space | A release name is chosen by whoever packaged the download and this run has every permission check disabled, so a name that reads like an instruction is handled as part of the name, and cannot reproduce the end marker. Names containing a newline are skipped before the list is built |

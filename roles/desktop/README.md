@@ -94,7 +94,14 @@ X screensaver activates.
 | The bspwm `logind` drop-in gets `desktop_suspend_inactive_minutes` *minus* `desktop_screen_blank_minutes` | `IdleActionSec` counts from the idle hint, set at blank time. The variable therefore means "suspend this long after the last input" on every desktop, and must be 0 or greater than the blank timeout (the `idle` tag asserts it) |
 | Under bspwm the policy is host-wide | An idle `ssh` login also delays suspend. A host that moves off bspwm has the drop-in removed |
 | On niri the value renders into `.config/hypr/hypridle.conf`, a shared dotfiles symlink | Two niri hosts with different values would fight over that managed block. Give niri hosts the same value, or move to a role-owned per-host file as the bspwm side already has |
-| Writing that file rules out `template`/`copy` | Their no-op path re-runs the `file` module against the resolved target, and `file` expands `$HOME` in that path, corrupting a repo tree under a `$HOME`-named directory. `blockinfile` writes through the link instead, and [tasks/idle_check_dotfile.yml](./tasks/idle_check_dotfile.yml) classifies the path first, failing on a dangling link rather than orphaning it |
+
+### Writing dotfiles that may be symlinks
+
+A path that may be a dotfiles-repo symlink, such as `.config/hypr/hypridle.conf`, rules out `template`/`copy`:
+their no-op path re-runs the `file` module against the resolved target, and `file` expands `$HOME` in that path,
+corrupting a repo tree under a `$HOME`-named directory. `blockinfile` writes through the link instead, and
+[tasks/idle_check_dotfile.yml](./tasks/idle_check_dotfile.yml) classifies the path first, failing on a dangling
+link rather than orphaning it.
 
 ## Parental controls
 
