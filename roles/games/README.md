@@ -15,7 +15,7 @@ make games -- --tags retroarch
 | Tag | Description |
 | --- | --- |
 | apt | Native gaming packages |
-| bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle |
+| bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, and the `ntsync` module Wine 11 needs for fast synchronization |
 | flatpak | Flatpak runtime, flathub remote, applications, extensions, and overrides |
 | heroic | Heroic install path and the store token-refresh timer |
 | lutris | Lutris default install path |
@@ -27,15 +27,11 @@ make games -- --tags retroarch
 Host-settable knobs are in [defaults/main.yml](./defaults/main.yml), which comments each one. Everything else is
 in [vars/main.yml](./vars/main.yml):
 
-- Role vars outrank `host_vars`, so nothing in `vars/` is host-settable. It holds the canonical RetroArch data
-  (`games_retroarch_systems`, `..._required_settings`, `..._core_overrides`, `..._core_options`,
-  `..._controllers`), the derived paths, the upstream pins, the flatpak sandbox grants, and the fact-derived
-  values.
-- `syncretroid` reads `vars/main.yml` directly and resolves no inventory, so a `host_vars` override of any of it
-  would reach the desktops and silently not the handheld. Override the default a value derives from, not the
-  derived value.
-- Ansible replaces dicts rather than merging them, so a `host_vars` override must restate the whole value.
-  `games_retroarch_extra_settings` exists to avoid that for the one dict a host has reason to add to.
+| Rule | Detail |
+| --- | --- |
+| Nothing in `vars/` is host-settable | Role vars outrank `host_vars`. It holds the canonical RetroArch data (`games_retroarch_systems`, `..._required_settings`, `..._core_overrides`, `..._core_options`, `..._controllers`), the derived paths, the upstream pins, the flatpak sandbox grants, and the fact-derived values |
+| Override the default a value derives from, not the derived value | `syncretroid` reads `vars/main.yml` directly and resolves no inventory, so a `host_vars` override reaches the desktops and silently not the handheld |
+| A `host_vars` override of a dict must restate the whole value | Ansible replaces dicts rather than merging them. `games_retroarch_extra_settings` exists to avoid that for the one dict a host has reason to add to |
 
 ### Per-host settings
 
@@ -61,10 +57,10 @@ flatpak run --command=grep org.libretro.RetroArch -E '^input_(r_y_minus_axis|r_y
 `vrr_runloop_enable` is the one optional per-host setting, turned on in `games_retroarch_extra_settings` for a VRR
 panel. The play asserts its preconditions:
 
-- It cannot combine with the other video-to-audio sync methods (vsync, a swap interval above 1, black frame
-  insertion). On a fixed-refresh panel leave it off and use BFI instead.
-- The panel needs VRR enabled outside RetroArch too: a compositor setting under Wayland, `Option
-  "VariableRefresh"` in `xorg.conf.d` under X11, where it conflicts with `TearFree`.
+| Precondition | Detail |
+| --- | --- |
+| No other video-to-audio sync method | vsync, a swap interval above 1, and black frame insertion all conflict. On a fixed-refresh panel leave it off and use BFI instead |
+| VRR enabled outside RetroArch | A compositor setting under Wayland; `Option "VariableRefresh"` in `xorg.conf.d` under X11, where it conflicts with `TearFree` |
 
 ## RetroArch
 
@@ -74,28 +70,15 @@ it is not running.
 
 What the role owns, and the constraint that shapes it:
 
-- **`retroarch.cfg`, key by key.** The file holds thousands of keys; the role owns only those in
-  `games_retroarch_required_settings`. Settings changed in the app persist, and the managed keys snap back.
-- **The cores directory.** Libretro cores are not packaged for apt or flatpak, so they come from the same nightly
-  buildbot the in-app Core Updater uses. Nightlies, so there is nothing to pin, and every run refetches, which
-  also repairs a core the flatpak runtime can no longer load after a runtime upgrade. A core no system runs is
-  removed so it cannot linger in "Load Core". Each is dlopened inside the sandbox to read its reported name, which
-  doubles as the load check. The set is the desktop (x64) column of the
-  [til notes](https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores).
-- **The BIOS set**, rsynced out of the library into RetroArch's `system/` rather than pointed at in place: cores
-  treat that directory as writable scratch (Dolphin's `Sys` tree, PPSSPP's state), so it must be local.
-- **The playlists**, regenerated from the library rather than scanned in-app, so the ROM-directory-to-core
-  association lives in `games_retroarch_systems`. Adding a ROM means re-running the `retroarch` tag.
-- **The per-core overrides and core options**, under `config/<library_name>/`, where `library_name` is what the
-  built core reports at runtime, a third name for the same core (the GameCube core is `dolphin` on the buildbot,
-  `Dolphin` in its `.info`, and reports `dolphin-emu`). It is a property of the build, so the role asks the cores
-  rather than writing it down.
-- **The shared thumbnail cache** in the library, the one thing RetroArch writes that hosts can share. Only the host
-  whose mount is writable downloads into it; the rest read it. The library owns the directory the way it owns the
-  BIOS set: the play asserts it exists and never creates it.
-- **A udev rule** granting the desktop session read access to the mouse and keyboard, which `input_driver = udev`
-  needs and the distro's `70-uaccess.rules` gives only to joysticks. Without it the gamepad works while the menu
-  pointer and lightgun are dead.
+| Owned | Constraint |
+| --- | --- |
+| `retroarch.cfg`, key by key | The file holds thousands of keys; the role owns only those in `games_retroarch_required_settings`. Settings changed in the app persist, and the managed keys snap back |
+| The cores directory | Libretro cores are not packaged for apt or flatpak, so they come from the same nightly buildbot the in-app Core Updater uses. Nightlies, so there is nothing to pin, and every run refetches, which also repairs a core the flatpak runtime can no longer load after a runtime upgrade. A core no system runs is removed so it cannot linger in "Load Core". Each is dlopened inside the sandbox to read its reported name, which doubles as the load check. The set is the desktop (x64) column of the [til notes](https://github.com/andornaut/til/blob/main/docs/retro-games.md#cores) |
+| The BIOS set, rsynced out of the library into RetroArch's `system/` rather than pointed at in place | Cores treat that directory as writable scratch (Dolphin's `Sys` tree, PPSSPP's state), so it must be local |
+| The playlists, regenerated from the library rather than scanned in-app | The ROM-directory-to-core association lives in `games_retroarch_systems`, so adding a ROM means re-running the `retroarch` tag |
+| The per-core overrides and core options, under `config/<library_name>/` | `library_name` is what the built core reports at runtime, a third name for the same core (the GameCube core is `dolphin` on the buildbot, `Dolphin` in its `.info`, and reports `dolphin-emu`). It is a property of the build, so the role asks the cores rather than writing it down |
+| The shared thumbnail cache in the library | The one thing RetroArch writes that hosts can share. Only the host whose mount is writable downloads into it; the rest read it. The library owns the directory as it owns the BIOS set: the play asserts it exists and never creates it |
+| A udev rule granting the desktop session read access to the mouse and keyboard | `input_driver = udev` needs it and the distro's `70-uaccess.rules` gives it only to joysticks. Without it the gamepad works while the menu pointer and lightgun are dead |
 
 Everything else RetroArch writes stays under `~/.var/app/org.libretro.RetroArch/config/retroarch`. Keeping every
 writable path (saves, states, `system/`, cache) there is what lets a host mount the library read-only, so nothing

@@ -57,15 +57,12 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 
 ## Desktop environments
 
-- `gnome` installs GNOME Shell and gdm3 and skips the tiling-only tags. GNOME ships a Wayland-only session, so no
-  Xorg server is installed; legacy X11 apps run under XWayland.
-- Tiling hosts additionally get the tags marked *tiling* above, plus the X11 tools both tiling sessions use, since
-  niri runs them as XWayland clients ([tasks/apt_tiling.yml](./tasks/apt_tiling.yml)).
-- Only tools with a true per-protocol replacement belong to the [bspwm](../bspwm/) role (X11) and the
-  [niri](../niri/) role (Wayland). Everything both sessions share lives here.
-- `ly` is built with Zig, downloaded from `desktop_zig_mirror` (a
-  [community mirror](https://ziglang.org/download/community-mirrors.txt)) rather than the slow ziglang.org origin;
-  the archive is checksummed against the shasum the origin publishes.
+| Rule | Detail |
+| --- | --- |
+| `gnome` installs GNOME Shell and gdm3, and skips the tiling-only tags | GNOME ships a Wayland-only session, so no Xorg server is installed; legacy X11 apps run under XWayland |
+| Tiling hosts get the tags marked *tiling*, plus the X11 tools both tiling sessions use ([tasks/apt_tiling.yml](./tasks/apt_tiling.yml)) | niri runs them as XWayland clients |
+| Only tools with a true per-protocol replacement belong to [bspwm](../bspwm/) (X11) or [niri](../niri/) (Wayland) | Everything both sessions share lives here |
+| `ly` is built with Zig from `desktop_zig_mirror`, a [community mirror](https://ziglang.org/download/community-mirrors.txt) | The ziglang.org origin is slow. The archive is checksummed against the shasum the origin publishes |
 
 ## Idle, locking and suspend
 
@@ -81,13 +78,10 @@ apart from powering the monitor down:
 Under bspwm the timeouts are set once per session by `/usr/local/bin/xsecurelock-session`, run by the autostart
 entry at login; nothing reloads them, so a change takes effect at the next login.
 
-- **A blanked screen is not a locked one.** X11 blanking takes no keyboard grab, so during the blank-to-lock grace
-  a keystroke both wakes the screen and lands in the focused window. Set `desktop_screen_lock_minutes` equal to
-  `desktop_screen_blank_minutes` to close that window, at the cost of the no-password return period.
-- Two security-relevant `XSECURELOCK_*` settings ([templates/xsecurelock-session.j2](./templates/xsecurelock-session.j2)):
-  `FORCE_GRAB=1` forces the grab so a fullscreen game or open menu cannot leave the session unlocked silently, and
-  `DISCARD_FIRST_KEYPRESS=1` swallows the key that dismisses the blank screen so nobody types a password at a black
-  screen. Authentication needs nothing setuid (`common-auth` PAM service, `unix_chkpwd`).
+| Constraint | Detail |
+| --- | --- |
+| A blanked screen is not a locked one | X11 blanking takes no keyboard grab, so during the blank-to-lock grace a keystroke both wakes the screen and lands in the focused window. Setting `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` closes that window, at the cost of the no-password return period |
+| Two `XSECURELOCK_*` settings are security-relevant ([templates/xsecurelock-session.j2](./templates/xsecurelock-session.j2)) | `FORCE_GRAB=1` forces the grab, so a fullscreen game or open menu cannot leave the session unlocked silently. `DISCARD_FIRST_KEYPRESS=1` swallows the key that dismisses the blank screen, so nobody types a password at a black screen. Authentication needs nothing setuid (`common-auth` PAM service, `unix_chkpwd`) |
 
 ### Suspend
 
@@ -95,23 +89,12 @@ entry at login; nothing reloads them, so a change takes effect at the next login
 `gnome-settings-daemon`, niri a `hypridle` listener, and bspwm has `xss-lock` set the session's idle hint when the
 X screensaver activates.
 
-- `IdleActionSec` counts from that hint (set at blank time), so the bspwm `logind` drop-in gets
-  `desktop_suspend_inactive_minutes` *minus* `desktop_screen_blank_minutes`. The variable therefore means "suspend
-  this long after the last input" on every desktop, and must be 0 or greater than the blank timeout (the `idle` tag
-  asserts it).
-- Under bspwm the policy is host-wide, so an idle `ssh` login also delays suspend. A host that moves off bspwm has
-  the drop-in removed.
-- On niri the value renders into `.config/hypr/hypridle.conf`, a shared dotfiles symlink, so two niri hosts with
-  different values would fight over that managed block. Give niri hosts the same value, or move to a role-owned
-  per-host file as the bspwm side already has.
-
-### Writing dotfiles that may be symlinks
-
-`.config/hypr/hypridle.conf` may be a dotfiles-repo symlink, which rules out `template`/`copy`: their no-op path
-re-runs the `file` module against the resolved target, and `file` expands `$HOME` in that path, corrupting a repo
-tree under a `$HOME`-named directory. `blockinfile` writes through the link instead.
-[tasks/idle_check_dotfile.yml](./tasks/idle_check_dotfile.yml) classifies the path first and fails on a dangling
-link rather than orphaning it.
+| Constraint | Detail |
+| --- | --- |
+| The bspwm `logind` drop-in gets `desktop_suspend_inactive_minutes` *minus* `desktop_screen_blank_minutes` | `IdleActionSec` counts from the idle hint, set at blank time. The variable therefore means "suspend this long after the last input" on every desktop, and must be 0 or greater than the blank timeout (the `idle` tag asserts it) |
+| Under bspwm the policy is host-wide | An idle `ssh` login also delays suspend. A host that moves off bspwm has the drop-in removed |
+| On niri the value renders into `.config/hypr/hypridle.conf`, a shared dotfiles symlink | Two niri hosts with different values would fight over that managed block. Give niri hosts the same value, or move to a role-owned per-host file as the bspwm side already has |
+| Writing that file rules out `template`/`copy` | Their no-op path re-runs the `file` module against the resolved target, and `file` expands `$HOME` in that path, corrupting a repo tree under a `$HOME`-named directory. `blockinfile` writes through the link instead, and [tasks/idle_check_dotfile.yml](./tasks/idle_check_dotfile.yml) classifies the path first, failing on a dangling link rather than orphaning it |
 
 ## Parental controls
 
@@ -119,17 +102,11 @@ Web filtering is enforced in the name service switch, not the browser. `nss-malc
 hostname for users with a compiled filter list under `/var/lib/malcontent-webd/filter-lists/` and defers for
 everyone else, so the `/etc/nsswitch.conf` edit is system-wide while the policy stays per-user.
 
-- Matching is exact (a cdb keyed on whole hostnames, no wildcards or subdomains). Filter lists must be plain
-  newline-separated bare hostnames over HTTPS; one malformed line aborts the update, leaving the previous list.
-- The `use-application-dns.net` canary is blocked for every user, turning DoH off in every Firefox (DoH would
-  otherwise resolve past the module).
-- Chrome merges every file in `/etc/opt/chrome/policies/managed/`, later name winning, so a `family.json.bak` is a
-  second policy that outranks the original. The role owns the directory and sweeps anything it did not deploy.
-- An empty allow list sinkholes everything; an empty block list filters nothing while reporting filtering is on.
-  The role asserts the chosen list type has entries.
-- Setting any OARS ceiling also disallows flatpak installation from the system repository, so the role passes both
-  installation permissions explicitly and restores the system repository when it clears the filter.
-- **Turning `desktop_install_parental_controls` off lifts the controls** rather than ceasing to reassert them: the
-  tag runs on every desktop host and, with the flag false, clears both `malcontent` filters and removes the Chrome
-  policy. Tearing down means removing the host's `desktop_parental_controls_*` block, not just the flag; the role
-  asserts no setting is left describing a policy nothing enforces.
+| Constraint | Detail |
+| --- | --- |
+| Matching is exact: a cdb keyed on whole hostnames, no wildcards or subdomains | Filter lists must be plain newline-separated bare hostnames over HTTPS. One malformed line aborts the update, leaving the previous list |
+| The `use-application-dns.net` canary is blocked for every user | It turns DoH off in every Firefox, which would otherwise resolve past the module |
+| Chrome merges every file in `/etc/opt/chrome/policies/managed/`, later name winning | A `family.json.bak` is a second policy that outranks the original, so the role owns the directory and sweeps anything it did not deploy |
+| The role asserts the chosen list type has entries | An empty allow list sinkholes everything; an empty block list filters nothing while reporting filtering is on |
+| Both flatpak installation permissions are passed explicitly | Setting any OARS ceiling also disallows installation from the system repository, which the role restores when it clears the filter |
+| Clearing `desktop_install_parental_controls` lifts the controls rather than ceasing to reassert them | The tag runs on every desktop host and, with the flag false, clears both `malcontent` filters and removes the Chrome policy. Tearing down means removing the host's `desktop_parental_controls_*` block too; the role asserts no setting is left describing a policy nothing enforces |
