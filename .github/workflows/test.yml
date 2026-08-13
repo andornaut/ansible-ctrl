@@ -1,0 +1,57 @@
+name: Test
+
+# Every branch, not just main and pull requests: work lands on main directly as
+# often as it arrives through one, so a check that only runs on main is a check
+# that runs after the fact.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Keyed on the branch rather than the ref, so the push event and the pull
+# request event for one branch share a group instead of running the same checks
+# twice. Qualified by the repository the branch lives in, since a fork names its
+# branches itself: a pull request from a fork's main would otherwise share a
+# group with a push to this one and cancel it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Cache Ansible collections
+        uses: actions/cache@v4.3.0
+        with:
+          path: ~/.ansible/collections
+          key: collections-${{ hashFiles('requirements.yml') }}
+          restore-keys: collections-
+
+      # ansible-lint depends on ansible-core, which the syntax check runs.
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+
+      # Without them, the syntax check reports every collection module as unknown.
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      # Every check in one step. The script runs them all and names each result,
+      # so a failure still says which check failed.
+      - name: Run every check
+        run: tests/lint.sh

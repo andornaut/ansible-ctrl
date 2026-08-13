@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The checks CI gates on, defined once so a local run and a CI run cannot disagree.
-# The workflow calls one check per job; `make lint` calls them all.
+# CI and `make lint` both call them all; the argument runs one on its own.
 #
 # Usage: tests/lint.sh [ansible-lint|syntax|shell|python]   (default: all)
 set -uo pipefail
@@ -105,7 +105,7 @@ main() {
         "check_${check//-/_}"
         result=$?
         # Every check runs even after one fails: stopping at the first hides how
-        # much else is broken, and CI runs these as four jobs that all report.
+        # much else is broken, and one run should name everything that needs fixing.
         if ((result == 0)); then
             echo "----- ${check}: ok"
         else
