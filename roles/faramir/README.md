@@ -15,7 +15,7 @@ An operator action. Log out and back in after the first install: it adds you to 
 | Play | Entry point | Hosts | Effect |
 | --- | --- | --- | --- |
 | first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on the controller |
-| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, then pings the hosts it still holds back through the broker |
+| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
 
 `faramir_controller` names the one host it may install on: `broker.yml` refuses to run anywhere else, and `ssh.yml` requires the `faramir` group to hold that host and no other.
 
@@ -47,6 +47,7 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 - **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml`. One held anywhere else is neither injectable through `--env` nor known to the redactor, so a playbook that prints it prints plaintext.
 - **The store must not sit under `group_vars/` or `host_vars/`**, where Ansible auto-loads every `.yml`: a sops file is valid YAML, so each var binds to its `ENC[...]` ciphertext and hosts get the ciphertext as the password. Nor in the checkout, this repo being public. `faramir init` refuses both.
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir'`: commands run as `faramir-exec`, which has no sudo here. Apply the controller's own playbooks as the operator.
+- **The fleet's host keys are pinned system-wide**, in `faramir_fleet_known_hosts_path` (`/etc/ssh/ssh_known_hosts`): ssh verifies a host before authenticating to it, and the executor has no `known_hosts` of its own. Each entry is keyed by the name ssh looks it up under, `faramir_fleet_known_hosts_name`: the bare address on port 22, `[host]:port` otherwise. A key that no longer matches what is pinned fails the play rather than being rewritten.
 
 ## What the role adds
 
