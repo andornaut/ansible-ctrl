@@ -16,25 +16,13 @@
         mode: "0644"
       notify: Restart homeassistant
 
-    # CLEANUP (added 2026-08-12): delete once every homeautomation host has run
-    # this. The inline block cannot come back, because frontend.yaml owns the key
-    # from here on. Matches the whole block so a hand-edited one is left alone
-    # and caught by the assertion below rather than half-rewritten.
-    - name: Replace the inline frontend block with the include
-      ansible.builtin.replace:
-        path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"
-        regexp: "^frontend:\n  extra_module_url:\n(?:    - \\S+\n)+  themes: !include_dir_merge_named themes\n"
-        replace: "frontend: !include frontend.yaml\n"
-        backup: true
-      notify: Restart homeassistant
-
     - name: Read configuration.yaml
       ansible.builtin.slurp:
         path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"
       register: homeautomation_configuration_yaml
 
-    # The replace above is a no-op on a host whose block has drifted, which would
-    # otherwise leave the frontend key unmanaged and silently unchanged.
+    # configuration.yaml is hand-maintained, so a host that never got the include
+    # would leave the frontend key unmanaged and silently unchanged.
     - name: Assert that configuration.yaml includes frontend.yaml
       ansible.builtin.assert:
         that:
