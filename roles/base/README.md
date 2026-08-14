@@ -30,7 +30,8 @@ Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)):
 
 | What | Detail |
 | --- | --- |
-| Accounts are closed to each other | `UMASK 007` in `/etc/login.defs`, `HOME_MODE` and `adduser`'s `DIR_MODE` at `0750`, `o-rwx` on each login account's home. Group access is untouched: `USERGROUPS_ENAB` gives each account a private group, and what is shared across accounts is shared by group. A home with no world execute bit is a chokepoint, so nothing below it needs converging |
+| Accounts are closed to each other | `HOME_MODE` and `adduser`'s `DIR_MODE` at `0750`, `o-rwx` on each login account's home. A home with no world execute bit is a chokepoint, so nothing below it needs converging. Group access is untouched: `USERGROUPS_ENAB` gives each account a private group, and what is shared across accounts is shared by group |
+| A session's default modes | `UMASK 002` in `/etc/login.defs`, read by `pam_umask` for login shells and SSH sessions. A default, not a boundary: a process may change it, and systemd units read `UMask=` instead. 002 rather than 022 keeps a file created in a setgid share group-writable, which is what faramir's tree and the NAS share need |
 | A home is closed only when its account owns it | So a passwd entry naming a shared directory is left alone, and `base_lockdown_exclude_homes` excludes the placeholder homes that service accounts created without `--system` point at |
 | SSH accepts keys only | `sshd_config.d/00-ansible-role-base.conf` sets `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`. Validated with `sshd -t` before it lands, applied with a reload that established connections survive |
 | No opt-out flag | The role proves key-only SSH already works, from the controller and with ansible's own connection settings, and **fails the play** where it does not, naming the `ssh-copy-id` to run. A skip would leave a host that looks hardened and is not |

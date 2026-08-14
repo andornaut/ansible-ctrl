@@ -25,3 +25,46 @@
     state: latest
     ignore_scripts: "{{ dev_npm_ignore_scripts | default(false) }}"
   become: true
+
+# Where this npm installs a global package, asked of npm rather than assumed to be
+# /usr/local: a host whose prefix is elsewhere would have the modes below asserted on
+# a path holding nothing. Read once, every later caller in the run reusing it.
+- name: Read the npm prefix
+  ansible.builtin.command:
+    cmd: npm config get prefix
+  register: dev_npm_prefix_probe
+  changed_when: false
+  # Read-only, and the modes below need it in a --check run as much as in a real one.
+  check_mode: false
+  become: true
+  when: dev_npm_prefix is not defined
+
+- name: Keep the npm prefix for the rest of the run
+  ansible.builtin.set_fact:
+    dev_npm_prefix: "{{ dev_npm_prefix_probe.stdout | trim }}"
+  when: dev_npm_prefix is not defined
+
+# npm creates the package tree with the run's umask, and a restrictive one installs a
+# CLI only root can run: the symlink in <prefix>/bin stays readable and the tree it
+# points into does not. Asserted here rather than left to the umask, which this role
+# does not set and cannot read off the account that will run the CLI.
+#
+# Additive, so nothing npm chose is taken away: the tree is root's, and what this adds
+# is the read and traverse every other account needs to execute it.
+- name: Open the directories above {{ dev_npm_package }}
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: a+rX
+  # node_modules itself, and the scope directory where the name has one. Not recursive:
+  # each holds every other package, whose own install asserts its modes.
+  loop: "{{ [dev_npm_root, (dev_npm_root ~ '/' ~ dev_npm_package) | dirname] | unique }}"
+  vars:
+    dev_npm_root: "{{ dev_npm_prefix }}/lib/node_modules"
+  become: true
+
+- name: Let every account read and execute {{ dev_npm_package }}
+  ansible.builtin.file:
+    path: "{{ dev_npm_prefix }}/lib/node_modules/{{ dev_npm_package }}"
+    mode: a+rX
+    recurse: true
+  become: true
