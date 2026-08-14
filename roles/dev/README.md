@@ -63,8 +63,9 @@ neither is set.
 # Run ai-maintainer by hand
 ~/.local/bin/ai-maintainer --dry-run --verbose
 
-# Run the attribution scan by hand, reporting every repository it reads
-~/.local/bin/ai-attributions-scan --verbose
+# Run the attribution scan by hand, reporting every repository it reads rather
+# than only the ones with a finding, which is what the cron entry asks for
+~/.local/bin/ai-attributions scan --agents-files ~/src/github.com/andornaut/*
 
 # Fix one repository and publish it, which is what the scan's summary suggests
 ~/.local/bin/ai-attributions apply --push ~/src/github.com/andornaut/<repo>

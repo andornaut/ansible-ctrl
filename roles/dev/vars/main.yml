@@ -39,7 +39,7 @@ dev_oh_my_pi_release_binary: "omp-linux-{{ dev_oh_my_pi_arch }}"
 # covers both, and the two directories are the same wherever neither path is overridden.
 dev_cron_path: >-
   /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{
-  [dev_ai_attributions_script_path | dirname, dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
+  [dev_ai_attributions_binary_path | dirname, dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
 
 # Stated once, both halves of cron.yml reading it, so a third scheduled component does not
 # have to be added to a condition and to its hand-written negation.
