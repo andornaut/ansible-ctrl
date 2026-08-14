@@ -31,7 +31,29 @@ faramir_agents:
 # the executor's sudoers entry authenticates through a PAM service that asks the broker
 # whether a human approved that command, so no password exists anywhere. Re-running without
 # it takes the grant away.
+#
+# It is not only an approval path: the executor unit drops NoNewPrivileges=, and with it the
+# seccomp filter and ProtectSystem=strict, because a filter forces NoNewPrivileges= on and
+# that makes every setuid binary inert, sudo included. So the hardening comes off the uid
+# every brokered command runs as the moment this is true, whether or not anything is ever
+# approved.
 faramir_allow_sudo: false
+
+# What announces a waiting approval, one list element per argument. Empty leaves
+# `sudo faramir approvals --watch` as the only place a question shows up, and a question
+# nobody sees expires after [sudo] timeout_sec with every other brokered command on the host
+# refused until it does.
+#
+# Passed only when faramir_allow_sudo is true, there being no [sudo] section to announce
+# otherwise and init refusing the pair. It must name "{prompt}" or "{id}"; keep "{id}" off
+# anything that broadcasts, wall reaching every terminal on the host and the coding agent
+# having one.
+#
+# The broker execs this as the account holding every decrypted value, with a fixed PATH and
+# nothing else, so anything wanting the operator's session is out: /run/user/<uid> is 0700
+# and the broker is not that uid. wall works because it is setgid tty; a request to
+# something on the network works because the unit permits AF_INET.
+faramir_notify_command: []
 
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 faramir_fleet_authorize_key: true

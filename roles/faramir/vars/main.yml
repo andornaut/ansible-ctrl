@@ -38,6 +38,9 @@ faramir_init_argv: >-
      '--config-dir', faramir_config_dir]
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--allow-sudo'] if faramir_allow_sudo | bool else [])
+    + ((['--notify-command'] | product(faramir_notify_command) | flatten)
+       if (faramir_allow_sudo | bool and faramir_notify_command | length > 0)
+       else [])
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
