@@ -59,6 +59,23 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 
 Enrol another tree with `cd <dir> && sudo faramir init-project`.
 
+## Agents
+
+`faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure, and the same list goes to `init` and to `init-project`. Named rather than left to faramir's `auto`, which reads what a home or a tree already carries and so reaches an agent only after it has run here once unguarded.
+
+| Agent | In this tree | In the operator's home | Redaction |
+| --- | --- | --- | --- |
+| claude | `PreToolUse` hook in `.claude/settings.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, credentials section in `.claude/CLAUDE.md` | full |
+| opencode | plugin in `.opencode/plugins/`, MCP server in `opencode.json` | `.config/opencode/opencode.json`, `.config/opencode/AGENTS.md` | full |
+| kilocode | plugin in `.kilo/plugin/`, MCP server in `kilo.json` | `.config/kilo/kilo.json`, `.kilocode/rules/faramir.md` | full |
+| pi | extension in `.pi/extensions/`, which carries the deny rules | `.pi/agent/AGENTS.md` | full |
+| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md` | `.gemini/GEMINI.md` | none |
+
+- **Antigravity is partial support.** Its hooks decide and cannot rewrite a tool call, so nothing routes what it runs through the broker and nothing redacts what comes back. It gets the MCP tools and the instructions to use them, and every enrolment warns that this is what was installed.
+- **Codex and Cursor are installed here and faramir configures neither**, so a credential a command of theirs prints reaches the model.
+- Enrolling claude gives up this project's Bash prompts: a rewritten command matches no permission rule, so the hook approves it. The other four have no approval to return and pay nothing.
+- The files an enrolment writes into a tree are gitignored globally rather than by this repo, agent state being the same in every checkout.
+
 ## Verification
 
 ```bash
