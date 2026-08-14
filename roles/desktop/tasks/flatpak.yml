@@ -2,11 +2,6 @@
 - name: Remove system packages replaced by flatpak
   become: true
   block:
-    # No clean: the module runs that as a bare `apt-get clean`, which exits 100
-    # rather than waiting when another apt process holds the archives lock, and
-    # fails the play. The module's own lock_timeout covers the purge but not
-    # that step. The base role's disk-cleanup reclaims the cache weekly, where a
-    # held lock costs a retry rather than a run.
     - name: Purge packages replaced by flatpak
       ansible.builtin.apt:
         name: "{{ desktop_flatpak_pinned_packages }}"
