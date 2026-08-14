@@ -39,6 +39,22 @@ faramir_agents:
 # approved.
 faramir_allow_sudo: false
 
+# kernel.yama.ptrace_scope on the controller. 1 restricts ptrace to a process's own
+# descendants, which is Debian and Ubuntu's default and what RHEL, Fedora and Arch leave at
+# 0. Pinned rather than assumed: at 0 any process may ptrace any other of the same uid, and
+# every brokered command shares the executor's, so one could read another's environment and
+# with it the injected values and the approval token.
+#
+# It matters most where a grant exists. The executor unit carries SystemCallFilter=
+# excluding @ptrace and so refuses the syscall outright, except on a host installed with
+# --allow-sudo, which cannot carry a filter: one forces NoNewPrivileges= on and that makes
+# sudo inert. Set here regardless, being the operator's own account's protection too.
+#
+# `~` leaves the host's value alone, for a box that needs 0 for a debugger. Higher than 1 is
+# accepted: 2 is admin-only and 3 refuses ptrace entirely, and faramir asks only that it not
+# be 0.
+faramir_ptrace_scope: 1
+
 # What announces a waiting approval, one list element per argument. Empty leaves
 # `sudo faramir approvals --watch` as the only place a question shows up, and a question
 # nobody sees expires after [sudo] timeout_sec with every other brokered command on the host

@@ -55,6 +55,7 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 
 - Downloads the binary from faramir's rolling `dev` release, verified against `checksums.txt` from the same release
 - Runs `faramir init-project` against `playbook_dir`, and writes the block covering how to run these playbooks through the broker
+- Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values injected into it. `~` leaves the host's value alone
 - Runs `faramir doctor` and asserts on its report
 
 Enrol another tree with `cd <dir> && sudo faramir init-project`.

@@ -208,6 +208,38 @@
       brokered command has no terminal to answer.
   become: true
 
+# Yama, so that one brokered command cannot ptrace another and read the values injected into
+# it. Before the doctor check below, which reports on what this leaves.
+- name: Restrict ptrace to a process's own descendants
+  when: faramir_ptrace_scope is not none
+  become: true
+  block:
+    # Absent on a kernel built without CONFIG_SECURITY_YAMA, where there is no knob to set
+    # and the sysctl module would fail rather than skip.
+    - name: Check for Yama
+      ansible.builtin.stat:
+        path: /proc/sys/kernel/yama/ptrace_scope
+      register: faramir_yama
+
+    - name: Set kernel.yama.ptrace_scope
+      ansible.posix.sysctl:
+        name: kernel.yama.ptrace_scope
+        value: "{{ faramir_ptrace_scope | int }}"
+        # 60-, so it is read after the 10-ptrace.conf procps ships and wins where the two
+        # disagree.
+        sysctl_file: /etc/sysctl.d/60-faramir-ptrace.conf
+        sysctl_set: true
+        reload: true
+      when: faramir_yama.stat.exists
+
+    - name: Say when there is no Yama to set
+      ansible.builtin.debug:
+        msg: >-
+          This kernel has no /proc/sys/kernel/yama/ptrace_scope, so nothing restricts one
+          process of the executor's uid from ptracing another. faramir doctor reports the
+          same as unchecked.
+      when: not faramir_yama.stat.exists
+
 # A broker serving zero refs and an agent holding no key both look like a healthy install:
 # units up, nothing reachable.
 - name: Check that the install works
