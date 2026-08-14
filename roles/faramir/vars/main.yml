@@ -33,7 +33,7 @@ faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
-     '--operator-user', faramir_user,
+     '--agent-user', faramir_user,
      '--client-group', faramir_client_group,
      '--config-dir', faramir_config_dir]
     + (['--agent'] | product(faramir_agents) | flatten)
@@ -49,7 +49,7 @@ faramir_init_argv: >-
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
-     '--operator-user', faramir_user,
+     '--agent-user', faramir_user,
      '--config-dir', faramir_config_dir]
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
@@ -57,11 +57,11 @@ faramir_init_project_argv: >-
   }}
 
 # Only the two doctor cannot read off the host: it takes the client group and the service
-# accounts from the config and the units, but --operator-user has no such source and doctor
+# accounts from the config and the units, but --agent-user has no such source and doctor
 # fails rather than guess it.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',
-     '--operator-user', faramir_user,
+     '--agent-user', faramir_user,
      '--config-dir', faramir_config_dir]
   }}
