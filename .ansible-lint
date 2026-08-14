@@ -1,5 +1,9 @@
 ---
 exclude_paths:
   - .ansible/
+  # Workflow files are not Ansible content. ansible-lint reaches them as plain
+  # YAML and holds them to its own line limit, which the concurrency keys these
+  # repositories share exceed.
+  - .github/
 skip_list:
   - package-latest
