@@ -12,9 +12,15 @@
          if (base_lockdown_ssh_port | int) != 22
          else (ansible_host | default(inventory_hostname)) }}
 
-# 007 rather than 027: dirs 0770, files 0660, so other loses traversal as well as read.
-# Group bits are left alone because USERGROUPS_ENAB makes each account's group its own, and
-# what is shared across accounts is shared by group (faramir's tree, the nas share).
+# 002 rather than 022: dirs 0775, files 0664, so a file created in a setgid share stays
+# group-writable, which is what those shares are for (faramir's tree, the nas share).
+# USERGROUPS_ENAB makes each account's group its own, so that costs nothing anywhere else.
+#
+# Not a value that closes `other` either. This is a default a process may change and a
+# systemd unit never reads, so it is no boundary: the home mode below is. What closing
+# `other` here does reach is every installer that honours it, which then leaves a
+# root-owned tree no other account can traverse and a CLI only root can run.
+#
 # pam_umask reads this, so it governs login shells and SSH sessions; units take UMask=.
 - name: Set the login umask
   ansible.builtin.lineinfile:

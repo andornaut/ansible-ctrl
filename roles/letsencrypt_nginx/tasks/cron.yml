@@ -61,9 +61,10 @@
     state: "{{ letsencrypt_nginx_install_renewal_cron | ternary('present', 'absent') }}"
   become: true
 
-# The redirect above would create this world-readable under root's umask, and it
-# holds the full output of every renewal run. Created here so the mode is in place
-# before the first run; timestamps preserved so an unchanged run reports nothing.
+# The redirect above creates this at whatever root's umask allows, which is a mode
+# no playbook decides, and it holds the full output of every renewal run. Named here
+# so root:adm 0640 is in place before the first run, whatever that umask is;
+# timestamps preserved so an unchanged run reports nothing.
 - name: Restrict the certificate renewal log
   ansible.builtin.file:
     path: "{{ letsencrypt_nginx_renewal_cron_log }}"

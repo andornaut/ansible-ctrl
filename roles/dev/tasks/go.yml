@@ -56,11 +56,17 @@
         state: absent
       become: true
 
+    # Named, not left to the archive: extraction puts the recorded mode through the
+    # run's umask, and the login umask this repo sets closes `other`, which would
+    # install a toolchain no account but root can traverse. Capital X grants execute
+    # only where the archive already had it, so the binaries stay binaries and the
+    # sources stay data.
     - name: Extract Go tarball to /usr/local
       ansible.builtin.unarchive:
         src: "{{ dev_go_tmp.path }}/go.tar.gz"
         dest: /usr/local
         remote_src: true
+        mode: u=rwX,go=rX
       become: true
   always:
     - name: Remove the temporary directory

@@ -96,6 +96,11 @@
         dest: /opt/freerouting
         remote_src: true
         creates: "/opt/freerouting/{{ hobbies_freerouting_dir }}"
+        # Named, not left to the archive: extraction puts the recorded mode through the
+        # run's umask, and the login umask this repo sets closes `other`, so the launcher
+        # would run as a user that cannot read what it launches. Capital X grants execute
+        # only where the archive already had it.
+        mode: u=rwX,go=rX
       become: true
 
     - name: Symlink stable Freerouting path to the installed version

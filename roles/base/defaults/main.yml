@@ -2,8 +2,9 @@
 base_timezone: America/Toronto
 
 # /etc/login.defs UMASK. USERGROUPS_ENAB drops the group bits to match the owner's, so
-# this is the effective value either way.
-base_lockdown_umask: "007"
+# this is the effective value either way. What closes an account off is its home's mode
+# below, not this; see the task for why the value is 002.
+base_lockdown_umask: "002"
 
 # For homes created after this runs; the existing ones are converged to o-rwx.
 base_lockdown_home_mode: "0750"

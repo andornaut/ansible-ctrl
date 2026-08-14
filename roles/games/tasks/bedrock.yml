@@ -32,6 +32,15 @@
         state: present
         persistent: present
 
+    # modprobe writes the file itself and takes no mode, so it lands at whatever the
+    # run's umask allows. systemd-modules-load reads it as root either way; this is so
+    # the file can be read where every other file under /etc/modules-load.d can.
+    - name: Name the mode of the ntsync module list
+      when: games_bedrock_ntsync.rc == 0
+      ansible.builtin.file:
+        path: /etc/modules-load.d/ntsync.conf
+        mode: "0644"
+
 # github.com/Wyze3306/BedrockOnLinux ships only a release .flatpak bundle, which the flatpak
 # module cannot install, taking app IDs and flatpakref URLs only. The launcher only: game
 # files and Microsoft sign-in are interactive per-user steps.
