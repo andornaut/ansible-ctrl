@@ -6,7 +6,8 @@ PATH={{ dev_cron_path }}
 # ai-attributions: daily attribution scan. The checkouts are listed by find
 # rather than by a glob, so a directory under the base that is not a repository
 # is passed over instead of failing the run. Command substitution rather than
-# xargs, which would report its own status in place of the scan's.
+# xargs, which reports its own status in place of the scan's for anything that
+# adds --exit-code to the flags.
 {{ dev_ai_attributions_cron_minute }} {{ dev_ai_attributions_cron_hour }} * * * {{ dev_user }} {{ dev_ai_attributions_binary_path }} scan {{ dev_ai_attributions_scan_flags }} $(find {{ dev_ai_attributions_src_base_dir }} -mindepth 2 -maxdepth 2 -name .git -exec dirname {} +{% if dev_ai_attributions_exclude_repositories %} | grep -vxF{% for repo in dev_ai_attributions_exclude_repositories %} -e {{ dev_ai_attributions_src_base_dir }}/{{ repo }}{% endfor %}{% endif %})
 {% endif %}
 {% if dev_install_ai_maintainer %}
