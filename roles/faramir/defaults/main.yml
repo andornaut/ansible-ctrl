@@ -14,11 +14,18 @@ faramir_client_group: dev
 # first login.
 faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 
-# One --agent each, passed to both init and init-project: the account-wide Read deny rules,
-# and in the tree the redaction hook, the MCP server config and the credentials block.
-# Known: claude, gemini, kilocode, opencode.
+# One --agent each, passed to both init and init-project: the account-wide deny rules, and in
+# the tree the redaction hook, the MCP server config and the credentials block. Every agent
+# the dev role installs that faramir knows, named rather than left to its `auto`, which reads
+# what a home or a tree already carries and so covers an agent only after it has run once
+# unguarded. What each one gets is in the README. Known: antigravity, claude, kilocode,
+# opencode, pi.
 faramir_agents:
+  - antigravity
   - claude
+  - kilocode
+  - opencode
+  - pi
 
 # Whether a brokered command may ASK to sudo on the controller. It cannot sudo on its own:
 # the executor's sudoers entry authenticates through a PAM service that asks the broker
