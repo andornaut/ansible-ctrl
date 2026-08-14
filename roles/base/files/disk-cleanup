@@ -2,11 +2,37 @@
 # Free up disk space. Requires root. Run weekly via /etc/cron.d/ansible-role-base.
 set -euo pipefail
 
-# Remove the downloaded .deb package cache.
-apt-get clean
+# Run an apt command, waiting out another apt process rather than giving up on
+# it. apt-get exits 100 immediately when it cannot take the lock, and
+# DPkg::Lock::Timeout does not cover the archives lock `clean` takes, so the
+# waiting has to happen here. Any other status is a failure retrying will not
+# clear, and is reported at once.
+apt_wait() {
+    local attempt=1 rc=0
+    while true; do
+        # Taken from the command itself: after an `if`, $? is the status of the
+        # `if`, which is 0 whenever its condition merely failed.
+        rc=0
+        "$@" || rc=$?
+        if [[ ${rc} -eq 0 ]]; then
+            return 0
+        fi
+        if [[ ${rc} -ne 100 || ${attempt} -ge 5 ]]; then
+            echo "disk-cleanup: ${*} failed (rc=${rc})" >&2
+            return "${rc}"
+        fi
+        attempt=$((attempt + 1))
+        sleep 60
+    done
+}
+
+# Remove the downloaded .deb package cache. The apt steps do not stop the rest:
+# each cleanup below frees space of its own, and apt being busy is no reason to
+# skip them for a week.
+apt_wait apt-get clean || true
 
 # Remove orphaned packages and old kernels, purging their config.
-apt-get autoremove --purge --yes
+apt_wait apt-get autoremove --purge --yes || true
 
 # Vacuum journald logs (also enforced continuously by journald.conf).
 journalctl --vacuum-size=500M --vacuum-time=4weeks
