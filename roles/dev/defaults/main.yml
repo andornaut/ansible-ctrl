@@ -38,8 +38,10 @@ dev_ai_attributions_binary_path: "{{ dev_user_home }}/.local/bin/ai-attributions
 
 # --quiet prints nothing for a repository that found nothing, so cron mails the
 # days that need an answer and no others. --agents-files opts in to the agent
-# instruction file check, which the tool leaves off. --exit-code makes the status
-# say what the mail says, for anything that reads it.
+# instruction file check, which the tool leaves off. --exit-code exits 1 on a
+# finding, for anything reading the status rather than the mail; a clean run over
+# a base holding a fork exits 3, the tool counting one it declined to examine
+# apart from one it found nothing in.
 dev_ai_attributions_scan_flags: --quiet --exit-code --agents-files
 
 # The cron job runs a coding agent against every checkout under
