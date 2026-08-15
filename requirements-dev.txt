@@ -6,3 +6,6 @@ ansible-lint==26.8.0
 # because the syntax check runs ansible-config and ansible-playbook from it:
 # without this a core release moves under the gate while ansible-lint stays put.
 ansible-core==2.21.3
+# The Python gate, the same pin the other Python repositories here carry so one
+# version decides what is rejected everywhere.
+ruff==0.16.3

@@ -39,9 +39,5 @@ class VarsModule(BaseVarsPlugin):
     # The same for every host and group, so entities is not consulted.
     def get_vars(self, loader, path, entities, cache=True):
         super().get_vars(loader, path, entities)
-        secrets = {
-            name: value
-            for name, value in environ.items()
-            if name.startswith(SECRET_PREFIX) and value
-        }
+        secrets = {name: value for name, value in environ.items() if name.startswith(SECRET_PREFIX) and value}
         return {**secrets, COUNT_VAR: len(secrets)}

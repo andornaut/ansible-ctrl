@@ -40,13 +40,45 @@ TAG = re.compile(r"\(([^)]*)\)")
 
 # Tells a region tag ("(USA)") from a qualifier that merely comes first ("(Homebrew)"), so only the
 # former narrows an ambiguous match.
-REGIONS = frozenset((
-    "usa", "europe", "japan", "world", "asia", "australia", "brazil", "canada", "china",
-    "france", "germany", "greece", "hong kong", "italy", "korea", "latin america", "mexico",
-    "netherlands", "new zealand", "norway", "poland", "portugal", "russia", "scandinavia",
-    "spain", "sweden", "taiwan", "uk", "unknown", "denmark", "finland", "belgium", "austria",
-    "switzerland", "ireland",
-))
+REGIONS = frozenset(
+    (
+        "usa",
+        "europe",
+        "japan",
+        "world",
+        "asia",
+        "australia",
+        "brazil",
+        "canada",
+        "china",
+        "france",
+        "germany",
+        "greece",
+        "hong kong",
+        "italy",
+        "korea",
+        "latin america",
+        "mexico",
+        "netherlands",
+        "new zealand",
+        "norway",
+        "poland",
+        "portugal",
+        "russia",
+        "scandinavia",
+        "spain",
+        "sweden",
+        "taiwan",
+        "uk",
+        "unknown",
+        "denmark",
+        "finland",
+        "belgium",
+        "austria",
+        "switzerland",
+        "ireland",
+    )
+)
 
 # Sized for the largest directory listing, the slowest request this makes.
 TIMEOUT = 60
@@ -148,7 +180,7 @@ def fetch(path):
                 if response.status == 404:
                     return None
                 if response.status != 200:
-                    raise http.client.HTTPException("HTTP %d" % response.status)
+                    raise http.client.HTTPException(f"HTTP {response.status}")
                 if response.getheader("Content-Encoding") == "gzip":
                     body = gzip.decompress(body)
                 return body
@@ -157,7 +189,7 @@ def fetch(path):
             CONNECTIONS.connection = None
             if attempt == 2:
                 with UNREACHABLE_LOCK:
-                    UNREACHABLE.append("%s: %s" % (path, error))
+                    UNREACHABLE.append(f"{path}: {error}")
     return None
 
 
@@ -167,7 +199,7 @@ def listing(system, kind):
     Empty for a system it does not carry at all (Pico-8), which is not an error: the caller then
     reports the gap per game.
     """
-    body = fetch("/%s/%s/" % (urllib.parse.quote(system), kind))
+    body = fetch(f"/{urllib.parse.quote(system)}/{kind}/")
     if body is None:
         return []
     return [
@@ -235,7 +267,7 @@ def missing_slots(playlist_dir, thumbnails_dir):
             with open(path, encoding="utf-8", errors="replace") as handle:
                 items = json.load(handle).get("items", [])
         except (OSError, ValueError):
-            print("skipped %s: not a readable playlist" % playlist, file=sys.stderr)
+            print(f"skipped {playlist}: not a readable playlist", file=sys.stderr)
             continue
 
         for item in items:
@@ -246,9 +278,7 @@ def missing_slots(playlist_dir, thumbnails_dir):
             if system != os.path.splitext(playlist)[0]:
                 overridden.add(system)
             for kind in TYPES:
-                destination = os.path.join(
-                    thumbnails_dir, system, kind, INVALID.sub("_", item["label"]) + ".png"
-                )
+                destination = os.path.join(thumbnails_dir, system, kind, INVALID.sub("_", item["label"]) + ".png")
                 if not os.path.exists(destination):
                     slots.append((system, kind, item["label"], item["path"], destination))
     return slots, overridden
@@ -273,7 +303,7 @@ def main():
         if path.lower().endswith(".png"):
             if kind == BOXART:
                 install(path, destination)
-                print("%s: %s (from the cart)" % (system, label))
+                print(f"{system}: {label} (from the cart)")
         else:
             downloads.append(slot)
 
@@ -294,12 +324,12 @@ def main():
     )
     if misnamed:
         print(
-            "%d system(s) name a thumbnail_db the repository does not publish, so no art can "
-            "resolve for them:" % len(misnamed),
+            f"{len(misnamed)} system(s) name a thumbnail_db the repository does not publish, "
+            "so no art can resolve for them:",
             file=sys.stderr,
         )
         for system in misnamed:
-            print("  %s" % system, file=sys.stderr)
+            print(f"  {system}", file=sys.stderr)
         return 1
 
     def download(slot):
@@ -307,10 +337,7 @@ def main():
         name, loosely = resolve(label, indexes[(system, kind)])
         if name is None:
             return slot, None, False
-        body = fetch(
-            "/%s/%s/%s.png"
-            % (urllib.parse.quote(system), kind, urllib.parse.quote(name))
-        )
+        body = fetch(f"/{urllib.parse.quote(system)}/{kind}/{urllib.parse.quote(name)}.png")
         if not body:
             return slot, None, False
         install(body, destination)
@@ -327,29 +354,28 @@ def main():
                 continue
             # Name the looser match: it is the art of the dump before it was translated or
             # patched, a judgement worth seeing.
-            print("%s: %s%s" % (system, label, (" as %s" % name) if loosely else ""))
+            print("{}: {}{}".format(system, label, (f" as {name}") if loosely else ""))
 
     # An unreachable repository resolves every game to "no art published", which from here looks
     # exactly like a complete cache. Fail rather than report convergence.
     if UNREACHABLE:
         print(
-            "%d request(s) to %s went unanswered, so nothing can be said about what is missing:"
-            % (len(UNREACHABLE), HOST),
+            f"{len(UNREACHABLE)} request(s) to {HOST} went unanswered, so nothing can be said about what is missing:",
             file=sys.stderr,
         )
         for failure in UNREACHABLE[:5]:
-            print("  %s" % failure, file=sys.stderr)
+            print(f"  {failure}", file=sys.stderr)
         return 1
 
     if unresolved:
         print(
-            "no box art is published for %d game(s). Either it is a dump the repository does not "
-            "carry, or the library has named it in a way the No-Intro standard does not:"
-            % len(unresolved),
+            f"no box art is published for {len(unresolved)} game(s). Either it is a dump the "
+            "repository does not carry, or the library has named it in a way the No-Intro "
+            "standard does not:",
             file=sys.stderr,
         )
         for system, label in sorted(unresolved):
-            print("  [%s] %s" % (system, label), file=sys.stderr)
+            print(f"  [{system}] {label}", file=sys.stderr)
 
     return 0
 

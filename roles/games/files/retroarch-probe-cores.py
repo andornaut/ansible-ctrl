@@ -51,7 +51,7 @@ def main(cores_dir):
             info = CoreInfo()
             library.retro_get_system_info(ctypes.byref(info))
         except OSError as error:
-            broken.append("%s: %s" % (os.path.basename(path), error))
+            broken.append(f"{os.path.basename(path)}: {error}")
             continue
 
         extensions = (info.valid_extensions or b"").decode().split("|")

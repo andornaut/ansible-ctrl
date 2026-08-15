@@ -95,25 +95,24 @@ def validate_system(info_dir, probed, core, extensions):
             # opens itself and lists among its extensions -- hence the second condition.
             if probed[core]["block_extract"] and "zip" not in accepted:
                 reasons.append(
-                    '"zip" is not launchable by %s: the core sets block_extract, so RetroArch '
-                    "hands it the archive unopened" % core
+                    f'"zip" is not launchable by {core}: the core sets block_extract, so RetroArch '
+                    "hands it the archive unopened"
                 )
         elif effective not in accepted:
             reasons.append(
-                '"%s" is not among the extensions %s accepts (%s)'
-                % (extension, core, "|".join(sorted(accepted)))
+                '"{}" is not among the extensions {} accepts ({})'.format(extension, core, "|".join(sorted(accepted)))
             )
     return reasons
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def core_info_field(info_dir, core, field, default=""):
     """Return one field from a core's .info file, or default when it is missing.
 
     Read from the .info rather than duplicated in the systems table, so it cannot drift from the
     installed core. Memoised because systems sharing a core would each reparse the file.
     """
-    path = os.path.join(info_dir, "%s_libretro.info" % core)
+    path = os.path.join(info_dir, f"{core}_libretro.info")
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             for line in handle:
@@ -157,9 +156,7 @@ def disc_entry(directory, extensions):
     return next((disc for disc in discs if "(Disc 1)" in disc), discs[0])
 
 
-def system_items(
-    names, game_cores, system_dir, emit_system_dir, extensions, core_path, core_name, db_name
-):
+def system_items(names, game_cores, system_dir, emit_system_dir, extensions, core_path, core_name, db_name):
     """Build the playlist items for one system directory.
 
     Scanned at system_dir, written under emit_system_dir; equal for a same-host run. names maps
@@ -190,7 +187,7 @@ def system_items(
             path = entry.path
 
         # Onto the target's mount. path is always under system_dir.
-        path = emit_system_dir + path[len(system_dir):]
+        path = emit_system_dir + path[len(system_dir) :]
 
         # Only core_path differs; db_name stays the system's, so art resolves off the one playlist.
         item_core_path, item_core_name = game_cores.get(label, (core_path, core_name))
@@ -246,10 +243,10 @@ def prune_playlists(playlist_dir, library_dir, systems):
         if name[: -len(".lpl")] in systems:
             continue
         if not is_generated_playlist(path, library_dir):
-            print("kept %s: not a generated playlist" % name, file=sys.stderr)
+            print(f"kept {name}: not a generated playlist", file=sys.stderr)
             continue
         os.remove(path)
-        removed.append("removed %s" % name)
+        removed.append(f"removed {name}")
     return removed
 
 
@@ -276,7 +273,7 @@ def main():
 
     # An unmounted share looks like an empty directory, which would empty every playlist.
     if not os.path.isdir(library_dir):
-        sys.exit("%s: ROM library is not a directory" % library_dir)
+        sys.exit(f"{library_dir}: ROM library is not a directory")
 
     # The probe covers every installed core and the role installs every core the table names, so an
     # unanswered core means the two disagree. game_cores is held to the same bar, or it would write
@@ -285,37 +282,34 @@ def main():
     declared.update(core for _, spec in systems for core in spec.get("game_cores", {}).values())
     unknown = sorted(declared - set(probed))
     if unknown:
-        sys.exit("no installed core reported itself as: %s" % ", ".join(unknown))
+        sys.exit("no installed core reported itself as: {}".format(", ".join(unknown)))
 
     # Whole table before writing anything, so problems are reported together rather than one failed
     # run at a time. A game_cores core launches the system's content, so it faces the same
     # extensions.
     problems = [
-        "%s: %s" % (system, reason)
+        f"{system}: {reason}"
         for system, spec in systems
         for core in [spec["core"], *sorted(set(spec.get("game_cores", {}).values()))]
         for reason in validate_system(info_dir, probed, core, spec["extensions"])
     ]
     if problems:
-        sys.exit(
-            "games_retroarch_systems declares content its cores cannot launch:\n  "
-            + "\n  ".join(problems)
-        )
+        sys.exit("games_retroarch_systems declares content its cores cannot launch:\n  " + "\n  ".join(problems))
 
     changed = []
     for system, spec in systems:
         system_dir = os.path.join(library_dir, system)
         if not os.path.isdir(system_dir):
-            print("skipped %s: no such directory under the library" % system, file=sys.stderr)
+            print(f"skipped {system}: no such directory under the library", file=sys.stderr)
             continue
 
         core = spec["core"]
         # The filename is what RetroArch displays; db_name is what it resolves thumbnails by, and
         # what retroarch-fetch-thumbnails.py reads to pick the cache directory. thumbnail_db splits
         # the two for a system whose art the repository publishes under another name.
-        playlist_name = "%s.lpl" % system
-        db_name = "%s.lpl" % spec.get("thumbnail_db", system)
-        core_path = os.path.join(cores_dir, "%s%s" % (core, core_suffix))
+        playlist_name = f"{system}.lpl"
+        db_name = "{}.lpl".format(spec.get("thumbnail_db", system))
+        core_path = os.path.join(cores_dir, f"{core}{core_suffix}")
         emit_system_dir = os.path.join(emit_library_dir, emit_system_dirs.get(system, system))
         # A missing .info costs only a cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
@@ -323,7 +317,7 @@ def main():
         # label -> (core_path, core_name) for titles this system's core cannot launch.
         game_cores = {
             label: (
-                os.path.join(cores_dir, "%s%s" % (game_core, core_suffix)),
+                os.path.join(cores_dir, f"{game_core}{core_suffix}"),
                 core_info_field(info_dir, game_core, "display_name", default=game_core),
             )
             for label, game_core in spec.get("game_cores", {}).items()
@@ -342,17 +336,14 @@ def main():
         # Never replace an existing playlist with an empty one: scanning to nothing means a wrong
         # extension list or a half-mounted share, neither worth discarding a good playlist over.
         if not items:
-            print("skipped %s: no content matched %s" % (system, spec["extensions"]), file=sys.stderr)
+            print("skipped {}: no content matched {}".format(system, spec["extensions"]), file=sys.stderr)
             continue
 
         # After the empty guard, so a half-mounted share reports as the skip above rather than as
         # drift. A game_cores label matching nothing is inert while still reading as a fix.
         stale = sorted(set(game_cores) - {item["label"] for item in items})
         if stale:
-            sys.exit(
-                "%s: game_cores name labels the directory does not contain: %s"
-                % (system, ", ".join(stale))
-            )
+            sys.exit("{}: game_cores name labels the directory does not contain: {}".format(system, ", ".join(stale)))
 
         playlist = {
             "version": PLAYLIST_VERSION,
@@ -389,7 +380,7 @@ def main():
 
         with open(path, "wb") as handle:
             handle.write(content)
-        changed.append("%s (%d)" % (system, len(items)))
+        changed.append(f"{system} ({len(items)})")
 
     changed.extend(prune_playlists(playlist_dir, emit_library_dir, config["systems"]))
 

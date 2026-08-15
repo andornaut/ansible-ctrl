@@ -90,24 +90,21 @@ check_shell() {
     return "${status}"
 }
 
-# By extension or shebang, for the same reason: a .py needs no shebang to be Python, and a
-# script run from one needs no extension. templates/ is not scanned, no role rendering
-# Python from Jinja2. The roles copy these verbatim and no task parses them, so without this
-# a syntax error ships and surfaces only when one is run.
+# ruff, the same version and settings the other Python repositories here run, so one gate
+# governs Python everywhere. The whole tree rather than a list of paths, so a script added
+# outside roles/ is covered without anyone remembering to add it: ruff.toml names the one
+# per-file exception, and ruff reads its own excludes.
+#
+# A shebang-only script would need naming here, ruff discovering Python by extension; there
+# are none today, and the roles copy every .py verbatim with no task parsing it, so without
+# this a mistake ships and surfaces only when one is run.
 check_python() {
-    local status=0 src first
-    while IFS= read -r src; do
-        case "${src}" in
-        *.py) ;;
-        *)
-            IFS= read -r first <"${src}" || true
-            grep -qE '^#!.*\bpython3?\b' <<<"${first}" || continue
-            ;;
-        esac
-        echo "== ${src} =="
-        python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "${src}" ||
-            status=1
-    done < <(find roles/ -type f -path '*/files/*')
+    local status=0
+    require_lint_bin_dir || return 1
+    echo "== ruff check =="
+    "${LINT_BIN_DIR}/ruff" check . || status=1
+    echo "== ruff format =="
+    "${LINT_BIN_DIR}/ruff" format --check . || status=1
     return "${status}"
 }
 

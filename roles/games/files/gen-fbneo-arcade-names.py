@@ -47,7 +47,7 @@ def main():
     with open(OUT, "w", encoding="utf-8") as handle:
         json.dump(dict(sorted(names.items())), handle, ensure_ascii=False, indent=0)
         handle.write("\n")
-    print("wrote %d names -> %s" % (len(names), OUT))
+    print(f"wrote {len(names)} names -> {OUT}")
 
 
 if __name__ == "__main__":
