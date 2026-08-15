@@ -13,16 +13,36 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 # version the gate rejects against.
 readonly VENV=.ansible/lint-venv
 
-check_ansible_lint() {
+# The directory every tool from requirements-dev.txt is run out of: ansible-lint, and the
+# ansible-config and ansible-playbook the syntax check runs, which come from the pinned
+# ansible-core beside it. Never bare names off PATH: the distro ships its own ansible-core,
+# whose version no commit here names, so a syntax check taking that one rejects against a
+# version the gate does not.
+#
+# ansible-lint is the marker of a requirements-dev.txt install, being the one tool the distro
+# does not package: on PATH in CI, which pip-installs the file, and absent locally, where the
+# venv is built instead.
+#
+# Sets LINT_BIN_DIR rather than printing it, so the two checks that need it resolve once.
+LINT_BIN_DIR=""
+require_lint_bin_dir() {
     local bin
-    if ! bin=$(command -v ansible-lint); then
-        if [[ ! -x ${VENV}/bin/ansible-lint ]]; then
-            python3 -m venv "${VENV}" || return 1
-            "${VENV}/bin/pip" install --quiet -r requirements-dev.txt || return 1
-        fi
-        bin=${VENV}/bin/ansible-lint
+    [[ -n ${LINT_BIN_DIR} ]] && return 0
+    if bin=$(command -v ansible-lint); then
+        LINT_BIN_DIR=$(dirname "${bin}")
+        return 0
     fi
-    "${bin}"
+    [[ -x ${VENV}/bin/pip ]] || python3 -m venv "${VENV}" || return 1
+    # Installed on every run, not only when the venv is missing: an existing venv keeps
+    # whatever it was built with, so a pin bumped here would otherwise never reach it and
+    # the local run would keep checking against a version no commit names.
+    "${VENV}/bin/pip" install --quiet -r requirements-dev.txt || return 1
+    LINT_BIN_DIR=${VENV}/bin
+}
+
+check_ansible_lint() {
+    require_lint_bin_dir || return 1
+    "${LINT_BIN_DIR}/ansible-lint"
 }
 
 # The real inventory is gitignored, so parse against tests/inventory.ini, which has
@@ -33,12 +53,13 @@ check_ansible_lint() {
 # where the keys that do not match their option name live.
 check_syntax() {
     local status=0 playbook
+    require_lint_bin_dir || return 1
     echo "== ansible.cfg =="
-    ansible-config validate -t all || status=1
+    "${LINT_BIN_DIR}/ansible-config" validate -t all || status=1
     for playbook in *.yml; do
         [[ ${playbook} == requirements.yml ]] && continue
         echo "== ${playbook} =="
-        ansible-playbook --syntax-check -i tests/inventory.ini "${playbook}" || status=1
+        "${LINT_BIN_DIR}/ansible-playbook" --syntax-check -i tests/inventory.ini "${playbook}" || status=1
     done
     return "${status}"
 }
