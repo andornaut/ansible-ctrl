@@ -3,9 +3,8 @@
 # default, and reflowing them buys nothing.
 line-length = 120
 
-[lint.per-file-ignores]
-# Home Assistant runs a python_script inside a sandbox that injects `data`,
-# `hass` and `logger` rather than importing them, and rejects the file if it
-# imports anything at all, so there is no spelling of these that ruff can
-# resolve.
-"roles/homeautomation/files/homeassistant/python_scripts/*.py" = ["F821"]
+# Home Assistant runs a python_script inside a sandbox that injects these and
+# rejects the file if it imports anything at all, so there is no spelling of
+# them ruff can resolve. Named rather than turning F821 off for the file, which
+# would forgive a genuine typo in the same breath.
+builtins = ["data", "hass", "logger"]
