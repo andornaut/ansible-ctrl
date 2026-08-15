@@ -1,5 +1,13 @@
 version: 2
 updates:
+  # requirements-dev.txt holds the lint gate's tooling. Nothing here is
+  # installed on a host: the playbooks reach Python through the roles.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

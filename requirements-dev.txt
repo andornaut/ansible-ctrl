@@ -1,0 +1,5 @@
+# The lint gate's own tooling, pinned so a release upstream cannot turn a check
+# red without a commit here. Dependabot proposes the bump through the pip
+# ecosystem. ansible-core arrives as a dependency of ansible-lint, and the
+# syntax check runs it.
+ansible-lint==26.8.0

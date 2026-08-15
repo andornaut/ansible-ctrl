@@ -8,7 +8,9 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 # Not packaged for the distro, so a local run keeps it in a venv under .ansible/.
-# CI pip-installs it instead, and this takes whichever is on PATH.
+# CI pip-installs it instead, and this takes whichever is on PATH. Both install
+# from requirements-dev.txt, so the version a local run rejects against is the
+# version the gate rejects against.
 readonly VENV=.ansible/lint-venv
 
 check_ansible_lint() {
@@ -16,7 +18,7 @@ check_ansible_lint() {
     if ! bin=$(command -v ansible-lint); then
         if [[ ! -x ${VENV}/bin/ansible-lint ]]; then
             python3 -m venv "${VENV}" || return 1
-            "${VENV}/bin/pip" install --quiet ansible-lint || return 1
+            "${VENV}/bin/pip" install --quiet -r requirements-dev.txt || return 1
         fi
         bin=${VENV}/bin/ansible-lint
     fi

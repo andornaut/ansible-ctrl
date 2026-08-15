@@ -47,8 +47,11 @@ jobs:
           restore-keys: collections-
 
       # ansible-lint depends on ansible-core, which the syntax check runs.
+      # From the pinned file rather than the name, so the version this gate
+      # rejects against is the one a commit named, and the same one a local
+      # `make lint` installs.
       - name: Install ansible-lint
-        run: pip install ansible-lint
+        run: pip install -r requirements-dev.txt
 
       # Without them, the syntax check reports every collection module as unknown.
       - name: Install Ansible collections
