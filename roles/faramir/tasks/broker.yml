@@ -59,8 +59,14 @@
         probe: command -v sops
         hint: "It comes from the dev role: make dev -- --tags sops"
 
-- name: Install faramir from the dev release
+- name: Install faramir from its latest release
   block:
+    - name: Get the latest faramir release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: "{{ faramir_release_repo }}"
+        release_fact: faramir_release
+
     - name: Create a temporary directory for the faramir release
       ansible.builtin.tempfile:
         state: directory
@@ -71,8 +77,8 @@
       ansible.builtin.get_url:
         url: "{{ faramir_release_url }}/{{ faramir_release_archive }}"
         dest: "{{ faramir_release_tmp.path }}/{{ faramir_release_archive }}"
-        # `dev` is a moving tag: a download straddling a re-cut fails the
-        # checksum rather than installing mismatched binaries.
+        # Verified against the checksums goreleaser published with the same tag,
+        # so a truncated or tampered archive fails here rather than installing.
         checksum: "sha256:{{ faramir_release_url }}/checksums.txt"
         mode: "0644"
       check_mode: false

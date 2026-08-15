@@ -18,7 +18,7 @@
   ansible.builtin.uri:
     url: "{{ release_api_base | default('https://api.github.com/repos') }}/{{ release_repo }}/releases/latest"
     return_content: true
-  register: hobbies_release_response
+  register: faramir_release_response
   # uri supports no check mode, so a --check run would skip this and leave release_fact
   # undefined for every task that templates it. The request only reads.
   check_mode: false
@@ -26,9 +26,9 @@
   delay: 5
   # Retry network errors and 5xx only; 4xx (rate limit, missing repo) is deterministic.
   until: >-
-    hobbies_release_response.status == 200 or
-    (hobbies_release_response.status >= 400 and hobbies_release_response.status < 500)
+    faramir_release_response.status == 200 or
+    (faramir_release_response.status >= 400 and faramir_release_response.status < 500)
 
 - name: Set fact to the latest release for {{ release_fact }}
   ansible.builtin.set_fact:
-    "{{ release_fact }}": "{{ hobbies_release_response.json }}"
+    "{{ release_fact }}": "{{ faramir_release_response.json }}"

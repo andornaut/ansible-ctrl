@@ -8,9 +8,14 @@ faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 # The account ansible connects to a managed host as, set per host by the inventory.
 faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 
-# `dev` is rolling, re-cut by CI on every push to faramir's main. Its assets match a tagged
-# release's, so moving to one is this URL alone.
-faramir_release_url: https://github.com/andornaut/faramir/releases/download/dev
+faramir_release_repo: andornaut/faramir
+
+# The latest tagged release, resolved by tasks/get_latest_release.yml. Never the rolling
+# `dev` one CI re-cuts on every push to faramir's main: that release is published with
+# make_latest=false, so GitHub's "latest" pointer skips it. Resolves only after the include
+# that sets faramir_release.
+faramir_release_url: >-
+  https://github.com/{{ faramir_release_repo }}/releases/download/{{ faramir_release.tag_name }}
 
 # goreleaser's names rather than Debian's: x86_64 kept, aarch64 to arm64. Same
 # mapping as base_arch, which reads assets from the same CI.

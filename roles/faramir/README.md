@@ -53,7 +53,7 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 
 `faramir init` establishes the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. On top of that, the role:
 
-- Downloads the binary from faramir's rolling `dev` release, verified against `checksums.txt` from the same release
+- Downloads the binary from faramir's latest tagged (`v*`) release, verified against `checksums.txt` from the same release. The rolling `dev` release is published with `make_latest=false`, so GitHub's "latest" pointer never selects it
 - Runs `faramir init-project` against `playbook_dir`, and writes the block covering how to run these playbooks through the broker
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values injected into it. `~` leaves the host's value alone
 - Runs `faramir doctor` and asserts on its report

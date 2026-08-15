@@ -19,6 +19,9 @@
     url: "{{ release_api_base | default('https://api.github.com/repos') }}/{{ release_repo }}/releases/latest"
     return_content: true
   register: desktop_release_response
+  # uri supports no check mode, so a --check run would skip this and leave release_fact
+  # undefined for every task that templates it. The request only reads.
+  check_mode: false
   retries: 3
   delay: 5
   # Retry network errors and 5xx only; 4xx (rate limit, missing repo) is deterministic.
