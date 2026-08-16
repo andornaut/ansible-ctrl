@@ -65,26 +65,35 @@ check_syntax() {
 }
 
 # Found by shebang rather than an enumerated list, so a new script needs no edit here. Line
-# 1 only, so a #! deeper in another file is not mistaken for one. ShellCheck cannot parse
-# Jinja2, so templates are rendered first, named by flattened repo-relative path so a shared
-# basename cannot overwrite.
+# 1 only, so a #! deeper in another file is not mistaken for one. Every tracked file rather
+# than roles/ alone, on the same reasoning as check_python: a script added elsewhere, this
+# one included, is covered without anyone remembering to add it. Tracked, because
+# ansible-galaxy installs collections into .ansible/, and third-party shell is not this
+# repository's to lint.
+#
+# ShellCheck cannot parse Jinja2, so templates are rendered to a temporary copy first, named
+# by flattened repo-relative path so a shared basename cannot overwrite. Everything else is
+# checked where it lies, so the path ShellCheck reports is the one to go and edit.
 check_shell() {
     local dir src first dest status
+    local -a targets=()
     dir=$(mktemp -d) || return 1
 
-    while IFS= read -r src; do
+    while IFS= read -r -d '' src; do
+        [[ -f ${src} ]] || continue
         IFS= read -r first <"${src}" || true
         grep -qE '^#!.*\b(bash|sh)\b' <<<"${first}" || continue
-        dest="${dir}/${src//\//_}"
-        dest="${dest%.j2}.sh"
         if [[ ${src} == */templates/* ]]; then
+            dest="${dir}/${src//\//_}"
+            dest="${dest%.j2}.sh"
             sed -E -e 's/\{\{[^}]*\}\}/PLACEHOLDER/g' -e 's/\{%[^%]*%\}//g' "${src}" >"${dest}"
+            targets+=("${dest}")
         else
-            cp "${src}" "${dest}"
+            targets+=("${src}")
         fi
-    done < <(find roles/ -type f \( -path '*/templates/*' -o -path '*/files/*' \))
+    done < <(git ls-files -z)
 
-    shellcheck "${dir}"/*.sh
+    shellcheck "${targets[@]}"
     status=$?
     rm -rf "${dir}"
     return "${status}"
