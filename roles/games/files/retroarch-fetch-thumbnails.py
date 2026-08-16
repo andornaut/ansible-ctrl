@@ -147,7 +147,7 @@ def disambiguate(label, candidates):
     def rank(name):
         tags = tags_of(name)
         shared = 0
-        for mine, theirs in zip(label_tags, tags):
+        for mine, theirs in zip(label_tags, tags, strict=False):
             if mine != theirs:
                 break
             shared += 1
@@ -310,7 +310,7 @@ def main():
     # One listing per system and type, only where a gap remains.
     wanted = sorted({(system, kind) for system, kind, _, _, _ in downloads})
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        indexes = dict(zip(wanted, pool.map(lambda pair: index(listing(*pair)), wanted)))
+        indexes = dict(zip(wanted, pool.map(lambda pair: index(listing(*pair)), wanted), strict=False))
 
     # An override exists precisely to name a directory the repository has, so one publishing
     # nothing is a wrong thumbnail_db value. Unchecked it degrades into "no box art is published"

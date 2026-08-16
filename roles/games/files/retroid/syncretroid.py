@@ -40,6 +40,7 @@ The device library_names and the pad indices are the two things this cannot deri
 """
 
 import argparse
+import contextlib
 import json
 import os
 import posixpath
@@ -72,7 +73,8 @@ CFG_LINE = re.compile(r"^\s*([\w.]+)\s*=\s*(.*)$")
 
 
 def load_yaml(path):
-    import yaml  # PyYAML; ships with Ansible, which the dev host already has.
+    # Imported here so the script runs where PyYAML is absent.
+    import yaml  # PyYAML; ships with Ansible, which the dev host already has.  # noqa: PLC0415
 
     with open(path, encoding="utf-8") as handle:
         return yaml.safe_load(handle)
@@ -83,10 +85,8 @@ def build_model(role_vars, profile):
     systems = dict(role_vars["games_retroarch_systems"])
     for name in profile["systems_remove"]:
         systems.pop(name, None)
-    for name, spec in (profile.get("systems_set") or {}).items():
-        systems[name] = spec
-    for name, spec in (profile.get("systems_add") or {}).items():
-        systems[name] = spec
+    systems.update(profile.get("systems_set") or {})
+    systems.update(profile.get("systems_add") or {})
 
     # Base, less the dropped and directory keys, then the Android overrides, the device
     # directories and the pad bindings. The directory keys are Jinja host paths only Ansible
@@ -106,8 +106,7 @@ def build_model(role_vars, profile):
         for core, spec in role_vars["games_retroarch_core_overrides"].items()
         if core not in set(profile["core_overrides_remove"])
     }
-    for core, spec in (profile.get("core_overrides_set") or {}).items():
-        overrides[core] = spec
+    overrides.update(profile.get("core_overrides_set") or {})
 
     options = {core: dict(spec) for core, spec in role_vars["games_retroarch_core_options"].items()}
     for core, spec in (profile.get("core_options_set") or {}).items():
@@ -207,16 +206,14 @@ class Device:
         """
         if self.dry_run:
             return
-        try:
+        with contextlib.suppress(subprocess.TimeoutExpired):
             subprocess.run(
-                self._base() + ["wait-for-device"],
+                [*self._base(), "wait-for-device"],
                 timeout=timeout,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
             )
-        except subprocess.TimeoutExpired:
-            pass
 
     def stop_app(self, package):
         """Force-stop an app so it cannot rewrite what the sync pushes.
@@ -421,8 +418,7 @@ def merge_cfg(existing, managed, drop):
     if appended:
         if out and out[-1].strip():
             out.append("")
-        for key in appended:
-            out.append(f'{key} = "{managed[key]}"')
+        out.extend(f'{key} = "{managed[key]}"' for key in appended)
     return "\n".join(out) + "\n"
 
 
@@ -445,7 +441,8 @@ def fetch_info(profile, info_dir):
     os.makedirs(info_dir, exist_ok=True)
     url = profile["info_zip_url"]
     print(f"  fetch {url}")
-    with urllib.request.urlopen(url, timeout=120) as response:
+    # The url comes from the operator's own profile.yml.
+    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
         data = response.read()
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for member in archive.namelist():
@@ -455,7 +452,8 @@ def fetch_info(profile, info_dir):
 
 
 def io_bytes(data):
-    import io
+    # Imported only on the fetch path.
+    import io  # noqa: PLC0415
 
     return io.BytesIO(data)
 
@@ -487,9 +485,7 @@ def preset_refs(text):
             pairs[match.group(1)] = match.group(2).strip().strip('"')
     refs.extend(value for key, value in pairs.items() if SHADER_PASS.match(key))
     # textures = "aperture;slot;delta", each name keyed to its own path.
-    for name in (pairs.get("textures") or "").split(";"):
-        if name.strip() in pairs:
-            refs.append(pairs[name.strip()])
+    refs.extend(pairs[name.strip()] for name in (pairs.get("textures") or "").split(";") if name.strip() in pairs)
     return refs
 
 
@@ -535,7 +531,8 @@ def fetch_shaders(shaders, shader_dir):
     """
     url = shaders["zip_url"]
     print(f"  fetch {url}")
-    with urllib.request.urlopen(url, timeout=300) as response:
+    # The url comes from the operator's own profile.yml.
+    with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310
         data = response.read()
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for path in sorted(resolve_preset(archive, shaders["preset"])):

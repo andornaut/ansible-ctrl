@@ -8,3 +8,68 @@ line-length = 120
 # them ruff can resolve. Named rather than turning F821 off for the file, which
 # would forgive a genuine typo in the same breath.
 builtins = ["data", "hass", "logger"]
+
+[lint]
+# Every rule ruff has, then what is given up and why. The version is pinned in
+# each gate's manifest, so this set only moves when a commit moves it.
+select = ["ALL"]
+ignore = [
+    # Mandates rather than checks: an annotation on every signature, a docstring
+    # on every module and function, a copyright header on every file.
+    "ANN",
+    "D",
+    "CPY",
+    # The formatter owns commas and quoting; ruff documents these as conflicting
+    # with it.
+    "COM",
+    # Bans print(). These are command line scripts, where print is the output.
+    "T20",
+    # Style preferences about call shape and where an exception's message lives.
+    "FBT",
+    "EM",
+    "TRY003",
+    "PLR2004",
+    # Size and complexity ceilings. Worth watching, not worth failing a build on,
+    # and the Go gates here give up the same ones.
+    "C901",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR0917",
+    # Mandate a control-flow shape: a return moved into an else, a raise
+    # hoisted into its own function, a try that may not sit in a loop.
+    "TRY300",
+    "TRY301",
+    "PERF203",
+    # os.path is correct and not deprecated. Rewriting it to pathlib changes the
+    # type flowing through these scripts, and none of them has a test that would
+    # catch a bad rewrite.
+    "PTH",
+]
+
+[lint.per-file-ignores]
+# A test asserts, reaches into the unit it covers, and writes stubs whose
+# arguments exist to match a signature rather than to be read.
+"**/test_*.py" = ["ARG", "S101", "SLF001"]
+"**/*_test.py" = ["ARG", "S101", "SLF001"]
+
+# Local to this repository. These are files a role copies to a host and runs
+# there, not modules this project imports.
+"roles/**/*.py" = [
+    # Running adb, git and npm, and finding them on PATH, is the job.
+    "S603",
+    "S607",
+    # A directory of files a role copies is not a package, and adding
+    # __init__.py to it would ship a file no role installs.
+    "INP001",
+]
+"vars_plugins/*.py" = [
+    # Ansible loads a vars plugin by path and calls get_vars with a fixed
+    # signature, so an argument it does not read still has to be accepted.
+    "ARG002",
+    # A plugin directory is loaded by ansible, not imported.
+    "INP001",
+    # SECRET_PREFIX names a prefix; it holds no secret.
+    "S105",
+]
