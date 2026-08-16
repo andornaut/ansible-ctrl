@@ -22,3 +22,28 @@
     dev_cli_name: nvm
     dev_cli_url: "https://raw.githubusercontent.com/nvm-sh/nvm/{{ dev_nvm_release.tag_name }}/install.sh"
     dev_cli_creates: "{{ dev_user_home }}/.nvm/nvm.sh"
+
+# Installed as dev_user, whose ~/.nvm the install above created. nvm is a shell
+# function rather than a binary, so it is sourced first.
+- name: Install Node {{ dev_node_version }}
+  ansible.builtin.shell: # noqa: command-instead-of-module
+    cmd: source {{ dev_user_home }}/.nvm/nvm.sh && nvm install {{ dev_node_version }}
+    creates: "{{ dev_user_home }}/.nvm/versions/node/{{ dev_node_version }}"
+    executable: /bin/bash
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+    NVM_DIR: "{{ dev_user_home }}/.nvm"
+
+# What a shell gets where no .nvmrc names a version, which is every directory
+# outside these projects. Written rather than set through `nvm alias default`,
+# which reports the same output whether it changed anything or not: nvm keeps
+# the alias as this file, holding the version string and nothing else.
+- name: Set the nvm default to Node {{ dev_node_version }}
+  ansible.builtin.copy:
+    content: "{{ dev_node_version }}\n"
+    dest: "{{ dev_user_home }}/.nvm/alias/default"
+    mode: "0644"
+  become: true
+  become_user: "{{ dev_user }}"

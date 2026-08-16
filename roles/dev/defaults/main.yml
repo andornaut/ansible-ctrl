@@ -14,6 +14,17 @@ dev_user: "{{ primary_user }}"
 dev_ruby_version: "3.2.2"
 dev_bundler_version: "4.0.13"
 
+# The Node the JavaScript repositories name in .nvmrc, installed under
+# ~/.nvm/versions/node and made nvm's default. The same shape as the Ruby pin
+# above, and the same drift: nvm is installed either way, and with no version
+# under it `nvm use` selects nothing and a shell falls back to the apt node,
+# which is several majors behind what those repositories declare in engines.
+#
+# Go needs no equivalent. It has no per-project version manager here: one
+# toolchain in /usr/local serves every go.mod, and the language downloads a
+# newer one itself when a module asks for one it does not have.
+dev_node_version: "v24.13.1"
+
 # Several GB of SDK, useful only where Android apps are built.
 dev_install_android_sdk: false
 # Google names the command line tools archive after a build number, and offers no
