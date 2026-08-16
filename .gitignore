@@ -16,3 +16,9 @@ secrets/
 # Holds no value, only secret:// references, but those references map this
 # repo's variables onto the secret store's layout.
 faramir.env
+
+# AI agent instructions, local only. Named here as well as in the global
+# ignore, which a session working from a fresh clone does not have.
+AGENTS.md
+CLAUDE.md
+GEMINI.md
