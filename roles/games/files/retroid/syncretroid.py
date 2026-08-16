@@ -51,18 +51,19 @@ import sys
 import tempfile
 import urllib.request
 import zipfile
+from pathlib import Path
 
 # Runs from the role directory rather than a copy, so an edit here, to vars/main.yml or to
 # profile.yml reaches the next run; only the wrapper's own values need the role re-run.
 # realpath, so a symlink onto PATH resolves to the checkout, not the link's dir.
-ROLE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+ROLE_DIR = Path(__file__).resolve().parents[2]
 # The role's canonical data. vars/ rather than defaults/ because nothing here resolves
 # inventory, so a host_vars override would silently miss the device.
-ROLE_VARS = os.path.join(ROLE_DIR, "vars", "main.yml")
-PROFILE = os.path.join(ROLE_DIR, "files", "retroid", "profile.yml")
-GENERATOR = os.path.join(ROLE_DIR, "files", "retroarch-generate-playlists.py")
+ROLE_VARS = ROLE_DIR / "vars" / "main.yml"
+PROFILE = ROLE_DIR / "files" / "retroid" / "profile.yml"
+GENERATOR = ROLE_DIR / "files" / "retroarch-generate-playlists.py"
 # Read straight from the role, so device playlists get the desktop's labels.
-ARCADE_NAMES = os.path.join(ROLE_DIR, "files", "fbneo-arcade-names.json")
+ARCADE_NAMES = ROLE_DIR / "files" / "fbneo-arcade-names.json"
 # A rendered stand-in for the sdcard UUID when --dry-run runs with no device attached.
 DRY_RUN_UUID = "SDCARD"
 
@@ -76,7 +77,7 @@ def load_yaml(path):
     # Imported here so the script runs where PyYAML is absent.
     import yaml  # PyYAML; ships with Ansible, which the dev host already has.  # noqa: PLC0415
 
-    with open(path, encoding="utf-8") as handle:
+    with Path(path).open(encoding="utf-8") as handle:
         return yaml.safe_load(handle)
 
 
@@ -237,7 +238,7 @@ class Device:
         try:
             self.push(tmp, remote)
         finally:
-            os.unlink(tmp)
+            Path(tmp).unlink()
 
     def rm(self, path):
         self._write(["shell", f"rm -rf {shq(path)}"], f"rm -rf {path}")
@@ -389,7 +390,7 @@ def override_config_dir(existing_cfg, cfg_path):
             value = match.group(2).strip().strip('"')
             if value:
                 return value
-    return f"{os.path.dirname(cfg_path)}/config"
+    return f"{posixpath.dirname(cfg_path)}/config"
 
 
 # --------------------------------------------------------------------------- cfg merge
@@ -438,7 +439,7 @@ def fetch_info(profile, info_dir):
     Any member ending in .info is kept under its basename, so the set arrives whether the zip stores
     the files at its root or under a subdirectory.
     """
-    os.makedirs(info_dir, exist_ok=True)
+    Path(info_dir).mkdir(parents=True, exist_ok=True)
     url = profile["info_zip_url"]
     print(f"  fetch {url}")
     # The url comes from the operator's own profile.yml.
@@ -447,7 +448,7 @@ def fetch_info(profile, info_dir):
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for member in archive.namelist():
             if member.endswith(".info"):
-                with open(os.path.join(info_dir, os.path.basename(member)), "wb") as handle:
+                with (Path(info_dir) / Path(member).name).open("wb") as handle:
                     handle.write(archive.read(member))
 
 
@@ -536,10 +537,9 @@ def fetch_shaders(shaders, shader_dir):
         data = response.read()
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for path in sorted(resolve_preset(archive, shaders["preset"])):
-            target = os.path.join(shader_dir, *path.split("/"))
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            with open(target, "wb") as handle:
-                handle.write(archive.read(path))
+            target = Path(shader_dir).joinpath(*path.split("/"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(archive.read(path))
             print(f"  {path}")
 
 
@@ -574,10 +574,9 @@ def write_shader_presets(model, staging_config, shaders, device_shader_dir):
     written = []
     for core in slang_capable_cores(model):
         library_name = model["library_names"].get(core, core)
-        directory = os.path.join(staging_config, library_name)
-        os.makedirs(directory, exist_ok=True)
-        with open(os.path.join(directory, f"{library_name}.slangp"), "w", encoding="utf-8") as handle:
-            handle.write(text)
+        directory = Path(staging_config) / library_name
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{library_name}.slangp").write_text(text, encoding="utf-8")
         written.append(library_name)
     return written
 
@@ -587,21 +586,23 @@ def write_shader_presets(model, staging_config, shaders, device_shader_dir):
 
 def generate_playlists(model, library_dir, dirs, profile, cores_ref, info_dir, playlist_dir):
     """Run the shared generator with an Android config, into playlist_dir."""
-    os.makedirs(playlist_dir, exist_ok=True)
+    Path(playlist_dir).mkdir(parents=True, exist_ok=True)
     config = {
         "library_dir": library_dir,
         "emit_library_dir": dirs["roms"],
         # The device's ROM folders are ES-DE short names, not the library's No-Intro ones.
         "emit_system_dirs": profile.get("rom_dir_names") or {},
-        "playlist_dir": playlist_dir,
+        # str(): this dict is handed to the generator as JSON, which has no way
+        # to serialise a Path.
+        "playlist_dir": str(playlist_dir),
         # The app-private cores dir, the only place RetroArch can dlopen from.
         "cores_dir": cores_ref,
         "core_filename_suffix": profile["core_suffix"],
-        "info_dir": info_dir,
+        "info_dir": str(info_dir),
         "cores": model["probe"],
         "systems": model["systems"],
         # Arcade labels, from the same map and core list the desktop uses.
-        "arcade_names_path": ARCADE_NAMES,
+        "arcade_names_path": str(ARCADE_NAMES),
         "arcade_name_cores": model["arcade_name_cores"],
     }
     # check=False: the generator's output is forwarded either way, and its exit
@@ -629,11 +630,10 @@ def write_overrides(model, staging_config):
 
 
 def write_core_file(staging_config, library_name, extension, pairs):
-    directory = os.path.join(staging_config, library_name)
-    os.makedirs(directory, exist_ok=True)
-    path = os.path.join(directory, f"{library_name}.{extension}")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(override_text(pairs))
+    directory = Path(staging_config) / library_name
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{library_name}.{extension}"
+    path.write_text(override_text(pairs), encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- reconcile
@@ -704,9 +704,10 @@ def local_file_sizes(src):
     for dirpath, _, names in os.walk(src):
         rel = os.path.relpath(dirpath, src)
         for name in names:
-            key = name if rel == "." else os.path.join(rel, name)
+            # posixpath: the key is compared with a device-relative one.
+            key = name if rel == "." else posixpath.join(rel, name)
             try:
-                files[key] = os.path.getsize(os.path.join(dirpath, name))
+                files[key] = Path(dirpath, name).stat().st_size
             except OSError as error:
                 # A broken symlink or unreadable entry is not a pushable file: warn and skip
                 # rather than let one abort the whole mirror (mirror_roms catches only adb
@@ -732,8 +733,8 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
     """
     failed = []
     for lib_name, dev_name in sorted(rom_dir_names.items()):
-        src = os.path.join(library_dir, lib_name)
-        if not os.path.isdir(src):
+        src = Path(library_dir) / lib_name
+        if not src.is_dir():
             print(f"  skip {lib_name}: no library directory")
             continue
         dst = f"{roms_root}/{dev_name}"
@@ -745,7 +746,7 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             wanted = local_file_sizes(src)
             have = device_file_sizes(device, dst)
             for rel in have:
-                if os.path.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
+                if posixpath.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
                     continue
                 device.rm(f"{dst}/{rel}")
             need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
@@ -753,11 +754,11 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
                 print(f"Mirroring {lib_name} -> {dev_name} ({len(need)} file(s))")
                 # adb push creates a file's parent, but a nested disc dir is a fresh mkdir on first sync;
                 # create the unique parents up front so each push lands in an existing directory.
-                parents = sorted({os.path.dirname(f"{dst}/{rel}") for rel in need} - {dst})
+                parents = sorted({posixpath.dirname(f"{dst}/{rel}") for rel in need} - {dst})
                 if parents:
                     device.mkdirs(*parents)
                 for rel in need:
-                    device.push(os.path.join(src, rel), f"{dst}/{rel}")
+                    device.push(src / rel, f"{dst}/{rel}")
             else:
                 print(f"{lib_name} -> {dev_name}: up to date")
             # A game dropped from the library leaves its hidden .dir behind once the prune
@@ -801,11 +802,11 @@ def sync_tree(device, src, root, prune):
         print(f"  {len(need)} file(s) to push")
         # adb push creates a file's parent, but a nested dir is a fresh mkdir on the first sync; create
         # the unique parents up front so each push lands in an existing directory.
-        parents = sorted({os.path.dirname(f"{root}/{rel}") for rel in need} - {root})
+        parents = sorted({posixpath.dirname(f"{root}/{rel}") for rel in need} - {root})
         if parents:
             device.mkdirs(*parents)
         for rel in need:
-            device.push(os.path.join(src, rel), f"{root}/{rel}")
+            device.push(Path(src) / rel, f"{root}/{rel}")
     else:
         print("  up to date")
     if prune:
@@ -900,7 +901,7 @@ def main():
 
     if not args.library_dir:
         sys.exit("--library-dir is required (the installed syncretroid wrapper passes it).")
-    if not os.path.isdir(args.library_dir):
+    if not Path(args.library_dir).is_dir():
         sys.exit(f"{args.library_dir}: ROM library is not a directory (is the mount up?)")
 
     # Two of these can be pointed elsewhere by argument and the rest come from the checkout this
@@ -911,7 +912,7 @@ def main():
         ("playlist generator", GENERATOR),
         ("arcade names", ARCADE_NAMES),
     ):
-        if not os.path.exists(path):
+        if not Path(path).exists():
             sys.exit(f"{path}: {label} is missing (the checkout this script runs from is {ROLE_DIR}).")
 
     profile = load_yaml(args.profile)
@@ -975,10 +976,10 @@ def main():
 
     staging = tempfile.mkdtemp(prefix="retroid-sync-")
     try:
-        info_dir = os.path.join(staging, "info")
-        playlist_dir = os.path.join(staging, "playlists")
-        config_stage = os.path.join(staging, "config")
-        shader_stage = os.path.join(staging, "shaders")
+        info_dir = Path(staging) / "info"
+        playlist_dir = Path(staging) / "playlists"
+        config_stage = Path(staging) / "config"
+        shader_stage = Path(staging) / "shaders"
         shaders = profile.get("shaders") or {}
 
         # .info drives the generator's extension validation. Best-effort in a dry run (no
@@ -987,7 +988,7 @@ def main():
         if not args.dry_run:
             section("Fetching core info")
             fetch_info(profile, info_dir)
-        if not os.path.isdir(info_dir):
+        if not info_dir.is_dir():
             info_dir = host_info_dir()
 
         # Fetched here for the same reason as the .info set (network, so not in a dry run),
@@ -1021,11 +1022,13 @@ def main():
         merged = merge_cfg(existing_cfg, model["settings"], set(profile["settings_drop"]))
         section("retroarch.cfg", "merge with prune")
         try:
-            device.mkdirs(os.path.dirname(cfg_path), config_dir)
+            device.mkdirs(posixpath.dirname(cfg_path), config_dir)
             device.push_text(merged, cfg_path)
-            if os.path.isdir(config_stage):
+            if config_stage.is_dir():
                 section("overrides/options", "push always")
-                device.push(config_stage + "/.", config_dir)
+                # f-string, not +: the trailing "/." is adb's "contents of", and
+                # a Path does not concatenate with a string.
+                device.push(f"{config_stage}/.", config_dir)
         except subprocess.CalledProcessError:
             print(
                 f"WARNING: could not write {cfg_path} (adb is denied the app files dir). Grant RetroArch "
@@ -1038,22 +1041,22 @@ def main():
         # remove the stale managed .lpl of a system that left the table. Cores are never touched
         # -- app-private, the Core Updater's to manage.
         section("playlists", "push always + prune")
-        device.push(playlist_dir + "/.", dirs["playlists"])
+        device.push(f"{playlist_dir}/.", dirs["playlists"])
         if online:
             for name in stale_playlists(device, dirs, model["systems"]):
                 print(f"Removing stale playlist {name}")
                 device.rm("{}/{}".format(dirs["playlists"], name))
 
-        if os.path.isdir(shader_stage):
+        if shader_stage.is_dir():
             section("shaders", "push additive")
             sync_tree(device, shader_stage, dirs["shaders"], prune=False)
 
-        bios_src = os.path.join(args.library_dir, "_BIOS", "retroarch-system-folder")
-        if not args.skip_bios and os.path.isdir(bios_src):
+        bios_src = Path(args.library_dir) / "_BIOS" / "retroarch-system-folder"
+        if not args.skip_bios and bios_src.is_dir():
             section("BIOS", "push additive")
             sync_tree(device, bios_src, dirs["system"], prune=False)
-        thumbs_src = os.path.join(args.library_dir, "_Thumbnails")
-        if not args.skip_thumbnails and os.path.isdir(thumbs_src):
+        thumbs_src = Path(args.library_dir) / "_Thumbnails"
+        if not args.skip_thumbnails and thumbs_src.is_dir():
             section("thumbnails", "merge with prune")
             sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
     finally:
@@ -1073,9 +1076,9 @@ def main():
 
 def host_info_dir():
     """The host's flatpak libretro .info dir, used as a fallback in dry runs."""
-    return os.path.expanduser(
+    return Path(
         "~/.local/share/flatpak/app/org.libretro.RetroArch/current/active/files/share/libretro/info"
-    )
+    ).expanduser()
 
 
 if __name__ == "__main__":

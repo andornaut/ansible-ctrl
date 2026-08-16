@@ -54,6 +54,7 @@ import functools
 import json
 import os
 import sys
+from pathlib import Path
 
 # Reproduced verbatim from what RetroArch writes when it scans, so it does not rewrite a generated
 # playlist on load. label_display_mode 3 hides the (Region) and [tag] suffixes in the UI while
@@ -112,9 +113,9 @@ def core_info_field(info_dir, core, field, default=""):
     Read from the .info rather than duplicated in the systems table, so it cannot drift from the
     installed core. Memoised because systems sharing a core would each reparse the file.
     """
-    path = os.path.join(info_dir, f"{core}_libretro.info")
+    path = Path(info_dir) / f"{core}_libretro.info"
     try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
+        with path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 key, _, value = line.partition("=")
                 if key.strip() == field:
@@ -213,7 +214,7 @@ def is_generated_playlist(path, library_dir):
     inside the ROM library. The answer decides whether a file is deleted, so uncertainty means keep.
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
+        with path.open(encoding="utf-8", errors="replace") as handle:
             playlist = json.load(handle)
     except (OSError, ValueError):
         return False
@@ -223,7 +224,7 @@ def is_generated_playlist(path, library_dir):
     scanned = playlist.get("scan_content_dir") or ""
     # commonpath raises rather than returning a mismatch on a relative path, which would take
     # down a run that merely walked past a playlist carrying one.
-    if not isinstance(scanned, str) or not os.path.isabs(scanned):
+    if not isinstance(scanned, str) or not Path(scanned).is_absolute():
         return False
     return os.path.commonpath([scanned, library_dir]) == library_dir
 
@@ -236,16 +237,16 @@ def prune_playlists(playlist_dir, library_dir, systems):
     this directory and only ones this generator wrote: favourites and history live in builtin/.
     """
     removed = []
-    for name in sorted(os.listdir(playlist_dir)):
-        path = os.path.join(playlist_dir, name)
-        if not name.endswith(".lpl") or not os.path.isfile(path):
+    for path in sorted(Path(playlist_dir).iterdir()):
+        name = path.name
+        if not name.endswith(".lpl") or not path.is_file():
             continue
         if name[: -len(".lpl")] in systems:
             continue
         if not is_generated_playlist(path, library_dir):
             print(f"kept {name}: not a generated playlist", file=sys.stderr)
             continue
-        os.remove(path)
+        path.unlink()
         removed.append(f"removed {name}")
     return removed
 
@@ -268,11 +269,11 @@ def main():
     arcade_name_cores = set(config.get("arcade_name_cores", []))
     arcade_names = {}
     if config.get("arcade_names_path"):
-        with open(config["arcade_names_path"], encoding="utf-8") as handle:
+        with Path(config["arcade_names_path"]).open(encoding="utf-8") as handle:
             arcade_names = json.load(handle)
 
     # An unmounted share looks like an empty directory, which would empty every playlist.
-    if not os.path.isdir(library_dir):
+    if not Path(library_dir).is_dir():
         sys.exit(f"{library_dir}: ROM library is not a directory")
 
     # The probe covers every installed core and the role installs every core the table names, so an
@@ -298,8 +299,11 @@ def main():
 
     changed = []
     for system, spec in systems:
-        system_dir = os.path.join(library_dir, system)
-        if not os.path.isdir(system_dir):
+        # str(): system_dir and emit_system_dir are sliced and concatenated as
+        # strings when an item's path is rewritten, and core_path is written into
+        # the playlist JSON, which has no way to serialise a Path.
+        system_dir = str(Path(library_dir) / system)
+        if not Path(system_dir).is_dir():
             print(f"skipped {system}: no such directory under the library", file=sys.stderr)
             continue
 
@@ -309,15 +313,15 @@ def main():
         # the two for a system whose art the repository publishes under another name.
         playlist_name = f"{system}.lpl"
         db_name = "{}.lpl".format(spec.get("thumbnail_db", system))
-        core_path = os.path.join(cores_dir, f"{core}{core_suffix}")
-        emit_system_dir = os.path.join(emit_library_dir, emit_system_dirs.get(system, system))
+        core_path = str(Path(cores_dir) / f"{core}{core_suffix}")
+        emit_system_dir = str(Path(emit_library_dir) / emit_system_dirs.get(system, system))
         # A missing .info costs only a cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
         names = arcade_names if core in arcade_name_cores else {}
         # label -> (core_path, core_name) for titles this system's core cannot launch.
         game_cores = {
             label: (
-                os.path.join(cores_dir, f"{game_core}{core_suffix}"),
+                str(Path(cores_dir) / f"{game_core}{core_suffix}"),
                 core_info_field(info_dir, game_core, "display_name", default=game_core),
             )
             for label, game_core in spec.get("game_cores", {}).items()
@@ -370,16 +374,14 @@ def main():
 
         # Bytes, not text: a playlist RetroArch scanned is not necessarily valid UTF-8, and
         # decoding one to test whether it is current would fail before it could be replaced.
-        path = os.path.join(playlist_dir, playlist_name)
+        path = Path(playlist_dir) / playlist_name
         try:
-            with open(path, "rb") as handle:
-                if handle.read() == content:
-                    continue
+            if path.read_bytes() == content:
+                continue
         except OSError:
             pass
 
-        with open(path, "wb") as handle:
-            handle.write(content)
+        path.write_bytes(content)
         changed.append(f"{system} ({len(items)})")
 
     changed.extend(prune_playlists(playlist_dir, emit_library_dir, config["systems"]))

@@ -23,10 +23,9 @@ Takes the cores directory as its sole argument.
 """
 
 import ctypes
-import glob
 import json
-import os
 import sys
+from pathlib import Path
 
 SUFFIX = "_libretro.so"
 
@@ -45,17 +44,19 @@ class CoreInfo(ctypes.Structure):
 
 def main(cores_dir):
     cores, broken = {}, []
-    for path in sorted(glob.glob(os.path.join(cores_dir, "*" + SUFFIX))):
+    for path in sorted(Path(cores_dir).glob("*" + SUFFIX)):
         try:
-            library = ctypes.CDLL(path)
+            # str(): ctypes wants a name, and accepting a Path is an
+            # implementation detail rather than a documented one.
+            library = ctypes.CDLL(str(path))
             info = CoreInfo()
             library.retro_get_system_info(ctypes.byref(info))
         except OSError as error:
-            broken.append(f"{os.path.basename(path)}: {error}")
+            broken.append(f"{path.name}: {error}")
             continue
 
         extensions = (info.valid_extensions or b"").decode().split("|")
-        cores[os.path.basename(path)[: -len(SUFFIX)]] = {
+        cores[path.name[: -len(SUFFIX)]] = {
             "library_name": info.library_name.decode(),
             "valid_extensions": [extension for extension in extensions if extension],
             "block_extract": bool(info.block_extract),

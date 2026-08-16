@@ -21,6 +21,7 @@ import sys
 import threading
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 HOST = "thumbnails.libretro.com"
 
@@ -239,14 +240,15 @@ def resolve(label, indexes):
 
 def install(source, destination):
     """Write a thumbnail under a temporary name, so an interrupted run leaves no half file."""
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
-    partial = destination + ".part"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # with_name rather than +: a Path does not concatenate with a string, and
+    # the suffix has to land on the file name rather than on the directory.
+    partial = destination.with_name(destination.name + ".part")
     if isinstance(source, bytes):
-        with open(partial, "wb") as handle:
-            handle.write(source)
+        partial.write_bytes(source)
     else:
         shutil.copyfile(source, partial)
-    os.replace(partial, destination)
+    partial.replace(destination)
 
 
 def missing_slots(playlist_dir, thumbnails_dir):
@@ -259,27 +261,27 @@ def missing_slots(playlist_dir, thumbnails_dir):
     """
     slots = []
     overridden = set()
-    for playlist in sorted(os.listdir(playlist_dir)):
-        path = os.path.join(playlist_dir, playlist)
-        if not playlist.endswith(".lpl") or not os.path.isfile(path):
+    for path in sorted(Path(playlist_dir).iterdir()):
+        playlist = path.name
+        if not playlist.endswith(".lpl") or not path.is_file():
             continue
         try:
-            with open(path, encoding="utf-8", errors="replace") as handle:
+            with path.open(encoding="utf-8", errors="replace") as handle:
                 items = json.load(handle).get("items", [])
         except (OSError, ValueError):
             print(f"skipped {playlist}: not a readable playlist", file=sys.stderr)
             continue
 
         for item in items:
-            system = os.path.splitext(item.get("db_name") or playlist)[0]
+            system = Path(item.get("db_name") or playlist).stem
             # A db_name differing from the filename is a deliberate thumbnail_db override,
             # asserting the repository publishes that system. The ordinary case asserts nothing,
             # so the two are checked differently in main().
-            if system != os.path.splitext(playlist)[0]:
+            if system != path.stem:
                 overridden.add(system)
             for kind in TYPES:
-                destination = os.path.join(thumbnails_dir, system, kind, INVALID.sub("_", item["label"]) + ".png")
-                if not os.path.exists(destination):
+                destination = Path(thumbnails_dir) / system / kind / (INVALID.sub("_", item["label"]) + ".png")
+                if not destination.exists():
                     slots.append((system, kind, item["label"], item["path"], destination))
     return slots, overridden
 

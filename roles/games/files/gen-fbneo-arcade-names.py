@@ -15,15 +15,15 @@ it without a network fetch.
 """
 
 import json
-import os
 import re
 import urllib.request
+from pathlib import Path
 
 DAT_URL = (
     "https://raw.githubusercontent.com/libretro/libretro-database/master/"
     "metadat/fbneo-split/FBNeo%20-%20Arcade%20Games.dat"
 )
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fbneo-arcade-names.json")
+OUT = Path(__file__).resolve().parent / "fbneo-arcade-names.json"
 
 NAME_RE = re.compile(r'name\s+"([^"]*)"')
 ROM_RE = re.compile(r'rom\s*\(\s*name\s+"?([^\s"]+\.zip)')
@@ -41,10 +41,10 @@ def main():
         rom = ROM_RE.search(block)
         if not (name and rom):
             continue
-        stem = os.path.splitext(os.path.basename(rom.group(1)))[0]
+        stem = Path(rom.group(1)).stem
         names[stem] = name.group(1)
 
-    with open(OUT, "w", encoding="utf-8") as handle:
+    with OUT.open("w", encoding="utf-8") as handle:
         json.dump(dict(sorted(names.items())), handle, ensure_ascii=False, indent=0)
         handle.write("\n")
     print(f"wrote {len(names)} names -> {OUT}")
