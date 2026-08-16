@@ -102,20 +102,43 @@
       when: dev_tmp_ruby.path is defined
       become: true
 
-# Installed as dev_user, not root: ruby-install writes to ~/.rubies for a user
-# and /opt/rubies for root, chruby reads both, and auto.sh switches for the user.
-# --no-install-deps because the apt task above names them; left on, ruby-install
-# shells out to sudo apt-get partway through the play.
-- name: Install Ruby {{ dev_ruby_version }}
-  ansible.builtin.command:
-    cmd: >-
-      ruby-install --no-install-deps --no-reinstall --cleanup
-      ruby {{ dev_ruby_version }}
-    creates: "{{ dev_ruby_root }}"
+# Owned by dev_user, who runs the build below and has to write here.
+- name: Create a temporary directory for the Ruby source
+  ansible.builtin.tempfile:
+    state: directory
+  register: dev_tmp_ruby_src
   become: true
   become_user: "{{ dev_user }}"
-  environment:
-    HOME: "{{ dev_user_home }}"
+
+# Installed as dev_user, not root: ruby-install writes to ~/.rubies for a user
+# and /opt/rubies for root, chruby reads both, and auto.sh switches for the user.
+#
+# --no-install-deps because the apt task above names them; left on, ruby-install
+# shells out to sudo apt-get partway through the play.
+#
+# --src-dir because ruby-install unpacks into ~/src otherwise, which is where
+# the repositories live. --cleanup clears the tarball and the source tree after
+# a build that succeeds; the always below covers one that does not.
+- name: Install Ruby {{ dev_ruby_version }}
+  block:
+    - name: Build and install Ruby {{ dev_ruby_version }}
+      ansible.builtin.command:
+        cmd: >-
+          ruby-install --no-install-deps --no-reinstall --cleanup
+          --src-dir {{ dev_tmp_ruby_src.path }}
+          ruby {{ dev_ruby_version }}
+        creates: "{{ dev_ruby_root }}"
+      become: true
+      become_user: "{{ dev_user }}"
+      environment:
+        HOME: "{{ dev_user_home }}"
+  always:
+    - name: Remove the temporary directory for the Ruby source
+      ansible.builtin.file:
+        path: "{{ dev_tmp_ruby_src.path }}"
+        state: absent
+      when: dev_tmp_ruby_src.path is defined
+      become: true
 
 # Into the Ruby above rather than the system one, and into the directory chruby
 # exports as GEM_HOME, so this is the bundler a `bundle exec` in mdtoc or til
