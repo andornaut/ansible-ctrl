@@ -115,11 +115,11 @@ and the controller-side `torrent_local_*` overrides go in the play host's `host_
 
 ## CI
 
-The templated scripts (`mvt`, `orgt`, `synct`, `unrart`) are ShellCheck'd in
-[.github/workflows/lint.yml](../../.github/workflows/lint.yml). The `shellcheck` job discovers every shell script
-under `roles/` by shebang; scripts under `templates/` are rendered first (Jinja2 expressions to placeholders),
-scripts under `files/` are linted as-is. Suppress findings with `# shellcheck disable=...` comments in the
-templates.
+The templated scripts (`mvt`, `orgt`, `synct`, `unrart`) are ShellCheck'd by the `shell` check in
+[tests/lint.sh](../../tests/lint.sh), which [CI](../../.github/workflows/test.yml) runs. It discovers every tracked
+shell script by shebang, not `roles/` alone, so a script added anywhere else is covered; scripts under `templates/`
+are rendered first (Jinja2 expressions to placeholders), scripts under `files/` are linted as-is. Suppress findings
+with `# shellcheck disable=...` comments in the templates.
 
 That render is a `sed` approximation, not a Jinja2 parse, so a template Jinja2 cannot render still passes CI. Bash
 that opens a Jinja tag is the trap: `${#var}` starts a comment and breaks the render at play time.

@@ -135,7 +135,7 @@ ansible-galaxy collection install --upgrade -r requirements.yml
 make clean
 ```
 
-[tests/lint.sh](tests/lint.sh) is what [CI](.github/workflows/lint.yml) runs on every branch and pull request, one check per job, and what `make lint` runs in full. The gate is the whole file, not the lines a change touched.
+[tests/lint.sh](tests/lint.sh) is what [CI](.github/workflows/test.yml) runs on every branch and pull request, every check in one job, and what `make lint` runs in full. Each check runs even after an earlier one fails, so a run names everything that needs fixing. The gate is the whole file, not the lines a change touched.
 
 | Check | Covers |
 | --- | --- |
