@@ -23,7 +23,7 @@ readonly VENV=.ansible/lint-venv
 # does not package: on PATH in CI, which pip-installs the file, and absent locally, where the
 # venv is built instead.
 #
-# Sets LINT_BIN_DIR rather than printing it, so the two checks that need it resolve once.
+# Sets LINT_BIN_DIR rather than printing it, so the checks that need it resolve once.
 LINT_BIN_DIR=""
 require_lint_bin_dir() {
     local bin
@@ -74,9 +74,15 @@ check_syntax() {
 # ShellCheck cannot parse Jinja2, so templates are rendered to a temporary copy first, named
 # by flattened repo-relative path so a shared basename cannot overwrite. Everything else is
 # checked where it lies, so the path ShellCheck reports is the one to go and edit.
+#
+# From requirements-dev.txt rather than PATH: the distro ships its own ShellCheck, whose
+# version no commit here names, and every other repository pins the same one through the
+# action's version input. A gate rejecting against a version nothing declares is a gate that
+# changes what it rejects on a day nobody touched it.
 check_shell() {
     local dir src first dest status
     local -a targets=()
+    require_lint_bin_dir || return 1
     dir=$(mktemp -d) || return 1
 
     while IFS= read -r -d '' src; do
@@ -93,7 +99,7 @@ check_shell() {
         fi
     done < <(git ls-files -z)
 
-    shellcheck "${targets[@]}"
+    "${LINT_BIN_DIR}/shellcheck" "${targets[@]}"
     status=$?
     rm -rf "${dir}"
     return "${status}"

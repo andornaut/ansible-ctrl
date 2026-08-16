@@ -9,3 +9,8 @@ ansible-core==2.21.3
 # The Python gate, the same pin the other Python repositories here carry so one
 # version decides what is rejected everywhere.
 ruff==0.16.3
+# The shell gate. Every other repository here pins the same ShellCheck through
+# the action's version input, which Dependabot cannot read; the wheel carries
+# the binary, so pinning it here puts the version under the same manifest as the
+# rest and leaves a local run checking against what the gate checks against.
+shellcheck-py==0.11.0.1
