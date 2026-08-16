@@ -37,7 +37,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7.0.0
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       - name: Cache Ansible collections
         uses: actions/cache@v6.1.0
