@@ -23,6 +23,16 @@ dev_ai_attributions_arch: >-
 
 dev_ai_attributions_release_archive: "ai-attributions_linux_{{ dev_ai_attributions_arch }}.tar.gz"
 
+# Where ruby-install writes for a user, and what chruby's auto.sh switches to.
+dev_ruby_root: "{{ dev_user_home }}/.rubies/ruby-{{ dev_ruby_version }}"
+
+# What chruby exports as GEM_HOME: $HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION, naming the
+# full patch version. `gem install --user-install` writes to ~/.gem/ruby/3.2.0 instead,
+# the ABI directory, which chruby puts on neither GEM_HOME nor GEM_PATH. A gem installed
+# that way is one `bundle exec` cannot see, so the install below names this directory
+# rather than asking for a user install.
+dev_ruby_gem_home: "{{ dev_user_home }}/.gem/ruby/{{ dev_ruby_version }}"
+
 dev_oh_my_pi_repository: can1357/oh-my-pi
 
 # bun's names rather than Debian's, so dev_arch does not serve here: x86_64 to

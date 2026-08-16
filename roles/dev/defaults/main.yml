@@ -2,6 +2,18 @@
 # The account the user-scoped tasks act on.
 dev_user: "{{ primary_user }}"
 
+# The Ruby mdtoc and til name in .ruby-version, installed under ~/.rubies where
+# chruby's auto.sh looks. The role installs chruby and ruby-install either way;
+# without a Ruby under that directory, auto.sh has nothing to switch to and
+# neither repository can be built. The Bundler is the one their Gemfile.lock
+# names in BUNDLED WITH, which is what setup-ruby installs in CI, so a local
+# `bundle exec` runs the version the gate ran.
+#
+# Both are copies of a pin held elsewhere, so both have to be raised by hand
+# when those repositories raise theirs.
+dev_ruby_version: "3.2.2"
+dev_bundler_version: "4.0.13"
+
 # Several GB of SDK, useful only where Android apps are built.
 dev_install_android_sdk: false
 # Google names the command line tools archive after a build number, and offers no

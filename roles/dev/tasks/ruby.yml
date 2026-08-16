@@ -2,8 +2,19 @@
 - name: Install Ruby system packages
   ansible.builtin.apt:
     name:
+      # What building an interpreter from source needs, for the ruby-install
+      # below. ruby-dev covers native extensions built against the system Ruby,
+      # which is a different job. libffi-dev is named here as well as in
+      # python.yml, so `--tags ruby` on its own still has it.
+      - libffi-dev
+      - libgdbm-dev
+      - libncurses-dev
+      - libreadline-dev
+      - libssl-dev
+      - libyaml-dev
       - ruby
       - ruby-dev
+      - zlib1g-dev
     state: latest
     install_recommends: false
     update_cache: true
@@ -90,3 +101,35 @@
         state: absent
       when: dev_tmp_ruby.path is defined
       become: true
+
+# Installed as dev_user, not root: ruby-install writes to ~/.rubies for a user
+# and /opt/rubies for root, chruby reads both, and auto.sh switches for the user.
+# --no-install-deps because the apt task above names them; left on, ruby-install
+# shells out to sudo apt-get partway through the play.
+- name: Install Ruby {{ dev_ruby_version }}
+  ansible.builtin.command:
+    cmd: >-
+      ruby-install --no-install-deps --no-reinstall --cleanup
+      ruby {{ dev_ruby_version }}
+    creates: "{{ dev_ruby_root }}"
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+
+# Into the Ruby above rather than the system one, and into the directory chruby
+# exports as GEM_HOME, so this is the bundler a `bundle exec` in mdtoc or til
+# resolves. A version is named rather than left to `present`, which the older
+# copy Ruby ships as a default gem already satisfies.
+- name: Install Bundler {{ dev_bundler_version }}
+  community.general.gem:
+    name: bundler
+    version: "{{ dev_bundler_version }}"
+    executable: "{{ dev_ruby_root }}/bin/gem"
+    state: present
+    user_install: false
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+    GEM_HOME: "{{ dev_ruby_gem_home }}"
