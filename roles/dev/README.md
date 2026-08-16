@@ -27,7 +27,7 @@ make dev -- --tags rust
 | [opencode](https://github.com/opencode-ai/opencode) | OpenCode AI tool |
 | pi | Two coding agents: [pi](https://github.com/badlogic/pi-mono) (`pi`) and [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`), a fork of it |
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
-| [ruby](https://www.ruby-lang.org/) | Ruby with [Bundler](https://bundler.io/), [chruby](https://github.com/postmodern/chruby) and [ruby-install](https://github.com/postmodern/ruby-install) |
+| [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby) and [ruby-install](https://github.com/postmodern/ruby-install) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
 | [sops](https://github.com/getsops/sops) | Encrypted file editor. No [age](https://github.com/FiloSottile/age) package is installed: sops links the library, and faramir mints keypairs with `faramir keygen` |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |

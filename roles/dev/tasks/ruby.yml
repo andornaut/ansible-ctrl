@@ -9,18 +9,6 @@
     update_cache: true
   become: true
 
-# From RubyGems rather than apt: the Gemfile.lock in mdtoc and til names bundler
-# 4, and Ubuntu's newest is 2.4. setup-ruby installs the version the lockfile
-# names in CI, so following the release is what keeps `bundle exec` here on the
-# same major the gate ran. Everything those repositories lint and test with,
-# rubocop and sorbet included, is a project dependency bundler then installs.
-- name: Install Bundler
-  community.general.gem:
-    name: bundler
-    state: latest
-    user_install: false
-  become: true
-
 - name: Create a temporary directory
   ansible.builtin.tempfile:
     state: directory
