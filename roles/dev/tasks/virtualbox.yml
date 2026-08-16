@@ -129,9 +129,11 @@
 
     - name: Set the extension pack version
       ansible.builtin.set_fact:
-        # VBoxManage reports "7.2.12r174389"; the pack drops the revision suffix.
+        # VBoxManage reports "7.2.12r174389"; the pack drops the revision suffix. Read the
+        # last line, not all of stdout: with the vboxdrv module unloaded VBoxManage prints a
+        # multi-line warning ahead of the version, which would otherwise reach the URL.
         dev_virtualbox_extpack_version: >-
-          {{ dev_virtualbox_version_output.stdout | trim | regex_replace('r.*$', '') }}
+          {{ dev_virtualbox_version_output.stdout_lines | last | trim | regex_replace('r.*$', '') }}
 
     # VBoxManage derives the pack name from the file name and rejects a mismatch
     # against the pack's own XML, so keep it verbatim.
