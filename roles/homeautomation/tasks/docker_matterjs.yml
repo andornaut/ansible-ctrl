@@ -16,6 +16,7 @@
       - matterjs
 
 - name: Start Matter.js Docker container
+  become: true
   vars:
     matterjs_base_volumes:
       - /run/dbus:/run/dbus:ro

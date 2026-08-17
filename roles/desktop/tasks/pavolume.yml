@@ -8,6 +8,7 @@
   become: true
 
 - name: Build and install pavolume
+  become: true
   block:
     - name: Create a temporary directory
       ansible.builtin.tempfile:
@@ -33,11 +34,9 @@
       failed_when:
         - desktop_pavolume_install.failed
         - "'cp: cannot create regular file' not in desktop_pavolume_install.stderr"
-      become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ desktop_pavolume_tmp.path }}"
         state: absent
       when: desktop_pavolume_tmp.path is defined
-      become: true

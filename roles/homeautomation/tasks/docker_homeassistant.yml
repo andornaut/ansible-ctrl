@@ -25,6 +25,7 @@
       - mosquitto
 
 - name: Start Home Assistant, Govee2MQTT, and Mosquitto Docker containers
+  become: true
   vars:
     homeassistant_base_volumes:
       - /etc/hosts:/etc/hosts:ro

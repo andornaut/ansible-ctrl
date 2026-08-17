@@ -17,6 +17,7 @@
           become: true
 
         - name: Set up zig compiler
+          become: true
           block:
             - name: Get zig versions
               ansible.builtin.uri:
@@ -60,7 +61,6 @@
                 path: /opt/zig
                 state: directory
                 mode: "0755"
-              become: true
 
             - name: Install zig compiler
               ansible.builtin.unarchive:
@@ -71,16 +71,15 @@
                   - --strip-components
                   - 1
                   - --overwrite
-              become: true
           always:
             - name: Remove the temporary directory for zig
               ansible.builtin.file:
                 path: "{{ desktop_zig_tmp.path }}"
                 state: absent
               when: desktop_zig_tmp.path is defined
-              become: true
 
     - name: Install ly display manager
+      become: true
       block:
         - name: Create a temporary directory
           ansible.builtin.tempfile:
@@ -115,7 +114,6 @@
           ansible.builtin.command:
             cmd: /opt/zig/zig build installnoconf
             chdir: "{{ desktop_ly_tmp.path }}/ly"
-          become: true
           changed_when: true
       always:
         # zig builds as root, leaving zig-out and zig-pkg the connecting user cannot unlink.
@@ -124,7 +122,6 @@
             path: "{{ desktop_ly_tmp.path }}"
             state: absent
           when: desktop_ly_tmp.path is defined
-          become: true
 
     - name: Configure ly
       block:

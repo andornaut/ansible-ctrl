@@ -2,6 +2,8 @@
 # Probed, not required: the removals below are no-ops without flatpak. The install
 # branch asserts for itself.
 - name: Check for flatpak
+  # Reads system state and needs no privilege, so it runs as the connecting account.
+  become: false
   ansible.builtin.shell:
     executable: /bin/bash
     cmd: command -v flatpak
@@ -82,12 +84,17 @@
   when: desktop_install_firefox and not desktop_install_firefox_apt
   block:
     - name: Require flatpak
-      ansible.builtin.include_tasks: require_tools.yml
-      vars:
-        require_tools:
-          - name: flatpak
-            probe: flatpak --version
-            hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
+      # Probed as the account whose flatpak installation receives the app.
+      become: true
+      become_user: "{{ desktop_user }}"
+      block:
+        - name: Probe for flatpak
+          ansible.builtin.include_tasks: require_tools.yml
+          vars:
+            require_tools:
+              - name: flatpak
+                probe: flatpak --version
+                hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
 
     # The pin at the top of this file prevents an install; it cannot undo one.
     - name: Remove Firefox apt package

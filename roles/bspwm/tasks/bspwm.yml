@@ -1,5 +1,6 @@
 ---
 - name: Build and install BSPWM projects
+  become: true
   block:
     - name: Create a temporary directory
       ansible.builtin.tempfile:
@@ -29,14 +30,12 @@
         - bspwm_make_install.failed
         # Reinstalling a running binary yields "cp: cannot create regular file ... Text file busy"
         - "'Text file busy' not in (bspwm_make_install.stderr | default(''))"
-      become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ bspwm_tmp.path }}"
         state: absent
       when: bspwm_tmp.path is defined
-      become: true
 
 - name: Install bspwm.desktop file
   ansible.builtin.copy:

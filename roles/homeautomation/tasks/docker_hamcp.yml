@@ -19,6 +19,7 @@
 # One compose project per instance, so adding or removing one cannot disturb the
 # others' containers.
 - name: Start ha-mcp Docker containers
+  become: true
   vars:
     hamcp_base_environment:
       HOMEASSISTANT_TOKEN: "{{ item.token }}"

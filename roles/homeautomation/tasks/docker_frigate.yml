@@ -22,6 +22,7 @@
       - frigate
 
 - name: Start Frigate Docker container
+  become: true
   vars:
     frigate_base_volumes:
       - "{{ homeautomation_frigate_required_volumes.config }}:/config"

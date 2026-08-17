@@ -52,6 +52,8 @@
 
 - name: Read system timezone
   ansible.builtin.command: timedatectl show -p Timezone --value
+  # Reads a system setting and needs no privilege, so it runs as the connecting account.
+  become: false
   register: homeautomation_system_timezone
   changed_when: false
   tags:

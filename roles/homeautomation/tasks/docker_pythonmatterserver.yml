@@ -18,6 +18,7 @@
       - pythonmatterserver
 
 - name: Start Python Matter Server Docker container
+  become: true
   vars:
     pms_base_volumes:
       - /run/dbus:/run/dbus:ro

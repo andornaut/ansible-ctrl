@@ -26,6 +26,7 @@
       - whisper
 
 - name: Start Voice Docker containers
+  become: true
   vars:
     # microwakeword_volumes: "{{ homeautomation_common_volumes }}"
     #

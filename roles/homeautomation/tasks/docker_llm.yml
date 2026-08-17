@@ -57,6 +57,7 @@
     - not item.stat.exists
 
 - name: Start LLM Docker containers
+  become: true
   vars:
     openwebui_base_volumes:
       - "{{ homeautomation_openwebui_required_volumes.data }}:/app/backend/data"

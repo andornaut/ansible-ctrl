@@ -18,6 +18,7 @@
   become: true
 
 - name: Build and install dunst
+  become: true
   block:
     - name: Create a temporary directory
       ansible.builtin.tempfile:
@@ -46,17 +47,14 @@
     - name: Build dunst
       community.general.make:
         chdir: "{{ desktop_dunst_tmp.path }}"
-      become: true
 
     - name: Install dunst
       community.general.make:
         chdir: "{{ desktop_dunst_tmp.path }}"
         target: install
-      become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ desktop_dunst_tmp.path }}"
         state: absent
       when: desktop_dunst_tmp.path is defined
-      become: true

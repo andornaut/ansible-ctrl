@@ -25,6 +25,7 @@
       - otbr
 
 - name: Start Open Thread Border Router (OTBR) Docker container
+  become: true
   vars:
     otbr_base_volumes:
       - "{{ homeautomation_otbr_required_volumes.data }}:/data"

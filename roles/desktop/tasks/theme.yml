@@ -2,12 +2,17 @@
 # Required rather than skipped: the override below is the only way flatpaks get
 # the theme, so skipping would leave them on Adwaita and report success.
 - name: Require flatpak
-  ansible.builtin.include_tasks: require_tools.yml
-  vars:
-    require_tools:
-      - name: flatpak
-        probe: flatpak --version
-        hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
+  # Probed as the account whose flatpak installation the override below writes.
+  become: true
+  become_user: "{{ desktop_user }}"
+  block:
+    - name: Probe for flatpak
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: flatpak
+            probe: flatpak --version
+            hint: "It comes from this role's flatpak tag: make desktop -- --tags flatpak"
 
 - name: Validate GTK theme
   ansible.builtin.assert:

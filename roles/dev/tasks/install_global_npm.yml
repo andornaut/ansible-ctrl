@@ -11,12 +11,16 @@
 # npm is required, not assumed: every caller has its own tag, and none selects the
 # javascript tag that installs node.
 - name: Require npm
-  ansible.builtin.include_tasks: require_tools.yml
-  vars:
-    require_tools:
-      - name: npm
-        probe: npm --version
-        hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
+  # npm here is the system one, which the install below uses as root.
+  become: true
+  block:
+    - name: Probe for npm
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: npm
+            probe: npm --version
+            hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
 
 - name: Install {{ dev_npm_package }}
   community.general.npm:

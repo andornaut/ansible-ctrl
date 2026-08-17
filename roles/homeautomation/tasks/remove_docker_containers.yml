@@ -2,6 +2,7 @@
 # Required vars:
 #   container_names (list): containers to remove
 - name: "Remove Docker containers: {{ container_names | join(', ') }}"
+  become: true
   community.docker.docker_container:
     name: "{{ item }}"
     state: absent

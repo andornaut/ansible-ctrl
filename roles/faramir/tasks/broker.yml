@@ -52,14 +52,18 @@
 # Asserted, not installed: no role here declares dependencies, and a second installer
 # would drift from the dev role's.
 - name: Require sops
-  ansible.builtin.include_tasks: require_tools.yml
-  vars:
-    require_tools:
-      - name: sops
-        probe: command -v sops
-        hint: "It comes from the dev role: make dev -- --tags sops"
+  become: true
+  block:
+    - name: Probe for sops
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: sops
+            probe: command -v sops
+            hint: "It comes from the dev role: make dev -- --tags sops"
 
 - name: Install faramir from release {{ faramir_release_tag }}
+  become: true
   block:
     - name: Create a temporary directory for the faramir release
       ansible.builtin.tempfile:
@@ -96,7 +100,6 @@
     - name: Install faramir
       ansible.builtin.command:
         argv: "{{ faramir_init_argv }}"
-      become: true
       register: faramir_init
       check_mode: false
       changed_when: faramir_init.stdout | length > 0 and (faramir_init.stdout | from_json).changed

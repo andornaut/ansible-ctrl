@@ -4,6 +4,7 @@
 # cleared by accident would take the only copy of a service's data with it.
 
 - name: Remove the containers of components that are not installed
+  become: true
   community.docker.docker_container:
     name: "{{ item.1 }}"
     state: absent

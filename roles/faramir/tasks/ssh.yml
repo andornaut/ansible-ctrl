@@ -49,6 +49,10 @@
         quiet: true
 
     - name: Authorize the broker's key for the ansible account
+      # The connecting account owns the file it writes, so no escalation is needed. Not
+      # become: true: this play reaches the routers, whose pfSense carries no sudo, and
+      # ansible connects to them as root already.
+      become: false
       ansible.posix.authorized_key:
         user: "{{ faramir_fleet_account }}"
         key: "{{ hostvars[faramir_controller]['faramir_broker_authorized_key'] }}"

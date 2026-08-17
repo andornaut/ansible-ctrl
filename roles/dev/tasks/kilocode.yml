@@ -6,6 +6,8 @@
 
 # Probed, not assumed: --tags kilocode filters out the vscode tag.
 - name: Check for VS Code
+  # Reads system state and needs no privilege, so it runs as the connecting account.
+  become: false
   ansible.builtin.shell:
     executable: /bin/bash
     cmd: command -v code

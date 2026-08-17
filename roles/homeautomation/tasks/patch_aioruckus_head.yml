@@ -4,6 +4,7 @@
 # Location. Reapplied every run, Home Assistant reinstalling aioruckus on each recreate.
 # Remove once fixed: https://github.com/ms264556/aioruckus/issues/14
 - name: Wait for aioruckus to be installed in the Home Assistant container
+  become: true
   community.docker.docker_container_exec:
     container: homeassistant
     argv:
@@ -18,6 +19,7 @@
   until: homeautomation_aioruckus.rc == 0
 
 - name: Patch aioruckus to use GET instead of HEAD
+  become: true
   community.docker.docker_container_exec:
     container: homeassistant
     argv:

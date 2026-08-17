@@ -17,6 +17,8 @@
 
 # unarchive cannot compare versions before extracting, so gate on `go version`.
 - name: Get installed Go version
+  # Reads a system install by absolute path, so it needs no privilege.
+  become: false
   ansible.builtin.command:
     cmd: /usr/local/go/bin/go version
   register: dev_go_installed
@@ -36,6 +38,7 @@
   become: true
 
 - name: Install Go
+  become: true
   when: dev_go_version not in dev_go_installed.stdout
   block:
     - name: Create a temporary directory
@@ -54,7 +57,6 @@
       ansible.builtin.file:
         path: /usr/local/go
         state: absent
-      become: true
 
     # Named, not left to the archive: extraction puts the recorded mode through the
     # run's umask, and the login umask this repo sets closes `other`, which would
@@ -67,11 +69,9 @@
         dest: /usr/local
         remote_src: true
         mode: u=rwX,go=rX
-      become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ dev_go_tmp.path }}"
         state: absent
       when: dev_go_tmp.path is defined
-      become: true

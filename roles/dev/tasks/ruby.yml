@@ -21,11 +21,13 @@
   become: true
 
 - name: Create a temporary directory
+  become: true
   ansible.builtin.tempfile:
     state: directory
   register: dev_tmp_ruby
 
 - name: Install Ruby tools
+  become: true
   block:
     - name: Download and install chruby
       block:
@@ -59,7 +61,6 @@
             chdir: >-
               {{ dev_tmp_ruby.path }}/chruby-{{ dev_chruby_release.tag_name | replace('v', '') }}
             target: install
-          become: true
 
     - name: Download and install ruby-install
       block:
@@ -93,14 +94,12 @@
             chdir: >-
               {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}
             target: install
-          become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ dev_tmp_ruby.path }}"
         state: absent
       when: dev_tmp_ruby.path is defined
-      become: true
 
 # Owned by dev_user, who runs the build below and has to write here.
 - name: Create a temporary directory for the Ruby source

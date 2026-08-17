@@ -32,6 +32,7 @@
           become: true
 
 - name: Install Source Code Pro font
+  become: true
   block:
     - name: Get latest Source Code Pro release
       ansible.builtin.include_tasks: get_latest_release.yml
@@ -64,7 +65,6 @@
         mode: "0755"
         owner: root
         group: root
-      become: true
 
     # find returns an empty list for a missing path, so a release that moves the
     # fonts out of TTF/ would install nothing and still report success.
@@ -89,11 +89,9 @@
       loop_control:
         label: "{{ item.path | basename }}"
       notify: Update font cache
-      become: true
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ desktop_source_code_pro_tmp.path }}"
         state: absent
       when: desktop_source_code_pro_tmp.path is defined
-      become: true

@@ -51,12 +51,16 @@
         hypr_component_build_target: hypridle
 
     - name: Enable hypridle.service
+      become: true
+      become_user: "{{ niri_user }}"
       ansible.builtin.systemd_service:
         name: hypridle.service
         daemon_reload: true
         enabled: true
         scope: user
         state: started
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
 
 - name: Install hyprlock
   tags: [hyprlock]
@@ -78,9 +82,13 @@
         hypr_component_build_target: hyprpaper
 
     - name: Enable hyprpaper.service
+      become: true
+      become_user: "{{ niri_user }}"
       ansible.builtin.systemd_service:
         name: hyprpaper.service
         daemon_reload: true
         enabled: true
         scope: user
         state: started
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"

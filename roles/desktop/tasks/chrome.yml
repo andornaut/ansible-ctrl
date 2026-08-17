@@ -1,5 +1,7 @@
 ---
 - name: Check if Google Chrome is already installed
+  # Reads system state and needs no privilege, so it runs as the connecting account.
+  become: false
   ansible.builtin.command: dpkg-query -W google-chrome-stable
   register: desktop_chrome_check
   failed_when: false

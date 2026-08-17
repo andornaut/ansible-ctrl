@@ -14,7 +14,11 @@
 #   build_component_build_become (bool): build as root, default false.
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
+# Staged as the connecting account, not root: the build below is unprivileged unless a
+# caller asks otherwise, and a root-owned 0700 staging directory is one it cannot chdir
+# into. The install and the cleanup name root for themselves.
 - name: Build and install {{ build_component_name }}
+  become: false
   block:
     - name: Create a temporary directory for {{ build_component_name }}
       ansible.builtin.tempfile:

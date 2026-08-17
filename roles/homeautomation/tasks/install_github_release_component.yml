@@ -64,6 +64,7 @@
         != homeautomation_github_component_version | regex_replace('^v', '')
       block:
         - name: Create a temporary directory for {{ github_component_name }}
+          become: true
           ansible.builtin.tempfile:
             state: directory
           register: homeautomation_github_component_tmp
@@ -73,6 +74,7 @@
         # failure for a transient close as for a deterministic one, so the two cannot be
         # told apart the way the release listing's status code tells them apart above.
         - name: Download and unarchive {{ github_component_name }}
+          become: true
           ansible.builtin.unarchive:
             src: >-
               https://github.com/{{ github_component_repo }}/archive/refs/tags/{{

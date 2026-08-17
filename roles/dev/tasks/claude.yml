@@ -8,6 +8,8 @@
 
 # shell, not command: `command -v` is a builtin with no binary to exec.
 - name: Check for VS Code
+  # Reads system state and needs no privilege, so it runs as the connecting account.
+  become: false
   ansible.builtin.shell:
     executable: /bin/bash
     cmd: command -v code
