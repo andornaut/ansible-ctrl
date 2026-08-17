@@ -94,11 +94,20 @@
             release_fact: desktop_ly_release
             release_api_base: https://codeberg.org/api/v1/repos
 
-        # Codeberg's tarball_url returns HTTP 500, so fetch the .zip. unzip has no
-        # --strip-components, so the build below chdirs into the wrapping ly/ dir.
-        - name: Download and unarchive ly
+        # Codeberg's tarball_url returns HTTP 500, so fetch the .zip. Codeberg builds
+        # the archive on demand and can take ~30s; unarchive's remote_src fetch takes
+        # no timeout and gives up at 10s, so download separately with one that does.
+        - name: Download ly
+          ansible.builtin.get_url:
+            url: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
+            dest: "{{ desktop_ly_tmp.path }}/ly.zip"
+            mode: "0644"
+            timeout: 120
+
+        # unzip has no --strip-components, so the build below chdirs into the wrapping ly/ dir.
+        - name: Unarchive ly
           ansible.builtin.unarchive:
-            src: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
+            src: "{{ desktop_ly_tmp.path }}/ly.zip"
             dest: "{{ desktop_ly_tmp.path }}"
             remote_src: true
 
