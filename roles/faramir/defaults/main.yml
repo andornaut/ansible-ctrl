@@ -40,7 +40,7 @@ faramir_agents:
 # whether a human approved that command, so no password exists anywhere. Re-running without
 # it takes the grant away.
 #
-# It is not only an approval path: the executor unit drops NoNewPrivileges=, and with it the
+# It is not only an escalation path: the executor unit drops NoNewPrivileges=, and with it the
 # seccomp filter and ProtectSystem=strict, because a filter forces NoNewPrivileges= on and
 # that makes every setuid binary inert, sudo included. So the hardening comes off the uid
 # every brokered command runs as the moment this is true, whether or not anything is ever
@@ -51,7 +51,7 @@ faramir_allow_sudo: false
 # descendants, which is Debian and Ubuntu's default and what RHEL, Fedora and Arch leave at
 # 0. Pinned rather than assumed: at 0 any process may ptrace any other of the same uid, and
 # every brokered command shares the executor's, so one could read another's environment and
-# with it the injected values and the approval token.
+# with it the injected values and the escalation token.
 #
 # It matters most where a grant exists. The executor unit carries SystemCallFilter=
 # excluding @ptrace and so refuses the syscall outright, except on a host installed with
@@ -63,12 +63,12 @@ faramir_allow_sudo: false
 # be 0.
 faramir_ptrace_scope: 1
 
-# What announces a waiting approval, one list element per argument. Empty leaves
-# `sudo faramir approvals --watch` as the only place a question shows up, and a question
-# nobody sees expires after [sudo] timeout_sec with every other brokered command on the host
-# refused until it does.
+# What announces a waiting escalation, one list element per argument. Empty leaves
+# `sudo faramir escalations --watch` as the only place a question shows up, and a
+# question nobody sees expires after [escalation] timeout_sec with every other brokered
+# command on the host refused until it does.
 #
-# Passed only when faramir_allow_sudo is true, there being no [sudo] section to announce
+# Passed only when faramir_allow_sudo is true, there being no [escalation] section to announce
 # otherwise and init refusing the pair. It must name "{prompt}" or "{id}"; keep "{id}" off
 # anything that broadcasts, wall reaching every terminal on the host and the coding agent
 # having one.

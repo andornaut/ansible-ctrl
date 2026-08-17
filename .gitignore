@@ -13,7 +13,7 @@ host_vars/
 # this entry guards against the directory reappearing.
 secrets/
 
-# Holds no value, only secret:// references, but those references map this
+# Holds no value, only faramir:// references, but those references map this
 # repo's variables onto the secret store's layout.
 faramir.env
 

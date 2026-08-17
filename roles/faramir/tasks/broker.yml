@@ -204,7 +204,7 @@
 
       `--env-file faramir.env` names every credential this repo uses, by
       reference. `--limit '!faramir'` excludes the controller because `become`
-      there raises an approval per task, which would leave the run failing after
+      there raises an escalation per task, which would leave the run failing after
       the rest of it has already applied.
 
       Approved once, then root for the whole run:

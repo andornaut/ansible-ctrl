@@ -98,14 +98,14 @@ Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, enc
 msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
-[vars_plugins/secret_env.py](vars_plugins/secret_env.py) turns every `secret_*` environment variable into an inventory variable of the same name. Adding a credential is three edits: the value into the sops file, the `secret://` ref into `faramir.env`, the reference into `host_vars/`.
+[vars_plugins/secret_env.py](vars_plugins/secret_env.py) turns every `secret_*` environment variable into an inventory variable of the same name. Adding a credential is three edits: the value into the sops file, the `faramir://` ref into `faramir.env`, the reference into `host_vars/`.
 
 A value reaches a play only through the environment. Three paths put it there:
 
 | Path | How |
 | --- | --- |
 | `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and the same targets [re-enter as root](roles/faramir/README.md#running-playbooks) instead of refusing |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `secret://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `faramir://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
 | Gotcha | Detail |
