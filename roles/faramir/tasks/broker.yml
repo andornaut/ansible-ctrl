@@ -59,14 +59,8 @@
         probe: command -v sops
         hint: "It comes from the dev role: make dev -- --tags sops"
 
-- name: Install faramir from its latest release
+- name: Install faramir from release {{ faramir_release_tag }}
   block:
-    - name: Get the latest faramir release
-      ansible.builtin.include_tasks: get_latest_release.yml
-      vars:
-        release_repo: "{{ faramir_release_repo }}"
-        release_fact: faramir_release
-
     - name: Create a temporary directory for the faramir release
       ansible.builtin.tempfile:
         state: directory

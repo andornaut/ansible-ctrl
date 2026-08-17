@@ -10,6 +10,11 @@ make faramir    # install the broker, then authorize its key on the fleet
 
 An operator action. Log out and back in after the first install: it adds you to `faramir_client_group`, and group membership is read at login.
 
+Two guards are specific to this playbook, both because it is what authorizes the key the fleet answers to:
+
+- **`sudo make faramir` is refused.** A root run connects with the broker's key rather than your `~/.ssh`, so it needs a fleet that already accepts that key: not the first install, not a rotated key, and not a host added or rebuilt since the last run. `ALLOW_ROOT=1` skips the refusal where none of those hold.
+- **An unreachable host stops the run** instead of being dropped through `--limit`, as it is for every other playbook. A dropped host here is one that goes on not authorizing the key while the run reports success. Leave a host out deliberately with `--limit`.
+
 `faramir.yml` applies the role's two entry points in order:
 
 | Play | Entry point | Hosts | Effect |
@@ -53,7 +58,7 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 
 `faramir init` establishes the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. On top of that, the role:
 
-- Downloads the binary from faramir's latest tagged (`v*`) release, verified against `checksums.txt` from the same release. The rolling `dev` release is published with `make_latest=false`, so GitHub's "latest" pointer never selects it
+- Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. Set it to a version tag (`v0.5.0`) to pin. The tag is named rather than resolved through the API: `dev` is published with `make_latest=false`, so `/releases/latest` never returns it
 - Runs `faramir init-project` against `playbook_dir`, and writes the block covering how to run these playbooks through the broker
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values injected into it. `~` leaves the host's value alone
 - Runs `faramir doctor` and asserts on its report

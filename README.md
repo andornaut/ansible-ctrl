@@ -42,6 +42,8 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | `ASK_PASS=1` | forces the prompt |
 | `SECRETS=none` | skips the `sops exec-env` re-entry, and tells the play the run reads no credential. For a `--tags` run of a secret-bearing playbook that reaches none. |
 | `PREFLIGHT=none` | skips the reachability probe, and attempts every host whatever it would have found |
+| Preflight and `faramir.yml` | a host the probe cannot reach stops the run rather than being dropped: the play is what authorizes the broker's key, so a dropped host goes on not authorizing it while the run reports success. Leave a host out deliberately with `--limit`. |
+| `ALLOW_ROOT=1` | runs `faramir.yml` as root, which is otherwise refused. A root run connects with the broker's key, so it needs a fleet that already authorizes it: not the first install, a rotated key, or a host added since the last run. |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 

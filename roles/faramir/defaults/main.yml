@@ -2,6 +2,14 @@
 # The one host the broker is installed on, and whose key the fleet authorizes.
 faramir_controller: controller
 
+# The release whose assets are installed. `dev` is the rolling one CI re-cuts on every push
+# to faramir's main, so each run installs whatever that tag points at now and the version on
+# the host is only ever the last run's. A version tag (`v0.5.0`) pins instead.
+#
+# The tag is named rather than resolved through the API: `dev` is published with
+# make_latest=false, so GitHub's /releases/latest never returns it.
+faramir_release_tag: dev
+
 # The operator's login account, which owns the working tree and the coding agent runs as.
 # Never created here.
 faramir_user: "{{ primary_user }}"
