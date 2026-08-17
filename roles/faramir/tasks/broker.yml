@@ -215,8 +215,8 @@
       loop_control:
         label: "{{ item.path | basename }} ({{ item.mode }})"
 
-# faramir's own agent snippet covers the broker, not this repo. Without these two flags a
-# brokered run reaches the wrong hosts or no credentials at all.
+# faramir's own agent snippet covers the broker, not this repo: which flags an unprivileged
+# brokered run needs, and what the approved route costs instead.
 - name: Tell the agent how to run a playbook through the broker
   ansible.builtin.blockinfile:
     # The target, not a symlink to it: a host without the symlink would end up with two
@@ -231,21 +231,28 @@
     block: |
       ## Running playbooks
 
-      Credentials come from the broker and are never visible here. Run a
-      playbook with both of these:
+      Credentials come from the broker and are never visible here. Two routes,
+      the second reaching the controller at the cost of an approval.
+
+      Unprivileged, needing no approval, and unable to configure the controller:
 
           faramir run --env-file faramir.env -- \
               ansible-playbook <playbook>.yml --limit '!faramir'
 
       `--env-file faramir.env` names every credential this repo uses, by
-      reference. `--limit '!faramir'` excludes the controller, which a brokered
-      run cannot configure: commands run as a uid with no sudo there, so those
-      tasks fail after the rest of the run has already applied. The operator
-      applies the controller's own playbooks.
+      reference. `--limit '!faramir'` excludes the controller because `become`
+      there raises an approval per task, which would leave the run failing after
+      the rest of it has already applied.
 
-      `faramir_list_secrets` shows the available names. Do not use `make`: it is
-      the operator's entry point and prompts for a sudo password, which a
-      brokered command has no terminal to answer.
+      Approved once, then root for the whole run:
+
+          faramir run -- sudo make <playbook>
+
+      One approval covers it: no per-task prompt, and no `--ask-become-pass`,
+      which a root run never gets. Root reads the sops store itself, so this
+      route needs no `--env-file`.
+
+      `faramir_list_secrets` shows the available names.
   become: true
 
 # Yama, so that one brokered command cannot ptrace another and read the values injected into
