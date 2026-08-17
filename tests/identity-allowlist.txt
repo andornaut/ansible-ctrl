@@ -1,0 +1,9 @@
+# Tasks allowed to leave their account to the connection, one per line as path::name.
+#
+# Empty, and meant to stay that way. Every task states the account it runs as: `become: true`
+# for root, `become: true` with `become_user` for the target user, and `become: false` for one
+# that needs no privilege and is content with whoever started the run.
+#
+# tests/identity.py fails on an entry matching nothing, so a line added here has to name a
+# task that really is undeclared, and a task that gains a declaration loses its line in the
+# same commit. Adding to this file is a decision to defer, not a way to pass the gate.

@@ -2,7 +2,7 @@
 # The checks CI gates on, defined once so a local run and a CI run cannot disagree.
 # CI and `make lint` both call them all; the argument runs one on its own.
 #
-# Usage: tests/lint.sh [ansible-lint|syntax|shell|python]   (default: all)
+# Usage: tests/lint.sh [ansible-lint|syntax|shell|python|identity]   (default: all)
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -123,14 +123,29 @@ check_python() {
     return "${status}"
 }
 
+# Every task names the account it runs as, or is listed as not having been given one yet.
+# ansible-lint pairs become_user with become; it has nothing to say about a task that
+# declares neither, which is the case that reads differently on a local connection.
+#
+# The venv's python when there is one, so PyYAML is the version requirements-dev.txt
+# names rather than whatever the distro ships beside it.
+check_identity() {
+    local python=python3
+    # For the venv, not for a binary out of it: this needs PyYAML, which the file installs
+    # beside ansible-core, and without the call a fresh checkout has no venv to find.
+    require_lint_bin_dir || return 1
+    [[ -x ${VENV}/bin/python ]] && python="${VENV}/bin/python"
+    "${python}" tests/identity.py
+}
+
 main() {
     local checks check result status=0
 
     case "${1:-all}" in
-    all) checks=(ansible-lint syntax shell python) ;;
-    ansible-lint | syntax | shell | python) checks=("$1") ;;
+    all) checks=(ansible-lint syntax shell python identity) ;;
+    ansible-lint | syntax | shell | python | identity) checks=("$1") ;;
     *)
-        echo "usage: ${0} [ansible-lint|syntax|shell|python]" >&2
+        echo "usage: ${0} [ansible-lint|syntax|shell|python|identity]" >&2
         return 2
         ;;
     esac

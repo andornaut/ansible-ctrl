@@ -65,6 +65,9 @@ ignore = [
     # __init__.py to it would ship a file no role installs.
     "INP001",
 ]
+# A gate the lint runner invokes by path. Nothing imports it, so it is not a package.
+"tests/*.py" = ["INP001"]
+
 "vars_plugins/*.py" = [
     # Ansible loads a vars plugin by path and calls get_vars with a fixed
     # signature, so an argument it does not read still has to be accepted.
