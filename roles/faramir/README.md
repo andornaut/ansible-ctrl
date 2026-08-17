@@ -10,10 +10,11 @@ make faramir    # install the broker, then authorize its key on the fleet
 
 An operator action. Log out and back in after the first install: it adds you to `faramir_client_group`, and group membership is read at login.
 
-Two guards are specific to this playbook, both because it is what authorizes the key the fleet answers to:
+One guard is specific to this playbook, because it is what authorizes the key the fleet answers to:
 
 - **`sudo make faramir` is refused.** A root run connects with the broker's key rather than your `~/.ssh`, so it needs a fleet that already accepts that key: not the first install, not a rotated key, and not a host added or rebuilt since the last run. `ALLOW_ROOT=1` skips the refusal where none of those hold.
-- **An unreachable host stops the run** instead of being dropped through `--limit`, as it is for every other playbook. A dropped host here is one that goes on not authorizing the key while the run reports success. Leave a host out deliberately with `--limit`.
+
+Preflight drops an unreachable host here as it does everywhere else. A dropped host keeps whatever it already authorized, so re-run `make faramir` once it is back up, and after generating a new key run it with every host reachable.
 
 `faramir.yml` applies the role's two entry points in order:
 

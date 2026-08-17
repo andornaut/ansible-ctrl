@@ -153,10 +153,6 @@ SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=fals
 # refusing the identity, a moved host key and a wedged sshd are all a host this run cannot
 # apply to. A run left with no hosts stops. PREFLIGHT=none skips the probe.
 #
-# faramir.yml is the exception and stops on the first host it cannot reach: everywhere else
-# a dropped host is one this run cannot apply to, but there it is one that goes on not
-# authorizing the broker's key, which is the run's whole purpose.
-#
 # The --limit goes last and outranks one in ARGS, correctly: the list it is built from came
 # from list_run, which already applied that one.
 #
@@ -214,14 +210,6 @@ endef
 define preflight
 	       off=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
 	       if [ -n "$$off" ]; then \
-	         if [ "$*" = faramir ]; then \
-	           for h in $$off; do echo "Preflight: $$h is unreachable" >&2; done; \
-	           echo "Refusing to run faramir.yml with a host missing: the second play is" >&2; \
-	           echo "what authorizes the broker's key, so a host dropped here goes on not" >&2; \
-	           echo "authorizing it while the run reports success. Bring it up, or leave" >&2; \
-	           echo "it out deliberately with --limit." >&2; \
-	           exit 1; \
-	         fi; \
 	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
 	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
 	         if [ -z "$$reachable" ]; then \
@@ -276,12 +264,8 @@ $(PLAYBOOKS): %: requirements
 	 fi; \
 	 if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ] && [ -z "$(ALLOW_ROOT)" ]; then \
 	   echo "Refusing to run faramir.yml as root: a root run connects with the" >&2; \
-	   echo "broker's key, which is what this playbook is there to authorize, so it" >&2; \
-	   echo "needs every host in the run to accept that key already. Three ways one" >&2; \
-	   echo "does not: the first install, where there is no key yet; a rotated key," >&2; \
-	   echo "where the fleet still holds the old one; and a host added or rebuilt" >&2; \
-	   echo "since the last run, which preflight then drops while the rest succeeds." >&2; \
-	   echo "Run it as the operator, which connects with your own ~/.ssh:" >&2; \
+	   echo "broker's key, which is what this playbook authorizes. Run it as the" >&2; \
+	   echo "operator, which connects with your own ~/.ssh:" >&2; \
 	   echo "  make faramir" >&2; \
 	   echo "On a fleet that already authorizes the key, ALLOW_ROOT=1 skips this." >&2; \
 	   exit 1; \
