@@ -17,10 +17,14 @@
         install_recommends: false
         update_cache: true
 
-# JLCPCB catalog / LCSC part lookup. Per-user, so no become. Pinned to the latest
+# JLCPCB catalog / LCSC part lookup. It lands in the user's KiCad profile, so the block
+# names that account: inheriting the connection's would clone as root wherever the run
+# is invoked as root, leaving a tree the user cannot update. Pinned to the latest
 # release tag, which update: true advances on re-run.
 - name: Install kicad-jlcpcb-tools plugin
   tags: kicad
+  become: true
+  become_user: "{{ hobbies_user }}"
   block:
     - name: Get latest kicad-jlcpcb-tools release
       ansible.builtin.include_tasks: get_latest_release.yml

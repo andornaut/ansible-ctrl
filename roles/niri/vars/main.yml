@@ -5,6 +5,9 @@
 # From the getent in tasks/main.yml.
 niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
 
+# Names the user bus for a `scope: user` unit, which become_user alone does not reach.
+niri_user_uid: "{{ ansible_facts['getent_passwd'][niri_user][1] }}"
+
 niri_hypr_cmake_build: "cmake --build build --config Release -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)"
 
 niri_hypr_cmake_configure: >-

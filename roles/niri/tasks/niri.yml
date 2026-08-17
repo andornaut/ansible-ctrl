@@ -1,8 +1,14 @@
 ---
+# The staging directory, the build and the per-user state all run as the account whose
+# cargo toolchain builds them. become_user propagates into the block, so the tasks
+# writing system paths name root back: a bare become: true would inherit this user.
 - name: Install niri
   tags: [niri]
+  become: true
+  become_user: "{{ niri_user }}"
   block:
-    # Before the download, so a host without a toolchain fails early.
+    # Before the download, so a host without a toolchain fails early. Probed as the
+    # account that will build, cargo being per-user.
     - name: Require the Rust toolchain
       ansible.builtin.include_tasks: require_tools.yml
       vars:
@@ -68,6 +74,7 @@
         - /usr/local/share/xdg-desktop-portal
         - /usr/local/lib/systemd/user
       become: true
+      become_user: root
 
     - name: Copy niri files
       ansible.builtin.copy:
@@ -89,6 +96,7 @@
         - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
           dest: /usr/local/lib/systemd/user/
       become: true
+      become_user: root
 
     - name: Configure electron flags for Wayland
       ansible.builtin.lineinfile:
@@ -105,6 +113,8 @@
         scope: user
         state: started
       when: ansible_service_mgr == 'systemd'
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
@@ -112,3 +122,4 @@
         state: absent
       when: niri_tmp.path is defined
       become: true
+      become_user: root

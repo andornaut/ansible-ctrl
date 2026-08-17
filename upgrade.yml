@@ -26,10 +26,19 @@
       changed_when: "'Nothing to do.' not in flatpak_system_result.stdout"
       when: "'flatpak' in ansible_facts.packages"
 
+    # The account is named rather than inherited from the connection: --user acts on
+    # whoever runs it, so a run invoked as root upgrades root's installation, finds
+    # nothing and reports no change while the applications stay behind.
+    #
+    # desktop_user, not primary_user: the roles that install a user-scope flatpak all
+    # target it, and a host whose desktop belongs to a second account sets it in
+    # host_vars. Undefined off a desktop host, where the fallback is the only account.
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
       environment:
         LC_ALL: C
+      become: true
+      become_user: "{{ desktop_user | default(primary_user) }}"
       register: flatpak_user_result
       changed_when: "'Nothing to do.' not in flatpak_user_result.stdout"
       when: "'flatpak' in ansible_facts.packages"

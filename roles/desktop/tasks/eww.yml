@@ -1,12 +1,18 @@
 ---
-# Before the build dependencies, so a host without a toolchain fails early.
+# Before the build dependencies, so a host without a toolchain fails early. The probe
+# runs as the account that will build, cargo being per-user: probing any other reports
+# on a toolchain the build will not use.
 - name: Require the Rust toolchain
-  ansible.builtin.include_tasks: require_tools.yml
-  vars:
-    require_tools:
-      - name: cargo
-        probe: cargo --version
-        hint: "It comes from the dev role: make dev -- --tags rust"
+  become: true
+  become_user: "{{ desktop_user }}"
+  block:
+    - name: Probe for the Rust toolchain
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: cargo
+            probe: cargo --version
+            hint: "It comes from the dev role: make dev -- --tags rust"
 
 - name: Install eww build dependencies
   ansible.builtin.apt:
@@ -19,7 +25,12 @@
     update_cache: true
   become: true
 
+# The staging directory, the clone and the build all run as the account whose cargo
+# toolchain builds them. become_user propagates into the block, so the two tasks that
+# need root name it back: a bare become: true would inherit this user and fail.
 - name: Build and install eww
+  become: true
+  become_user: "{{ desktop_user }}"
   block:
     - name: Create a temporary directory
       ansible.builtin.tempfile:
@@ -50,6 +61,7 @@
         mode: "0755"
       notify: Restart eww
       become: true
+      become_user: root
   always:
     # ~1GB of cargo output, on a /tmp tmpfs sized at half of RAM.
     - name: Remove the temporary directory
@@ -58,6 +70,7 @@
         state: absent
       when: desktop_eww_tmp.path is defined
       become: true
+      become_user: root
 
 # eww's systray resolves icons through hicolor only, which does not ship the icon
 # update-notifier publishes. Yaru is the only Ubuntu-packaged theme that has it.

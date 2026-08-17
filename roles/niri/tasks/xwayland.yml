@@ -1,7 +1,13 @@
 ---
+# Built by the account whose cargo toolchain builds it, the staging directory included.
+# become_user propagates into the block, so the tasks writing system paths name root
+# back: a bare become: true would inherit this user.
 - name: Install xwayland-satellite
   tags: [xwayland]
+  become: true
+  become_user: "{{ niri_user }}"
   block:
+    # Probed as the account that will build, cargo being per-user.
     - name: Require the Rust toolchain
       ansible.builtin.include_tasks: require_tools.yml
       vars:
@@ -62,6 +68,7 @@
         state: directory
         mode: "0755"
       become: true
+      become_user: root
 
     - name: Copy xwayland-satellite files
       ansible.builtin.copy:
@@ -75,6 +82,7 @@
         - src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
           dest: /usr/local/bin/
       become: true
+      become_user: root
 
     - name: Enable xwayland-satellite.service
       ansible.builtin.systemd_service:
@@ -83,6 +91,8 @@
         enabled: true
         scope: user
         state: started
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
   always:
     - name: Remove the temporary directory for xwayland-satellite
       ansible.builtin.file:
@@ -90,3 +100,4 @@
         state: absent
       when: niri_xwayland_tmp.path is defined
       become: true
+      become_user: root
