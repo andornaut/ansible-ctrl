@@ -115,46 +115,6 @@
       # unpacked archive into /tmp.
       check_mode: false
 
-# CLEANUP (added 2026-08-17): faramir shortened its log_id and moved the record's time
-# into a field of its own, so a record written before that keeps its only timestamp inside
-# an id nothing parses any more, and `faramir logs` places it at the epoch. Removable once
-# every host carrying a broker has applied this, after which no such record is left.
-#
-# Conditional rather than unconditional: this is an audit trail, logrotate already bounds
-# it, and a task that deletes it on every apply would take the record of what ran as root
-# along with the ones it came for.
-#
-# zgrep over the glob, so the rotated files answer for themselves: the live log can hold
-# nothing old while an archive beside it does, which is any host that rotated after the
-# upgrade.
-- name: Look for audit records written before the log_id changed
-  ansible.builtin.shell:
-    cmd: zgrep -qE '"log_id":"[0-9]{4}-[0-9]{2}-[0-9]{2}T' {{ faramir_audit_log }}*
-  become: true
-  register: faramir_audit_old
-  changed_when: false
-  failed_when: false
-
-- name: List the audit logs to remove
-  ansible.builtin.find:
-    paths: "{{ faramir_audit_log | dirname }}"
-    patterns: "{{ faramir_audit_log | basename }}*"
-  become: true
-  register: faramir_audit_files
-  when: faramir_audit_old.rc == 0
-
-# Safe to take out from under a running broker: it opens the log per write, so the next
-# record creates it again, and `faramir doctor` warns rather than fails on one that is not
-# there, which is what the check below asserts against.
-- name: Remove the audit logs written before the log_id changed
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  become: true
-  loop: "{{ faramir_audit_files.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path }}"
-
 # Runs the installed binary, the staging directory being gone, so a first --check run on a
 # fresh host has none and skips.
 - name: Check for the installed faramir binary

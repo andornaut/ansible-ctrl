@@ -96,8 +96,3 @@ faramir_fleet_known_hosts_name: >-
 # Undefined, so the module picks ~/.ssh/authorized_keys; set in host_vars for a host that
 # regenerates that file, as the pfSense routers do.
 # faramir_fleet_authorized_keys_path: /root/.ssh/authorized_keys2
-
-# The log the broker appends to, which is faramir's own default. Named here only so the
-# one-shot removal of pre-2026-08-17 records has a path to check, it and the rotated
-# files beside it.
-faramir_audit_log: /var/log/faramir/audit.log
