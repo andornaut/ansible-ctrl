@@ -1,4 +1,5 @@
-# Tasks allowed to leave their account to the connection, one per line as path::name.
+# Tasks allowed to leave their account to the connection, one per line as path::name, or
+# as the call sites joined by ` -> ` where the task was reached through an include.
 #
 # Empty, and meant to stay that way. Every task states the account it runs as: `become: true`
 # for root, `become: true` with `become_user` for the target user, and `become: false` for one

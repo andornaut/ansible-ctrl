@@ -2,7 +2,7 @@
 - name: Install SOPS
   block:
     # Not packaged for Ubuntu, so install the release .deb. No age package: SOPS
-    # links the age library, and faramir mints the keypair with `faramir sops keygen`.
+    # links the age library, and `faramir init` mints the keypair.
     - name: Get latest SOPS release
       ansible.builtin.include_tasks: get_latest_release.yml
       vars:

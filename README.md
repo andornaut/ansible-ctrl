@@ -127,7 +127,7 @@ against, and the [faramir role](roles/faramir/README.md) covers this repo's part
 1. `make faramir` installs the broker, then authorizes its SSH key and the NOPASSWD sudo the other playbooks rely
    on. It asks for a sudo password once.
 1. Log out and back in: the install adds you to the `dev` group, and group membership is read at login.
-1. `faramir doctor`, `faramir status`, `faramir list-secrets` (names, never values). A ref count of zero means the
+1. `faramir doctor`, `faramir status`, `faramir refs` (names, never values). A ref count of zero means the
    broker is protecting nothing.
 1. Prove the chain end to end, per [Verification](roles/faramir/README.md#verification).
 

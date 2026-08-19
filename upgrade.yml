@@ -30,15 +30,21 @@
     # whoever runs it, so a run invoked as root upgrades root's installation, finds
     # nothing and reports no change while the applications stay behind.
     #
-    # desktop_user, not primary_user: the roles that install a user-scope flatpak all
-    # target it, and a host whose desktop belongs to a second account sets it in
-    # host_vars. Undefined off a desktop host, where the fallback is the only account.
+    # One pass per account that owns a user-scope flatpak: desktop installs its own,
+    # games installs the gaming ones as games_user, and hobbies installs OrcaSlicer as
+    # hobbies_user. This playbook loads no role, so only host_vars can make any of the
+    # three resolve; the fallback is the one account, and `unique` collapses the usual
+    # case where they name it.
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
       environment:
         LC_ALL: C
       become: true
-      become_user: "{{ desktop_user | default(primary_user) }}"
+      become_user: "{{ item }}"
+      loop: >-
+        {{ [desktop_user | default(primary_user),
+            games_user | default(primary_user),
+            hobbies_user | default(primary_user)] | unique }}
       register: flatpak_user_result
       changed_when: "'Nothing to do.' not in flatpak_user_result.stdout"
       when: "'flatpak' in ansible_facts.packages"

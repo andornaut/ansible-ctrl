@@ -127,14 +127,18 @@ check_python() {
 # ansible-lint pairs become_user with become; it has nothing to say about a task that
 # declares neither, which is the case that reads differently on a local connection.
 #
-# The venv's python when there is one, so PyYAML is the version requirements-dev.txt
-# names rather than whatever the distro ships beside it.
+# identity.py needs PyYAML, which requirements-dev.txt installs beside ansible-core, so the
+# call below builds the venv a fresh checkout does not have yet and its python is the one to
+# run. An ansible-lint already on PATH short-circuits that venv and may sit beside no python
+# at all (pipx), so the distro's is the fallback, and it is checked rather than assumed.
 check_identity() {
     local python=python3
-    # For the venv, not for a binary out of it: this needs PyYAML, which the file installs
-    # beside ansible-core, and without the call a fresh checkout has no venv to find.
     require_lint_bin_dir || return 1
-    [[ -x ${VENV}/bin/python ]] && python="${VENV}/bin/python"
+    [[ -x ${LINT_BIN_DIR}/python ]] && python="${LINT_BIN_DIR}/python"
+    if ! "${python}" -c 'import yaml' >/dev/null 2>&1; then
+        echo "${python} has no PyYAML: pip install -r requirements-dev.txt" >&2
+        return 1
+    fi
     "${python}" tests/identity.py
 }
 

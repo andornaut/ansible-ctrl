@@ -94,6 +94,20 @@ INCLUDES = frozenset({"ansible.builtin.include_tasks", "ansible.builtin.import_t
 MAX_DEPTH = 12
 
 
+def reads_only(node, module):
+    """Whether the module leaves nothing behind, so the account it ran as does not matter.
+
+    `uri` is in the set because it usually fetches, but `dest` makes it write a file, and
+    that file is owned by whoever the task ran as.
+    """
+    if module not in READ_ONLY:
+        return False
+    if module == "ansible.builtin.uri":
+        spec = node[module]
+        return not (isinstance(spec, dict) and "dest" in spec)
+    return True
+
+
 def module_of(task):
     for key in task:
         if key not in DIRECTIVES and not key.startswith("with_"):
@@ -121,8 +135,12 @@ def declares(node):
     return "become" in node or "become_user" in node
 
 
-def walk(node, path, declared, found, seen, depth=0):
-    """Collect leaf tasks, carrying the nearest declaration down the chain."""
+def walk(node, path, declared, found, seen, depth=0, chain=()):
+    """Collect leaf tasks, carrying the nearest declaration down the chain.
+
+    `chain` is the call sites an included file was reached through, so a report names the
+    task that has to gain the declaration and not only the helper that inherits it.
+    """
     if not isinstance(node, dict):
         return
     if depth > MAX_DEPTH:
@@ -134,7 +152,7 @@ def walk(node, path, declared, found, seen, depth=0):
     if nested:
         for key in nested:
             for child in node[key] or []:
-                walk(child, path, declared, found, seen, depth + 1)
+                walk(child, path, declared, found, seen, depth + 1, chain)
         return
 
     module = module_of(node)
@@ -142,18 +160,25 @@ def walk(node, path, declared, found, seen, depth=0):
         spec = node[module]
         target = spec.get("file") if isinstance(spec, dict) else spec
         # A computed name resolves per host, so it cannot be followed here.
-        if isinstance(target, str) and "{{" not in target:
-            included = (ROOT / path).parent / target
-            if included.is_file():
-                rel = str(included.relative_to(ROOT))
-                seen.add(rel)
-                for child in load(included):
-                    walk(child, rel, declared, found, seen, depth + 1)
-                return
-
-    if declared or module in READ_ONLY:
+        if isinstance(target, str) and "{{" in target:
+            return
+        included = (ROOT / path).parent / target if isinstance(target, str) else None
+        if included is None or not included.is_file():
+            ERRORS.append(
+                f"include target does not resolve, so nothing it holds was checked: "
+                f"{path}::{node.get('name', '(unnamed)')} -> {target}"
+            )
+            return
+        rel = str(included.relative_to(ROOT))
+        seen.add(rel)
+        site = f"{path}::{node.get('name', '(unnamed)')}"
+        for child in load(included):
+            walk(child, rel, declared, found, seen, depth + 1, (*chain, site))
         return
-    found.append((path, node.get("name", "(unnamed)")))
+
+    if declared or reads_only(node, module):
+        return
+    found.append((*chain, f"{path}::{node.get('name', '(unnamed)')}"))
 
 
 def scan(path, found, seen):
@@ -203,7 +228,7 @@ def read_allowlist():
 
 
 def main():
-    undeclared = {f"{path}::{name}" for path, name in collect()}
+    undeclared = {" -> ".join(entry) for entry in collect()}
     allowed = read_allowlist()
 
     new = sorted(undeclared - allowed)
@@ -214,7 +239,9 @@ def main():
     for entry in stale:
         print(f"stale allowlist entry, delete it: {entry}")
 
-    for error in ERRORS:
+    # Deduplicated: collect() scans every file twice, once to name the files reached
+    # through an include and once to report, so each error is raised on both passes.
+    for error in dict.fromkeys(ERRORS):
         print(error, file=sys.stderr)
 
     print(f"{len(undeclared)} undeclared, {len(allowed)} allowed, {len(new)} new, {len(stale)} stale")

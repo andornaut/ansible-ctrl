@@ -215,7 +215,7 @@
       which a root run never gets. Root reads the sops store itself, so this
       route needs no `--env-file`.
 
-      `faramir_list_secrets` shows the available names.
+      `faramir_refs` shows the available names.
   become: true
 
 # Yama, so that one brokered command cannot ptrace another and read the values injected into

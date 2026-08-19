@@ -14,11 +14,12 @@
 #   build_component_build_become (bool): build as root, default false.
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
-# Staged as the connecting account, not root: the build below is unprivileged unless a
-# caller asks otherwise, and a root-owned 0700 staging directory is one it cannot chdir
-# into. The install and the cleanup name root for themselves.
+# Staged as niri_user, not root and not the connecting account: the build below is
+# unprivileged unless a caller asks otherwise, and a root-owned 0700 staging directory is
+# one it cannot chdir into. The install and the cleanup name root for themselves.
 - name: Build and install {{ build_component_name }}
-  become: false
+  become: true
+  become_user: "{{ niri_user }}"
   block:
     - name: Create a temporary directory for {{ build_component_name }}
       ansible.builtin.tempfile:
@@ -40,12 +41,15 @@
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
 
+    # root when the caller asks for it: the block's become_user would otherwise make
+    # this the same unprivileged account the staging ran as.
     - name: Build {{ build_component_name }} # noqa: command-instead-of-shell
       ansible.builtin.shell:
         cmd: "{{ build_component_build_cmd }}"
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
       become: "{{ build_component_build_become | default(false) | bool }}"
+      become_user: root
 
     - name: Install {{ build_component_name }}
       ansible.builtin.command:
@@ -53,11 +57,13 @@
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
       become: true
+      become_user: root
   always:
-    # A become build leaves root-owned directories the connecting user cannot unlink.
+    # A root build leaves root-owned directories niri_user cannot unlink.
     - name: Remove the temporary directory for {{ build_component_name }}
       ansible.builtin.file:
         path: "{{ niri_build_component_tmp.path }}"
         state: absent
       when: niri_build_component_tmp.path is defined
       become: true
+      become_user: root
