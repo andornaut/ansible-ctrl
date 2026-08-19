@@ -45,7 +45,7 @@ configure their cron jobs and the directories they operate on.
 
 | Tag | Constraint |
 | --- | --- |
-| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. `dev_ai_attributions_release_url` pins a version or follows the rolling `dev` release. The cron entry scans with `--exit-code`, printing nothing when every repository is clean and the `apply --push` command for each one that is not. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` it suggests does |
+| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. `dev_ai_attributions_release_url` pins a version or follows the rolling `dev` release. The cron entry scans with `--quiet`, printing nothing when every repository is clean and the `apply --push` command for each one that is not. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` it suggests does |
 | ai_maintainer | Symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise |
 | android_sdk | Installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google names the command line tools archive after a build number with no stable alias for the newest, so `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. sdkmanager requires the archive be installed as `cmdline-tools/latest`, and installs nothing until the license hash files under `licenses/` exist, which the role writes directly |
 | cursor | Unprivileged user namespaces come from a dedicated AppArmor profile, not from disabling the restriction globally |
@@ -65,7 +65,7 @@ where its flag is set, and the file is removed where neither is.
 ~/.local/bin/ai-maintainer --dry-run --verbose
 
 # Scan every repository, not only the ones with a finding as the cron entry does
-~/.local/bin/ai-attributions scan --agents-files ~/src/github.com/andornaut/*
+~/.local/bin/ai-attributions scan --agents-files --emdashes ~/src/github.com/andornaut/*
 
 # Fix one repository, with or without publishing (the second prints the push command)
 ~/.local/bin/ai-attributions apply --push ~/src/github.com/andornaut/<repo>

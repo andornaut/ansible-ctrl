@@ -61,13 +61,16 @@ dev_ai_attributions_binary_path: "{{ dev_user_home }}/.local/bin/ai-attributions
 
 # --quiet prints nothing for a repository that found nothing, so cron mails the
 # days that need an answer and no others. --agents-files opts in to the agent
-# instruction file check, which the tool leaves off.
+# instruction file check, which the tool leaves off, and --emdashes to the dash
+# check, which it also leaves off. Both are on in every repository's CI, and CI
+# scans only what a push added: without them here the two checks have a window
+# one push wide and nothing that looks at settled history.
 #
 # --exit-code is left off deliberately. Nothing here reads the status, and a
 # non-zero one is always printed with the report explaining it, so asking for a
 # status would mail a notice about the same fork every morning. The mail is the
 # signal: a finding prints either way.
-dev_ai_attributions_scan_flags: --quiet --agents-files
+dev_ai_attributions_scan_flags: --quiet --agents-files --emdashes
 
 # The cron job runs a coding agent against every checkout under
 # dev_ai_maintainer_src_base_dir, so enable it only where those checkouts are.
