@@ -159,19 +159,18 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
     if module in INCLUDES:
         spec = node[module]
         target = spec.get("file") if isinstance(spec, dict) else spec
-        # A computed name resolves per host, so it cannot be followed here.
-        if isinstance(target, str) and "{{" in target:
+        site = f"{path}::{node.get('name', '(unnamed)')}"
+        # A computed name resolves per host, so it cannot be followed from here. That fails
+        # the gate rather than passing every task in the file unchecked: name the file.
+        if not isinstance(target, str) or "{{" in target:
+            ERRORS.append(f"include target is computed, so nothing it holds was checked: {site} -> {target}")
             return
-        included = (ROOT / path).parent / target if isinstance(target, str) else None
-        if included is None or not included.is_file():
-            ERRORS.append(
-                f"include target does not resolve, so nothing it holds was checked: "
-                f"{path}::{node.get('name', '(unnamed)')} -> {target}"
-            )
+        included = (ROOT / path).parent / target
+        if not included.is_file():
+            ERRORS.append(f"include target does not resolve, so nothing it holds was checked: {site} -> {target}")
             return
         rel = str(included.relative_to(ROOT))
         seen.add(rel)
-        site = f"{path}::{node.get('name', '(unnamed)')}"
         for child in load(included):
             walk(child, rel, declared, found, seen, depth + 1, (*chain, site))
         return
