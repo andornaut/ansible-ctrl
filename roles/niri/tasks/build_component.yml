@@ -41,15 +41,16 @@
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
 
-    # root when the caller asks for it: the block's become_user would otherwise make
-    # this the same unprivileged account the staging ran as.
+    # Escalates either way, naming the account rather than leaving it to the connection:
+    # a bare `become: false` here would outrank the block and hand the build to whoever
+    # ansible connected as, which cannot chdir into a 0700 directory niri_user owns.
     - name: Build {{ build_component_name }} # noqa: command-instead-of-shell
       ansible.builtin.shell:
         cmd: "{{ build_component_build_cmd }}"
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
-      become: "{{ build_component_build_become | default(false) | bool }}"
-      become_user: root
+      become: true
+      become_user: "{{ 'root' if build_component_build_become | default(false) | bool else niri_user }}"
 
     - name: Install {{ build_component_name }}
       ansible.builtin.command:
