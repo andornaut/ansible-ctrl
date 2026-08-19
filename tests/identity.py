@@ -94,6 +94,17 @@ INCLUDES = frozenset({"ansible.builtin.include_tasks", "ansible.builtin.import_t
 MAX_DEPTH = 12
 
 
+def names_dest(node, module):
+    """Whether the task names `dest`, in any of the three places a module takes arguments."""
+    spec = node[module]
+    if isinstance(spec, dict) and "dest" in spec:
+        return True
+    if isinstance(spec, str) and any(word.startswith("dest=") for word in spec.split()):
+        return True
+    args = node.get("args")
+    return isinstance(args, dict) and "dest" in args
+
+
 def reads_only(node, module):
     """Whether the module leaves nothing behind, so the account it ran as does not matter.
 
@@ -103,8 +114,7 @@ def reads_only(node, module):
     if module not in READ_ONLY:
         return False
     if module == "ansible.builtin.uri":
-        spec = node[module]
-        return not (isinstance(spec, dict) and "dest" in spec)
+        return not names_dest(node, module)
     return True
 
 
