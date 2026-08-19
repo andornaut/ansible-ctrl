@@ -152,9 +152,9 @@ rather than the lines a change touched.
 | --- | --- |
 | `ansible-lint` | the repo. Not packaged for Ubuntu, so the script keeps it in a venv under `.ansible/`, built on first use; CI installs it with `pip` and the script takes whichever is on `PATH` |
 | `syntax` | `ansible-config validate -t all`, then `ansible-playbook --syntax-check` per playbook against [tests/inventory.ini](tests/inventory.ini), the real inventory being gitignored |
-| `shell` | every shell script under `roles/`, discovered by shebang |
-| `python` | every Python file under `roles/*/files/` |
-| `identity` | every task declares the account it runs as ([tests/identity.py](tests/identity.py)) |
+| `shell` | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders |
+| `python` | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions |
+| `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)) |
 
 Two more gates that `make lint` does not run:
 

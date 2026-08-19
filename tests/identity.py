@@ -1,9 +1,10 @@
-# Fails on a task that names no account to run as.
+# Fails on a task whose account is left to the connection, which is one that neither
+# declares an account itself nor sits inside a block that declares one for it.
 #
-# A task with no `become` runs as whoever ansible connects as. Over ssh that is the
-# inventory's ansible_user and never varies; on a local connection it is whoever invoked
-# ansible, so the same task is the operator on one run and root on the next. A task that
-# touches per-user state, or a tool installed per user, then acts on the wrong account.
+# Such a task runs as whoever ansible connects as. Over ssh that is the inventory's
+# ansible_user and never varies; on a local connection it is whoever invoked ansible, so
+# the same task is the operator on one run and root on the next. A task that touches
+# per-user state, or a tool installed per user, then acts on the wrong account.
 #
 # The allowlist beside this file holds what has not been declared yet. It can only shrink:
 # an entry matching nothing is an error, so a task that gains an identity has to lose its
@@ -135,6 +136,24 @@ def declares(node):
     return "become" in node or "become_user" in node
 
 
+def resolve_include(path, target):
+    """Where ansible looks for an included file, or None.
+
+    The role's `tasks/` first, then beside the including file: the two are the same for a
+    file already under `tasks/`, and differ for a handler, whose relative include ansible
+    resolves against `tasks/` rather than `handlers/`.
+    """
+    parts = pathlib.PurePath(path).parts
+    candidates = []
+    if len(parts) > 2 and parts[0] == "roles":
+        candidates.append(ROOT / parts[0] / parts[1] / "tasks" / target)
+    candidates.append((ROOT / path).parent / target)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
 def walk(node, path, declared, found, seen, depth=0, chain=()):
     """Collect leaf tasks, carrying the nearest declaration down the chain.
 
@@ -165,8 +184,8 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
         if not isinstance(target, str) or "{{" in target:
             ERRORS.append(f"include target is computed, so nothing it holds was checked: {site} -> {target}")
             return
-        included = (ROOT / path).parent / target
-        if not included.is_file():
+        included = resolve_include(path, target)
+        if included is None:
             ERRORS.append(f"include target does not resolve, so nothing it holds was checked: {site} -> {target}")
             return
         rel = str(included.relative_to(ROOT))

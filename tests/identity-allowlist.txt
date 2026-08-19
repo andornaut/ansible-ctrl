@@ -1,9 +1,10 @@
 # Tasks allowed to leave their account to the connection, one per line as path::name, or
 # as the call sites joined by ` -> ` where the task was reached through an include.
 #
-# Empty, and meant to stay that way. Every task states the account it runs as: `become: true`
-# for root, `become: true` with `become_user` for the target user, and `become: false` for one
-# that needs no privilege and is content with whoever started the run.
+# Empty, and meant to stay that way. Every task's account is stated by the task or by a block
+# around it: `become: true` for root, `become: true` with `become_user` for the target user,
+# and `become: false` for one that needs no privilege and is content with whoever started the
+# run. A block's `become_user` is inherited, so a root task inside one names root back.
 #
 # tests/identity.py fails on an entry matching nothing, so a line added here has to name a
 # task that really is undeclared, and a task that gains a declaration loses its line in the
