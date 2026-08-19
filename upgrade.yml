@@ -32,9 +32,10 @@
     #
     # One pass per account that owns a user-scope flatpak: desktop installs its own,
     # games installs the gaming ones as games_user, and hobbies installs OrcaSlicer as
-    # hobbies_user. This playbook loads no role, so only host_vars can make any of the
-    # three resolve; the fallback is the one account, and `unique` collapses the usual
-    # case where they name it.
+    # hobbies_user. primary_user is in the list on its own account, so a host whose roles
+    # all target a second account still upgrades what the operator installed by hand.
+    # This playbook loads no role, so only host_vars can make the other three resolve, and
+    # `unique` collapses the usual case where they are the one account.
     - name: Upgrade flatpak user packages
       ansible.builtin.command: flatpak --noninteractive --user upgrade
       environment:
@@ -42,7 +43,8 @@
       become: true
       become_user: "{{ item }}"
       loop: >-
-        {{ [desktop_user | default(primary_user),
+        {{ [primary_user,
+            desktop_user | default(primary_user),
             games_user | default(primary_user),
             hobbies_user | default(primary_user)] | unique }}
       register: flatpak_user_result
@@ -53,6 +55,7 @@
       ansible.builtin.stat:
         path: /var/run/reboot-required
       register: upgrade_reboot_required
+      become: false
 
     - name: Report upgrade summary
       vars:

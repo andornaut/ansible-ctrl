@@ -38,9 +38,12 @@
     # which the server writes by the hundred with its own umask.
     service_account_mode: "0700"
 
+# Root, as the download below is: a models directory this could not traverse would read
+# as empty and every model would be fetched again.
 - name: Check which llama.cpp models already exist
   ansible.builtin.stat:
     path: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item | basename }}"
+  become: true
   loop: "{{ homeautomation_llamacpp_models }}"
   register: homeautomation_llamacpp_model_stats
   when: (homeautomation_llamacpp_models | length) > 0

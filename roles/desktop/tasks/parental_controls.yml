@@ -126,6 +126,7 @@
     paths: "{{ desktop_chrome_policies_dir }}"
     excludes: "{{ ['family.json'] if desktop_install_parental_controls else [] }}"
   register: desktop_chrome_policies_found
+  become: true
 
 - name: Remove Chrome managed policies the role did not deploy
   ansible.builtin.file:
@@ -143,6 +144,7 @@
   ansible.builtin.stat:
     path: "{{ desktop_malcontent_client }}"
   register: desktop_malcontent_client_stat
+  become: true
 
 - name: Apply the malcontent filters for {{ desktop_user }}
   when: desktop_malcontent_client_stat.stat.exists

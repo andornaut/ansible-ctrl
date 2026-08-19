@@ -60,6 +60,7 @@
   ansible.builtin.stat:
     path: /etc/apparmor.d/disable/usr.bin.msmtp
   register: msmtp_apparmor_disabled
+  become: true
 
 # Unconditional: gating on the include changing would let an interrupted run leave
 # an enforced profile denying those reads.

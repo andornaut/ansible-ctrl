@@ -39,6 +39,7 @@
   ansible.builtin.stat:
     path: "{{ playbook_dir }}"
   register: faramir_worktree_dir
+  become: false
 
 - name: Require the working tree
   ansible.builtin.assert:
@@ -124,6 +125,7 @@
   ansible.builtin.stat:
     path: "{{ faramir_binary }}"
   register: faramir_binary_stat
+  become: false
 
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:

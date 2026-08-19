@@ -1,8 +1,11 @@
 ---
+# Unprivileged: /dev entries and their targets are world-readable, so the answer is the
+# same account to account.
 - name: Resolve device symlink paths to actual devices
   ansible.builtin.stat:
     path: "{{ item }}"
   register: homeautomation_device_stats_result
+  become: false
   loop: "{{ device_paths | default([]) }}"
   when: item.startswith('/dev/')
 

@@ -18,13 +18,14 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ALLOWLIST = pathlib.Path(__file__).with_name("identity-allowlist.txt")
 
-# Reads only, so the account it runs as changes nothing it leaves behind.
+# Leaves nothing behind, and answers the same whoever asks. `stat`, `find` and `slurp` are
+# deliberately absent: they write nothing, but their answer is the account's, and a path it
+# cannot traverse reads as absent rather than as an error.
 READ_ONLY = frozenset(
     {
         "ansible.builtin.assert",
         "ansible.builtin.debug",
         "ansible.builtin.fail",
-        "ansible.builtin.find",
         "ansible.builtin.getent",
         "ansible.builtin.import_role",
         "ansible.builtin.import_tasks",
@@ -36,8 +37,6 @@ READ_ONLY = frozenset(
         "ansible.builtin.pause",
         "ansible.builtin.set_fact",
         "ansible.builtin.setup",
-        "ansible.builtin.slurp",
-        "ansible.builtin.stat",
         "ansible.builtin.uri",
         "ansible.builtin.wait_for",
     }

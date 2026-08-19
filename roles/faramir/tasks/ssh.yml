@@ -100,15 +100,19 @@
   block:
     # Whichever types the host offers: the algorithm is negotiated per connection, so an
     # entry for a type ssh does not pick verifies nothing.
+    # Unprivileged, the keys being public and this play reaching the routers, whose
+    # pfSense has no sudo to escalate through.
     - name: Find the host's public SSH host keys
       ansible.builtin.find:
         paths: /etc/ssh
         patterns: ssh_host_*_key.pub
       register: faramir_fleet_host_key_files
+      become: false
 
     - name: Read them
       ansible.builtin.slurp:
         src: "{{ item.path }}"
+      become: false
       loop: "{{ faramir_fleet_host_key_files.files }}"
       loop_control:
         label: "{{ item.path }}"

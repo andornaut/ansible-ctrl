@@ -35,6 +35,7 @@
       ansible.builtin.stat:
         path: "/usr/lib/systemd/system/{{ item }}"
       register: homeautomation_avahi_units
+      become: true
       loop:
         - avahi-daemon.socket
         - avahi-daemon.service
