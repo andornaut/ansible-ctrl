@@ -20,17 +20,17 @@ Steps:
 ### Pairing from a different subnet
 
 If the phone's WiFi network is on a different subnet than the Thread Border Router, pairing fails during device
-discovery. A USB-C ethernet adapter that temporarily puts the phone on the same LAN works around it. Replace
-steps 2 to 4 above with:
+discovery. A USB-C ethernet adapter that puts the phone on the same LAN works around it. Replace steps 2 to 4
+above with:
 
 1. In the Home Assistant mobile app, go to Settings > Devices & Services > Matter > Add device > No. It's new
 1. Scan the device's QR code
 1. Plug the ethernet adapter into the phone
 1. Wait approximately 4 seconds, then tap "I'm ready"
 
-The timing is load-bearing. The pairing flow runs a WiFi connectivity check before the "I'm ready" prompt, and
-starts mDNS discovery after it. Plug the ethernet adapter in before tapping "I'm ready", so the connectivity
-check passes over WiFi while discovery occurs on the ethernet LAN.
+The timing is load-bearing: the pairing flow runs a WiFi connectivity check before the "I'm ready" prompt and
+starts mDNS discovery after it. Plug the adapter in before tapping "I'm ready", so the check passes over WiFi
+while discovery runs on the ethernet LAN.
 
 ## Devices
 
@@ -179,7 +179,7 @@ The SLZB-MR1U has two radios: Zigbee (CC2652P7, port 7638) and Thread (EFR32MG21
 ZHA setup:
 
 1. Open the SLZB-MR1U web UI and confirm the Zigbee radio is in coordinator mode
-1. Leave "Zigbee Hub Mode" disabled, since Hub Mode makes the SLZB a standalone hub, bypassing ZHA
+1. Leave "Zigbee Hub Mode" disabled: Hub Mode makes the SLZB a standalone hub, bypassing ZHA
 1. In Home Assistant: Settings > Devices & Services > Add Integration > ZHA
 1. Radio type: **ZNP** (TI CC2652P7 chip)
 1. Serial port path: `socket://<SLZB-IP>:7638`

@@ -4,7 +4,6 @@ Links for the [homeautomation](../README.md) role.
 
 ## LLM
 
-- [llama.cpp](https://github.com/ggml-org/llama.cpp)
 - [Open WebUI](https://openwebui.com/)
 - [Home LLM](https://github.com/acon96/home-llm)
 - [Local LLM for dummies (forum thread)](https://community.home-assistant.io/t/local-llm-for-dummies/769407)
@@ -12,8 +11,7 @@ Links for the [homeautomation](../README.md) role.
 ## Voice assistant
 
 - [Local voice documentation](https://www.home-assistant.io/voice_control/voice_remote_local_assistant/)
-- [Piper](https://github.com/rhasspy/piper): text-to-speech. [Voices](https://rhasspy.github.io/piper-samples/)
-- [Whisper](https://github.com/rhasspy/wyoming-whisper): speech-to-text, the Wyoming wrapper the role runs
+- [Piper voices](https://rhasspy.github.io/piper-samples/)
 - [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) and its
   [documentation](https://voice-pe.home-assistant.io/documentation/)
@@ -23,8 +21,6 @@ Links for the [homeautomation](../README.md) role.
 
 ## Matter and Thread
 
-- [matter.js](https://github.com/project-chip/matter.js)
-- [python-matter-server](https://github.com/home-assistant-libs/python-matter-server)
 - [HASS OTBR Docker image](https://github.com/ownbee/hass-otbr-docker)
 - [HA Docker with OTBR Docker](https://community.home-assistant.io/t/ha-docker-with-otbr-docker/735288)
 

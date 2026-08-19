@@ -51,7 +51,7 @@ frigate.watchdog INFO: Detection appears to have stopped. Exiting Frigate...
 ```
 
 The MemryX kernel module (`memx_cascade_plus_pcie`) is not loaded, so `/dev/memx0` does not exist and the
-`mxa-manager` service has no devices. This can happen after a kernel upgrade or reboot.
+`mxa-manager` service has no devices, which can follow a kernel upgrade or a reboot.
 
 Verify:
 
@@ -64,11 +64,11 @@ lspci | grep -i memryx # Should show the MX3 PCI device
 Fix by re-running the memryx tasks, which load the module and restart the manager:
 
 ```bash
-ansible-playbook --ask-become-pass homeautomation.yml --tags memryx
+make homeautomation -- --tags memryx
 docker restart frigate
 ```
 
-Or manually:
+Or by hand:
 
 ```bash
 sudo modprobe memx_cascade_plus_pcie
@@ -146,17 +146,15 @@ docker restart frigate
 - [Failed to load delegate from libedgetpu.so.1.0](https://github.com/blakeblackshear/frigate/issues/3259)
 
 If `docker logs frigate` shows `ValueError: Failed to load delegate from libedgetpu.so.1.0`, reboot or restart
-the container.
-
-The Coral.ai USB manufacturer changes from "Global Unichip Corp" to "Google Inc."
-[after first inference](https://github.com/google-coral/edgetpu/issues/536). Check with
-`lsusb | grep -E 'Global|Google'`.
+the container. The Coral.ai USB manufacturer changes from "Global Unichip Corp" to "Google Inc."
+[after first inference](https://github.com/google-coral/edgetpu/issues/536), so
+`lsusb | grep -E 'Global|Google'` says whether it has run.
 
 ## Reolink doorbell stops working
 
 When two-way audio is enabled via Frigate, the doorbell chime, quick reply, and siren stop working. Use HTTP-FLV
-streams instead of RTSP, disable two-way audio in Frigate, and use the native Reolink integration in Home
-Assistant for full doorbell functionality.
+streams instead of RTSP, disable two-way audio in Frigate, and drive the doorbell through the native Reolink
+integration.
 
 - [Frigate discussion #13904](https://github.com/blakeblackshear/frigate/discussions/13904)
 - [Reolink camera configuration docs](https://docs.frigate.video/configuration/camera_specific/#reolink-cameras)

@@ -20,8 +20,8 @@ See [defaults/main.yml](./defaults/main.yml).
 | `rsnapshot_sudo` | Run the remote rsync via `sudo`, for directories the SSH user cannot read |
 
 Each entry in `rsnapshot_hosts` takes a `name`, an optional `local`, a list of `directories` (trailing
-slash required by rsnapshot), and a list of `scripts`. Remote hosts are pulled as `primary_user`, which
-is the account the fleet authorizes and the one `rsnapshot_sudo` needs.
+slash required by rsnapshot), and a list of `scripts`. Remote hosts are pulled as `primary_user`, the
+account the fleet authorizes and the one `rsnapshot_sudo` needs.
 
 ```yaml
 rsnapshot_hosts:

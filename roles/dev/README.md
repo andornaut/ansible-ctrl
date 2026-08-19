@@ -33,8 +33,8 @@ make dev -- --tags rust
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
-The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, so they are installed on every run
-that names no `--tags`, and skipped by every run that does.
+The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, so a run that names no `--tags` installs
+them and a run that names any does not.
 
 ## Variables
 
@@ -45,19 +45,18 @@ configure their cron jobs and the directories they operate on.
 
 | Tag | Constraint |
 | --- | --- |
-| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, so a run follows releases rather than every push to main. Verified against the release's `checksums.txt`, so a download straddling a publish fails rather than installing a mismatched binary. Pinning a version, or following the rolling `dev` release, is `dev_ai_attributions_release_url` and nothing else. The cron entry runs the scan with `--exit-code` and prints nothing when every repository is clean, so mail arrives only when something needs an answer, and each repository it reports comes with the `apply --push` command that fixes and publishes it. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` the scan suggests does, and that is run by hand on hosts where the scan is not scheduled |
+| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. `dev_ai_attributions_release_url` pins a version or follows the rolling `dev` release. The cron entry scans with `--exit-code`, printing nothing when every repository is clean and the `apply --push` command for each one that is not. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` it suggests does |
 | ai_maintainer | Symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise |
-| android_sdk | Installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google names the command line tools archive after a build number with no stable alias for the newest, so `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. The archive expands to `cmdline-tools`, which sdkmanager requires be installed as `cmdline-tools/latest`, so it is unpacked to a temporary directory and moved. Licenses are accepted non-interactively: sdkmanager installs nothing until the hash files under `licenses/` exist, and only offers the prompt on a terminal |
+| android_sdk | Installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google names the command line tools archive after a build number with no stable alias for the newest, so `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. sdkmanager requires the archive be installed as `cmdline-tools/latest`, and installs nothing until the license hash files under `licenses/` exist, which the role writes directly |
 | cursor | Unprivileged user namespaces come from a dedicated AppArmor profile, not from disabling the restriction globally |
-| javascript | `dev_node_version` copies the pin the JavaScript repositories hold in `.nvmrc`, and drifts the same way `dev_ruby_version` does. The apt `nodejs` is separate and stays: it serves other users and the Ansible tasks, neither of which sources nvm. The default alias is written as `~/.nvm/alias/default` rather than set through `nvm alias default`, which prints the same line whether or not it changed anything |
+| javascript | `dev_node_version` copies the pin the JavaScript repositories hold in `.nvmrc`. The apt `nodejs` is separate and stays: it serves other users and the Ansible tasks, neither of which sources nvm. The default alias is written as `~/.nvm/alias/default`, `nvm alias default` reporting no difference between a change and a no-op |
 | java | Two JDKs. 21 is Ubuntu's default and answers a plain `java`; 17 is what Gradle's Android plugin is built against, so `android_sdk` sets `JAVA_HOME` to 17. A Gradle build that picks the default JDK fails with a toolchain error naming the JDK it found |
-| ruby | `dev_ruby_version` and `dev_bundler_version` copy pins that live in mdtoc and til, in `.ruby-version` and in `Gemfile.lock`'s `BUNDLED WITH`. chruby's `auto.sh` reads `.ruby-version` and switches to a Ruby under `~/.rubies`, so a host without that exact version has nothing to switch to. Neither pin is derived from those repositories, so raising one there does not raise it here: the drift is accepted and corrected by hand. The build runs as `dev_user` with `--no-install-deps`, the dependencies coming from the apt task instead, because ruby-install otherwise calls `sudo apt-get` partway through the play |
-| pi | Installs `pi` and `omp`, different binaries from different upstreams, which coexist. oh-my-pi is the release binary at `dev_oh_my_pi_binary_path`, not the npm package, which declares `engines.bun`. The binary is bun-compiled with the runtime inside it (~180MB) and its release asset name carries no version, so the task compares `omp --version` against the latest release tag and downloads only on a mismatch, verified against `SHA256SUMS.txt` |
-| virtualbox | Clearing `dev_install_virtualbox` drops the KVM blacklist, so KVM works again. The VirtualBox packages and modules are left in place; remove them by hand |
+| ruby | `dev_ruby_version` and `dev_bundler_version` copy pins that live in mdtoc and til, in `.ruby-version` and in `Gemfile.lock`'s `BUNDLED WITH`. Raising one there does not raise it here. chruby's `auto.sh` switches to a Ruby under `~/.rubies` named by `.ruby-version`, so a host without that exact version has nothing to switch to. The build runs as `dev_user` with `--no-install-deps`, its dependencies coming from the apt task, because ruby-install otherwise calls `sudo apt-get` partway through the play |
+| pi | `pi` and `omp` are different binaries from different upstreams, and coexist. oh-my-pi is the release binary at `dev_oh_my_pi_binary_path`, not the npm package, which declares `engines.bun`. Its release asset name carries no version, so the task compares `omp --version` against the latest release tag and downloads only on a mismatch, verified against `SHA256SUMS.txt` |
+| virtualbox | Clearing `dev_install_virtualbox` drops the KVM blacklist. The VirtualBox packages and modules are left in place; remove them by hand |
 
 Both cron entries live in `/etc/cron.d/ansible-role-dev`, rendered from one template. An entry appears only
-where its flag is set, so clearing a flag drops its entry on the next run, and the file is removed where
-neither is set.
+where its flag is set, and the file is removed where neither is.
 
 ## Operations
 
@@ -65,14 +64,11 @@ neither is set.
 # Run ai-maintainer by hand
 ~/.local/bin/ai-maintainer --dry-run --verbose
 
-# Run the attribution scan by hand, reporting every repository it reads rather
-# than only the ones with a finding, which is what the cron entry asks for
+# Scan every repository, not only the ones with a finding as the cron entry does
 ~/.local/bin/ai-attributions scan --agents-files ~/src/github.com/andornaut/*
 
-# Fix one repository and publish it, which is what the scan's summary suggests
+# Fix one repository, with or without publishing (the second prints the push command)
 ~/.local/bin/ai-attributions apply --push ~/src/github.com/andornaut/<repo>
-
-# Or rewrite without publishing, which prints the push command it did not run
 ~/.local/bin/ai-attributions apply ~/src/github.com/andornaut/<repo>
 
 # Undo a rewrite

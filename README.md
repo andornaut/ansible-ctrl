@@ -11,7 +11,7 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 | --- | --- |
 | controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir` group |
 | fleet | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo |
-| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, as `root`, so no sudoers grant is involved |
+| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, as `root` |
 
 ## Requirements
 
@@ -25,7 +25,8 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 
 ## Usage
 
-Every root `.yml` except `requirements.yml` is a playbook with a [make](Makefile) target of the same name. The target installs dependencies, then runs `ansible-playbook <playbook>.yml`.
+Every root `.yml` except `requirements.yml` is a playbook with a [make](Makefile) target of the same name, which
+installs dependencies then runs `ansible-playbook <playbook>.yml`.
 
 ```bash
 make help                                        # List the targets
@@ -37,14 +38,15 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | Rule | Detail |
 | --- | --- |
 | Arguments after `--` | forwarded to `ansible-playbook` |
-| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead. |
-| `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost`. A run that is already root never gets one. |
+| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead |
+| `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost` |
 | `ASK_PASS=1` | forces the prompt |
-| `SECRETS=none` | skips the `sops exec-env` re-entry, and tells the play the run reads no credential. For a `--tags` run of a secret-bearing playbook that reaches none. |
-| `PREFLIGHT=none` | skips the reachability probe, and attempts every host whatever it would have found |
-| `ALLOW_ROOT=1` | runs `faramir.yml` as root, which is otherwise refused. A root run connects with the broker's key, so it needs a fleet that already authorizes it: not the first install, a rotated key, or a host added since the last run. |
+| `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential |
+| `PREFLIGHT=none` | skips the reachability probe, and attempts every host |
+| `ALLOW_ROOT=1` | runs `faramir.yml` as root, which is otherwise refused. A root run connects with the broker's key, so the fleet must already authorize it |
 
-Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
+Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for
+the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 
 ## Playbooks and roles
 
@@ -61,7 +63,7 @@ Tags that are not playbooks run through the playbook that owns them, e.g. `make 
 | [msmtp.yml](msmtp.yml) | `all:!routers` | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
 | [nas.yml](nas.yml) | `nas` | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
 | [rsnapshot.yml](rsnapshot.yml) | `rsnapshot` | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
-| [torrent.yml](torrent.yml) | `torrent` | [torrent](roles/torrent/README.md) | rtorrent on the remote host, plus the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs delegated to the controller in the same run |
+| [torrent.yml](torrent.yml) | `torrent` | [torrent](roles/torrent/README.md) | rtorrent on the remote host, plus the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs on the controller |
 | [upgrade.yml](upgrade.yml) | `all:!routers` | none | apt dist-upgrade and flatpak upgrade |
 | [webservers.yml](webservers.yml) | `webservers` | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
 
@@ -91,20 +93,21 @@ primary_user=andornaut
 
 ## Secrets
 
-Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named `secret_<purpose>`. `host_vars/` holds references, never values:
+Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
+[sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named
+`secret_<purpose>`. `host_vars/` holds references, never values:
 
 ```yaml
 # host_vars/example.yml
 msmtp_password: "{{ secret_msmtp_password }}"
 ```
 
-[vars_plugins/secret_env.py](vars_plugins/secret_env.py) turns every `secret_*` environment variable into an inventory variable of the same name. Adding a credential is three edits: the value into the sops file, the `faramir://` ref into `faramir.env`, the reference into `host_vars/`.
-
-A value reaches a play only through the environment. Three paths put it there:
+Adding a credential is three edits: the value into the sops file, the `faramir://` ref into `faramir.env`, the
+reference into `host_vars/`. A value reaches a play only through the environment, by one of three paths:
 
 | Path | How |
 | --- | --- |
-| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and the same targets [re-enter as root](roles/faramir/README.md#running-playbooks) instead of refusing |
+| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and those targets [re-enter as root](roles/faramir/README.md#running-playbooks) |
 | [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `faramir://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
@@ -115,19 +118,24 @@ A value reaches a play only through the environment. Three paths put it there:
 
 ## Getting started with the secret broker
 
-[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value entering a coding agent's context. Installing it is an operator action against the controller; Ansible never needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects against; the [faramir role](roles/faramir/README.md) covers this repo's part.
+[faramir](https://github.com/andornaut/faramir) runs commands that need credentials without any plaintext value
+entering a coding agent's context. Installing it is an operator action against the controller; Ansible never
+needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects
+against, and the [faramir role](roles/faramir/README.md) covers this repo's part.
 
 1. `make dev` installs sops. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
-2. `make faramir` installs the broker, then authorizes its SSH key and the NOPASSWD sudo the other playbooks rely on. It runs `faramir init` as root, so it asks for a sudo password once.
-3. Log out and back in: the install adds you to the `dev` group, and group membership is read at login. Until then the broker refuses your connections.
-4. `faramir doctor`, `faramir status`, `faramir list-secrets` (names, never values). A ref count of zero is a failure: the broker is running and protecting nothing.
-5. Prove the chain end to end, per [Verification](roles/faramir/README.md#verification).
+1. `make faramir` installs the broker, then authorizes its SSH key and the NOPASSWD sudo the other playbooks rely
+   on. It asks for a sudo password once.
+1. Log out and back in: the install adds you to the `dev` group, and group membership is read at login.
+1. `faramir doctor`, `faramir status`, `faramir list-secrets` (names, never values). A ref count of zero means the
+   broker is protecting nothing.
+1. Prove the chain end to end, per [Verification](roles/faramir/README.md#verification).
 
 ## Operations
 
 ```bash
 make lint                  # every check CI gates on
-tests/lint.sh syntax       # or one of ansible-lint, syntax, shell, python
+tests/lint.sh syntax       # or one of ansible-lint, syntax, shell, python, identity
 
 # Upgrade all collections, which `make requirements` does not do
 ansible-galaxy collection install --upgrade -r requirements.yml
@@ -136,7 +144,9 @@ ansible-galaxy collection install --upgrade -r requirements.yml
 make clean
 ```
 
-[tests/lint.sh](tests/lint.sh) is what [CI](.github/workflows/test.yml) runs on every branch and pull request, every check in one job, and what `make lint` runs in full. Each check runs even after an earlier one fails, so a run names everything that needs fixing. The gate is the whole file, not the lines a change touched.
+[tests/lint.sh](tests/lint.sh) is what `make lint` runs in full and what [CI](.github/workflows/test.yml) runs on
+every branch and pull request. Each check runs even after an earlier one fails, and the gate is the whole repo
+rather than the lines a change touched.
 
 | Check | Covers |
 | --- | --- |
@@ -144,7 +154,11 @@ make clean
 | `syntax` | `ansible-config validate -t all`, then `ansible-playbook --syntax-check` per playbook against [tests/inventory.ini](tests/inventory.ini), the real inventory being gitignored |
 | `shell` | every shell script under `roles/`, discovered by shebang |
 | `python` | every Python file under `roles/*/files/` |
+| `identity` | every task declares the account it runs as ([tests/identity.py](tests/identity.py)) |
 
-A second workflow, which `make lint` does not run:
-[.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) fails a push or pull request whose
-added commits carry an AI attribution.
+Two more gates that `make lint` does not run:
+
+| Gate | Covers |
+| --- | --- |
+| markdownlint, a second step of the same workflow | Every tracked `.md` file, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). Run it locally with `markdownlint-cli2` and no arguments, which reads the same config |
+| [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution |

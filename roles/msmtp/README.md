@@ -25,7 +25,7 @@ Set the required vars per host in `host_vars/`, with `msmtp_password` referencin
 rather than holding a value. The role asserts them, and the relay constraints, before its first
 task, which uninstalls the host's existing MTA.
 
-## Design
+## Notes
 
 - **Two config files.** Local mail is submitted via `/usr/sbin/sendmail` (from `msmtp-mta`), which
   reads world-readable `/etc/msmtprc`. That file must stay world-readable (cron drops to the crontab
@@ -36,13 +36,13 @@ task, which uninstalls the host's existing MTA.
   unprivileged so the daemon needs no `CAP_NET_BIND_SERVICE`.
 - **A systemd drop-in sets `User=msmtp` instead of `DynamicUser=true`.** `msmtp` refuses a `-C` config
   containing secrets unless the file is owned by the calling euid with no group or other permission
-  bits, and a `DynamicUser` UID can never own a file on disk. The drop-in also restores the sandboxing
-  `DynamicUser` implied, so the daemon cannot rewrite the relay config it owns.
+  bits, and a `DynamicUser` UID can never own a file on disk. The drop-in restores the sandboxing
+  `DynamicUser` implied.
 - **AppArmor.** `msmtp`'s profile grants read of `/etc/msmtprc` but not `/etc/msmtprc-relay`. It is
   disabled by default; the role writes the local rule regardless, so enforcing it later cannot bounce
   every message.
 - **msmtpd is restarted every run**, before `/etc/msmtprc` is written to point clients at it. It holds
-  no queue, so the restart is cheap and always safe.
+  no queue, so the restart is safe.
 - **msmtp does not queue.** An unreachable upstream means the message is rejected, not retried.
   Anything that must survive an outage needs a queuing MTA.
 

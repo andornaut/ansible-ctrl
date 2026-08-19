@@ -43,7 +43,7 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 
 | Not removed | Why |
 | --- | --- |
-| Volumes | They hold the only copy of a service's data, so a flag cleared by accident costs a restart rather than the data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
+| Volumes | They hold the only copy of a service's data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
 | Home Assistant, Mosquitto | No flag; always configured |
 | Avahi | A host daemon the run stops, not a container |
 | MemryX | The DKMS driver and apt sources are not reversed |
@@ -52,14 +52,14 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 
 | Mode | Containers | Detail |
 | --- | --- | --- |
-| host | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery, so they bind directly to the host |
+| host | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery |
 | `homeautomation_default` (`br-ha`) bridge | everything else | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]` |
 
 Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
 [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
-resolves to its bridge IP, so use the container's **internal** port, which is not always the published one:
-openwebui listens on 8080 and publishes host port 3000. Several publish no host port at all; uncomment their port
-mappings in the task files if host-port access is needed.
+resolves to its bridge IP, so use the container's **internal** port, not always the published one: openwebui
+listens on 8080 and publishes host port 3000. Several publish no host port at all; uncomment their port mappings
+in the task files if host-port access is needed.
 
 Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then
 [teardown.yml](./tasks/teardown.yml) releases the names, ports and devices of removed components, then
@@ -97,42 +97,41 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern 
 
 | Measure | Constraint |
 | --- | --- |
-| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), with a uid above the range `adduser` allocates from | A file on a bind mount then names the service that wrote it. The uids are in [vars/main.yml](./vars/main.yml), asserted distinct before any account is created. mosquitto is the exception, following the uid baked into its image |
+| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), with a uid above the range `adduser` allocates from | A file on a bind mount then names the service that wrote it. The uids are in [vars/main.yml](./vars/main.yml), asserted distinct before any account is created. mosquitto follows the uid baked into its image instead |
 | `cap_drop: ALL` for every container running as a non-root uid | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set |
 | `no-new-privileges` everywhere, root included | It blocks the setuid transition that would make a permitted capability effective |
-| Directories closed rather than files, wherever a service rewrites its own state with its own umask | Covers the Zigbee network key, the Thread network key, the Matter fabric credentials, and the camera configuration and recordings |
-| Listeners bound to loopback where nothing off-host consumes them | The MQTT broker allows anonymous access and Frigate serves a second copy of its UI with no login; both are published on `127.0.0.1` |
+| Directories closed rather than files, wherever a service rewrites its own state with its own umask | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings |
+| Listeners bound to loopback where nothing off-host consumes them | The MQTT broker allows anonymous access and Frigate serves a second copy of its UI with no login |
 
 ### llama.cpp models and context
 
 Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
 defaults to 4096 tokens. `homeautomation_llamacpp_env` sets vars the children inherit: `LLAMA_ARG_CTX_SIZE` for
-the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot (else it is split across slots).
+the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots.
 
 - `LLAMA_ARG_CTX_SIZE` must stay at or below the smallest `homeautomation_llamacpp_models` entry's native
   training context, or quality degrades without YaRN.
-- KV cache grows with context. At 128k the current models exceed the 16GB GPU and spill to system RAM; lower it if
-  latency or memory is a problem.
+- KV cache grows with context. At 128k the current models exceed the 16GB GPU and spill to system RAM.
 
 ### Home Assistant conversation agent
 
 Assist talks to llama.cpp through the built-in
 [llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later):
 Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trailing `/v1` required. Router mode
-advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so each conversation agent selects one
-and several agents can run different models. An agent sees only entities exposed to Assist, and does not fire
+advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so several agents can run different
+models. An agent sees only entities exposed to Assist, and does not fire
 [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
 
 Home Assistant uses host networking, so Docker gives it a **copy** of the host's `/etc/hosts` (see
-[moby](https://github.com/moby/moby/blob/master/daemon/container_operations_unix.go)) rather than a mount. That
-is how the docker_etc_hosts entry for llamacpp resolves inside the container, and why recreating llamacpp on a
-different bridge IP leaves Home Assistant on the old address until `docker restart homeassistant`.
+[moby](https://github.com/moby/moby/blob/master/daemon/container_operations_unix.go)) rather than a mount.
+Recreating llamacpp on a different bridge IP therefore leaves Home Assistant on the old address until
+`docker restart homeassistant`.
 
 ### Matter and Thread
 
 | Constraint | Detail |
 | --- | --- |
-| Exactly one Matter server | `homeautomation_install_matterjs` or the superseded `homeautomation_install_legacy_pythonmatterserver`. The role asserts both are not enabled at once |
+| Exactly one Matter server | `homeautomation_install_matterjs` or the superseded `homeautomation_install_legacy_pythonmatterserver`, asserted not both |
 | The Matter server must use host networking | It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable |
 | Avahi cannot run alongside Matter/Thread | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts |
 
@@ -147,8 +146,8 @@ docker exec homeassistant hass --config /config --script check_config --secrets
 
 `configuration.yaml` is hand-maintained per host, except for the `frontend:` key: `!include frontend.yaml`,
 written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2). A module in `www/` loads only if
-`homeautomation_homeassistant_extra_module_urls` names it, and a host carrying the file without the entry
-renders every card that depends on it as though it were absent, reporting no error.
+`homeautomation_homeassistant_extra_module_urls` names it, and a host carrying the file without the entry renders
+every card that depends on it as absent, reporting no error.
 
 ### Nginx
 
@@ -178,13 +177,11 @@ letsencrypt_nginx_websites:
 1. Set `homeautomation_install_hamcp: true` and add an entry to `homeautomation_hamcp_instances` in host vars
 1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs <name>`
 
-Clients connect to `http://<name>.internal:8086/mcp`: the container's internal port on the bridge network, not a
-host-mapped port. It is configured for VSCode in this project's `.vscode/mcp.json`, and under `mcpServers` in
-`~/.claude.json` for Claude Code.
+Clients connect to `http://<name>.internal:8086/mcp`, the container's internal port on the bridge network.
 
 | Rule | Why |
 | --- | --- |
-| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody who reaches it, so keeping every instance on the bridge network publishes no MCP port anywhere |
+| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so keeping every instance on the bridge network publishes no MCP port anywhere |
 | Each entry needs its own `name` and `uid` | The name becomes both the container name and the service account; the uid must be distinct across every service in this role |
 
 ## Documentation
