@@ -79,6 +79,19 @@ faramir_ptrace_scope: 1
 # something on the network works because the unit permits AF_INET.
 faramir_notify_command: []
 
+# How long a sudo question waits for a human before it is refused, 1 to 600, against
+# faramir's own default of 120. Long enough to reach the terminal running
+# `sudo faramir escalations --watch`, which is where the question shows up while
+# faramir_notify_command is empty.
+#
+# It is a window, not a grace period: silence is a refusal either way, and raising it only
+# moves when that refusal lands. The cost of a longer one is that a question nobody answers
+# holds every other brokered command on the host until it expires.
+#
+# Passed only when faramir_allow_sudo is true, as faramir_notify_command is: without the
+# grant there is no [escalation] section for it to land in.
+faramir_escalation_timeout_sec: 300
+
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 faramir_fleet_authorize_key: true
 
