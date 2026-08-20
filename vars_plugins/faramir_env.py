@@ -35,7 +35,7 @@ from ansible.errors import AnsibleParserError
 from ansible.plugins.vars import BaseVarsPlugin
 
 DOCUMENTATION = """
-    name: secret_env
+    name: faramir_env
     short_description: Expose the credentials faramir.env names as inventory variables
     description:
       - Returns every environment variable named on the left of an assignment in

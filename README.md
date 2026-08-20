@@ -73,7 +73,7 @@ the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintai
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each environment variable `faramir.env` names into a variable of the same name |
+| [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) | Turns each environment variable `faramir.env` names into a variable of the same name |
 | `~/.config/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
@@ -96,7 +96,7 @@ primary_user=andornaut
 Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
 [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named for
 what it is: `msmtp_password`, `hamcp_token_kaon`. `faramir.env` names every one, which is both what the broker
-injects and what [vars_plugins/secret_env.py](vars_plugins/secret_env.py) reads to decide which environment
+injects and what [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) reads to decide which environment
 variables are credentials. Each arrives as a variable of that name, so `host_vars/` needs an entry only where the
 destination is named something else:
 
@@ -109,7 +109,7 @@ That mapping is what routes a site-scoped credential, or one credential to sever
 name already matches needs nothing: `msmtp_password` is injected and the role reads it.
 
 **An injected name outranks `host_vars/`.** A vars plugin sits above host and group vars, and
-[ansible.cfg](ansible.cfg) lists `secret_env` last, so a `host_vars/` entry under a name `faramir.env` declares is
+[ansible.cfg](ansible.cfg) lists `faramir_env` last, so a `host_vars/` entry under a name `faramir.env` declares is
 dead: the injected value silently replaces it. A per-host override needs a name of its own, mapped as above.
 
 **`faramir.env` is gitignored and both routes read it.** A checkout without it stops the run naming the file
@@ -128,7 +128,7 @@ ref into `faramir.env`, and a reference in `host_vars/` only if the destination 
 
 | Gotcha | Detail |
 | --- | --- |
-| `vars_plugins_enabled` replaces the default list rather than adding to it | [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `secret_env`, or `host_vars/` stops loading |
+| `vars_plugins_enabled` replaces the default list rather than adding to it | [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `faramir_env`, or `host_vars/` stops loading |
 | Credentials arrive as a set | `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that one did. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated |
 
 ## Getting started with the secret broker
