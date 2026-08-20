@@ -119,10 +119,13 @@ only after it has run here once unguarded.
 
 ## Verification
 
+From the repository root: an ad-hoc `ansible` command has no playbook, so the vars plugin looks for
+`faramir.env` in the working directory, and run from anywhere else it reports the credential undefined.
+
 ```bash
 faramir run --env-file faramir.env -- \
-    ansible <host> -m debug -a 'var=secret_msmtp_password'
-# -> "secret_msmtp_password": "«SECRET:secret_msmtp_password»"
+    ansible <host> -m debug -a 'var=msmtp_password'
+# -> "msmtp_password": "«SECRET:msmtp_password»"
 ```
 
 | Output | Meaning |

@@ -12,9 +12,10 @@
       - msmtp_relay_port | int >= 1024
       - msmtp_relay_port | int <= 65535
     fail_msg: >-
-      Set msmtp_domain, msmtp_user and msmtp_password in host_vars
-      (gitignored), keep msmtp_relay_interface on loopback, and use an
-      unprivileged msmtp_relay_port.
+      Set msmtp_domain and msmtp_user in host_vars (gitignored), keep
+      msmtp_relay_interface on loopback, and use an unprivileged
+      msmtp_relay_port. msmtp_password is not set there: it is injected,
+      so an undefined one means the run carried no credentials.
     quiet: true
 
 - name: Uninstall MTAs

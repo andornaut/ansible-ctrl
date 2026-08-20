@@ -34,6 +34,11 @@
       exist. If it is inside an encrypted home, it is only mounted while its owner is logged in.
       Certificates were NOT renewed." >&2; exit 1; }; }
       &&
+      { [ -r {{ letsencrypt_nginx_renewal_cron_env_file }} ] ||
+      { echo "letsencrypt renewal SKIPPED: cannot read
+      {{ letsencrypt_nginx_renewal_cron_env_file }}, which names the credentials the run
+      needs. Certificates were NOT renewed." >&2; exit 1; }; }
+      &&
       { [ -r {{ letsencrypt_nginx_renewal_cron_sops_file }} ] ||
       { echo "letsencrypt renewal SKIPPED: cannot read
       {{ letsencrypt_nginx_renewal_cron_sops_file }}. Certificates were NOT renewed." >&2;

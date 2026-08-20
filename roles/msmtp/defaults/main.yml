@@ -1,10 +1,13 @@
 ---
 msmtp_host: smtp.gmail.com
 msmtp_port: 587
-# Required per host. msmtp_password is a credential: point it at a secret_* name.
+# Required per host.
 # msmtp_domain:
 # msmtp_user:
-# msmtp_password:
+#
+# msmtp_password is not among them. It is a credential, named in faramir.env and injected
+# as a variable of that name, one value for the fleet. Setting it here or in host_vars
+# writes a credential into a file that holds none, and the injected value wins anyway.
 msmtp_send_all_email_to: admin@{{ msmtp_domain }}
 msmtp_relay_config_path: /etc/msmtprc-relay
 # msmtpd accepts unauthenticated mail, so it must only ever listen on loopback.

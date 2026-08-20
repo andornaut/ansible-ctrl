@@ -135,7 +135,7 @@ export ANSIBLE_PRIVATE_KEY_FILE ?= $(BROKER_KEY)
 endif
 endif
 
-# The runs that read a secret_* variable, and so the only ones that re-enter under sops.
+# The runs that read a credential, and so the only ones that re-enter under sops.
 # Giving a playbook its first credential means adding it here. Not derived: host_vars binds
 # plain variable names to secrets, so telling these apart needs variable resolution.
 SECRET_PLAYBOOKS := homeautomation msmtp webservers
@@ -234,7 +234,7 @@ shquote = '$(subst ','\'',$(1))'
 REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
 
 # A secret-bearing run whose store the operator cannot read re-enters as root rather than
-# being refused: every secret_* would otherwise be undefined, and the first task to read
+# being refused: every credential would otherwise be undefined, and the first task to read
 # one fails with the tasks before it already applied. Root reads the store and reaches
 # every host, the broker's key being the identity a root run connects with.
 #
@@ -273,7 +273,7 @@ $(PLAYBOOKS): %: requirements
 	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
 	   if [ -n "$(IS_ROOT)" ]; then \
 	     echo "$(SOPS_FILE): not readable by root, so it is missing or its home is" >&2; \
-	     echo "not mounted. Refusing to run $*.yml: every secret_* variable would be" >&2; \
+	     echo "not mounted. Refusing to run $*.yml: every credential would be" >&2; \
 	     echo "undefined, and the first task to read one fails with the tasks before" >&2; \
 	     echo "it already applied." >&2; \
 	     exit 1; \

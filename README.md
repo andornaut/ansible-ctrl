@@ -73,7 +73,7 @@ the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintai
 | --- | --- |
 | `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
 | `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each `secret_*` environment variable into a variable of the same name |
+| [vars_plugins/secret_env.py](vars_plugins/secret_env.py) | Turns each environment variable `faramir.env` names into a variable of the same name |
 | `~/.config/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
 | `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
 
@@ -94,16 +94,31 @@ primary_user=andornaut
 ## Secrets
 
 Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
-[sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named
-`secret_<purpose>`. `host_vars/` holds references, never values:
+[sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named for
+what it is: `msmtp_password`, `hamcp_token_kaon`. `faramir.env` names every one, which is both what the broker
+injects and what [vars_plugins/secret_env.py](vars_plugins/secret_env.py) reads to decide which environment
+variables are credentials. Each arrives as a variable of that name, so `host_vars/` needs an entry only where the
+destination is named something else:
 
 ```yaml
 # host_vars/example.yml
-msmtp_password: "{{ secret_msmtp_password }}"
+homeautomation_esphome_password: "{{ esphome_password_cybertron }}"
 ```
 
-Adding a credential is three edits: the value into the sops file, the `faramir://` ref into `faramir.env`, the
-reference into `host_vars/`. A value reaches a play only through the environment, by one of three paths:
+That mapping is what routes a site-scoped credential, or one credential to several consumers. A destination whose
+name already matches needs nothing: `msmtp_password` is injected and the role reads it.
+
+**An injected name outranks `host_vars/`.** A vars plugin sits above host and group vars, and
+[ansible.cfg](ansible.cfg) lists `secret_env` last, so a `host_vars/` entry under a name `faramir.env` declares is
+dead: the injected value silently replaces it. A per-host override needs a name of its own, mapped as above.
+
+**`faramir.env` is gitignored and both routes read it.** A checkout without it stops the run naming the file
+rather than reporting every credential undefined, which would read as a broker that is not serving. It is found
+beside the playbook, so an ad-hoc `ansible` command, which has no playbook and uses the working directory
+instead, has to run from the repository root.
+
+Adding a credential is two edits, three where it needs a mapping: the value into the sops file, the `faramir://`
+ref into `faramir.env`, and a reference in `host_vars/` only if the destination is named differently. A value reaches a play only through the environment, by one of three paths:
 
 | Path | How |
 | --- | --- |

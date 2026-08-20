@@ -52,3 +52,9 @@ letsencrypt_nginx_renewal_cron_age_key_file: >-
 # /etc/ssh/ssh_known_hosts, which ssh reads for every uid.
 letsencrypt_nginx_renewal_cron_ssh_key_file: >-
   {{ letsencrypt_nginx_operator_home }}/.config/faramir/id_ed25519
+# The list of credentials the run needs, which the vars plugin reads for their names.
+# Gitignored, so a checkout never given one has none, and the plugin stops the play rather
+# than leaving every credential undefined. Preflighted so that arrives as a SKIPPED line
+# like the three above rather than only in the log.
+letsencrypt_nginx_renewal_cron_env_file: >-
+  {{ letsencrypt_nginx_renewal_cron_directory }}/faramir.env

@@ -21,7 +21,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `msmtp_relay_interface` | Interface `msmtpd` listens on. Must be `127.0.0.1` or `::1` |
 | `msmtp_relay_port` | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535) |
 
-Set the required vars per host in `host_vars/`, with `msmtp_password` referencing a `secret_*` name
+Set the required vars per host in `host_vars/`. `msmtp_password` is not among them: it is injected under that name
 rather than holding a value. The role asserts them, and the relay constraints, before its first
 task, which uninstalls the host's existing MTA.
 
