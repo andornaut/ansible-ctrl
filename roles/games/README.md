@@ -92,6 +92,36 @@ The role has no dependencies: it installs `flatpak` and adds the flathub remote 
 helper scripts under [files/](./files/) do the core probing, playlist generation, thumbnail fetching, and arcade
 name map regeneration, each runnable by hand to debug a single stage: [files/README.md](./files/README.md).
 
+### Convergence details
+
+Behind the table above, the parts that are easy to undo by accident:
+
+- **Canonical data is `roles/games/vars/main.yml`, not `defaults/`**: role vars outrank `host_vars`, and
+  `syncretroid` reads that file directly, so a `host_vars` override would reach the desktops and silently not the
+  handheld. Ansible replaces dicts rather than merging, so only `games_retroarch_extra_settings` is combined key by
+  key; every other dict is not host-settable.
+- **Cores use `get_url` then `unarchive` only when the archive changed.** The buildbot never answers `304`, so
+  archives are fetched every run either way, but this way a run reports a core changed only when a binary moved.
+  Letting `unarchive` download re-extracts and reports everything changed every run.
+- **The playlist generator owns its directory** and deletes a `.lpl` whose system left `games_retroarch_systems`,
+  but only files it wrote (favourites and history live in `builtin/`), and never replaces a playlist with an empty
+  one. A `.zip` is listed by its own path, not `archive.zip#rom.sfc`, so it never opens every archive over the
+  network mount. Multi-disc layout follows whether the core reads an `.m3u`: those that do get a dot-prefixed
+  directory plus an `.m3u` beside it and automatic disc-swap; 3DO and GameCube do not, so the entry points at disc 1.
+- **Overrides are written whole, core options key by key**: an override holds only what differs from the global
+  config, whereas RetroArch writes every option a core exposes into the `.opt`, so writing that whole would discard
+  every option the role has no opinion on.
+- **Read capabilities off the build, not the docs.** Rewind and preemptive frames come from one `.info` field
+  (`grep savestate_features <info_dir>/*_libretro.info`); core options are namespaced and undocumented, so read them
+  out of the built core with `strings`. ParaLLEl is Vulkan-only and requests a Vulkan context only when its
+  `rdp-plugin` option is `parallel`, so that option and the `video_driver` override must be set together.
+- **The input rule also drops the `ID_INPUT_MOUSE` tag of one idle KVM/virtual HID.** RetroArch picks
+  `input_player1_mouse_index` by enumeration order, not name, so a virtual HID that emits nothing takes slot 0 and
+  every click lands on the dead device while the cursor still moves. Setting the index by hand does not fix it, the
+  order being unstable across launches.
+- **The thumbnail directory must be setgid and in the library's group**, or the share will not serve what RetroArch
+  creates under it. The play cannot police this: a network client is served ownership and mode the protocol invents.
+
 ## Handheld sync (Retroid Pocket Flip 2)
 
 [files/retroid/](./files/retroid/) mirrors this managed config onto a Retroid Pocket Flip 2 (stock Android +
