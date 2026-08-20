@@ -6,13 +6,14 @@
   ansible.builtin.assert:
     that: inventory_hostname == faramir_controller
     fail_msg: >-
-      This role installs the broker on {{ faramir_controller }}, the controller:
-      service accounts, systemd units, the age key and root's config directory.
-      {{ inventory_hostname }} is not that host. Apply it with make faramir,
-      whose first play targets the faramir group. Authorizing the broker's key
-      on this host is that run's second play, which applies tasks/ssh.yml. If
-      the controller was renamed or replaced, the faramir group in the inventory
-      is what names it.
+      This role installs the broker on the controller: service accounts, systemd
+      units, the age key and root's config directory. {{ inventory_hostname }} is
+      not that host. The controller is the sole member of the faramir group, which
+      holds {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}; where
+      that is not exactly one host there is no controller to name, and this is the
+      first thing to fix. Apply it with make faramir, whose first play targets that
+      group. Authorizing the broker's key on this host is that run's second play,
+      which applies tasks/ssh.yml.
     quiet: true
   tags: always
 
