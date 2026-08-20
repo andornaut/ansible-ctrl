@@ -51,6 +51,11 @@ routes around that:
 Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every
 managed host. The one password prompt comes before anything applies.
 
+Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, and `SUDO_USER` otherwise.
+Each covers what the other gets wrong: `SUDO_USER` is the operator wherever a human typed the sudo, and the
+executor account on a brokered run, which is the one `FARAMIR_OPERATOR` answers. A host whose faramir predates
+that variable resolves the executor and refuses the run, naming the home it looked in; `make faramir` fixes it.
+
 The agent's route takes no password:
 
 ```bash
@@ -58,6 +63,16 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
 ```
 
 `faramir.env` holds refs and never values.
+
+Where `faramir_allow_sudo` is set, the same route reaches the controller at the cost of one approval:
+
+```bash
+faramir run -- sudo make <playbook>
+```
+
+One question covers the run, so no per-task prompt and no `--ask-become-pass`. Root reads the store itself, so
+this route needs no `--env-file`. What the sudo is given comes from the file the grant names rather than from the
+caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator on both sides.
 
 ## Constraints
 
@@ -71,6 +86,13 @@ faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!
   Nor in the checkout, this repo being public. `faramir init` refuses both.
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir'`: commands run as
   `faramir-exec`, which has no sudo here. Apply the controller's own playbooks as the operator.
+- **`faramir_allow_sudo` needs the original `sudo`.** Ubuntu 26.04 ships `sudo-rs`, which does not implement
+  `pam_service`; the grant names it, so `visudo` rejects the whole file and the install refuses. It removes the
+  file again rather than leaving a broken entry, so the host's own `sudo` is unaffected and one left without the
+  grant refuses every escalation. Everything else works there.
+- **An escalation expires after `faramir_escalation_timeout_sec`** (default `300`), and while a question is
+  waiting every other brokered command on the host is refused. Only the literal answer the prompt names approves;
+  silence is a refusal.
 - **The fleet's host keys are pinned system-wide**, in `faramir_fleet_known_hosts_path`
   (`/etc/ssh/ssh_known_hosts`), the executor having no `known_hosts` of its own. Each entry is keyed by the name
   ssh looks it up under, `faramir_fleet_known_hosts_name`: the bare address on port 22, `[host]:port` otherwise. A

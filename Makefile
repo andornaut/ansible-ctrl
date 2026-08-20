@@ -41,14 +41,22 @@ PLAYBOOKS := base desktop dev docker faramir \
 # Root needs neither a become password nor the operator's age identity.
 IS_ROOT := $(filter 0,$(shell id -u))
 
-# A root run has HOME=/root, so the operator's home is resolved rather than named: this
-# tree is theirs, and its owner is the account whose store and keys the run needs. Not
-# SUDO_USER, which names whoever invoked sudo and is the operator only where a human typed
-# it: a brokered run reaches root through an executor account, and resolving that one sends
-# the run looking for the store under a home that holds none. Read only under root, either
-# being wrong for a run that is already the operator's. getent rather than ~, which expands
-# wrong for exactly the run that needs this.
-OPERATOR := $(or $(and $(IS_ROOT),$(shell stat -c %U $(firstword $(MAKEFILE_LIST)))),$(shell id -un))
+# A root run has HOME=/root, so the operator's home is resolved rather than named. Two
+# sources, each covering the case the other gets wrong:
+#
+# FARAMIR_OPERATOR is the broker's own answer, set in a brokered command's environment and
+# again in the one its sudo builds. The broker reserves the name, so a brokered caller
+# cannot choose it, and it is the only source that survives that sudo.
+#
+# SUDO_USER is the operator wherever a human typed the sudo, which is every other root run
+# here: `sudo make <playbook>`, and the re-entry below. It names the executor account
+# instead on a brokered run -- the case FARAMIR_OPERATOR is there to answer, and which it
+# answers first.
+#
+# Then whoever is running, which is already the answer for an unprivileged run, and for a
+# root login with neither (cron), where it is root and nothing drops. getent rather than ~,
+# which expands wrong for exactly the run that needs this.
+OPERATOR := $(or $(FARAMIR_OPERATOR),$(and $(IS_ROOT),$(SUDO_USER)),$(shell id -un))
 OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 
 # Recipes write into the work tree as the operator, so a root run leaves nothing an
