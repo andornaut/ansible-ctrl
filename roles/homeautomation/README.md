@@ -163,6 +163,14 @@ written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2). A modul
 `homeautomation_homeassistant_extra_module_urls` names it, and a host carrying the file without the entry renders
 every card that depends on it as absent, reporting no error.
 
+Everything under `config/` is root-owned, so an edit goes through the container: `docker exec homeassistant <cmd>`
+runs as root with the config at `/config`. Home Assistant caches what it keeps in `.storage/` and rewrites those
+files on shutdown, so stop it before editing one and start it after, or the edit is overwritten.
+
+Dashboards are `.storage/lovelace*`, and so are cached the same way. Where an [ha-mcp](#home-assistant-and-ha-mcp)
+instance drives the host, `ha_config_set_dashboard` writes one without stopping anything and takes effect
+immediately; that is the route to prefer. Editing the file by hand means stopping Home Assistant first.
+
 ### Nginx
 
 Configure reverse proxies via the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables:
