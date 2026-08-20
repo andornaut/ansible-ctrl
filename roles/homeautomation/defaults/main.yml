@@ -116,16 +116,45 @@ homeautomation_homeassistant_required_volumes:
 homeautomation_llamacpp_devices: []
 homeautomation_llamacpp_docker_image: ghcr.io/ggml-org/llama.cpp:server-vulkan
 # Router mode spawns a child server per model with no --ctx-size, defaulting each to 4096.
-# Inherited by the children: 128k per request, native for both models below, and one slot
-# so the context is not divided. See README.
+# Inherited by every child: 128k per request, native for both models below, and one slot so
+# the context is not divided. A model that cannot afford those values overrides them in
+# homeautomation_llamacpp_model_presets. See README.
 homeautomation_llamacpp_env:
   LLAMA_ARG_CTX_SIZE: "131072"
   LLAMA_ARG_N_PARALLEL: "1"
+  # One child resident at a time, against the router's own default of 4. A 27B quant and
+  # its KV cache fill the GPU by themselves, and a second child would spill to system RAM.
+  # The cost is an unload and reload whenever a request names a different model.
+  LLAMA_ARG_MODELS_MAX: "1"
+# Per-model llama-server arguments, rendered to the preset file the router reads. A key is
+# a section name, which must match the model id the router derives from the file name; the
+# value is a mapping of long option names, without their leading dashes, to values.
+homeautomation_llamacpp_model_presets:
+  # No `c`: the inherited 128k fits, but only because of the cache types below. 16 of the
+  # 64 layers are full attention and the rest are linear, holding a fixed-size state, so
+  # with 4 KV heads at head_dim 256 the cache costs 29KiB per token here against 64KiB at
+  # f16: 3.6GiB at 128k, beside 10.2GiB of weights on a 16GB card the desktop shares.
+  Qwen3.8-27B-UD-IQ3_XXS:
+    # K carries the long-range recall of every full-attention layer and there are few of
+    # them, so it keeps the higher precision; V tolerates q5_1.
+    cache-type-k: q8_0
+    cache-type-v: q5_1
+    # A quantized KV cache requires it.
+    flash-attn: "on"
+    # Qwen's thinking-mode sampler. llama.cpp's own defaults differ, min-p most: it ships
+    # 0.05, which truncates this model's distribution.
+    temp: 1.0
+    top-p: 0.95
+    top-k: 20
+    min-p: 0.0
 homeautomation_llamacpp_models:
-  - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
+  - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-IQ3_XXS.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
+  # The model presets, mounted read-only. Its own directory rather than a file, which
+  # docker would create as a directory on the host if it were ever missing.
+  config: /var/docker-volumes/homeautomation/llamacpp/config
   # $HOME, holding the Mesa/RADV shader caches. Its own directory, so the models
   # stay mounted read-only.
   cache: /var/docker-volumes/homeautomation/llamacpp/cache

@@ -106,12 +106,26 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern 
 ### llama.cpp models and context
 
 Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
-defaults to 4096 tokens. `homeautomation_llamacpp_env` sets vars the children inherit: `LLAMA_ARG_CTX_SIZE` for
-the per-request context and `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots.
+defaults to 4096 tokens. Two places set what a child runs with:
+
+| Where | Scope | Holds |
+| --- | --- | --- |
+| `homeautomation_llamacpp_env` | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident |
+| `homeautomation_llamacpp_model_presets` | one model | any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name |
 
 - `LLAMA_ARG_CTX_SIZE` must stay at or below the smallest `homeautomation_llamacpp_models` entry's native
-  training context, or quality degrades without YaRN.
-- KV cache grows with context. At 128k the current models exceed the 16GB GPU and spill to system RAM.
+  training context, or quality degrades without YaRN. A model that cannot afford it in VRAM sets a lower `c`
+  in its own preset instead.
+- KV cache grows with context, and only the full-attention layers hold one: a hybrid model such as
+  Qwen3.8-27B, at 16 of 64 layers, needs far less of it per token than its parameter count suggests. Size a
+  model as weights + KV against the GPU, and quantize the cache (`cache-type-k`, `cache-type-v`, which need
+  `flash-attn = on`) before giving up context. Keep `cache-type-k` the higher precision of the two.
+- `LLAMA_ARG_MODELS_MAX: "1"` because one 27B quant plus its cache fills a 16GB GPU. Raising it lets two
+  children share the GPU and spill to system RAM; leaving it at 1 costs an unload and reload whenever a
+  request names a different model.
+- The preset parser rejects some options the command line accepts, `reasoning-effort` and `n-parallel` among
+  them (`reasoning` and `reasoning-budget` are taken). A rejected key fails the router at startup, naming the
+  option and the section, so the container does not come up.
 
 ### Home Assistant conversation agent
 

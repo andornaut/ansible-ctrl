@@ -16,6 +16,27 @@
     mode: "0755"
   become: true
 
+# Root-owned and mounted read-only, as the models directory is.
+- name: Create the llama.cpp configuration directory
+  ansible.builtin.file:
+    path: "{{ homeautomation_llamacpp_required_volumes.config }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# The router reads this once, at startup, so a change to it needs the container back.
+- name: Install the llama.cpp model presets
+  ansible.builtin.template:
+    src: llamacpp-models.ini.j2
+    dest: "{{ homeautomation_llamacpp_required_volumes.config }}/models.ini"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart llamacpp
+
 - name: Create the llama.cpp service account
   ansible.builtin.include_tasks: service_account.yml
   vars:
@@ -78,6 +99,7 @@
 
     llamacpp_base_volumes:
       - "{{ homeautomation_llamacpp_required_volumes.models }}:/models:ro"
+      - "{{ homeautomation_llamacpp_required_volumes.config }}:/config:ro"
       - "{{ homeautomation_llamacpp_required_volumes.cache }}:/cache"
     llamacpp_volumes: "{{ homeautomation_common_volumes + llamacpp_base_volumes }}"
 
@@ -99,8 +121,11 @@
           container_name: llamacpp
           image: "{{ homeautomation_llamacpp_docker_image }}"
           cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
-          # --models-dir enables router mode.
-          command: "--host 0.0.0.0 --port 8080 --models-dir /models"
+          # --models-dir enables router mode, and --models-preset carries the per-model
+          # arguments a child cannot inherit from the environment.
+          command: >-
+            --host 0.0.0.0 --port 8080
+            --models-dir /models --models-preset /config/models.ini
           environment: "{{ llamacpp_environment }}"
           devices: "{{ homeautomation_llamacpp_devices }}"
           user: "{{ homeautomation_llamacpp_uid }}:{{ homeautomation_llamacpp_gid }}"

@@ -1,0 +1,14 @@
+; Managed by ansible: roles/homeautomation/tasks/docker_llm.yml. Edits are lost.
+;
+; Per-model arguments for the child servers router mode spawns. A section name is
+; a model id, which the router takes from the file name, and a key is a long option
+; name without its leading dashes. A section applies to one model, so what it sets
+; wins over the environment the router hands every child.
+version = 1
+{% for section, options in homeautomation_llamacpp_model_presets.items() %}
+
+[{{ section }}]
+{% for option, value in options.items() %}
+{{ option }} = {{ value | lower if value is boolean else value }}
+{% endfor %}
+{% endfor %}
