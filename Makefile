@@ -41,15 +41,19 @@ PLAYBOOKS := base desktop dev docker faramir \
 # Root needs neither a become password nor the operator's age identity.
 IS_ROOT := $(filter 0,$(shell id -u))
 
-# A root run has HOME=/root, so the operator's home is resolved from SUDO_USER rather than
-# named. Read only under root, a stale SUDO_USER being what any other run would find.
-# getent rather than ~, which expands wrong for exactly the run that needs this.
-OPERATOR := $(or $(and $(IS_ROOT),$(SUDO_USER)),$(shell id -un))
+# A root run has HOME=/root, so the operator's home is resolved rather than named: this
+# tree is theirs, and its owner is the account whose store and keys the run needs. Not
+# SUDO_USER, which names whoever invoked sudo and is the operator only where a human typed
+# it: a brokered run reaches root through an executor account, and resolving that one sends
+# the run looking for the store under a home that holds none. Read only under root, either
+# being wrong for a run that is already the operator's. getent rather than ~, which expands
+# wrong for exactly the run that needs this.
+OPERATOR := $(or $(and $(IS_ROOT),$(shell stat -c %U $(firstword $(MAKEFILE_LIST)))),$(shell id -un))
 OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 
 # Recipes write into the work tree as the operator, so a root run leaves nothing an
-# unprivileged `make` cannot rebuild. A real root login has no SUDO_USER, so OPERATOR is
-# root and nothing drops.
+# unprivileged `make` cannot rebuild. A tree checked out by root resolves to root and
+# nothing drops.
 AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
