@@ -28,7 +28,8 @@ membership is read at login.
 | first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on the controller |
 | second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
 
-`faramir_controller` names the one host it may install on: `broker.yml` refuses to run anywhere else, and `ssh.yml`
+`faramir_controller` is the one host it may install on, derived from the `faramir` group rather than named here,
+this repo being public: `broker.yml` refuses to run anywhere else, and `ssh.yml`
 requires the `faramir` group to hold that host and no other.
 
 ## Variables

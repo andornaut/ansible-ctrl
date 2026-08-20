@@ -11,8 +11,8 @@
       {{ inventory_hostname }} is not that host. Apply it with make faramir,
       whose first play targets the faramir group. Authorizing the broker's key
       on this host is that run's second play, which applies tasks/ssh.yml. If
-      the controller was renamed or replaced, faramir_controller is where its
-      name is set.
+      the controller was renamed or replaced, the faramir group in the inventory
+      is what names it.
     quiet: true
   tags: always
 

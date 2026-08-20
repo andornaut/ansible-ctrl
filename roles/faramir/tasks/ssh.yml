@@ -3,14 +3,13 @@
 
 - name: Require the faramir group to hold the controller alone
   ansible.builtin.assert:
-    that: groups['faramir'] | default([]) == [faramir_controller]
+    that: (groups['faramir'] | default([])) | length == 1
     fail_msg: >-
       The faramir group holds
-      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}, and the
-      controller is {{ faramir_controller }}. These tasks distribute one
-      broker's key, from the one host make faramir installs a broker on, so that
-      group has to hold that host and no other. If the controller was renamed or
-      replaced, faramir_controller is where its name is set.
+      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. These
+      tasks distribute one broker's key, from the one host make faramir installs
+      a broker on, so that group has to hold exactly one host: it is what names
+      the controller.
     quiet: true
 
 - name: Read the broker's public key from the controller

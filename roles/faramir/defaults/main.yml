@@ -1,6 +1,9 @@
 ---
-# The one host the broker is installed on, and whose key the fleet authorizes.
-faramir_controller: controller
+# The one host the broker is installed on, and whose key the fleet authorizes: the
+# single member of the `faramir` group. Derived rather than named, this repo being
+# public and the inventory being where a host's name belongs. Empty where that group
+# is, which the asserts in tasks/ report.
+faramir_controller: "{{ (groups['faramir'] | default([]))[0] | default('') }}"
 
 # The release whose assets are installed. `dev` is the rolling one CI re-cuts on every push
 # to faramir's main, so each run installs whatever that tag points at now and the version on
