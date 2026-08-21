@@ -59,6 +59,20 @@
   register: faramir_refuse
   changed_when: faramir_refuse.stdout | length > 0 and (faramir_refuse.stdout | from_json).changed
 
+# No stat, unlike the paths above: a name is matched against what the agent writes rather than
+# resolved against this host, so there is nothing here to find and an entry matching no file
+# today is the point of several of them. For the same reason none of these belongs in the
+# "Skipped, no such path" report below, which reads the paths alone.
+- name: Refuse a name to the agent's file tools
+  ansible.builtin.command:
+    argv: "{{ faramir_refuse_argv + ['--name', item] }}"
+  become: true
+  loop: "{{ faramir_refused_names }}"
+  register: faramir_refuse_name
+  changed_when: >-
+    faramir_refuse_name.stdout | length > 0
+    and (faramir_refuse_name.stdout | from_json).changed
+
 - name: Read a linked secret out of the file its own tool maintains
   ansible.builtin.command:
     # --key only for the types that select, faramir refusing it for the two that do not.
@@ -93,7 +107,9 @@
   ansible.builtin.debug:
     msg: "{{ item }}"
   loop: >-
-    {{ (faramir_refuse.results | default([]) + faramir_link.results | default([]))
+    {{ (faramir_refuse.results | default([])
+        + faramir_refuse_name.results | default([])
+        + faramir_link.results | default([]))
        | map(attribute='stdout', default='')
        | reject('equalto', '')
        | map('from_json')

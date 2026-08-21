@@ -201,6 +201,57 @@ faramir_refused_paths:
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
 
+# The same refusal by name rather than by path, matched against the path the agent writes and
+# so against the whole of it, not its last segment. Two things follow, and they are why the
+# list above cannot carry these.
+#
+# It reaches inside a container. A path entry cannot: `docker exec homeassistant cat
+# /config/.storage/core.config_entries` names the mount point, so an entry for the directory
+# under it covers nothing, and declaring the container's own path covers nothing either, that
+# path not being on this host for the role to find. A name is matched against what the agent
+# wrote, so it lands wherever the file is reached from.
+#
+# And nothing stats a name, so an entry matching no file on this host is inert rather than
+# skipped: it is not in the run's "Skipped, no such path" report, and it covers the file the
+# day one appears. A path entry gets neither.
+#
+# The shape comes from the pattern, and faramir refuses one that is nothing but wildcards:
+#
+#   credentials                  that exact name, in any directory
+#   .storage/core.config_entries that file inside any directory of that name
+#   *.key                        a suffix
+#   .env*                        a prefix, so `.env.local` and not `faramir.env`
+#   secrets*.yml                 a wildcard inside a name, not crossing a separator
+#   .storage/                    a directory, and everything under it
+faramir_refused_names:
+  # The operator's own SSH identities under the names ssh-keygen gives them, and the private
+  # key and certificate suffixes. No uid boundary covers any of these: the agent runs as the
+  # operator.
+  - id_rsa
+  - id_dsa
+  - id_ecdsa
+  - id_ed25519
+  - "*.key"
+  - "*.pem"
+  # A file called `credentials`, which is the name the cloud CLIs give theirs, and a dotenv
+  # file. The dotenv entry is a prefix so that `faramir.env` stays readable: it holds
+  # `faramir://` refs and no values, and both injection routes read it.
+  - credentials
+  - ".env*"
+  # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
+  # matches no file and covers one the day a playbook grows a vault.
+  - "*.vault"
+  - vault.yml
+  # A sops store under the names sops files are given. The managed store faramir serves is
+  # covered by faramir itself; this is any other one that lands in a tree.
+  - "secrets*.yml"
+  - "secrets*.yaml"
+  # Home Assistant's config entries, which hold every integration's credentials in the clear.
+  # Reachable only through the container, so only a name reaches it. Read a config-entry field
+  # with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
+  # redacts itself rather than leaving the redaction to a hand-written selector.
+  - ".storage/core.config_entries"
+
 # Credentials another tool owns, read where that tool keeps them rather than copied into the
 # store. One entry per ref: `ref`, `path`, `type` (`text`, `base64`, `json`, `yaml`, `toml`,
 # `ini`) and `key` for the four that select.
