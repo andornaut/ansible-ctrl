@@ -211,10 +211,15 @@ pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 # and no playbooks: those are NOPASSWD like the rest of the fleet, and prompting for a run
 # that reaches one would ask for a password nothing uses.
 #
+# An empty answer prompts rather than passing over it. No playbook targets that group, so
+# nothing else here fails when it is missing or misspelled, and the run that would otherwise
+# go without the flag fails on the controller's sudo with the rest of the fleet applied.
+#
 # Reads $$run, which the recipe sets from list_run before reaching here.
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
   controller=$$(ansible faramir_controller --list-hosts 2>/dev/null | $(pick_hosts)); \
+  [ -z "$$controller" ] && { echo --ask-become-pass; exit 0; }; \
   echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo --ask-become-pass; exit 0; }; \
   for r in $$(echo "$$run" | $(pick_roles)); do \
     grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo --ask-become-pass; exit 0; }; \

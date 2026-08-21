@@ -2,6 +2,21 @@
 # What this adds over `faramir init` is in the README; the accounts, directories, age key
 # and units are its.
 
+# Before anything installs. An empty faramir_controller_host makes faramir_is_controller
+# false on every host, so the enrolment, the agent's block and the key notice would all skip
+# with the play reporting success, and the entries this run wrote would reach config.toml and
+# no agent file in the tree. ssh.yml catches it, one play too late.
+- name: Require the inventory to name one controller
+  ansible.builtin.assert:
+    that: faramir_controller_host | length > 0
+    fail_msg: >-
+      The faramir_controller group holds
+      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }}, and it has
+      to hold exactly one: it is what names the host these playbooks are run from, and so
+      which install gets the checkout enrolled and the key the fleet authorizes.
+    quiet: true
+  tags: always
+
 - name: Require a host the broker is installed on
   ansible.builtin.assert:
     that: inventory_hostname in (groups['faramir'] | default([]))

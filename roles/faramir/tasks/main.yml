@@ -2,7 +2,7 @@
 # faramir.yml names each half with tasks_from rather than applying the role bare. Tagged
 # here, so a bare application can select one.
 
-- name: Install the broker on the controller
+- name: Install the broker on this host
   ansible.builtin.import_tasks: broker.yml
   tags: broker
 

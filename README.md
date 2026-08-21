@@ -139,9 +139,10 @@ entering a coding agent's context. Installing it is an operator action against t
 needs it in order to run. Its own [README](https://github.com/andornaut/faramir#readme) covers what it protects
 against, and the [faramir role](roles/faramir/README.md) covers this repo's part.
 
-1. `make dev` installs sops. The faramir binary comes from a release, so no checkout and no Go toolchain are needed.
-1. `make faramir` installs the broker, then authorizes its SSH key and the NOPASSWD sudo the other playbooks rely
-   on. It asks for a sudo password once.
+1. `make faramir` installs sops and the broker, then authorizes the controller's SSH key and the NOPASSWD sudo
+   the other playbooks rely on. It asks for a sudo password once. The faramir binary comes from a release, so no
+   checkout and no Go toolchain are needed. Run it before any target that reads a credential: those re-enter under
+   `sops exec-env`, and nothing else here installs sops.
 1. Log out and back in: the install adds you to the `dev` group, and group membership is read at login.
 1. `faramir doctor`, `faramir status`, `faramir refs` (names, never values). A ref count of zero means the
    broker is protecting nothing.
