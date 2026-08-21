@@ -51,7 +51,7 @@ Setup:
 ### AMD GPU
 
 Make `/dev/kfd` (AMD GPU compute) writable from within a container. See
-[AMD GPU driver installation](https://github.com/andornaut/til/blob/master/docs/ubuntu.md#install-amd-gpu-dkms-kernel-module-driver).
+[AMD GPU driver installation](https://github.com/andornaut/til/blob/main/docs/ubuntu.md#install-amd-gpu-dkms-kernel-module-driver).
 
 Edit `/etc/udev/rules.d/70-amdgpu.rules`:
 
