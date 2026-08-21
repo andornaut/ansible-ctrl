@@ -50,6 +50,41 @@
     quiet: true
   tags: always
 
+# ecryptfs-utils keeps a user's configuration and ciphertext outside the home, under a fixed
+# path, so this answers whether the home is encrypted whether or not it is mounted right now.
+# The markers inside the home cannot: which of them is visible is what the mount decides.
+- name: Check whether the operator's home is encrypted
+  ansible.builtin.stat:
+    path: "/home/.ecryptfs/{{ faramir_user }}"
+  become: true
+  register: faramir_home_ecryptfs
+  tags: always
+
+# getent answers with the home's path whether or not anything is mounted there, so nothing
+# below would notice. A run against a locked home writes the config directory, the age key,
+# the broker's key and the store onto the mountpoint, in the clear on the underlying
+# filesystem, and the next login hides all four under the mount. It also reads every
+# credential store in that home as absent, so tasks/entries.yml refuses none of them and says
+# the host has none.
+#
+# Only where the home is encrypted. A plain home is part of / and is a mount point on no host,
+# so requiring a mount would fail every machine that has nothing to unlock.
+#
+# `| default([])` fails closed: without the mounts fact this cannot answer, and answering "not
+# encrypted" is the wrong way to be wrong.
+- name: Require an encrypted home to be mounted
+  ansible.builtin.assert:
+    that: faramir_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ faramir_user }}'s home is encrypted and {{ faramir_user_home }} is not mounted, so
+      this host is sitting at its login screen or the home was never unlocked. Installing now
+      would put the age key and the store on the mountpoint rather than in the home, and would
+      refuse none of the credential stores under it. Log in as {{ faramir_user }}, or run
+      ecryptfs-mount-private there, and run this again.
+    quiet: true
+  when: faramir_home_ecryptfs.stat.exists
+  tags: always
+
 # The controller's alone: the enrolment below is what needs it, and a host that runs no
 # playbook has no checkout to enrol.
 - name: Check for the working tree

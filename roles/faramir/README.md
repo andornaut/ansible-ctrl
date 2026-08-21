@@ -94,6 +94,13 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
 - **The config directory is `~/.config/faramir`**, holding the age key, the broker's SSH key and the store, so an
   encrypted home carries all three. `init` grants the client group traversal from the home down: execute without
   read. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
+- **An encrypted home has to be mounted, and the run stops if it is not.** `getent` answers with the home's path
+  whether or not anything is mounted there, so a run against a locked home would write all three of those onto the
+  mountpoint, in the clear on the underlying filesystem, and the next login would hide them under the mount. It
+  would also read every credential store in that home as absent and refuse none of them. The check is
+  ecryptfs-specific, `/home/<user>` being a mount point on no host that has nothing to unlock: it looks for
+  `/home/.ecryptfs/<user>`, which sits outside the home and so answers the same either way, and then requires the
+  home among `ansible_facts["mounts"]`. A laptop up but not logged in is the case this catches.
 - **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml` on the controller.
   One held anywhere else is neither injectable through `--env` nor known to the redactor, unless a
   `faramir_links` entry reads it where its own tool keeps it.
@@ -168,9 +175,10 @@ directories. The two lists here name what those miss, and `tasks/entries.yml` co
 - **A path is absolute and in its shortest form**, a rule matching it as written; no `~`, which nothing expands. A
   directory refuses everything under it, whether or not it is one on the day the rule is written. The run prints
   what each entry warned about.
-- **Only a refused path the controller has is configured.** The role stats each one as root and names the rest in
-  its output rather than refusing them, an entry naming a path no host here carries being one nothing can check.
-  A file that appears after a run is refused by the next one and not before.
+- **Only a refused path the host has is configured.** The role stats each one as root and names the rest in its
+  output rather than refusing them, an entry naming a path no host here carries being one nothing can check. A file
+  that appears after a run is refused by the next one and not before. What makes that safe is the check below: an
+  absent path can only mean the host has no such thing.
 - **Both commands are idempotent**, so the role names every entry it configures on every run rather than diffing
   the install: an entry already carried is re-applied, which is what puts back a grant a tool took away and a rule
   an agent's settings dropped. The only state read first is whether a refused path is there. `faramir init`

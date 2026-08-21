@@ -39,8 +39,10 @@
   register: faramir_refused_stat
   changed_when: false
 
-# The list is what every controller might carry, so an entry naming a path this one does not
-# have is skipped rather than failing the run: what the host has is what the host is refused.
+# The list is what every host might carry, so an entry naming a path this one does not have is
+# skipped rather than failing the run: what the host has is what the host is refused. Absent
+# can only mean the host has no such thing here, broker.yml having already refused to run
+# against a home that is encrypted and not mounted, which is the other way a path reads absent.
 - name: Keep the refused paths that are there
   ansible.builtin.set_fact:
     faramir_refused_present: >-
@@ -70,9 +72,8 @@
   register: faramir_link
   changed_when: faramir_link.stdout | length > 0 and (faramir_link.stdout | from_json).changed
 
-# Named rather than passed over quietly: an entry skipped here is a credential store this
-# controller does not have, or one whose home was not mounted when the probe ran, and the two
-# read alike. A path that appears later is refused by the next run and not before.
+# Named rather than passed over quietly: an entry skipped here is a credential store this host
+# does not have. A path created after a run is refused by the next one and not before.
 #
 # Skipped rather than not refused: this run wrote no entry, and an earlier one that did leaves
 # a rule that stands, `faramir init` re-asserting it from config.toml however the file fares.
@@ -81,7 +82,10 @@
     msg: >-
       Skipped, no such path:
       {{ faramir_refused_paths | difference(faramir_refused_present) | sort | join(', ') }}
-  when: faramir_refused_present | length < faramir_refused_paths | length
+  # Read off the difference rather than the two lengths, which stopped agreeing once
+  # faramir_refused_present grew the always-refused entries: a run with one path skipped and
+  # one added back that way would have counted equal and said nothing.
+  when: faramir_refused_paths | difference(faramir_refused_present) | length > 0
 
 # What installs cleanly and then does not work: a linked file that has gone, and whatever else
 # an add reports without failing on.
