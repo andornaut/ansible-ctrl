@@ -143,14 +143,19 @@ directories. The two lists here name what those miss, and `tasks/entries.yml` co
 - **A linked path does not also go in `faramir_refused_paths`.** A link renders the same rule and three things
   besides, so the second entry adds nothing and faramir says so.
 - **`faramir_links` is set in `host_vars`, not here.** `link add` refuses a new entry whose file is not there, so a
-  link in the committed defaults fails the run on a controller without that file. An absent refused path is only
-  recorded and warned about, so those stay in defaults.
+  link in the committed defaults fails the run on a controller without that file. An absent refused path is
+  skipped and named, so those stay in defaults.
 - **A path is absolute and in its shortest form**, a rule matching it as written; no `~`, which nothing expands. A
-  directory refuses everything under it. A path that is not there is recorded and holds if it appears, which is
-  what covers a home that is not mounted, and the run prints what each entry warned about.
-- **Both commands are idempotent**, so the role names every entry on every run rather than diffing the host: an
-  entry the install already carries is re-applied, which is what puts back a grant a tool took away and a rule an
-  agent's settings dropped. `faramir init` re-asserts them from `config.toml` after that.
+  directory refuses everything under it, whether or not it is one on the day the rule is written. The run prints
+  what each entry warned about.
+- **Only a refused path the controller has is configured.** The role stats each one as root and names the rest in
+  its output rather than refusing them, an entry naming a path no host here carries being one nothing can check.
+  A file that appears after a run is refused by the next one and not before.
+- **Both commands are idempotent**, so the role names every entry it configures on every run rather than diffing
+  the install: an entry already carried is re-applied, which is what puts back a grant a tool took away and a rule
+  an agent's settings dropped. The only state read first is whether a refused path is there. `faramir init`
+  re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
+  file.
 - **They need a faramir carrying `--json` on `refuse add` and `link add`**, which `faramir_release_tag: dev` does.
   A tag pinned to a version older than that fails these tasks with cobra's unknown-flag error.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the

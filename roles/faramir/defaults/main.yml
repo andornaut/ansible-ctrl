@@ -108,8 +108,15 @@ faramir_escalation_timeout_sec: 300
 # directories. What is listed here is what those miss.
 #
 # Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
-# expands. A directory refuses everything under it, and a path that is not there is recorded
-# and holds if it appears, which is what covers a home that is not mounted.
+# expands. A directory refuses everything under it, whether or not it is one on the day the
+# rule is written.
+#
+# Only the entries the controller has are configured: the role stats each one as root and
+# names the rest in its output rather than refusing them. So the list is what a controller
+# might carry rather than what each one does, at the cost of the coverage faramir would give
+# an absent path, which it records and holds against the day it appears. What that costs is a
+# store created between runs, and a home not mounted when the probe ran: both are unrefused
+# until the next run, and both are named in the output of the one that skipped them.
 #
 # It stops the agent's own file tools and nothing else: the file is never opened, so its mode
 # is left alone and its value is in no redactor. A brokered command whose mode allows it may
@@ -120,15 +127,38 @@ faramir_refused_paths:
   - "{{ faramir_user_home }}/.private"
   - "{{ faramir_user_home }}/.gnupg"
   - "{{ faramir_user_home }}/.local/share/keyrings"
+  # The NSS databases, holding client certificates and the private keys that go with them
+  # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
+  - "{{ faramir_user_home }}/.pki"
   # The agent's own OAuth token. `.credentials.json` is not the `credentials` component
   # faramir's rules name, so nothing else covers it.
   - "{{ faramir_user_home }}/.claude/.credentials.json"
+  # The same for the other coding agents installed here: a token file under an ordinary name,
+  # or a config holding a model provider's API key inline. faramir configures codex and cursor
+  # not at all, so for those a rule is the whole of what covers them.
+  - "{{ faramir_user_home }}/.codex/auth.json"
+  - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
+  - "{{ faramir_user_home }}/.gemini"
+  - "{{ faramir_user_home }}/.claude-code-router/config.json"
+  - "{{ faramir_user_home }}/.continue/config.yaml"
+  # Cursor keeps its own in a sqlite database, `User/globalStorage/state.vscdb`, and in a
+  # cookie jar beside it, so the profile directory rather than a file.
+  - "{{ faramir_user_home }}/.config/Cursor"
+  # The GitHub CLI's OAuth token, which `hosts.yml` holds in the clear, and clasp's Google
+  # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
+  - "{{ faramir_user_home }}/.config/gh"
+  - "{{ faramir_user_home }}/.clasprc.json"
   # Registry auth in the clear: with no credsStore, `auths` holds base64 user:pass, and no
   # managed ref carries those, so nothing redacts them either. Refused rather than linked
   # because `docker login` replaces the file by rename and the replacement is created 0600,
   # which takes the broker's read with it and leaves it refusing every ref until the next
   # run of this role grants it again.
   - "{{ faramir_user_home }}/.docker/config.json"
+  # Site passwords the application keeps itself rather than handing to a keyring: FileZilla
+  # encodes them in `sitemanager.xml`, PuTTY keeps a session's proxy password beside the rest
+  # of its settings. Neither is encrypted and neither is named by any rule.
+  - "{{ faramir_user_home }}/.config/filezilla"
+  - "{{ faramir_user_home }}/.putty"
   # The browser credential stores: logins.json and key4.db, Login Data and its keyring entry.
   # The profile directory rather than those files, a rule being a literal path with no glob
   # and the directory holding them named after a random string. Nothing here manages a
@@ -136,6 +166,22 @@ faramir_refused_paths:
   - "{{ faramir_user_home }}/.mozilla"
   - "{{ faramir_user_home }}/.config/google-chrome"
   - "{{ faramir_user_home }}/.config/chromium"
+  # A flatpak gets a home of its own under `.var/app`, so an application installed that way
+  # keeps a second copy of the store above and the paths naming the native one miss it.
+  - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
+  - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
+  - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
+  - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
+  # Session tokens, which stand in for the password they were issued against and are what a
+  # store this size actually holds: a sync account, a messenger, and the two game launchers,
+  # `legendary` keeping its own in `user.json` for the launcher above.
+  - "{{ faramir_user_home }}/.config/Insync"
+  - "{{ faramir_user_home }}/.local/share/TelegramDesktop"
+  - "{{ faramir_user_home }}/.local/share/Steam"
+  - "{{ faramir_user_home }}/.config/legendary"
+  # Clipboard history, which holds whatever was copied through it, a password included.
+  - "{{ faramir_user_home }}/.clipboard"
+  - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
 
 # Credentials another tool owns, read where that tool keeps them rather than copied into the
 # store. One entry per ref: `ref`, `path`, `type` (`text`, `base64`, `json`, `yaml`, `toml`,
@@ -143,7 +189,7 @@ faramir_refused_paths:
 #
 # Empty here and set in `host_vars`, unlike the refused paths above: `link add` refuses a new
 # entry whose file is not there, so a link named in defaults fails the run on a controller
-# that does not have that file, while an absent refused path is recorded and warned about.
+# that does not have that file, while an absent refused path is skipped and named.
 #
 # A link is the stronger of the two entries. It refuses the path to the agent's file tools as
 # a refusal does, and on top of that regroups the file so a brokered command is refused it
