@@ -146,7 +146,11 @@ faramir_refused_paths:
   # not at all, so for those a rule is the whole of what covers them.
   - "{{ faramir_user_home }}/.codex/auth.json"
   - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
-  - "{{ faramir_user_home }}/.gemini"
+  # gemini's own, named rather than the tree around it: `mcp_config.json` and the keybindings
+  # beside it are settings an agent is asked to edit, and refusing the directory refuses those
+  # too. The token files it writes are covered by name instead, so a version that moves one
+  # is covered wherever it lands.
+  - "{{ faramir_user_home }}/.gemini/config/config.json"
   - "{{ faramir_user_home }}/.claude-code-router/config.json"
   - "{{ faramir_user_home }}/.continue/config.yaml"
   # Cursor keeps its own in a sqlite database, `User/globalStorage/state.vscdb`, and in a
@@ -174,17 +178,12 @@ faramir_refused_paths:
   # The profile directory rather than those files, a rule being a literal path with no glob
   # and the directory holding them named after a random string. Nothing here manages a
   # browser profile: the policy files this repo deploys are under /etc.
-  #
-  # Thunderbird for the same reason and in the same shape, its key4.db holding the password
-  # of every mail account it is configured with.
   - "{{ faramir_user_home }}/.mozilla"
-  - "{{ faramir_user_home }}/.thunderbird"
   - "{{ faramir_user_home }}/.config/google-chrome"
   - "{{ faramir_user_home }}/.config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
   # keeps a second copy of the store above and the paths naming the native one miss it.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
-  - "{{ faramir_user_home }}/.var/app/org.mozilla.Thunderbird"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
@@ -197,6 +196,12 @@ faramir_refused_paths:
   - "{{ faramir_user_home }}/.local/share/Steam"
   - "{{ faramir_user_home }}/.config/legendary"
   - "{{ faramir_user_home }}/.config/Heroic"
+  # Lutris keeps one per storefront it has been signed in to, under `cache/lutris`: GOG,
+  # Amazon, Humble Bundle and Origin, each an auth file or a cookie jar. Steam's own is
+  # covered by the flatpak path rather than the native one, an install made that way leaving
+  # `.local/share/Steam` a shell.
+  - "{{ faramir_user_home }}/.var/app/net.lutris.Lutris"
+  - "{{ faramir_user_home }}/.var/app/com.valvesoftware.Steam"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
@@ -246,6 +251,13 @@ faramir_refused_names:
   # covered by faramir itself; this is any other one that lands in a tree.
   - "secrets*.yml"
   - "secrets*.yaml"
+  # The token files gemini writes, by name rather than by path: the path they take has moved
+  # between versions, and a path entry for one that is not there yet is stat-checked away and
+  # covers nothing until a later run. A name costs nothing while it matches nothing and
+  # covers the file the hour it appears, which is what the narrowed `.gemini` entry above
+  # relies on.
+  - oauth_creds.json
+  - google_accounts.json
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
   # Reachable only through the container, so only a name reaches it. Read a config-entry field
   # with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
