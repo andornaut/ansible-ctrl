@@ -164,29 +164,39 @@ faramir_refused_paths:
   - "{{ faramir_user_home }}/.docker/config.json"
   # Site passwords the application keeps itself rather than handing to a keyring: FileZilla
   # encodes them in `sitemanager.xml`, PuTTY keeps a session's proxy password beside the rest
-  # of its settings. Neither is encrypted and neither is named by any rule.
+  # of its settings, MQTT Explorer a broker's in `settings.json`, and irssi a server's and its
+  # NickServ password in `config`. None is encrypted and none is named by any rule.
   - "{{ faramir_user_home }}/.config/filezilla"
   - "{{ faramir_user_home }}/.putty"
+  - "{{ faramir_user_home }}/.config/MQTT-Explorer"
+  - "{{ faramir_user_home }}/.irssi"
   # The browser credential stores: logins.json and key4.db, Login Data and its keyring entry.
   # The profile directory rather than those files, a rule being a literal path with no glob
   # and the directory holding them named after a random string. Nothing here manages a
   # browser profile: the policy files this repo deploys are under /etc.
+  #
+  # Thunderbird for the same reason and in the same shape, its key4.db holding the password
+  # of every mail account it is configured with.
   - "{{ faramir_user_home }}/.mozilla"
+  - "{{ faramir_user_home }}/.thunderbird"
   - "{{ faramir_user_home }}/.config/google-chrome"
   - "{{ faramir_user_home }}/.config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
   # keeps a second copy of the store above and the paths naming the native one miss it.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
+  - "{{ faramir_user_home }}/.var/app/org.mozilla.Thunderbird"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # Session tokens, which stand in for the password they were issued against and are what a
   # store this size actually holds: a sync account, a messenger, and the two game launchers,
-  # `legendary` keeping its own in `user.json` for the launcher above.
+  # `legendary` keeping its own in `user.json` for Heroic, which keeps a cookie jar of its
+  # own. Heroic twice over, the flatpak path above covering only an install made that way.
   - "{{ faramir_user_home }}/.config/Insync"
   - "{{ faramir_user_home }}/.local/share/TelegramDesktop"
   - "{{ faramir_user_home }}/.local/share/Steam"
   - "{{ faramir_user_home }}/.config/legendary"
+  - "{{ faramir_user_home }}/.config/Heroic"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
