@@ -182,7 +182,7 @@
 
 - name: Install cache-command
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/andornaut/cache-command/master/cache-command
+    url: https://raw.githubusercontent.com/andornaut/cache-command/main/cache-command
     dest: /usr/local/bin/
     mode: "0755"
   become: true

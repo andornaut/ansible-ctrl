@@ -17,6 +17,6 @@
     group: root
     mode: "0755"
   loop:
-    - https://raw.githubusercontent.com/andornaut/backup-mysql/master/backupmysql
-    - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/master/backupdockerpostgresql
+    - https://raw.githubusercontent.com/andornaut/backup-mysql/main/backupmysql
+    - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/main/backupdockerpostgresql
   become: true
