@@ -73,6 +73,40 @@
     faramir_refuse_name.stdout | length > 0
     and (faramir_refuse_name.stdout | from_json).changed
 
+# CLEANUP (added 2026-08-21): delete this task once every host in the `faramir` group has run
+# this play, `faramir refuse ls --declared` on each naming none of the three. Nothing else goes
+# with it: the argv is inline rather than a var, and it is deliberately absent from the warning
+# collection below, so removal is this block and nothing more.
+#
+# The role is adds-only otherwise, for the reason in this file's header. That leaves a name
+# taken out of faramir_refused_names declared on every host that already had it, which no
+# later run undoes, so `refuse ls` and defaults/main.yml disagree until something removes it.
+# These three are what that list dropped: a key type OpenSSH is retiring, and the two sops
+# globs that one wildcard now spans.
+#
+# Safe anywhere and repeatedly. An entry a host never had is not an error and reports
+# changed=false, and this runs after the install above, so the three are ordinary declared
+# entries by then rather than rules faramir carries itself, which it refuses to remove.
+#
+# What it does not do is take the rendered rule out of an agent's settings, those files being
+# merged rather than replaced. A rule refusing a name that matches nothing costs nothing, so
+# they stay; this brings `refuse ls` back into agreement, not the rule files.
+- name: Remove the refused names this role no longer declares
+  ansible.builtin.command:
+    argv: >-
+      {{ [faramir_binary, 'refuse', 'rm', '--json',
+          '--agent-user', faramir_user,
+          '--config-dir', faramir_config_dir, '--name', item] }}
+  become: true
+  loop:
+    - id_dsa
+    - "secrets*.yml"
+    - "secrets*.yaml"
+  register: faramir_refuse_retired
+  changed_when: >-
+    faramir_refuse_retired.stdout | length > 0
+    and (faramir_refuse_retired.stdout | from_json).changed
+
 - name: Read a linked secret out of the file its own tool maintains
   ansible.builtin.command:
     # --key only for the types that select, faramir refusing it for the two that do not.
