@@ -9,8 +9,9 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.ansible.com
 
 | Term | Meaning |
 | --- | --- |
-| controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir` group |
+| controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir_controller` group |
 | fleet | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo |
+| `faramir` | Every host running the secret broker. The controller is one of them, and gets what the rest have no use for: the checkout enrolled, and a key the fleet authorizes |
 | `routers` | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, as `root` |
 
 ## Requirements
@@ -56,7 +57,7 @@ the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintai
 | [desktop.yml](desktop.yml) | `desktop` | [desktop](roles/desktop/README.md), then [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) per the host's `desktop_environment` | Display manager, browser, fonts and themes, plus the window manager and its X11 or Wayland utilities |
 | [dev.yml](dev.yml) | `dev` | [dev](roles/dev/README.md) | Development tools and programming languages |
 | [docker.yml](docker.yml) | `dev`, `homeautomation`, `webservers` | [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
-| [faramir.yml](faramir.yml) | `faramir`, then `all` | [faramir](roles/faramir/README.md), then its `ssh` entry point (`tasks_from`) | Secret broker on the controller, then the broker's SSH key and a NOPASSWD sudoers entry on the managed hosts |
+| [faramir.yml](faramir.yml) | `faramir`, then `all` | [faramir](roles/faramir/README.md), then its `ssh` entry point (`tasks_from`) | Secret broker on each faramir host, then the controller's SSH key and a NOPASSWD sudoers entry on the managed hosts |
 | [games.yml](games.yml) | `games` | [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
 | [hobbies.yml](hobbies.yml) | `hobbies` | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
 | [homeautomation.yml](homeautomation.yml) | `homeautomation` | [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
@@ -123,7 +124,7 @@ ref into `faramir.env`, and a reference in `host_vars/` only if the destination 
 | Path | How |
 | --- | --- |
 | `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and those targets [re-enter as root](roles/faramir/README.md#running-playbooks) |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'`. `faramir.env` holds `faramir://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`. `faramir.env` holds `faramir://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
 | Gotcha | Detail |

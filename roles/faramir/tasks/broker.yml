@@ -2,18 +2,17 @@
 # What this adds over `faramir init` is in the README; the accounts, directories, age key
 # and units are its.
 
-- name: Require the controller
+- name: Require a host the broker is installed on
   ansible.builtin.assert:
-    that: inventory_hostname == faramir_controller
+    that: inventory_hostname in (groups['faramir'] | default([]))
     fail_msg: >-
-      This role installs the broker on the controller: service accounts, systemd
-      units, the age key and root's config directory. {{ inventory_hostname }} is
-      not that host. The controller is the sole member of the faramir group, which
-      holds {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}; where
-      that is not exactly one host there is no controller to name, and this is the
-      first thing to fix. Apply it with make faramir, whose first play targets that
-      group. Authorizing the broker's key on this host is that run's second play,
-      which applies tasks/ssh.yml.
+      This installs the broker: service accounts, systemd units, the age key and
+      root's config directory. {{ inventory_hostname }} is in no position to take
+      them, the faramir group holding
+      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. Apply it
+      with make faramir, whose first play targets that group. Authorizing the
+      controller's key on this host is that run's second play, which applies
+      tasks/ssh.yml.
     quiet: true
   tags: always
 
@@ -36,33 +35,27 @@
     quiet: true
   tags: always
 
+# The controller's alone: the enrolment below is what needs it, and a host that runs no
+# playbook has no checkout to enrol.
 - name: Check for the working tree
   ansible.builtin.stat:
     path: "{{ playbook_dir }}"
   register: faramir_worktree_dir
   become: false
+  when: faramir_is_controller | bool
 
 - name: Require the working tree
   ansible.builtin.assert:
     that: faramir_worktree_dir.stat.isdir | default(false)
     fail_msg: >-
-      No directory at {{ playbook_dir }} on this host. faramir enrols the
-      checkout the play was run from, so this role applies only to the
-      controller holding that checkout.
+      No directory at {{ playbook_dir }} on this host, which the controller group
+      names as the one these playbooks are run from. faramir enrols the checkout
+      the play was run from, so that host is the one holding it.
     quiet: true
+  when: faramir_is_controller | bool
 
-# Asserted, not installed: no role here declares dependencies, and a second installer
-# would drift from the dev role's.
-- name: Require sops
-  become: true
-  block:
-    - name: Probe for sops
-      ansible.builtin.include_tasks: require_tools.yml
-      vars:
-        require_tools:
-          - name: sops
-            probe: command -v sops
-            hint: "It comes from the dev role: make dev -- --tags sops"
+- name: Install what the broker execs
+  ansible.builtin.import_tasks: sops.yml
 
 - name: Install faramir from release {{ faramir_release_tag }}
   become: true
@@ -131,7 +124,8 @@
 # After init, which installs the binary these run, and before the enrolment, which renders
 # the entries into this tree's agent files: an enrolment that ran first would write rules
 # naming none of them, and the tree would carry none until the next run. Only the
-# account-wide rule files are an add's own to render.
+# account-wide rule files are an add's own to render, which on a host with no enrolment is
+# the whole of what the rules reach.
 - name: Converge the config entries
   ansible.builtin.import_tasks: entries.yml
   when: faramir_binary_stat.stat.exists | default(false)
@@ -143,7 +137,9 @@
   register: faramir_project
   check_mode: false
   changed_when: faramir_project.stdout | length > 0 and (faramir_project.stdout | from_json).changed
-  when: faramir_binary_stat.stat.exists | default(false)
+  when:
+    - faramir_is_controller | bool
+    - faramir_binary_stat.stat.exists | default(false)
 
 - name: Read what the enrolment did
   ansible.builtin.set_fact:
@@ -190,8 +186,10 @@
         label: "{{ item.path | basename }} ({{ item.mode }})"
 
 # faramir's own agent snippet covers the broker, not this repo: which flags an unprivileged
-# brokered run needs, and what the approved route costs instead.
+# brokered run needs, and what the approved route costs instead. The controller's alone,
+# there being no checkout to write it into anywhere else.
 - name: Tell the agent how to run a playbook through the broker
+  when: faramir_is_controller | bool
   ansible.builtin.blockinfile:
     # The target, not a symlink to it: a host without the symlink would end up with two
     # divergent files.
@@ -211,10 +209,10 @@
       Unprivileged, needing no approval, and unable to configure the controller:
 
           faramir run --env-file faramir.env -- \
-              ansible-playbook <playbook>.yml --limit '!faramir'
+              ansible-playbook <playbook>.yml --limit '!faramir_controller'
 
       `--env-file faramir.env` names every credential this repo uses, by
-      reference. `--limit '!faramir'` excludes the controller because `become`
+      reference. `--limit '!faramir_controller'` excludes the controller because `become`
       there raises an escalation per task, which would leave the run failing after
       the rest of it has already applied.
 
@@ -302,7 +300,11 @@
              | map(attribute='detail') | join('; ') }}
         quiet: true
 
+# The controller's alone. init mints a key on every host it runs on, but only this one's
+# reaches anything: nothing authorizes the others, and a host that runs no playbook has
+# nothing to reach.
 - name: Show the public key the fleet has to authorize
+  when: faramir_is_controller | bool
   ansible.builtin.debug:
     msg:
       - "broker public key ({{ faramir_broker_ssh_key }}.pub):"

@@ -1,15 +1,23 @@
 ---
-# The one host the broker is installed on, and whose key the fleet authorizes: the
-# single member of the `faramir` group. Derived rather than named, this repo being
-# public and the inventory being where a host's name belongs.
+# The host these playbooks are run from, and so the one whose broker key the fleet
+# authorizes: the single member of the `faramir_controller` group. Derived rather than named,
+# this repo being public and the inventory being where a host's name belongs.
 #
-# Empty unless that group holds exactly one host, rather than taking the first of
-# however many: with a bare index, adding a host to the group or reordering it would
-# move the broker to a different machine and distribute a different key, and nothing
-# would say so. Empty fails both asserts below with the group's contents in the message.
-faramir_controller: >-
-  {{ (groups['faramir'] | default([]))[0]
-     if (groups['faramir'] | default([])) | length == 1
+# Apart from the `faramir` group, which holds every host the broker is installed on.
+# The controller is one of them and gets what the others have no use for: the checkout
+# enrolled as a project, an SSH key the fleet authorizes, and the block telling an agent
+# how to run these playbooks. A host in `faramir` alone gets the broker and nothing else,
+# which is the install for refused paths, linked secrets and redaction on a machine that
+# runs no playbooks.
+#
+# Empty unless the controller group holds exactly one host, rather than taking the first
+# of however many: with a bare index, adding a host to the group or reordering it would
+# move the enrolment to a different machine and distribute a different key, and nothing
+# would say so. Empty fails the asserts that read it, with the group's contents in the
+# message.
+faramir_controller_host: >-
+  {{ (groups['faramir_controller'] | default([]))[0]
+     if (groups['faramir_controller'] | default([])) | length == 1
      else '' }}
 
 # The release whose assets are installed. `dev` is the rolling one CI re-cuts on every push

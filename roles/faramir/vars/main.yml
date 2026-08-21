@@ -5,6 +5,16 @@
 # From the getent in tasks/broker.yml.
 faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 
+# Whether this host is the one the playbooks are run from, which decides the parts of the
+# install that exist for that: the enrolled checkout, the fleet key and the agent's block on
+# running them. False where faramir_controller_host is empty, no host being named '' .
+faramir_is_controller: "{{ inventory_hostname == faramir_controller_host }}"
+
+# Debian arch for the sops package, mapped from the kernel name Ansible reports. Apart from
+# faramir_arch, which is goreleaser's naming and leaves x86_64 alone: a .deb is amd64.
+faramir_deb_arch: >-
+  {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
 # The account ansible connects to a managed host as, set per host by the inventory.
 faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 

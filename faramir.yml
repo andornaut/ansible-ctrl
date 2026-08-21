@@ -1,7 +1,13 @@
 ---
-# Own playbook and inventory group so a brokered run cannot reach it: this
-# rewrites the agent's own confinement and restarts the broker.
-- name: Install the broker on the controller
+# Own playbook so a brokered run does not reach the controller through it: this rewrites the
+# agent's own confinement and restarts the broker, and the controller is the one host where
+# the agent has no root of its own. `--limit '!faramir_controller'`, which every brokered run
+# carries, is what excludes it.
+#
+# The other faramir hosts are not excluded, and excluding them would buy nothing: the second
+# play grants the ansible account passwordless sudo on every managed host, so a brokered
+# command is already root there and reaches faramir's config with or without this playbook.
+- name: Install the broker on every faramir host
   hosts: faramir
   tasks:
     # tasks_from, not roles:, which would apply the fleet half here too, where its
@@ -11,10 +17,12 @@
         name: faramir
         tasks_from: broker
 
-# The fleet half of the same install: the play above generates the key, this one
-# distributes it, and a broker whose key no host authorizes reaches nothing. A brokered run
-# cannot widen its own reach here: its --limit '!faramir' leaves the play above with no
-# hosts, so no key is published and ssh.yml's assert stops this one.
+# The fleet half of the same install: the play above generates a key on every faramir host,
+# this one distributes the controller's, and a broker whose key no host authorizes reaches
+# nothing. The other faramir hosts run no playbook, so their keys stay where they were
+# minted. A brokered run cannot publish a key here: its --limit '!faramir_controller' leaves the
+# controller out of the play above, so nothing is published and ssh.yml's assert stops this
+# one rather than authorizing whatever key it found.
 - name: Authorize the broker's key across the fleet
   # The routers included, unlike the Ubuntu-only plays: this one distributes a key rather
   # than installing anything, and both connect as root, which is what the agent gets there.

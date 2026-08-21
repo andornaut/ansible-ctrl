@@ -76,8 +76,8 @@ help:
 	@echo "  desktop               - Configure desktop environment"
 	@echo "  dev                   - Configure development tools"
 	@echo "  docker                - Configure Docker and Kubernetes"
-	@echo "  faramir               - Install the faramir secret broker on the controller,"
-	@echo "                          then authorize its SSH key on the managed hosts"
+	@echo "  faramir               - Install the faramir secret broker on every faramir host,"
+	@echo "                          then authorize the controller's SSH key on the managed hosts"
 	@echo "  games                 - Configure gaming packages"
 	@echo "  hobbies               - Configure hobby tools (3D printing, electronics, FPV)"
 	@echo "  homeautomation        - Configure home automation"
@@ -207,10 +207,14 @@ pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 # reads as needing none. `make faramir` is not one: the controller is in its first play, so
 # that prompt also serves the second, which establishes the NOPASSWD the rest rely on.
 #
+# The controller group, not the faramir group, which also holds the hosts running a broker
+# and no playbooks: those are NOPASSWD like the rest of the fleet, and prompting for a run
+# that reaches one would ask for a password nothing uses.
+#
 # Reads $$run, which the recipe sets from list_run before reaching here.
 define become_flag
 $(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
-  controller=$$(ansible faramir --list-hosts 2>/dev/null | $(pick_hosts)); \
+  controller=$$(ansible faramir_controller --list-hosts 2>/dev/null | $(pick_hosts)); \
   echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo --ask-become-pass; exit 0; }; \
   for r in $$(echo "$$run" | $(pick_roles)); do \
     grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo --ask-become-pass; exit 0; }; \

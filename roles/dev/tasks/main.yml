@@ -88,10 +88,6 @@
   ansible.builtin.import_tasks: oh_my_pi.yml
   tags: pi
 
-- name: Import sops tasks
-  ansible.builtin.import_tasks: sops.yml
-  tags: sops
-
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox

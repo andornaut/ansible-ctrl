@@ -1,14 +1,26 @@
 # faramir
 
-Installs the [faramir](https://github.com/andornaut/faramir) secret broker on the Ansible controller, so a coding
-agent can run playbooks against the fleet without being able to read the credentials they use. What it protects
-against, and its accounts, units, config model and store, are in faramir's own
-[README](https://github.com/andornaut/faramir#readme); this covers what is specific to this repo.
+Installs the [faramir](https://github.com/andornaut/faramir) secret broker, so a coding agent works on a host
+without being able to read the credentials kept there. What it protects against, and its accounts, units, config
+model and store, are in faramir's own [README](https://github.com/andornaut/faramir#readme); this covers what is
+specific to this repo.
+
+Two kinds of install, from one role:
+
+| | Controller | Every other faramir host |
+| --- | --- | --- |
+| Inventory | in `faramir_controller` and in `faramir` | in `faramir` |
+| Refused paths, linked secrets, redaction | yes | yes |
+| Checkout enrolled with `init-project` | yes | no, it runs no playbook |
+| SSH key authorized on the fleet | yes | no, one is minted and reaches nothing |
+| Reached by a brokered playbook run | no, `--limit '!faramir_controller'` | yes, like any managed host |
+
+The second is the install for a machine that only wants its own credentials kept out of an agent's reach.
 
 ## Usage
 
 ```bash
-make faramir    # install the broker, then authorize its key on the fleet
+make faramir    # install the broker on each faramir host, then authorize the controller's key on the fleet
 ```
 
 An operator action. Log out and back in after the first install: it adds you to `faramir_client_group`, and group
@@ -25,12 +37,14 @@ membership is read at login.
 
 | Play | Entry point | Hosts | Effect |
 | --- | --- | --- | --- |
-| first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on the controller |
-| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the broker's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
+| first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on each of them |
+| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the controller's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
 
-`faramir_controller` is the one host it may install on, derived from the `faramir` group rather than named here,
-this repo being public: `broker.yml` refuses to run anywhere else, and `ssh.yml`
-requires the `faramir` group to hold that host and no other.
+`faramir_controller_host` is derived from the `faramir_controller` group rather than named here, this repo being public, and
+`faramir_is_controller` is what gates the controller-only tasks. `broker.yml` refuses to run on a host outside the
+`faramir` group, and `ssh.yml` requires the `faramir_controller` group to hold exactly one host and that host to be one
+the broker is installed on. An install left out of `faramir` is not removed by leaving it out; `faramir init`
+lays down accounts and units that only an operator takes back off.
 
 ## Variables
 
@@ -60,7 +74,7 @@ that variable resolves the executor and refuses the run, naming the home it look
 The agent's route takes no password:
 
 ```bash
-faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir'
+faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'
 ```
 
 `faramir.env` holds refs and never values.
@@ -80,12 +94,16 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
 - **The config directory is `~/.config/faramir`**, holding the age key, the broker's SSH key and the store, so an
   encrypted home carries all three. `init` grants the client group traversal from the home down: execute without
   read. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
-- **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml`. One held anywhere
-  else is neither injectable through `--env` nor known to the redactor.
+- **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml` on the controller.
+  One held anywhere else is neither injectable through `--env` nor known to the redactor, unless a
+  `faramir_links` entry reads it where its own tool keeps it.
+- **A host can carry no store at all.** `faramir init` creates the secrets directory, `.sops.yaml` and the age
+  key, and nothing else: the first managed file comes from `sudo faramir vault add NAME`. A host whose values all
+  come from links never needs one.
 - **The store must not sit under `group_vars/` or `host_vars/`**, where Ansible auto-loads every `.yml`: a sops
   file is valid YAML, so each var binds to its `ENC[...]` ciphertext and hosts get the ciphertext as the password.
   Nor in the checkout, this repo being public. `faramir init` refuses both.
-- **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir'`: commands run as
+- **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir_controller'`: commands run as
   `faramir-exec`, which has no sudo here. Apply the controller's own playbooks as the operator.
 - **`faramir_allow_sudo` needs the original `sudo`.** Ubuntu 26.04 ships `sudo-rs`, which does not implement
   `pam_service`; the grant names it, so `visudo` rejects the whole file and the install refuses. It removes the
@@ -104,12 +122,14 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
 `faramir init` establishes the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. On top
 of that, the role:
 
+- Installs sops from its own release `.deb`, the keeper execing it rather than linking it. No age package: sops
+  links the library, and `faramir init` mints the keypair
 - Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI
   re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. Set it to a
   version tag (`v0.5.0`) to pin. The tag is named rather than resolved through the API: `dev` is published with
   `make_latest=false`, so `/releases/latest` never returns it
-- Runs `faramir init-project` against `playbook_dir`, and writes the block covering how to run these playbooks
-  through the broker
+- On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
+  these playbooks through the broker, and prints the public key the next play distributes
 - Converges `faramir_refused_paths` and `faramir_links`, the two [config entries](#refused-paths-and-linked-secrets)
   that name a file rather than hold a value
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in

@@ -1,0 +1,30 @@
+---
+# The keeper execs sops rather than linking it, which is what keeps every cloud KMS SDK sops
+# supports out of the binary faramir ships. So every host running the broker needs the
+# command, and it is installed here rather than asserted: the broker is the only thing in
+# this repo that needs sops, and a faramir host is not necessarily a dev host.
+#
+# No age package: sops links the library, and `faramir init` mints the keypair.
+- name: Install sops
+  block:
+    # Not packaged for Ubuntu, so the release .deb.
+    - name: Get the latest sops release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: getsops/sops
+        release_fact: faramir_sops_release
+
+    # The .deb suffix excludes the bare binaries and SBOMs published alongside.
+    - name: Select the sops package for this architecture
+      ansible.builtin.set_fact:
+        faramir_sops_deb_url: >-
+          {{ faramir_sops_release.assets
+             | selectattr('name', 'match', 'sops_.*_' ~ faramir_deb_arch ~ '\.deb$')
+             | map(attribute='browser_download_url') | first }}
+
+    - name: Install the sops package
+      ansible.builtin.apt:
+        deb: "{{ faramir_sops_deb_url }}"
+        install_recommends: false
+        update_cache: true
+      become: true

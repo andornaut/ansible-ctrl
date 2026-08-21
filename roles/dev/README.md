@@ -29,7 +29,6 @@ make dev -- --tags rust
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby), [ruby-install](https://github.com/postmodern/ruby-install), and `dev_ruby_version` built under `~/.rubies` with [Bundler](https://bundler.io/) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
-| [sops](https://github.com/getsops/sops) | Encrypted file editor. No [age](https://github.com/FiloSottile/age) package is installed: sops links the library, and `faramir init` mints the keypair |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 

@@ -1,19 +1,24 @@
 ---
 # The linear strategy is what lets the controller publish a fact the rest of this play reads.
 
-- name: Require the faramir group to hold the controller alone
+- name: Require the inventory to name one controller, running the broker
   ansible.builtin.assert:
-    that: (groups['faramir'] | default([])) | length == 1
+    that:
+      - (groups['faramir_controller'] | default([])) | length == 1
+      - faramir_controller_host in (groups['faramir'] | default([]))
     fail_msg: >-
-      The faramir group holds
-      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. These
-      tasks distribute one broker's key, from the one host make faramir installs
-      a broker on, so that group has to hold exactly one host: it is what names
-      the controller.
+      The controller group holds
+      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }} and the
+      faramir group holds
+      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. These tasks
+      distribute one key, from the host these playbooks are run from, so the
+      controller group has to hold exactly one host and that host has to be one the
+      broker is installed on. The other faramir hosts are served by this play like
+      any managed host, their own keys reaching nothing.
     quiet: true
 
 - name: Read the broker's public key from the controller
-  when: inventory_hostname == faramir_controller
+  when: inventory_hostname == faramir_controller_host
   block:
     # 0700 faramir-broker, so become.
     - name: Read the broker's public key
@@ -35,15 +40,15 @@
         quiet: true
 
 - name: Authorize the broker's key on the managed hosts
-  when: inventory_hostname != faramir_controller
+  when: inventory_hostname != faramir_controller_host
   block:
     - name: Require the broker's key to have been read
       ansible.builtin.assert:
-        that: "'faramir_broker_authorized_key' in hostvars[faramir_controller]"
+        that: "'faramir_broker_authorized_key' in hostvars[faramir_controller_host]"
         fail_msg: >-
           The controller published no public key, so there is nothing to
           authorize here. It is in this run only when the run reaches it, and
-          --limit '!faramir', which every brokered run carries, excludes it.
+          --limit '!faramir_controller', which every brokered run carries, excludes it.
           Apply this playbook as the operator: make faramir
         quiet: true
 
@@ -54,11 +59,11 @@
       become: false
       ansible.posix.authorized_key:
         user: "{{ faramir_fleet_account }}"
-        key: "{{ hostvars[faramir_controller]['faramir_broker_authorized_key'] }}"
+        key: "{{ hostvars[faramir_controller_host]['faramir_broker_authorized_key'] }}"
         state: "{{ 'present' if faramir_fleet_authorize_key | bool else 'absent' }}"
         # Not exclusive: that would lock out the operator's own keys.
         exclusive: false
-        comment: "faramir broker on {{ faramir_controller }}"
+        comment: "faramir broker on {{ faramir_controller_host }}"
         # Default everywhere but the routers, which name authorized_keys2: pfSense rewrites
         # authorized_keys from config.xml on boot and on every user save. sshd reads both.
         path: "{{ faramir_fleet_authorized_keys_path | default(omit) }}"
@@ -95,7 +100,7 @@
 # without this a brokered run fails before the key above is ever offered. Read over this
 # run's own connection, so what gets pinned is authenticated rather than trusted on sight.
 - name: Collect the fleet's SSH host keys
-  when: inventory_hostname != faramir_controller
+  when: inventory_hostname != faramir_controller_host
   block:
     # Whichever types the host offers: the algorithm is negotiated per connection, so an
     # entry for a type ssh does not pick verifies nothing.
@@ -128,7 +133,7 @@
              | list }}
 
 - name: Pin the fleet's host keys on the controller
-  when: inventory_hostname == faramir_controller
+  when: inventory_hostname == faramir_controller_host
   become: true
   block:
     - name: Check for a known_hosts file
@@ -145,7 +150,7 @@
     - name: Assemble what this run collected against what is already pinned
       ansible.builtin.set_fact:
         faramir_fleet_known_hosts_collected: >-
-          {{ groups['all'] | difference([faramir_controller])
+          {{ groups['all'] | difference([faramir_controller_host])
              | map('extract', hostvars, 'faramir_fleet_known_hosts_entries')
              | select('defined') | flatten }}
         faramir_fleet_known_hosts_pinned: >-
@@ -198,10 +203,10 @@
 # that refuses its key looks exactly like one that is off, which is what the assert is for.
 - name: Prove a brokered run reaches the fleet
   when:
-    - inventory_hostname == faramir_controller
+    - inventory_hostname == faramir_controller_host
     - faramir_fleet_ping_hosts | length > 0
   vars:
-    faramir_fleet_ping_hosts: "{{ ansible_play_hosts | difference([faramir_controller]) }}"
+    faramir_fleet_ping_hosts: "{{ ansible_play_hosts | difference([faramir_controller_host]) }}"
   block:
     - name: Ping the hosts this run authorized, through the broker
       ansible.builtin.command:
@@ -242,7 +247,7 @@
       vars:
         faramir_fleet_ping_dropped: >-
           {{ ansible_play_hosts_all | difference(ansible_play_hosts)
-             | difference([faramir_controller]) }}
+             | difference([faramir_controller_host]) }}
 
     - name: Require every host this run reached to answer through the broker
       ansible.builtin.assert:
