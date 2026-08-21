@@ -232,8 +232,11 @@ faramir_refused_names:
   # The operator's own SSH identities under the names ssh-keygen gives them, and the private
   # key and certificate suffixes. No uid boundary covers any of these: the agent runs as the
   # operator.
+  #
+  # The current key types only. `id_dsa` is left out: OpenSSH has refused DSA for
+  # authentication by default since 7.0 and is removing it outright, so a key under that name
+  # is one nothing will accept.
   - id_rsa
-  - id_dsa
   - id_ecdsa
   - id_ed25519
   - "*.key"
@@ -245,17 +248,28 @@ faramir_refused_names:
   - ".env*"
   # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
   # matches no file and covers one the day a playbook grows a vault.
+  #
+  # Both, because neither covers the other: the suffix takes `group_vars/all.vault` and the
+  # name takes `vault.yml`, which ends in `.yml` and so matches no `.vault` suffix. The
+  # `vault*` that would span them also takes the vault binary and anything named after it.
   - "*.vault"
   - vault.yml
   # A sops store under the names sops files are given. The managed store faramir serves is
   # covered by faramir itself; this is any other one that lands in a tree.
-  - "secrets*.yml"
-  - "secrets*.yaml"
+  #
+  # One wildcard, not `secrets*.y*ml`: only the first `*` in a glob is rendered into the
+  # regex spelling, so a second one is written literally and that agent's rule matches
+  # nothing while the others match. This spans `.yml` and `.yaml`, and `secrets.json` and
+  # `secrets.env` with them, all of which are the same file under another extension.
+  - "secrets*"
   # The token files gemini writes, by name rather than by path: the path they take has moved
   # between versions, and a path entry for one that is not there yet is stat-checked away and
   # covers nothing until a later run. A name costs nothing while it matches nothing and
   # covers the file the hour it appears, which is what the narrowed `.gemini` entry above
   # relies on.
+  #
+  # Written to `~/.gemini/` beside the config, one holding the OAuth refresh token and the
+  # other the account it belongs to, on the login flow rather than at install.
   - oauth_creds.json
   - google_accounts.json
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
