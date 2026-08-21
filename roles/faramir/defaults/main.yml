@@ -102,6 +102,66 @@ faramir_notify_command: []
 # grant there is no [escalation] section for it to land in.
 faramir_escalation_timeout_sec: 300
 
+# Paths the agent's file tools are refused, on top of the names and suffixes faramir's own
+# rules already carry: `id_rsa` and its kind, `*.key`, `*.pem`, a `credentials` path
+# component, `.env*` dotfiles, sops and vault files, and the sops, age and faramir
+# directories. What is listed here is what those miss.
+#
+# Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
+# expands. A directory refuses everything under it, and a path that is not there is recorded
+# and holds if it appears, which is what covers a home that is not mounted.
+#
+# It stops the agent's own file tools and nothing else: the file is never opened, so its mode
+# is left alone and its value is in no redactor. A brokered command whose mode allows it may
+# still read one of these and print it in the clear. `faramir_links` is the entry that covers
+# both, at the price of faramir holding the value.
+faramir_refused_paths:
+  # The operator's own credential store, and the keys and keyrings beside it.
+  - "{{ faramir_user_home }}/.private"
+  - "{{ faramir_user_home }}/.gnupg"
+  - "{{ faramir_user_home }}/.local/share/keyrings"
+  # The agent's own OAuth token. `.credentials.json` is not the `credentials` component
+  # faramir's rules name, so nothing else covers it.
+  - "{{ faramir_user_home }}/.claude/.credentials.json"
+  # Registry auth in the clear: with no credsStore, `auths` holds base64 user:pass, and no
+  # managed ref carries those, so nothing redacts them either. Refused rather than linked
+  # because `docker login` replaces the file by rename and the replacement is created 0600,
+  # which takes the broker's read with it and leaves it refusing every ref until the next
+  # run of this role grants it again.
+  - "{{ faramir_user_home }}/.docker/config.json"
+  # The browser credential stores: logins.json and key4.db, Login Data and its keyring entry.
+  # The profile directory rather than those files, a rule being a literal path with no glob
+  # and the directory holding them named after a random string. Nothing here manages a
+  # browser profile: the policy files this repo deploys are under /etc.
+  - "{{ faramir_user_home }}/.mozilla"
+  - "{{ faramir_user_home }}/.config/google-chrome"
+  - "{{ faramir_user_home }}/.config/chromium"
+
+# Credentials another tool owns, read where that tool keeps them rather than copied into the
+# store. One entry per ref: `ref`, `path`, `type` (`text`, `base64`, `json`, `yaml`, `toml`,
+# `ini`) and `key` for the four that select.
+#
+# Empty here and set in `host_vars`, unlike the refused paths above: `link add` refuses a new
+# entry whose file is not there, so a link named in defaults fails the run on a controller
+# that does not have that file, while an absent refused path is recorded and warned about.
+#
+# A link is the stronger of the two entries. It refuses the path to the agent's file tools as
+# a refusal does, and on top of that regroups the file so a brokered command is refused it
+# too, and puts the value in the redactor. So a linked path does not also belong in
+# `faramir_refused_paths`, where it would render the same rule and nothing else.
+#
+# It is also the one that can stop the host: a linked file that is there and will not read
+# leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool
+# that rewrites its own file by rename takes the broker's read with it. A re-run of this role
+# grants it again; between runs the agent has no broker. Prefer a refusal for a credential no
+# brokered command asks for by name, and reserve a link for a file its owning tool rewrites
+# in place.
+#
+# The ref namespace is the store's, so a name here that the store defines is refused, and a
+# ref this install already defines against a different file, type or key is refused too
+# rather than replaced.
+faramir_links: []
+
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 faramir_fleet_authorize_key: true
 

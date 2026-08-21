@@ -128,6 +128,14 @@
   register: faramir_binary_stat
   become: false
 
+# After init, which installs the binary these run, and before the enrolment, which renders
+# the entries into this tree's agent files: an enrolment that ran first would write rules
+# naming none of them, and the tree would carry none until the next run. Only the
+# account-wide rule files are an add's own to render.
+- name: Converge the config entries
+  ansible.builtin.import_tasks: entries.yml
+  when: faramir_binary_stat.stat.exists | default(false)
+
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:
     argv: "{{ faramir_init_project_argv }}"

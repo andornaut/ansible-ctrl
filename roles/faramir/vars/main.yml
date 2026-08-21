@@ -62,6 +62,24 @@ faramir_init_project_argv: >-
     + [playbook_dir]
   }}
 
+# The two entry commands, each taking its subject after these. Both are idempotent -- an
+# entry the install already carries is re-applied rather than refused -- so the role names
+# every entry on every run instead of diffing the host first, and reads `changed` off the
+# report. The re-application is what puts back a grant a tool took away by renaming its own
+# file, and a rule an agent's settings dropped.
+#
+# --agent-user for the reason faramir_doctor_argv carries it: nothing on the host says which
+# account the agent runs as, and these render that account's rule files.
+faramir_refuse_argv: >-
+  {{ [faramir_binary, 'refuse', 'add', '--json',
+      '--agent-user', faramir_user,
+      '--config-dir', faramir_config_dir] }}
+
+faramir_link_argv: >-
+  {{ [faramir_binary, 'link', 'add', '--json',
+      '--agent-user', faramir_user,
+      '--config-dir', faramir_config_dir] }}
+
 # Only the two doctor cannot read off the host: it takes the client group and the service
 # accounts from the config and the units, but --agent-user has no such source and doctor
 # fails rather than guess it.

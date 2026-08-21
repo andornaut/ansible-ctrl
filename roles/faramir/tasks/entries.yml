@@ -1,0 +1,62 @@
+---
+# The config entries that name files rather than hold values: paths refused to the agent's
+# file tools, and credentials read where another tool keeps them. Both are `faramir init`'s
+# to re-assert once written, so this converges the list and init carries it from there.
+#
+# Adds only. `faramir refuse rm` and `faramir link rm` drop the entry but cannot take the
+# rule out of an agent's settings, those files being merged rather than replaced, so a
+# converge to an empty list would report a removal that did not happen. Take one out by
+# removing it here and running the rm by hand.
+
+# faramir holds each entry to its own rules and says which one an entry broke, but only
+# once the command runs: a missing key here builds a command naming the wrong thing, or
+# fails as an undefined attribute rather than as the entry it came from.
+- name: Require each link to name a ref, a path and a type
+  ansible.builtin.assert:
+    that:
+      - item.ref | default('') | length > 0
+      - item.path | default('') | length > 0
+      - item.type | default('') | length > 0
+    fail_msg: >-
+      Each faramir_links entry names ref, path and type, plus key for the four types that
+      select (json, yaml, toml, ini). This one is {{ item }}.
+    quiet: true
+  loop: "{{ faramir_links }}"
+  loop_control:
+    label: "{{ item.ref | default('an entry naming no ref') }}"
+
+- name: Refuse a path to the agent's file tools
+  ansible.builtin.command:
+    argv: "{{ faramir_refuse_argv + [item] }}"
+  become: true
+  # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
+  # skips them rather than writing entries.
+  loop: "{{ faramir_refused_paths }}"
+  register: faramir_refuse
+  changed_when: faramir_refuse.stdout | length > 0 and (faramir_refuse.stdout | from_json).changed
+
+- name: Read a linked secret out of the file its own tool maintains
+  ansible.builtin.command:
+    # --key only for the types that select, faramir refusing it for the two that do not.
+    argv: >-
+      {{ faramir_link_argv + [item.ref, item.path, '--type', item.type]
+         + (['--key', item.key] if item.key | default('') | length > 0 else []) }}
+  become: true
+  loop: "{{ faramir_links }}"
+  loop_control:
+    label: "{{ item.ref }}"
+  register: faramir_link
+  changed_when: faramir_link.stdout | length > 0 and (faramir_link.stdout | from_json).changed
+
+# What installs cleanly and then does not work: a refused path that is not there, which is a
+# rule waiting for a volume or a path spelled wrong, and a linked file that has gone.
+- name: Show what the entries warned about
+  ansible.builtin.debug:
+    msg: "{{ item }}"
+  loop: >-
+    {{ (faramir_refuse.results | default([]) + faramir_link.results | default([]))
+       | map(attribute='stdout', default='')
+       | reject('equalto', '')
+       | map('from_json')
+       | map(attribute='warnings', default=[])
+       | flatten }}
