@@ -33,6 +33,11 @@ faramir_release_tag: dev
 faramir_user: "{{ primary_user }}"
 
 # Gives the agent and the service accounts the working tree. Not a boundary; file modes are.
+#
+# Passed on every run and not redundant with faramir's own default, which is `faramir-client`.
+# Dropping it would leave the fleet where it is, `init` adopting the group named by an
+# installed config.toml when no flag names one, and bring a newly built host up under the
+# other name with nothing saying why it differs.
 faramir_client_group: dev
 
 # Holds the age key, the broker's SSH key and the store. In the operator's encrypted home,
