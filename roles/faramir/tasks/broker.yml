@@ -140,6 +140,40 @@
         mode: "0755"
       check_mode: false
 
+    # CLEANUP (added 2026-08-21): drop both of these once every host in the
+    # `faramir` group has run this play, no config naming the old key left.
+    #
+    # faramir renamed [[secret.refuse]] to [[secret.block]], and its loader
+    # rejects a key it does not know rather than passing over it. So a host
+    # whose config still names the old one is not repaired by the next run:
+    # init reads the config before it rewrites it, and the daemons do not start
+    # on a config that will not load either. The rename has to land before the
+    # new binary runs.
+    #
+    # Here rather than at the top of the run, because the two disagree in both
+    # directions: the old binary does not parse the new key any more than the
+    # new one parses the old. The archive is unpacked by this point, so a
+    # download that failed leaves the config alone, and init is the next task,
+    # which is the shortest window the pair can be out of step for.
+    - name: Check for a config naming the entries by their old key
+      ansible.builtin.stat:
+        path: "{{ faramir_config_dir }}/config.toml"
+      register: faramir_config_stat
+      check_mode: false
+
+    # No check_mode: false, unlike its siblings here. A --check run reports the
+    # rewrite rather than making it, which leaves the config as the installed
+    # binary expects it.
+    - name: Rename the entries this faramir no longer parses
+      ansible.builtin.replace:
+        path: "{{ faramir_config_dir }}/config.toml"
+        # Unanchored, matching the rewrite this was verified with. An anchored
+        # pattern that missed on leading whitespace would report success and
+        # leave the host unable to start its broker.
+        regexp: '\[\[secret\.refuse\]\]'
+        replace: '[[secret.block]]'
+      when: faramir_config_stat.stat.exists
+
     # changed_when runs even on failure, where an empty report would add a parse
     # error to the real one.
     - name: Install faramir

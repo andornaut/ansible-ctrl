@@ -94,7 +94,7 @@
 - name: Remove the refused names this role no longer declares
   ansible.builtin.command:
     argv: >-
-      {{ [faramir_binary, 'refuse', 'rm', '--json',
+      {{ [faramir_binary, 'block', 'rm', '--json',
           '--agent-user', faramir_user,
           '--config-dir', faramir_config_dir, '--name', item] }}
   become: true

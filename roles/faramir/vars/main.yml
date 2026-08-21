@@ -81,7 +81,7 @@ faramir_init_project_argv: >-
 # --agent-user for the reason faramir_doctor_argv carries it: nothing on the host says which
 # account the agent runs as, and these render that account's rule files.
 faramir_refuse_argv: >-
-  {{ [faramir_binary, 'refuse', 'add', '--json',
+  {{ [faramir_binary, 'block', 'add', '--json',
       '--agent-user', faramir_user,
       '--config-dir', faramir_config_dir] }}
 
