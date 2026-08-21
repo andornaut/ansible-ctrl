@@ -29,7 +29,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | matter | [Matter.js](https://github.com/project-chip/matter.js) or [Python Matter Server](https://github.com/home-assistant-libs/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://www.memryx.com/) | GPU accelerator drivers |
 | teardown | Remove the containers and host files of components this host does not install |
-| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/rhasspy/wyoming-whisper) STT |
+| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/rhasspy/wyoming-faster-whisper) STT |
 
 ## Variables
 
