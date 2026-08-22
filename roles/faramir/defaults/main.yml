@@ -276,6 +276,12 @@ faramir_blocked_names:
   - ".mozilla/"
   - "google-chrome/"
   - "chromium/"
+  # FileZilla's site manager, which keeps each server's password in `sitemanager.xml` and
+  # `recentservers.xml` encoded rather than encrypted, so anything that reads the file reads
+  # the password. A name for the reason the browsers are: the native store is
+  # `~/.config/filezilla` and the flatpak keeps its own under `.var/app`, and this covers both
+  # wherever an install puts them.
+  - "filezilla/"
   # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
   # matches no file and covers one the day a playbook grows a vault.
   #
