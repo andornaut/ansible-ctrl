@@ -57,15 +57,18 @@
           says which. Apply this playbook as the operator: make faramir
         quiet: true
 
+    # Names no path. A message here is templated on every managed host when the task's
+    # arguments are finalized, whether or not the assertion holds, and this play reaches
+    # hosts that never ran broker.yml: anything resolving through faramir_user_home wants
+    # the getent that ran there, and raises rather than reporting what it was asked about.
     - name: Require the broker's key to have been read
       ansible.builtin.assert:
         that: "'faramir_broker_authorized_key' in hostvars[faramir_controller_host]"
         fail_msg: >-
           {{ faramir_controller_host }} is in this run and published no key, so this is
-          not a --limit. The tasks that read {{ faramir_broker_ssh_key }}.pub were
-          skipped or did not set the fact, which is what a controller whose
-          inventory_hostname does not match the name the faramir_controller group holds
-          looks like.
+          not a --limit. The tasks above that read the broker's public key were skipped
+          or did not set the fact, which is what a controller whose inventory_hostname
+          does not match the name the faramir_controller group holds looks like.
         quiet: true
 
     - name: Authorize the broker's key for the ansible account
