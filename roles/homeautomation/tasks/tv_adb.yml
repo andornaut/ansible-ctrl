@@ -1,0 +1,100 @@
+---
+- name: Configure the TV adb keepalive
+  tags:
+    - tv_adb
+  block:
+    - name: Require at least one TV to keep adb on
+      ansible.builtin.assert:
+        that: homeautomation_tv_adb_hosts | length > 0
+        fail_msg: >-
+          homeautomation_tv_adb_hosts must name the TVs in host_vars when
+          homeautomation_install_tv_adb is enabled.
+        quiet: true
+      become: false
+
+    - name: Resolve the home directory of the account holding the adb key
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ homeautomation_tv_adb_user }}"
+      become: false
+
+    - name: Set the adb key account's home directory
+      ansible.builtin.set_fact:
+        homeautomation_tv_adb_user_home: "{{ ansible_facts['getent_passwd'][homeautomation_tv_adb_user][4] }}"
+      become: false
+
+    # The account that paired with the TV, never root: a pairing authorizes one
+    # client key, and root's ~/.android holds a different one.
+    - name: Require a non-root account for the adb key
+      ansible.builtin.assert:
+        that: homeautomation_tv_adb_user != "root"
+        fail_msg: "homeautomation_tv_adb_user must not be root"
+        quiet: true
+      become: false
+
+    - name: Install the adb and port-scan tools
+      ansible.builtin.apt:
+        name:
+          - adb
+          - nmap
+        state: present
+        update_cache: true
+      become: true
+
+    - name: Create the TV adb state directory
+      ansible.builtin.file:
+        path: "{{ homeautomation_tv_adb_apk_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    # Pinned by checksum: the app is reinstalled on the TV after every boot, so a
+    # release changing underneath would be adopted silently and everywhere.
+    - name: Download the adb-auto-enable release
+      ansible.builtin.get_url:
+        url: "{{ homeautomation_tv_adb_apk_url }}"
+        dest: "{{ homeautomation_tv_adb_apk_path }}"
+        checksum: "sha256:{{ homeautomation_tv_adb_apk_sha256 }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Install the TV adb keepalive script
+      ansible.builtin.copy:
+        src: tv-adb-keepalive.sh
+        dest: "{{ homeautomation_tv_adb_script_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Install the TV adb keepalive service
+      ansible.builtin.template:
+        src: homeautomation-tv-adb.service.j2
+        dest: /etc/systemd/system/homeautomation-tv-adb.service
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      register: homeautomation_tv_adb_service
+
+    - name: Install the TV adb keepalive timer
+      ansible.builtin.template:
+        src: homeautomation-tv-adb.timer.j2
+        dest: /etc/systemd/system/homeautomation-tv-adb.timer
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      register: homeautomation_tv_adb_timer
+
+    - name: Enable the TV adb keepalive timer
+      ansible.builtin.systemd_service:
+        name: homeautomation-tv-adb.timer
+        daemon_reload: "{{ homeautomation_tv_adb_service.changed or homeautomation_tv_adb_timer.changed }}"
+        enabled: true
+        state: "{{ 'restarted' if homeautomation_tv_adb_timer.changed else 'started' }}"
+      become: true

@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Reclaim adb on the TVs and arm their next boot
+
+[Timer]
+# A set takes about five minutes after a reboot to deliver BOOT_COMPLETED, so
+# a short interval buys nothing: what matters is that a run lands between one
+# boot and the next, because a boot with the receiver already pruned loses adb
+# until someone reads a pairing code off the screen.
+OnBootSec={{ homeautomation_tv_adb_interval }}
+# Anchored on the timer's own activation as well as on boot. Without this a timer
+# enabled long after boot has no elapse at all: the OnBootSec one is already spent
+# and OnUnitActiveSec only chains off a run this timer made, which leaves it
+# active and scheduled to fire never.
+OnActiveSec={{ homeautomation_tv_adb_interval }}
+OnUnitActiveSec={{ homeautomation_tv_adb_interval }}
+
+[Install]
+WantedBy=timers.target

@@ -10,6 +10,7 @@ homeautomation_install_llm: false
 homeautomation_install_matterjs: false
 homeautomation_install_legacy_pythonmatterserver: false
 homeautomation_install_memryx: false
+homeautomation_install_tv_adb: false
 homeautomation_install_voice: false
 homeautomation_ipv6_enabled: true
 
@@ -244,3 +245,22 @@ homeautomation_whisper_port: 10300
 # HuggingFace model cache.
 homeautomation_whisper_uid: "10008"
 homeautomation_whisper_gid: "10008"
+
+# TV adb keepalive
+# The set's OEM re-disables adb-auto-enable's BootReceiver after every boot, and a
+# shell cannot re-enable a component of a non-test-only app, so the keepalive
+# reinstalls the app to arm the next boot. It also does the port switch itself,
+# which is why the app needs no adb pairing of its own. Empty list: name the TVs in
+# host_vars, since this repo is public. Every TV shares the settings below; a set
+# that needs its own port or package needs this reworked into a list of mappings.
+homeautomation_tv_adb_hosts: []
+homeautomation_tv_adb_port: 5555
+homeautomation_tv_adb_package: com.tpn.adbautoenable
+homeautomation_tv_adb_user: "{{ primary_user }}"
+homeautomation_tv_adb_interval: 5min
+homeautomation_tv_adb_script_path: /usr/local/bin/tv-adb-keepalive
+homeautomation_tv_adb_apk_path: /var/lib/homeautomation/tv-adb/adb-auto-enable.apk
+homeautomation_tv_adb_apk_version: v0.3.3
+homeautomation_tv_adb_apk_url: >-
+  https://github.com/mouldybread/adb-auto-enable/releases/download/{{ homeautomation_tv_adb_apk_version }}/app-release.apk
+homeautomation_tv_adb_apk_sha256: c61f44d9db9ecac7c8d5bb5941b79bcd50718662563f580518b96a68ebe31bd0

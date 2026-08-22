@@ -162,3 +162,7 @@
       ansible.builtin.import_tasks: docker_voice.yml
       tags: voice
       when: homeautomation_install_voice
+
+- name: Import TV adb keepalive tasks
+  ansible.builtin.import_tasks: tv_adb.yml
+  when: homeautomation_install_tv_adb

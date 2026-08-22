@@ -29,6 +29,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://www.memryx.com/) | GPU accelerator drivers |
 | teardown | Remove the containers and host files of components this host does not install |
+| tv_adb | Timer that keeps adb reachable on an Android TV |
 | voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT |
 
 ## Variables
@@ -47,6 +48,49 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 | Home Assistant, Mosquitto | No flag; always configured |
 | Avahi | A host daemon the run stops, not a container |
 | MemryX | The DKMS driver and apt sources are not reversed |
+
+## TV adb keepalive
+
+`tv_adb` keeps adb reachable on the Android TVs that Home Assistant drives, on sets whose OEM prunes
+third-party boot receivers. Name them in `host_vars` (`homeautomation_tv_adb_hosts`); the default is an
+empty list and the run asserts it. One timer covers every TV in the list, and each is handled
+independently, so a set that is off is skipped rather than stopping the rest. All of them share the
+remaining `homeautomation_tv_adb_*` settings.
+
+The set re-disables [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable)'s `BootReceiver`
+after every boot, listing it under `disabledComponents`, which takes it out of the `BOOT_COMPLETED`
+resolution set so the app is never started. A shell cannot undo that: `pm enable`, `pm default-state`
+and `pm enable --user 0` all answer `Shell cannot change component state` for an app that is not
+test-only, and `install -r` preserves the disabled state.
+
+An app may set its own components, though, so a build carrying
+`setComponentEnabledSetting(BootReceiver, COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP)` on service
+start repairs itself, and launching it is all the arming needed. Without that, the only way back is a
+clean uninstall plus install, and a freshly installed app has to be launched once, because stopped
+apps are not sent broadcasts. That path also deletes the app's own adb key, so anything paired to it
+has to be paired again; the keepalive therefore tries the launch first and reinstalls only if the
+receiver is still disabled afterwards.
+
+So each boot works only if the receiver was armed before it, and the timer does the arming:
+
+| Stage | What happens |
+| --- | --- |
+| Boot | The armed receiver fires about five minutes in, and the app's first step enables wireless debugging |
+| Reclaim | Wireless debugging binds adbd to a random ephemeral port, so the timer scans 32768-61000, connects, and issues `tcpip` to fix the port |
+| Arm | The receiver is disabled again by then, so the app is launched, which is enough for a build that repairs its own receiver; otherwise it is reinstalled, granted `WRITE_SECURE_SETTINGS` and launched once |
+
+A TV that is off or asleep is an ordinary outcome and does not fail the unit, which would otherwise
+report a failure every few minutes for a set that is simply unplugged. Only work that was started and
+did not finish, an install or a port switch, does.
+
+The app never needs an adb pairing of its own, because the port switch happens on this host, so
+`isPaired: false` in its web UI is expected. The pairing that matters is this host's, held by
+`homeautomation_tv_adb_user`'s adb key rather than root's, which is why the unit runs as that account.
+
+Wireless debugging does not survive a reboot on this set, so the app is the only route back to adb: a
+boot that finds the receiver already pruned costs an on-screen pairing code to recover. That is what
+the timer exists to prevent, and why its interval matters only in that a run must land between one
+boot and the next.
 
 ## Networking
 

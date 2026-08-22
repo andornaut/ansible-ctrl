@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Reclaim adb on the TVs and arm their next boot
+# nmap and adb both need the network; nothing else is required, and a TV being
+# down is an ordinary outcome the script leaves the exit status alone for.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The adb client key that the TV authorized belongs to this account, so the unit
+# runs as that account rather than root, which holds a different key.
+User={{ homeautomation_tv_adb_user }}
+Environment=HOME={{ homeautomation_tv_adb_user_home }}
+# Quoted: Environment= splits on whitespace, so an unquoted list would set the
+# first host and reject the rest as invalid assignments.
+Environment="TV_ADB_HOSTS={{ homeautomation_tv_adb_hosts | join(' ') }}"
+Environment=TV_ADB_PORT={{ homeautomation_tv_adb_port }}
+Environment=TV_ADB_PACKAGE={{ homeautomation_tv_adb_package }}
+Environment=TV_ADB_APK={{ homeautomation_tv_adb_apk_path }}
+ExecStart={{ homeautomation_tv_adb_script_path }}
