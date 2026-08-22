@@ -26,14 +26,19 @@
       community.general.make:
         chdir: "{{ desktop_pavolume_tmp.path }}"
 
+    # Not `make install`, whose `cp -p` cannot write a binary that is running: pavolume
+    # runs as a daemon, so that install fails with "Text file busy" every time and leaves
+    # whatever was there before. copy writes a temp file and renames over the target,
+    # which the running process does not block, and names the mode rather than carrying
+    # the build umask across.
     - name: Install pavolume
-      community.general.make:
-        chdir: "{{ desktop_pavolume_tmp.path }}"
-        target: install
-      register: desktop_pavolume_install
-      failed_when:
-        - desktop_pavolume_install.failed
-        - "'cp: cannot create regular file' not in desktop_pavolume_install.stderr"
+      ansible.builtin.copy:
+        src: "{{ desktop_pavolume_tmp.path }}/pavolume"
+        dest: /usr/local/bin/pavolume
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
