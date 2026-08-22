@@ -111,10 +111,11 @@ inhibitor can freeze and powers the panel down from outside the compositor:
 | --- | --- | --- |
 | gnome | `org.gnome.Mutter.IdleMonitor.GetIdletime` | `ddcutil setvcp d6 04`, then `d6 01` on the next input |
 | bspwm | `xprintidle`, so `XScreenSaverQueryInfo` | `xset dpms force off`, which the X server undoes itself |
-| niri | nothing suitable | nothing: the `idle` tag fails until the host sets the threshold to 0 |
+| niri | nothing an inhibitor cannot freeze | `niri msg action power-off-monitors`, which [templates/hypridle.conf.j2](./templates/hypridle.conf.j2) already uses |
 
 | Constraint | Detail |
 | --- | --- |
+| niri is blocked on the reading, not the powering down | `hypridle` learns of idleness through `ext-idle-notify-v1`, which the compositor gates on idle inhibitors, so it is the mechanism the backstop must not share. Until a niri host has an idle source of its own, reading `/dev/input` being the compositor-independent one, the `idle` tag asserts and names the host rather than installing a backstop that cannot fire. Set `desktop_idle_backstop_minutes: 0` to accept that |
 | GNOME reaches the monitor over DDC/CI rather than DPMS | GNOME is Wayland-only, so nothing outside mutter can reach an output. `d6 04` is DPM off, which the panel keeps answering the bus from, so `d6 01` restores it without its power button. A monitor implementing neither cannot be backstopped this way; `ddcutil capabilities` says which values `d6` takes |
 | The threshold must clear `desktop_screen_blank_minutes`, and is asserted by the `idle` tag | Below the blank timeout it pre-empts the session's own blanking rather than flooring it |
 | `desktop_suspend_inactive_minutes` does not bound it, even where it is shorter | An idle inhibitor defers idle suspend as surely as it defers blanking, so a backstop above the suspend timeout still fires in the one case suspend cannot, and stays out of the way when nothing inhibits and the host suspends first |
