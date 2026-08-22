@@ -85,7 +85,14 @@ power_on() {
     ddc) ddcutil setvcp d6 01 ;;
     # The X server restores the display on the next input by itself.
     xset) : ;;
-    niri) niri msg action power-on-monitors ;;
+    # eww closes all of its windows when its monitor powers off, which is why the hypridle
+    # listener reopens the bar on resume too: https://github.com/elkowar/eww/issues/477
+    # The reopen does not decide the answer. A bar that did not come back is not a panel that
+    # did not wake, and a false here sends the caller round again on a display already lit.
+    niri)
+        niri msg action power-on-monitors || return 1
+        eww open {{ desktop_eww_bar }} || log "could not reopen the eww bar"
+        ;;
     esac
 }
 
