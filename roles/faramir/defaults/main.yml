@@ -249,6 +249,14 @@ faramir_blocked_names:
   # the file by rename, and the replacement is created 0600, which takes the broker's read
   # with it and leaves it refusing every ref until the next run of this role grants it again.
   - ".docker/config.json"
+  # What vim persists between sessions, which is content and not only filenames: a register
+  # holds the text of the last yank or delete, so a line taken out of a decrypted file is
+  # written to disk and survives there. Two entries because vim has two homes for it. The
+  # directory is where this repo's `.vimrc` points `viminfofile` and where `undodir` falls
+  # back when a session has no `$XDG_RUNTIME_DIR`; the bare name is the default location,
+  # which is what any other vim on any other host still writes.
+  - ".vim/tmp/"
+  - ".viminfo"
   # The browser profile stores, which hold every saved password, session cookie and card:
   # `logins.json` and `key4.db` under Firefox, `Login Data` and its keyring entry under the
   # Chromium family. Named by the directory each browser keeps them in rather than by where
