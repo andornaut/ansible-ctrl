@@ -310,7 +310,12 @@ define refuse_bad_invocation
 	   echo "broker's key, which is what this playbook authorizes. Run it as the" >&2; \
 	   echo "operator, which connects with your own ~/.ssh:" >&2; \
 	   echo "  make faramir" >&2; \
-	   echo "On a fleet that already authorizes the key, ALLOW_ROOT=1 skips this." >&2; \
+	   echo "ALLOW_ROOT=1 skips this on a fleet that already authorizes the key," >&2; \
+	   echo "but not through the broker: 'faramir run -- sudo make faramir' holds" >&2; \
+	   echo "an escalation on the executor's uid, and init's own validate step asks" >&2; \
+	   echo "the broker what the agent holds, which is a second brokered command" >&2; \
+	   echo "and is refused while the first is held. This playbook is the operator's" >&2; \
+	   echo "to run, whatever ALLOW_ROOT says." >&2; \
 	   exit 1; \
 	 fi;
 endef
