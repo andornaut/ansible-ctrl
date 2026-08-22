@@ -181,6 +181,11 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
+  # FileZilla encodes a site's password in `sitemanager.xml` rather than handing it to a
+  # keyring. Only the flatpak: the native install and its config are gone from this fleet, and
+  # the flatpak is installed on a host that has never run it, so this is armed against the
+  # first run rather than covering anything today.
+  - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   # Session tokens, which stand in for the password they were issued against and are what a
   # store this size actually holds: a sync account, a messenger, and the two game launchers,
   # `legendary` keeping its own in `user.json` for Heroic, which keeps a cookie jar of its
