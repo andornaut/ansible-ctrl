@@ -256,13 +256,13 @@ faramir_blocked_names:
   # own `.mozilla` under `.var/app`, the flatpak chromium a `config/chromium`, so a path list
   # needs an entry per browser per install method and this needs one per browser.
   #
-  # Armed, so a browser installed later is covered before anyone thinks to come back here,
-  # which a path entry is not: absent when the role stats it, it is skipped. Brave is named
-  # for that reason alone, nothing here having ever run it.
+  # Armed, so a browser reinstalled or installed the other way is covered before anyone
+  # thinks to come back here, which a path entry is not: absent when the role stats it, it is
+  # skipped rather than held. These three and no fourth: they are the only browsers used
+  # here, and the case for naming a tool that is not installed rests on it arriving one day.
   - ".mozilla/"
   - "google-chrome/"
   - "chromium/"
-  - "BraveSoftware/"
   # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
   # matches no file and covers one the day a playbook grows a vault.
   #
