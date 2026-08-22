@@ -137,7 +137,7 @@ of that, the role:
   `make_latest=false`, so `/releases/latest` never returns it
 - On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
-- Converges `faramir_blocked_paths` and `faramir_links`, the two [config entries](#blocked-paths-and-linked-secrets)
+- Converges the three block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
   that name a file rather than hold a value
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in
   `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values
@@ -148,21 +148,36 @@ Enrol another tree with `cd <dir> && sudo faramir init-project`.
 
 ## Blocked paths and linked secrets
 
-`faramir init --agent` writes deny rules against key material by name and suffix: `id_rsa` and its kind, `*.key`,
-`*.pem`, a `credentials` path component, `.env*` dotfiles, sops and vault files, and the sops, age and faramir
-directories. The two lists here name what those miss, and `tasks/entries.yml` converges them.
+**faramir compiles in no credential rules.** What an install refuses by default is its own directories at their
+real paths: the config dir, the store, `/var/log/faramir`, `/usr/local/libexec/faramir`, and the service accounts'
+state dirs. Everything else on a host is covered because the lists here declare it, and nothing reports what is
+missing, so a gap is found by sweeping a host rather than by asking one. `tasks/entries.yml` converges the three.
 
-| | `faramir_blocked_paths` | `faramir_links` |
+| List | Entry | Reaches | Checked against the host |
+| --- | --- | --- | --- |
+| `faramir_blocked_paths` | `path` | the agent's file tools and its shell | yes, and an absent path is skipped |
+| `faramir_blocked_names` | `name` | the same | no, so an entry matching nothing today is armed rather than dead |
+| `faramir_blocked_commands` | `command` | the shell alone, a command being neither | no |
+
+- **A name is matched against the end of the path an agent writes, so it crosses a container boundary and a path
+  cannot.** `docker exec ha cat /config/.storage/auth` names the mount point, and an entry for the host directory
+  under it covers nothing. Its shape comes from the pattern: a bare name, a name carrying a directory component,
+  `*.suffix`, `prefix*`, a wildcard inside a name, or a trailing `/` for a directory.
+- **A command is literal words, not a pattern.** The space between them matches any run of whitespace and nothing
+  else is special. An alternation is spelled out as separate entries.
+
+| | a block entry | `faramir_links` |
 | --- | --- | --- |
 | Entry | `[[secret.block]]` | `[[secret.link]]` |
-| Names | a path | a ref, a path, a type, and a key for the types that select |
-| Blocked to the agent's file tools | yes | yes |
+| Names | a path, a name or a command | a ref, a path, a type, and a key for the types that select |
+| Blocked to the agent's file tools | yes, except a command | yes |
 | Regrouped, so a brokered command is refused it | no, the mode is left alone | yes |
 | In the redactor, tokenised wherever it appears | no, the file is never opened | yes |
 | Injectable by ref | no | yes |
 
-- **A block stops the agent's file tools and nothing else.** A brokered command whose mode allows it may still
-  read a blocked file and print it in the clear.
+- **A block stops the agent, not a brokered command.** It reaches the agent's own file tools and its shell, so a
+  path entry refuses both `Read` and `cat`. A brokered command runs as another account and is held by file modes
+  alone, so one whose mode allows it may still read a blocked file and print it in the clear.
 - **Reserve a link for a file its owning tool rewrites in place.** A linked file that is there and will not read
   leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool that rewrites its own
   file by rename takes the broker's read with it: `make faramir` grants it again, and between runs the agent has no

@@ -73,6 +73,18 @@
     faramir_block_name.stdout | length > 0
     and (faramir_block_name.stdout | from_json).changed
 
+# No stat either, and for a further reason: what a command names may be on no host at all, the
+# point of every entry in that list being a tool this fleet does not install.
+- name: Block a command to the agent's shell
+  ansible.builtin.command:
+    argv: "{{ faramir_block_argv + ['--command', item] }}"
+  become: true
+  loop: "{{ faramir_blocked_commands }}"
+  register: faramir_block_command
+  changed_when: >-
+    faramir_block_command.stdout | length > 0
+    and (faramir_block_command.stdout | from_json).changed
+
 # CLEANUP (added 2026-08-21): delete this task once every host in the `faramir` group has run
 # this play, a `block ls --declared` on each naming none of the three. Nothing else goes
 # with it: the argv is inline rather than a var, and it is deliberately absent from the warning
@@ -143,6 +155,7 @@
   loop: >-
     {{ (faramir_block.results | default([])
         + faramir_block_name.results | default([])
+        + faramir_block_command.results | default([])
         + faramir_link.results | default([]))
        | map(attribute='stdout', default='')
        | reject('equalto', '')

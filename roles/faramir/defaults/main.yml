@@ -283,6 +283,30 @@ faramir_blocked_names:
   # redacts itself rather than leaving the redaction to a hand-written selector.
   - ".storage/core.config_entries"
 
+# Commands the agent's shell is refused, the third entry form. Literal words, not a pattern:
+# the space between them matches any run of whitespace and nothing else is special, so write
+# what you would type. This reaches the command guard alone, a command being neither a path
+# nor a file name, and needs a faramir carrying the form at all.
+#
+# The credential managers this fleet does not run. Armed rather than useful, for the reason
+# the ansible-vault names above are: the rule costs nothing while nothing answers to it, and
+# it covers the tool the day one is installed rather than the day someone remembers to come
+# back here. An alternation is spelled out, `vault read` and `vault kv get` being two.
+#
+# What is deliberately absent is sops, age and ansible-vault, which are installed here. Their
+# target was faramir's own store and key, and that is covered by path now: a read or a write
+# of this install's paths is blocked whatever tool is pointed at it. A blanket `sops -d` would
+# add nothing there and would stop the operator debugging an unrelated sops file through a
+# brokered command. `age-keygen` is out for a sharper reason: the rule it would replace
+# allowed `age-keygen -o FILE`, which writes a key 0400 rather than printing one, and a
+# literal entry cannot make that distinction.
+faramir_blocked_commands:
+  - op read
+  - pass show
+  - gopass show
+  - vault read
+  - vault kv get
+
 # Credentials another tool owns, read where that tool keeps them rather than copied into the
 # store. One entry per ref: `ref`, `path`, `type` (`text`, `base64`, `json`, `yaml`, `toml`,
 # `ini`) and `key` for the four that select.
