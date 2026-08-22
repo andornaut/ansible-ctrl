@@ -90,10 +90,9 @@ faramir_notify_command: []
 # holds every other brokered command on the host until it expires.
 faramir_escalation_timeout_sec: 300
 
-# Paths the agent's file tools are refused, on top of the names and suffixes faramir's own
-# rules carry: `id_rsa` and its kind, `*.key`, `*.pem`, a `credentials` path component,
-# `.env*` dotfiles, sops and vault files, and the sops, age and faramir directories. What is
-# listed here is what those miss.
+# Paths the agent's file tools are refused. faramir compiles in no credential rules: an
+# install refuses its own directories at their real paths and nothing else, so each entry
+# across these three lists is the whole of what covers the store it names.
 #
 # Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
 # expands. A directory refuses everything under it. Only the entries this host has are
@@ -111,59 +110,67 @@ faramir_blocked_paths:
   # The NSS databases, holding client certificates and the private keys that go with them
   # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
   - "{{ faramir_user_home }}/.pki"
-  # The agent's own OAuth token. `.credentials.json` is not the `credentials` component
-  # faramir's rules name, so nothing else covers it.
+  # The agent's own OAuth token. `.credentials.json` is not the `credentials` name the list
+  # below carries, so nothing else covers it.
   - "{{ faramir_user_home }}/.claude/.credentials.json"
   # The same for the other coding agents installed here: a token file under an ordinary name,
   # or a config holding a model provider's API key inline. faramir configures codex and
   # cursor not at all, so for those a rule is the whole of what covers them.
   - "{{ faramir_user_home }}/.codex/auth.json"
   - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
-  # gemini's own, named rather than the tree around it: `mcp_config.json` and the keybindings
-  # beside it are settings an agent is asked to edit. Its token files are covered by name
-  # below instead, so a version that moves one is covered wherever it lands.
-  - "{{ faramir_user_home }}/.gemini/config/config.json"
-  - "{{ faramir_user_home }}/.claude-code-router/config.json"
   - "{{ faramir_user_home }}/.continue/config.yaml"
-  # Cursor keeps its own in a sqlite database, `User/globalStorage/state.vscdb`, and in a
-  # cookie jar beside it, so the profile directory rather than a file. VS Code, which it is a
-  # fork of, keeps them in the same two places and adds `User/sync` under Settings Sync.
-  - "{{ faramir_user_home }}/.config/Cursor"
-  - "{{ faramir_user_home }}/.config/Code"
+  # Claude Desktop's own token file. The cookie jar and the leveldb stores beside it are
+  # covered by name below, as are the VS Code forks', those being the same files under a
+  # profile directory per fork.
+  - "{{ faramir_user_home }}/.config/Claude/buddy-tokens.json"
   # The GitHub CLI's OAuth token, which `hosts.yml` holds in the clear, and clasp's Google
   # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
-  - "{{ faramir_user_home }}/.config/gh"
+  # `hosts.yml` and not the directory: `config.yml` beside it is aliases and editor settings,
+  # which an agent is asked to edit.
+  - "{{ faramir_user_home }}/.config/gh/hosts.yml"
   - "{{ faramir_user_home }}/.clasprc.json"
   # Site passwords the application keeps itself rather than handing to a keyring: MQTT
   # Explorer holds a broker's in `settings.json`, and irssi a server's and its NickServ
   # password in `config`. Neither is encrypted and neither is named by any rule.
   - "{{ faramir_user_home }}/.config/MQTT-Explorer"
   - "{{ faramir_user_home }}/.irssi"
+  # The Chromium family's profile stores, holding every saved password, session cookie and
+  # card in `Login Data` and its keyring entry. One entry per directory rather than a name:
+  # the three chrome installs are three profiles, and a name matching `google-chrome` takes
+  # neither of the other two.
+  - "{{ faramir_user_home }}/.config/google-chrome"
+  - "{{ faramir_user_home }}/.config/google-chrome-for-testing"
+  - "{{ faramir_user_home }}/.config/google-chrome-headless"
+  - "{{ faramir_user_home }}/.config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
-  # keeps a second copy of the store above. The browsers are named below instead, one name
-  # covering both install methods; these stay because the app directory holds more than the
-  # profile.
+  # keeps a second copy of the store above. Firefox's profile is named below instead, one
+  # name covering either install method; these stay because the app directory holds more than
+  # the profile.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
-  # FileZilla encodes a site's password in `sitemanager.xml` rather than handing it to a
-  # keyring. Only the flatpak: the native install and its config are gone from this fleet.
+  # FileZilla encodes each site's password in `sitemanager.xml` and `recentservers.xml`
+  # rather than encrypting it. The flatpak alone: the desktop role purges the apt package and
+  # pins it to -1, so `~/.config/filezilla` is a store no host here can produce.
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
-  # Session tokens, which stand in for the password they were issued against: a sync account,
-  # a messenger, and the two game launchers, `legendary` keeping its own in `user.json` for
-  # Heroic, which keeps a cookie jar of its own. Heroic twice over, the flatpak path above
-  # covering only an install made that way.
+  # Session tokens, which stand in for the password they were issued against: a sync account
+  # and two storefronts, itch keeping its API key in `db/butler.db`. Heroic and the
+  # `legendary` it signs in with are installed as flatpaks, so the app directory above is
+  # what covers those.
   - "{{ faramir_user_home }}/.config/Insync"
-  - "{{ faramir_user_home }}/.local/share/TelegramDesktop"
   - "{{ faramir_user_home }}/.local/share/Steam"
-  - "{{ faramir_user_home }}/.config/legendary"
-  - "{{ faramir_user_home }}/.config/Heroic"
+  - "{{ faramir_user_home }}/.config/itch"
   # Lutris keeps one per storefront it has been signed in to, under `cache/lutris`: GOG,
   # Amazon, Humble Bundle and Origin, each an auth file or a cookie jar. Steam's own is
   # covered by the flatpak path, an install made that way leaving `.local/share/Steam` a
   # shell.
   - "{{ faramir_user_home }}/.var/app/net.lutris.Lutris"
   - "{{ faramir_user_home }}/.var/app/com.valvesoftware.Steam"
+  # What vim persists between sessions, which is content and not only filenames: a register
+  # holds the text of the last yank or delete, so a line taken out of a decrypted file is
+  # written to disk and survives there. Where the dotfiles' `vimrc` points `viminfofile`; the
+  # default location any other vim writes is named below.
+  - "{{ faramir_user_home }}/.vim/tmp"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
@@ -204,26 +211,31 @@ faramir_blocked_names:
   # Blocked rather than linked for the same reason: `docker login` replaces the file by
   # rename, and the replacement is created 0600, which takes the broker's read with it.
   - ".docker/config.json"
-  # What vim persists between sessions, which is content and not only filenames: a register
-  # holds the text of the last yank or delete, so a line taken out of a decrypted file is
-  # written to disk and survives there. Two entries because vim has two homes for it: the
-  # directory the dotfiles' `vimrc` points `viminfofile` at, and the default location any
-  # other vim still writes.
-  - ".vim/tmp/"
+  # The default location vim writes its register history to, which is content and not only
+  # filenames: a register holds the text of the last yank or delete. The directory the
+  # dotfiles' `vimrc` points `viminfofile` at is a path above; this covers any other vim.
   - ".viminfo"
-  # The browser profile stores, which hold every saved password, session cookie and card:
-  # `logins.json` and `key4.db` under Firefox, `Login Data` and its keyring entry under the
-  # Chromium family. Named by the directory each browser keeps them in, because a native
-  # install and a flatpak put that directory in different places and a name covers both.
-  # These three and no fourth: they are the only browsers used here.
+  # Where an Electron profile keeps a signed-in session: the cookie jar and the journal
+  # beside it, which holds the same rows until it is checkpointed, and the leveldb stores the
+  # web views write to. The VS Code forks add a sqlite secret store, `state.vscdb`, whose
+  # `.backup` and `.options.json` the prefix takes with it.
+  #
+  # Names rather than paths because each editor and each Electron application keeps this same
+  # set under a profile directory of its own, and blocking those directories would take
+  # `settings.json`, `keybindings.json` and the MCP configs with them, which are files an
+  # agent is asked to edit.
+  - "state.vscdb*"
+  - Cookies
+  - Cookies-journal
+  - "Local Storage/"
+  - "Session Storage/"
+  - "WebStorage/"
+  # Firefox's profile store, which holds every saved password, session cookie and card in
+  # `logins.json` and `key4.db`. A name rather than a path because the native store is
+  # `~/.mozilla` and the flatpak keeps its own under `.var/app`, and one name covers both.
+  # The Chromium family is blocked by path instead, each install having a directory of its
+  # own that a single name does not span.
   - ".mozilla/"
-  - "google-chrome/"
-  - "chromium/"
-  # FileZilla's site manager, which keeps each server's password in `sitemanager.xml` and
-  # `recentservers.xml` encoded rather than encrypted. A name for the reason the browsers
-  # are: the native store is `~/.config/filezilla` and the flatpak keeps its own under
-  # `.var/app`.
-  - "filezilla/"
   # ansible-vault, which nothing here uses. Both entries, because neither covers the other:
   # the suffix takes `group_vars/all.vault` and the name takes `vault.yml`, which ends in
   # `.yml`. The `vault*` that would span them also takes the vault binary.
@@ -236,12 +248,6 @@ faramir_blocked_names:
   # regex spelling, so a second is written literally and that agent's rule matches nothing.
   # This spans `.yml`, `.yaml`, `secrets.json` and `secrets.env` alike.
   - "secrets*"
-  # The token files gemini writes, beside the config, on the login flow rather than at
-  # install: one holding the OAuth refresh token and the other the account it belongs to. By
-  # name because the path has moved between versions, which is what the narrowed `.gemini`
-  # path entry above relies on.
-  - oauth_creds.json
-  - google_accounts.json
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
   # Reachable only through the container, so only a name reaches it. Read a config-entry
   # field with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
