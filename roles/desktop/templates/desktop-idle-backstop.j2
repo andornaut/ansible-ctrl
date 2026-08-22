@@ -71,8 +71,12 @@ idle_ms() {
 # selector is given, which would leave a second monitor lit showing the static image this
 # exists to prevent. `detect` probes the I2C buses, so this is not free; it runs per call
 # rather than once at startup so a monitor plugged in mid-session is still reached.
+#
+# stderr is left alone. A healthy detect writes none, and it is the only account of why a
+# bus went away: swallowed, an unloaded i2c-dev or a revoked bus reaches the journal as
+# nothing more than the caller's "could not power the display down".
 ddc_displays() {
-    ddcutil detect --brief 2>/dev/null | awk '/^Display /{print $2}'
+    ddcutil detect --brief | awk '/^Display /{print $2}'
 }
 
 # False unless every display took the write, so a panel that did not answer is retried by
