@@ -42,13 +42,20 @@
         recurse: true
         mode: u=rwX,go=rX
 
-    # --remove-destination unlinks each target before writing, which is what the -f the
-    # other five Makefiles lack would do: a process keeps executing the inode it opened
-    # and the replacement lands beside it. -a carries the modes named above across, and
-    # the doc/bspc.1 symlink as a symlink.
+    # tar rather than `cp -a`, which rewrites the mode and ownership of destination
+    # directories that already exist: --no-overwrite-dir leaves those alone and writes only
+    # the files, so a /usr/local/bin that is setgid stays setgid. tar unlinks each target
+    # before extracting, which is what the -f the other five Makefiles lack would do: a
+    # process keeps executing the inode it opened and the replacement lands beside it. -p
+    # keeps the modes named above, tar putting them through the umask otherwise, and the
+    # doc/bspc.1 symlink arrives as a symlink.
     - name: Install the staged tree into /usr/local
-      ansible.builtin.command:
-        cmd: cp -a --remove-destination {{ bspwm_tmp.path }}/stage/usr/local/. /usr/local/
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          tar -C {{ bspwm_tmp.path }}/stage/usr/local -cf - .
+          | tar -C /usr/local -xpf - --no-overwrite-dir
+        executable: /bin/bash
       changed_when: true
   always:
     - name: Remove the temporary directory

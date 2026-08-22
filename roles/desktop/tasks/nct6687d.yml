@@ -23,11 +23,14 @@
         version: "{{ desktop_nct6687d_version }}"
       register: desktop_nct6687d_source
 
-    # The checkout arrives at the run's umask, and the dkms target below stages a copy of
-    # it under /usr/src/nct6687d-<version>, so a umask that closes `other` carries into
-    # what dkms keeps. Additive, so nothing the checkout chose is taken away and a run
-    # that has nothing to open reports no change; capital X grants execute only where the
-    # checkout already had it.
+    # The checkout arrives at the run's umask. Additive, so nothing the checkout chose is
+    # taken away and a run that has nothing to open reports no change; capital X grants
+    # execute only where the checkout already had it.
+    #
+    # This reaches /usr/src/nct6687d alone. The dkms target below stages a second copy under
+    # /usr/src/nct6687d-<version>, and that task is gated on the checkout having moved, so a
+    # host whose staged copy was written under a closing umask keeps it until the next
+    # build re-stages it. dkms reads that copy as root either way.
     - name: Let every account read the nct6687d source
       ansible.builtin.file:
         path: /usr/src/nct6687d

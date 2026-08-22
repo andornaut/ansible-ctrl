@@ -25,14 +25,10 @@
       changed_when: false
       failed_when: false
 
-    # mode as the kubectl and minikube tasks below name it: extraction puts the recorded
-    # mode through the run's umask, and one that closes `other` installs a binary only
-    # root can run.
     - name: Install helm binary
       ansible.builtin.unarchive:
         src: "https://get.helm.sh/helm-{{ docker_helm_release.json.tag_name }}-linux-{{ docker_arch }}.tar.gz"
         dest: /usr/local/bin/
-        mode: "0755"
         extra_opts:
           - "--strip-components=1"
         exclude:
@@ -40,6 +36,16 @@
           - README.md
         remote_src: true
       when: docker_helm_release.json.tag_name not in docker_helm_installed.stdout
+
+    # Named here rather than on the unarchive above, as the kubectl and minikube tasks
+    # below can name it inline: --strip-components leaves the stripped top-level member
+    # as the archive's own path, which the module resolves to dest itself, so a mode there
+    # lands on /usr/local/bin rather than on helm. Unconditional, so a binary installed
+    # under a umask that closed `other` is corrected without waiting for a version bump.
+    - name: Name the mode of the helm binary
+      ansible.builtin.file:
+        path: /usr/local/bin/helm
+        mode: "0755"
 
     - name: Get latest kubectl version
       ansible.builtin.uri:
