@@ -10,6 +10,10 @@ games_gamemode_inhibit_screensaver: false
 
 # Flatpak applications installed and configured for games_user.
 games_flatpak_apps:
+  # Voice chat while playing. Not in the Ubuntu archive, and the .deb Discord publishes has
+  # no repository behind it, so the flatpak is the only route that keeps itself current
+  # against a client that refuses to start once it is a version behind.
+  - com.discordapp.Discord
   - com.heroicgameslauncher.hgl
   - com.mojang.Minecraft
   - com.valvesoftware.Steam
