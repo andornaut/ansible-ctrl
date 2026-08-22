@@ -202,6 +202,16 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 # ansible-core 2.23.
 pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 
+# What a run that has to prompt passes. The controller's sudo authenticates through
+# faramir's PAM helper, which puts the question to whoever is watching `faramir approvals`
+# rather than taking a password, so become waits on a person; the local connection plugin
+# bounds that wait at 10 seconds by default, which closes before anyone can answer. The
+# option belongs to that plugin, so it reaches the controller and is inert for the ssh
+# fleet. Named here as well as on the controller's inventory line, the inventory not being
+# in this repo. 120 rather than the 300 an escalation is offered for, so a run nobody is
+# watching fails rather than holding the full window.
+BECOME_PROMPT := --ask-become-pass -e ansible_local_become_success_timeout=120
+
 # IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
 # password is used. Then ASK_PASS=1, which forces the prompt for a run the check below
 # reads as needing none. `make faramir` is not one: the controller is in its first play, so
@@ -217,12 +227,12 @@ pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 #
 # Reads $$run, which the recipe sets from list_run before reaching here.
 define become_flag
-$(if $(IS_ROOT),,$(if $(ASK_PASS),--ask-become-pass,$$( \
+$(if $(IS_ROOT),,$(if $(ASK_PASS),$(BECOME_PROMPT),$$( \
   controller=$$(ansible faramir_controller --list-hosts 2>/dev/null | $(pick_hosts)); \
-  [ -z "$$controller" ] && { echo --ask-become-pass; exit 0; }; \
-  echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo --ask-become-pass; exit 0; }; \
+  [ -z "$$controller" ] && { echo $(BECOME_PROMPT); exit 0; }; \
+  echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo $(BECOME_PROMPT); exit 0; }; \
   for r in $$(echo "$$run" | $(pick_roles)); do \
-    grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo --ask-become-pass; exit 0; }; \
+    grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo $(BECOME_PROMPT); exit 0; }; \
   done)))
 endef
 
