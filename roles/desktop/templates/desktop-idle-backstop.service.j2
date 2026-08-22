@@ -10,8 +10,11 @@ After=graphical-session.target
 [Service]
 Type=exec
 ExecStart={{ desktop_idle_backstop_command }}
-# A backstop that dies silently is no backstop. PartOf stops it with the session, which
-# systemd does not treat as a failure to restart from.
+# A backstop that dies silently is no backstop, and the restart is load-bearing beyond
+# that: the command exits when it cannot read an idle time, which is how it picks up a
+# graphical session that started after it did. Only a restart re-reads the user manager's
+# environment; an import into that manager does not reach a running service. PartOf stops
+# it with the session, which systemd does not treat as a failure to restart from.
 Restart=always
 RestartSec=10
 Slice=session.slice

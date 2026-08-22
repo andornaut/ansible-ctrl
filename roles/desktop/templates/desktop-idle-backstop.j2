@@ -14,8 +14,19 @@ readonly THRESHOLD_MS={{ desktop_idle_backstop_milliseconds }}
 # is what turns the panel back on, and that latency is felt at the keyboard.
 readonly POLL_LIT_SECONDS=30
 readonly POLL_DARK_SECONDS=2
+# Consecutive failed idle reads before this exits for systemd to start it again. A unit
+# started outside a graphical session has no display and no session bus to read, and the
+# import that fixes that reaches the user manager rather than an already-running service,
+# so exiting is what picks the session up. Restarting is also the only signal that a
+# backstop is not backstopping anything.
+readonly MAX_READ_FAILURES=3
+# Wake attempts before giving up on a panel that will not answer, so a monitor that has
+# gone unreachable is not written to every two seconds for the rest of the session.
+readonly MAX_WAKE_ATTEMPTS=15
 
 dark=false
+read_failures=0
+wake_attempts=0
 
 log() {
     printf '%s\n' "$*" >&2
@@ -62,31 +73,52 @@ power_on() {
 # A monitor left in DDC standby outlives the session and greets the next login looking
 # dead, so the panel comes back up before this exits however it is stopped.
 finish() {
+    local code=${1:-0}
     trap - EXIT INT TERM
     if [[ ${dark} == true ]]; then
         power_on || log "could not power the display back up"
     fi
-    exit 0
+    exit "${code}"
 }
 
-trap finish EXIT INT TERM
+trap 'finish 0' EXIT INT TERM
 
 while true; do
     if ! idle=$(idle_ms 2>/dev/null) || [[ ! ${idle} =~ ^[0-9]+$ ]]; then
-        log "could not read the idle time"
+        read_failures=$((read_failures + 1))
+        log "could not read the idle time (${read_failures}/${MAX_READ_FAILURES})"
+        if ((read_failures >= MAX_READ_FAILURES)); then
+            log "exiting, so the restart reads the session environment as it stands now"
+            finish 1
+        fi
     elif ((idle >= THRESHOLD_MS)); then
+        read_failures=0
         # dark is set whether or not the write landed: a panel that has already gone dark
         # on its own may stop answering the bus, and retrying every poll would say so for
-        # as long as nobody touches the keyboard.
+        # as long as nobody touches the keyboard. ddcutil retries the write itself.
         if [[ ${dark} == false ]]; then
             log "idle for ${idle}ms, powering the display down"
             power_off || log "could not power the display down"
             dark=true
+            wake_attempts=0
         fi
-    elif [[ ${dark} == true ]]; then
-        log "input after ${idle}ms, powering the display back up"
-        power_on || log "could not power the display back up"
-        dark=false
+    else
+        read_failures=0
+        # dark is held until the panel is confirmed back, so a write that does not land
+        # is retried on the next poll rather than leaving a dark screen in front of
+        # someone who is typing. Bounded, so an unreachable panel is eventually let go.
+        if [[ ${dark} == true ]]; then
+            wake_attempts=$((wake_attempts + 1))
+            if power_on; then
+                log "input after ${idle}ms, display powered back up"
+                dark=false
+            elif ((wake_attempts >= MAX_WAKE_ATTEMPTS)); then
+                log "could not power the display back up in ${wake_attempts} attempts, giving up"
+                dark=false
+            else
+                log "could not power the display back up, retrying"
+            fi
+        fi
     fi
 
     if [[ ${dark} == true ]]; then

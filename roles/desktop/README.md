@@ -120,6 +120,8 @@ inhibitor can freeze and powers the panel down from outside the compositor:
 | `desktop_suspend_inactive_minutes` does not bound it, even where it is shorter | An idle inhibitor defers idle suspend as surely as it defers blanking, so a backstop above the suspend timeout still fires in the one case suspend cannot, and stays out of the way when nothing inhibits and the host suspends first |
 | It needs no root and no group of its own | `ddcutil`'s udev rule tags the I2C device `uaccess`, so the bus is granted to whoever is logged in locally and revoked with the session. `ddcutil` also ships the `modules-load.d` entry for `i2c-dev` |
 | The panel comes back up when the service stops | A monitor left in DDC standby outlives the session and greets the next login looking dead |
+| It exits after three failed idle reads rather than logging them forever | Started outside a graphical session it has no display and no session bus, and `systemctl --user import-environment` reaches the user manager rather than a running service, so only the restart picks the session up. A restart loop is also the visible sign that it is backstopping nothing |
+| A failed wake is retried, a failed power-off is not | A panel left dark in front of someone typing is the worse failure. The power-off case is usually a panel that has already gone dark on its own and stopped answering, and `ddcutil` retries the write itself |
 | Polling is 30s while the panel is lit and 2s while it is dark | Nothing waits on the first; the second is the wake latency felt at the keyboard |
 
 ### Writing dotfiles that may be symlinks
