@@ -110,26 +110,6 @@ faramir_blocked_paths:
   # The NSS databases, holding client certificates and the private keys that go with them
   # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
   - "{{ faramir_user_home }}/.pki"
-  # The agent's own OAuth token. `.credentials.json` is not the `credentials` name the list
-  # below carries, so nothing else covers it.
-  - "{{ faramir_user_home }}/.claude/.credentials.json"
-  # The same for the other coding agents installed here: a token file under an ordinary name,
-  # or a config holding a model provider's API key inline. faramir configures codex and
-  # cursor not at all, so for those a rule is the whole of what covers them. Antigravity's is
-  # a name below, its file not being there to stat until someone signs in.
-  - "{{ faramir_user_home }}/.codex/auth.json"
-  - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
-  - "{{ faramir_user_home }}/.continue/config.yaml"
-  # Claude Desktop's own token file. The cookie jar and the leveldb stores beside it are
-  # covered by name below, as are the VS Code forks', those being the same files under a
-  # profile directory per fork.
-  - "{{ faramir_user_home }}/.config/Claude/buddy-tokens.json"
-  # The GitHub CLI's OAuth token, which `hosts.yml` holds in the clear, and clasp's Google
-  # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
-  # `hosts.yml` and not the directory: `config.yml` beside it is aliases and editor settings,
-  # which an agent is asked to edit.
-  - "{{ faramir_user_home }}/.config/gh/hosts.yml"
-  - "{{ faramir_user_home }}/.clasprc.json"
   # Site passwords the application keeps itself rather than handing to a keyring: MQTT
   # Explorer holds a broker's in `settings.json`, and irssi a server's and its NickServ
   # password in `config`. Neither is encrypted and neither is named by any rule.
@@ -221,6 +201,26 @@ faramir_blocked_names:
   # rule is the whole of what stands in front of it. The file and not `.gemini/`, which also
   # holds the instructions an enrolment writes.
   - ".gemini/config/config.json"
+  # Every other signed-in token on the host, names for that same reason: none of these files
+  # is there to stat until someone signs the tool in, so a path entry would be skipped on
+  # every converge until the token it guards already existed, which is the whole window that
+  # matters on a host being set up.
+  #
+  # The agents' own tokens first. `.credentials.json` is not the `credentials` name below, so
+  # nothing else covers it; `config.yaml` is a config holding a model provider's API key
+  # inline. faramir configures codex and cursor not at all, so for those a rule is the whole
+  # of what covers them.
+  - ".claude/.credentials.json"
+  - ".codex/auth.json"
+  - ".local/share/opencode/auth.json"
+  - ".continue/config.yaml"
+  # Then Claude Desktop's, the GitHub CLI's and clasp's Google refresh token. The cookie jar
+  # and the leveldb stores beside Claude Desktop's are covered by the Electron names below,
+  # as are the VS Code forks'. `hosts.yml` and not `.config/gh/`: `config.yml` beside it is
+  # aliases and editor settings, which an agent is asked to edit.
+  - ".config/Claude/buddy-tokens.json"
+  - ".config/gh/hosts.yml"
+  - ".clasprc.json"
   # The default location vim writes its register history to, which is content and not only
   # filenames: a register holds the text of the last yank or delete. The directory the
   # dotfiles' `vimrc` points `viminfofile` at is a path above; this covers any other vim.
