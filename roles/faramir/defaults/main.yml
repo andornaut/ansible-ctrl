@@ -168,26 +168,18 @@ faramir_blocked_paths:
   # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
   - "{{ faramir_user_home }}/.config/gh"
   - "{{ faramir_user_home }}/.clasprc.json"
-  # Site passwords the application keeps itself rather than handing to a keyring: FileZilla
-  # encodes them in `sitemanager.xml`, PuTTY keeps a session's proxy password beside the rest
-  # of its settings, MQTT Explorer a broker's in `settings.json`, and irssi a server's and its
-  # NickServ password in `config`. None is encrypted and none is named by any rule.
-  - "{{ faramir_user_home }}/.config/filezilla"
-  - "{{ faramir_user_home }}/.putty"
+  # Site passwords the application keeps itself rather than handing to a keyring: MQTT
+  # Explorer holds a broker's in `settings.json`, and irssi a server's and its NickServ
+  # password in `config`. Neither is encrypted and neither is named by any rule.
   - "{{ faramir_user_home }}/.config/MQTT-Explorer"
   - "{{ faramir_user_home }}/.irssi"
-  # The browser credential stores: logins.json and key4.db, Login Data and its keyring entry.
-  # The profile directory rather than those files, a rule being a literal path with no glob
-  # and the directory holding them named after a random string. Nothing here manages a
-  # browser profile: the policy files this repo deploys are under /etc.
-  - "{{ faramir_user_home }}/.mozilla"
-  - "{{ faramir_user_home }}/.config/google-chrome"
-  - "{{ faramir_user_home }}/.config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
   # keeps a second copy of the store above and the paths naming the native one miss it.
+  #
+  # The browsers are not here: their profiles are named below instead, one name covering both
+  # install methods. These two stay because the app directory holds more than the profile.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
-  - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # Session tokens, which stand in for the password they were issued against and are what a
   # store this size actually holds: a sync account, a messenger, and the two game launchers,
@@ -257,6 +249,20 @@ faramir_blocked_names:
   # the file by rename, and the replacement is created 0600, which takes the broker's read
   # with it and leaves it refusing every ref until the next run of this role grants it again.
   - ".docker/config.json"
+  # The browser profile stores, which hold every saved password, session cookie and card:
+  # `logins.json` and `key4.db` under Firefox, `Login Data` and its keyring entry under the
+  # Chromium family. Named by the directory each browser keeps them in rather than by where
+  # an install puts that directory, because both places are real. The flatpak firefox has its
+  # own `.mozilla` under `.var/app`, the flatpak chromium a `config/chromium`, so a path list
+  # needs an entry per browser per install method and this needs one per browser.
+  #
+  # Armed, so a browser installed later is covered before anyone thinks to come back here,
+  # which a path entry is not: absent when the role stats it, it is skipped. Brave is named
+  # for that reason alone, nothing here having ever run it.
+  - ".mozilla/"
+  - "google-chrome/"
+  - "chromium/"
+  - "BraveSoftware/"
   # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
   # matches no file and covers one the day a playbook grows a vault.
   #
