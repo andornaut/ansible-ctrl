@@ -64,3 +64,36 @@
       when:
         - homeautomation_placeholder_home.stat.isdir | default(false)
         - homeautomation_placeholder_contents.files | default([]) | length == 0
+
+# CLEANUP (added 2026-08-22): delete once the host running home automation has
+# converged. A timer here used to reclaim adb on the Android TVs and re-arm the
+# app that enables wireless debugging at boot. The app now repairs its own boot
+# receiver, so nothing on this side has a job, and these are what it left behind.
+- name: Remove the TV adb keepalive this role no longer installs
+  block:
+    - name: Check for the TV adb keepalive timer unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/homeautomation-tv-adb.timer
+      register: homeautomation_tv_adb_unit
+      become: true
+
+    # Before the unit files go, or systemd has nothing left to stop it by.
+    - name: Stop and disable the TV adb keepalive timer
+      ansible.builtin.systemd_service:
+        name: homeautomation-tv-adb.timer
+        state: stopped
+        enabled: false
+      become: true
+      when: homeautomation_tv_adb_unit.stat.exists
+
+    - name: Remove the TV adb keepalive files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/homeautomation-tv-adb.timer
+        - /etc/systemd/system/homeautomation-tv-adb.service
+        - /usr/local/bin/tv-adb-keepalive
+        - /var/lib/homeautomation/tv-adb
+      become: true
+      notify: Reload systemd

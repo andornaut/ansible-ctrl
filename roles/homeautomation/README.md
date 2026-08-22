@@ -151,6 +151,57 @@ Recreating llamacpp on a different bridge IP therefore leaves Home Assistant on 
 
 ## Operations
 
+### Android TV adb
+
+Home Assistant reaches an Android TV over adb on port 5555, which only exists while the set has wireless
+debugging on. [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) turns it on at boot and moves adbd
+off its random ephemeral port onto 5555.
+
+Some sets defeat that by putting the app's `BootReceiver` into the package's `disabledComponents` after every boot,
+which takes it out of the `BOOT_COMPLETED` resolution set, so the app never starts. Nothing outside the app can
+undo it: `pm enable`, `pm default-state` and `pm enable --user 0` all answer `Shell cannot change component state`
+for an app that is not test-only, and `install -r` preserves the disabled state. An app may set its own components,
+so the build to run is one that repairs the receiver when its service starts
+([PR](https://github.com/mouldybread/adb-auto-enable/pull/17), branch `selfheal` of the
+[fork](https://github.com/andornaut/adb-auto-enable)). Until that lands upstream, build it:
+
+```bash
+git clone git@github.com:andornaut/adb-auto-enable.git
+cd adb-auto-enable && git checkout selfheal
+echo "sdk.dir=${HOME}/Android/Sdk" > local.properties
+sh gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
+```
+
+Install it, granting the permission the app needs and launching it once, because a freshly installed app sits in
+the stopped state and stopped apps are not sent broadcasts:
+
+```bash
+adb connect <tv>:5555
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell pm grant com.tpn.adbautoenable android.permission.WRITE_SECURE_SETTINGS
+adb shell am start -n com.tpn.adbautoenable/.MainActivity
+```
+
+`install -r` keeps the app's data, and with it the app's own adb key, whenever the signing key matches what is
+already installed. Replacing an upstream release with this build does not match, so it needs `adb uninstall` first,
+which deletes that key and any pairing made to it.
+
+The app needs its own pairing to move adbd to 5555. Read a fresh code off the set at Settings, System, Developer
+options, Wireless debugging, Pair device with pairing code, then hand it to the app rather than to `adb pair`:
+
+```bash
+curl -X POST --data "port=<port>&code=<code>" http://<tv>:9093/api/pair
+curl http://<tv>:9093/api/status     # isPaired true, and currentPort once it has looked
+adb shell pm query-receivers --components -a android.intent.action.BOOT_COMPLETED | grep adbautoenable
+```
+
+| Gotcha | Detail |
+| --- | --- |
+| Boot is slow | `BOOT_COMPLETED` reaches the app about five minutes after a reboot on these sets, and adb about a minute after that |
+| Wireless debugging does not persist | It is off after every boot, so the app starting is the only thing that brings adb back |
+| An unarmed boot needs a person | With the receiver pruned and the app not started, there is no adb to fix it through, and recovery is a pairing code read off the screen |
+| Reproducing the prune | The debug build is debuggable, so `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand; `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
+
 ### Home Assistant
 
 ```bash
