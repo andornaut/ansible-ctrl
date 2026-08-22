@@ -314,6 +314,22 @@ faramir_blocked_commands:
 # README.md.
 faramir_links: []
 
+# What a linked file is set to, so the broker keeps reading it. The broker is the only
+# account that opens one, so its own group is tighter than the client group, which would
+# add the executor and the operator to the readership of a credential neither needs.
+#
+# 0640 rather than 0600: the file stays the owning tool's to write, and the broker only
+# reads it. A file the broker cannot read stops every brokered command, not just the ones
+# wanting that ref, so this is converged rather than left to whatever wrote the file last.
+faramir_link_file_group: faramir-broker
+faramir_link_file_mode: "0640"
+
+# The agent home's mode, and the group faramir admits through it. init grants the client
+# group traversal here; converging it means a home that loses the group is put back on the
+# next run rather than staying broken until a brokered command reports it. 0710 rather than
+# 0750: traversal is what the group needs, and a listing is not.
+faramir_user_home_mode: "0710"
+
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.
 faramir_fleet_authorize_key: true
 

@@ -1,6 +1,65 @@
 ---
 # Closing what the install opened: the operator's ~/.config to accounts outside it,
 # the agent's block on running these playbooks, and ptrace between brokered commands.
+#
+# And pinning what it granted. The two below are init's to set and nothing here undoes them;
+# converging them means an access that goes missing is restored on the next run. Left alone
+# it surfaces as a redaction faramir refuses to run, which withholds the output of every
+# brokered command rather than the ones wanting the ref that went unread, so the symptom
+# names neither the file nor the account that lost it.
+- name: Keep the agent home traversable by the client group
+  ansible.builtin.file:
+    path: "{{ faramir_user_home }}"
+    # No owner: the account owns its own home, and naming it here would be a second answer
+    # to a question passwd has already settled.
+    group: "{{ faramir_client_group }}"
+    mode: "{{ faramir_user_home_mode }}"
+    follow: false
+  become: true
+
+# The levels between the home and the enrolled tree, and neither end: the home is set above,
+# and the tree itself is faramir's, shared setgid by init-project. Declared here rather than
+# left to the install, which reaches them by walking down from the home and so decides the
+# mode of directories that are the operator's and no part of any enrolled tree.
+#
+# The same mode and group as the home, so the walk to a shared tree is gated the same way at
+# every step. Redundant while the home holds, and the whole of the gate if it is ever widened
+# by something that does not subtract the way roles/base does.
+#
+# An enrolled tree sitting directly in the home yields no levels and an empty loop.
+- name: Keep the levels between the home and the enrolled tree traversable
+  ansible.builtin.file:
+    path: "{{ faramir_user_home }}/{{ faramir_project_parents[:item] | join('/') }}"
+    group: "{{ faramir_client_group }}"
+    mode: "{{ faramir_user_home_mode }}"
+    follow: false
+  loop: "{{ range(1, (faramir_project_parents | length) + 1) | list }}"
+  loop_control:
+    label: "{{ faramir_user_home }}/{{ faramir_project_parents[:item] | join('/') }}"
+  vars:
+    # Ordered: the second reads the first, and a vars block renders one key at a time.
+    faramir_project_rel_dir: "{{ playbook_dir | relpath(faramir_user_home) | dirname }}"
+    faramir_project_parents: >-
+      {{ [] if faramir_project_rel_dir in ['.', ''] else faramir_project_rel_dir.split('/') }}
+  when:
+    # playbook_dir is the enrolled tree, and only the controller has a checkout of it. A tree
+    # outside the home has no levels this role is answerable for.
+    - faramir_is_controller | bool
+    - playbook_dir.startswith(faramir_user_home ~ '/')
+  become: true
+
+# `link add` refuses an entry whose file is not there, so tasks/entries.yml has already
+# failed the run if one is missing and there is nothing to guard against here.
+- name: Keep the files the links name readable by the broker
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    group: "{{ faramir_link_file_group }}"
+    mode: "{{ faramir_link_file_mode }}"
+    follow: false
+  loop: "{{ faramir_links }}"
+  loop_control:
+    label: "{{ item.ref }}"
+  become: true
 
 # init grants the client group traversal from the home down, and what that reaches is
 # whatever the `other` bits allow: the umask is 0002, so a directory created later arrives

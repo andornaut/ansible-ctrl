@@ -23,3 +23,44 @@
     label: "{{ item.1 }}"
   become: true
   notify: Reload sysctl
+
+# CLEANUP (added 2026-08-22): delete once every host running this role has converged.
+# The service accounts are given /nonexistent as a home so that they have none. An earlier
+# uid allocation left a real directory there, owned by one of those accounts under a gid
+# that allocation has since reassigned, so a home meant not to exist does.
+#
+# Removed only when empty. Anything inside was written by an account that was meant to have
+# nowhere to write, which is a finding to read rather than something to delete unseen.
+- name: Remove the placeholder home an earlier uid allocation left behind
+  become: true
+  block:
+    - name: Look for the placeholder home
+      ansible.builtin.stat:
+        path: /nonexistent
+      register: homeautomation_placeholder_home
+
+    - name: List what it holds
+      ansible.builtin.find:
+        paths: /nonexistent
+        file_type: any
+        hidden: true
+      register: homeautomation_placeholder_contents
+      when: homeautomation_placeholder_home.stat.isdir | default(false)
+
+    - name: Require it to be empty before removing it
+      ansible.builtin.assert:
+        that: homeautomation_placeholder_contents.files | length == 0
+        fail_msg: >-
+          /nonexistent holds {{ homeautomation_placeholder_contents.files | length }}
+          entries, so an account meant to have no home has been writing to one. Read them,
+          then remove the directory by hand.
+        quiet: true
+      when: homeautomation_placeholder_contents.files is defined
+
+    - name: Remove it
+      ansible.builtin.file:
+        path: /nonexistent
+        state: absent
+      when:
+        - homeautomation_placeholder_home.stat.isdir | default(false)
+        - homeautomation_placeholder_contents.files | default([]) | length == 0

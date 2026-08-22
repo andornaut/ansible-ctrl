@@ -6,8 +6,14 @@ base_timezone: America/Toronto
 # below, not this; see the task for why the value is 002.
 base_lockdown_umask: "002"
 
-# For homes created after this runs; the existing ones are converged to o-rwx.
-base_lockdown_home_mode: "0750"
+# For homes created after this runs; the existing ones are converged toward it.
+#
+# 0710 rather than 0750: USERGROUPS_ENAB gives each account a private group, so until a home's
+# group is deliberately shared the group bits reach nobody but the owner and this is 0700 in
+# all but name. Once one is shared, a path through the home is what that group needs and a
+# listing of it is not. One value, so useradd's HOME_MODE and adduser's DIR_MODE cannot
+# disagree; adduser ships 0700, which this widens by the traversal bit alone.
+base_lockdown_home_mode: "0710"
 
 # Ubuntu's UID_MIN, and so the floor for a home this role closes.
 base_lockdown_min_uid: 1000
@@ -16,7 +22,7 @@ base_lockdown_min_uid: 1000
 base_lockdown_ssh_port: 22
 
 # Where a moved port's host key is recorded. System-wide, so it covers every uid on the
-# controller. roles/faramir pins the same path; roles here read no other role's variables.
+# controller. Another role pins the same path; roles here read no other role's variables.
 base_lockdown_known_hosts_path: /etc/ssh/ssh_known_hosts
 
 # Add addresses in host_vars rather than widening this.
