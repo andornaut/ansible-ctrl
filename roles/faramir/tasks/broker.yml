@@ -380,6 +380,26 @@
       loop_control:
         label: "{{ item.check }}"
 
+    # Graded right and shown wrong: a warn prints among the ok lines above and leaves no
+    # mark on the recap, so an unattended run passes a drifted host in silence. Named on its
+    # own and with the detail, which the status line does not carry.
+    #
+    # `warn` covers what doctor could not ask as well as what it found: a check it skipped
+    # is a warn too, and a skipped check reads as a passing one anywhere else.
+    #
+    # Expect these until the CLEANUP entries in this file and entries.yml are dropped. An
+    # entry taken out of the block lists leaves its rendered rule in an agent's settings,
+    # which are merged rather than replaced, so a host carries rules faramir no longer
+    # writes and says so on every run.
+    - name: Show what faramir doctor warned about
+      ansible.builtin.debug:
+        msg: "{{ item.check }}: {{ item.detail }}"
+      loop: >-
+        {{ faramir_doctor_report.findings
+           | selectattr('status', 'equalto', 'warn') | list }}
+      loop_control:
+        label: "{{ item.check }}"
+
     - name: Require a working install
       ansible.builtin.assert:
         that: not faramir_doctor_report.failed
