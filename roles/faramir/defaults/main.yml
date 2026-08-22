@@ -223,10 +223,17 @@ faramir_blocked_names:
   # Names rather than paths because each editor and each Electron application keeps this same
   # set under a profile directory of its own, and blocking those directories would take
   # `settings.json`, `keybindings.json` and the MCP configs with them, which are files an
-  # agent is asked to edit.
+  # agent is asked to edit. `User/sync/` is the Settings Sync cache, which holds a synced
+  # copy of those same files and so whatever key was pasted into one.
+  #
+  # The two carrying a space are matched literally by the shell guard, which sees the command
+  # as written: the quoted form is refused and a backslash-escaped one is not. The file tools
+  # match the path either way, and no other spelling closes it, a path entry being quoted the
+  # same way.
   - "state.vscdb*"
   - Cookies
   - Cookies-journal
+  - "User/sync/"
   - "Local Storage/"
   - "Session Storage/"
   - "WebStorage/"
@@ -244,9 +251,10 @@ faramir_blocked_names:
   # A sops store under the names sops files are given, meaning any one that lands in a tree;
   # the managed store faramir serves is covered by faramir itself.
   #
-  # One wildcard, not `secrets*.y*ml`: only the first `*` in a glob is rendered into the
-  # regex spelling, so a second is written literally and that agent's rule matches nothing.
-  # This spans `.yml`, `.yaml`, `secrets.json` and `secrets.env` alike.
+  # One trailing wildcard, not `secrets*.y*ml`. A lone `*` at one end is an open end rather
+  # than a name with a hole in it, so this is a prefix and spans `.yml`, `.yaml`,
+  # `secrets.json` and `secrets.env` alike; the two-wildcard spelling is a glob, and a glob
+  # crosses no separator and would take only the two names ending in `ml`.
   - "secrets*"
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
   # Reachable only through the container, so only a name reaches it. Read a config-entry
