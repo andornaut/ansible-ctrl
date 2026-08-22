@@ -44,6 +44,10 @@ faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 
 # argv rather than a command string: the paths come from the inventory and may need
 # quoting. Resolves only inside the install block, which registers faramir_release_tmp.
+#
+# The one command taking --config-dir, and the one whose caller decides where the config
+# goes. The rest read $FARAMIR_CONFIG, then the running broker, then the broker's unit, so
+# a config outside the default directory is found without being named.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -65,8 +69,7 @@ faramir_init_argv: >-
 faramir_init_project_argv: >-
   {{
     [faramir_binary, 'init-project', '--json',
-     '--agent-user', faramir_user,
-     '--config-dir', faramir_config_dir]
+     '--agent-user', faramir_user]
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]
@@ -82,20 +85,17 @@ faramir_init_project_argv: >-
 # account the agent runs as, and these render that account's rule files.
 faramir_block_argv: >-
   {{ [faramir_binary, 'block', 'add', '--json',
-      '--agent-user', faramir_user,
-      '--config-dir', faramir_config_dir] }}
+      '--agent-user', faramir_user] }}
 
 faramir_link_argv: >-
   {{ [faramir_binary, 'link', 'add', '--json',
-      '--agent-user', faramir_user,
-      '--config-dir', faramir_config_dir] }}
+      '--agent-user', faramir_user] }}
 
-# Only the two doctor cannot read off the host: it takes the client group and the service
+# The one thing doctor cannot read off the host: it takes the client group and the service
 # accounts from the config and the units, but --agent-user has no such source and doctor
 # fails rather than guess it.
 faramir_doctor_argv: >-
   {{
     [faramir_binary, 'doctor', '--json',
-     '--agent-user', faramir_user,
-     '--config-dir', faramir_config_dir]
+     '--agent-user', faramir_user]
   }}

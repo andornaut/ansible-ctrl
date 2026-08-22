@@ -107,8 +107,7 @@
   ansible.builtin.command:
     argv: >-
       {{ [faramir_binary, 'block', 'rm', '--json',
-          '--agent-user', faramir_user,
-          '--config-dir', faramir_config_dir, '--name', item] }}
+          '--agent-user', faramir_user, '--name', item] }}
   become: true
   loop:
     - id_dsa
