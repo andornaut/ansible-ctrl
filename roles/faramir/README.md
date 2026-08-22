@@ -199,8 +199,10 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   an agent's settings dropped. The only state read first is whether a blocked path is there. `faramir init`
   re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
   file.
-- **They need a faramir carrying `--json` on `block add` and `link add`**, which `faramir_release_tag: dev` does.
-  A tag pinned to a version older than that fails these tasks with cobra's unknown-flag error.
+- **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand rather than
+  `refuse`, `--command` entries, `--json` on each, and an add that puts what it declares in force rather than
+  leaving it to the next `init`. A tag pinned to anything older fails with cobra's unknown-flag error, except for
+  the last of those, which succeeds while declaring an entry that does not take effect until the run after.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
 - **Removal is by hand.** The `rm` half of either entry command drops the entry but cannot take the rule out of
