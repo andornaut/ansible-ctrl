@@ -159,8 +159,11 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.claude-code-router/config.json"
   - "{{ faramir_user_home }}/.continue/config.yaml"
   # Cursor keeps its own in a sqlite database, `User/globalStorage/state.vscdb`, and in a
-  # cookie jar beside it, so the profile directory rather than a file.
+  # cookie jar beside it, so the profile directory rather than a file. VS Code, which it is a
+  # fork of, keeps them in the same two places and adds `User/sync` when Settings Sync is
+  # signed in, so it takes the same treatment for the same reason.
   - "{{ faramir_user_home }}/.config/Cursor"
+  - "{{ faramir_user_home }}/.config/Code"
   # The GitHub CLI's OAuth token, which `hosts.yml` holds in the clear, and clasp's Google
   # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
   - "{{ faramir_user_home }}/.config/gh"
