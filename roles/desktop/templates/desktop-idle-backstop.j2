@@ -67,12 +67,33 @@ idle_ms() {
     esac
 }
 
+# Every DDC-capable panel, not one. ddcutil addresses the first detected display when no
+# selector is given, which would leave a second monitor lit showing the static image this
+# exists to prevent. `detect` probes the I2C buses, so this is not free; it runs per call
+# rather than once at startup so a monitor plugged in mid-session is still reached.
+ddc_displays() {
+    ddcutil detect --brief 2>/dev/null | awk '/^Display /{print $2}'
+}
+
+# False unless every display took the write, so a panel that did not answer is retried by
+# the caller rather than counted as dark. No displays at all is also a false: a bus that
+# lists nothing is a bus that powered nothing down.
+ddc_setvcp() {
+    local value=$1 display found=false status=0
+    while read -r display; do
+        found=true
+        ddcutil --display "${display}" setvcp d6 "${value}" || status=1
+    done < <(ddc_displays)
+    [[ ${found} == true ]] || return 1
+    return "${status}"
+}
+
 power_off() {
     case "${MECHANISM}" in
     # Nothing outside a Wayland compositor can reach DPMS, so this addresses the monitor
     # itself over DDC/CI. 04 is DPM off, and the panel keeps answering the bus there,
     # which is what makes power_on reversible without the monitor's own power button.
-    ddc) ddcutil setvcp d6 04 ;;
+    ddc) ddc_setvcp 04 ;;
     # Explicit, so it lands whatever the screensaver has been told to do.
     xset) xset dpms force off ;;
     # niri's own action, which the hypridle template already uses for its power-off listener.
@@ -82,7 +103,7 @@ power_off() {
 
 power_on() {
     case "${MECHANISM}" in
-    ddc) ddcutil setvcp d6 01 ;;
+    ddc) ddc_setvcp 01 ;;
     # The X server restores the display on the next input by itself.
     xset) : ;;
     # eww closes all of its windows when its monitor powers off, which is why the hypridle
