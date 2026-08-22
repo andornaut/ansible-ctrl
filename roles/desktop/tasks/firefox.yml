@@ -113,10 +113,15 @@
             name: org.mozilla.firefox
             method: user
 
-        - name: Configure Firefox cursor theme
-          ansible.builtin.command: >-
-            flatpak override --user --env=XCURSOR_THEME={{ desktop_cursor_theme | quote }}
-            org.mozilla.firefox
+        # Here rather than in flatpak.yml's loop: this install is conditional, so Firefox
+        # is not in desktop_flatpak_apps. The grants themselves stay in the one map.
+        - name: Configure Firefox flatpak permissions
+          ansible.builtin.command:
+            argv: "{{ ['flatpak', 'override', '--user'] + desktop_flatpak_grants + ['org.mozilla.firefox'] }}"
+          vars:
+            desktop_flatpak_grants: >-
+              {{ (desktop_flatpak_overrides['default'] | default([]))
+                 + (desktop_flatpak_overrides['org.mozilla.firefox'] | default([])) }}
           changed_when: true
 
 # Purge any copy an earlier run installed; the pin above stays at -1. The flatpak

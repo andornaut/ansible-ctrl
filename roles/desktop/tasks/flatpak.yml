@@ -45,15 +45,18 @@
         # host's theme. theme.yml copies the host's own into ~/.themes.
         - name: Install flatpak applications
           community.general.flatpak:
-            name: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
+            name: "{{ desktop_flatpak_apps }}"
             method: user
 
-        - name: Configure cursor theme for flatpak applications
-          ansible.builtin.command: >-
-            flatpak override --user --env=XCURSOR_THEME={{ desktop_cursor_theme | quote }} {{ item }}
-          loop: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
-          changed_when: true
-
-        - name: Configure FileZilla IPC
-          ansible.builtin.command: flatpak override --user --share=ipc org.filezillaproject.Filezilla
+        # An override is a file of its own, so one is written whether or not the
+        # application it names is installed.
+        - name: Configure flatpak application permissions
+          ansible.builtin.command:
+            argv: "{{ ['flatpak', 'override', '--user'] + desktop_flatpak_grants + [item] }}"
+          vars:
+            # The blanket grants plus this application's own; either may be absent.
+            desktop_flatpak_grants: >-
+              {{ (desktop_flatpak_overrides['default'] | default([]))
+                 + (desktop_flatpak_overrides[item] | default([])) }}
+          loop: "{{ desktop_flatpak_apps }}"
           changed_when: true
