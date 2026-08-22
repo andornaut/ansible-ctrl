@@ -1,9 +1,6 @@
 ---
 # Closing what the install opened: the operator's ~/.config to accounts outside it,
 # the agent's block on running these playbooks, and ptrace between brokered commands.
-#
-# Imported by broker.yml at the point it used to hold these, so ordering, become and
-# the `broker` tag are what they were.
 
 # init grants the client group traversal from the home down, and what that reaches is
 # whatever the `other` bits allow: the umask is 0002, so a directory created later arrives

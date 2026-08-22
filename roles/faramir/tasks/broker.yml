@@ -3,9 +3,8 @@
 # and units are its.
 
 # Before anything installs. An empty faramir_controller_host makes faramir_is_controller
-# false on every host, so the enrolment, the agent's block and the key notice would all skip
-# with the play reporting success, and the entries this run wrote would reach config.toml and
-# no agent file in the tree. ssh.yml catches it, one play too late.
+# false everywhere, so the enrolment, the agent's block and the key notice all skip with the
+# play reporting success. ssh.yml catches it, one play too late.
 - name: Require the inventory to name one controller
   ansible.builtin.assert:
     that: faramir_controller_host | length > 0
@@ -59,17 +58,13 @@
   tags: always
 
 # getent answers with the home's path whether or not anything is mounted there, so nothing
-# below would notice. A run against a locked home writes the config directory, the age key,
-# the broker's key and the store onto the mountpoint, in the clear on the underlying
-# filesystem, and the next login hides all four under the mount. It also reads every
-# credential store in that home as absent, so tasks/entries.yml blocks none of them and says
-# the host has none.
+# below would notice: a run against a locked home writes the age key, the broker's key and
+# the store onto the mountpoint in the clear, and reads every credential store in that home
+# as absent. What that costs is in README.md.
 #
-# Only where the home is encrypted. A plain home is part of / and is a mount point on no host,
-# so requiring a mount would fail every machine that has nothing to unlock.
-#
-# `| default([])` fails closed: without the mounts fact this cannot answer, and answering "not
-# encrypted" is the wrong way to be wrong.
+# Only where the home is encrypted, a plain home being a mount point on no host.
+# `| default([])` fails closed: without the mounts fact this cannot answer, and answering
+# "not encrypted" is the wrong way to be wrong.
 - name: Require an encrypted home to be mounted
   ansible.builtin.assert:
     that: faramir_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
@@ -140,17 +135,13 @@
     # `faramir` group has run this play, no config naming the old key left.
     #
     # faramir renamed [[secret.refuse]] to [[secret.block]], and its loader
-    # rejects a key it does not know rather than passing over it. So a host
-    # whose config still names the old one is not repaired by the next run:
-    # init reads the config before it rewrites it, and the daemons do not start
-    # on a config that will not load either. The rename has to land before the
-    # new binary runs.
+    # rejects a key it does not know. A host whose config still names the old
+    # one is not repaired by the next run: init reads the config before it
+    # rewrites it, and the daemons do not start on one that will not load.
     #
-    # Here rather than at the top of the run, because the two disagree in both
-    # directions: the old binary does not parse the new key any more than the
-    # new one parses the old. The archive is unpacked by this point, so a
-    # download that failed leaves the config alone, and init is the next task,
-    # which is the shortest window the pair can be out of step for.
+    # Here rather than at the top of the run, the two disagreeing in both
+    # directions: the archive is unpacked by this point, so a failed download
+    # leaves the config alone, and init is the next task.
     - name: Check for a config naming the entries by their old key
       ansible.builtin.stat:
         path: "{{ faramir_config_dir }}/config.toml"
@@ -193,19 +184,12 @@
     # group has run this play, no install carrying the old helper left.
     #
     # faramir renamed the helper PAM execs from pam-approve to pam-escalate.
-    # init writes the new one, repoints the PAM stack at it and rewrites
-    # [escalation] helper, but removes neither the old file nor reports it, so
-    # every host that has ever been installed with faramir_allow_sudo keeps a
-    # root-owned executable that nothing references and whose job is to open the
-    # broker socket.
+    # init writes the new one and repoints the PAM stack and [escalation]
+    # helper at it, but removes neither the old file nor reports it.
     #
-    # After init and not before: until init has rewritten them, the PAM stack
-    # and config.toml both name the old path, and the auth line is `requisite`,
-    # so a host that lost the file first fails every brokered sudo until the
-    # next run of this play.
-    #
-    # No stat guard, `state: absent` being one: a host installed without the
-    # grant has no such file, and the task reports nothing on it.
+    # After init and not before: until init has rewritten them both name the
+    # old path, and the auth line is `requisite`, so a host that lost the file
+    # first fails every brokered sudo until the next run.
     - name: Remove the PAM helper this faramir no longer execs
       ansible.builtin.file:
         path: /usr/local/libexec/faramir/pam-approve
@@ -230,9 +214,7 @@
 
 # After init, which installs the binary these run, and before the enrolment, which renders
 # the entries into this tree's agent files: an enrolment that ran first would write rules
-# naming none of them, and the tree would carry none until the next run. Only the
-# account-wide rule files are an add's own to render, which on a host with no enrolment is
-# the whole of what the rules reach.
+# naming none of them, and the tree would carry none until the next run.
 - name: Converge the config entries
   ansible.builtin.import_tasks: entries.yml
   when: faramir_binary_stat.stat.exists | default(false)

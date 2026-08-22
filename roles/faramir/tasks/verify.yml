@@ -1,8 +1,5 @@
 ---
 # Asking the install whether it works, and showing the key the fleet has to authorize.
-#
-# Imported by broker.yml at the point it used to hold these, so ordering, become and
-# the `broker` tag are what they were.
 
 # A broker serving zero refs and an agent holding no key both look like a healthy install:
 # units up, nothing reachable.
@@ -36,17 +33,13 @@
       loop_control:
         label: "{{ item.check }}"
 
-    # Graded right and shown wrong: a warn prints among the ok lines above and leaves no
-    # mark on the recap, so an unattended run passes a drifted host in silence. Named on its
-    # own and with the detail, which the status line does not carry.
+    # A warn prints among the ok lines above and leaves no mark on the recap, so an
+    # unattended run passes a drifted host in silence. Named on its own and with the detail,
+    # which the status line does not carry. `warn` covers what doctor could not ask as well
+    # as what it found, and a skipped check reads as a passing one anywhere else.
     #
-    # `warn` covers what doctor could not ask as well as what it found: a check it skipped
-    # is a warn too, and a skipped check reads as a passing one anywhere else.
-    #
-    # Expect one per rule an agent's settings still carry for an entry that has been taken
-    # out of the block lists: entries.yml removes the entry and the rendered rule stays,
-    # those files being merged rather than replaced. It clears when that line is deleted by
-    # hand, and until then the host says so on every run.
+    # Expect one per rule an agent's settings still carry for an entry taken out of the block
+    # lists, until that line is deleted by hand.
     - name: Show what faramir doctor warned about
       ansible.builtin.debug:
         msg: "{{ item.check }}: {{ item.detail }}"

@@ -38,10 +38,9 @@
 - name: Authorize the broker's key on the managed hosts
   when: inventory_hostname != faramir_controller_host
   block:
-    # Two asserts rather than one. A controller that is not in the play and a controller
-    # that ran and published nothing present identically here, on every managed host at
-    # once, and the advice the first needs sends you away from the second. Which one it is
-    # decides where to look, so the message says which.
+    # Two asserts rather than one. A controller left out of the play and one that ran and
+    # published nothing present identically here, and the advice the first needs sends you
+    # away from the second.
     - name: Require the controller to be in this run
       ansible.builtin.assert:
         that: faramir_controller_host in ansible_play_hosts
@@ -52,10 +51,10 @@
           output above says which. Apply as the operator: make faramir
         quiet: true
 
-    # Names no path. A message here is templated on every managed host when the task's
-    # arguments are finalized, whether or not the assertion holds, and this play reaches
-    # hosts that never ran broker.yml: anything resolving through faramir_user_home wants
-    # the getent that ran there, and raises rather than reporting what it was asked about.
+    # Names no path. The message is templated on every managed host whether or not the
+    # assertion holds, and this play reaches hosts that never ran broker.yml: anything
+    # resolving through faramir_user_home wants the getent that ran there, and raises rather
+    # than reporting what it was asked about.
     - name: Require the broker's key to have been read
       ansible.builtin.assert:
         that: "'faramir_broker_authorized_key' in hostvars[faramir_controller_host]"
@@ -207,12 +206,12 @@
           {{ (faramir_fleet_known_hosts_pinned + faramir_fleet_known_hosts_collected)
              | unique | sort }}
 
-# The hosts this play still holds, not the whole inventory: under a --limit the rest were
-# never targeted, and one ansible lost earlier had no key written and no host key pinned.
-# What is left was reached as the operator moments ago, so a silent answer is a failure.
+# The hosts this play still holds, not the whole inventory: the rest were never targeted or
+# were lost earlier, so neither got a key. What is left was reached as the operator moments
+# ago, so a silent answer is a failure.
 #
-# Read off ansible's play list, not probed through the broker: asked by the broker, a host
-# that refuses its key looks exactly like one that is off, which is what the assert is for.
+# Read off ansible's play list rather than probed through the broker, where a host that
+# refuses its key looks exactly like one that is off.
 - name: Prove a brokered run reaches the fleet
   when:
     - inventory_hostname == faramir_controller_host

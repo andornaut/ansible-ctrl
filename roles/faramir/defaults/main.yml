@@ -3,29 +3,20 @@
 # authorizes: the single member of the `faramir_controller` group. Derived rather than named,
 # this repo being public and the inventory being where a host's name belongs.
 #
-# Apart from the `faramir` group, which holds every host the broker is installed on.
-# The controller is one of them and gets what the others have no use for: the checkout
-# enrolled as a project, an SSH key the fleet authorizes, and the block telling an agent
-# how to run these playbooks. A host in `faramir` alone gets the broker and nothing else,
-# which is the install for refused paths, linked secrets and redaction on a machine that
-# runs no playbooks.
-#
-# Empty unless the controller group holds exactly one host, rather than taking the first
-# of however many: with a bare index, adding a host to the group or reordering it would
-# move the enrolment to a different machine and distribute a different key, and nothing
-# would say so. Empty fails the asserts that read it, with the group's contents in the
-# message.
+# Empty unless the group holds exactly one host: with a bare index, adding a host or
+# reordering the group would move the enrolment to a different machine and distribute a
+# different key, and nothing would say so. Empty fails the asserts that read it.
 faramir_controller_host: >-
   {{ (groups['faramir_controller'] | default([]))[0]
      if (groups['faramir_controller'] | default([])) | length == 1
      else '' }}
 
 # The release whose assets are installed. `dev` is the rolling one CI re-cuts on every push
-# to faramir's main, so each run installs whatever that tag points at now and the version on
-# the host is only ever the last run's. A version tag (`v0.5.0`) pins instead.
+# to faramir's main, so the version on the host is only ever the last run's. A version tag
+# (`v0.5.0`) pins instead.
 #
-# The tag is named rather than resolved through the API: `dev` is published with
-# make_latest=false, so GitHub's /releases/latest never returns it.
+# Named rather than resolved through the API: `dev` is published with make_latest=false, so
+# /releases/latest never returns it.
 faramir_release_tag: dev
 
 # The operator's login account, which owns the working tree and the coding agent runs as.
@@ -34,23 +25,18 @@ faramir_user: "{{ primary_user }}"
 
 # Gives the agent and the service accounts the working tree. Not a boundary; file modes are.
 #
-# Passed on every run and not redundant with faramir's own default, which is `faramir-client`.
-# Dropping it would leave the fleet where it is, `init` adopting the group named by an
-# installed config.toml when no flag names one, and bring a newly built host up under the
-# other name with nothing saying why it differs.
+# Passed on every run rather than left to faramir's own `faramir-client`, or a newly built
+# host would come up under the other name with nothing saying why it differs.
 faramir_client_group: dev
 
-# Holds the age key, the broker's SSH key and the store. In the operator's encrypted home,
-# so a powered-off disk carries none of them and socket activation reads nothing before
-# first login.
+# Holds the age key, the broker's SSH key and the store. In the operator's encrypted home, so
+# a powered-off disk carries none of them and socket activation reads nothing before first
+# login.
 faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 
-# One --agent each, passed to both init and init-project: the account-wide deny rules, and in
-# the tree the redaction hook, the MCP server config and the credentials block. Every agent
-# the dev role installs that faramir knows, named rather than left to its `auto`, which reads
-# what a home or a tree already carries and so covers an agent only after it has run once
-# unguarded. What each one gets is in the README. Known: antigravity, claude, kilocode,
-# opencode, pi.
+# One --agent each, passed to both init and init-project. Every agent the dev role installs
+# that faramir knows, named rather than left to its `auto`, which covers an agent only after
+# it has run once unguarded. What each one gets is in the README.
 faramir_agents:
   - antigravity
   - claude
@@ -63,78 +49,56 @@ faramir_agents:
 # whether a human approved that command, so no password exists anywhere. Re-running without
 # it takes the grant away.
 #
-# It is not only an escalation path: the executor unit drops NoNewPrivileges=, and with it the
-# seccomp filter and ProtectSystem=strict, because a filter forces NoNewPrivileges= on and
-# that makes every setuid binary inert, sudo included. So the hardening comes off the uid
+# It is not only an escalation path: the executor unit drops NoNewPrivileges=, and with it
+# the seccomp filter and ProtectSystem=strict, because a filter forces NoNewPrivileges= on
+# and that makes every setuid binary inert, sudo included. So the hardening comes off the uid
 # every brokered command runs as the moment this is true, whether or not anything is ever
 # approved.
 faramir_allow_sudo: false
 
-# kernel.yama.ptrace_scope on the controller. 1 restricts ptrace to a process's own
-# descendants, which is Debian and Ubuntu's default and what RHEL, Fedora and Arch leave at
-# 0. Pinned rather than assumed: at 0 any process may ptrace any other of the same uid, and
-# every brokered command shares the executor's, so one could read another's environment and
-# with it the injected values and the escalation token.
+# kernel.yama.ptrace_scope on the controller. Pinned rather than assumed: at 0 any process
+# may ptrace any other of the same uid, and every brokered command shares the executor's, so
+# one could read another's environment and with it the injected values and the escalation
+# token. 1 restricts ptrace to a process's own descendants.
 #
-# It matters most where a grant exists. The executor unit carries SystemCallFilter=
-# excluding @ptrace and so refuses the syscall outright, except on a host installed with
-# --allow-sudo, which cannot carry a filter: one forces NoNewPrivileges= on and that makes
-# sudo inert. Set here regardless, being the operator's own account's protection too.
-#
-# `~` leaves the host's value alone, for a box that needs 0 for a debugger. Higher than 1 is
+# `~` leaves the host's value alone, for a box that needs 0 for a debugger. Higher is
 # accepted: 2 is admin-only and 3 refuses ptrace entirely, and faramir asks only that it not
 # be 0.
 faramir_ptrace_scope: 1
 
 # What announces a waiting escalation, one list element per argument. Empty leaves
-# `sudo faramir sudo watch` as the only place a question shows up, and a
-# question nobody sees expires after [escalation] timeout_sec with every other brokered
-# command on the host refused until it does.
+# `sudo faramir sudo watch` as the only place a question shows up, and a question nobody sees
+# expires after [escalation] timeout_sec with every other brokered command on the host
+# refused until it does.
 #
-# Passed only when faramir_allow_sudo is true, there being no [escalation] section to announce
-# otherwise and init refusing the pair. It must name "{prompt}" or "{id}"; keep "{id}" off
-# anything that broadcasts, wall reaching every terminal on the host and the coding agent
-# having one.
+# Passed only when faramir_allow_sudo is true, init refusing the pair otherwise. It must name
+# "{prompt}" or "{id}"; keep "{id}" off anything that broadcasts, wall reaching every
+# terminal on the host and the coding agent having one.
 #
 # The broker execs this as the account holding every decrypted value, with a fixed PATH and
 # nothing else, so anything wanting the operator's session is out: /run/user/<uid> is 0700
-# and the broker is not that uid. wall works because it is setgid tty; a request to
-# something on the network works because the unit permits AF_INET.
+# and the broker is not that uid. wall works because it is setgid tty; a request to something
+# on the network works because the unit permits AF_INET.
 faramir_notify_command: []
 
 # How long a sudo question waits for a human before it is refused, 1 to 600, against
 # faramir's own default of 120. Long enough to reach the terminal running
-# `sudo faramir sudo watch`, which is where the question shows up while
-# faramir_notify_command is empty.
+# `sudo faramir sudo watch`.
 #
 # It is a window, not a grace period: silence is a refusal either way, and raising it only
 # moves when that refusal lands. The cost of a longer one is that a question nobody answers
 # holds every other brokered command on the host until it expires.
-#
-# Passed only when faramir_allow_sudo is true, as faramir_notify_command is: without the
-# grant there is no [escalation] section for it to land in.
 faramir_escalation_timeout_sec: 300
 
 # Paths the agent's file tools are refused, on top of the names and suffixes faramir's own
-# rules already carry: `id_rsa` and its kind, `*.key`, `*.pem`, a `credentials` path
-# component, `.env*` dotfiles, sops and vault files, and the sops, age and faramir
-# directories. What is listed here is what those miss.
+# rules carry: `id_rsa` and its kind, `*.key`, `*.pem`, a `credentials` path component,
+# `.env*` dotfiles, sops and vault files, and the sops, age and faramir directories. What is
+# listed here is what those miss.
 #
 # Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
-# expands. A directory refuses everything under it, whether or not it is one on the day the
-# rule is written.
-#
-# Only the entries the controller has are configured: the role stats each one as root and
-# names the rest in its output rather than refusing them. So the list is what a controller
-# might carry rather than what each one does, at the cost of the coverage faramir would give
-# an absent path, which it records and holds against the day it appears. What that costs is a
-# store created between runs, and a home not mounted when the probe ran: both are unrefused
-# until the next run, and both are named in the output of the one that skipped them.
-#
-# It stops the agent's own file tools and nothing else: the file is never opened, so its mode
-# is left alone and its value is in no redactor. A brokered command whose mode allows it may
-# still read one of these and print it in the clear. `faramir_links` is the entry that covers
-# both, at the price of faramir holding the value.
+# expands. A directory refuses everything under it. Only the entries this host has are
+# configured, the rest named in the run's output; how the three lists differ and what a
+# removal cannot undo is in README.md.
 faramir_blocked_paths:
   # The operator's own credential store, and the keys and keyrings beside it.
   - "{{ faramir_user_home }}/.private"
@@ -147,21 +111,19 @@ faramir_blocked_paths:
   # faramir's rules name, so nothing else covers it.
   - "{{ faramir_user_home }}/.claude/.credentials.json"
   # The same for the other coding agents installed here: a token file under an ordinary name,
-  # or a config holding a model provider's API key inline. faramir configures codex and cursor
-  # not at all, so for those a rule is the whole of what covers them.
+  # or a config holding a model provider's API key inline. faramir configures codex and
+  # cursor not at all, so for those a rule is the whole of what covers them.
   - "{{ faramir_user_home }}/.codex/auth.json"
   - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
   # gemini's own, named rather than the tree around it: `mcp_config.json` and the keybindings
-  # beside it are settings an agent is asked to edit, and refusing the directory refuses those
-  # too. The token files it writes are covered by name instead, so a version that moves one
-  # is covered wherever it lands.
+  # beside it are settings an agent is asked to edit. Its token files are covered by name
+  # below instead, so a version that moves one is covered wherever it lands.
   - "{{ faramir_user_home }}/.gemini/config/config.json"
   - "{{ faramir_user_home }}/.claude-code-router/config.json"
   - "{{ faramir_user_home }}/.continue/config.yaml"
   # Cursor keeps its own in a sqlite database, `User/globalStorage/state.vscdb`, and in a
   # cookie jar beside it, so the profile directory rather than a file. VS Code, which it is a
-  # fork of, keeps them in the same two places and adds `User/sync` when Settings Sync is
-  # signed in, so it takes the same treatment for the same reason.
+  # fork of, keeps them in the same two places and adds `User/sync` under Settings Sync.
   - "{{ faramir_user_home }}/.config/Cursor"
   - "{{ faramir_user_home }}/.config/Code"
   # The GitHub CLI's OAuth token, which `hosts.yml` holds in the clear, and clasp's Google
@@ -174,22 +136,19 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.config/MQTT-Explorer"
   - "{{ faramir_user_home }}/.irssi"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
-  # keeps a second copy of the store above and the paths naming the native one miss it.
-  #
-  # The browsers are not here: their profiles are named below instead, one name covering both
-  # install methods. These two stay because the app directory holds more than the profile.
+  # keeps a second copy of the store above. The browsers are named below instead, one name
+  # covering both install methods; these stay because the app directory holds more than the
+  # profile.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # FileZilla encodes a site's password in `sitemanager.xml` rather than handing it to a
-  # keyring. Only the flatpak: the native install and its config are gone from this fleet, and
-  # the flatpak is installed on a host that has never run it, so this is armed against the
-  # first run rather than covering anything today.
+  # keyring. Only the flatpak: the native install and its config are gone from this fleet.
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
-  # Session tokens, which stand in for the password they were issued against and are what a
-  # store this size actually holds: a sync account, a messenger, and the two game launchers,
-  # `legendary` keeping its own in `user.json` for Heroic, which keeps a cookie jar of its
-  # own. Heroic twice over, the flatpak path above covering only an install made that way.
+  # Session tokens, which stand in for the password they were issued against: a sync account,
+  # a messenger, and the two game launchers, `legendary` keeping its own in `user.json` for
+  # Heroic, which keeps a cookie jar of its own. Heroic twice over, the flatpak path above
+  # covering only an install made that way.
   - "{{ faramir_user_home }}/.config/Insync"
   - "{{ faramir_user_home }}/.local/share/TelegramDesktop"
   - "{{ faramir_user_home }}/.local/share/Steam"
@@ -197,27 +156,17 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.config/Heroic"
   # Lutris keeps one per storefront it has been signed in to, under `cache/lutris`: GOG,
   # Amazon, Humble Bundle and Origin, each an auth file or a cookie jar. Steam's own is
-  # covered by the flatpak path rather than the native one, an install made that way leaving
-  # `.local/share/Steam` a shell.
+  # covered by the flatpak path, an install made that way leaving `.local/share/Steam` a
+  # shell.
   - "{{ faramir_user_home }}/.var/app/net.lutris.Lutris"
   - "{{ faramir_user_home }}/.var/app/com.valvesoftware.Steam"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
 
-# The same refusal by name rather than by path, matched against the path the agent writes and
-# so against the whole of it, not its last segment. Two things follow, and they are why the
-# list above cannot carry these.
-#
-# It reaches inside a container. A path entry cannot: `docker exec homeassistant cat
-# /config/.storage/core.config_entries` names the mount point, so an entry for the directory
-# under it covers nothing, and declaring the container's own path covers nothing either, that
-# path not being on this host for the role to find. A name is matched against what the agent
-# wrote, so it lands wherever the file is reached from.
-#
-# And nothing stats a name, so an entry matching no file on this host is inert rather than
-# skipped: it is not in the run's "Skipped, no such path" report, and it covers the file the
-# day one appears. A path entry gets neither.
+# The same refusal by name, matched against the whole of the path the agent writes rather
+# than against this filesystem. So a name reaches inside a container, where a path cannot,
+# and an entry matching no file here is armed rather than skipped.
 #
 # The shape comes from the pattern, and faramir refuses one that is nothing but wildcards:
 #
@@ -233,8 +182,7 @@ faramir_blocked_names:
   # operator.
   #
   # The current key types only. `id_dsa` is left out: OpenSSH has refused DSA for
-  # authentication by default since 7.0 and is removing it outright, so a key under that name
-  # is one nothing will accept.
+  # authentication by default since 7.0, so a key under that name is one nothing accepts.
   - id_rsa
   - id_ecdsa
   - id_ed25519
@@ -246,110 +194,83 @@ faramir_blocked_names:
   - credentials
   - ".env*"
   # Docker's registry auth, which with no credsStore holds base64 user:pass and which no
-  # managed ref carries, so nothing redacts it either. A name rather than a path because
-  # `docker login` writes the file whenever someone runs it, and a path entry absent at the
-  # moment the role stats it is skipped rather than held against the day it appears.
+  # managed ref carries, so nothing redacts it either. A name because `docker login` writes
+  # the file whenever someone runs it, and a path absent when the role stats it is skipped.
   #
-  # Blocked rather than linked for the same reason it is not a path: `docker login` replaces
-  # the file by rename, and the replacement is created 0600, which takes the broker's read
-  # with it and leaves it refusing every ref until the next run of this role grants it again.
+  # Blocked rather than linked for the same reason: `docker login` replaces the file by
+  # rename, and the replacement is created 0600, which takes the broker's read with it.
   - ".docker/config.json"
   # What vim persists between sessions, which is content and not only filenames: a register
   # holds the text of the last yank or delete, so a line taken out of a decrypted file is
-  # written to disk and survives there. Two entries because vim has two homes for it. The
-  # directory is where the dotfiles' `vimrc` points `viminfofile` and where `undodir` falls
-  # back when a session has no `$XDG_RUNTIME_DIR`; the bare name is the default location,
-  # which is what any other vim on any other host still writes.
+  # written to disk and survives there. Two entries because vim has two homes for it: the
+  # directory the dotfiles' `vimrc` points `viminfofile` at, and the default location any
+  # other vim still writes.
   - ".vim/tmp/"
   - ".viminfo"
   # The browser profile stores, which hold every saved password, session cookie and card:
   # `logins.json` and `key4.db` under Firefox, `Login Data` and its keyring entry under the
-  # Chromium family. Named by the directory each browser keeps them in rather than by where
-  # an install puts that directory, because both places are real. The flatpak firefox has its
-  # own `.mozilla` under `.var/app`, the flatpak chromium a `config/chromium`, so a path list
-  # needs an entry per browser per install method and this needs one per browser.
-  #
-  # Armed, so a browser reinstalled or installed the other way is covered before anyone
-  # thinks to come back here, which a path entry is not: absent when the role stats it, it is
-  # skipped rather than held. These three and no fourth: they are the only browsers used
-  # here, and the case for naming a tool that is not installed rests on it arriving one day.
+  # Chromium family. Named by the directory each browser keeps them in, because a native
+  # install and a flatpak put that directory in different places and a name covers both.
+  # These three and no fourth: they are the only browsers used here.
   - ".mozilla/"
   - "google-chrome/"
   - "chromium/"
   # FileZilla's site manager, which keeps each server's password in `sitemanager.xml` and
-  # `recentservers.xml` encoded rather than encrypted, so anything that reads the file reads
-  # the password. A name for the reason the browsers are: the native store is
-  # `~/.config/filezilla` and the flatpak keeps its own under `.var/app`, and this covers both
-  # wherever an install puts them.
+  # `recentservers.xml` encoded rather than encrypted. A name for the reason the browsers
+  # are: the native store is `~/.config/filezilla` and the flatpak keeps its own under
+  # `.var/app`.
   - "filezilla/"
-  # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
-  # matches no file and covers one the day a playbook grows a vault.
-  #
-  # Both, because neither covers the other: the suffix takes `group_vars/all.vault` and the
-  # name takes `vault.yml`, which ends in `.yml` and so matches no `.vault` suffix. The
-  # `vault*` that would span them also takes the vault binary and anything named after it.
+  # ansible-vault, which nothing here uses. Both entries, because neither covers the other:
+  # the suffix takes `group_vars/all.vault` and the name takes `vault.yml`, which ends in
+  # `.yml`. The `vault*` that would span them also takes the vault binary.
   - "*.vault"
   - vault.yml
-  # A sops store under the names sops files are given. The managed store faramir serves is
-  # covered by faramir itself; this is any other one that lands in a tree.
+  # A sops store under the names sops files are given, meaning any one that lands in a tree;
+  # the managed store faramir serves is covered by faramir itself.
   #
   # One wildcard, not `secrets*.y*ml`: only the first `*` in a glob is rendered into the
-  # regex spelling, so a second one is written literally and that agent's rule matches
-  # nothing while the others match. This spans `.yml` and `.yaml`, and `secrets.json` and
-  # `secrets.env` with them, all of which are the same file under another extension.
+  # regex spelling, so a second is written literally and that agent's rule matches nothing.
+  # This spans `.yml`, `.yaml`, `secrets.json` and `secrets.env` alike.
   - "secrets*"
-  # The token files gemini writes, by name rather than by path: the path they take has moved
-  # between versions, and a path entry for one that is not there yet is stat-checked away and
-  # covers nothing until a later run. A name costs nothing while it matches nothing and
-  # covers the file the hour it appears, which is what the narrowed `.gemini` entry above
-  # relies on.
-  #
-  # Written to `~/.gemini/` beside the config, one holding the OAuth refresh token and the
-  # other the account it belongs to, on the login flow rather than at install.
+  # The token files gemini writes, beside the config, on the login flow rather than at
+  # install: one holding the OAuth refresh token and the other the account it belongs to. By
+  # name because the path has moved between versions, which is what the narrowed `.gemini`
+  # path entry above relies on.
   - oauth_creds.json
   - google_accounts.json
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
-  # Reachable only through the container, so only a name reaches it. Read a config-entry field
-  # with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
-  # redacts itself rather than leaving the redaction to a hand-written selector.
+  # Reachable only through the container, so only a name reaches it. Read a config-entry
+  # field with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
+  # redacts itself.
   - ".storage/core.config_entries"
 
-# Commands the agent's shell is refused, the third entry form. Literal words, not a pattern:
-# the space between them matches any run of whitespace and nothing else is special, so write
-# what you would type. This reaches the command guard alone, a command being neither a path
-# nor a file name, and needs a faramir carrying the form at all.
+# Commands the agent's shell is refused. Literal words, not a pattern: the space between them
+# matches any run of whitespace and nothing else is special, so write what you would type.
+# This reaches the command guard alone, a command being neither a path nor a file name.
 #
-# The credential managers this fleet does not run. Armed rather than useful, for the reason
-# the ansible-vault names above are: the rule costs nothing while nothing answers to it, and
-# it covers the tool the day one is installed rather than the day someone remembers to come
-# back here. An alternation is spelled out, `vault read` and `vault kv get` being two.
+# The credential managers this fleet does not run, so each rule costs nothing until one is
+# installed. An alternation is spelled out, `vault read` and `vault kv get` being two.
 #
-# What it covers is the spelling written here and no other, which is less than it reads like
-# for a tool whose subcommand can be left out. `pass show X` and `pass X` are one command, and
-# the bare `pass` that would span them renders `\bpass\b`, which matches inside
-# `--ask-become-pass` on an ordinary ansible line: `-` is a non-word byte, so the boundary
-# holds there and every playbook run asking for a password would be refused. So the explicit
-# spelling alone, deliberately, and the elided one is not covered.
+# A command whose subcommand can be left out is covered in the spelling written here and no
+# other: `pass show X` and `pass X` are one command, and the bare `pass` that would span them
+# renders `\bpass\b`, which matches inside `--ask-become-pass` on an ordinary ansible line.
 #
-# Editing this list is the next thing the guard refuses. A declared command is matched against
-# the command line as a string rather than against what would execute, so a grep or a heredoc
-# naming one of these is refused in this file as anywhere else. Use an editor, not a shell.
+# Editing this list is the next thing the guard refuses: a declared command is matched
+# against the command line as a string, so a grep or a heredoc naming one is refused here as
+# anywhere else. Use an editor, not a shell.
 #
-# What is deliberately absent is sops, age and ansible-vault, which are installed here. Their
-# target was faramir's own store and key, and that is covered by path now: a read or a write
-# of this install's paths is blocked whatever tool is pointed at it. A blanket `sops -d` would
-# add nothing there and would stop the operator debugging an unrelated sops file through a
-# brokered command. `age-keygen` is out for a sharper reason: the rule it would replace
-# allowed `age-keygen -o FILE`, which writes a key 0400 rather than printing one, and a
-# literal entry cannot make that distinction.
+# sops, age and ansible-vault are deliberately absent. Their target was faramir's own store
+# and key, which is covered by path now, and a blanket rule would stop the operator debugging
+# an unrelated file through a brokered command. `age-keygen` is out for a sharper reason: the
+# rule it would replace allowed `age-keygen -o FILE`, which writes a key rather than printing
+# one, and a literal entry cannot make that distinction.
 faramir_blocked_commands:
   - op read
   - op item get
   - op inject
   - pass show
-  # Bare, unlike `pass show` above: no flag on this fleet carries the word, so the boundary
-  # that makes `pass` unsafe holds nowhere here, and every subcommand is covered rather than
-  # the one spelling. Blunt on purpose, nothing running it to be blunt with.
+  # Bare, unlike `pass show` above: no flag on this fleet carries the word, so every
+  # subcommand is covered rather than the one spelling.
   - gopass
   - vault read
   - vault kv get
@@ -358,25 +279,13 @@ faramir_blocked_commands:
 # store. One entry per ref: `ref`, `path`, `type` (`text`, `base64`, `json`, `yaml`, `toml`,
 # `ini`) and `key` for the four that select.
 #
-# Empty here and set in `host_vars`, unlike the refused paths above: `link add` refuses a new
+# Empty here and set in `host_vars`, unlike the blocked paths above: `link add` refuses a new
 # entry whose file is not there, so a link named in defaults fails the run on a controller
-# that does not have that file, while an absent refused path is skipped and named.
+# that does not have that file.
 #
-# A link is the stronger of the two entries. It refuses the path to the agent's file tools as
-# a refusal does, and on top of that regroups the file so a brokered command is refused it
-# too, and puts the value in the redactor. So a linked path does not also belong in
-# `faramir_blocked_paths`, where it would render the same rule and nothing else.
-#
-# It is also the one that can stop the host: a linked file that is there and will not read
-# leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool
-# that rewrites its own file by rename takes the broker's read with it. A re-run of this role
-# grants it again; between runs the agent has no broker. Prefer a refusal for a credential no
-# brokered command asks for by name, and reserve a link for a file its owning tool rewrites
-# in place.
-#
-# The ref namespace is the store's, so a name here that the store defines is refused, and a
-# ref this install already defines against a different file, type or key is refused too
-# rather than replaced.
+# A link is the stronger entry, and the one that can stop the host. What it grants, when to
+# prefer a block, and why a linked path does not also go in `faramir_blocked_paths`:
+# README.md.
 faramir_links: []
 
 # Whether tasks/ssh.yml authorizes the key and the NOPASSWD sudo, or removes both.

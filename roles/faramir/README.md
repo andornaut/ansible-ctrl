@@ -73,8 +73,8 @@ managed host. The one password prompt comes before anything applies.
 
 Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, and `SUDO_USER` otherwise.
 Each covers what the other gets wrong: `SUDO_USER` is the operator wherever a human typed the sudo, and the
-executor account on a brokered run, which is the one `FARAMIR_OPERATOR` answers. A host whose faramir predates
-that variable resolves the executor and refuses the run, naming the home it looked in; `make faramir` fixes it.
+executor account on a brokered run, which is the one `FARAMIR_OPERATOR` answers. A run that resolves the executor
+refuses, naming the home it looked in.
 
 The agent's route takes no password:
 
@@ -101,11 +101,10 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
   read. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
 - **An encrypted home has to be mounted, and the run stops if it is not.** `getent` answers with the home's path
   whether or not anything is mounted there, so a run against a locked home would write all three of those onto the
-  mountpoint, in the clear on the underlying filesystem, and the next login would hide them under the mount. It
-  would also read every credential store in that home as absent and block none of them. The check is
-  ecryptfs-specific, `/home/<user>` being a mount point on no host that has nothing to unlock: it looks for
-  `/home/.ecryptfs/<user>`, which sits outside the home and so answers the same either way, and then requires the
-  home among `ansible_facts["mounts"]`. A laptop up but not logged in is the case this catches.
+  mountpoint, in the clear on the underlying filesystem, and would read every credential store in that home as
+  absent. The check is ecryptfs-specific: it looks for `/home/.ecryptfs/<user>`, which sits outside the home and so
+  answers the same either way, and then requires the home among `ansible_facts["mounts"]`. A laptop up but not
+  logged in is the case this catches.
 - **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml` on the controller.
   One held anywhere else is neither injectable through `--env` nor known to the redactor, unless a
   `faramir_links` entry reads it where its own tool keeps it.
@@ -140,9 +139,9 @@ of that, the role:
   links the library, and `faramir init` mints the keypair
 - Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI
   re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. A version tag
-  (`v0.1.5`) pins it, once one carries the CLI the entry commands need: every tag up to that one predates it, and
-  the failures are in the version bullet [below](#blocked-paths-and-linked-secrets). The tag is named rather than
-  resolved through the API: `dev` is published with `make_latest=false`, so `/releases/latest` never returns it
+  pins it, provided that tag carries the CLI the [entry commands](#blocked-paths-and-linked-secrets) need. The tag
+  is named rather than resolved through the API: `dev` is published with `make_latest=false`, so
+  `/releases/latest` never returns it
 - On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
 - Converges the three block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
@@ -199,30 +198,25 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   directory blocks everything under it, whether or not it is one on the day the rule is written. The run prints
   what each entry warned about.
 - **Only a blocked path the host has is configured.** The role stats each one as root and names the rest in its
-  output rather than blocking them, an entry naming a path no host here carries being one nothing can check. A file
-  that appears after a run is blocked by the next one and not before. What makes that safe is the check below: an
-  absent path can only mean the host has no such thing.
-- **Both commands are idempotent**, so the role names every entry it configures on every run rather than diffing
-  the install: an entry already carried is re-applied, which is what puts back a grant a tool took away and a rule
-  an agent's settings dropped. The state read first is whether a blocked path is there, and what the host
-  declares, which is the removal's to compare. `faramir init`
-  re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
-  file.
-- **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand rather than
-  `refuse`, a flag per form (`--path`, `--name`, `--command`) with no default and a bare argument refused, `--json`
-  on each, `--declared` on `block ls`, no `--config-dir` on any of them but
-  `init`, and an add that puts what it declares in force rather than leaving it to the next `init`. A tag pinned to
-  anything older fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
+  output rather than blocking them. A file that appears after a run is blocked by the next one and not before,
+  which is safe because an absent path can only mean the host has no such thing: `broker.yml` has already refused
+  a home that is encrypted and not mounted.
+- **Both commands are idempotent**, so the role names every entry on every run rather than diffing the install: an
+  entry already carried is re-applied, which is what puts back a grant a tool took away and a rule an agent's
+  settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards.
+- **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand, a flag per form
+  with no default, `--json` on each, `--declared` on `block ls`, and no `--config-dir` on any of them but `init`.
+  An older tag fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
   entry to the next `init`, and a build that still takes `--config-dir`, which without one falls through to
   `/etc/faramir` and configures an install this host does not have.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
 - **The block entries converge both ways.** A run adds what the three lists name and removes every declared entry
   they do not, reading the host's own with `block ls --declared` and comparing per form, since a name and a path
-  spelled the same way are different entries. The listing's `kind` is one of `name`, `path` and `command`, and the
-  run asserts that before it removes anything: a fourth would be matched against the wrong list and removed under
-  the wrong flag. So `block ls --declared` and `defaults/main.yml` agree once a run
-  finishes, and an entry added on a host by hand does not survive one. A path is compared against the whole of
+  spelled the same way are different entries. So the listing and `defaults/main.yml` agree once a run finishes, and
+  an entry added on a host by hand does not survive one. The run asserts that every `kind` it reads back is one of
+  the three, a fourth being one it would compare against no list and leave standing. A path is compared against
+  the whole of
   `faramir_blocked_paths` rather than the present half, or an entry would come and go with the file.
 - **A removal ends the declaration and no more.** It cannot take the rule out of an agent's settings, those files
   being merged rather than replaced, so the host goes on refusing what the entry named until that line is deleted

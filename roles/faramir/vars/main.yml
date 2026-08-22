@@ -10,8 +10,8 @@ faramir_user_home: "{{ ansible_facts['getent_passwd'][faramir_user][4] }}"
 # running them. False where faramir_controller_host is empty, no host being named '' .
 faramir_is_controller: "{{ inventory_hostname == faramir_controller_host }}"
 
-# Debian arch for the sops package, mapped from the kernel name Ansible reports. Apart from
-# faramir_arch, which is goreleaser's naming and leaves x86_64 alone: a .deb is amd64.
+# Debian arch for the sops package, mapped from the kernel name Ansible reports. Not
+# faramir_arch below, which is goreleaser's naming: a .deb is amd64.
 faramir_deb_arch: >-
   {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
 
@@ -42,12 +42,12 @@ faramir_binary: /usr/local/bin/faramir
 # name a path init never writes, and tasks/ssh.yml reads the public half from it.
 faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 
-# argv rather than a command string: the paths come from the inventory and may need
-# quoting. Resolves only inside the install block, which registers faramir_release_tmp.
+# argv rather than a command string: the paths come from the inventory and may need quoting.
+# Resolves only inside the install block, which registers faramir_release_tmp.
 #
-# The one command taking --config-dir, and the one whose caller decides where the config
-# goes. The rest read $FARAMIR_CONFIG, then the running broker, then the broker's unit, so
-# a config outside the default directory is found without being named.
+# The one command taking --config-dir. The rest read $FARAMIR_CONFIG, then the running
+# broker, then the broker's unit, so a config outside the default directory is found without
+# being named.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -76,12 +76,10 @@ faramir_init_project_argv: >-
   }}
 
 # The entry commands, each taking its subject after these under the flag naming its form:
-# --path, --name or --command. No form is the default and a bare argument is refused, so an
-# entry always says which of the three it is. All are idempotent -- an
-# entry the install already carries is re-applied rather than refused -- so the role names
-# every entry on every run instead of diffing the host first, and reads `changed` off the
-# report. The re-application is what puts back a grant a tool took away by renaming its own
-# file, and a rule an agent's settings dropped.
+# --path, --name or --command. No form is the default and a bare argument is refused. Both
+# are idempotent, so the role names every entry on every run rather than diffing the host
+# first: re-applying is what puts back a grant a tool took away by renaming its own file, and
+# a rule an agent's settings dropped.
 #
 # --agent-user for the reason faramir_doctor_argv carries it: nothing on the host says which
 # account the agent runs as, and these render that account's rule files.
@@ -89,13 +87,8 @@ faramir_block_argv: >-
   {{ [faramir_binary, 'block', 'add', '--json',
       '--agent-user', faramir_user] }}
 
-# The removal half, for an entry the role has stopped declaring. The form an entry was
-# written in is part of what identifies it, so each comes back out under the flag it went in
-# under, and a path is not removed by naming it as a name.
-#
-# What it cannot do is take the rendered rule out of an agent's settings, those files being
-# merged rather than replaced. So a removal ends the declaration and the host goes on
-# refusing what it named until that line is deleted by hand.
+# The removal half. An entry comes back out under the flag it went in under, the form being
+# part of what identifies it, and a removal ends the declaration and no more: README.md.
 faramir_block_rm_argv: >-
   {{ [faramir_binary, 'block', 'rm', '--json',
       '--agent-user', faramir_user] }}

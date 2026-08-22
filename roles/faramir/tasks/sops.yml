@@ -1,8 +1,7 @@
 ---
-# The keeper execs sops rather than linking it, which is what keeps every cloud KMS SDK sops
-# supports out of the binary faramir ships. So every host running the broker needs the
-# command, and it is installed here rather than asserted: the broker is the only thing in
-# this repo that needs sops, and a faramir host is not necessarily a dev host.
+# The keeper execs sops rather than linking it, which keeps every cloud KMS SDK sops supports
+# out of the binary faramir ships, so every host running the broker needs the command.
+# Installed here rather than asserted: a faramir host is not necessarily a dev host.
 #
 # No age package: sops links the library, and `faramir init` mints the keypair.
 - name: Install sops
@@ -23,8 +22,7 @@
              | map(attribute='browser_download_url') | list }}
 
     # `first` on an empty match raises "No first item, sequence was empty", which names
-    # neither sops nor the architecture nor the pattern that missed. This is the code most
-    # exposed to a decision taken in another project, so it says what it looked for.
+    # neither sops nor the architecture nor the pattern that missed.
     - name: Require a sops package for this architecture
       ansible.builtin.assert:
         that: faramir_sops_deb_urls | length > 0
