@@ -293,6 +293,17 @@ faramir_blocked_names:
 # it covers the tool the day one is installed rather than the day someone remembers to come
 # back here. An alternation is spelled out, `vault read` and `vault kv get` being two.
 #
+# What it covers is the spelling written here and no other, which is less than it reads like
+# for a tool whose subcommand can be left out. `pass show X` and `pass X` are one command, and
+# the bare `pass` that would span them renders `\bpass\b`, which matches inside
+# `--ask-become-pass` on an ordinary ansible line: `-` is a non-word byte, so the boundary
+# holds there and every playbook run asking for a password would be refused. So the explicit
+# spelling alone, deliberately, and the elided one is not covered.
+#
+# Editing this list is the next thing the guard refuses. A declared command is matched against
+# the command line as a string rather than against what would execute, so a grep or a heredoc
+# naming one of these is refused in this file as anywhere else. Use an editor, not a shell.
+#
 # What is deliberately absent is sops, age and ansible-vault, which are installed here. Their
 # target was faramir's own store and key, and that is covered by path now: a read or a write
 # of this install's paths is blocked whatever tool is pointed at it. A blanket `sops -d` would
@@ -302,8 +313,13 @@ faramir_blocked_names:
 # literal entry cannot make that distinction.
 faramir_blocked_commands:
   - op read
+  - op item get
+  - op inject
   - pass show
-  - gopass show
+  # Bare, unlike `pass show` above: no flag on this fleet carries the word, so the boundary
+  # that makes `pass` unsafe holds nowhere here, and every subcommand is covered rather than
+  # the one spelling. Blunt on purpose, nothing running it to be blunt with.
+  - gopass
   - vault read
   - vault kv get
 
