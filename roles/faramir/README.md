@@ -116,7 +116,9 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
   file is valid YAML, so each var binds to its `ENC[...]` ciphertext and hosts get the ciphertext as the password.
   Nor in the checkout, this repo being public. `faramir init` refuses both.
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir_controller'`: commands run as
-  `faramir-exec`, which has no sudo here. Apply the controller's own playbooks as the operator.
+  `faramir-exec`, whose only sudo is the one `faramir_allow_sudo` grants, and that one asks a person per command,
+  so a play would raise a question per task. Apply the controller's own playbooks as the operator, or under the
+  single approval [above](#running-playbooks) buys.
 - **`faramir_allow_sudo` needs the original `sudo`.** Ubuntu 26.04 ships `sudo-rs`, which does not implement
   `pam_service`; the grant names it, so `visudo` rejects the whole file and the install refuses. It removes the
   file again rather than leaving a broken entry, so the host's own `sudo` is unaffected and one left without the
@@ -137,9 +139,10 @@ of that, the role:
 - Installs sops from its own release `.deb`, the keeper execing it rather than linking it. No age package: sops
   links the library, and `faramir init` mints the keypair
 - Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI
-  re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. Set it to a
-  version tag (`v0.5.0`) to pin. The tag is named rather than resolved through the API: `dev` is published with
-  `make_latest=false`, so `/releases/latest` never returns it
+  re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. A version tag
+  (`v0.1.5`) pins it, once one carries the CLI the entry commands need: every tag up to that one predates it, and
+  the failures are in the version bullet [below](#blocked-paths-and-linked-secrets). The tag is named rather than
+  resolved through the API: `dev` is published with `make_latest=false`, so `/releases/latest` never returns it
 - On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
 - Converges the three block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
@@ -234,11 +237,11 @@ only after it has run here once unguarded.
 
 | Agent | In this tree | In the operator's home | Redaction |
 | --- | --- | --- | --- |
-| claude | `PreToolUse` hook and deny rules in `.claude/settings.json`, MCP server in `.mcp.json` | deny rules and a credentials section, both under `.claude/` | full |
-| opencode | plugin in `.opencode/plugins/`, MCP server in `opencode.json` | `.config/opencode/` | full |
-| kilocode | plugin in `.kilo/plugin/`, MCP server in `kilo.json` | `.config/kilo/kilo.json`, `.kilocode/rules/faramir.md` | full |
-| pi | extension in `.pi/extensions/`, which carries the deny rules | `.pi/agent/` | full |
-| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md` | `.gemini/` | none |
+| claude | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md` | full |
+| opencode | plugin in `.opencode/plugins/`, MCP server in `opencode.json` | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md` | full |
+| kilocode | plugin in `.kilo/plugin/`, MCP server in `kilo.json` | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md` | full |
+| pi | extension in `.pi/extensions/`, which carries the deny rules | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: the extension is where pi reads them | full |
+| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md` | a credentials section in `.gemini/GEMINI.md`, and no deny rules | none |
 
 - **Antigravity is partial support.** Its hooks decide and cannot rewrite a tool call, so nothing routes what it
   runs through the broker and nothing redacts what comes back. It gets the MCP tools and the instructions to use
