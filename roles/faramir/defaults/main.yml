@@ -104,6 +104,10 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.private"
   - "{{ faramir_user_home }}/.gnupg"
   - "{{ faramir_user_home }}/.local/share/keyrings"
+  # mrs vaults, which the base role installs the manager for on every host. Encrypted, and
+  # the `.bak` beside each one no less so, though that one opens under the password the vault
+  # carried before the last change. The manager itself is refused as a command below.
+  - "{{ faramir_user_home }}/.local/share/mrs"
   # The NSS databases, holding client certificates and the private keys that go with them
   # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
   - "{{ faramir_user_home }}/.pki"
@@ -248,16 +252,17 @@ faramir_blocked_names:
 # matches any run of whitespace and nothing else is special, so write what you would type.
 # This reaches the command guard alone, a command being neither a path nor a file name.
 #
-# The credential managers this fleet does not run, so each rule costs nothing until one is
-# installed. An alternation is spelled out, `vault read` and `vault kv get` being two.
+# `mrs` is the one this fleet runs, the base role installing it on every host; the rest are
+# credential managers it does not, so each of those costs nothing until one is installed. An
+# alternation is spelled out, `vault read` and `vault kv get` being two.
 #
-# A command whose subcommand can be left out is covered in the spelling written here and no
-# other: `pass show X` and `pass X` are one command, and the bare `pass` that would span them
-# renders `\bpass\b`, which matches inside `--ask-become-pass` on an ordinary ansible line.
+# An entry matches where a command starts: the beginning of a line, after a separator, or
+# behind a prefix that runs something else (`sudo`, `env`, a `VAR=value` assignment). So a
+# bare word covers every use of a tool, and a spelled-out subcommand narrows the rule to that
+# one use of it. Neither matches the same word inside a flag or a path argument.
 #
-# Editing this list is the next thing the guard refuses: a declared command is matched
-# against the command line as a string, so a grep or a heredoc naming one is refused here as
-# anywhere else. Use an editor, not a shell.
+# A heredoc line starts at a command position like any other, so writing this list through a
+# shell can be refused by an entry it names. Use an editor.
 #
 # sops, age and ansible-vault are deliberately absent. Their target was faramir's own store
 # and key, which is covered by path now, and a blanket rule would stop the operator debugging
@@ -265,6 +270,11 @@ faramir_blocked_names:
 # rule it would replace allowed `age-keygen -o FILE`, which writes a key rather than printing
 # one, and a literal entry cannot make that distinction.
 faramir_blocked_commands:
+  # The operator's own vault manager. Bare, so every subcommand goes with it: `export` and
+  # `search` print secrets, `edit` decrypts a vault into $EDITOR, `add` writes to one, and
+  # `vault delete` destroys one. That takes `vault list` and `vault default` too, which print
+  # names and paths and no secrets, and the listing is the whole of what the refusal costs.
+  - mrs
   - op read
   - op item get
   - op inject

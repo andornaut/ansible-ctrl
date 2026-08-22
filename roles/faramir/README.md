@@ -172,6 +172,10 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   `*.suffix`, `prefix*`, a wildcard inside a name, or a trailing `/` for a directory.
 - **A command is literal words, not a pattern.** The space between them matches any run of whitespace and nothing
   else is special. An alternation is spelled out as separate entries.
+- **A command entry matches where a command starts**: the beginning of a line, after a separator, or behind a
+  prefix that runs something else (`sudo`, `env`, a `VAR=value` assignment). So a bare word covers every use of a
+  tool and not the same word inside a flag or a path argument, and a spelled-out subcommand narrows it to that one
+  use.
 
 | | a block entry | `faramir_links` |
 | --- | --- | --- |
