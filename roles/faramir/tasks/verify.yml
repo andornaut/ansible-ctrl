@@ -43,10 +43,10 @@
     # `warn` covers what doctor could not ask as well as what it found: a check it skipped
     # is a warn too, and a skipped check reads as a passing one anywhere else.
     #
-    # Expect these until the CLEANUP entries in this file and entries.yml are dropped. An
-    # entry taken out of the block lists leaves its rendered rule in an agent's settings,
-    # which are merged rather than replaced, so a host carries rules faramir no longer
-    # writes and says so on every run.
+    # Expect one per rule an agent's settings still carry for an entry that has been taken
+    # out of the block lists: entries.yml removes the entry and the rendered rule stays,
+    # those files being merged rather than replaced. It clears when that line is deleted by
+    # hand, and until then the host says so on every run.
     - name: Show what faramir doctor warned about
       ansible.builtin.debug:
         msg: "{{ item.check }}: {{ item.detail }}"

@@ -3,10 +3,19 @@
 # file tools, and credentials read where another tool keeps them. Both are `faramir init`'s
 # to re-assert once written, so this converges the list and init carries it from there.
 #
-# Adds only. The `rm` half of each entry command drops the entry but cannot take the
-# rule out of an agent's settings, those files being merged rather than replaced, so a
-# converge to an empty list would report a removal that did not happen. Take one out by
-# removing it here and running the rm by hand.
+# The block entries converge both ways: what the lists name is added, and a declared entry
+# they do not name is removed, so `block ls --declared` and defaults/main.yml agree once a
+# run finishes. An entry added on a host by hand does not survive a run, which is the point:
+# this role is the whole of what the fleet declares.
+#
+# A removal ends the declaration and no more. It cannot take the rendered rule out of an
+# agent's settings, those files being merged rather than replaced, so the host goes on
+# refusing what the entry named until that line is deleted by hand. faramir doctor warns
+# about the ones still standing.
+#
+# The links are adds only. Take one out by removing it from faramir_links and running the rm
+# by hand: a link grants the broker read and regroups the file, so dropping one is a change
+# to what the host can serve rather than a list falling back into agreement.
 
 # faramir holds each entry to its own rules and says which one an entry broke, but only
 # once the command runs: a missing key here builds a command naming the wrong thing, or
@@ -85,38 +94,75 @@
     faramir_block_command.stdout | length > 0
     and (faramir_block_command.stdout | from_json).changed
 
-# CLEANUP (added 2026-08-21): delete this task once every host in the `faramir` group has run
-# this play, a `block ls --declared` on each naming none of the three. Nothing else goes
-# with it: the argv is inline rather than a var, and it is deliberately absent from the warning
-# collection below, so removal is this block and nothing more.
+# What the host declares, which is the only way to find an entry the lists have stopped
+# naming: the adds above see the list and not the host. --declared leaves out the rules the
+# install derives from its own layout, which no entry wrote and none removes.
 #
-# The role is adds-only otherwise, for the reason in this file's header. That leaves a name
-# taken out of faramir_blocked_names declared on every host that already had it, which no
-# later run undoes, so `block ls` and defaults/main.yml disagree until something removes it.
-# These three are what that list dropped: a key type OpenSSH is retiring, and the two sops
-# globs that one wildcard now spans.
-#
-# Safe anywhere and repeatedly. An entry a host never had is not an error and reports
-# changed=false, and this runs after the install above, so the three are ordinary declared
-# entries by then rather than rules faramir carries itself, which it refuses to remove.
-#
-# What it does not do is take the rendered rule out of an agent's settings, those files being
-# merged rather than replaced. A rule blocking a name that matches nothing costs nothing, so
-# they stay; this brings `block ls` back into agreement, not the rule files.
-- name: Remove the blocked names this role no longer declares
+# After the adds, so an entry renamed in one run is written under its new form before the old
+# one is taken away. Root, like the adds: the config it reads is the install's own, in the
+# directory whose mode keeps the agent's uid out.
+- name: List the block entries this host declares
   ansible.builtin.command:
-    argv: >-
-      {{ [faramir_binary, 'block', 'rm', '--json',
-          '--agent-user', faramir_user, '--name', item] }}
+    argv: "{{ [faramir_binary, 'block', 'ls', '--declared', '--json'] }}"
   become: true
-  loop:
-    - id_dsa
-    - "secrets*.yml"
-    - "secrets*.yaml"
-  register: faramir_block_retired
+  register: faramir_block_declared
+  changed_when: false
+
+# Compared per form, the form being part of what identifies an entry: a name is not the same
+# entry as a path spelled the same way. Everything that is neither a path nor a command is
+# one of the name forms, `ls` reporting the shape a pattern was read as -- name, suffix,
+# prefix, glob, dir -- rather than the word the entry was written with.
+#
+# Against the whole of faramir_blocked_paths rather than the present half above: a path this
+# host does not have today is one the adds skip, not one the lists dropped, and removing it
+# would leave the entry going in and out with the file.
+#
+# stdout defaults for the --check run, where the listing above is skipped along with the adds
+# and there is nothing to compare.
+- name: Find the entries this role no longer declares
+  ansible.builtin.set_fact:
+    faramir_block_stale_paths: >-
+      {{ faramir_block_rows | selectattr('kind', 'equalto', 'path')
+         | map(attribute='entry') | reject('in', faramir_blocked_paths) | list }}
+    faramir_block_stale_names: >-
+      {{ faramir_block_rows | rejectattr('kind', 'in', ['path', 'command'])
+         | map(attribute='entry') | reject('in', faramir_blocked_names) | list }}
+    faramir_block_stale_commands: >-
+      {{ faramir_block_rows | selectattr('kind', 'equalto', 'command')
+         | map(attribute='entry') | reject('in', faramir_blocked_commands) | list }}
+  become: false
+  vars:
+    faramir_block_rows: "{{ faramir_block_declared.stdout | default('[]') | from_json }}"
+
+- name: Stop blocking a path this role no longer declares
+  ansible.builtin.command:
+    argv: "{{ faramir_block_rm_argv + [item] }}"
+  become: true
+  loop: "{{ faramir_block_stale_paths }}"
+  register: faramir_block_rm_path
   changed_when: >-
-    faramir_block_retired.stdout | length > 0
-    and (faramir_block_retired.stdout | from_json).changed
+    faramir_block_rm_path.stdout | length > 0
+    and (faramir_block_rm_path.stdout | from_json).changed
+
+- name: Stop blocking a name this role no longer declares
+  ansible.builtin.command:
+    argv: "{{ faramir_block_rm_argv + ['--name', item] }}"
+  become: true
+  loop: "{{ faramir_block_stale_names }}"
+  register: faramir_block_rm_name
+  changed_when: >-
+    faramir_block_rm_name.stdout | length > 0
+    and (faramir_block_rm_name.stdout | from_json).changed
+
+- name: Stop blocking a command this role no longer declares
+  ansible.builtin.command:
+    argv: "{{ faramir_block_rm_argv + ['--command', item] }}"
+  become: true
+  loop: "{{ faramir_block_stale_commands }}"
+  register: faramir_block_rm_command
+  changed_when: >-
+    faramir_block_rm_command.stdout | length > 0
+    and (faramir_block_rm_command.stdout | from_json).changed
 
 - name: Read a linked secret out of the file its own tool maintains
   ansible.builtin.command:
@@ -146,6 +192,21 @@
   # one added back that way would have counted equal and said nothing.
   when: faramir_blocked_paths | difference(faramir_blocked_present) | length > 0
 
+# Named because a removal only half finishes: the entry is gone and the rendered rule is not,
+# so the host keeps refusing what it named. Under --json the command reports the removal and
+# says none of this, printing that line only where a person is reading its output.
+- name: Name the entries this run stopped declaring
+  ansible.builtin.debug:
+    msg: >-
+      No longer declared, so removed:
+      {{ (faramir_block_stale_paths + faramir_block_stale_names
+          + faramir_block_stale_commands) | sort | join(', ') }}.
+      The rule each rendered stays in the agent's settings, which are merged rather than
+      replaced, until that line is deleted by hand.
+  when: >-
+    (faramir_block_stale_paths + faramir_block_stale_names
+     + faramir_block_stale_commands) | length > 0
+
 # What installs cleanly and then does not work: a linked file that has gone, and whatever else
 # an add reports without failing on.
 - name: Show what the entries warned about
@@ -155,6 +216,9 @@
     {{ (faramir_block.results | default([])
         + faramir_block_name.results | default([])
         + faramir_block_command.results | default([])
+        + faramir_block_rm_path.results | default([])
+        + faramir_block_rm_name.results | default([])
+        + faramir_block_rm_command.results | default([])
         + faramir_link.results | default([]))
        | map(attribute='stdout', default='')
        | reject('equalto', '')

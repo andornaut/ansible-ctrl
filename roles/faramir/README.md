@@ -201,18 +201,30 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   absent path can only mean the host has no such thing.
 - **Both commands are idempotent**, so the role names every entry it configures on every run rather than diffing
   the install: an entry already carried is re-applied, which is what puts back a grant a tool took away and a rule
-  an agent's settings dropped. The only state read first is whether a blocked path is there. `faramir init`
+  an agent's settings dropped. The state read first is whether a blocked path is there, and what the host
+  declares, which is the removal's to compare. `faramir init`
   re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
   file.
 - **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand rather than
-  `refuse`, `--command` entries, `--json` on each, and an add that puts what it declares in force rather than
-  leaving it to the next `init`. A tag pinned to anything older fails with cobra's unknown-flag error, except for
-  the last of those, which succeeds while declaring an entry that does not take effect until the run after.
+  `refuse`, `--command` entries, `--json` on each, `--declared` on `block ls`, no `--config-dir` on any of them but
+  `init`, and an add that puts what it declares in force rather than leaving it to the next `init`. A tag pinned to
+  anything older fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
+  entry to the next `init`, and a build that still takes `--config-dir`, which without one falls through to
+  `/etc/faramir` and configures an install this host does not have.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
-- **Removal is by hand.** The `rm` half of either entry command drops the entry but cannot take the rule out of
-  an agent's settings, those files being merged rather than replaced, so the role only ever adds. Take an entry out
-  of the list here and run the `rm` yourself.
+- **The block entries converge both ways.** A run adds what the three lists name and removes every declared entry
+  they do not, reading the host's own with `block ls --declared` and comparing per form, since a name and a path
+  spelled the same way are different entries. So `block ls --declared` and `defaults/main.yml` agree once a run
+  finishes, and an entry added on a host by hand does not survive one. A path is compared against the whole of
+  `faramir_blocked_paths` rather than the present half, or an entry would come and go with the file.
+- **A removal ends the declaration and no more.** It cannot take the rule out of an agent's settings, those files
+  being merged rather than replaced, so the host goes on refusing what the entry named until that line is deleted
+  by hand. The run names what it removed, and `faramir doctor` warns for as long as a rule stands that no entry
+  writes.
+- **`faramir_links` is adds only.** A link grants the broker read and regroups the file, so dropping one changes
+  what the host can serve rather than bringing a list back into agreement. Take an entry out of `faramir_links`
+  and run the `rm` yourself.
 
 ## Agents
 

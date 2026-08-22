@@ -75,7 +75,7 @@ faramir_init_project_argv: >-
     + [playbook_dir]
   }}
 
-# The two entry commands, each taking its subject after these. Both are idempotent -- an
+# The entry commands, each taking its subject after these. All are idempotent -- an
 # entry the install already carries is re-applied rather than refused -- so the role names
 # every entry on every run instead of diffing the host first, and reads `changed` off the
 # report. The re-application is what puts back a grant a tool took away by renaming its own
@@ -85,6 +85,17 @@ faramir_init_project_argv: >-
 # account the agent runs as, and these render that account's rule files.
 faramir_block_argv: >-
   {{ [faramir_binary, 'block', 'add', '--json',
+      '--agent-user', faramir_user] }}
+
+# The removal half, for an entry the role has stopped declaring. The form an entry was
+# written in is part of what identifies it, so a name comes back out under --name and a
+# command under --command; a path is named as it was added.
+#
+# What it cannot do is take the rendered rule out of an agent's settings, those files being
+# merged rather than replaced. So a removal ends the declaration and the host goes on
+# refusing what it named until that line is deleted by hand.
+faramir_block_rm_argv: >-
+  {{ [faramir_binary, 'block', 'rm', '--json',
       '--agent-user', faramir_user] }}
 
 faramir_link_argv: >-
