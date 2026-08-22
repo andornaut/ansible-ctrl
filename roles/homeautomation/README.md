@@ -26,10 +26,10 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | [hamcp](https://github.com/homeassistant-ai/ha-mcp) | Home Assistant MCP server |
 | homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
 | llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
-| matter | [Matter.js](https://github.com/project-chip/matter.js) or [Python Matter Server](https://github.com/home-assistant-libs/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
+| matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://www.memryx.com/) | GPU accelerator drivers |
 | teardown | Remove the containers and host files of components this host does not install |
-| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/rhasspy/wyoming-faster-whisper) STT |
+| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT |
 
 ## Variables
 
@@ -193,7 +193,7 @@ letsencrypt_nginx_websites:
 ### ha-mcp
 
 [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the
-[Model Context Protocol](https://modelcontextprotocol.io/).
+[Model Context Protocol](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro).
 
 1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
 1. Set `homeautomation_install_hamcp: true` and add an entry to `homeautomation_hamcp_instances` in host vars

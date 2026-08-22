@@ -17,15 +17,15 @@ make dev -- --tags rust
 | [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
 | [android_sdk](https://developer.android.com/tools) | Android command line tools, platform and build-tools, gated on `dev_install_android_sdk` |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
-| [claude](https://docs.anthropic.com/en/docs/claude-code) | AI coding assistant |
+| [claude](https://platform.claude.com/docs/en/docs/claude-code) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
 | [go](https://go.dev/) | Go toolchain |
 | java | [OpenJDK](https://openjdk.org/) 17 and 21 |
-| javascript | [Node.js](https://nodejs.org/) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default |
+| javascript | [Node.js](https://nodejs.org/en) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default |
 | [kilocode](https://github.com/Kilo-Org/kilocode) | Kilo Code CLI and VS Code extension |
 | [opencode](https://github.com/opencode-ai/opencode) | OpenCode AI tool |
-| pi | Two coding agents: [pi](https://github.com/badlogic/pi-mono) (`pi`) and [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`), a fork of it |
+| pi | Two coding agents: [pi](https://github.com/earendil-works/pi) (`pi`) and [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`), a fork of it |
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby), [ruby-install](https://github.com/postmodern/ruby-install), and `dev_ruby_version` built under `~/.rubies` with [Bundler](https://bundler.io/) |
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |

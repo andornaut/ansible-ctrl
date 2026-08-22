@@ -78,7 +78,7 @@ M5Stack bluetooth proxy:
 
 ### Coral.ai USB Accelerator
 
-- [Product page](https://coral.ai/products/accelerator/)
+- [Product page](https://developers.google.com/coral)
 
 ### Eve Door & Window Contact Sensor
 

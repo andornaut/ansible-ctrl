@@ -1,6 +1,6 @@
 # ansible-role-niri
 
-Installs the [niri](https://github.com/YaLTeR/niri) Wayland compositor, the Hyprland ecosystem tools, and the
+Installs the [niri](https://github.com/niri-wm/niri) Wayland compositor, the Hyprland ecosystem tools, and the
 Wayland utilities its session requires, on Ubuntu.
 
 ## Usage
@@ -16,8 +16,8 @@ make desktop -- --tags niri
 
 | Tag | Description |
 | --- | --- |
-| [hypr](https://hyprland.org/) | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper) |
-| [niri](https://github.com/YaLTeR/niri) | Wayland compositor |
+| [hypr](https://hypr.land/) | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper) |
+| [niri](https://github.com/niri-wm/niri) | Wayland compositor |
 | [wayland](https://wayland.freedesktop.org/) | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 
 ## Variables

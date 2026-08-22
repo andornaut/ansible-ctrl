@@ -16,7 +16,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | Tag | Description |
 | --- | --- |
 | [alacritty](https://alacritty.org/) | Terminal emulator |
-| browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.mozilla.org/firefox/), then points `xdg-settings` at `desktop_default_browser` |
+| browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.firefox.com/), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control |
 | [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources) |
 | display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly), *tiling* |
