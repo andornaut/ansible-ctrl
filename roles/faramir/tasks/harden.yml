@@ -59,7 +59,33 @@
   loop: "{{ faramir_links }}"
   loop_control:
     label: "{{ item.ref }}"
+  register: faramir_link_files
   become: true
+
+# A group or mode change moves neither mtime nor size, which is all the broker fingerprints,
+# so it does not notice one and goes on serving what it read before. What degrades a ref is
+# the file being replaced, which the broker does notice and then fails to read; the change
+# above is the repair after that, and only then is a re-read owed. Gated on a change for that
+# reason: an unchanged file is one the broker never gave up on.
+#
+# Said rather than done. `faramir reload` clears it, stopping the socket-activated services so
+# the next brokered command loads them fresh, and a broker restart would do as well. Neither
+# can run from here: a stop waits for the brokered command still inside the executor, which is
+# this play wherever the run was launched through `faramir run`, and the command waits on the
+# stop. TimeoutStopSec ends the deadlock by killing the broker out from under the run.
+- name: Say which linked files were repaired and have not been re-read
+  ansible.builtin.debug:
+    msg: >-
+      Corrected the group or mode of {{ faramir_link_repaired | join(', ') }}. The broker goes
+      on refusing a ref it gave up on until it re-reads the file, so run `sudo faramir reload`
+      from a root shell, outside any `faramir run`. Until then `faramir status` exits non-zero
+      and `faramir doctor` fails, both naming the ref.
+  vars:
+    faramir_link_repaired: >-
+      {{ faramir_link_files.results | default([]) | selectattr('changed')
+         | map(attribute='item.ref') | list }}
+  when: faramir_link_repaired | length > 0
+  become: false
 
 # init grants the client group traversal from the home down, and what that reaches is
 # whatever the `other` bits allow: the umask is 0002, so a directory created later arrives
