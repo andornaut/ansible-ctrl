@@ -165,12 +165,6 @@ faramir_blocked_paths:
   # refresh token. Each tool opens its own file, so a refusal costs neither of them anything.
   - "{{ faramir_user_home }}/.config/gh"
   - "{{ faramir_user_home }}/.clasprc.json"
-  # Registry auth in the clear: with no credsStore, `auths` holds base64 user:pass, and no
-  # managed ref carries those, so nothing redacts them either. Refused rather than linked
-  # because `docker login` replaces the file by rename and the replacement is created 0600,
-  # which takes the broker's read with it and leaves it refusing every ref until the next
-  # run of this role grants it again.
-  - "{{ faramir_user_home }}/.docker/config.json"
   # Site passwords the application keeps itself rather than handing to a keyring: FileZilla
   # encodes them in `sitemanager.xml`, PuTTY keeps a session's proxy password beside the rest
   # of its settings, MQTT Explorer a broker's in `settings.json`, and irssi a server's and its
@@ -251,6 +245,15 @@ faramir_blocked_names:
   # `faramir://` refs and no values, and both injection routes read it.
   - credentials
   - ".env*"
+  # Docker's registry auth, which with no credsStore holds base64 user:pass and which no
+  # managed ref carries, so nothing redacts it either. A name rather than a path because
+  # `docker login` writes the file whenever someone runs it, and a path entry absent at the
+  # moment the role stats it is skipped rather than held against the day it appears.
+  #
+  # Blocked rather than linked for the same reason it is not a path: `docker login` replaces
+  # the file by rename, and the replacement is created 0600, which takes the broker's read
+  # with it and leaves it refusing every ref until the next run of this role grants it again.
+  - ".docker/config.json"
   # ansible-vault, which nothing here uses. Kept because the rule costs nothing while it
   # matches no file and covers one the day a playbook grows a vault.
   #
