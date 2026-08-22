@@ -281,9 +281,13 @@ REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
 # same value, so a file created in a setgid share stays group-writable.
 RUN_UMASK := 002
 
-$(PLAYBOOKS): %: requirements
-	@umask $(RUN_UMASK); \
-	 if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
+# The three ways an invocation is refused before anything applies. Extracted for the
+# reason become_flag and preflight are: the recipe is a three-way dispatch, and it did not
+# read as one with fifty lines of refusal in front of it.
+#
+# Each ends the run rather than warning, all three being an invocation that would
+# otherwise do something other than what was typed.
+define refuse_bad_invocation
 	 if [ -n "$(STRAY_ARGS)" ]; then \
 	   echo "make read these as variable assignments rather than forwarding them:" >&2; \
 	   echo "  $(STRAY_ARGS)" >&2; \
@@ -308,7 +312,13 @@ $(PLAYBOOKS): %: requirements
 	   echo "  make faramir" >&2; \
 	   echo "On a fleet that already authorizes the key, ALLOW_ROOT=1 skips this." >&2; \
 	   exit 1; \
-	 fi; \
+	 fi;
+endef
+
+$(PLAYBOOKS): %: requirements
+	@umask $(RUN_UMASK); \
+	 if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
+	 $(refuse_bad_invocation) \
 	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
 	   if [ -n "$(IS_ROOT)" ]; then \
 	     echo "$(SOPS_FILE): not readable by root, so it is missing or its home is" >&2; \
