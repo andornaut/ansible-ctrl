@@ -1,9 +1,9 @@
 ---
-# The config entries that name files rather than hold values: paths refused to the agent's
+# The config entries that name files rather than hold values: paths blocked to the agent's
 # file tools, and credentials read where another tool keeps them. Both are `faramir init`'s
 # to re-assert once written, so this converges the list and init carries it from there.
 #
-# Adds only. `faramir refuse rm` and `faramir link rm` drop the entry but cannot take the
+# Adds only. The `rm` half of each entry command drops the entry but cannot take the
 # rule out of an agent's settings, those files being merged rather than replaced, so a
 # converge to an empty list would report a removal that did not happen. Take one out by
 # removing it here and running the rm by hand.
@@ -28,59 +28,59 @@
 # Whether the controller has each of them. As root, so the answer is the path's and not the
 # running account's, a directory it cannot traverse reading as absent. get_checksum off: a
 # checksum is read out of the file's own bytes, and every path here is a credential store.
-- name: Find which refused paths the controller has
+- name: Find which blocked paths the controller has
   ansible.builtin.stat:
     path: "{{ item }}"
     get_attributes: false
     get_checksum: false
     get_mime: false
   become: true
-  loop: "{{ faramir_refused_paths }}"
-  register: faramir_refused_stat
+  loop: "{{ faramir_blocked_paths }}"
+  register: faramir_blocked_stat
   changed_when: false
 
 # The list is what every host might carry, so an entry naming a path this one does not have is
-# skipped rather than failing the run: what the host has is what the host is refused. Absent
+# skipped rather than failing the run: what the host has is what the host blocks. Absent
 # can only mean the host has no such thing here, broker.yml having already refused to run
 # against a home that is encrypted and not mounted, which is the other way a path reads absent.
-- name: Keep the refused paths that are there
+- name: Keep the blocked paths that are there
   ansible.builtin.set_fact:
-    faramir_refused_present: >-
-      {{ faramir_refused_stat.results | selectattr('stat.exists') | map(attribute='item') | list }}
+    faramir_blocked_present: >-
+      {{ faramir_blocked_stat.results | selectattr('stat.exists') | map(attribute='item') | list }}
   become: false
 
-- name: Refuse a path to the agent's file tools
+- name: Block a path to the agent's file tools
   ansible.builtin.command:
-    argv: "{{ faramir_refuse_argv + [item] }}"
+    argv: "{{ faramir_block_argv + [item] }}"
   become: true
   # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
   # skips them rather than writing entries.
-  loop: "{{ faramir_refused_present }}"
-  register: faramir_refuse
-  changed_when: faramir_refuse.stdout | length > 0 and (faramir_refuse.stdout | from_json).changed
+  loop: "{{ faramir_blocked_present }}"
+  register: faramir_block
+  changed_when: faramir_block.stdout | length > 0 and (faramir_block.stdout | from_json).changed
 
 # No stat, unlike the paths above: a name is matched against what the agent writes rather than
 # resolved against this host, so there is nothing here to find and an entry matching no file
 # today is the point of several of them. For the same reason none of these belongs in the
 # "Skipped, no such path" report below, which reads the paths alone.
-- name: Refuse a name to the agent's file tools
+- name: Block a name to the agent's file tools
   ansible.builtin.command:
-    argv: "{{ faramir_refuse_argv + ['--name', item] }}"
+    argv: "{{ faramir_block_argv + ['--name', item] }}"
   become: true
-  loop: "{{ faramir_refused_names }}"
-  register: faramir_refuse_name
+  loop: "{{ faramir_blocked_names }}"
+  register: faramir_block_name
   changed_when: >-
-    faramir_refuse_name.stdout | length > 0
-    and (faramir_refuse_name.stdout | from_json).changed
+    faramir_block_name.stdout | length > 0
+    and (faramir_block_name.stdout | from_json).changed
 
 # CLEANUP (added 2026-08-21): delete this task once every host in the `faramir` group has run
-# this play, `faramir refuse ls --declared` on each naming none of the three. Nothing else goes
+# this play, a `block ls --declared` on each naming none of the three. Nothing else goes
 # with it: the argv is inline rather than a var, and it is deliberately absent from the warning
 # collection below, so removal is this block and nothing more.
 #
 # The role is adds-only otherwise, for the reason in this file's header. That leaves a name
-# taken out of faramir_refused_names declared on every host that already had it, which no
-# later run undoes, so `refuse ls` and defaults/main.yml disagree until something removes it.
+# taken out of faramir_blocked_names declared on every host that already had it, which no
+# later run undoes, so `block ls` and defaults/main.yml disagree until something removes it.
 # These three are what that list dropped: a key type OpenSSH is retiring, and the two sops
 # globs that one wildcard now spans.
 #
@@ -89,9 +89,9 @@
 # entries by then rather than rules faramir carries itself, which it refuses to remove.
 #
 # What it does not do is take the rendered rule out of an agent's settings, those files being
-# merged rather than replaced. A rule refusing a name that matches nothing costs nothing, so
-# they stay; this brings `refuse ls` back into agreement, not the rule files.
-- name: Remove the refused names this role no longer declares
+# merged rather than replaced. A rule blocking a name that matches nothing costs nothing, so
+# they stay; this brings `block ls` back into agreement, not the rule files.
+- name: Remove the blocked names this role no longer declares
   ansible.builtin.command:
     argv: >-
       {{ [faramir_binary, 'block', 'rm', '--json',
@@ -102,10 +102,10 @@
     - id_dsa
     - "secrets*.yml"
     - "secrets*.yaml"
-  register: faramir_refuse_retired
+  register: faramir_block_retired
   changed_when: >-
-    faramir_refuse_retired.stdout | length > 0
-    and (faramir_refuse_retired.stdout | from_json).changed
+    faramir_block_retired.stdout | length > 0
+    and (faramir_block_retired.stdout | from_json).changed
 
 - name: Read a linked secret out of the file its own tool maintains
   ansible.builtin.command:
@@ -121,19 +121,19 @@
   changed_when: faramir_link.stdout | length > 0 and (faramir_link.stdout | from_json).changed
 
 # Named rather than passed over quietly: an entry skipped here is a credential store this host
-# does not have. A path created after a run is refused by the next one and not before.
+# does not have. A path created after a run is blocked by the next one and not before.
 #
-# Skipped rather than not refused: this run wrote no entry, and an earlier one that did leaves
+# Skipped rather than not blocked: this run wrote no entry, and an earlier one that did leaves
 # a rule that stands, `faramir init` re-asserting it from config.toml however the file fares.
-- name: Name the refused paths the controller does not have
+- name: Name the blocked paths the controller does not have
   ansible.builtin.debug:
     msg: >-
       Skipped, no such path:
-      {{ faramir_refused_paths | difference(faramir_refused_present) | sort | join(', ') }}
+      {{ faramir_blocked_paths | difference(faramir_blocked_present) | sort | join(', ') }}
   # Read off the difference rather than the two lengths, which stopped agreeing once
-  # faramir_refused_present grew the always-refused entries: a run with one path skipped and
+  # faramir_blocked_present grew the always-blocked entries: a run with one path skipped and
   # one added back that way would have counted equal and said nothing.
-  when: faramir_refused_paths | difference(faramir_refused_present) | length > 0
+  when: faramir_blocked_paths | difference(faramir_blocked_present) | length > 0
 
 # What installs cleanly and then does not work: a linked file that has gone, and whatever else
 # an add reports without failing on.
@@ -141,8 +141,8 @@
   ansible.builtin.debug:
     msg: "{{ item }}"
   loop: >-
-    {{ (faramir_refuse.results | default([])
-        + faramir_refuse_name.results | default([])
+    {{ (faramir_block.results | default([])
+        + faramir_block_name.results | default([])
         + faramir_link.results | default([]))
        | map(attribute='stdout', default='')
        | reject('equalto', '')

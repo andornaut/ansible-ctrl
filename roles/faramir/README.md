@@ -10,7 +10,7 @@ Two kinds of install, from one role:
 | | Controller | Every other faramir host |
 | --- | --- | --- |
 | Inventory | in `faramir_controller` and in `faramir` | in `faramir` |
-| Refused paths, linked secrets, redaction | yes | yes |
+| Blocked paths, linked secrets, redaction | yes | yes |
 | Checkout enrolled with `init-project` | yes | no, it runs no playbook |
 | SSH key authorized on the fleet | yes | no, one is minted and reaches nothing |
 | Reached by a brokered playbook run | no, `--limit '!faramir_controller'` | yes, like any managed host |
@@ -97,7 +97,7 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
 - **An encrypted home has to be mounted, and the run stops if it is not.** `getent` answers with the home's path
   whether or not anything is mounted there, so a run against a locked home would write all three of those onto the
   mountpoint, in the clear on the underlying filesystem, and the next login would hide them under the mount. It
-  would also read every credential store in that home as absent and refuse none of them. The check is
+  would also read every credential store in that home as absent and block none of them. The check is
   ecryptfs-specific, `/home/<user>` being a mount point on no host that has nothing to unlock: it looks for
   `/home/.ecryptfs/<user>`, which sits outside the home and so answers the same either way, and then requires the
   home among `ansible_facts["mounts"]`. A laptop up but not logged in is the case this catches.
@@ -137,7 +137,7 @@ of that, the role:
   `make_latest=false`, so `/releases/latest` never returns it
 - On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
-- Converges `faramir_refused_paths` and `faramir_links`, the two [config entries](#refused-paths-and-linked-secrets)
+- Converges `faramir_blocked_paths` and `faramir_links`, the two [config entries](#blocked-paths-and-linked-secrets)
   that name a file rather than hold a value
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in
   `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values
@@ -146,49 +146,49 @@ of that, the role:
 
 Enrol another tree with `cd <dir> && sudo faramir init-project`.
 
-## Refused paths and linked secrets
+## Blocked paths and linked secrets
 
 `faramir init --agent` writes deny rules against key material by name and suffix: `id_rsa` and its kind, `*.key`,
 `*.pem`, a `credentials` path component, `.env*` dotfiles, sops and vault files, and the sops, age and faramir
 directories. The two lists here name what those miss, and `tasks/entries.yml` converges them.
 
-| | `faramir_refused_paths` | `faramir_links` |
+| | `faramir_blocked_paths` | `faramir_links` |
 | --- | --- | --- |
-| Entry | `[[secret.refuse]]` | `[[secret.link]]` |
+| Entry | `[[secret.block]]` | `[[secret.link]]` |
 | Names | a path | a ref, a path, a type, and a key for the types that select |
-| Refused to the agent's file tools | yes | yes |
+| Blocked to the agent's file tools | yes | yes |
 | Regrouped, so a brokered command is refused it | no, the mode is left alone | yes |
 | In the redactor, tokenised wherever it appears | no, the file is never opened | yes |
 | Injectable by ref | no | yes |
 
-- **A refusal stops the agent's file tools and nothing else.** A brokered command whose mode allows it may still
-  read a refused file and print it in the clear.
+- **A block stops the agent's file tools and nothing else.** A brokered command whose mode allows it may still
+  read a blocked file and print it in the clear.
 - **Reserve a link for a file its owning tool rewrites in place.** A linked file that is there and will not read
   leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool that rewrites its own
   file by rename takes the broker's read with it: `make faramir` grants it again, and between runs the agent has no
-  broker at all. Refuse the file instead where nothing asks for the value by name.
-- **A linked path does not also go in `faramir_refused_paths`.** A link renders the same rule and three things
+  broker at all. Block the file instead where nothing asks for the value by name.
+- **A linked path does not also go in `faramir_blocked_paths`.** A link renders the same rule and three things
   besides, so the second entry adds nothing and faramir says so.
 - **`faramir_links` is set in `host_vars`, not here.** `link add` refuses a new entry whose file is not there, so a
-  link in the committed defaults fails the run on a controller without that file. An absent refused path is
+  link in the committed defaults fails the run on a controller without that file. An absent blocked path is
   skipped and named, so those stay in defaults.
 - **A path is absolute and in its shortest form**, a rule matching it as written; no `~`, which nothing expands. A
-  directory refuses everything under it, whether or not it is one on the day the rule is written. The run prints
+  directory blocks everything under it, whether or not it is one on the day the rule is written. The run prints
   what each entry warned about.
-- **Only a refused path the host has is configured.** The role stats each one as root and names the rest in its
-  output rather than refusing them, an entry naming a path no host here carries being one nothing can check. A file
-  that appears after a run is refused by the next one and not before. What makes that safe is the check below: an
+- **Only a blocked path the host has is configured.** The role stats each one as root and names the rest in its
+  output rather than blocking them, an entry naming a path no host here carries being one nothing can check. A file
+  that appears after a run is blocked by the next one and not before. What makes that safe is the check below: an
   absent path can only mean the host has no such thing.
 - **Both commands are idempotent**, so the role names every entry it configures on every run rather than diffing
   the install: an entry already carried is re-applied, which is what puts back a grant a tool took away and a rule
-  an agent's settings dropped. The only state read first is whether a refused path is there. `faramir init`
+  an agent's settings dropped. The only state read first is whether a blocked path is there. `faramir init`
   re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
   file.
-- **They need a faramir carrying `--json` on `refuse add` and `link add`**, which `faramir_release_tag: dev` does.
+- **They need a faramir carrying `--json` on `block add` and `link add`**, which `faramir_release_tag: dev` does.
   A tag pinned to a version older than that fails these tasks with cobra's unknown-flag error.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
-- **Removal is by hand.** `faramir refuse rm` and `faramir link rm` drop the entry but cannot take the rule out of
+- **Removal is by hand.** The `rm` half of either entry command drops the entry but cannot take the rule out of
   an agent's settings, those files being merged rather than replaced, so the role only ever adds. Take an entry out
   of the list here and run the `rm` yourself.
 

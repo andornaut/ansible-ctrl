@@ -64,7 +64,7 @@
 # below would notice. A run against a locked home writes the config directory, the age key,
 # the broker's key and the store onto the mountpoint, in the clear on the underlying
 # filesystem, and the next login hides all four under the mount. It also reads every
-# credential store in that home as absent, so tasks/entries.yml refuses none of them and says
+# credential store in that home as absent, so tasks/entries.yml blocks none of them and says
 # the host has none.
 #
 # Only where the home is encrypted. A plain home is part of / and is a mount point on no host,
@@ -79,7 +79,7 @@
       {{ faramir_user }}'s home is encrypted and {{ faramir_user_home }} is not mounted, so
       this host is sitting at its login screen or the home was never unlocked. Installing now
       would put the age key and the store on the mountpoint rather than in the home, and would
-      refuse none of the credential stores under it. Log in as {{ faramir_user }}, or run
+      block none of the credential stores under it. Log in as {{ faramir_user }}, or run
       ecryptfs-mount-private there, and run this again.
     quiet: true
   when: faramir_home_ecryptfs.stat.exists

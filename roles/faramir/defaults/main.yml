@@ -135,7 +135,7 @@ faramir_escalation_timeout_sec: 300
 # is left alone and its value is in no redactor. A brokered command whose mode allows it may
 # still read one of these and print it in the clear. `faramir_links` is the entry that covers
 # both, at the price of faramir holding the value.
-faramir_refused_paths:
+faramir_blocked_paths:
   # The operator's own credential store, and the keys and keyrings beside it.
   - "{{ faramir_user_home }}/.private"
   - "{{ faramir_user_home }}/.gnupg"
@@ -233,7 +233,7 @@ faramir_refused_paths:
 #   .env*                        a prefix, so `.env.local` and not `faramir.env`
 #   secrets*.yml                 a wildcard inside a name, not crossing a separator
 #   .storage/                    a directory, and everything under it
-faramir_refused_names:
+faramir_blocked_names:
   # The operator's own SSH identities under the names ssh-keygen gives them, and the private
   # key and certificate suffixes. No uid boundary covers any of these: the agent runs as the
   # operator.
@@ -294,7 +294,7 @@ faramir_refused_names:
 # A link is the stronger of the two entries. It refuses the path to the agent's file tools as
 # a refusal does, and on top of that regroups the file so a brokered command is refused it
 # too, and puts the value in the redactor. So a linked path does not also belong in
-# `faramir_refused_paths`, where it would render the same rule and nothing else.
+# `faramir_blocked_paths`, where it would render the same rule and nothing else.
 #
 # It is also the one that can stop the host: a linked file that is there and will not read
 # leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool
