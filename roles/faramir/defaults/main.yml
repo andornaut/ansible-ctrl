@@ -248,14 +248,6 @@ faramir_blocked_names:
   # `.yml`. The `vault*` that would span them also takes the vault binary.
   - "*.vault"
   - vault.yml
-  # A sops store under the names sops files are given, meaning any one that lands in a tree;
-  # the managed store faramir serves is covered by faramir itself.
-  #
-  # One trailing wildcard, not `secrets*.y*ml`. A lone `*` at one end is an open end rather
-  # than a name with a hole in it, so this is a prefix and spans `.yml`, `.yaml`,
-  # `secrets.json` and `secrets.env` alike; the two-wildcard spelling is a glob, and a glob
-  # crosses no separator and would take only the two names ending in `ml`.
-  - "secrets*"
   # Home Assistant's config entries, which hold every integration's credentials in the clear.
   # Reachable only through the container, so only a name reaches it. Read a config-entry
   # field with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
