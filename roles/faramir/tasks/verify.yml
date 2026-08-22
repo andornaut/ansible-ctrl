@@ -1,0 +1,80 @@
+---
+# Asking the install whether it works, and showing the key the fleet has to authorize.
+#
+# Imported by broker.yml at the point it used to hold these, so ordering, become and
+# the `broker` tag are what they were.
+
+# A broker serving zero refs and an agent holding no key both look like a healthy install:
+# units up, nothing reachable.
+- name: Check that the install works
+  when: not ansible_check_mode
+  block:
+    - name: Ask faramir whether the install is doing its job
+      ansible.builtin.command:
+        argv: "{{ faramir_doctor_argv }}"
+      become: true
+      register: faramir_doctor
+      changed_when: false
+      failed_when: false
+
+    - name: Require faramir doctor to have reported
+      ansible.builtin.assert:
+        that: faramir_doctor.stdout | length > 0
+        fail_msg: >-
+          faramir doctor produced no report: rc {{ faramir_doctor.rc }},
+          {{ faramir_doctor.stderr | default('no stderr') }}.
+        quiet: true
+
+    - name: Read what faramir doctor found
+      ansible.builtin.set_fact:
+        faramir_doctor_report: "{{ faramir_doctor.stdout | from_json }}"
+
+    - name: Show what faramir doctor found
+      ansible.builtin.debug:
+        msg: "{{ item.check }}: {{ item.status }}"
+      loop: "{{ faramir_doctor_report.findings }}"
+      loop_control:
+        label: "{{ item.check }}"
+
+    # Graded right and shown wrong: a warn prints among the ok lines above and leaves no
+    # mark on the recap, so an unattended run passes a drifted host in silence. Named on its
+    # own and with the detail, which the status line does not carry.
+    #
+    # `warn` covers what doctor could not ask as well as what it found: a check it skipped
+    # is a warn too, and a skipped check reads as a passing one anywhere else.
+    #
+    # Expect these until the CLEANUP entries in this file and entries.yml are dropped. An
+    # entry taken out of the block lists leaves its rendered rule in an agent's settings,
+    # which are merged rather than replaced, so a host carries rules faramir no longer
+    # writes and says so on every run.
+    - name: Show what faramir doctor warned about
+      ansible.builtin.debug:
+        msg: "{{ item.check }}: {{ item.detail }}"
+      loop: >-
+        {{ faramir_doctor_report.findings
+           | selectattr('status', 'equalto', 'warn') | list }}
+      loop_control:
+        label: "{{ item.check }}"
+
+    - name: Require a working install
+      ansible.builtin.assert:
+        that: not faramir_doctor_report.failed
+        fail_msg: >-
+          {{ faramir_doctor_report.findings
+             | selectattr('status', 'equalto', 'failed')
+             | map(attribute='detail') | join('; ') }}
+        quiet: true
+
+# The controller's alone. init mints a key on every host it runs on, but only this one's
+# reaches anything: nothing authorizes the others, and a host that runs no playbook has
+# nothing to reach.
+- name: Show the public key the fleet has to authorize
+  when: faramir_is_controller | bool
+  ansible.builtin.debug:
+    msg:
+      - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
+      # Absent under --check, where init runs --dry-run and mints nothing.
+      - "{{ faramir_report.broker_public_key | default('not reported') }}"
+      - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
+         on every managed host, or brokered playbooks authenticate as nobody. The
+         next play of this run puts it there, over the whole inventory."
