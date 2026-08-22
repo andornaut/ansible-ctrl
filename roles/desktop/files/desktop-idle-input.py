@@ -122,7 +122,11 @@ def publish(idle_seconds: float, heartbeat: float) -> None:
 
 
 def main() -> None:
-    STAMP.parent.mkdir(parents=True, exist_ok=True)
+    # For a run outside systemd. Under the unit, RuntimeDirectory= has already made this,
+    # and ProtectSystem=strict leaves the rest of /run read-only, where a mkdir of a
+    # directory that is already there can answer EROFS rather than EEXIST.
+    with contextlib.suppress(OSError):
+        STAMP.parent.mkdir(parents=True, exist_ok=True)
     opened: dict[Path, int] = {}
     last_input = time.monotonic()
     last_publish = 0.0
