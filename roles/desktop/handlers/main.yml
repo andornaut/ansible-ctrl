@@ -39,6 +39,20 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
+# Above the backstop, handlers running in definition order: the backstop reads the stamp
+# this publishes, and exits when it is missing.
+- name: Restart the idle input reader
+  ansible.builtin.systemd_service:
+    name: desktop-idle-input.service
+    daemon_reload: true
+    state: restarted
+  become: true
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  become: true
+
 - name: Restart the idle backstop
   ansible.builtin.systemd_service:
     name: desktop-idle-backstop.service

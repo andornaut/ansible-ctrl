@@ -32,6 +32,63 @@
     success_msg: >-
       Idle backstop reads and powers the display through "{{ desktop_idle_backstop_mechanism }}"
 
+# Before the backstop, which exits and waits for a restart while the stamp is missing.
+- name: Install the idle input reader
+  when: desktop_idle_input_managed | bool
+  become: true
+  block:
+    - name: Install the idle input reader command
+      ansible.builtin.copy:
+        src: desktop-idle-input.py
+        dest: "{{ desktop_idle_input_command }}"
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart the idle input reader
+
+    - name: Install the idle input reader service
+      ansible.builtin.template:
+        src: desktop-idle-input.service.j2
+        dest: "{{ desktop_idle_input_unit }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart the idle input reader
+
+    - name: Enable the idle input reader service
+      ansible.builtin.systemd_service:
+        name: desktop-idle-input.service
+        daemon_reload: true
+        enabled: true
+        state: started
+
+# A permanent off switch, not a migration: a host that leaves niri, or turns the backstop
+# off, would otherwise keep a root service reading every input device for nothing.
+- name: Remove the idle input reader
+  when: not desktop_idle_input_managed | bool
+  become: true
+  block:
+    - name: Disable the idle input reader service
+      ansible.builtin.systemd_service:
+        name: desktop-idle-input.service
+        enabled: false
+        state: stopped
+      register: desktop_idle_input_disable
+      failed_when:
+        - desktop_idle_input_disable is failed
+        - "'Could not find the requested service' not in desktop_idle_input_disable.msg | default('')"
+
+    - name: Remove the idle input reader service
+      ansible.builtin.file:
+        path: "{{ desktop_idle_input_unit }}"
+        state: absent
+      notify: Reload systemd
+
+    - name: Remove the idle input reader command
+      ansible.builtin.file:
+        path: "{{ desktop_idle_input_command }}"
+        state: absent
+
 - name: Install the idle backstop
   when: desktop_idle_backstop_enabled | bool
   become: true

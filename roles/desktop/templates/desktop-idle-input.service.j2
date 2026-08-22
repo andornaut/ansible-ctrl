@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Publish the time of the last input, for the idle backstop
+
+[Service]
+Type=exec
+ExecStart={{ desktop_idle_input_command }}
+# Creates and owns /run/desktop-idle-input, and takes it away again on stop, which is what
+# makes the backstop notice the reader is gone rather than trust a stamp nothing updates.
+RuntimeDirectory={{ desktop_idle_input_stamp | dirname | basename }}
+RuntimeDirectoryMode=0755
+Restart=always
+RestartSec=10
+
+# It reads every input device, so it is given nothing else. PrivateDevices is deliberately
+# absent: it would hide /dev/input, which is the whole job. No capability is needed either,
+# the devices being readable by their owner.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX
+PrivateNetwork=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

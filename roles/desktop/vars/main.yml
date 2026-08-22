@@ -93,16 +93,29 @@ desktop_idle_backstop_milliseconds: "{{ desktop_idle_backstop_minutes | int * 60
 # Which pair of tools the backstop reads the idle time with and powers the panel down
 # through. Derived from the environment rather than chosen: an inhibitor must not be able
 # to freeze the reading, and the write must land outside the compositor, which leaves one
-# candidate per environment and none under niri. Empty fails the assert in
-# idle_backstop.yml rather than installing a backstop that cannot fire.
+# candidate per environment. Empty fails the assert in idle_backstop.yml rather than
+# installing a backstop that cannot fire.
 desktop_idle_backstop_mechanism: >-
-  {{ {"gnome": "ddc", "bspwm": "xset"}.get(desktop_environment, "") }}
+  {{ {"gnome": "ddc", "bspwm": "xset", "niri": "niri"}.get(desktop_environment, "") }}
 # ddcutil ships the modules-load.d entry that loads i2c-dev and the udev rule that grants
 # the logged-in user the bus, so the backstop needs no root and no group of its own.
 desktop_idle_backstop_packages: >-
   {{ {"ddc": ["ddcutil"], "xset": ["xprintidle"]}.get(desktop_idle_backstop_mechanism, []) }}
 desktop_idle_backstop_command: /usr/local/bin/desktop-idle-backstop
 desktop_idle_backstop_unit: /usr/local/lib/systemd/user/desktop-idle-backstop.service
+
+# The input reader behind the niri mechanism, and only that one: the other two have an
+# idle time to ask for. A system service, because reading the devices as the session's own
+# account would mean putting it in the `input` group. See README.md.
+desktop_idle_input_managed: >-
+  {{ desktop_idle_backstop_enabled | bool and desktop_idle_backstop_mechanism == "niri" }}
+desktop_idle_input_command: /usr/local/bin/desktop-idle-input
+desktop_idle_input_unit: /etc/systemd/system/desktop-idle-input.service
+desktop_idle_input_stamp: /run/desktop-idle-input/stamp
+# How old the stamp's heartbeat may be before the backstop treats the idle time beside it
+# as frozen rather than growing. Several publish intervals, so a loaded host is not called
+# dead for being late once.
+desktop_idle_input_stale_seconds: 10
 
 # May be a dotfiles-repo symlink, so only link-resolving modules may write it.
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
