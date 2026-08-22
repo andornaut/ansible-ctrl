@@ -60,7 +60,7 @@
 
 - name: Block a path to the agent's file tools
   ansible.builtin.command:
-    argv: "{{ faramir_block_argv + [item] }}"
+    argv: "{{ faramir_block_argv + ['--path', item] }}"
   become: true
   # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
   # skips them rather than writing entries.
@@ -108,10 +108,26 @@
   register: faramir_block_declared
   changed_when: false
 
+# A kind this role does not know is a faramir that has grown a fourth form, and the removals
+# below would read it as a name: matched against the wrong list, then removed under the wrong
+# flag. Named here rather than left to fail as a removal that did nothing.
+- name: Require every declared entry to name a form this role knows
+  ansible.builtin.assert:
+    that: faramir_block_declared_kinds | difference(['name', 'path', 'command']) | length == 0
+    fail_msg: >-
+      `block ls --declared` reported
+      {{ faramir_block_declared_kinds | difference(['name', 'path', 'command']) | join(', ') }},
+      which this role has no list to compare against and no flag to remove with.
+    quiet: true
+  vars:
+    faramir_block_declared_kinds: >-
+      {{ (faramir_block_declared.stdout | default('[]') | from_json)
+         | map(attribute='kind') | unique | list }}
+
 # Compared per form, the form being part of what identifies an entry: a name is not the same
-# entry as a path spelled the same way. Everything that is neither a path nor a command is
-# one of the name forms, `ls` reporting the shape a pattern was read as -- name, suffix,
-# prefix, glob, dir -- rather than the word the entry was written with.
+# entry as a path spelled the same way. `kind` is one of the three the entry commands take,
+# and the assert above holds it to them, so each list here is matched rather than inferred
+# from what the other two left over.
 #
 # Against the whole of faramir_blocked_paths rather than the present half above: a path this
 # host does not have today is one the adds skip, not one the lists dropped, and removing it
@@ -125,7 +141,7 @@
       {{ faramir_block_rows | selectattr('kind', 'equalto', 'path')
          | map(attribute='entry') | reject('in', faramir_blocked_paths) | list }}
     faramir_block_stale_names: >-
-      {{ faramir_block_rows | rejectattr('kind', 'in', ['path', 'command'])
+      {{ faramir_block_rows | selectattr('kind', 'equalto', 'name')
          | map(attribute='entry') | reject('in', faramir_blocked_names) | list }}
     faramir_block_stale_commands: >-
       {{ faramir_block_rows | selectattr('kind', 'equalto', 'command')
@@ -136,7 +152,7 @@
 
 - name: Stop blocking a path this role no longer declares
   ansible.builtin.command:
-    argv: "{{ faramir_block_rm_argv + [item] }}"
+    argv: "{{ faramir_block_rm_argv + ['--path', item] }}"
   become: true
   loop: "{{ faramir_block_stale_paths }}"
   register: faramir_block_rm_path

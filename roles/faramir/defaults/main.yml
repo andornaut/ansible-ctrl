@@ -87,7 +87,7 @@ faramir_allow_sudo: false
 faramir_ptrace_scope: 1
 
 # What announces a waiting escalation, one list element per argument. Empty leaves
-# `sudo faramir escalations --watch` as the only place a question shows up, and a
+# `sudo faramir sudo watch` as the only place a question shows up, and a
 # question nobody sees expires after [escalation] timeout_sec with every other brokered
 # command on the host refused until it does.
 #
@@ -104,7 +104,7 @@ faramir_notify_command: []
 
 # How long a sudo question waits for a human before it is refused, 1 to 600, against
 # faramir's own default of 120. Long enough to reach the terminal running
-# `sudo faramir escalations --watch`, which is where the question shows up while
+# `sudo faramir sudo watch`, which is where the question shows up while
 # faramir_notify_command is empty.
 #
 # It is a window, not a grace period: silence is a refusal either way, and raising it only

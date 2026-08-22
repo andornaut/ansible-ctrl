@@ -209,7 +209,8 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   re-asserts them all from `config.toml` after that, so an entry an earlier run wrote holds whatever became of the
   file.
 - **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand rather than
-  `refuse`, `--command` entries, `--json` on each, `--declared` on `block ls`, no `--config-dir` on any of them but
+  `refuse`, a flag per form (`--path`, `--name`, `--command`) with no default and a bare argument refused, `--json`
+  on each, `--declared` on `block ls`, no `--config-dir` on any of them but
   `init`, and an add that puts what it declares in force rather than leaving it to the next `init`. A tag pinned to
   anything older fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
   entry to the next `init`, and a build that still takes `--config-dir`, which without one falls through to
@@ -218,7 +219,9 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
 - **The block entries converge both ways.** A run adds what the three lists name and removes every declared entry
   they do not, reading the host's own with `block ls --declared` and comparing per form, since a name and a path
-  spelled the same way are different entries. So `block ls --declared` and `defaults/main.yml` agree once a run
+  spelled the same way are different entries. The listing's `kind` is one of `name`, `path` and `command`, and the
+  run asserts that before it removes anything: a fourth would be matched against the wrong list and removed under
+  the wrong flag. So `block ls --declared` and `defaults/main.yml` agree once a run
   finishes, and an entry added on a host by hand does not survive one. A path is compared against the whole of
   `faramir_blocked_paths` rather than the present half, or an entry would come and go with the file.
 - **A removal ends the declaration and no more.** It cannot take the rule out of an agent's settings, those files

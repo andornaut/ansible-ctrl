@@ -202,7 +202,7 @@ pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,""
 pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
 
 # What a run that has to prompt passes. The controller's sudo authenticates through
-# faramir's PAM helper, which puts the question to whoever is watching `faramir approvals`
+# faramir's PAM helper, which puts the question to whoever is watching `faramir sudo watch`
 # rather than taking a password, so become waits on a person; the local connection plugin
 # bounds that wait at 10 seconds by default, which closes before anyone can answer. The
 # option belongs to that plugin, so it reaches the controller and is inert for the ssh
