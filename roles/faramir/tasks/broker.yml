@@ -188,6 +188,28 @@
       ansible.builtin.set_fact:
         faramir_report: "{{ faramir_init.stdout | from_json }}"
       when: faramir_init.stdout | length > 0
+
+    # CLEANUP (added 2026-08-22): drop this once every host in the `faramir`
+    # group has run this play, no install carrying the old helper left.
+    #
+    # faramir renamed the helper PAM execs from pam-approve to pam-escalate.
+    # init writes the new one, repoints the PAM stack at it and rewrites
+    # [escalation] helper, but removes neither the old file nor reports it, so
+    # every host that has ever been installed with faramir_allow_sudo keeps a
+    # root-owned executable that nothing references and whose job is to open the
+    # broker socket.
+    #
+    # After init and not before: until init has rewritten them, the PAM stack
+    # and config.toml both name the old path, and the auth line is `requisite`,
+    # so a host that lost the file first fails every brokered sudo until the
+    # next run of this play.
+    #
+    # No stat guard, `state: absent` being one: a host installed without the
+    # grant has no such file, and the task reports nothing on it.
+    - name: Remove the PAM helper this faramir no longer execs
+      ansible.builtin.file:
+        path: /usr/local/libexec/faramir/pam-approve
+        state: absent
   always:
     - name: Remove the temporary directory for the faramir binaries
       ansible.builtin.file:
