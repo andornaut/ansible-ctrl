@@ -17,14 +17,28 @@
     # The .deb suffix excludes the bare binaries and SBOMs published alongside.
     - name: Select the sops package for this architecture
       ansible.builtin.set_fact:
-        faramir_sops_deb_url: >-
+        faramir_sops_deb_urls: >-
           {{ faramir_sops_release.assets
              | selectattr('name', 'match', 'sops_.*_' ~ faramir_deb_arch ~ '\.deb$')
-             | map(attribute='browser_download_url') | first }}
+             | map(attribute='browser_download_url') | list }}
+
+    # `first` on an empty match raises "No first item, sequence was empty", which names
+    # neither sops nor the architecture nor the pattern that missed. This is the code most
+    # exposed to a decision taken in another project, so it says what it looked for.
+    - name: Require a sops package for this architecture
+      ansible.builtin.assert:
+        that: faramir_sops_deb_urls | length > 0
+        fail_msg: >-
+          {{ faramir_sops_release.tag_name | default('The latest sops release') }} publishes
+          no asset matching sops_*_{{ faramir_deb_arch }}.deb, so either sops renamed its
+          assets or it no longer builds for this architecture. The .debs it does publish:
+          {{ faramir_sops_release.assets | map(attribute='name')
+             | select('match', '.*\.deb$') | join(', ') or 'none' }}.
+        quiet: true
 
     - name: Install the sops package
       ansible.builtin.apt:
-        deb: "{{ faramir_sops_deb_url }}"
+        deb: "{{ faramir_sops_deb_urls | first }}"
         install_recommends: false
         update_cache: true
       become: true

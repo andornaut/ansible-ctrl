@@ -42,14 +42,30 @@
 - name: Authorize the broker's key on the managed hosts
   when: inventory_hostname != faramir_controller_host
   block:
+    # Two asserts rather than one. A controller that is not in the play and a controller
+    # that ran and published nothing present identically here, on every managed host at
+    # once, and the advice the first needs sends you away from the second. Which one it is
+    # decides where to look, so the message says which.
+    - name: Require the controller to be in this run
+      ansible.builtin.assert:
+        that: faramir_controller_host in ansible_play_hosts
+        fail_msg: >-
+          {{ faramir_controller_host }} is not in this play, so nothing published a key
+          for this host to authorize. Either a --limit left it out, `--limit
+          '!faramir_controller'` being what every brokered run carries, or it failed
+          earlier in this run and took itself out of the rest; the output above this
+          says which. Apply this playbook as the operator: make faramir
+        quiet: true
+
     - name: Require the broker's key to have been read
       ansible.builtin.assert:
         that: "'faramir_broker_authorized_key' in hostvars[faramir_controller_host]"
         fail_msg: >-
-          The controller published no public key, so there is nothing to
-          authorize here. It is in this run only when the run reaches it, and
-          --limit '!faramir_controller', which every brokered run carries, excludes it.
-          Apply this playbook as the operator: make faramir
+          {{ faramir_controller_host }} is in this run and published no key, so this is
+          not a --limit. The tasks that read {{ faramir_broker_ssh_key }}.pub were
+          skipped or did not set the fact, which is what a controller whose
+          inventory_hostname does not match the name the faramir_controller group holds
+          looks like.
         quiet: true
 
     - name: Authorize the broker's key for the ansible account

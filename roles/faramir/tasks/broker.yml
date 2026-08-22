@@ -164,6 +164,11 @@
     # No check_mode: false, unlike its siblings here. A --check run reports the
     # rewrite rather than making it, which leaves the config as the installed
     # binary expects it.
+    #
+    # The cost is that --check against a host still carrying the old key fails at
+    # the init below, which parses the config it was not allowed to rewrite. That
+    # is the right way round: a --check that wrote would be no check at all, and
+    # the failure names a host that has not converged since the rename.
     - name: Rename the entries this faramir no longer parses
       ansible.builtin.replace:
         path: "{{ faramir_config_dir }}/config.toml"
