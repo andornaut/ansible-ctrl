@@ -44,7 +44,6 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | `ASK_PASS=1` | forces the prompt |
 | `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential |
 | `PREFLIGHT=none` | skips the reachability probe, and attempts every host |
-| `ALLOW_ROOT=1` | runs `faramir.yml` as root, which is otherwise refused. A root run connects with the broker's key, so the fleet must already authorize it |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for
 the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.

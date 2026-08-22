@@ -10,7 +10,7 @@ ARGS = $(GOAL_ARGS)
 
 # Listed once: both readers below are silent about a name they do not know, one forwarding
 # it to ansible-playbook and the other dropping it across the sudo re-entry.
-KNOBS := SECRETS ASK_PASS PREFLIGHT ALLOW_ROOT
+KNOBS := SECRETS ASK_PASS PREFLIGHT
 
 # An argument containing = never reaches ansible-playbook, make taking it as a variable
 # assignment before the goal list is built. ARGS='...' is the route for one.
@@ -98,7 +98,6 @@ help:
 	@echo "  SECRETS=none          - Skip the sops re-entry, for a run that reads no credential"
 	@echo "  ASK_PASS=1            - Force --ask-become-pass"
 	@echo "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
-	@echo "  ALLOW_ROOT=1          - Run faramir as root, for a fleet that already authorizes its key"
 
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
@@ -238,6 +237,11 @@ endef
 
 # Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
 # as the account that will run the play, so it answers about the ~/.ssh that will connect.
+#
+# A root run of faramir.yml is told the other thing a drop can mean: it connects with the
+# key that playbook distributes, so a host that has yet to authorize it is unreachable for
+# that reason alone, and the run would otherwise skip the host it was meant to bootstrap
+# and report success.
 define preflight
 	       off=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
 	       if [ -n "$$off" ]; then \
@@ -249,6 +253,12 @@ define preflight
 	           echo "identity the fleet accepts, which this Makefile does for root, from the" >&2; \
 	           echo "broker's key. Skip this check with PREFLIGHT=none." >&2; \
 	           exit 1; \
+	         fi; \
+	         if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ]; then \
+	           echo "A root run connects with the broker's key, which is what this playbook" >&2; \
+	           echo "authorizes, so a host that has yet to authorize it reads here the same as" >&2; \
+	           echo "one that is off. Bootstrap it as the operator, which connects with your" >&2; \
+	           echo "own ~/.ssh: make faramir" >&2; \
 	         fi; \
 	         limit="--limit $$reachable"; \
 	       fi;
@@ -281,11 +291,11 @@ REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
 # same value, so a file created in a setgid share stays group-writable.
 RUN_UMASK := 002
 
-# The three ways an invocation is refused before anything applies. Extracted for the
+# The two ways an invocation is refused before anything applies. Extracted for the
 # reason become_flag and preflight are: the recipe is a three-way dispatch, and it did not
 # read as one with fifty lines of refusal in front of it.
 #
-# Each ends the run rather than warning, all three being an invocation that would
+# Each ends the run rather than warning, both being an invocation that would
 # otherwise do something other than what was typed.
 define refuse_bad_invocation
 	 if [ -n "$(STRAY_ARGS)" ]; then \
@@ -303,19 +313,6 @@ define refuse_bad_invocation
 	   echo "A command-line ARGS outranks the list built from what follows --. Pass" >&2; \
 	   echo "the whole argument list as the one variable instead:" >&2; \
 	   echo "  make $* ARGS='$(DROPPED_ARGS) ...'" >&2; \
-	   exit 1; \
-	 fi; \
-	 if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ] && [ -z "$(ALLOW_ROOT)" ]; then \
-	   echo "Refusing to run faramir.yml as root: a root run connects with the" >&2; \
-	   echo "broker's key, which is what this playbook authorizes. Run it as the" >&2; \
-	   echo "operator, which connects with your own ~/.ssh:" >&2; \
-	   echo "  make faramir" >&2; \
-	   echo "ALLOW_ROOT=1 skips this on a fleet that already authorizes the key," >&2; \
-	   echo "but not through the broker: 'faramir run -- sudo make faramir' holds" >&2; \
-	   echo "an escalation on the executor's uid, and init's own validate step asks" >&2; \
-	   echo "the broker what the agent holds, which is a second brokered command" >&2; \
-	   echo "and is refused while the first is held. This playbook is the operator's" >&2; \
-	   echo "to run, whatever ALLOW_ROOT says." >&2; \
 	   exit 1; \
 	 fi;
 endef

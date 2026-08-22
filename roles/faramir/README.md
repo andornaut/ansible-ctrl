@@ -26,12 +26,17 @@ make faramir    # install the broker on each faramir host, then authorize the co
 An operator action. Log out and back in after the first install: it adds you to `faramir_client_group`, and group
 membership is read at login.
 
-- **`sudo make faramir` is refused.** A root run connects with the broker's key rather than your `~/.ssh`, so it
-  needs a fleet that already accepts that key: not the first install, not a rotated key, and not a host added or
-  rebuilt since the last run. `ALLOW_ROOT=1` skips the refusal.
+- **`sudo make faramir` connects with the broker's key** rather than your `~/.ssh`, so it reaches only a fleet
+  that already accepts that key: not the first install, not a rotated key, and not a host added or rebuilt since
+  the last run. Run those unprivileged. What root buys is the sudo: the controller's own authenticates through
+  faramir's PAM helper, so an unprivileged run waits on an approval per `become` task.
+- **The broker cannot run this playbook at all.** `faramir run -- sudo make faramir` holds an escalation on the
+  executor's uid, and `init`'s validate step asks the broker what the agent holds, which is a second brokered
+  command and is refused while the first is waiting.
 - Preflight drops an unreachable host here as it does everywhere else, and a dropped host keeps whatever it
-  already authorized. Re-run `make faramir` once it is back up, and after generating a new key run it with every
-  host reachable.
+  already authorized. Under a root run it also names the identity, a host that has yet to authorize the key
+  reading the same as one that is off. Re-run `make faramir` once it is back up, and after generating a new key
+  run it with every host reachable.
 
 `faramir.yml` applies the role's two entry points in order:
 
