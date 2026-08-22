@@ -242,6 +242,11 @@
     msg: "{{ item }}"
   loop: "{{ (faramir_report.warnings | default([])) + (faramir_project_report.warnings | default([])) }}"
 
+# After the enrolment, which is what renders this run's rules into the agent files: a
+# cleanup ahead of it would read a file the run is about to rewrite.
+- name: Remove the rendered rules that predate faramir's record
+  ansible.builtin.import_tasks: cleanup_rendered_rules.yml
+
 - name: Close what the install opened
   ansible.builtin.import_tasks: harden.yml
 
