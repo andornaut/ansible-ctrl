@@ -1,6 +1,6 @@
 # ansible-role-rsnapshot
 
-Provisions [rsnapshot](http://rsnapshot.org/) for automated incremental backups.
+Provisions [rsnapshot](https://rsnapshot.org/) for automated incremental backups.
 
 ## Usage
 
