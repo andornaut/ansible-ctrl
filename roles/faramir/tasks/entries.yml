@@ -79,10 +79,13 @@
 #
 # After the adds, so an entry renamed in one run is written under its new form before the old
 # one is taken away.
+#
+# The one faramir command here that root buys nothing for: the listing reads config.toml,
+# which is 0644, rather than the store or the log. The writes above and doctor below need it.
 - name: List the block entries this host declares
   ansible.builtin.command:
     argv: "{{ [faramir_binary, 'block', 'ls', '--declared', '--json'] }}"
-  become: true
+  become: false
   register: faramir_block_ls
   changed_when: false
 
