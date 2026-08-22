@@ -194,6 +194,6 @@ ZHA setup:
 docker stop homeassistant
 docker run --rm \
     --device /dev/ttyUSB0:/dev/ttyUSB0 \
-    -e FIRMWARE_URL=https://github.com/Koenkk/Z-Stack-firmware/raw/master/coordinator/Z-Stack_3.x.0/bin/CC1352P2_CC2652P_launchpad_coordinator_20230507.zip \
+    -e FIRMWARE_URL=https://github.com/Koenkk/Z-Stack-firmware/releases/download/Z-Stack_3.x.0_coordinator_20250321/CC1352P2_CC2652P_launchpad_coordinator_20250321.zip \
     ckware/ti-cc-tool -ewv -p /dev/ttyUSB0 --bootloader-sonoff-usb
 ```

@@ -66,7 +66,7 @@ Custom:
 - [BurningStone91's smart home setup](https://github.com/Burningstone91/smart-home-setup/)
 - [Frigate mobile app notifications blueprint](https://community.home-assistant.io/t/frigate-mobile-app-notifications/311091)
 - [IBM1970 theme](https://github.com/andornaut/homeassistant-ibm1970-theme)
-- [Material icons](https://materialdesignicons.com/), prefixed with `mdi:`
+- [Material icons](https://pictogrammers.com/library/mdi/), prefixed with `mdi:`
 - [QuickBars (app)](https://quickbars.app/)
 - [SgtBatten's HA blueprints](https://github.com/SgtBatten/HA_blueprints)
 - [Viewer for Frigate](https://play.google.com/store/apps/details?id=com.frigateviewer)
