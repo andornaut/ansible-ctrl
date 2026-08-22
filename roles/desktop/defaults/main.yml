@@ -52,8 +52,8 @@ desktop_suspend_inactive_minutes: ~
 # 0 to disable. Every mechanism above honours an idle inhibitor for as long as an
 # application holds one, and none of them caps that, so a game running unattended keeps a
 # static image lit indefinitely. This is the floor under all three. It must clear
-# desktop_screen_blank_minutes and, where idle suspend is on, fall below
-# desktop_suspend_inactive_minutes; idle_backstop.yml asserts both. See README.md.
+# desktop_screen_blank_minutes, which idle_backstop.yml asserts; it is deliberately not
+# bounded by desktop_suspend_inactive_minutes. See README.md.
 desktop_idle_backstop_minutes: 120
 
 # Directory names under /usr/share/themes. theme.yml also copies each into ~/.themes,

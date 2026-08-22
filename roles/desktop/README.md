@@ -116,7 +116,8 @@ inhibitor can freeze and powers the panel down from outside the compositor:
 | Constraint | Detail |
 | --- | --- |
 | GNOME reaches the monitor over DDC/CI rather than DPMS | GNOME is Wayland-only, so nothing outside mutter can reach an output. `d6 04` is DPM off, which the panel keeps answering the bus from, so `d6 01` restores it without its power button. A monitor implementing neither cannot be backstopped this way; `ddcutil capabilities` says which values `d6` takes |
-| The threshold must clear `desktop_screen_blank_minutes` and stay below `desktop_suspend_inactive_minutes` | Below the blank timeout it pre-empts the session's own blanking; at or above the suspend timeout the suspend fires first whenever nothing inhibits, which is the case the backstop is not for. Asserted by the `idle` tag |
+| The threshold must clear `desktop_screen_blank_minutes`, and is asserted by the `idle` tag | Below the blank timeout it pre-empts the session's own blanking rather than flooring it |
+| `desktop_suspend_inactive_minutes` does not bound it, even where it is shorter | An idle inhibitor defers idle suspend as surely as it defers blanking, so a backstop above the suspend timeout still fires in the one case suspend cannot, and stays out of the way when nothing inhibits and the host suspends first |
 | It needs no root and no group of its own | `ddcutil`'s udev rule tags the I2C device `uaccess`, so the bus is granted to whoever is logged in locally and revoked with the session. `ddcutil` also ships the `modules-load.d` entry for `i2c-dev` |
 | The panel comes back up when the service stops | A monitor left in DDC standby outlives the session and greets the next login looking dead |
 | Polling is 30s while the panel is lit and 2s while it is dark | Nothing waits on the first; the second is the wake latency felt at the keyboard |

@@ -2,21 +2,19 @@
 # The floor under idle.yml's policy, for the case an application holds an idle inhibitor.
 # Which tools each environment gets, and why niri has none, is in README.md.
 
+# Only the blank timeout bounds this. desktop_suspend_inactive_minutes does not: an idle
+# inhibitor defers idle suspend as surely as it defers blanking, so a backstop above the
+# suspend timeout still fires in the one case suspend cannot, and stays out of the way when
+# nothing inhibits and the host suspends first.
 - name: Validate the idle backstop timeout
   ansible.builtin.assert:
     that:
       - desktop_idle_backstop_minutes | int == 0
         or desktop_idle_backstop_minutes | int > desktop_screen_blank_minutes | int
-      - desktop_idle_backstop_minutes | int == 0
-        or desktop_suspend_inactive_seconds | int == 0
-        or desktop_idle_backstop_minutes | int < desktop_suspend_inactive_minutes | int
     fail_msg: >-
-      desktop_idle_backstop_minutes ({{ desktop_idle_backstop_minutes }}) must be 0, or
-      both above desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}) and,
-      where idle suspend is on, below desktop_suspend_inactive_minutes
-      ({{ desktop_suspend_inactive_minutes | default('unset') }}). Below the blank timeout
-      it would pre-empt the session's own blanking; at or above the suspend timeout it
-      would never be the thing that fires when an inhibitor is held.
+      desktop_idle_backstop_minutes ({{ desktop_idle_backstop_minutes }}) must be 0 or
+      above desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}). Below the
+      blank timeout it would pre-empt the session's own blanking rather than floor it.
     success_msg: >-
       {{ (desktop_idle_backstop_minutes | int > 0)
          | ternary('Display powers down after ' ~ desktop_idle_backstop_minutes
