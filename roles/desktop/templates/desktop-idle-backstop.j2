@@ -51,14 +51,18 @@ idle_ms() {
     niri)
         # niri exposes no idle time of its own, only ext-idle-notify-v1, which it gates on
         # the inhibitors this has to see past. The stamp is what desktop-idle-input reads
-        # off the input devices instead: last input, then a heartbeat. A stale heartbeat
-        # means that reader died and the first number is frozen, which would read as a
-        # session going idle, so it is refused rather than believed.
-        local last beat now
-        read -r last beat <{{ desktop_idle_input_stamp }} || return 1
+        # off the input devices instead: the idle time it measured, then a heartbeat. It
+        # does its own measuring, on a clock that does not run while the host is suspended,
+        # so a resume is not read as however long the machine was away.
+        #
+        # A heartbeat that is stale means that reader is gone and the number beside it is
+        # frozen, which would read as a session going idle. One ahead of this clock means
+        # the clock stepped back, leaving a stamp frozen by definition. Neither is believed.
+        local idle beat now
+        read -r idle beat <{{ desktop_idle_input_stamp }} || return 1
         now=$(printf '%(%s)T' -1)
-        ((now - beat <= {{ desktop_idle_input_stale_seconds }})) || return 1
-        echo $(((now - last) * 1000))
+        ((now - beat >= 0 && now - beat <= {{ desktop_idle_input_stale_seconds }})) || return 1
+        echo "${idle}"
         ;;
     esac
 }

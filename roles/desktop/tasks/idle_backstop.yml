@@ -1,6 +1,6 @@
 ---
 # The floor under idle.yml's policy, for the case an application holds an idle inhibitor.
-# Which tools each environment gets, and why niri has none, is in README.md.
+# Which tools each environment reads and powers the panel down with is in README.md.
 
 # Only the blank timeout bounds this. desktop_suspend_inactive_minutes does not: an idle
 # inhibitor defers idle suspend as surely as it defers blanking, so a backstop above the
