@@ -2,6 +2,12 @@
 # The account the user-scoped tasks act on. Flatpak installs are method: user.
 games_user: "{{ primary_user }}"
 
+# GameMode holds an org.freedesktop.ScreenSaver inhibitor for as long as a game runs.
+# GNOME provides that service and honours the inhibitor for blanking and idle suspend
+# alike, with no cap on how long one may be held, so leaving this on keeps a static image
+# lit for the length of a play session. True restores upstream's default.
+games_gamemode_inhibit_screensaver: false
+
 # Flatpak applications installed and configured for games_user.
 games_flatpak_apps:
   - com.heroicgameslauncher.hgl

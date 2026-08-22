@@ -17,6 +17,7 @@ make games -- --tags retroarch
 | apt | Native gaming packages |
 | bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, and the `ntsync` module Wine 11 needs for fast synchronization |
 | flatpak | Flatpak runtime, flathub remote, applications, extensions, and overrides |
+| gamemode | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else |
 | heroic | Heroic install path and the store token-refresh timer |
 | lutris | Lutris default install path |
 | retroarch | Libretro cores, BIOS, settings, per-core overrides, playlists, and thumbnails |
@@ -60,6 +61,19 @@ panel. The play asserts its preconditions:
 | --- | --- |
 | No other video-to-audio sync method | vsync, a swap interval above 1, and black frame insertion all conflict. On a fixed-refresh panel leave it off and use BFI instead |
 | VRR enabled outside RetroArch | A compositor setting under Wayland; `Option "VariableRefresh"` in `xorg.conf.d` under X11, where it conflicts with `TearFree` |
+
+## GameMode
+
+`gamemoderun` raises the CPU governor and process priority for the game it wraps, and by default also holds an
+`org.freedesktop.ScreenSaver` inhibitor for as long as that game runs. `games_gamemode_inhibit_screensaver` is
+false, which turns that off: GNOME honours such an inhibitor for blanking and idle suspend alike, with no cap on
+how long it may be held, so a play session otherwise keeps a static image lit for its whole length. A tiling
+session is unaffected either way, providing no `org.freedesktop.ScreenSaver` for GameMode to reach.
+
+| Constraint | Detail |
+| --- | --- |
+| The launching account's `~/.config/gamemode.ini` is read after `/etc/gamemode.ini` and wins | A value set there overrides this role. `gamemoded` logs the files it loads at startup |
+| Turning this off does not by itself make the screen blank during play | The game takes an inhibitor of its own: SDL and GLFW both do for any window they open. The floor under that is `desktop_idle_backstop_minutes` in the [desktop role](../desktop/README.md#idle-backstop) |
 
 ## RetroArch
 

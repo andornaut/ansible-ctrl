@@ -1,0 +1,12 @@
+---
+# apt.yml installs the daemon; this is the one setting of its own the role owns. The
+# desktop role's idle backstop is what covers the rest, a game engine holding an inhibitor
+# of its own being outside anything this can turn off.
+- name: Install the GameMode configuration
+  ansible.builtin.template:
+    src: gamemode.ini.j2
+    dest: /etc/gamemode.ini
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

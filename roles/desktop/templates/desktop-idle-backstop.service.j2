@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Power the display down after {{ desktop_idle_backstop_minutes }} minutes of input idle
+# The session is where the idle time and the monitor bus are both reachable: the DDC
+# device is granted to the logged-in user by udev's uaccess tag, and the X display and
+# session bus come from the environment the session imports.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart={{ desktop_idle_backstop_command }}
+# A backstop that dies silently is no backstop. PartOf stops it with the session, which
+# systemd does not treat as a failure to restart from.
+Restart=always
+RestartSec=10
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target

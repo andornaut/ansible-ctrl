@@ -28,7 +28,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | fonts | System fonts |
 | gnome | GNOME Shell and gdm3, gnome only |
 | [grub](https://www.gnu.org/software/grub/) | Bootloader settings |
-| idle | Screen blanking, session locking, monitor power-off, and idle suspend |
+| idle | Screen blanking, session locking, monitor power-off, idle suspend, and the backstop under them all |
 | [insync](https://www.insynchq.com/) | Google Drive sync client (`desktop_install_insync`) |
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
@@ -50,6 +50,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | `desktop_install_*` | Feature flags, all defaulting to `false`. `parental_controls` and `firefox` still run when false, undoing what an earlier run enforced |
 | `desktop_screen_*_minutes` | Idle timeouts, in order: blank, lock, monitor power-off |
 | `desktop_suspend_inactive_minutes` | Idle suspend. Unset leaves the host's policy alone; 0 disables it |
+| `desktop_idle_backstop_minutes` | Minutes of real input idle after which the panel is powered down whatever holds an idle inhibitor; 0 disables it |
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
 | `desktop_xsecurelock_auth_background_color` | Tints the password dialog box only, so a tinted box means keystrokes reach the password field. Empty (the default) leaves it black |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, filter lists, custom hostnames, safe search |
@@ -94,6 +95,31 @@ X screensaver activates.
 | The bspwm `logind` drop-in gets `desktop_suspend_inactive_minutes` *minus* `desktop_screen_blank_minutes` | `IdleActionSec` counts from the idle hint, set at blank time. The variable therefore means "suspend this long after the last input" on every desktop, and must be 0 or greater than the blank timeout (asserted by the `idle` tag) |
 | Under bspwm the policy is host-wide | An idle `ssh` login also delays suspend. A host that moves off bspwm has the drop-in removed |
 | On niri the value renders into `.config/hypr/hypridle.conf`, a shared dotfiles symlink | Two niri hosts with different values fight over that managed block. Give niri hosts the same value, or move to a role-owned per-host file as the bspwm side has |
+
+### Idle backstop
+
+Every mechanism above honours an idle inhibitor, any application may take one through `org.freedesktop.ScreenSaver`
+(GNOME), `XScreenSaverSuspend` (X11) or `idle-inhibit-unstable-v1` (Wayland), and none of the three caps how long
+one may be held. A game usually holds one for its whole run: GameMode does by default, and SDL and GLFW both do for
+any window they open. That leaves a static image lit for as long as the game is up, which is what
+`desktop_idle_backstop_minutes` exists to stop.
+
+`desktop-idle-backstop.service`, a user unit wanted by `graphical-session.target`, polls an idle counter no
+inhibitor can freeze and powers the panel down from outside the compositor:
+
+| Environment | Reads | Powers the panel down with |
+| --- | --- | --- |
+| gnome | `org.gnome.Mutter.IdleMonitor.GetIdletime` | `ddcutil setvcp d6 04`, then `d6 01` on the next input |
+| bspwm | `xprintidle`, so `XScreenSaverQueryInfo` | `xset dpms force off`, which the X server undoes itself |
+| niri | nothing suitable | nothing: the `idle` tag fails until the host sets the threshold to 0 |
+
+| Constraint | Detail |
+| --- | --- |
+| GNOME reaches the monitor over DDC/CI rather than DPMS | GNOME is Wayland-only, so nothing outside mutter can reach an output. `d6 04` is DPM off, which the panel keeps answering the bus from, so `d6 01` restores it without its power button. A monitor implementing neither cannot be backstopped this way; `ddcutil capabilities` says which values `d6` takes |
+| The threshold must clear `desktop_screen_blank_minutes` and stay below `desktop_suspend_inactive_minutes` | Below the blank timeout it pre-empts the session's own blanking; at or above the suspend timeout the suspend fires first whenever nothing inhibits, which is the case the backstop is not for. Asserted by the `idle` tag |
+| It needs no root and no group of its own | `ddcutil`'s udev rule tags the I2C device `uaccess`, so the bus is granted to whoever is logged in locally and revoked with the session. `ddcutil` also ships the `modules-load.d` entry for `i2c-dev` |
+| The panel comes back up when the service stops | A monitor left in DDC standby outlives the session and greets the next login looking dead |
+| Polling is 30s while the panel is lit and 2s while it is dark | Nothing waits on the first; the second is the wake latency felt at the keyboard |
 
 ### Writing dotfiles that may be symlinks
 

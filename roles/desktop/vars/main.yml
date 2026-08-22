@@ -87,6 +87,23 @@ desktop_suspend_idle_action: >-
 desktop_suspend_idle_action_seconds: >-
   {{ [60, desktop_suspend_inactive_seconds | int - desktop_screen_blank_seconds | int] | max }}
 
+# Whether the idle backstop runs at all; see defaults/main.yml.
+desktop_idle_backstop_enabled: "{{ desktop_idle_backstop_minutes | int > 0 }}"
+desktop_idle_backstop_milliseconds: "{{ desktop_idle_backstop_minutes | int * 60 * 1000 }}"
+# Which pair of tools the backstop reads the idle time with and powers the panel down
+# through. Derived from the environment rather than chosen: an inhibitor must not be able
+# to freeze the reading, and the write must land outside the compositor, which leaves one
+# candidate per environment and none under niri. Empty fails the assert in
+# idle_backstop.yml rather than installing a backstop that cannot fire.
+desktop_idle_backstop_mechanism: >-
+  {{ {"gnome": "ddc", "bspwm": "xset"}.get(desktop_environment, "") }}
+# ddcutil ships the modules-load.d entry that loads i2c-dev and the udev rule that grants
+# the logged-in user the bus, so the backstop needs no root and no group of its own.
+desktop_idle_backstop_packages: >-
+  {{ {"ddc": ["ddcutil"], "xset": ["xprintidle"]}.get(desktop_idle_backstop_mechanism, []) }}
+desktop_idle_backstop_command: /usr/local/bin/desktop-idle-backstop
+desktop_idle_backstop_unit: /usr/local/lib/systemd/user/desktop-idle-backstop.service
+
 # May be a dotfiles-repo symlink, so only link-resolving modules may write it.
 desktop_hypridle_conf: "{{ desktop_user_home }}/.config/hypr/hypridle.conf"
 # Role-owned, so templated: the session script carries the timeouts and the

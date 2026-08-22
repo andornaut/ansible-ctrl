@@ -35,6 +35,11 @@
   ansible.builtin.import_tasks: apt.yml
   tags: apt
 
+# After apt.yml, which installs the daemon this configures.
+- name: Configure GameMode
+  ansible.builtin.import_tasks: gamemode.yml
+  tags: gamemode
+
 - name: Import flatpak tasks
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak

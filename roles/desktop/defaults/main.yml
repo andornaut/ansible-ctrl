@@ -48,6 +48,14 @@ desktop_xsecurelock_auth_background_color: ""
 # above desktop_screen_blank_minutes, asserted in idle.yml. See README.md.
 desktop_suspend_inactive_minutes: ~
 
+# Minutes of real input idle before the panel is powered down whatever is inhibiting, or
+# 0 to disable. Every mechanism above honours an idle inhibitor for as long as an
+# application holds one, and none of them caps that, so a game running unattended keeps a
+# static image lit indefinitely. This is the floor under all three. It must clear
+# desktop_screen_blank_minutes and, where idle suspend is on, fall below
+# desktop_suspend_inactive_minutes; idle_backstop.yml asserts both. See README.md.
+desktop_idle_backstop_minutes: 120
+
 # Directory names under /usr/share/themes. theme.yml also copies each into ~/.themes,
 # the only place a flatpak sandbox finds them.
 desktop_gtk_themes:

@@ -1,0 +1,129 @@
+---
+# The floor under idle.yml's policy, for the case an application holds an idle inhibitor.
+# Which tools each environment gets, and why niri has none, is in README.md.
+
+- name: Validate the idle backstop timeout
+  ansible.builtin.assert:
+    that:
+      - desktop_idle_backstop_minutes | int == 0
+        or desktop_idle_backstop_minutes | int > desktop_screen_blank_minutes | int
+      - desktop_idle_backstop_minutes | int == 0
+        or desktop_suspend_inactive_seconds | int == 0
+        or desktop_idle_backstop_minutes | int < desktop_suspend_inactive_minutes | int
+    fail_msg: >-
+      desktop_idle_backstop_minutes ({{ desktop_idle_backstop_minutes }}) must be 0, or
+      both above desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}) and,
+      where idle suspend is on, below desktop_suspend_inactive_minutes
+      ({{ desktop_suspend_inactive_minutes | default('unset') }}). Below the blank timeout
+      it would pre-empt the session's own blanking; at or above the suspend timeout it
+      would never be the thing that fires when an inhibitor is held.
+    success_msg: >-
+      {{ (desktop_idle_backstop_minutes | int > 0)
+         | ternary('Display powers down after ' ~ desktop_idle_backstop_minutes
+                   ~ 'm of input idle whatever inhibits it', 'Idle backstop disabled') }}
+
+- name: Validate the idle backstop mechanism
+  when: desktop_idle_backstop_enabled | bool
+  ansible.builtin.assert:
+    that:
+      - desktop_idle_backstop_mechanism | length > 0
+    fail_msg: >-
+      desktop_environment "{{ desktop_environment }}" has no idle reading an inhibitor
+      cannot freeze and no way to power the panel down from outside the compositor, so no
+      backstop can be built for it. Set desktop_idle_backstop_minutes to 0 on this host.
+    success_msg: >-
+      Idle backstop reads and powers the display through "{{ desktop_idle_backstop_mechanism }}"
+
+- name: Install the idle backstop
+  when: desktop_idle_backstop_enabled | bool
+  become: true
+  block:
+    - name: Install the idle backstop packages
+      ansible.builtin.apt:
+        name: "{{ desktop_idle_backstop_packages }}"
+        state: latest
+        install_recommends: false
+        update_cache: true
+
+    # Role-owned, not a dotfile: it carries the host's threshold and its mechanism.
+    - name: Install the idle backstop command
+      ansible.builtin.template:
+        src: desktop-idle-backstop.j2
+        dest: "{{ desktop_idle_backstop_command }}"
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart the idle backstop
+
+    # eww.yml and flameshot.yml create this too, but --tags idle skips both.
+    - name: Create the local systemd user unit directory
+      ansible.builtin.file:
+        path: "{{ desktop_idle_backstop_unit | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install the idle backstop service
+      ansible.builtin.template:
+        src: desktop-idle-backstop.service.j2
+        dest: "{{ desktop_idle_backstop_unit }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart the idle backstop
+
+    - name: Enable the idle backstop service
+      ansible.builtin.systemd_service:
+        name: desktop-idle-backstop.service
+        daemon_reload: true
+        enabled: true
+        scope: user
+        state: started
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+
+# A permanent off switch, not a migration: the unit is wanted by graphical-session.target,
+# so leaving it behind would keep powering the panel down on a host that has since set the
+# threshold to 0.
+- name: Remove the idle backstop
+  when: not desktop_idle_backstop_enabled | bool
+  become: true
+  block:
+    # Tolerates a host that never had it: the enable symlink lives in the user's own unit
+    # directory, so removing the unit file alone would leave a dangling one behind.
+    - name: Disable the idle backstop service
+      ansible.builtin.systemd_service:
+        name: desktop-idle-backstop.service
+        enabled: false
+        scope: user
+        state: stopped
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+      register: desktop_idle_backstop_disable
+      failed_when:
+        - desktop_idle_backstop_disable is failed
+        - "'Could not find the requested service' not in desktop_idle_backstop_disable.msg | default('')"
+
+    - name: Remove the idle backstop service
+      ansible.builtin.file:
+        path: "{{ desktop_idle_backstop_unit }}"
+        state: absent
+
+    - name: Remove the idle backstop command
+      ansible.builtin.file:
+        path: "{{ desktop_idle_backstop_command }}"
+        state: absent
+
+    - name: Reload the systemd user manager
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+        scope: user
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"

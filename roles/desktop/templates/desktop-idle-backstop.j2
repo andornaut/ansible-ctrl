@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# The floor under the session's blanking policy. GNOME, xss-lock and hypridle each honour
+# an idle inhibitor for as long as an application holds one, and none of them caps how
+# long that may be, so a game left running keeps a static image on the panel indefinitely.
+# This reads an idle time no inhibitor can freeze and powers the panel down from outside
+# the compositor once it passes the threshold.
+set -euo pipefail
+
+readonly MECHANISM={{ desktop_idle_backstop_mechanism }}
+readonly THRESHOLD_MS={{ desktop_idle_backstop_milliseconds }}
+# Coarse while the panel is lit, nothing waiting on the answer. Fine once it is dark: this
+# is what turns the panel back on, and that latency is felt at the keyboard.
+readonly POLL_LIT_SECONDS=30
+readonly POLL_DARK_SECONDS=2
+
+dark=false
+
+log() {
+    printf '%s\n' "$*" >&2
+}
+
+# Milliseconds since the last real input.
+idle_ms() {
+    case "${MECHANISM}" in
+    ddc)
+        # mutter's idle monitor counts input, not policy: an inhibitor is honoured in
+        # gnome-session and leaves this climbing. GNOME is Wayland-only, so there is no X
+        # server to ask instead.
+        busctl --user call org.gnome.Mutter.IdleMonitor /org/gnome/Mutter/IdleMonitor/Core \
+            org.gnome.Mutter.IdleMonitor GetIdletime | awk '{print $2}'
+        ;;
+    xset)
+        # XScreenSaverQueryInfo counts input too. XScreenSaverSuspend, which is what an
+        # X11 application holds to keep the screen alive, stops the screensaver activating
+        # without freezing this counter.
+        xprintidle
+        ;;
+    esac
+}
+
+power_off() {
+    case "${MECHANISM}" in
+    # Nothing outside a Wayland compositor can reach DPMS, so this addresses the monitor
+    # itself over DDC/CI. 04 is DPM off, and the panel keeps answering the bus there,
+    # which is what makes power_on reversible without the monitor's own power button.
+    ddc) ddcutil setvcp d6 04 ;;
+    # Explicit, so it lands whatever the screensaver has been told to do.
+    xset) xset dpms force off ;;
+    esac
+}
+
+power_on() {
+    case "${MECHANISM}" in
+    ddc) ddcutil setvcp d6 01 ;;
+    # The X server restores the display on the next input by itself.
+    xset) : ;;
+    esac
+}
+
+# A monitor left in DDC standby outlives the session and greets the next login looking
+# dead, so the panel comes back up before this exits however it is stopped.
+finish() {
+    trap - EXIT INT TERM
+    if [[ ${dark} == true ]]; then
+        power_on || log "could not power the display back up"
+    fi
+    exit 0
+}
+
+trap finish EXIT INT TERM
+
+while true; do
+    if ! idle=$(idle_ms 2>/dev/null) || [[ ! ${idle} =~ ^[0-9]+$ ]]; then
+        log "could not read the idle time"
+    elif ((idle >= THRESHOLD_MS)); then
+        # dark is set whether or not the write landed: a panel that has already gone dark
+        # on its own may stop answering the bus, and retrying every poll would say so for
+        # as long as nobody touches the keyboard.
+        if [[ ${dark} == false ]]; then
+            log "idle for ${idle}ms, powering the display down"
+            power_off || log "could not power the display down"
+            dark=true
+        fi
+    elif [[ ${dark} == true ]]; then
+        log "input after ${idle}ms, powering the display back up"
+        power_on || log "could not power the display back up"
+        dark=false
+    fi
+
+    if [[ ${dark} == true ]]; then
+        sleep "${POLL_DARK_SECONDS}" &
+    else
+        sleep "${POLL_LIT_SECONDS}" &
+    fi
+    # Backgrounded, so a stop is acted on at once rather than at the end of the interval,
+    # and so bash does not report the killed sleep to the journal on every restart.
+    wait "$!" || true
+done

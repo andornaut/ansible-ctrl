@@ -190,3 +190,7 @@
         path: "{{ desktop_logind_idle_action_conf }}"
         state: absent
       notify: Reload systemd-logind
+
+# Last, so its assert reads the timeouts the blocks above have already validated.
+- name: Configure the idle backstop
+  ansible.builtin.import_tasks: idle_backstop.yml

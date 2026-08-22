@@ -39,6 +39,17 @@
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
 
+- name: Restart the idle backstop
+  ansible.builtin.systemd_service:
+    name: desktop-idle-backstop.service
+    daemon_reload: true
+    scope: user
+    state: restarted
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+
 # CanReload=yes, so the drop-in takes effect without restarting logind under a
 # live graphical session.
 - name: Reload systemd-logind
