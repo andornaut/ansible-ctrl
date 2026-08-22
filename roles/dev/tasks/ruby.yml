@@ -94,6 +94,29 @@
             chdir: >-
               {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}
             target: install
+
+    # Both Makefiles install with plain `cp`, which names no mode: a new file takes the
+    # run's umask, and an existing one keeps whatever mode it was first created with, so
+    # no later run corrects it. Additive, so nothing either project chose is taken away
+    # and a run with nothing to open reports no change. Capital X grants execute only
+    # where the file already had it, chruby.sh being sourced rather than run.
+    - name: Let every account read the chruby and ruby-install libraries
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        recurse: true
+        mode: a+rX
+      loop:
+        - /usr/local/share/chruby
+        - /usr/local/share/ruby-install
+
+    - name: Let every account run the chruby and ruby-install commands
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: a+rX
+      loop:
+        - /usr/local/bin/chruby-exec
+        - /usr/local/bin/ruby-install
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
