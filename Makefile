@@ -264,8 +264,16 @@ REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
 #
 # Only the first goal is applied: every inventory group is also a playbook here, so
 # `make base -- --limit desktop` would otherwise apply desktop as well.
+# Ansible has no umask setting of its own, so every file a task creates without naming a
+# mode arrives at whatever the invoking shell had. pam_umask gives a login shell the value
+# in /etc/login.defs, which roles/base sets, and a session opened before that setting keeps
+# the old one. Named here so a local run does not depend on which session started it; the
+# same value, so a file created in a setgid share stays group-writable.
+RUN_UMASK := 002
+
 $(PLAYBOOKS): %: requirements
-	@if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
+	@umask $(RUN_UMASK); \
+	 if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
 	 if [ -n "$(STRAY_ARGS)" ]; then \
 	   echo "make read these as variable assignments rather than forwarding them:" >&2; \
 	   echo "  $(STRAY_ARGS)" >&2; \

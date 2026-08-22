@@ -65,6 +65,16 @@
         virtualenv_command: python3 -m venv
         virtualenv_site_packages: true
 
+    # pip writes the console scripts 0755 and every module through the run's umask, so a
+    # umask that closes `other` leaves a CLI that starts and then cannot import itself.
+    # Capital X grants execute only where pip already set it.
+    - name: Let every account read the KiKit venv
+      ansible.builtin.file:
+        path: /opt/kikit
+        state: directory
+        recurse: true
+        mode: u=rwX,go=rX
+
 # A self-contained jpackage app-image with a bundled JRE, so no system Java.
 - name: Install Freerouting
   tags: freerouting
@@ -101,9 +111,9 @@
         remote_src: true
         creates: "/opt/freerouting/{{ hobbies_freerouting_dir }}"
         # Named, not left to the archive: extraction puts the recorded mode through the
-        # run's umask, and the login umask this repo sets closes `other`, so the launcher
-        # would run as a user that cannot read what it launches. Capital X grants execute
-        # only where the archive already had it.
+        # run's umask, and one that closes `other` leaves a launcher run by a user that
+        # cannot read what it launches. Capital X grants execute only where the archive
+        # already had it.
         mode: u=rwX,go=rX
       become: true
 

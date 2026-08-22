@@ -23,6 +23,18 @@
         version: "{{ desktop_it87_version }}"
       register: desktop_it87_source
 
+    # The checkout arrives at the run's umask, and the dkms target below stages a copy of
+    # it under /usr/src/it87-<version>, so a umask that closes `other` carries into
+    # what dkms keeps. Additive, so nothing the checkout chose is taken away and a run
+    # that has nothing to open reports no change; capital X grants execute only where the
+    # checkout already had it.
+    - name: Let every account read the it87 source
+      ansible.builtin.file:
+        path: /usr/src/it87
+        state: directory
+        recurse: true
+        mode: a+rX
+
     - name: Check whether it87 is registered with DKMS for the running kernel
       ansible.builtin.command: dkms status it87 -k {{ ansible_facts['kernel'] }}
       register: desktop_it87_dkms

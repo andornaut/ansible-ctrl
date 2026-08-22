@@ -62,11 +62,15 @@
                 state: directory
                 mode: "0755"
 
+            # Named, not left to the archive: extraction puts the recorded mode through
+            # the run's umask, and one that closes `other` leaves a toolchain only root
+            # can read. Capital X grants execute only where the archive already had it.
             - name: Install zig compiler
               ansible.builtin.unarchive:
                 src: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
                 dest: /opt/zig
                 remote_src: true
+                mode: u=rwX,go=rX
                 extra_opts:
                   - --strip-components
                   - 1
@@ -110,9 +114,12 @@
             dest: "{{ desktop_ly_tmp.path }}"
             remote_src: true
 
+        # The build step names no modes, so what it writes to /usr/bin, /etc/ly and the
+        # unit directory arrives at the run's umask. 022 rather than the login default
+        # of 002, root-owned system files having no reason to be group-writable.
         - name: Compile and install ly
-          ansible.builtin.command:
-            cmd: /opt/zig/zig build installnoconf
+          ansible.builtin.shell:
+            cmd: umask 022 && /opt/zig/zig build installnoconf
             chdir: "{{ desktop_ly_tmp.path }}/ly"
           changed_when: true
       always:

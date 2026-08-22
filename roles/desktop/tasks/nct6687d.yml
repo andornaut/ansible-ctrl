@@ -23,6 +23,18 @@
         version: "{{ desktop_nct6687d_version }}"
       register: desktop_nct6687d_source
 
+    # The checkout arrives at the run's umask, and the dkms target below stages a copy of
+    # it under /usr/src/nct6687d-<version>, so a umask that closes `other` carries into
+    # what dkms keeps. Additive, so nothing the checkout chose is taken away and a run
+    # that has nothing to open reports no change; capital X grants execute only where the
+    # checkout already had it.
+    - name: Let every account read the nct6687d source
+      ansible.builtin.file:
+        path: /usr/src/nct6687d
+        state: directory
+        recurse: true
+        mode: a+rX
+
     - name: Check whether nct6687d is registered with DKMS for the running kernel
       ansible.builtin.command: dkms status nct6687d -k {{ ansible_facts['kernel'] }}
       register: desktop_nct6687d_dkms
