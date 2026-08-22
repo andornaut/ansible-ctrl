@@ -252,7 +252,7 @@ faramir_blocked_names:
   # What vim persists between sessions, which is content and not only filenames: a register
   # holds the text of the last yank or delete, so a line taken out of a decrypted file is
   # written to disk and survives there. Two entries because vim has two homes for it. The
-  # directory is where this repo's `.vimrc` points `viminfofile` and where `undodir` falls
+  # directory is where the dotfiles' `vimrc` points `viminfofile` and where `undodir` falls
   # back when a session has no `$XDG_RUNTIME_DIR`; the bare name is the default location,
   # which is what any other vim on any other host still writes.
   - ".vim/tmp/"
