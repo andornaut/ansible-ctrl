@@ -151,8 +151,10 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # FileZilla encodes each site's password in `sitemanager.xml` and `recentservers.xml`
-  # rather than encrypting it. The flatpak's copy only: a native install's
-  # `~/.config/filezilla` is covered by no entry here.
+  # rather than encrypting it. The flatpak's copy is the whole of it, that being the only way
+  # it is installed here, so no native `~/.config/filezilla` is written. Installing the apt
+  # build would want those two file names added below rather than a path: an apt purge leaves
+  # a home directory alone, and a path entry is skipped while the file is absent.
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   # Session tokens, which stand in for the password they were issued against: a sync account
   # and two storefronts, itch keeping its API key in `db/butler.db`. Heroic and the
