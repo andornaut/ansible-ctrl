@@ -8,9 +8,9 @@
     fail_msg: >-
       desktop_parental_controls_web_filter_type must be "none", "block-list" or "allow-list".
       With desktop_install_parental_controls false this role lifts the filters an earlier run
-      set, so desktop_parental_controls_oars must be empty and the filter type "none": remove
-      the host's desktop_parental_controls_* settings rather than leave them describing a
-      policy that nothing enforces.
+      set, so desktop_parental_controls_oars must be empty and the type "none": remove the
+      host's desktop_parental_controls_* settings rather than leave them describing a policy
+      nothing enforces.
     success_msg: Parental controls configuration is valid
 
 - name: Validate the web filter entries
@@ -23,11 +23,11 @@
         or (desktop_parental_controls_web_allow_lists | length)
         + (desktop_parental_controls_web_allowed_hosts | length) > 0
     fail_msg: >-
-      A "{{ desktop_parental_controls_web_filter_type }}" web filter with no filter lists and
-      no hostnames of its own enforces nothing if it blocks by default, and sinkholes every
-      hostname {{ desktop_user }} looks up if it allows by default. Populate
+      A "{{ desktop_parental_controls_web_filter_type }}" web filter with no lists and no
+      hostnames of its own either enforces nothing or sinkholes every hostname
+      {{ desktop_user }} looks up, depending on which way it defaults. Populate
       desktop_parental_controls_web_block_lists or _blocked_hosts (or the allow-list
-      equivalents), or set the filter type to "none".
+      equivalents), or set the type to "none".
     success_msg: The web filter entries are valid
   when: desktop_parental_controls_web_filter_enabled
 

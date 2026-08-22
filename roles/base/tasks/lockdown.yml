@@ -256,11 +256,11 @@
                 that: not base_lockdown_port_untrusted | bool
                 fail_msg: >-
                   {{ inventory_hostname }} answers on port {{ base_lockdown_ssh_port }},
-                  so the move worked; what is missing is an entry under
-                  {{ base_lockdown_known_hosts_name }}. The key itself is unchanged, so
-                  carry the old entry across rather than accept a new one. It is filed
-                  under {{ base_lockdown_ssh_target }} if the previous port was 22 and
-                  under [{{ base_lockdown_ssh_target }}]:PORT otherwise, in
+                  so the move worked and what is missing is an entry under
+                  {{ base_lockdown_known_hosts_name }}. The key is unchanged, so carry the
+                  old entry across rather than accept a new one. It is filed under
+                  {{ base_lockdown_ssh_target }} for a previous port of 22 and under
+                  [{{ base_lockdown_ssh_target }}]:PORT otherwise, in
                   {{ base_lockdown_known_hosts_path }}, which ssh-keygen reads only when
                   -f names it:
                   ssh-keygen -f {{ base_lockdown_known_hosts_path }} -F OLDNAME to print
@@ -308,7 +308,7 @@
               Key-only SSH to {{ inventory_hostname }} as {{ base_lockdown_ssh_user }}
               failed, so this would leave no way in. Run
               ssh-copy-id {{ base_lockdown_ssh_user }}@{{ base_lockdown_ssh_target }}
-              first. Refused rather than skipped, a skip leaving a host that looks
+              first. Refused rather than skipped: a skip leaves a host that looks
               hardened and is not.
               {{ base_lockdown_key_auth.stderr | default('') | trim }}
             quiet: true

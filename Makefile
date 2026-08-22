@@ -249,16 +249,14 @@ define preflight
 	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
 	         if [ -z "$$reachable" ]; then \
 	           echo "Preflight: nothing left to apply $*.yml to. A run connects with the" >&2; \
-	           echo "invoking account's own ~/.ssh unless ANSIBLE_PRIVATE_KEY_FILE names an" >&2; \
-	           echo "identity the fleet accepts, which this Makefile does for root, from the" >&2; \
-	           echo "broker's key. Skip this check with PREFLIGHT=none." >&2; \
+	           echo "invoking account's own ~/.ssh, or the broker's key under root." >&2; \
+	           echo "Skip this check with PREFLIGHT=none." >&2; \
 	           exit 1; \
 	         fi; \
 	         if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ]; then \
-	           echo "A root run connects with the broker's key, which is what this playbook" >&2; \
-	           echo "authorizes, so a host that has yet to authorize it reads here the same as" >&2; \
-	           echo "one that is off. Bootstrap it as the operator, which connects with your" >&2; \
-	           echo "own ~/.ssh: make faramir" >&2; \
+	           echo "A root run connects with the broker's key, which this playbook is what" >&2; \
+	           echo "authorizes, so a host that has yet to authorize it reads the same as one" >&2; \
+	           echo "that is off. Bootstrap it as the operator: make faramir" >&2; \
 	         fi; \
 	         limit="--limit $$reachable"; \
 	       fi;
@@ -301,8 +299,8 @@ define refuse_bad_invocation
 	 if [ -n "$(STRAY_ARGS)" ]; then \
 	   echo "make read these as variable assignments rather than forwarding them:" >&2; \
 	   echo "  $(STRAY_ARGS)" >&2; \
-	   echo "An argument containing = never reaches ansible-playbook. Pass the whole" >&2; \
-	   echo "list as one variable instead:" >&2; \
+	   echo "An argument containing = never reaches ansible-playbook. Pass them as one" >&2; \
+	   echo "variable instead:" >&2; \
 	   echo "  make $* ARGS='...'" >&2; \
 	   exit 1; \
 	 fi; \
@@ -310,8 +308,8 @@ define refuse_bad_invocation
 	   echo "ARGS was set on the command line, so these were dropped rather than" >&2; \
 	   echo "forwarded:" >&2; \
 	   echo "  $(DROPPED_ARGS)" >&2; \
-	   echo "A command-line ARGS outranks the list built from what follows --. Pass" >&2; \
-	   echo "the whole argument list as the one variable instead:" >&2; \
+	   echo "A command-line ARGS outranks the list after --. Pass the whole list as" >&2; \
+	   echo "that variable instead:" >&2; \
 	   echo "  make $* ARGS='$(DROPPED_ARGS) ...'" >&2; \
 	   exit 1; \
 	 fi;
@@ -324,9 +322,8 @@ $(PLAYBOOKS): %: requirements
 	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
 	   if [ -n "$(IS_ROOT)" ]; then \
 	     echo "$(SOPS_FILE): not readable by root, so it is missing or its home is" >&2; \
-	     echo "not mounted. Refusing to run $*.yml: every credential would be" >&2; \
-	     echo "undefined, and the first task to read one fails with the tasks before" >&2; \
-	     echo "it already applied." >&2; \
+	     echo "not mounted. Refusing to run $*.yml: every credential would be undefined" >&2; \
+	     echo "and the first task to read one fails with the rest already applied." >&2; \
 	     exit 1; \
 	   fi; \
 	   echo "$(SOPS_FILE) is not readable by $(OPERATOR), so this run re-enters as" >&2; \

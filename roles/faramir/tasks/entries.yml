@@ -217,8 +217,8 @@
       No longer declared, so removed:
       {{ (faramir_block_stale_paths + faramir_block_stale_names
           + faramir_block_stale_commands) | sort | join(', ') }}.
-      The rule each rendered stays in the agent's settings, which are merged rather than
-      replaced, until that line is deleted by hand.
+      Each rendered rule stays in the agent's settings, which are merged rather than
+      replaced, until it is deleted by hand.
   when: >-
     (faramir_block_stale_paths + faramir_block_stale_names
      + faramir_block_stale_commands) | length > 0

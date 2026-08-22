@@ -25,9 +25,8 @@
     that:
       - games_retroarch_pgrep.rc != 0
     fail_msg: >-
-      RetroArch is running as {{ games_user }}. It rewrites retroarch.cfg and its core options when
-      it exits (config_save_on_exit), so everything this role converges would be undone the moment
-      you close it. Close RetroArch and run again.
+      RetroArch is running as {{ games_user }}. It rewrites retroarch.cfg and its core options on
+      exit (config_save_on_exit), undoing everything this role converges. Close it and run again.
     success_msg: RetroArch is not running
 
 # The udev input driver reads /dev/input/event* directly and the distro rules ACL only
@@ -82,9 +81,9 @@
     that:
       - games_retroarch_thumbnails_stat.stat.isdir | default(false)
     fail_msg: >-
-      {{ games_retroarch_thumbnails_dir }} is not a directory. It is the shared box art cache, and
-      the library owns it the way it owns _BIOS: the role points RetroArch at it and never creates
-      it. Create it in the library, group it with the library, and set the setgid bit (2755).
+      {{ games_retroarch_thumbnails_dir }} is not a directory. The library owns the shared box art
+      cache the way it owns _BIOS: this role points RetroArch at it and never creates it. Create it
+      in the library, group it with the library, and set the setgid bit (2755).
     success_msg: >-
       Shared thumbnail cache found at {{ games_retroarch_thumbnails_dir }}
       ({{ games_retroarch_thumbnails_writable | ternary('writable: this host fills it',
@@ -99,9 +98,9 @@
       - games_retroarch_controller in games_retroarch_controllers
     fail_msg: >-
       games_retroarch_controller is "{{ games_retroarch_controller | default('') }}", which is not
-      one of {{ games_retroarch_controllers.keys() | list }}. It names the gamepad this host has,
-      whose physical button and axis indices the rewind bindings are built from. Set it in
-      host_vars/, and add the pad to games_retroarch_controllers if it is not there yet.
+      one of {{ games_retroarch_controllers.keys() | list }}. It names this host's gamepad, whose
+      button and axis indices the rewind bindings are built from. Set it in host_vars/, adding the
+      pad to games_retroarch_controllers if it is not there.
     success_msg: 'games_retroarch_controller "{{ games_retroarch_controller }}" is known'
 
 # RetroArch derives the audio resampling ratio from this, so a wrong value is heard as audio
@@ -113,10 +112,9 @@
       - games_retroarch_video_refresh_rate | float > 0
     fail_msg: >-
       games_retroarch_video_refresh_rate is "{{ games_retroarch_video_refresh_rate | default('') }}",
-      which is not a refresh rate. It is this host's panel refresh rate, which the role has no way to
-      know, and RetroArch's 60.0 default mistimes every core on a panel that is not 60Hz. Set it in
-      host_vars/ to the panel's actual mode (RetroArch's own "Estimate Screen Refresh Rate" reports
-      it).
+      which is not a refresh rate. RetroArch's 60.0 default mistimes every core on a panel that is
+      not 60Hz. Set it in host_vars/ to this panel's mode, which RetroArch's own "Estimate Screen
+      Refresh Rate" reports.
     success_msg: 'games_retroarch_video_refresh_rate "{{ games_retroarch_video_refresh_rate }}" is set'
 
 # vsync, a swap interval above 1, BFI and vrr_runloop_enable are four ways to sync video to
@@ -134,12 +132,11 @@
         | intersect(["video_vsync", "video_swap_interval", "video_black_frame_insertion"])
         | length == 0
     fail_msg: >-
-      This host sets vrr_runloop_enable, but one of its preconditions is overridden: video_vsync on,
-      video_swap_interval 1 (or 0 for auto) and video_black_frame_insertion 0 all have to hold in
-      the global config, and no per-core override may set any of the three at all. The failed
-      assertion above names the one that does not. Drop the override (from
-      games_retroarch_extra_settings or games_retroarch_core_overrides), or turn vrr_runloop_enable
-      off and sync that way instead.
+      vrr_runloop_enable needs video_vsync on, video_swap_interval 1 (or 0 for auto) and
+      video_black_frame_insertion 0 in the global config, and no per-core override touching any of
+      the three. The failed assertion above names the one that does not hold. Drop that override,
+      from games_retroarch_extra_settings or games_retroarch_core_overrides, or turn
+      vrr_runloop_enable off.
     success_msg: vrr_runloop_enable is set and its preconditions hold
   when: games_retroarch_settings.vrr_runloop_enable | default("false") | bool
 
@@ -267,9 +264,9 @@
       - games_retroarch_configured_cores | difference(games_retroarch_cores) | length == 0
     fail_msg: >-
       {{ games_retroarch_configured_cores | difference(games_retroarch_cores) }} is configured in
-      games_retroarch_core_overrides or games_retroarch_core_options but is not a core any system in
-      games_retroarch_systems runs, so nothing would ever load it. Both dicts are keyed by the
-      buildbot core name, as games_retroarch_systems is. This host runs {{ games_retroarch_cores }}.
+      games_retroarch_core_overrides or games_retroarch_core_options but no system in
+      games_retroarch_systems runs it, so nothing loads it. All three are keyed by the buildbot core
+      name. This host runs {{ games_retroarch_cores }}.
     success_msg: Every configured core is one a system runs
 
 # One directory per core, holding both its .cfg override and its .opt options, which

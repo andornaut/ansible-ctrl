@@ -7,14 +7,10 @@
       - (groups['faramir_controller'] | default([])) | length == 1
       - faramir_controller_host in (groups['faramir'] | default([]))
     fail_msg: >-
-      The controller group holds
-      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }} and the
-      faramir group holds
-      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. These tasks
-      distribute one key, from the host these playbooks are run from, so the
-      controller group has to hold exactly one host and that host has to be one the
-      broker is installed on. The other faramir hosts are served by this play like
-      any managed host, their own keys reaching nothing.
+      One key is distributed, from the host these playbooks run on, so faramir_controller
+      needs exactly one host and that host has to be in faramir. It holds
+      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }}, against
+      faramir's {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}.
     quiet: true
 
 - name: Read the broker's public key from the controller
@@ -36,7 +32,7 @@
         that: faramir_broker_authorized_key.startswith("ssh-")
         fail_msg: >-
           {{ faramir_broker_ssh_key }}.pub does not look like a public key. Run
-          make faramir first; it generates the pair and prints the public half.
+          make faramir, which generates the pair.
         quiet: true
 
 - name: Authorize the broker's key on the managed hosts
@@ -51,10 +47,9 @@
         that: faramir_controller_host in ansible_play_hosts
         fail_msg: >-
           {{ faramir_controller_host }} is not in this play, so nothing published a key
-          for this host to authorize. Either a --limit left it out, `--limit
-          '!faramir_controller'` being what every brokered run carries, or it failed
-          earlier in this run and took itself out of the rest; the output above this
-          says which. Apply this playbook as the operator: make faramir
+          to authorize. Either a --limit left it out, `--limit '!faramir_controller'`
+          being what every brokered run carries, or it failed earlier in this run; the
+          output above says which. Apply as the operator: make faramir
         quiet: true
 
     # Names no path. A message here is templated on every managed host when the task's
@@ -66,9 +61,8 @@
         that: "'faramir_broker_authorized_key' in hostvars[faramir_controller_host]"
         fail_msg: >-
           {{ faramir_controller_host }} is in this run and published no key, so this is
-          not a --limit. The tasks above that read the broker's public key were skipped
-          or did not set the fact, which is what a controller whose inventory_hostname
-          does not match the name the faramir_controller group holds looks like.
+          not a --limit: the tasks that read the broker's public key were skipped, which
+          is what an inventory_hostname not matching the faramir_controller entry does.
         quiet: true
 
     - name: Authorize the broker's key for the ansible account
@@ -182,9 +176,8 @@
         fail_msg: >-
           {{ faramir_fleet_known_hosts_changed | join(', ') }}
           is pinned in {{ faramir_fleet_known_hosts_path }} under a different key than the
-          host presented. Reinstalling a host rekeys it and this is then expected: confirm
-          that is what happened, drop those lines from that file, and re-run. Nothing else
-          rekeys a host on its own.
+          host presented. A reinstall rekeys a host and nothing else does: confirm that is
+          what happened, drop those lines, and re-run.
         quiet: true
       vars:
         # The first two fields are what ssh looks an entry up under, so a line unpinned as
@@ -260,8 +253,8 @@
       ansible.builtin.debug:
         msg: >-
           Lost earlier in this run, so neither authorized nor pinged:
-          {{ faramir_fleet_ping_dropped | join(', ') }}. Fix what dropped them,
-          higher up in this run's output, and re-run.
+          {{ faramir_fleet_ping_dropped | join(', ') }}. Fix what dropped them, above,
+          and re-run.
       when: faramir_fleet_ping_dropped | length > 0
       vars:
         faramir_fleet_ping_dropped: >-
@@ -273,16 +266,14 @@
         that:
           - faramir_fleet_ping_silent | length == 0
         fail_msg: >-
-          A brokered ping did not clear the fleet. This run reached each of these
-          as the operator and wrote the key, so the broker not reaching them is
-          this run's own work not having landed.
-          Did not answer: {{ faramir_fleet_ping_silent | join(', ') }}. Either
-          these tasks have not authorized the account ansible connects as, or the
-          host is not pinned in {{ faramir_fleet_known_hosts_path }} under the
-          address and port the inventory dials, or the executor has no route to
-          the name: it carries no ssh config, so an inventory alias does not
-          resolve for it.
+          A brokered ping did not clear the fleet, though this run reached each host
+          as the operator and wrote the key.
+          Did not answer: {{ faramir_fleet_ping_silent | join(', ') }}.
           Answered: {{ faramir_fleet_ping_answered | join(', ') or 'none' }}.
+          So either the key is not authorized for the account ansible connects as, or
+          the host is not pinned in {{ faramir_fleet_known_hosts_path }} under the
+          address and port the inventory dials, or the executor cannot resolve the
+          name, carrying no ssh config.
           Output: {{ faramir_fleet_ping.stdout | default('') | trim }}
           {{ faramir_fleet_ping.stderr | default('') | trim }}
         quiet: true

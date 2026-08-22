@@ -75,6 +75,6 @@
       - "broker public key ({{ faramir_broker_ssh_key }}.pub):"
       # Absent under --check, where init runs --dry-run and mints nothing.
       - "{{ faramir_report.broker_public_key | default('not reported') }}"
-      - "It must be in ~/.ssh/authorized_keys for the account ansible connects as
-         on every managed host, or brokered playbooks authenticate as nobody. The
-         next play of this run puts it there, over the whole inventory."
+      - "It must be in ~/.ssh/authorized_keys for the account ansible connects as on
+         every managed host, or brokered playbooks authenticate as nobody. The next
+         play puts it there, over the whole inventory."

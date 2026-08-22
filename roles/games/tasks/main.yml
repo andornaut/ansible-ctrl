@@ -19,9 +19,8 @@
       - games_retroarch_library_dir is defined
       - games_retroarch_library_dir | length > 0
     fail_msg: >-
-      games_retroarch_library_dir is not set. It is the path this host mounts the ROM
-      library at, which is site-specific, so the role has no default for it. Set it in
-      host_vars/ for this host.
+      games_retroarch_library_dir is not set: it is where this host mounts the ROM library,
+      which is site data with no default. Set it in host_vars/.
     success_msg: 'games_retroarch_library_dir "{{ games_retroarch_library_dir | default("") }}" is set'
   tags: always
 

@@ -26,8 +26,8 @@
       - games_retroid_serial | length > 0
     fail_msg: >-
       games_install_retroid_sync is on, so games_retroid_library_dir (where the controller mounts
-      the ROM library) and games_retroid_serial (the device's adb serial, from `adb devices`) must
-      both be set in host_vars/ for this host. Both are site data, so the role has no default.
+      the ROM library) and games_retroid_serial (from `adb devices`) must both be set in
+      host_vars/. Both are site data with no default.
     success_msg: syncretroid inputs are set
 
 # A wrapper, not a copy: the script runs from the role directory and reads the vars and

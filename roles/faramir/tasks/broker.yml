@@ -11,9 +11,9 @@
     that: faramir_controller_host | length > 0
     fail_msg: >-
       The faramir_controller group holds
-      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }}, and it has
-      to hold exactly one: it is what names the host these playbooks are run from, and so
-      which install gets the checkout enrolled and the key the fleet authorizes.
+      {{ groups['faramir_controller'] | default([]) | join(', ') or 'no hosts' }} and has to
+      hold exactly one: it names the host these playbooks run from, and so which install gets
+      the checkout and the key the fleet authorizes.
     quiet: true
   tags: always
 
@@ -21,13 +21,11 @@
   ansible.builtin.assert:
     that: inventory_hostname in (groups['faramir'] | default([]))
     fail_msg: >-
-      This installs the broker: service accounts, systemd units, the age key and
-      root's config directory. {{ inventory_hostname }} is in no position to take
-      them, the faramir group holding
-      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. Apply it
-      with make faramir, whose first play targets that group. Authorizing the
-      controller's key on this host is that run's second play, which applies
-      tasks/ssh.yml.
+      This installs the broker: service accounts, units, the age key and root's config
+      directory. {{ inventory_hostname }} is not in the faramir group, which holds
+      {{ groups['faramir'] | default([]) | join(', ') or 'no hosts' }}. Apply it with
+      make faramir, whose first play targets that group and whose second authorizes the
+      controller's key here.
     quiet: true
   tags: always
 
@@ -77,10 +75,9 @@
     that: faramir_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
     fail_msg: >-
       {{ faramir_user }}'s home is encrypted and {{ faramir_user_home }} is not mounted, so
-      this host is sitting at its login screen or the home was never unlocked. Installing now
-      would put the age key and the store on the mountpoint rather than in the home, and would
-      block none of the credential stores under it. Log in as {{ faramir_user }}, or run
-      ecryptfs-mount-private there, and run this again.
+      this host is at its login screen or the home was never unlocked. Installing now would
+      write the age key and the store onto the mountpoint and block nothing under the home.
+      Log in as {{ faramir_user }}, or run ecryptfs-mount-private there, and re-run.
     quiet: true
   when: faramir_home_ecryptfs.stat.exists
   tags: always
@@ -98,9 +95,8 @@
   ansible.builtin.assert:
     that: faramir_worktree_dir.stat.isdir | default(false)
     fail_msg: >-
-      No directory at {{ playbook_dir }} on this host, which the controller group
-      names as the one these playbooks are run from. faramir enrols the checkout
-      the play was run from, so that host is the one holding it.
+      No directory at {{ playbook_dir }}, and faramir_controller names this host as the
+      one these playbooks run from. faramir enrols the checkout the run started in.
     quiet: true
   when: faramir_is_controller | bool
 

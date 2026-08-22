@@ -18,11 +18,11 @@
       - homeautomation_esphome_username | length > 0
       - homeautomation_esphome_password | length > 0
     fail_msg: >-
-      ESPHome has no username or password, which starts the dashboard
-      unauthenticated on the LAN: firmware-flash access to every ESP device,
-      and secrets.yaml readable. Set homeautomation_esphome_username and point
-      the password at an injected credential in host_vars, or set
-      homeautomation_esphome_allow_unauthenticated to run it open on purpose.
+      ESPHome has no username or password, so the dashboard starts unauthenticated
+      on the LAN: firmware flash on every ESP device, and secrets.yaml readable.
+      Set homeautomation_esphome_username and point the password at an injected
+      credential in host_vars, or set homeautomation_esphome_allow_unauthenticated
+      to run it open on purpose.
   when: not homeautomation_esphome_allow_unauthenticated | bool
 
 - name: Create the ESPHome service account
