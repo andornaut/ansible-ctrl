@@ -71,7 +71,7 @@
 
     # Under the version it carries, which is both the name to install by hand and what
     # keeps a release the sets have already been given from being fetched again.
-    - name: Download adb-auto-enable {{ homeautomation_adb_auto_enable_version }}
+    - name: Download the newest release of adb-auto-enable
       ansible.builtin.get_url:
         url: "{{ homeautomation_adb_auto_enable_url }}"
         dest: "{{ homeautomation_adb_auto_enable_apk }}"
