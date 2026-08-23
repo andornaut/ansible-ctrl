@@ -100,23 +100,55 @@
       loop_control:
         label: "{{ item.path | basename }}"
 
-    - name: Require each stale rule to be a deny rule and nothing else
-      ansible.builtin.assert:
-        that: faramir_stale_elsewhere | length == 0
-        fail_msg: >-
-          {{ item.item.path }} carries {{ faramir_stale_elsewhere | join(', ') }} outside
-          permissions.deny, where removing it would take a decision the operator made. Drop
-          the entry by hand, or take the string out of this task's list.
-        quiet: true
-      loop: "{{ faramir_stale_slurp.results }}"
+    # Rescued rather than fatal, for the reason the removals below carry: this import runs
+    # ahead of harden.yml, so failing here would leave the install unhardened over residue.
+    # Rescued to taking nothing, because a file that will not parse is one whose decisions
+    # cannot be read, and removing blind is the thing this task exists to avoid.
+    - name: Work out which array rules the removal may take
+      block:
+        - name: Set aside the stale rules the operator has decided on elsewhere
+          ansible.builtin.set_fact:
+            faramir_stale_array_removable: >-
+              {{ (faramir_stale_array_removable | default([]))
+                 + [{'path': item.item.path,
+                     'rules': item.item.rules | difference(faramir_stale_elsewhere)}] }}
+            faramir_stale_array_kept: >-
+              {{ (faramir_stale_array_kept | default([]))
+                 + [{'path': item.item.path, 'rules': faramir_stale_elsewhere}] }}
+          loop: "{{ faramir_stale_slurp.results }}"
+          loop_control:
+            label: "{{ item.item.path | basename }}"
+          vars:
+            faramir_stale_doc: "{{ item.content | b64decode | from_json }}"
+            faramir_stale_elsewhere: >-
+              {{ item.item.rules
+                 | select('in', (faramir_stale_doc.permissions.allow | default([]))
+                                + (faramir_stale_doc.permissions.ask | default([]))) | list }}
+          become: false
+      rescue:
+        - name: Take nothing from the array configurations
+          ansible.builtin.set_fact:
+            faramir_stale_array_removable: []
+            faramir_stale_array_kept: []
+          become: false
+
+        - name: Say which array configurations could not be read
+          ansible.builtin.debug:
+            msg: >-
+              {{ faramir_stale_present | selectattr('shape', 'equalto', 'array')
+                 | map(attribute='path') | join(', ') }} did not parse as JSON, so what the
+              operator has decided there cannot be read and nothing was taken. Fix the file
+              by hand, then re-run this tag.
+
+    - name: Name the stale rules the operator has decided on elsewhere
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.path }}: {{ item.rules | join(', ') }} stand. They sit under
+          permissions.allow or permissions.ask, where removing one would take a decision the
+          operator made. Drop them by hand, or take the strings out of this task's list.
+      loop: "{{ faramir_stale_array_kept | default([]) | selectattr('rules') | list }}"
       loop_control:
-        label: "{{ item.item.path | basename }}"
-      vars:
-        faramir_stale_doc: "{{ item.content | b64decode | from_json }}"
-        faramir_stale_elsewhere: >-
-          {{ item.item.rules
-             | select('in', (faramir_stale_doc.permissions.allow | default([]))
-                            + (faramir_stale_doc.permissions.ask | default([]))) | list }}
+        label: "{{ item.path | basename }}"
 
     # validate runs against the candidate, so a removal that would leave the previous line's
     # comma dangling is refused and the file is left as it was, rather than written as JSON
@@ -131,8 +163,7 @@
         state: absent
         validate: python3 -m json.tool %s
       loop: >-
-        {{ faramir_stale_present | selectattr('shape', 'equalto', 'array')
-           | list | subelements('rules') }}
+        {{ faramir_stale_array_removable | default([]) | subelements('rules') }}
       loop_control:
         label: "{{ item.0.path | basename }}: {{ item.1 }}"
       register: faramir_stale_array_drop
