@@ -45,5 +45,8 @@ base_lockdown_exclude_homes:
 # logs a failure for each trace class the hardware lacks. Enable per host in host_vars.
 base_install_rasdaemon: false
 
-# A ceiling, not an allocation, but each watch costs kernel memory, so a small host wants less.
-base_inotify_max_user_watches: 524288
+# A ceiling, not an allocation, but each watch costs about 1 KB of kernel memory and the limit is
+# per user, so the worst case is this many KB per uid. 131072 covers an editor or a file-syncing
+# daemon over a large tree while staying modest against the smallest host's RAM. Raise it in
+# host_vars for a host that exhausts it.
+base_inotify_max_user_watches: 131072
