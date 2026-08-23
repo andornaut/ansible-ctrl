@@ -14,9 +14,11 @@
 # Recommends.
 - name: Import snap tasks
   ansible.builtin.import_tasks: snap.yml
+  tags: snap
 
 - name: Import cloud-init tasks
   ansible.builtin.import_tasks: cloud-init.yml
+  tags: cloud-init
 
 - name: Install system packages
   ansible.builtin.apt:
@@ -231,6 +233,7 @@
 
 - name: Import storage-space-alert tasks
   ansible.builtin.import_tasks: storage-space-alert.yml
+  tags: storage-space-alert
 
 - name: Import sysctl tasks
   ansible.builtin.import_tasks: sysctl.yml
@@ -238,6 +241,7 @@
 
 - name: Import systemd tasks
   ansible.builtin.import_tasks: systemd.yml
+  tags: systemd
 
 - name: Import Ubuntu Pro tasks
   ansible.builtin.import_tasks: ubuntu-pro.yml
@@ -245,3 +249,4 @@
 
 - name: Import telemetry tasks
   ansible.builtin.import_tasks: telemetry.yml
+  tags: telemetry
