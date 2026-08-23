@@ -27,6 +27,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | Cron, in `/etc/cron.d/ansible-role-base` | `storage-space-alert` hourly, `disk-cleanup` weekly |
 | `disk-cleanup` sweeps flatpak once per installation, not once per host | `flatpak uninstall --unused` acts on the installation of whoever runs it, so the root run reaches only the system one. On a desktop the runtimes are almost entirely per-user under `$HOME/.local/share/flatpak`, so every account with such a directory is passed over separately under `runuser`, with `HOME` named because `runuser` does not set it |
 | Hardware errors are recorded, not only logged | `rasdaemon` persists machine-check exceptions to `/var/lib/rasdaemon`, where `ras-mc-ctl --errors` reads them back. A kernel MCE line on its own is lost at the next journal vacuum and nothing counts a repeat. A host with non-ECC memory registers no EDAC memory controller, so an empty report there is expected rather than a sign the daemon is broken |
+| `ras-mc-ctl --errors` cannot print its machine-check section on rasdaemon 0.8.4 | It selects a `signal` column that is absent from the `mce_record` schema the same version creates, so that section fails with a `DBD::SQLite` error while the memory, PCIe, ARM and CXL sections report normally. The records are still written. Read them with `sqlite3 /var/lib/rasdaemon/ras-mc_event.db 'select * from mce_record'` |
 
 Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)):
 
@@ -52,4 +53,7 @@ sudo /usr/local/sbin/disk-cleanup
 
 # Hardware errors rasdaemon has recorded
 ras-mc-ctl --errors
+
+# The machine-check records, which the command above cannot print
+sudo sqlite3 /var/lib/rasdaemon/ras-mc_event.db 'select * from mce_record'
 ```
