@@ -27,15 +27,19 @@ base_telemetry_packages:
 
 # Purged and negatively pinned by tasks/unwanted.yml. Ubuntu installs these by default and no
 # host here has the hardware or the role for them: no modems, no crash dumps anyone reads, no
-# dual-GPU switching, no screen reader.
+# VMware guest, no directory service.
+#
+# Nothing a desktop metapackage depends on belongs here. language-selector-gnome is a hard
+# Depends of ubuntu-desktop-minimal, so pinning it takes gdm3, gnome-shell and ubuntu-session
+# with it; power-profiles-daemon, switcheroo-control and speech-dispatcher come back through the
+# same tree, and roles/desktop installs speech-dispatcher for Firefox text-to-speech. Check
+# `apt-get -s install ubuntu-desktop-minimal` before adding to this list.
 base_unwanted_packages:
   - kdump-tools
-  - language-selector-gnome
   - modemmanager
   - open-vm-tools
   - pollinate
   - power-profiles-daemon
-  - speech-dispatcher
   - sssd
   - sssd-common
   - switcheroo-control

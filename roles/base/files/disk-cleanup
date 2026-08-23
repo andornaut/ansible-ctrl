@@ -39,7 +39,7 @@ journalctl --vacuum-size=500M --vacuum-time=4weeks
 
 # Rotated and compressed logs. logrotate keeps these for its own retention window, which is
 # time the disk pays for; the live files it is still writing are untouched.
-find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete
+find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete || true
 
 # Unused images, containers, networks and build cache. Volumes are preserved.
 if command -v docker >/dev/null 2>&1; then
@@ -66,8 +66,10 @@ if command -v flatpak >/dev/null 2>&1; then
         [[ -d ${home}/.local/share/flatpak ]] || continue
         # HOME is named because runuser does not set it, and flatpak reads it
         # to find the installation: unset, it would act on root's again.
+        # stdin is redirected because the loop reads from getent: a child that read it would
+        # swallow passwd lines and silently skip the accounts after this one.
         runuser -u "${name}" -- env HOME="${home}" \
-            flatpak uninstall --unused --assumeyes || true
+            flatpak uninstall --unused --assumeyes </dev/null || true
     done < <(getent passwd)
 fi
 

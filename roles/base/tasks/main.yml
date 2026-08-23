@@ -205,11 +205,13 @@
   ansible.builtin.import_tasks: install_from_github.yml
   vars:
     base_tool_name: gog
+  tags: gog
 
 - name: Install mrs
   ansible.builtin.import_tasks: install_from_github.yml
   vars:
     base_tool_name: mrs
+  tags: mrs
 
 - name: Import lockdown tasks
   ansible.builtin.import_tasks: lockdown.yml
