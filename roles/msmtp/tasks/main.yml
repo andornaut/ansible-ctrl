@@ -40,6 +40,7 @@
     state: present
     update_cache: true
   become: true
+  notify: Restart msmtpd
 
 # An enforced msmtp profile denies msmtpd's read of /etc/msmtprc-relay and mail
 # bounces; it reads this local include when enforced and ignores it otherwise.
@@ -64,7 +65,9 @@
   become: true
 
 # Unconditional: gating on the include changing would let an interrupted run leave
-# an enforced profile denying those reads.
+# an enforced profile denying those reads. It notifies no restart for the same reason it is
+# unconditional, reporting changed on every run of an enforced host; the profile constrains
+# the per-message msmtp children, which take it at exec, not the running daemon.
 - name: Reload AppArmor so the relay rule is live before msmtpd restarts
   ansible.builtin.systemd_service:
     name: apparmor
@@ -103,6 +106,7 @@
     mode: "0600"
   become: true
   no_log: true
+  notify: Restart msmtpd
 
 - name: Create msmtpd systemd override directory
   ansible.builtin.file:
@@ -121,16 +125,23 @@
     group: root
     mode: "0644"
   become: true
+  notify: Restart msmtpd
 
-# Before /etc/msmtprc below points clients at msmtpd, or mail sent in between relays
-# back into it. An ordering constraint, so not a handler; the restart is cheap.
-- name: Restart msmtpd before pointing clients at it
+# daemon_reload here as well as in the handler: a run that finds msmtpd stopped would
+# otherwise start it from a unit definition the override above has already superseded.
+- name: Enable msmtpd
   ansible.builtin.systemd_service:
     name: msmtpd
     daemon_reload: true
     enabled: true
-    state: restarted
+    state: started
   become: true
+
+# The restart has to land before /etc/msmtprc below points clients at msmtpd, and handlers
+# otherwise run at end of play. A flush runs every handler the play has pending, not only
+# this role's; msmtp is the only role in msmtp.yml, so today that is this role's alone.
+- name: Apply a pending msmtpd restart before pointing clients at it
+  ansible.builtin.meta: flush_handlers
 
 # Before /etc/msmtprc, which references it.
 - name: Copy /etc/aliases

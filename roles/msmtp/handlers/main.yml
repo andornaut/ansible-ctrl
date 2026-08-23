@@ -1,0 +1,10 @@
+---
+# Not left to the end of the play as an ordinary handler is: /etc/msmtprc must not point
+# clients at msmtpd until the daemon is running the new config, or mail sent in between
+# relays back into it. tasks/main.yml flushes this before writing that file.
+- name: Restart msmtpd
+  ansible.builtin.systemd_service:
+    name: msmtpd
+    daemon_reload: true
+    state: restarted
+  become: true

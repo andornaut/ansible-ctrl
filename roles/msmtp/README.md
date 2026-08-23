@@ -41,8 +41,9 @@ task, which uninstalls the host's existing MTA.
 - **AppArmor.** `msmtp`'s profile grants read of `/etc/msmtprc` but not `/etc/msmtprc-relay`. It is
   disabled by default; the role writes the local rule regardless, so enforcing it later cannot bounce
   every message.
-- **msmtpd is restarted every run**, before `/etc/msmtprc` is written to point clients at it. It holds
-  no queue, so the restart is safe.
+- **msmtpd is restarted when its packages, relay config or unit override change**, before
+  `/etc/msmtprc` is written to point clients at it. The handler is flushed at that point rather than
+  at end of play, which is what keeps that ordering. It holds no queue, so the restart is safe.
 - **msmtp does not queue.** An unreachable upstream means the message is rejected, not retried.
   Anything that must survive an outage needs a queuing MTA.
 
