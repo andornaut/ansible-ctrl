@@ -118,10 +118,10 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
   `faramir-exec`, whose only sudo is the one `faramir_allow_sudo` grants, and that one asks a person per command,
   so a play would raise a question per task. Apply the controller's own playbooks as the operator, or under the
   single approval [above](#running-playbooks) buys.
-- **`faramir_allow_sudo` needs the original `sudo`.** Ubuntu 26.04 ships `sudo-rs`, which does not implement
-  `pam_service`; the grant names it, so `visudo` rejects the whole file and the install refuses. It removes the
-  file again rather than leaving a broken entry, so the host's own `sudo` is unaffected and one left without the
-  grant refuses every escalation. Everything else works there.
+- **`faramir_allow_sudo` works under either `sudo`.** Ubuntu ships two implementations from 25.10 on, and the
+  install probes the `sudo` alternatives group and writes the arrangement that one reads. The grant sets
+  `noninteractive_auth`, which needs sudo 1.9.11 or sudo-rs 0.2.9; the install names the floor and writes nothing
+  on an older host.
 - **An escalation expires after `faramir_escalation_timeout_sec`** (default `300`), and while a question is
   waiting every other brokered command on the host is refused. Only the literal answer the prompt names approves;
   silence is a refusal.
