@@ -43,6 +43,26 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 # Remove flatpak runtimes and extensions no longer referenced by any app.
+#
+# `--unused` acts on the installation of whoever runs it, so this root run
+# reaches the system one and nothing else. On a desktop the runtimes are almost
+# entirely in the per-user installations under $HOME/.local/share/flatpak, so
+# each account that has one is passed over separately.
+#
+# The accounts are discovered rather than passed in: which ones own flatpaks is
+# decided by the desktop, games and hobbies roles, and this script belongs to
+# base, which does not read their variables.
 if command -v flatpak >/dev/null 2>&1; then
-    flatpak uninstall --unused --assumeyes
+    # Guarded so that a failure against one installation does not skip the
+    # rest: the per-user ones hold the space, and are reached after this.
+    flatpak uninstall --unused --assumeyes || true
+
+    while IFS=: read -r name _ uid _ _ home _; do
+        [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
+        [[ -d ${home}/.local/share/flatpak ]] || continue
+        # HOME is named because runuser does not set it, and flatpak reads it
+        # to find the installation: unset, it would act on root's again.
+        runuser -u "${name}" -- env HOME="${home}" \
+            flatpak uninstall --unused --assumeyes || true
+    done < <(getent passwd)
 fi

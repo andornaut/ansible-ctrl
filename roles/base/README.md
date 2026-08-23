@@ -25,6 +25,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | Leftover state is swept | User `snap/` directories, dangling snap systemd symlinks, `/etc/cloud`, `/var/lib/cloud`, and the `ubuntu-insights` consent and cache directories under every home |
 | Tools from GitHub releases, via [tasks/install_from_github.yml](./tasks/install_from_github.yml) | [filectrl](https://github.com/andornaut/filectrl) (file manager), [gog](https://github.com/andornaut/gog), [mrs](https://github.com/andornaut/mrs), `cache-command`, [storage-space-alert](https://github.com/andornaut/storage-space-alert). Needs a `{name}_{system}_{base_arch}.tar.gz` release asset |
 | Cron, in `/etc/cron.d/ansible-role-base` | `storage-space-alert` hourly, `disk-cleanup` weekly |
+| `disk-cleanup` sweeps flatpak once per installation, not once per host | `flatpak uninstall --unused` acts on the installation of whoever runs it, so the root run reaches only the system one. On a desktop the runtimes are almost entirely per-user under `$HOME/.local/share/flatpak`, so every account with such a directory is passed over separately under `runuser`, with `HOME` named because `runuser` does not set it |
 
 Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)):
 
