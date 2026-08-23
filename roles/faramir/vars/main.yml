@@ -48,6 +48,14 @@ faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
 # The one command taking --config-dir. The rest read $FARAMIR_CONFIG, then the running
 # broker, then the broker's unit, so a config outside the default directory is found without
 # being named.
+#
+# CLEANUP (added 2026-08-23): drop the --secret-min-refresh-sec pair below once every host
+# this role manages records min_refresh_sec = 1 in its config.toml. faramir's own default
+# dropped from 10 to 1, and an install keeps what it recorded unless a flag names otherwise,
+# so a host installed under the old one stays at 10 for ever without this. The interval is
+# faramir's to default, not the role's to pin, so the pair goes rather than becoming a
+# variable. The comment sits here because the value is one folded Jinja expression, which
+# carries no comment of its own.
 faramir_init_argv: >-
   {{
     [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
@@ -61,6 +69,7 @@ faramir_init_argv: >-
        else [])
     + (['--escalation-timeout-sec', faramir_escalation_timeout_sec | string]
        if faramir_allow_sudo | bool else [])
+    + ['--secret-min-refresh-sec', '1']
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 
