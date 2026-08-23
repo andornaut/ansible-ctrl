@@ -24,6 +24,7 @@ Takes the cores directory as its sole argument.
 
 import ctypes
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -62,9 +63,17 @@ def main(cores_dir):
             "block_extract": bool(info.block_extract),
         }
 
+    # os._exit, not a return: a core's ELF destructors run when the interpreter
+    # finalizes, and one that segfaults there (LRPS2 does) fails the caller after
+    # the answer has already been written. Nothing here needs unwinding.
     if broken:
-        sys.exit("the flatpak runtime cannot load these cores:\n  " + "\n  ".join(broken))
+        sys.stderr.write("the flatpak runtime cannot load these cores:\n  " + "\n  ".join(broken) + "\n")
+        sys.stderr.flush()
+        os._exit(1)
+
     print(json.dumps(cores))
+    sys.stdout.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":
