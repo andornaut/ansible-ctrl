@@ -39,3 +39,8 @@ base_lockdown_exclude_homes:
   - /nonexistent
   - /dev/null
   - /
+
+# Records machine-check exceptions past the journal's vacuum. Off by default: the memory-error
+# half needs an EDAC memory controller, which non-ECC hardware does not register, and the daemon
+# logs a failure for each trace class the hardware lacks. Enable per host in host_vars.
+base_install_rasdaemon: false

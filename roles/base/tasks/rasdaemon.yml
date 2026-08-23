@@ -1,13 +1,10 @@
 ---
-# Persists machine-check exceptions to /var/lib/rasdaemon, where `ras-mc-ctl --errors` reads
-# them back. Without it a hardware error is one kernel line in the journal, lost at the next
-# vacuum, and nothing counts a repeat. The routers are out of scope, base.yml being all:!routers.
-
-# A guest has no RAS hardware behind the trace events, so the daemon starts and then logs a
-# failure per event class. Keyed on virtualization_role, not virtualization_type, which reads
-# `kvm` on a host able to run guests just as it does on a guest.
-- name: Install and enable rasdaemon on bare metal
-  when: ansible_facts["virtualization_role"] != "guest"
+# Persists machine-check exceptions to /var/lib/rasdaemon, where `ras-mc-ctl --errors` reads them
+# back, outliving the journal's vacuum. Off unless a host asks for it: the memory-error half needs
+# an EDAC memory controller, which non-ECC hardware does not register, and the daemon logs a
+# failure for every trace class the hardware lacks. The CPU's machine-check records work regardless.
+- name: Install and enable rasdaemon
+  when: base_install_rasdaemon | bool
   block:
     - name: Install rasdaemon
       ansible.builtin.apt:
