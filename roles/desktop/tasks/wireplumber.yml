@@ -3,6 +3,15 @@
 # The file name carries the ansible-role marker that makes it safe to remove.
 - name: Apply the WirePlumber node properties in desktop_wireplumber_node_properties
   when: desktop_wireplumber_node_properties | length > 0
+  vars:
+    # Empty where wireplumber is absent, or where its output carries no such line, so the
+    # assertions below say which rather than raising on a match that found nothing. Two
+    # components are accepted: a release that ships 0.5 rather than 0.5.0 reads the drop-in
+    # directory just the same.
+    desktop_wireplumber_linked: >-
+      {{ (desktop_wireplumber_version.stdout | default('')
+          | regex_search('Linked with libwireplumber ([0-9]+\.[0-9]+(?:\.[0-9]+)?)', '\1'))
+         | default([''], true) | first }}
   block:
     # 0.5 reads /etc/wireplumber/wireplumber.conf.d; 0.4 configures the ALSA monitor through
     # Lua in main.lua.d and reads no drop-in directory at all, so the file below would be
@@ -12,8 +21,23 @@
         argv: "{{ ['wireplumber', '--version'] }}"
       register: desktop_wireplumber_version
       changed_when: false
+      # A host without wireplumber installed is one of the things the assertions below
+      # report, so the missing binary must not fail the task first.
+      failed_when: false
       # Reads a version and writes nothing, and the assert below needs it under --check too.
       check_mode: false
+      become: false
+
+    - name: Require WirePlumber to be installed
+      ansible.builtin.assert:
+        that:
+          - desktop_wireplumber_linked | length > 0
+        fail_msg: >-
+          desktop_wireplumber_node_properties is set, but `wireplumber --version` reported
+          no linked version on this host, so there is nothing here to configure:
+          {{ (desktop_wireplumber_version.stdout | default('') ~ ' '
+             ~ desktop_wireplumber_version.stderr | default('')) | trim }}
+        quiet: true
       become: false
 
     - name: Require a WirePlumber that reads the drop-in directory
@@ -27,11 +51,6 @@
           drop-in while the run reported it applied. Clear the variable for this host.
         success_msg: >-
           WirePlumber {{ desktop_wireplumber_linked }} reads the drop-in directory
-      vars:
-        desktop_wireplumber_linked: >-
-          {{ (desktop_wireplumber_version.stdout
-              | regex_search('Linked with libwireplumber ([0-9]+\.[0-9]+\.[0-9]+)', '\1'))
-             | first }}
       become: false
 
     # /etc holds no drop-in directory until one is made; 0.5's packaged drop-ins are
