@@ -46,3 +46,37 @@
       loop: "{{ games_flatpak_apps }}"
       register: games_flatpak_override
       changed_when: "'CHANGED' in games_flatpak_override.stdout"
+
+    - name: Uninstall the flatpak applications this host has turned off
+      community.general.flatpak:
+        name: "{{ games_flatpak_removed_apps }}"
+        method: user
+        state: absent
+      when: games_flatpak_removed_apps | length > 0
+
+    # An override is a file of its own and outlives the application it names.
+    - name: Remove the permission overrides of the uninstalled applications
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/share/flatpak/overrides/{{ item }}"
+        state: absent
+      loop: "{{ games_flatpak_removed_apps }}"
+
+    # A flag turned off leaves nothing behind, the application's own settings and state
+    # included. Nothing else writes here, flatpak giving each application its own tree.
+    - name: Remove the data directories of the uninstalled applications
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.var/app/{{ item }}"
+        state: absent
+      loop: "{{ games_flatpak_removed_apps }}"
+
+    # Most of what an uninstalled application cost on disk is its runtime. --unused takes only
+    # what nothing installed still needs and spares what is pinned, which is every runtime
+    # installed by name: the Vulkan layer extensions above are in `flatpak pin --user` for that
+    # reason. LC_ALL pins the locale, the report below being matched as text.
+    - name: Remove the flatpak runtimes nothing installed still needs
+      ansible.builtin.command:
+        argv: [flatpak, uninstall, --user, --unused, --assumeyes, --noninteractive]
+      environment:
+        LC_ALL: C
+      register: games_flatpak_unused
+      changed_when: "'Nothing unused' not in games_flatpak_unused.stdout"

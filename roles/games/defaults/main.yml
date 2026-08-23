@@ -8,8 +8,22 @@ games_user: "{{ primary_user }}"
 # lit for the length of a play session. True restores upstream's default.
 games_gamemode_inhibit_screensaver: false
 
-# Flatpak applications installed and configured for games_user.
-games_flatpak_apps:
+# Optional flatpak applications, each installed for games_user where its flag is on, and
+# uninstalled where it is off. vars/main.yml holds the application ID each flag stands for.
+#
+# Off by default because neither is wanted on every gaming host, for different reasons:
+#   Dolphin is installed for dolphin-tool, which converts GameCube disc images between .iso
+#   and .rvz (noble packages no dolphin-emu), so it belongs where the library is converted:
+#     flatpak run --command=dolphin-tool org.DolphinEmu.dolphin-emu convert ...
+#   ProtonUp-Qt installs the Proton and Wine builds a title needs under Steam or Heroic. It is
+#   a real need on a host that plays, but it installs arbitrary third-party builds, so it is
+#   named rather than assumed. Without it a build is extracted by hand into
+#   ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/.
+games_install_dolphin: false
+games_install_protonup_qt: false
+
+# Flatpak applications every gaming host installs and configures for games_user.
+games_flatpak_common:
   # Voice chat while playing. Not in the Ubuntu archive, and the .deb Discord publishes has
   # no repository behind it, so the flatpak is the only route that keeps itself current
   # against a client that refuses to start once it is a version behind.
@@ -17,12 +31,7 @@ games_flatpak_apps:
   - com.heroicgameslauncher.hgl
   - com.mojang.Minecraft
   - com.valvesoftware.Steam
-  - net.davidotek.pupgui2
   - net.lutris.Lutris
-  # Not a launcher: installed for dolphin-tool, which converts GameCube disc images
-  # between .iso and .rvz. noble has no dolphin-emu package. Run it with
-  #   flatpak run --command=dolphin-tool org.DolphinEmu.dolphin-emu convert ...
-  - org.DolphinEmu.dolphin-emu
   - org.libretro.RetroArch
   - org.openjkdf2.OpenJKDF2
 

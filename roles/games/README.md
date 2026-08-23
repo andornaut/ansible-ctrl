@@ -33,6 +33,7 @@ in [vars/main.yml](./vars/main.yml):
 | Nothing in `vars/` is host-settable | Role vars outrank `host_vars`. It holds the canonical RetroArch data (`games_retroarch_systems`, `..._required_settings`, `..._core_overrides`, `..._core_options`, `..._controllers`), the derived paths, the upstream pins, the flatpak sandbox grants, and the fact-derived values |
 | Override the default a value derives from, not the derived value | `syncretroid` reads `vars/main.yml` directly and resolves no inventory, so a `host_vars` override reaches the desktops and silently not the handheld |
 | A `host_vars` override of a dict must restate the whole value | Ansible replaces dicts rather than merging them. `games_retroarch_extra_settings` avoids that for the one dict a host has reason to add to |
+| `games_flatpak_common` is every host's set, the `games_install_*` flags the optional ones | `games_flatpak_apps` in `vars/` is the two together, which the tasks install, extend and override. A flag is two-way: off uninstalls the application, its permission override, its `~/.var/app` data and any runtime left unused. `host_vars` names the decision and the application ID stays here |
 
 ### Per-host settings
 

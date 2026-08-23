@@ -5,6 +5,24 @@
 # A platform probe, not a preference: the package exists only on Ubuntu >= 26.04.
 games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"
 
+# The optional applications, each keyed to the flag it answers to. The IDs sit here rather than
+# in host_vars, so a host names a decision and the role keeps the list.
+games_flatpak_optional:
+  org.DolphinEmu.dolphin-emu: "{{ games_install_dolphin | bool }}"
+  net.davidotek.pupgui2: "{{ games_install_protonup_qt | bool }}"
+
+# Every application flatpak.yml installs: the common set, plus the optional ones turned on.
+games_flatpak_apps: >-
+  {{ games_flatpak_common
+     + (games_flatpak_optional | dict2items | selectattr('value')
+        | map(attribute='key') | list) }}
+
+# The optional applications this host has turned off, which flatpak.yml uninstalls. A flag is
+# two-way because an install list removes nothing by no longer naming an application.
+games_flatpak_removed_apps: >-
+  {{ games_flatpak_optional | dict2items | rejectattr('value')
+     | map(attribute='key') | list }}
+
 # Sandboxed games cannot see the host binaries. Pinned to the runtime branch, flathub
 # publishing these on several at once.
 games_flatpak_extensions:
