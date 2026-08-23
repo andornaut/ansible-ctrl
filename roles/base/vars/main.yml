@@ -32,6 +32,10 @@ base_unwanted_packages:
   - kdump-tools
   - language-selector-gnome
   - modemmanager
+  - open-vm-tools
+  - pollinate
   - power-profiles-daemon
   - speech-dispatcher
+  - sssd
+  - sssd-common
   - switcheroo-control

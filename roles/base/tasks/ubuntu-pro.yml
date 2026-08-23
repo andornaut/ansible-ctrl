@@ -1,0 +1,17 @@
+---
+# The pro client is left installed: purging it takes update-notifier with it, and that is what
+# writes /var/run/reboot-required. Only the apt-news fetch is turned off, which is the part that
+# reaches the network on every apt run and trips the ubuntu_pro_apt_news AppArmor profile.
+- name: Configure Ubuntu Pro
+  become: true
+  block:
+    - name: Read the Ubuntu Pro apt-news setting
+      ansible.builtin.command: pro config show apt_news
+      register: base_pro_apt_news
+      changed_when: false
+      failed_when: false
+
+    - name: Disable the Ubuntu Pro apt-news fetch
+      ansible.builtin.command: pro config set apt_news=false
+      changed_when: true
+      when: base_pro_apt_news.stdout is search('apt_news\s+True')

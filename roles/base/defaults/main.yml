@@ -50,3 +50,7 @@ base_install_rasdaemon: false
 # daemon over a large tree. A headless host wants less and a host that exhausts it wants more;
 # both say so in host_vars.
 base_inotify_max_user_watches: 65536
+
+# How long an untouched file survives in /tmp. Ubuntu ships 30d, which lets a desktop accumulate
+# several GB before the daily systemd-tmpfiles run collects any of it.
+base_tmp_max_age: 7d

@@ -239,5 +239,9 @@
 - name: Import systemd tasks
   ansible.builtin.import_tasks: systemd.yml
 
+- name: Import Ubuntu Pro tasks
+  ansible.builtin.import_tasks: ubuntu-pro.yml
+  tags: ubuntu-pro
+
 - name: Import telemetry tasks
   ansible.builtin.import_tasks: telemetry.yml

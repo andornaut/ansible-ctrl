@@ -55,3 +55,16 @@
     regexp: '^#?\s*MaxRetentionSec\s*='
   become: true
   notify: Restart systemd-journald
+
+# Overrides /usr/lib/tmpfiles.d/tmp.conf, which ships 30d: long enough that a desktop's /tmp
+# reaches several GB before anything is collected. systemd-tmpfiles-clean.timer applies this
+# daily, and only removes a directory once its contents have aged out.
+- name: Age /tmp sooner than the shipped default
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/tmp.conf
+    content: |
+      D /tmp 1777 root root {{ base_tmp_max_age }}
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
