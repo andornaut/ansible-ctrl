@@ -1,5 +1,5 @@
 ---
-- name: Build and install adb-auto-enable
+- name: Install adb-auto-enable
   tags: adb_auto_enable
   become: true
   become_user: "{{ homeautomation_adb_auto_enable_user }}"
@@ -9,7 +9,7 @@
         that:
           - homeautomation_adb_auto_enable_user != "root"
         fail_msg: >-
-          homeautomation_adb_auto_enable_user resolved to "root", which would build under
+          homeautomation_adb_auto_enable_user resolved to "root", which would download under
           /root and offer root's adb key to the sets. Set primary_user in the inventory
           (or homeautomation_adb_auto_enable_user in host_vars) to the target account.
         quiet: true
@@ -17,17 +17,6 @@
     - name: Read the passwd database
       ansible.builtin.getent:
         database: passwd
-
-    - name: Require the tools adb-auto-enable needs
-      ansible.builtin.include_tasks: require_tools.yml
-      vars:
-        require_tools:
-          - name: javac
-            probe: command -v javac
-            hint: "It is the default-jdk package, which the dev role installs."
-          - name: The Android SDK
-            probe: test -d {{ homeautomation_adb_auto_enable_android_sdk_root }}/platforms
-            hint: "make dev -- --tags android_sdk"
 
     - name: Install adb
       ansible.builtin.apt:
@@ -39,50 +28,58 @@
       become: true
       become_user: root
 
-    - name: Create the adb-auto-enable build directory
+    # The release list, not /releases/latest, for the reason
+    # install_github_release_component.yml gives: a project can ship a newer stable release
+    # without moving that pointer, and following it would silently downgrade the install.
+    - name: Get releases of adb-auto-enable
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ homeautomation_adb_auto_enable_repository }}/releases"
+        return_content: true
+      register: homeautomation_adb_auto_enable_releases
+      retries: 3
+      delay: 5
+      # Retry network errors and 5xx only; 4xx is deterministic.
+      until: >-
+        homeautomation_adb_auto_enable_releases.status == 200 or
+        (homeautomation_adb_auto_enable_releases.status >= 400 and homeautomation_adb_auto_enable_releases.status < 500)
+
+    - name: Set the release fact for adb-auto-enable
+      ansible.builtin.set_fact:
+        homeautomation_adb_auto_enable_release: >-
+          {{ homeautomation_adb_auto_enable_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first }}
+
+    - name: Check that the newest release of adb-auto-enable publishes one APK
+      ansible.builtin.assert:
+        that:
+          - >-
+            homeautomation_adb_auto_enable_release.assets
+            | selectattr('name', 'search', '\.apk$') | list | length == 1
+        fail_msg: >-
+          {{ homeautomation_adb_auto_enable_version }} publishes no single APK asset, so
+          there is nothing to install from it:
+          {{ homeautomation_adb_auto_enable_release.assets | map(attribute='name') | list }}.
+        quiet: true
+
+    - name: Create the adb-auto-enable download directory
       ansible.builtin.file:
         path: "{{ homeautomation_adb_auto_enable_dir }}"
         state: directory
         mode: "0755"
 
-    # Its own checkout rather than one under src/: the role resets it to whatever
-    # homeautomation_adb_auto_enable_version names, which would discard an operator's
-    # work in a tree they also use.
-    - name: Check out adb-auto-enable
-      ansible.builtin.git:
-        repo: "{{ homeautomation_adb_auto_enable_repository }}"
-        dest: "{{ homeautomation_adb_auto_enable_src_dir }}"
-        version: "{{ homeautomation_adb_auto_enable_version }}"
-        update: true
-      register: homeautomation_adb_auto_enable_checkout
-
-    - name: Check for the built APK
-      ansible.builtin.stat:
-        path: "{{ homeautomation_adb_auto_enable_apk }}"
-      register: homeautomation_adb_auto_enable_apk_stat
-
-    # Debug rather than release: the release build type is signed from a keystore this
-    # repository does not hold, and the debug key is what the sets have authorized.
-    - name: Build adb-auto-enable
-      ansible.builtin.command:
-        cmd: >-
-          sh gradlew --no-daemon assembleDebug
-          -PCI_VERSION_NAME={{ homeautomation_adb_auto_enable_version_name }}
-        chdir: "{{ homeautomation_adb_auto_enable_src_dir }}"
-      environment:
-        ANDROID_HOME: "{{ homeautomation_adb_auto_enable_android_sdk_root }}"
-      changed_when: true
-      when: not homeautomation_adb_auto_enable_apk_stat.stat.exists
-
-    # Under the version it was built as, which is both the name to install by hand and
-    # what makes the build above skippable: Gradle writes every build to one path.
-    - name: Keep the build under its version
-      ansible.builtin.copy:
-        src: "{{ homeautomation_adb_auto_enable_src_dir }}/app/build/outputs/apk/debug/app-debug.apk"
+    # Under the version it carries, which is both the name to install by hand and what
+    # keeps a release the sets have already been given from being fetched again.
+    - name: Download adb-auto-enable {{ homeautomation_adb_auto_enable_version }}
+      ansible.builtin.get_url:
+        url: "{{ homeautomation_adb_auto_enable_url }}"
         dest: "{{ homeautomation_adb_auto_enable_apk }}"
         mode: "0644"
-        remote_src: true
-      when: not homeautomation_adb_auto_enable_apk_stat.stat.exists
+      register: homeautomation_adb_auto_enable_download
+      retries: 3
+      delay: 5
+      until: homeautomation_adb_auto_enable_download is succeeded
 
     - name: Install adb-auto-enable on each set
       ansible.builtin.include_tasks: adb_auto_enable_host.yml

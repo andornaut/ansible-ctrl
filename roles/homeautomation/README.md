@@ -18,7 +18,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 
 | Tag | Description |
 | --- | --- |
-| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, built from source and installed on each set |
+| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, installed on each set from its newest release |
 | [avahi](https://avahi.org/) | mDNS discovery service |
 | customizations | HA custom components, themes, and www assets |
 | docker | All Docker container tasks |
@@ -164,22 +164,20 @@ which takes it out of the `BOOT_COMPLETED` resolution set, so the app never star
 undo it: `pm enable`, `pm default-state` and `pm enable --user 0` all answer `Shell cannot change component state`
 for an app that is not test-only, and `install -r` preserves the disabled state. An app may set its own components,
 so the build to run is one that repairs the receiver when its service starts. That is upstream as of
-[PR 17](https://github.com/mouldybread/adb-auto-enable/pull/17) and in no release yet, which is why
-`homeautomation_adb_auto_enable_version` names a branch.
+[PR 17](https://github.com/mouldybread/adb-auto-enable/pull/17), released in v0.3.4, so every release from that one
+on carries it.
 
-The `adb_auto_enable` tag checks the project out under `~/.cache/adb-auto-enable/`, builds the debug variant with
-Gradle and installs it on every set in `homeautomation_adb_auto_enable_hosts`. It needs a JDK and the Android SDK,
-which the dev role's `java` and `android_sdk` tags install for the same account.
+The `adb_auto_enable` tag downloads the newest stable release's APK to `~/.cache/adb-auto-enable/` and installs it
+on every set in `homeautomation_adb_auto_enable_hosts`. No pin: a set has no other route to a fix, and an unarmed
+one costs a pairing code read off its screen.
 
-The build is stamped with a versionName of `{version}-{short sha}`, and a set reports that back through `dumpsys`,
-so a set is compared against the checkout by name: a Gradle build is not reproducible, so the APK's hash differs
-from the installed copy after a rebuild that changed nothing. A set that does not answer on 5555 is skipped, being
-off or not yet armed; it is reached on a later run, and the copy it already carries arms itself at its next boot.
+The APK's versionName is the release tag without its leading `v`, and a set reports that back through `dumpsys`, so
+a set is compared against the release by name. A set that does not answer on 5555 is skipped, being off or not yet
+armed; it is reached on a later run, and the copy it already carries arms itself at its next boot.
 
-The debug variant, because the release one is signed from a keystore this repository does not hold. `install -r`
-keeps the app's data, and with it the app's own adb key, only while the signing key matches what is installed, so
-replacing an upstream release with this build needs `adb uninstall` first, which deletes that key and any pairing
-made to it.
+`install -r` keeps the app's data, and with it the app's own adb key, only while the signing key matches what is
+installed. It is refused across a signature change, so a set carrying a build signed with another key, a locally
+built debug one among them, needs `adb uninstall` first, and that deletes the key and any pairing made to it.
 
 The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
 own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing
@@ -196,7 +194,7 @@ adb shell pm query-receivers --components -a android.intent.action.BOOT_COMPLETE
 | Boot is slow | `BOOT_COMPLETED` reaches the app about five minutes after a reboot on these sets, and adb about a minute after that |
 | Wireless debugging does not persist | It is off after every boot, so the app starting is the only thing that brings adb back |
 | An unarmed boot needs a person | With the receiver pruned and the app not started, there is no adb to fix it through, and recovery is a pairing code read off the screen |
-| Reproducing the prune | The debug build is debuggable, so `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand; `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
+| Reproducing the prune | Only against a debuggable build, which a release is not: `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand. `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
 
 ### Home Assistant
 
