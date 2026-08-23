@@ -22,7 +22,7 @@ homeautomation_adb_auto_enable_hosts: []
 # The newest stable release of this project is what the sets are given. No pin: the sets
 # have no other route to a fix, an unarmed one costing a pairing code read off its screen.
 homeautomation_adb_auto_enable_repository: mouldybread/adb-auto-enable
-# The account that downloads, and whose adb key the sets authorize.
+# The account whose adb key the sets have authorized, and that the adb calls run as.
 homeautomation_adb_auto_enable_user: "{{ primary_user }}"
 
 # Avahi

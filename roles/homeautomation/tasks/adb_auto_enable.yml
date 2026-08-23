@@ -9,14 +9,11 @@
         that:
           - homeautomation_adb_auto_enable_user != "root"
         fail_msg: >-
-          homeautomation_adb_auto_enable_user resolved to "root", which would download under
-          /root and offer root's adb key to the sets. Set primary_user in the inventory
-          (or homeautomation_adb_auto_enable_user in host_vars) to the target account.
+          homeautomation_adb_auto_enable_user resolved to "root", which would reach the
+          sets with root's adb key rather than the one they have authorized, so none of
+          them would answer. Set primary_user in the inventory (or
+          homeautomation_adb_auto_enable_user in host_vars) to the target account.
         quiet: true
-
-    - name: Read the passwd database
-      ansible.builtin.getent:
-        database: passwd
 
     - name: Install adb
       ansible.builtin.apt:

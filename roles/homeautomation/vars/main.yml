@@ -2,9 +2,6 @@
 # Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
 # a host cannot desync one from its source.
 
-# From the getent in tasks/adb_auto_enable.yml.
-homeautomation_adb_auto_enable_user_home: "{{ ansible_facts['getent_passwd'][homeautomation_adb_auto_enable_user][4] }}"
-
 homeautomation_adb_auto_enable_package: com.tpn.adbautoenable
 
 # What the app moves adbd onto, which is where Home Assistant's androidtv integration
