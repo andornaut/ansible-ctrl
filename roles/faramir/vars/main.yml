@@ -61,6 +61,7 @@ faramir_init_argv: >-
        else [])
     + (['--escalation-timeout-sec', faramir_escalation_timeout_sec | string]
        if faramir_allow_sudo | bool else [])
+    + ['--secret-min-refresh-sec', faramir_secret_min_refresh_sec | string]
     + (['--dry-run'] if ansible_check_mode else [])
   }}
 

@@ -90,6 +90,13 @@ faramir_notify_command: []
 # holds every other brokered command on the host until it expires.
 faramir_escalation_timeout_sec: 300
 
+# The soonest the broker re-reads a managed sops file that changed on disk, which is how
+# long a value rotated by something other than `faramir vault` stays outside the redactor.
+# faramir's own vault commands tell the broker to re-read at once, so this covers only the
+# other writers; the check is a stat per managed file, so lowering it costs nothing
+# measurable. Mirrors faramir's own default.
+faramir_secret_min_refresh_sec: 1
+
 # Paths the agent's file tools are refused. faramir compiles in no credential rules: an
 # install refuses its own directories at their real paths and nothing else, so each entry
 # across these three lists is the whole of what covers the store it names.
