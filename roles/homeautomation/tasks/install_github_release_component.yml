@@ -27,6 +27,9 @@
         url: "https://api.github.com/repos/{{ github_component_repo }}/releases"
         return_content: true
       register: homeautomation_github_component_releases
+      # uri supports no check mode, so a --check run would skip this and leave the
+      # register undefined for every task that templates it. The request only reads.
+      check_mode: false
       retries: 3
       delay: 5
       # Retry network errors and 5xx only; 4xx is deterministic.

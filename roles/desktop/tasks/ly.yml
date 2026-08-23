@@ -24,6 +24,9 @@
                 url: https://ziglang.org/download/index.json
                 return_content: true
               register: desktop_zig_versions
+              # uri supports no check mode, so a --check run would skip this and leave the
+              # register undefined for every task that templates it. The request only reads.
+              check_mode: false
               retries: 3
               delay: 5
               # Retry network errors and 5xx only; 4xx is deterministic.

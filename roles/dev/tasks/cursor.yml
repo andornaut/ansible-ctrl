@@ -4,6 +4,9 @@
     url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
     return_content: true
   register: dev_cursor_api_response
+  # uri supports no check mode, so a --check run would skip this and leave the
+  # register undefined for every task that templates it. The request only reads.
+  check_mode: false
   retries: 3
   delay: 5
   # Retry network errors and 5xx only; 4xx is deterministic.

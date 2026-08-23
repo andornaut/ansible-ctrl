@@ -11,6 +11,9 @@
     url: "https://gitlab.freedesktop.org/api/v4/projects/{{ gitlab_release_project }}/releases"
     return_content: true
   register: niri_gitlab_release_response
+  # uri supports no check mode, so a --check run would skip this and leave the
+  # register undefined for every task that templates it. The request only reads.
+  check_mode: false
   retries: 3
   delay: 5
   # Retry network errors and 5xx only; 4xx (rate limit, missing project) is deterministic.
