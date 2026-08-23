@@ -1,0 +1,20 @@
+---
+# Persists machine-check exceptions to /var/lib/rasdaemon, where `ras-mc-ctl --errors` reads
+# them back. Without it a hardware error is one kernel line in the journal, lost at the next
+# vacuum, and nothing counts a repeat. The routers are out of scope, base.yml being all:!routers.
+
+- name: Install rasdaemon
+  ansible.builtin.apt:
+    name: rasdaemon
+    state: present
+    update_cache: true
+  become: true
+
+# Skipped under --check, where the install was simulated and the missing unit reads as a failure.
+- name: Enable rasdaemon
+  ansible.builtin.systemd_service:
+    name: rasdaemon
+    enabled: true
+    state: started
+  become: true
+  when: not ansible_check_mode

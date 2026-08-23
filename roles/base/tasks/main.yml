@@ -221,6 +221,10 @@
   ansible.builtin.import_tasks: disk-cleanup.yml
   tags: disk-cleanup
 
+- name: Import rasdaemon tasks
+  ansible.builtin.import_tasks: rasdaemon.yml
+  tags: rasdaemon
+
 - name: Import storage-space-alert tasks
   ansible.builtin.import_tasks: storage-space-alert.yml
 
