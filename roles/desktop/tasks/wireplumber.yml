@@ -4,7 +4,38 @@
 - name: Apply the WirePlumber node properties in desktop_wireplumber_node_properties
   when: desktop_wireplumber_node_properties | length > 0
   block:
-    # wireplumber ships its drop-in directory under /usr/share only.
+    # 0.5 reads /etc/wireplumber/wireplumber.conf.d; 0.4 configures the ALSA monitor through
+    # Lua in main.lua.d and reads no drop-in directory at all, so the file below would be
+    # written, reported changed, and never read.
+    - name: Read the WirePlumber version
+      ansible.builtin.command:
+        argv: "{{ ['wireplumber', '--version'] }}"
+      register: desktop_wireplumber_version
+      changed_when: false
+      # Reads a version and writes nothing, and the assert below needs it under --check too.
+      check_mode: false
+      become: false
+
+    - name: Require a WirePlumber that reads the drop-in directory
+      ansible.builtin.assert:
+        that:
+          - desktop_wireplumber_linked is version('0.5', '>=')
+        fail_msg: >-
+          desktop_wireplumber_node_properties needs WirePlumber 0.5 or newer, which reads
+          /etc/wireplumber/wireplumber.conf.d. This host has {{ desktop_wireplumber_linked }},
+          which takes its ALSA monitor rules as Lua from main.lua.d and would ignore the
+          drop-in while the run reported it applied. Clear the variable for this host.
+        success_msg: >-
+          WirePlumber {{ desktop_wireplumber_linked }} reads the drop-in directory
+      vars:
+        desktop_wireplumber_linked: >-
+          {{ (desktop_wireplumber_version.stdout
+              | regex_search('Linked with libwireplumber ([0-9]+\.[0-9]+\.[0-9]+)', '\1'))
+             | first }}
+      become: false
+
+    # /etc holds no drop-in directory until one is made; 0.5's packaged drop-ins are
+    # under /usr/share.
     - name: Create the WirePlumber drop-in directory
       ansible.builtin.file:
         path: /etc/wireplumber/wireplumber.conf.d
