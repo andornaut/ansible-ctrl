@@ -24,6 +24,9 @@
       register: docker_helm_installed
       changed_when: false
       failed_when: false
+      # Reads a version and writes nothing. Run under --check too: skipped, it registers
+      # rc 0, which reads as an installed helm on a host that has none.
+      check_mode: false
 
     - name: Install helm binary
       ansible.builtin.unarchive:
@@ -42,10 +45,14 @@
     # as the archive's own path, which the module resolves to dest itself, so a mode there
     # lands on /usr/local/bin rather than on helm. Unconditional, so a binary installed
     # under a umask that closed `other` is corrected without waiting for a version bump.
+    # Skipped only where the path cannot be there to name: under --check the unarchive above
+    # does not extract, so on a host with no helm the default `state: file` would fail the
+    # run rather than report the two tasks it would have run.
     - name: Name the mode of the helm binary
       ansible.builtin.file:
         path: /usr/local/bin/helm
         mode: "0755"
+      when: docker_helm_installed.rc == 0 or not ansible_check_mode
 
     - name: Get latest kubectl version
       ansible.builtin.uri:
