@@ -1,0 +1,94 @@
+---
+# One Android TV. Included per set from adb_auto_enable.yml, which declares the account
+# every task here runs as and holds the vars they read.
+#
+# Required vars:
+#   homeautomation_adb_auto_enable_host (str): the set, as adb addresses it
+
+# A set that is off, or on with wireless debugging not yet turned back on, answers
+# nothing here and is left alone: there is no adb to install through, and the copy it
+# already carries arms itself on its next boot.
+- name: Check for a listening adb on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.wait_for:
+    host: "{{ homeautomation_adb_auto_enable_host }}"
+    port: "{{ homeautomation_adb_auto_enable_port }}"
+    timeout: 3
+  register: homeautomation_adb_auto_enable_probe
+  ignore_errors: true
+
+- name: Connect adb to {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      adb connect
+      {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+  changed_when: false
+  when: homeautomation_adb_auto_enable_probe is succeeded
+
+- name: Read the version installed on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      shell dumpsys package {{ homeautomation_adb_auto_enable_package }}
+  register: homeautomation_adb_auto_enable_dumpsys
+  changed_when: false
+  when: homeautomation_adb_auto_enable_probe is succeeded
+
+- name: Install adb-auto-enable on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      install -r {{ homeautomation_adb_auto_enable_apk }}
+  register: homeautomation_adb_auto_enable_install
+  changed_when: homeautomation_adb_auto_enable_install.rc == 0
+  failed_when: false
+  when:
+    - homeautomation_adb_auto_enable_probe is succeeded
+    - ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
+      not in homeautomation_adb_auto_enable_dumpsys.stdout
+
+- name: Check that the install succeeded
+  ansible.builtin.assert:
+    that:
+      - homeautomation_adb_auto_enable_install.rc == 0
+    fail_msg: >-
+      Installing on {{ homeautomation_adb_auto_enable_host }} failed:
+      {{ homeautomation_adb_auto_enable_install.stdout | trim }}
+      {{ homeautomation_adb_auto_enable_install.stderr | trim }}.
+      INSTALL_FAILED_UPDATE_INCOMPATIBLE means the set carries a build signed with
+      another key, which has to be uninstalled first, and that deletes the app's adb key
+      and the pairing made to it. See the role README.
+    quiet: true
+  when: homeautomation_adb_auto_enable_install is not skipped
+
+# It holds no permission a manifest can ask for, and the app needs it to turn wireless
+# debugging on. Preserved by a reinstall, so this only matters on a first install.
+- name: Grant WRITE_SECURE_SETTINGS on {{ homeautomation_adb_auto_enable_host }} # noqa: no-handler
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      shell pm grant {{ homeautomation_adb_auto_enable_package }}
+      android.permission.WRITE_SECURE_SETTINGS
+  changed_when: true
+  when: homeautomation_adb_auto_enable_install is changed
+
+# A freshly installed app sits in the stopped state, and a stopped app is sent no
+# broadcasts, so nothing would start it at the next boot either.
+- name: Start adb-auto-enable on {{ homeautomation_adb_auto_enable_host }} # noqa: no-handler
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      shell am start -n {{ homeautomation_adb_auto_enable_package }}/.MainActivity
+  changed_when: true
+  when: homeautomation_adb_auto_enable_install is changed
+
+# Nothing here can pair it: the code is shown on the set's own screen.
+- name: Report the pairing still needed on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.debug:
+    msg: >-
+      adb-auto-enable was installed on {{ homeautomation_adb_auto_enable_host }} for the
+      first time, so it is unpaired and cannot move adbd onto
+      {{ homeautomation_adb_auto_enable_port }} at the next boot. Pair it with a code read
+      off the set. See the role README.
+  when:
+    - homeautomation_adb_auto_enable_install is changed
+    - "'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout"

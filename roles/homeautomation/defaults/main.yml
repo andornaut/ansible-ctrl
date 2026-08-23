@@ -2,6 +2,7 @@
 homeautomation_docker_log_max_file: "10"
 homeautomation_docker_log_max_size: "10m"
 homeautomation_docker_network_name: homeautomation_default
+homeautomation_install_adb_auto_enable: false
 homeautomation_install_avahi: false
 homeautomation_install_esphome: false
 homeautomation_install_frigate: false
@@ -12,6 +13,21 @@ homeautomation_install_legacy_pythonmatterserver: false
 homeautomation_install_memryx: false
 homeautomation_install_voice: false
 homeautomation_ipv6_enabled: true
+
+# adb-auto-enable
+# Home Assistant reaches an Android TV over adb, which exists only while the set has
+# wireless debugging on, and the app turns that back on after a boot. Each set is named
+# here as adb addresses it; one that does not answer is skipped, being off or unarmed.
+homeautomation_adb_auto_enable_hosts: []
+homeautomation_adb_auto_enable_repository: https://github.com/mouldybread/adb-auto-enable.git
+# A git ref. Every release so far predates the change that has the app re-enable its own
+# BootReceiver, and a set that prunes that receiver never starts the app without it, so a
+# branch rather than a tag until one ships with it.
+homeautomation_adb_auto_enable_version: main
+# The account that builds, and whose adb key the sets authorize.
+homeautomation_adb_auto_enable_user: "{{ primary_user }}"
+# Where the dev role's android_sdk tag installs it for that account.
+homeautomation_adb_auto_enable_android_sdk_root: "{{ homeautomation_adb_auto_enable_user_home }}/Android/Sdk"
 
 # Avahi
 homeautomation_avahi_interfaces: ""

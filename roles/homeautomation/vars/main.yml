@@ -2,6 +2,28 @@
 # Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
 # a host cannot desync one from its source.
 
+# From the getent in tasks/adb_auto_enable.yml.
+homeautomation_adb_auto_enable_user_home: "{{ ansible_facts['getent_passwd'][homeautomation_adb_auto_enable_user][4] }}"
+
+homeautomation_adb_auto_enable_dir: "{{ homeautomation_adb_auto_enable_user_home }}/.cache/adb-auto-enable"
+homeautomation_adb_auto_enable_src_dir: "{{ homeautomation_adb_auto_enable_dir }}/src"
+homeautomation_adb_auto_enable_apk: >-
+  {{ homeautomation_adb_auto_enable_dir }}/adb-auto-enable-{{
+  homeautomation_adb_auto_enable_version_name }}.apk
+homeautomation_adb_auto_enable_package: com.tpn.adbautoenable
+
+# What the app moves adbd onto, which is where Home Assistant's androidtv integration
+# looks. The port adbd picks for itself at boot is ephemeral and known only to the set.
+homeautomation_adb_auto_enable_port: 5555
+
+# The versionName the build is stamped with, and what a set reports back through dumpsys,
+# so a set is compared against the checkout by name: a Gradle build is not reproducible,
+# so the APK's hash differs from the installed one after a rebuild that changed nothing.
+# From the git task in tasks/adb_auto_enable.yml.
+homeautomation_adb_auto_enable_version_name: >-
+  {{ homeautomation_adb_auto_enable_version }}-{{
+  homeautomation_adb_auto_enable_checkout.after[:7] }}
+
 homeautomation_common_volumes:
   - "{{ homeautomation_homeassistant_required_volumes.localtime }}:/etc/localtime:ro"
 

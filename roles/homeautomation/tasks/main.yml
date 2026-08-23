@@ -58,6 +58,10 @@
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
 
+- name: Import adb-auto-enable tasks
+  ansible.builtin.import_tasks: adb_auto_enable.yml
+  when: homeautomation_install_adb_auto_enable
+
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
   tags: memryx

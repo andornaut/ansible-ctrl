@@ -18,6 +18,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 
 | Tag | Description |
 | --- | --- |
+| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, built from source and installed on each set |
 | [avahi](https://avahi.org/) | mDNS discovery service |
 | customizations | HA custom components, themes, and www assets |
 | docker | All Docker container tasks |
@@ -47,6 +48,7 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 | Home Assistant, Mosquitto | No flag; always configured |
 | Avahi | A host daemon the run stops, not a container |
 | MemryX | The DKMS driver and apt sources are not reversed |
+| adb-auto-enable | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable` |
 
 ## Networking
 
@@ -161,33 +163,27 @@ Some sets defeat that by putting the app's `BootReceiver` into the package's `di
 which takes it out of the `BOOT_COMPLETED` resolution set, so the app never starts. Nothing outside the app can
 undo it: `pm enable`, `pm default-state` and `pm enable --user 0` all answer `Shell cannot change component state`
 for an app that is not test-only, and `install -r` preserves the disabled state. An app may set its own components,
-so the build to run is one that repairs the receiver when its service starts
-([PR](https://github.com/mouldybread/adb-auto-enable/pull/17), branch `selfheal` of the
-[fork](https://github.com/andornaut/adb-auto-enable)). Until that lands upstream, build it:
+so the build to run is one that repairs the receiver when its service starts. That is upstream as of
+[PR 17](https://github.com/mouldybread/adb-auto-enable/pull/17) and in no release yet, which is why
+`homeautomation_adb_auto_enable_version` names a branch.
 
-```bash
-git clone git@github.com:andornaut/adb-auto-enable.git
-cd adb-auto-enable && git checkout selfheal
-echo "sdk.dir=${HOME}/Android/Sdk" > local.properties
-sh gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
-```
+The `adb_auto_enable` tag checks the project out under `~/.cache/adb-auto-enable/`, builds the debug variant with
+Gradle and installs it on every set in `homeautomation_adb_auto_enable_hosts`. It needs a JDK and the Android SDK,
+which the dev role's `java` and `android_sdk` tags install for the same account.
 
-Install it, granting the permission the app needs and launching it once, because a freshly installed app sits in
-the stopped state and stopped apps are not sent broadcasts:
+The build is stamped with a versionName of `{version}-{short sha}`, and a set reports that back through `dumpsys`,
+so a set is compared against the checkout by name: a Gradle build is not reproducible, so the APK's hash differs
+from the installed copy after a rebuild that changed nothing. A set that does not answer on 5555 is skipped, being
+off or not yet armed; it is reached on a later run, and the copy it already carries arms itself at its next boot.
 
-```bash
-adb connect <tv>:5555
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell pm grant com.tpn.adbautoenable android.permission.WRITE_SECURE_SETTINGS
-adb shell am start -n com.tpn.adbautoenable/.MainActivity
-```
+The debug variant, because the release one is signed from a keystore this repository does not hold. `install -r`
+keeps the app's data, and with it the app's own adb key, only while the signing key matches what is installed, so
+replacing an upstream release with this build needs `adb uninstall` first, which deletes that key and any pairing
+made to it.
 
-`install -r` keeps the app's data, and with it the app's own adb key, whenever the signing key matches what is
-already installed. Replacing an upstream release with this build does not match, so it needs `adb uninstall` first,
-which deletes that key and any pairing made to it.
-
-The app needs its own pairing to move adbd to 5555. Read a fresh code off the set at Settings, System, Developer
-options, Wireless debugging, Pair device with pairing code, then hand it to the app rather than to `adb pair`:
+The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
+own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing
+code, then hand it to the app rather than to `adb pair`:
 
 ```bash
 curl -X POST --data "port=<port>&code=<code>" http://<tv>:9093/api/pair
