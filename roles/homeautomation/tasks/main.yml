@@ -58,10 +58,6 @@
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
 
-- name: Import adb-auto-enable tasks
-  ansible.builtin.import_tasks: adb_auto_enable.yml
-  when: homeautomation_install_adb_auto_enable
-
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
   tags: memryx
@@ -166,3 +162,9 @@
       ansible.builtin.import_tasks: docker_voice.yml
       tags: voice
       when: homeautomation_install_voice
+
+# Last: it reaches hosts of its own, and one that cannot take the install must not stop
+# this host from being configured.
+- name: Import adb-auto-enable tasks
+  ansible.builtin.import_tasks: adb_auto_enable.yml
+  when: homeautomation_install_adb_auto_enable
