@@ -67,4 +67,5 @@
 
 - name: Import localhost tasks
   ansible.builtin.import_tasks: localhost.yml
+  tags: localhost
   when: inventory_hostname != "localhost"

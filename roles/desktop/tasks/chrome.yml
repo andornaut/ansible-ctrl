@@ -1,8 +1,12 @@
 ---
 - name: Check if Google Chrome is already installed
   # Reads system state and needs no privilege, so it runs as the connecting account.
+  #
+  # The Status is what decides it: `dpkg-query -W <name>` alone exits 0 for a package dpkg
+  # merely knows about, so a Chrome removed without --purge would read as installed and never
+  # be put back.
   become: false
-  ansible.builtin.command: dpkg-query -W google-chrome-stable
+  ansible.builtin.command: dpkg-query -W -f='${Status}' google-chrome-stable
   register: desktop_chrome_check
   failed_when: false
   changed_when: false
@@ -11,7 +15,7 @@
   ansible.builtin.package:
     deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   become: true
-  when: desktop_chrome_check.rc != 0
+  when: "'ok installed' not in desktop_chrome_check.stdout"
 
 # Not a conffile, so dpkg reverts the flag on every Chrome self-update: patch it,
 # then shadow it below under /usr/local/share, which XDG_DATA_DIRS ranks first.

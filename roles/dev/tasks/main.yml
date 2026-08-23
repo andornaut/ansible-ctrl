@@ -17,6 +17,7 @@
 
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
+  tags: apt
 
 # Languages first: the tools below depend on them.
 - name: Import go tasks

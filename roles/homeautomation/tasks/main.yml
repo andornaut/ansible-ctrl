@@ -57,6 +57,7 @@
 
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
+  tags: bluetooth
 
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
@@ -65,6 +66,7 @@
 
 - name: Import OTBR tasks
   ansible.builtin.import_tasks: otbr.yml
+  tags: otbr
   when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver
 
 - name: Install customizations
