@@ -4,6 +4,14 @@
 
 homeautomation_adb_auto_enable_package: com.tpn.adbautoenable
 
+# What a set reports, or empty where the app is absent or the read failed. Matched whole:
+# 0.3.4 is a prefix of 0.3.41, so a substring test would read an older build as current
+# once the project reaches double-digit patch numbers. From the dumpsys read in
+# tasks/adb_auto_enable_host.yml.
+homeautomation_adb_auto_enable_installed_version: >-
+  {{ homeautomation_adb_auto_enable_dumpsys.stdout | default('')
+     | regex_search('versionName=(\S+)', '\1') | default([''], true) | first }}
+
 # What the app moves adbd onto, which is where Home Assistant's androidtv integration
 # looks. The port adbd picks for itself at boot is ephemeral and known only to the set.
 homeautomation_adb_auto_enable_port: 5555

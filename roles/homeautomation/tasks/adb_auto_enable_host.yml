@@ -49,13 +49,16 @@
       shell dumpsys package {{ homeautomation_adb_auto_enable_package }}
   register: homeautomation_adb_auto_enable_dumpsys
   changed_when: false
+  # A set that answered above and has since left the network reports `device offline`, and
+  # one that stalls returns 124. Neither is this run's failure to have.
+  failed_when: false
   when: homeautomation_adb_auto_enable_alive.rc | default(1) == 0
 
 - name: Install the release missing from {{ homeautomation_adb_auto_enable_host }}
   when:
-    - homeautomation_adb_auto_enable_alive.rc | default(1) == 0
-    - ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
-      not in homeautomation_adb_auto_enable_dumpsys.stdout
+    - homeautomation_adb_auto_enable_dumpsys.rc | default(1) == 0
+    - homeautomation_adb_auto_enable_installed_version
+      != homeautomation_adb_auto_enable_version_name
   block:
     - name: Create a temporary directory for the adb-auto-enable release
       ansible.builtin.tempfile:
@@ -82,29 +85,18 @@
       changed_when: homeautomation_adb_auto_enable_install.rc == 0
       failed_when: false
 
-    - name: Check that the install succeeded
-      ansible.builtin.assert:
-        that:
-          - homeautomation_adb_auto_enable_install.rc == 0
-        fail_msg: >-
-          Installing on {{ homeautomation_adb_auto_enable_host }} failed:
-          {{ homeautomation_adb_auto_enable_install.stdout | trim }}
-          {{ homeautomation_adb_auto_enable_install.stderr | trim }}.
-          INSTALL_FAILED_UPDATE_INCOMPATIBLE means the set carries a build signed with
-          another key, a locally built one among them, which has to be uninstalled first,
-          and that deletes the app's adb key and the pairing made to it. See the role
-          README.
-        quiet: true
-
-    # It holds no permission a manifest can ask for, and the app needs it to turn wireless
-    # debugging on. Preserved by a reinstall, so this only matters on a first install.
-    - name: Grant WRITE_SECURE_SETTINGS on {{ homeautomation_adb_auto_enable_host }}
-      ansible.builtin.command:
-        cmd: >-
-          timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
-          shell pm grant {{ homeautomation_adb_auto_enable_package }}
-          android.permission.WRITE_SECURE_SETTINGS
-      changed_when: true
+    # Collected rather than asserted here, so the sets after this one are still reached.
+    # adb_auto_enable.yml fails the run on the list once every set has been offered it.
+    - name: Note the install refused by {{ homeautomation_adb_auto_enable_host }}
+      ansible.builtin.set_fact:
+        homeautomation_adb_auto_enable_refused: >-
+          {{ (homeautomation_adb_auto_enable_refused | default([]))
+             + [homeautomation_adb_auto_enable_host ~ ' (' ~ refusal ~ ')'] }}
+      vars:
+        refusal: >-
+          {{ (homeautomation_adb_auto_enable_install.stdout | trim ~ ' '
+             ~ homeautomation_adb_auto_enable_install.stderr | trim) | trim }}
+      when: homeautomation_adb_auto_enable_install.rc != 0
 
     # A freshly installed app sits in the stopped state, and a stopped app is sent no
     # broadcasts, so nothing would start it at the next boot either.
@@ -114,6 +106,7 @@
           timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
           shell am start -n {{ homeautomation_adb_auto_enable_package }}/.MainActivity
       changed_when: true
+      when: homeautomation_adb_auto_enable_install.rc == 0
 
     # Nothing here can pair it: the code is shown on the set's own screen.
     - name: Report the pairing still needed on {{ homeautomation_adb_auto_enable_host }}
@@ -123,10 +116,30 @@
           {{ homeautomation_adb_auto_enable_host }} and unpaired, so it cannot move adbd
           onto {{ homeautomation_adb_auto_enable_port }} at the next boot. Pair it with a
           code read off the set. See the role README.
-      when: "'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout"
+      when:
+        - homeautomation_adb_auto_enable_install.rc == 0
+        - homeautomation_adb_auto_enable_installed_version | length == 0
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
         path: "{{ homeautomation_adb_auto_enable_tmp.path }}"
         state: absent
       when: homeautomation_adb_auto_enable_tmp.path is defined
+
+# It holds no permission a manifest can ask for, and the app needs it to turn wireless
+# debugging on. A reinstall preserves the grant, so this is for a set that has just taken a
+# first install, or one whose grant was taken away since.
+- name: Grant WRITE_SECURE_SETTINGS on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      shell pm grant {{ homeautomation_adb_auto_enable_package }}
+      android.permission.WRITE_SECURE_SETTINGS
+  changed_when: true
+  when:
+    - homeautomation_adb_auto_enable_dumpsys.rc | default(1) == 0
+    - homeautomation_adb_auto_enable_install.rc | default(0) == 0
+    - >-
+      homeautomation_adb_auto_enable_install is changed
+      or 'WRITE_SECURE_SETTINGS: granted=true'
+      not in homeautomation_adb_auto_enable_dumpsys.stdout
