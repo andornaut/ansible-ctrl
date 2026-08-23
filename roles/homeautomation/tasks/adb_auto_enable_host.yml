@@ -4,6 +4,10 @@
 #
 # Required vars:
 #   homeautomation_adb_auto_enable_host (str): the set, as adb addresses it
+#
+# Every adb call is wrapped in `timeout`, and none of them is given the task keyword of
+# that name: a task that times out fails whatever failed_when says, while a wrapped one
+# returns 124 and can be skipped like any other unreachable set.
 
 # A set that is off, or on with wireless debugging not yet turned back on, answers
 # nothing here and is left alone: there is no adb to install through, and the copy it
@@ -19,51 +23,45 @@
 - name: Connect adb to {{ homeautomation_adb_auto_enable_host }}
   ansible.builtin.command:
     cmd: >-
-      adb connect
+      timeout 10 adb connect
       {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
   changed_when: false
+  failed_when: false
+  when: homeautomation_adb_auto_enable_probe is succeeded
+
+# A set in standby accepts the connection above and services nothing behind it, so the
+# port being open says only that it is on the network. This is what says adbd will answer,
+# and every task below turns on it.
+- name: Check that adb answers on {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      timeout 20 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      shell true
+  register: homeautomation_adb_auto_enable_alive
+  changed_when: false
+  failed_when: false
   when: homeautomation_adb_auto_enable_probe is succeeded
 
 - name: Read the version installed on {{ homeautomation_adb_auto_enable_host }}
   ansible.builtin.command:
     cmd: >-
-      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
       shell dumpsys package {{ homeautomation_adb_auto_enable_package }}
   register: homeautomation_adb_auto_enable_dumpsys
   changed_when: false
-  when: homeautomation_adb_auto_enable_probe is succeeded
-
-# CLEANUP (added 2026-08-23): remove once every set the home automation hosts name carries
-# a release build. A set may still hold a locally built debug APK, and install -r is
-# refused across a signature change: a release is signed with the project's key, a local
-# build with the debug one. Only an uninstall clears that, and it takes the app's own adb
-# key and the pairing made to it, which is why the report at the end of this file exists.
-- name: Remove a locally built adb-auto-enable from {{ homeautomation_adb_auto_enable_host }}
-  ansible.builtin.command:
-    cmd: >-
-      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
-      uninstall {{ homeautomation_adb_auto_enable_package }}
-  register: homeautomation_adb_auto_enable_cleanup
-  changed_when: homeautomation_adb_auto_enable_cleanup.rc == 0
-  when:
-    - homeautomation_adb_auto_enable_probe is succeeded
-    - homeautomation_adb_auto_enable_dumpsys.stdout is search('pkgFlags=\[[^\]]*DEBUGGABLE')
+  when: homeautomation_adb_auto_enable_alive.rc | default(1) == 0
 
 - name: Install adb-auto-enable on {{ homeautomation_adb_auto_enable_host }}
   ansible.builtin.command:
     cmd: >-
-      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      timeout 180 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
       install -r {{ homeautomation_adb_auto_enable_apk }}
   register: homeautomation_adb_auto_enable_install
   changed_when: homeautomation_adb_auto_enable_install.rc == 0
   failed_when: false
   when:
-    - homeautomation_adb_auto_enable_probe is succeeded
-    # The version read above is what the uninstall above removed, so it decides nothing
-    # once that has run.
-    - >-
-      homeautomation_adb_auto_enable_cleanup is changed
-      or ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
+    - homeautomation_adb_auto_enable_alive.rc | default(1) == 0
+    - ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
       not in homeautomation_adb_auto_enable_dumpsys.stdout
 
 - name: Check that the install succeeded
@@ -75,7 +73,7 @@
       {{ homeautomation_adb_auto_enable_install.stdout | trim }}
       {{ homeautomation_adb_auto_enable_install.stderr | trim }}.
       INSTALL_FAILED_UPDATE_INCOMPATIBLE means the set carries a build signed with
-      another key that this run did not clear, so it has to be uninstalled by hand, and
+      another key, a locally built one among them, which has to be uninstalled first, and
       that deletes the app's adb key and the pairing made to it. See the role README.
     quiet: true
   when: homeautomation_adb_auto_enable_install is not skipped
@@ -85,7 +83,7 @@
 - name: Grant WRITE_SECURE_SETTINGS on {{ homeautomation_adb_auto_enable_host }} # noqa: no-handler
   ansible.builtin.command:
     cmd: >-
-      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
       shell pm grant {{ homeautomation_adb_auto_enable_package }}
       android.permission.WRITE_SECURE_SETTINGS
   changed_when: true
@@ -96,7 +94,7 @@
 - name: Start adb-auto-enable on {{ homeautomation_adb_auto_enable_host }} # noqa: no-handler
   ansible.builtin.command:
     cmd: >-
-      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      timeout 30 adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
       shell am start -n {{ homeautomation_adb_auto_enable_package }}/.MainActivity
   changed_when: true
   when: homeautomation_adb_auto_enable_install is changed
@@ -110,6 +108,4 @@
       the next boot. Pair it with a code read off the set. See the role README.
   when:
     - homeautomation_adb_auto_enable_install is changed
-    - >-
-      homeautomation_adb_auto_enable_cleanup is changed
-      or 'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout
+    - "'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout"

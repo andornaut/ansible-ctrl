@@ -172,14 +172,23 @@ on every set in `homeautomation_adb_auto_enable_hosts`. No pin: a set has no oth
 one costs a pairing code read off its screen.
 
 The APK's versionName is the release tag without its leading `v`, and a set reports that back through `dumpsys`, so
-a set is compared against the release by name. A set that does not answer on 5555 is skipped, being off or not yet
-armed; it is reached on a later run, and the copy it already carries arms itself at its next boot.
+a set is compared against the release by name.
+
+A set is skipped unless adbd answers a command. The open port is not enough: a set in standby accepts a connection
+on 5555 and services nothing behind it, which is why every adb call is wrapped in `timeout` rather than given the
+task keyword of that name, a task that times out failing whatever `failed_when` says.
 
 `install -r` keeps the app's data, and with it the app's own adb key, only while the signing key matches what is
-installed, and it is refused across a signature change. A set reporting `DEBUGGABLE` in its `pkgFlags` carries a
-locally built copy, so the tag uninstalls that before installing the release, and then reports the set as needing a
-pairing code. Any other mismatch is left to an `adb uninstall` by hand. Either way the uninstall costs the app's
-own adb key and the pairing made to it.
+installed, and it is refused across a signature change. A set carrying a build signed with another key, a locally
+built one among them, needs `adb uninstall` first, and that costs the app's own adb key and the pairing made to it.
+
+| A run finds | What it does |
+| --- | --- |
+| The newest release already installed | Nothing. The versionName matches, so the install is skipped |
+| A newer release published | Downloads it, installs over the old one, which keeps the pairing, and deletes the superseded download |
+| The app absent | Installs, grants, starts it, and reports the pairing code it now needs |
+| A set off, or in standby | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
+| A build signed with another key | Fails, naming the uninstall that clears it |
 
 The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
 own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing
