@@ -52,5 +52,7 @@ base_install_rasdaemon: false
 base_inotify_max_user_watches: 65536
 
 # How long an untouched file survives in /tmp. Ubuntu ships 30d, which lets a desktop accumulate
-# several GB before the daily systemd-tmpfiles run collects any of it.
-base_tmp_max_age: 7d
+# several GB before the daily systemd-tmpfiles run collects any of it. Not lower than this: a tmux
+# server's socket and a forwarded ssh-agent socket live in /tmp and are not otherwise protected,
+# so a shorter age collects them out from under an idle session.
+base_tmp_max_age: 14d
