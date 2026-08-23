@@ -7,8 +7,17 @@
     name:
       - blueman
       - feh
+      # apt, not flatpak: the sandboxed build captures through the Screenshot
+      # portal, which no backend implements on a minimal X11 WM. GNOME has a
+      # screenshot UI of its own.
+      - flameshot
       - lxappearance
       - network-manager-gnome
+      # The only volume UI a tiling session has. A gnome host makes do with the
+      # GNOME sound panel, which lacks its per-app routing and port selection.
+      - pavucontrol
+      # Media keys, which GNOME binds itself.
+      - playerctl
       - policykit-1-gnome
       - suckless-tools
       - wmctrl

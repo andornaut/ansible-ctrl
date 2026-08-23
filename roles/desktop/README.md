@@ -48,7 +48,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | --- | --- |
 | `desktop_environment` | `bspwm`, `niri`, or `gnome`. Selects the window manager `desktop.yml` applies, and which tags run. Required and asserted; no default |
 | `desktop_default_browser` | `firefox` or `google-chrome`. The one `xdg-settings` marks as default |
-| `desktop_install_*` | Feature flags, all defaulting to `false`. `parental_controls` and `firefox` still run when false, undoing what an earlier run enforced |
+| `desktop_install_*` | Feature flags, all defaulting to `false`. `parental_controls`, `firefox` and the optional flatpaks still run when false, undoing what an earlier run enforced. An optional flatpak turned off is uninstalled with its permission override, its `~/.var/app` data and any runtime left unused |
 | `desktop_screen_*_minutes` | Idle timeouts, in order: blank, lock, monitor power-off |
 | `desktop_suspend_inactive_minutes` | Idle suspend. Unset leaves the host's policy alone; 0 disables it |
 | `desktop_idle_backstop_minutes` | Minutes of real input idle after which the panel is powered down whatever holds an idle inhibitor; 0 disables it |
@@ -57,13 +57,15 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, filter lists, custom hostnames, safe search |
 | `desktop_wireplumber_node_properties` | Per-node WirePlumber property overrides, keyed by `node.name`. `audio.format` pins a device whose advertised format it cannot sustain (a USB microphone that stalls seconds into every capture, while the same device at a lower bit depth runs indefinitely); `node.disabled` hides a node entirely. Preferred over a card profile, which whatever the user last picked in a volume-control UI overrides |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
+| `desktop_apt_pinned_packages` | Apt packages purged and pinned at priority -1 on every desktop, a flatpak serving the same purpose. Held apart from the two lists below: a host that installs neither still must not get the apt build, which shadows the flatpak in the launcher and updates on its own schedule |
+| `desktop_flatpak_common` | Flatpak applications every desktop installs for `desktop_user`. The optional ones are `desktop_install_*` flags instead, so `host_vars` names a decision and `vars/main.yml` keeps the application ID it stands for |
 
 ## Desktop environments
 
 | Rule | Detail |
 | --- | --- |
 | `gnome` installs GNOME Shell and gdm3, and skips the tiling-only tags | GNOME ships a Wayland-only session, so no Xorg server is installed; legacy X11 apps run under XWayland |
-| Tiling hosts get the tags marked *tiling*, plus the X11 tools both tiling sessions use ([tasks/apt_tiling.yml](./tasks/apt_tiling.yml)) | niri runs them as XWayland clients |
+| Tiling hosts get the tags marked *tiling*, plus the session tools both tiling sessions use ([tasks/apt_tiling.yml](./tasks/apt_tiling.yml)): screenshots, per-app volume, media keys and the X11 utilities | niri runs the X11 ones as XWayland clients. A gnome host gets none of them: GNOME has a screenshot UI and media keys of its own, and gives up `pavucontrol`, whose per-app routing its sound panel does lack |
 | Only tools with a per-protocol replacement belong to [bspwm](../bspwm/) (X11) or [niri](../niri/) (Wayland) | Everything both sessions share lives here |
 | `ly` is built with Zig from `desktop_zig_mirror`, a [community mirror](https://ziglang.org/download/community-mirrors.txt) | The ziglang.org origin is slow. The archive is checksummed against the shasum the origin publishes |
 

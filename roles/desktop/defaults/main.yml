@@ -141,18 +141,33 @@ desktop_parental_controls_web_force_safe_search: true
 # The account the user-scoped tasks act on, not a blanket become_user.
 desktop_user: "{{ primary_user }}"
 
-# Apt packages to replace with flatpak equivalents
-desktop_flatpak_replacements:
-  audacity: org.audacityteam.Audacity
-  blender: org.blender.Blender
-  filezilla: org.filezillaproject.Filezilla
-  gimp: org.gimp.GIMP
-  inkscape: org.inkscape.Inkscape
-  libreoffice: org.libreoffice.LibreOffice
-  vlc: org.videolan.VLC
+# Apt packages purged and pinned on every desktop, a flatpak serving the same purpose. Held
+# apart from what is installed below: a host that installs none of these still must not get the
+# apt build, which shadows the flatpak in the launcher and updates on its own schedule.
+desktop_apt_pinned_packages:
+  - audacity
+  - blender
+  - filezilla
+  - gimp
+  - inkscape
+  - libreoffice
+  - vlc
 
-# Additional flatpak applications
-desktop_flatpak_extras:
-  - com.obsproject.Studio
-  - fr.handbrake.ghb
-  - io.missioncenter.MissionCenter
+# Optional flatpak applications, each installed for desktop_user where its flag is on, and
+# uninstalled where it is off. An application that serves whoever administers the host rather
+# than whoever uses it belongs here: in the common set below it is an unused launcher entry and
+# a runtime on disk on every other desktop. vars/main.yml holds the application ID each flag
+# stands for, so a host carries the decision and not the list.
+desktop_install_audacity: false
+desktop_install_blender: false
+desktop_install_filezilla: false
+desktop_install_handbrake: false
+desktop_install_mission_center: false
+desktop_install_obs_studio: false
+
+# Flatpak applications every desktop installs for desktop_user.
+desktop_flatpak_common:
+  - org.gimp.GIMP
+  - org.inkscape.Inkscape
+  - org.libreoffice.LibreOffice
+  - org.videolan.VLC

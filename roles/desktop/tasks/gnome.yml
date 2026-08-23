@@ -14,11 +14,9 @@
 - name: Install GNOME applications
   ansible.builtin.apt:
     name:
-      - baobab
       - gnome-calculator
       - gnome-clocks
       - gnome-disk-utility
-      - gnome-font-viewer
       - gnome-system-monitor
       - gnome-text-editor
       - loupe

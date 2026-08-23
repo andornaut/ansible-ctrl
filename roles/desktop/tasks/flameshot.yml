@@ -1,5 +1,5 @@
 ---
-# apt.yml installs flameshot everywhere; only tiling hosts need a unit, flameshot
+# apt_tiling.yml installs flameshot on the tiling hosts; only they need a unit, flameshot
 # binding to the watcher present at start and never re-registering, so PartOf is
 # what returns the icon after eww restarts. The dotfiles' autostart entry is the
 # other launcher, and its NotShowIn must list every environment given a unit here.

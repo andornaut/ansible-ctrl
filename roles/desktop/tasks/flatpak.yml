@@ -4,7 +4,7 @@
   block:
     - name: Purge packages replaced by flatpak
       ansible.builtin.apt:
-        name: "{{ desktop_flatpak_pinned_packages }}"
+        name: "{{ desktop_apt_pinned_packages }}"
         autoremove: true
         purge: true
         state: absent
@@ -14,7 +14,7 @@
     - name: Pin packages replaced by flatpak
       ansible.builtin.copy:
         content: |
-          Package: {{ desktop_flatpak_pinned_packages | join(' ') }}
+          Package: {{ desktop_apt_pinned_packages | join(' ') }}
           Pin: release a=*
           Pin-Priority: -1
         dest: /etc/apt/preferences.d/flatpak-replacements
@@ -60,3 +60,36 @@
                  + (desktop_flatpak_overrides[item] | default([])) }}
           loop: "{{ desktop_flatpak_apps }}"
           changed_when: true
+
+        - name: Uninstall the flatpak applications this host has turned off
+          community.general.flatpak:
+            name: "{{ desktop_flatpak_removed_apps }}"
+            method: user
+            state: absent
+          when: desktop_flatpak_removed_apps | length > 0
+
+        # An override is a file of its own and outlives the application it names.
+        - name: Remove the permission overrides of the uninstalled applications
+          ansible.builtin.file:
+            path: "{{ desktop_user_home }}/.local/share/flatpak/overrides/{{ item }}"
+            state: absent
+          loop: "{{ desktop_flatpak_removed_apps }}"
+
+        # A flag turned off leaves nothing behind, the application's own settings and state
+        # included. Nothing else writes here, flatpak giving each application its own tree.
+        - name: Remove the data directories of the uninstalled applications
+          ansible.builtin.file:
+            path: "{{ desktop_user_home }}/.var/app/{{ item }}"
+            state: absent
+          loop: "{{ desktop_flatpak_removed_apps }}"
+
+        # Most of what an uninstalled application cost on disk is its runtime. --unused takes
+        # only what nothing installed still needs. LC_ALL pins the locale, the report
+        # below being matched as text.
+        - name: Remove the flatpak runtimes nothing installed still needs
+          ansible.builtin.command:
+            argv: [flatpak, uninstall, --user, --unused, --assumeyes, --noninteractive]
+          environment:
+            LC_ALL: C
+          register: desktop_flatpak_unused
+          changed_when: "'Nothing unused' not in desktop_flatpak_unused.stdout"

@@ -1,0 +1,28 @@
+---
+# CLEANUP (added 2026-08-23): delete this file, its import and its tag once every host in the
+# `desktop` group has run it.
+#
+# flameshot, pavucontrol and playerctl moved into tasks/apt_tiling.yml, which a GNOME host does
+# not run, and baobab and gnome-font-viewer left the application list in tasks/gnome.yml, which
+# only a GNOME host runs. An install list removes nothing by no longer naming a package, so a
+# host that already has them keeps them until this runs.
+#
+# The flatpak half of the same change needs no cleanup: a desktop_install_* flag that is off
+# uninstalls its application on every run, in tasks/flatpak.yml.
+
+- name: Purge the system packages a GNOME host no longer installs
+  ansible.builtin.apt:
+    name:
+      - baobab
+      - flameshot
+      - gnome-font-viewer
+      - pavucontrol
+      - playerctl
+    autoremove: true
+    purge: true
+    state: absent
+  become: true
+  # GNOME hosts only, for both halves of the list: the three session tools are what a tiling
+  # host installs on purpose, and the two applications were never installed anywhere else, so
+  # purging them off a tiling host would take a copy the operator installed by hand.
+  when: desktop_environment == "gnome"

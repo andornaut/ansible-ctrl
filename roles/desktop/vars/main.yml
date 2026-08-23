@@ -128,11 +128,28 @@ desktop_logind_idle_action_conf: /etc/systemd/logind.conf.d/50-desktop-idle-acti
 # Zig uses the kernel architecture names, so no mapping to Debian's is needed.
 desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
 
-# Every application flatpak.yml installs, the apt replacements and the extras alike.
-desktop_flatpak_apps: "{{ desktop_flatpak_replacements.values() | list + desktop_flatpak_extras }}"
+# The optional applications, each keyed to the flag it answers to. The IDs sit here rather than
+# in host_vars, so a host names a decision and the role keeps the list.
+desktop_flatpak_optional:
+  org.audacityteam.Audacity: "{{ desktop_install_audacity | bool }}"
+  org.blender.Blender: "{{ desktop_install_blender | bool }}"
+  org.filezillaproject.Filezilla: "{{ desktop_install_filezilla | bool }}"
+  fr.handbrake.ghb: "{{ desktop_install_handbrake | bool }}"
+  io.missioncenter.MissionCenter: "{{ desktop_install_mission_center | bool }}"
+  com.obsproject.Studio: "{{ desktop_install_obs_studio | bool }}"
 
-# What flatpak.yml purges and pins. Not snap, which the base role handles everywhere.
-desktop_flatpak_pinned_packages: "{{ desktop_flatpak_replacements.keys() | list }}"
+# Every application flatpak.yml installs: the common set, plus the optional ones turned on.
+desktop_flatpak_apps: >-
+  {{ desktop_flatpak_common
+     + (desktop_flatpak_optional | dict2items | selectattr('value')
+        | map(attribute='key') | list) }}
+
+# The optional applications this host has turned off, which flatpak.yml uninstalls. A flag is
+# two-way for the same reason desktop_install_firefox is: an install list removes nothing by
+# no longer naming an application.
+desktop_flatpak_removed_apps: >-
+  {{ desktop_flatpak_optional | dict2items | rejectattr('value')
+     | map(attribute='key') | list }}
 
 # `flatpak override --user` arguments per application ID. "default" applies to every
 # application flatpak.yml installs, with the per-application key merged on top.
