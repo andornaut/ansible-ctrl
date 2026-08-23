@@ -3,18 +3,24 @@
 # them back. Without it a hardware error is one kernel line in the journal, lost at the next
 # vacuum, and nothing counts a repeat. The routers are out of scope, base.yml being all:!routers.
 
-- name: Install rasdaemon
-  ansible.builtin.apt:
-    name: rasdaemon
-    state: present
-    update_cache: true
-  become: true
+# A guest has no RAS hardware behind the trace events, so the daemon starts and then logs a
+# failure per event class. Keyed on virtualization_role, not virtualization_type, which reads
+# `kvm` on a host able to run guests just as it does on a guest.
+- name: Install and enable rasdaemon on bare metal
+  when: ansible_facts["virtualization_role"] != "guest"
+  block:
+    - name: Install rasdaemon
+      ansible.builtin.apt:
+        name: rasdaemon
+        state: present
+        update_cache: true
+      become: true
 
-# Skipped under --check, where the install was simulated and the missing unit reads as a failure.
-- name: Enable rasdaemon
-  ansible.builtin.systemd_service:
-    name: rasdaemon
-    enabled: true
-    state: started
-  become: true
-  when: not ansible_check_mode
+    # Skipped under --check, where the install was simulated and the missing unit reads as a failure.
+    - name: Enable rasdaemon
+      ansible.builtin.systemd_service:
+        name: rasdaemon
+        enabled: true
+        state: started
+      become: true
+      when: not ansible_check_mode
