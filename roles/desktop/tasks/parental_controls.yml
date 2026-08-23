@@ -74,12 +74,31 @@
         - malcontent-webd.service
       when: desktop_malcontent_getent.rc != 0
 
+    - name: Create the malcontent-webd-update systemd override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/malcontent-webd-update.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # The packaged unit starts at boot with no network ordering and fails
+    # 69/UNAVAILABLE before a resolver answers (README.md).
+    - name: Copy the malcontent-webd-update systemd override
+      ansible.builtin.copy:
+        src: malcontent-webd-update-override.conf
+        dest: /etc/systemd/system/malcontent-webd-update.service.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+
     # Same packaging bug leaves this oneshot failed until the users exist. Ungated:
     # RemainAfterExit makes starting it a no-op where it already succeeded. Calls only
     # UpdateFilters; malcontent-webd does the fetching.
     - name: Compile the malcontent web filter lists
       ansible.builtin.systemd_service:
         name: malcontent-webd-update.service
+        daemon_reload: true
         state: started
 
     - name: Deploy Chrome family policy
