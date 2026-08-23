@@ -18,7 +18,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | [alacritty](https://alacritty.org/) | Terminal emulator |
 | browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.firefox.com/), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control |
-| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources) |
+| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources, Ubuntu Dock) |
 | display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly), *tiling* |
 | [dunst](https://dunst-project.org/) | Notification daemon, built from source, *tiling* |
 | [eww](https://github.com/elkowar/eww) | Widget daemon, *tiling* |

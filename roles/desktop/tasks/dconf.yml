@@ -34,3 +34,20 @@
         key: "/org/gnome/settings-daemon/plugins/keyboard/active"
         value: "false"
         state: present
+
+# The Ubuntu Dock is an extension of the GNOME session, so this runs nowhere else.
+- name: Configure the Ubuntu Dock
+  when: desktop_environment == "gnome"
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  block:
+    # The dock reveals on a pointer press against its edge, which a fullscreen game
+    # keeps the pointer at. Without this the reveal is not suppressed and the dock
+    # draws over the game.
+    - name: Keep the dock hidden while a window is fullscreen
+      community.general.dconf:
+        key: /org/gnome/shell/extensions/dash-to-dock/autohide-in-fullscreen
+        value: "true"
+        state: present
