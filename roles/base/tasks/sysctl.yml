@@ -1,6 +1,10 @@
 ---
 # fs.file-max is deliberately absent: the kernel already leaves it effectively unbounded, and
 # naming it here could only lower it.
+#
+# `sysctl --system` applies /etc/sysctl.conf last, after everything in /etc/sysctl.d, so a host
+# that sets one of these keys there keeps its own value and this task still reports changed. Check
+# /etc/sysctl.conf before believing the value below is what the host runs.
 - name: Configure sysctl tunables
   ansible.builtin.copy:
     dest: /etc/sysctl.d/60-ansible-role-base.conf

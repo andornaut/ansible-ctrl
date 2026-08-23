@@ -35,15 +35,17 @@ apt_wait apt-get clean || true
 apt_wait apt-get autoremove --purge --yes || true
 
 # Vacuum journald logs (also enforced continuously by journald.conf).
-journalctl --vacuum-size=500M --vacuum-time=4weeks
+journalctl --vacuum-size=500M --vacuum-time=4weeks || true
 
 # Rotated and compressed logs. logrotate keeps these for its own retention window, which is
 # time the disk pays for; the live files it is still writing are untouched.
 find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete || true
 
 # Unused images, containers, networks and build cache. Volumes are preserved.
+# The binary existing does not mean the daemon is up, and a prune against a stopped dockerd
+# fails: guarded so it cannot take the flatpak and thumbnail sweeps down with it.
 if command -v docker >/dev/null 2>&1; then
-    docker system prune --all --force
+    docker system prune --all --force || true
 fi
 
 # Remove flatpak runtimes and extensions no longer referenced by any app.
