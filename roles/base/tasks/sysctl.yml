@@ -1,0 +1,15 @@
+---
+# fs.file-max is deliberately absent: the kernel already leaves it effectively unbounded, and
+# naming it here could only lower it.
+- name: Configure sysctl tunables
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/60-ansible-role-base.conf
+    content: |
+      # Ubuntu derives a default from RAM, which lands well below what an editor or a
+      # file-syncing tool needs to watch a large source tree.
+      fs.inotify.max_user_watches = {{ base_inotify_max_user_watches }}
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Reload sysctl

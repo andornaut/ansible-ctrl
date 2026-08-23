@@ -24,3 +24,14 @@ base_telemetry_packages:
   - ubuntu-insights
   - ubuntu-report
   - whoopsie
+
+# Purged and negatively pinned by tasks/unwanted.yml. Ubuntu installs these by default and no
+# host here has the hardware or the role for them: no modems, no crash dumps anyone reads, no
+# dual-GPU switching, no screen reader.
+base_unwanted_packages:
+  - kdump-tools
+  - language-selector-gnome
+  - modemmanager
+  - power-profiles-daemon
+  - speech-dispatcher
+  - switcheroo-control

@@ -44,3 +44,6 @@ base_lockdown_exclude_homes:
 # half needs an EDAC memory controller, which non-ECC hardware does not register, and the daemon
 # logs a failure for each trace class the hardware lacks. Enable per host in host_vars.
 base_install_rasdaemon: false
+
+# A ceiling, not an allocation, but each watch costs kernel memory, so a small host wants less.
+base_inotify_max_user_watches: 524288

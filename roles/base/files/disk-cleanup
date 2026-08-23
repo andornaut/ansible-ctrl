@@ -37,6 +37,10 @@ apt_wait apt-get autoremove --purge --yes || true
 # Vacuum journald logs (also enforced continuously by journald.conf).
 journalctl --vacuum-size=500M --vacuum-time=4weeks
 
+# Rotated and compressed logs. logrotate keeps these for its own retention window, which is
+# time the disk pays for; the live files it is still writing are untouched.
+find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete
+
 # Unused images, containers, networks and build cache. Volumes are preserved.
 if command -v docker >/dev/null 2>&1; then
     docker system prune --all --force
@@ -66,3 +70,11 @@ if command -v flatpak >/dev/null 2>&1; then
             flatpak uninstall --unused --assumeyes || true
     done < <(getent passwd)
 fi
+
+# Thumbnail caches, which every file manager regenerates on demand. Per-user, for the same
+# reason the flatpak sweep above is: each account has its own under $HOME.
+while IFS=: read -r _ _ uid _ _ home _; do
+    [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
+    [[ -d ${home}/.cache/thumbnails ]] || continue
+    rm -rf -- "${home:?}/.cache/thumbnails/."[!.]* "${home:?}/.cache/thumbnails/"* 2>/dev/null || true
+done < <(getent passwd)

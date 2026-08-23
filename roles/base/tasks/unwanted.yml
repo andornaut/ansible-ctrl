@@ -1,0 +1,12 @@
+---
+# kdump-tools also reserves memory at boot through the crashkernel= parameter it adds to GRUB.
+# Purging drops the parameter, and the reserved memory comes back at the next reboot rather than
+# immediately.
+- name: Remove unwanted packages
+  become: true
+  block:
+    - name: Purge and pin unwanted packages
+      ansible.builtin.include_tasks: purge-and-pin.yml
+      vars:
+        purge_pin_name: unwanted
+        purge_pin_packages: "{{ base_unwanted_packages }}"
