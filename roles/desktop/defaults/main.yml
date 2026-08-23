@@ -23,6 +23,11 @@ desktop_nct6687d_version: main
 # USB vendor IDs whose hubs reset their downstream tree on autosuspend, dropping input
 # and audio for seconds. Each gets power/control pinned on. Empty removes the rule.
 desktop_usb_no_autosuspend_vendor_ids: []
+# WirePlumber property overrides, keyed by the PipeWire node.name that `wpctl status`
+# and `pw-cli ls Node` report. Each value is a map of properties to set on that node:
+# audio.format pins a device to a format it can sustain, node.disabled hides one whose
+# exposed node is unusable. Empty removes the drop-in.
+desktop_wireplumber_node_properties: {}
 # Web browser set as the xdg-settings default: "firefox" or "google-chrome".
 desktop_default_browser: firefox
 # Display manager settings

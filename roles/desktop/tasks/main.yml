@@ -131,6 +131,12 @@
       ansible.builtin.import_tasks: usb_hub_autosuspend.yml
       tags: usb-autosuspend
 
+    # Unconditional: the file branches on the node list itself, so emptying it removes
+    # the drop-in an earlier run installed.
+    - name: Suppress unusable audio nodes
+      ansible.builtin.import_tasks: wireplumber.yml
+      tags: wireplumber
+
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf

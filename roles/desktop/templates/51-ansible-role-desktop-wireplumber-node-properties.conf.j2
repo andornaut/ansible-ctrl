@@ -1,0 +1,22 @@
+# Managed by Ansible (desktop role). Do not edit.
+# Per-node property overrides for hardware WirePlumber probes wrongly. A device that
+# advertises a format it cannot sustain is corrected here rather than by a card profile,
+# which whatever the user last picked in a volume-control UI overrides.
+monitor.alsa.rules = [
+{% for node, props in desktop_wireplumber_node_properties.items() %}
+  {
+    matches = [
+      {
+        node.name = "{{ node }}"
+      }
+    ]
+    actions = {
+      update-props = {
+{% for key, value in props.items() %}
+        {{ key }} = {{ value | to_json }}
+{% endfor %}
+      }
+    }
+  }{{ "," if not loop.last }}
+{% endfor %}
+]

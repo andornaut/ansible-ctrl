@@ -38,6 +38,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | [rofi](https://github.com/lbonn/rofi) | Application launcher (Wayland fork, built from source), *tiling* |
 | theme | GTK themes, the GNOME colour scheme, and the flatpak theme override |
 | usb-autosuspend | udev rule pinning autosuspend off for `desktop_usb_no_autosuspend_vendor_ids` |
+| wireplumber | Drop-in applying the per-node property overrides in `desktop_wireplumber_node_properties` |
 
 ## Variables
 
@@ -54,6 +55,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | `desktop_xsecurelock_password_prompt` | What the unlock prompt echoes while typing (`asterisks`, `cursor`, `time`, `disco`) |
 | `desktop_xsecurelock_auth_background_color` | Tints the password dialog box only, so a tinted box means keystrokes reach the password field. Empty (the default) leaves it black |
 | `desktop_parental_controls_web_*` | Web filter for `desktop_user`: filter type, filter lists, custom hostnames, safe search |
+| `desktop_wireplumber_node_properties` | Per-node WirePlumber property overrides, keyed by `node.name`. `audio.format` pins a device whose advertised format it cannot sustain (a USB microphone that stalls seconds into every capture, while the same device at a lower bit depth runs indefinitely); `node.disabled` hides a node entirely. Preferred over a card profile, which whatever the user last picked in a volume-control UI overrides |
 | `desktop_zig_mirror` | Mirror to download the Zig toolchain from when building the `ly` display manager |
 
 ## Desktop environments

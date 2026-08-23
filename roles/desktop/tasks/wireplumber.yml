@@ -1,0 +1,29 @@
+---
+# Gated here rather than at the import, so emptying the map removes the drop-in.
+# The file name carries the ansible-role marker that makes it safe to remove.
+- name: Apply the WirePlumber node properties in desktop_wireplumber_node_properties
+  when: desktop_wireplumber_node_properties | length > 0
+  block:
+    # wireplumber ships its drop-in directory under /usr/share only.
+    - name: Create the WirePlumber drop-in directory
+      ansible.builtin.file:
+        path: /etc/wireplumber/wireplumber.conf.d
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Install the WirePlumber node-properties drop-in
+      ansible.builtin.template:
+        src: 51-ansible-role-desktop-wireplumber-node-properties.conf.j2
+        dest: /etc/wireplumber/wireplumber.conf.d/51-ansible-role-desktop-wireplumber-node-properties.conf
+        mode: "0644"
+      become: true
+      notify: Restart WirePlumber
+
+- name: Remove the WirePlumber node-properties drop-in when the map is empty
+  when: desktop_wireplumber_node_properties | length == 0
+  ansible.builtin.file:
+    path: /etc/wireplumber/wireplumber.conf.d/51-ansible-role-desktop-wireplumber-node-properties.conf
+    state: absent
+  become: true
+  notify: Restart WirePlumber

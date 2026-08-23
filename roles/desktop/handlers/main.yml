@@ -48,6 +48,22 @@
     state: restarted
   become: true
 
+# Reads its drop-ins at start, so the change otherwise waits for the next login.
+# A host whose desktop user has no session has no user bus to restart it on.
+- name: Restart WirePlumber
+  ansible.builtin.systemd_service:
+    name: wireplumber.service
+    scope: user
+    state: restarted
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_wireplumber_restart
+  failed_when:
+    - desktop_wireplumber_restart is failed
+    - "'Failed to connect to bus' not in desktop_wireplumber_restart.msg | default('')"
+
 - name: Reload systemd
   ansible.builtin.systemd_service:
     daemon_reload: true
