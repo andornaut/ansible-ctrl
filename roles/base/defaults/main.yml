@@ -46,7 +46,7 @@ base_lockdown_exclude_homes:
 base_install_rasdaemon: false
 
 # A ceiling, not an allocation, but each watch costs about 1 KB of kernel memory and the limit is
-# per user, so the worst case is this many KB per uid. 131072 covers an editor or a file-syncing
-# daemon over a large tree while staying modest against the smallest host's RAM. Raise it in
-# host_vars for a host that exhausts it.
-base_inotify_max_user_watches: 131072
+# per user, so the worst case is this many KB per uid. Enough for an editor or a file-syncing
+# daemon over a large tree. A headless host wants less and a host that exhausts it wants more;
+# both say so in host_vars.
+base_inotify_max_user_watches: 65536
