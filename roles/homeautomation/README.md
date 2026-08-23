@@ -176,8 +176,10 @@ a set is compared against the release by name. A set that does not answer on 555
 armed; it is reached on a later run, and the copy it already carries arms itself at its next boot.
 
 `install -r` keeps the app's data, and with it the app's own adb key, only while the signing key matches what is
-installed. It is refused across a signature change, so a set carrying a build signed with another key, a locally
-built debug one among them, needs `adb uninstall` first, and that deletes the key and any pairing made to it.
+installed, and it is refused across a signature change. A set reporting `DEBUGGABLE` in its `pkgFlags` carries a
+locally built copy, so the tag uninstalls that before installing the release, and then reports the set as needing a
+pairing code. Any other mismatch is left to an `adb uninstall` by hand. Either way the uninstall costs the app's
+own adb key and the pairing made to it.
 
 The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
 own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing

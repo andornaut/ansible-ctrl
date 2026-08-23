@@ -33,6 +33,22 @@
   changed_when: false
   when: homeautomation_adb_auto_enable_probe is succeeded
 
+# CLEANUP (added 2026-08-23): remove once every set the home automation hosts name carries
+# a release build. A set may still hold a locally built debug APK, and install -r is
+# refused across a signature change: a release is signed with the project's key, a local
+# build with the debug one. Only an uninstall clears that, and it takes the app's own adb
+# key and the pairing made to it, which is why the report at the end of this file exists.
+- name: Remove a locally built adb-auto-enable from {{ homeautomation_adb_auto_enable_host }}
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
+      uninstall {{ homeautomation_adb_auto_enable_package }}
+  register: homeautomation_adb_auto_enable_cleanup
+  changed_when: homeautomation_adb_auto_enable_cleanup.rc == 0
+  when:
+    - homeautomation_adb_auto_enable_probe is succeeded
+    - homeautomation_adb_auto_enable_dumpsys.stdout is search('pkgFlags=\[[^\]]*DEBUGGABLE')
+
 - name: Install adb-auto-enable on {{ homeautomation_adb_auto_enable_host }}
   ansible.builtin.command:
     cmd: >-
@@ -43,7 +59,11 @@
   failed_when: false
   when:
     - homeautomation_adb_auto_enable_probe is succeeded
-    - ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
+    # The version read above is what the uninstall above removed, so it decides nothing
+    # once that has run.
+    - >-
+      homeautomation_adb_auto_enable_cleanup is changed
+      or ('versionName=' ~ homeautomation_adb_auto_enable_version_name)
       not in homeautomation_adb_auto_enable_dumpsys.stdout
 
 - name: Check that the install succeeded
@@ -55,8 +75,8 @@
       {{ homeautomation_adb_auto_enable_install.stdout | trim }}
       {{ homeautomation_adb_auto_enable_install.stderr | trim }}.
       INSTALL_FAILED_UPDATE_INCOMPATIBLE means the set carries a build signed with
-      another key, which has to be uninstalled first, and that deletes the app's adb key
-      and the pairing made to it. See the role README.
+      another key that this run did not clear, so it has to be uninstalled by hand, and
+      that deletes the app's adb key and the pairing made to it. See the role README.
     quiet: true
   when: homeautomation_adb_auto_enable_install is not skipped
 
@@ -85,10 +105,11 @@
 - name: Report the pairing still needed on {{ homeautomation_adb_auto_enable_host }}
   ansible.builtin.debug:
     msg: >-
-      adb-auto-enable was installed on {{ homeautomation_adb_auto_enable_host }} for the
-      first time, so it is unpaired and cannot move adbd onto
-      {{ homeautomation_adb_auto_enable_port }} at the next boot. Pair it with a code read
-      off the set. See the role README.
+      adb-auto-enable is newly installed on {{ homeautomation_adb_auto_enable_host }} and
+      unpaired, so it cannot move adbd onto {{ homeautomation_adb_auto_enable_port }} at
+      the next boot. Pair it with a code read off the set. See the role README.
   when:
     - homeautomation_adb_auto_enable_install is changed
-    - "'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout"
+    - >-
+      homeautomation_adb_auto_enable_cleanup is changed
+      or 'versionName=' not in homeautomation_adb_auto_enable_dumpsys.stdout
