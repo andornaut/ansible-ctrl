@@ -63,41 +63,6 @@
           {{ homeautomation_adb_auto_enable_release.assets | map(attribute='name') | list }}.
         quiet: true
 
-    - name: Create the adb-auto-enable download directory
-      ansible.builtin.file:
-        path: "{{ homeautomation_adb_auto_enable_dir }}"
-        state: directory
-        mode: "0755"
-
-    # Under the version it carries, which is both the name to install by hand and what
-    # keeps a release the sets have already been given from being fetched again.
-    - name: Download the newest release of adb-auto-enable
-      ansible.builtin.get_url:
-        url: "{{ homeautomation_adb_auto_enable_url }}"
-        dest: "{{ homeautomation_adb_auto_enable_apk }}"
-        mode: "0644"
-      register: homeautomation_adb_auto_enable_download
-      retries: 3
-      delay: 5
-      until: homeautomation_adb_auto_enable_download is succeeded
-
-    # The name carries the version, so a new release lands beside the last one rather
-    # than replacing it, and nothing else ever collects them.
-    - name: Find superseded adb-auto-enable downloads
-      ansible.builtin.find:
-        paths: "{{ homeautomation_adb_auto_enable_dir }}"
-        patterns: "adb-auto-enable-*.apk"
-        excludes: "{{ homeautomation_adb_auto_enable_apk | basename }}"
-      register: homeautomation_adb_auto_enable_superseded
-
-    - name: Remove superseded adb-auto-enable downloads
-      ansible.builtin.file:
-        path: "{{ item.path }}"
-        state: absent
-      loop: "{{ homeautomation_adb_auto_enable_superseded.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-
     - name: Install adb-auto-enable on each set
       ansible.builtin.include_tasks: adb_auto_enable_host.yml
       loop: "{{ homeautomation_adb_auto_enable_hosts }}"

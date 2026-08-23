@@ -167,9 +167,10 @@ so the build to run is one that repairs the receiver when its service starts. Th
 [PR 17](https://github.com/mouldybread/adb-auto-enable/pull/17), released in v0.3.4, so every release from that one
 on carries it.
 
-The `adb_auto_enable` tag downloads the newest stable release's APK to `~/.cache/adb-auto-enable/` and installs it
-on every set in `homeautomation_adb_auto_enable_hosts`. No pin: a set has no other route to a fix, and an unarmed
-one costs a pairing code read off its screen.
+The `adb_auto_enable` tag installs the newest stable release's APK on every set in
+`homeautomation_adb_auto_enable_hosts` that does not already carry it, staging the download in a temporary
+directory that goes with the run. No pin: a set has no other route to a fix, and an unarmed one costs a pairing
+code read off its screen.
 
 The APK's versionName is the release tag without its leading `v`, and a set reports that back through `dumpsys`, so
 a set is compared against the release by name.
@@ -184,8 +185,8 @@ built one among them, needs `adb uninstall` first, and that costs the app's own 
 
 | A run finds | What it does |
 | --- | --- |
-| The newest release already installed | Nothing. The versionName matches, so the install is skipped |
-| A newer release published | Downloads it, installs over the old one, which keeps the pairing, and deletes the superseded download |
+| The newest release already installed | Nothing. The versionName matches, so nothing is downloaded or installed |
+| A newer release published | Downloads it and installs over the old one, which keeps the pairing |
 | The app absent | Installs, grants, starts it, and reports the pairing code it now needs |
 | A set off, or in standby | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
 | A build signed with another key | Fails, naming the uninstall that clears it |

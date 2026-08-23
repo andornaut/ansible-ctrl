@@ -5,10 +5,6 @@
 # From the getent in tasks/adb_auto_enable.yml.
 homeautomation_adb_auto_enable_user_home: "{{ ansible_facts['getent_passwd'][homeautomation_adb_auto_enable_user][4] }}"
 
-homeautomation_adb_auto_enable_dir: "{{ homeautomation_adb_auto_enable_user_home }}/.cache/adb-auto-enable"
-homeautomation_adb_auto_enable_apk: >-
-  {{ homeautomation_adb_auto_enable_dir }}/adb-auto-enable-{{
-  homeautomation_adb_auto_enable_version_name }}.apk
 homeautomation_adb_auto_enable_package: com.tpn.adbautoenable
 
 # What the app moves adbd onto, which is where Home Assistant's androidtv integration
