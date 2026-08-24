@@ -298,8 +298,14 @@ faramir_blocked_commands:
   # which prints the token masked and no value, and the check is the whole of what the refusal
   # costs.
   #
+  # `git-credential` beside them, which `gh auth --help` does not list: it speaks the git
+  # credential helper protocol, so a `get` on stdin returns the same token as `password=`,
+  # and it reads `hosts.yml` directly whether or not `gh auth setup-git` ever configured the
+  # helper.
+  #
   # Not bare `gh auth`, which would also take `gh auth login` and `gh auth refresh`: those
   # write the token rather than print it, and are the operator's at a terminal anyway.
+  - gh auth git-credential
   - gh auth status
   - gh auth token
   # The operator's own vault manager. Bare, so every subcommand goes with it: `export` and
