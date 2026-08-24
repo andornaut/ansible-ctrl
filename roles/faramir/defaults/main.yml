@@ -286,6 +286,16 @@ faramir_blocked_names:
 # rather than reading one, and the file here worth writing over is under a blocked path
 # already.
 faramir_blocked_commands:
+  # The GitHub CLI's token, which it keeps in `~/.config/gh/hosts.yml`. That file is blocked
+  # by name already, so this is the other way to the same value: `gh auth token` prints it,
+  # and `--show-token` unmasks what `gh auth status` otherwise prints as `gho_****`. Spelled
+  # out rather than bare `gh auth`, which would take `gh auth status` and `gh auth login`:
+  # the first is the check ai-maintainer documents and prints no value, and the second is
+  # interactive and the operator's anyway. Both short and long spellings of the flag, an
+  # alternation being separate entries.
+  - gh auth token
+  - gh auth status --show-token
+  - gh auth status -t
   # The operator's own vault manager. Bare, so every subcommand goes with it: `export` and
   # `search` print secrets, `edit` decrypts a vault into $EDITOR, `add` writes to one, and
   # `vault delete` destroys one. That takes `vault list` and `vault default` too, which print
