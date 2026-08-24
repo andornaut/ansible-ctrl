@@ -287,15 +287,21 @@ faramir_blocked_names:
 # already.
 faramir_blocked_commands:
   # The GitHub CLI's token, which it keeps in `~/.config/gh/hosts.yml`. That file is blocked
-  # by name already, so this is the other way to the same value: `gh auth token` prints it,
-  # and `--show-token` unmasks what `gh auth status` otherwise prints as `gho_****`. Spelled
-  # out rather than bare `gh auth`, which would take `gh auth status` and `gh auth login`:
-  # the first is the check ai-maintainer documents and prints no value, and the second is
-  # interactive and the operator's anyway. Both short and long spellings of the flag, an
-  # alternation being separate entries.
+  # by name already, so these are the other way to the same value: `gh auth token` prints it,
+  # and `--show-token` (`-t`) unmasks what `gh auth status` otherwise prints as `gho_****`.
+  #
+  # `status` bare rather than the flag spelled out, because an entry is literal words with any
+  # run of whitespace between them and nothing else: `gh auth status --show-token` matches
+  # that spelling and not `gh auth status -h github.com -t`, where a flag sits between the
+  # words. No entry can say "the flag anywhere among the others", so the subcommand is the
+  # only form that covers every way of asking. That takes the default `gh auth status` too,
+  # which prints the token masked and no value, and the check is the whole of what the refusal
+  # costs.
+  #
+  # Not bare `gh auth`, which would also take `gh auth login` and `gh auth refresh`: those
+  # write the token rather than print it, and are the operator's at a terminal anyway.
+  - gh auth status
   - gh auth token
-  - gh auth status --show-token
-  - gh auth status -t
   # The operator's own vault manager. Bare, so every subcommand goes with it: `export` and
   # `search` print secrets, `edit` decrypts a vault into $EDITOR, `add` writes to one, and
   # `vault delete` destroys one. That takes `vault list` and `vault default` too, which print
