@@ -131,10 +131,12 @@
         mode: "0755"
       check_mode: false
 
-    # Read by both renames below, and it goes when the last of them does. Here
-    # rather than at the top of the run, the two disagreeing in both directions:
-    # the archive is unpacked by this point, so a failed download leaves the
-    # config alone, and init is the next task.
+    # CLEANUP (added 2026-08-21): read by both renames below, so it goes when
+    # the last of them does.
+    #
+    # Here rather than at the top of the run, the two disagreeing in both
+    # directions: the archive is unpacked by this point, so a failed download
+    # leaves the config alone, and init is the next task.
     - name: Check for a config this faramir may not parse
       ansible.builtin.stat:
         path: "{{ faramir_config_dir }}/config.toml"
