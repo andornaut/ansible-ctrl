@@ -102,7 +102,7 @@ help:
 clean:
 	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
 
-# The same four checks CI runs, from the same script. Depends on requirements:
+# The same five checks CI runs, from the same script. Depends on requirements:
 # ansible-lint's syntax-check reports every collection module unknown without them.
 lint: requirements
 	@$(AS_OPERATOR) tests/lint.sh

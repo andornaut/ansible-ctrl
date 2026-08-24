@@ -177,4 +177,4 @@ Two more gates that `make lint` does not run:
 | Gate | Covers |
 | --- | --- |
 | markdownlint, a second step of the same workflow | Every tracked `.md` file, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). Run it locally with `markdownlint-cli2` and no arguments, which reads the same config |
-| [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution |
+| [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution or a long dash, and one that ships a local-only agent instruction file. The last two are opt-in flags: the action leaves them off and this workflow sets them |

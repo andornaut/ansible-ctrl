@@ -17,6 +17,7 @@ make dev -- --tags rust
 | [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
 | [android_sdk](https://developer.android.com/tools) | Android command line tools, platform and build-tools, gated on `dev_install_android_sdk` |
 | [antigravity](https://antigravity.google/) | Google Antigravity IDE, gated on `dev_install_antigravity`, and the `agy` CLI, gated on `dev_install_antigravity_cli` |
+| apt | Development tools and the build headers other tags need: `git` and its helpers, `gh`, `adb`, `jq`, `shellcheck`, `snmp`, `wireshark`, and the database clients and `-dev` packages |
 | [claude](https://code.claude.com/docs) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
@@ -31,9 +32,6 @@ make dev -- --tags rust
 | [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
-
-The apt packages in [tasks/apt.yml](./tasks/apt.yml) are untagged, so a run that names no `--tags` installs
-them and a run that names any does not.
 
 ## Variables
 

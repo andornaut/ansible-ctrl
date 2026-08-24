@@ -20,6 +20,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | --- | --- |
 | [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, installed on each set from its newest release |
 | [avahi](https://avahi.org/) | mDNS discovery service |
+| bluetooth | `bluez`, `dbus-broker` and the AppArmor policy a container needs to reach BLE. No flag; always applied |
 | customizations | HA custom components, themes, and www assets |
 | docker | All Docker container tasks |
 | [esphome](https://esphome.io/) | ESP device firmware and dashboard |
@@ -29,6 +30,8 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
 | matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://www.memryx.com/) | GPU accelerator drivers |
+| [mosquitto](https://mosquitto.org/) | The MQTT broker on its own. No flag; also applied by `homeassistant` |
+| otbr | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter` |
 | teardown | Remove the containers and host files of components this host does not install |
 | voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT |
 
