@@ -16,7 +16,7 @@ make dev -- --tags rust
 | [ai_attributions](https://github.com/andornaut/ai-attributions) | Daily cron job that scans every checkout for AI attributions, gated on `dev_install_ai_attributions` |
 | [ai_maintainer](https://github.com/andornaut/ai-maintainer) | Weekly cron job that runs the ai-maintainer script, gated on `dev_install_ai_maintainer` |
 | [android_sdk](https://developer.android.com/tools) | Android command line tools, platform and build-tools, gated on `dev_install_android_sdk` |
-| [antigravity](https://antigravity.google/) | Google Antigravity IDE and CLI |
+| [antigravity](https://antigravity.google/) | Google Antigravity IDE, gated on `dev_install_antigravity`, and the `agy` CLI, gated on `dev_install_antigravity_cli` |
 | [claude](https://code.claude.com/docs) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
 | [cursor](https://www.cursor.com/) | AI code editor (AppImage) |

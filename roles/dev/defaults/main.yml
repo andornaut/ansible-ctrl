@@ -25,6 +25,12 @@ dev_bundler_version: "4.0.13"
 # newer one itself when a module asks for one it does not have.
 dev_node_version: "v24.13.1"
 
+# The editor and the CLI are separate installs from separate sources: the deb comes
+# from Google's apt repository, which serves nothing else and auto-updates it, and agy
+# is a self-contained binary from upstream's shell installer that apt never sees.
+dev_install_antigravity: false
+dev_install_antigravity_cli: false
+
 # Several GB of SDK, useful only where Android apps are built.
 dev_install_android_sdk: false
 # Google names the command line tools archive after a build number, and offers no

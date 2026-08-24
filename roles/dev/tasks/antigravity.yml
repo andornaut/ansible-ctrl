@@ -1,5 +1,6 @@
 ---
 - name: Configure Google Antigravity repository
+  when: dev_install_antigravity | bool
   become: true
   block:
     - name: Download Google Antigravity GPG key
@@ -25,10 +26,14 @@
     state: latest
     install_recommends: false
     update_cache: true
+  when: dev_install_antigravity | bool
   become: true
 
+# Needs neither the repository nor the key above: upstream's installer writes one
+# self-contained binary under the user's ~/.local/bin.
 - name: Install Antigravity CLI (agy)
   ansible.builtin.include_tasks: install_user_cli.yml
+  when: dev_install_antigravity_cli | bool
   vars:
     dev_cli_name: Antigravity CLI (agy)
     dev_cli_bin: agy
