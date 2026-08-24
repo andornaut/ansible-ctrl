@@ -42,7 +42,7 @@ while discovery runs on the ethernet LAN.
 
 Setup:
 
-1. [Install ESPHome](https://esphome.io/guides/installing_esphome#linux)
+1. [Install ESPHome](https://esphome.io/install/)
 1. Download [airgradient-one.yaml](https://raw.githubusercontent.com/MallocArray/airgradient_esphome/refs/heads/main/airgradient-one.yaml)
 1. Set `name` and `friendly_name`, and add WiFi credentials
 1. Run `esphome run airgradient-one.yaml`
@@ -94,7 +94,7 @@ M5Stack bluetooth proxy:
 
 ### Home Assistant Connect ZBT-1
 
-- [Official documentation](https://connectzbt1.home-assistant.io/)
+- [Official documentation](https://support.nabucasa.com/hc/en-us/categories/24734620813469)
 - [Thread](https://www.home-assistant.io/integrations/thread/#list-of-thread-border-router-devices) and
   [enabling Thread support](https://support.nabucasa.com/hc/en-us/articles/26124710072861-Enabling-Thread-support)
 

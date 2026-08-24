@@ -14,7 +14,7 @@ Links for the [homeautomation](../README.md) role.
 - [Piper voices](https://rhasspy.github.io/piper-samples/)
 - [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) and its
-  [documentation](https://voice-pe.home-assistant.io/documentation/)
+  [documentation](https://support.nabucasa.com/hc/en-us/categories/24451727188125)
 - [microWakeWord](https://github.com/kahrendt/microWakeWord): wake word detection
 - [openWakeWord](https://github.com/dscripka/openWakeWord) and
   [create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
