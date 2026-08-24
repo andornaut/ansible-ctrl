@@ -68,8 +68,7 @@ faramir_init_argv: >-
 # flag, and naming it pins the enrolment to playbook_dir.
 faramir_init_project_argv: >-
   {{
-    [faramir_binary, 'init-project', '--json',
-     '--agent-user', faramir_user]
+    [faramir_binary, 'init-project', '--json']
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]
@@ -81,27 +80,23 @@ faramir_init_project_argv: >-
 # first: re-applying is what puts back a grant a tool took away by renaming its own file, and
 # a rule an agent's settings dropped.
 #
-# --agent-user for the reason faramir_doctor_argv carries it: nothing on the host says which
-# account the agent runs as, and these render that account's rule files.
+# No --agent-user, and none of these takes one: `faramir init` is the only command that
+# names the operator, and each of these reads what it recorded in [server] agent_user. A
+# command that resolved it afresh would rename the host's owner as a side effect of adding an
+# entry, which is what a brokered run did, sudo naming the executor there.
 faramir_block_argv: >-
-  {{ [faramir_binary, 'block', 'add', '--json',
-      '--agent-user', faramir_user] }}
+  {{ [faramir_binary, 'block', 'add', '--json'] }}
 
 # The removal half. An entry comes back out under the flag it went in under, the form being
 # part of what identifies it, and a removal ends the declaration and no more: README.md.
 faramir_block_rm_argv: >-
-  {{ [faramir_binary, 'block', 'rm', '--json',
-      '--agent-user', faramir_user] }}
+  {{ [faramir_binary, 'block', 'rm', '--json'] }}
 
 faramir_link_argv: >-
-  {{ [faramir_binary, 'link', 'add', '--json',
-      '--agent-user', faramir_user] }}
+  {{ [faramir_binary, 'link', 'add', '--json'] }}
 
-# The one thing doctor cannot read off the host: it takes the client group and the service
-# accounts from the config and the units, but --agent-user has no such source and doctor
-# fails rather than guess it.
+# Nothing to pass: doctor reads the client group and the service accounts off the config and
+# the units, and the operator off [server] agent_user, which is what `init` recorded. It took
+# --agent-user while that record was the one thing it could not read.
 faramir_doctor_argv: >-
-  {{
-    [faramir_binary, 'doctor', '--json',
-     '--agent-user', faramir_user]
-  }}
+  {{ [faramir_binary, 'doctor', '--json'] }}
