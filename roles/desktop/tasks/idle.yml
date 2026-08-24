@@ -23,7 +23,7 @@
       {{ desktop_screen_lock_minutes }}m, monitor powers off after
       {{ desktop_screen_off_minutes }}m
 
-# Four keys, not lock-enabled alone: a screensaver that does not activate on idle never
+# Six keys, not lock-enabled alone: a screensaver that does not activate on idle never
 # reaches the lock, and the lockdown key forbids one outright. Neither is visible from
 # lock-enabled, so a host with it set can still be leaving the session open. The timeouts
 # belong to the same guarantee rather than beside it: idle-delay at 0 disables the

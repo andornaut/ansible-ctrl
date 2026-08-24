@@ -30,6 +30,9 @@
     - name: Check which accounts have a user unit directory
       ansible.builtin.stat:
         path: "{{ item }}/.config/systemd/user"
+        # A dotfiles symlink here is still a unit directory. Without follow, stat
+        # reports isdir false and the dangling symlinks below are left in place.
+        follow: true
       register: base_snap_unit_dir_stat
       loop: "{{ base_account_homes }}"
 

@@ -22,6 +22,9 @@
 - name: Check which accounts have a home
   ansible.builtin.stat:
     path: "{{ item.value[4] }}"
+    # A home is sometimes a symlink into another filesystem. stat reports isdir false
+    # for one unless it follows, which would drop it from every sweep this file feeds.
+    follow: true
   register: base_account_home_stat
   loop: "{{ ansible_facts['getent_passwd'] | dict2items }}"
   loop_control:
