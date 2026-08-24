@@ -15,7 +15,7 @@ make games -- --tags retroarch
 | Tag | Description |
 | --- | --- |
 | apt | Native gaming packages |
-| bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, and the `ntsync` module Wine 11 needs for fast synchronization |
+| bedrock | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, the `ntsync` module Wine 11 needs for fast synchronization, and a desktop entry that launches the game directly, carrying the game's own icon |
 | flatpak | Flatpak runtime, flathub remote, applications, extensions, and overrides |
 | gamemode | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else |
 | heroic | Heroic install path and the store token-refresh timer |

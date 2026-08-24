@@ -20,3 +20,18 @@
       - --action=change
   changed_when: false
   become: true
+
+# GTK prefers hicolor's icon-theme.cache over scanning the theme, and a file added under
+# a size directory leaves the theme directory's own mtime alone, so a new icon stays
+# invisible while the cache still looks current. A theme directory newer than the cache
+# is what marks it stale, compared at whole seconds.
+#
+# Not gtk-update-icon-cache: it rejects its own output where a file name contains a
+# space, and Wine writes those into this theme.
+- name: Mark the user hicolor icon cache stale
+  ansible.builtin.file:
+    path: "{{ games_user_home }}/.local/share/icons/hicolor"
+    state: touch
+    mode: "0755"
+  become: true
+  become_user: "{{ games_user }}"

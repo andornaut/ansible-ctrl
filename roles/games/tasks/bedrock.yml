@@ -119,6 +119,10 @@
 # `bedrock-on-linux shortcut` cannot write an entry the host desktop can see from inside the
 # sandbox. The one-time version install and sign-in remain launcher steps.
 - name: Install the direct-launch Minecraft (Bedrock) script and desktop entry
+  vars:
+    games_bedrock_icon_src: >-
+      {{ games_user_home }}/.var/app/io.github.wyze3306.BedrockOnLinux/data/bedrock-on-linux/content/LargeLogo.png
+    games_bedrock_icon_dir: "{{ games_user_home }}/.local/share/icons/hicolor/256x256/apps"
   block:
     - name: Create the user bin directory
       ansible.builtin.file:
@@ -137,6 +141,33 @@
         path: "{{ games_user_home }}/.local/share/applications"
         state: directory
         mode: "0755"
+
+    # The game's own UWP logo, rather than the launcher's. `content` is BedrockOnLinux's
+    # symlink to the installed package, so the path survives a game update; it is absent
+    # until the game itself is installed, which is an interactive launcher step.
+    - name: Check for the installed game's icon
+      ansible.builtin.stat:
+        path: "{{ games_bedrock_icon_src }}"
+      register: games_bedrock_icon
+
+    - name: Create the user icon theme directory
+      when: games_bedrock_icon.stat.exists
+      ansible.builtin.file:
+        path: "{{ games_bedrock_icon_dir }}"
+        state: directory
+        mode: "0755"
+
+    # 256x256 rather than the source's own 480x480: the system hicolor's index.theme
+    # names the sizes for every merged copy of the theme, a directory it does not name
+    # is never searched, and GTK scales whatever it finds to the size asked for.
+    - name: Install the Minecraft (Bedrock) icon
+      when: games_bedrock_icon.stat.exists
+      ansible.builtin.copy:
+        src: "{{ games_bedrock_icon_src }}"
+        dest: "{{ games_bedrock_icon_dir }}/minecraft-bedrock.png"
+        remote_src: true
+        mode: "0644"
+      notify: Mark the user hicolor icon cache stale
 
     - name: Install the Minecraft (Bedrock) desktop entry
       ansible.builtin.template:
