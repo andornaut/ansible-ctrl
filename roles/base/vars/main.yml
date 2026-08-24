@@ -29,10 +29,13 @@ base_telemetry_packages:
 # host here has the hardware or the role for them: no modems, no crash dumps anyone reads, no
 # VMware guest, no directory service.
 #
-# Nothing a desktop metapackage depends on belongs here. language-selector-gnome is a hard
-# Depends of ubuntu-desktop-minimal, so pinning it takes gdm3, gnome-shell and ubuntu-session
-# with it; power-profiles-daemon, switcheroo-control and speech-dispatcher come back through the
-# same tree, and roles/desktop installs speech-dispatcher for Firefox text-to-speech. Check
+# Nothing a desktop metapackage depends on belongs here, a Depends and a Recommends answering
+# differently. language-selector-gnome is a hard Depends of ubuntu-desktop-minimal, so pinning
+# it takes gdm3, gnome-shell and ubuntu-session with it. power-profiles-daemon and
+# switcheroo-control are only recommended, by gnome-shell and gnome-control-center, and a
+# negative pin drops the recommendation rather than the recommender, which is why they stay
+# here. speech-dispatcher is recommended too and is left out for a reason of its own:
+# roles/desktop installs it for Firefox text-to-speech. Check
 # `apt-get -s install ubuntu-desktop-minimal` before adding to this list.
 base_unwanted_packages:
   - kdump-tools

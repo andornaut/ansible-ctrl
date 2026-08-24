@@ -20,9 +20,11 @@ make desktop -- --tags niri
 | [niri](https://github.com/niri-wm/niri) | Wayland compositor |
 | [wayland](https://wayland.freedesktop.org/) | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 
-Each source build also carries a tag of its own, for rebuilding one component without the rest: `packages`,
-`libsdbus`, `xwayland`, and one per Hyprland component (`hyprutils`, `hyprlang`, `hyprgraphics`, `hyprscanner`,
-`hypridle`, `hyprlock`, `hyprpaper`). The first four Hyprland ones are build dependencies of the last three.
+Most of the work also carries a narrower tag, for rebuilding one component without the rest: `packages` (the
+apt build dependencies), `libsdbus`, `xwayland`, and one per Hyprland component (`hyprutils`, `hyprlang`,
+`hyprgraphics`, `hyprscanner`, `hypridle`, `hyprlock`, `hyprpaper`). The first four Hyprland ones are build
+dependencies of the last three. The wayland-scanner, wayland-protocols and hyprland-protocols builds have no
+tag of their own and are reached through `wayland` and `hypr`.
 
 ## Variables
 
