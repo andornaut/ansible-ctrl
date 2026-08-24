@@ -27,7 +27,7 @@ required by rsnapshot) or `scripts`, plus these optional keys:
 
 | Key | Purpose |
 | --- | --- |
-| `host` | Inventory name of the host, which `name` is not: that one is the address rsync dials and the snapshot directory. Supplies the login default and is what a path reaches through `hostvars`. A name outside the inventory fails the run |
+| `host` | Inventory name of the host, which `name` is not: that one is the address rsync dials and the snapshot directory. Supplies the login default. The role asserts the name is in the inventory: `hostvars` answers for one outside it with nothing rather than an error, which the login default would take for an omitted key |
 | `local` | Read from the local filesystem instead of pulling over SSH |
 | `user` | Login account, defaulting to the `ansible_user` of `host` and then to `primary_user`: the account the fleet authorizes and the one `rsnapshot_sudo` escalates from |
 | `sudo` | Override `rsnapshot_sudo` for this host. A host logging in already privileged sets `false` |

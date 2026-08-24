@@ -53,8 +53,10 @@ rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_p
 # remote sudo wrapper: pfSense has no sudo at all.
 #
 # `host` is the inventory name, which the `name` field is not: that one is the address rsync
-# dials and the directory the snapshot lands in. An entry omitting `host` takes primary_user,
-# and one naming a host outside the inventory fails the run rather than guessing.
+# dials and the directory the snapshot lands in. An entry omitting `host` takes primary_user.
+# One naming a host outside the inventory is refused by the assert in tasks/main.yml, hostvars
+# answering for such a name with an undefined marker that the default below would otherwise
+# swallow into primary_user.
 #
 # A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds
 # an `exclude=` per pattern. --delete-excluded is already in force, so a pattern added here
