@@ -122,7 +122,7 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
   install probes the `sudo` alternatives group and writes the arrangement that one reads. The grant sets
   `noninteractive_auth`, which needs sudo 1.9.11 or sudo-rs 0.2.9; the install names the floor and writes nothing
   on an older host.
-- **An escalation expires after `faramir_escalation_timeout_sec`** (default `300`), and while a question is
+- **An escalation expires after `faramir_sudo_timeout_sec`** (default `300`), and while a question is
   waiting every other brokered command on the host is refused. Only the literal answer the prompt names approves;
   silence is a refusal.
 - **The fleet's host keys are pinned system-wide**, in `faramir_fleet_known_hosts_path`

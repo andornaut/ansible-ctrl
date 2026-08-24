@@ -59,7 +59,7 @@ faramir_init_argv: >-
     + ((['--notify-command'] | product(faramir_notify_command) | flatten)
        if (faramir_allow_sudo | bool and faramir_notify_command | length > 0)
        else [])
-    + (['--escalation-timeout-sec', faramir_escalation_timeout_sec | string]
+    + (['--sudo-timeout-sec', faramir_sudo_timeout_sec | string]
        if faramir_allow_sudo | bool else [])
     + (['--dry-run'] if ansible_check_mode else [])
   }}
