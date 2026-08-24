@@ -16,6 +16,7 @@
       - mysql-client
       - postgresql-client
       - shellcheck
+      - snmp
       - wireshark
       - xserver-xephyr
     state: latest
