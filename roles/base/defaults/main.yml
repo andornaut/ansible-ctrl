@@ -62,3 +62,16 @@ base_tmp_max_age: 14d
 # about 135 seconds per connection. Covers the connect and banner exchange only, not
 # authentication and not an sshd that accepts and then stalls.
 base_ssh_client_connect_timeout: 10
+
+# How often the ssh client probes an idle connection, in seconds, and how many unanswered
+# probes end it. ConnectTimeout above bounds establishing a connection; these bound one
+# already established. At 0, the default, a connection whose path state is dropped (a NAT
+# mapping expiring, a wifi or VPN handover) leaves the client with nothing to notice it by,
+# and the session hangs until TCP keepalive fires at net.ipv4.tcp_keepalive_time, 7200
+# seconds on a stock kernel. 60 and 3 put an upper bound of 3 minutes on that.
+base_ssh_client_alive_interval: 60
+base_ssh_client_alive_count_max: 3
+
+# Kerberos, which nothing here runs. Left at the shipped yes, every connection attempt tries
+# GSSAPI first and pays a lookup for it before falling through to publickey.
+base_ssh_client_gssapi: false

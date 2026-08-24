@@ -6,19 +6,25 @@
 # above its own `Host *`, so this outranks the shipped defaults while a user's ~/.ssh/config,
 # read earlier still, outranks this.
 #
+# ConnectTimeout bounds establishing a connection; ServerAlive* bound one already established.
 # For the ssh no ansible run invokes: ansible passes a --timeout of its own, so what is left
 # is cron. A host that is merely off costs the full TCP retry without this, about 135 seconds
 # per connection, which an rsnapshot run pays once per backup point.
 #
+# Only settings that name no host belong here, so the file stays the same on every host.
+#
 # Validated because the file is read by every ssh on the host: a malformed drop-in would take
 # ansible's own next connection with it.
-- name: Bound how long the ssh client waits to connect
+- name: Set the ssh client defaults every host shares
   ansible.builtin.copy:
     dest: /etc/ssh/ssh_config.d/00-ansible-role-base.conf
     content: |
       # Managed by ansible-role-base.
       Host *
           ConnectTimeout {{ base_ssh_client_connect_timeout }}
+          ServerAliveInterval {{ base_ssh_client_alive_interval }}
+          ServerAliveCountMax {{ base_ssh_client_alive_count_max }}
+          GSSAPIAuthentication {{ base_ssh_client_gssapi | ternary('yes', 'no') }}
     owner: root
     group: root
     mode: "0644"
