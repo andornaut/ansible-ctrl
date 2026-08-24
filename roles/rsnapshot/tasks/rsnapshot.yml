@@ -8,6 +8,17 @@
     group: root
   become: true
 
+- name: Install the rsnapshot preexec script
+  ansible.builtin.template:
+    src: rsnapshot-preexec.j2
+    dest: "{{ rsnapshot_preexec_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  notify: Validate rsnapshot configuration
+  when: rsnapshot_required_mountpoints | length > 0
+
 - name: Copy rsnapshot configuration file
   ansible.builtin.template:
     src: rsnapshot.conf.j2
@@ -15,3 +26,12 @@
     mode: "0644"
   become: true
   notify: Validate rsnapshot configuration
+
+# Below the template task: rsnapshot refuses to run at all when cmd_preexec names a script
+# that is not there, so the config stops naming it before the script goes.
+- name: Remove the rsnapshot preexec script
+  ansible.builtin.file:
+    path: "{{ rsnapshot_preexec_script }}"
+    state: absent
+  become: true
+  when: rsnapshot_required_mountpoints | length == 0

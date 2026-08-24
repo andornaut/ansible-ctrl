@@ -11,6 +11,11 @@ cmd_rm		/bin/rm
 cmd_rsync	/usr/bin/rsync
 cmd_ssh		/usr/bin/ssh
 cmd_logger	/usr/bin/logger
+{% if rsnapshot_required_mountpoints %}
+# Aborts the run when a required filesystem is missing, rather than snapshotting the
+# empty directory an unmounted path reads as.
+cmd_preexec	{{ rsnapshot_preexec_script }}
+{% endif %}
 
 # Retention intervals, ascending order. A null value omits the line and its cron job.
 {% if rsnapshot_retention.hourly %}
@@ -31,22 +36,38 @@ loglevel	3
 logfile	/var/log/rsnapshot.log
 lockfile	/var/run/rsnapshot.pid
 
+{% set rsync_long_args_plain = '--delete --numeric-ids --relative --delete-excluded' %}
+{% set rsync_long_args_sudo = rsync_long_args_plain ~ " --rsync-path='sudo /usr/bin/rsync'" %}
 rsync_short_args	-az
-{% if rsnapshot_sudo %}
-# Run the remote rsync via sudo, for paths the SSH user cannot read.
-rsync_long_args	--delete --numeric-ids --relative --delete-excluded --rsync-path='sudo /usr/bin/rsync'
-{% endif %}
+# rsnapshot's own defaults, named rather than left implicit so that a host opting out of
+# rsnapshot_sudo can restate them in its backup points' 4th field.
+rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_plain }}
 
 # Backup points: directories pulled per host, then backup_script output.
 #
-# Remote paths name primary_user rather than leaving the account to ssh: the cron runs as
-# root, and an unprefixed path would authenticate as root, which no managed host authorizes.
-# It is also the account rsnapshot_sudo relies on.
+# Remote paths name the login account rather than leaving it to ssh: the cron runs as root,
+# and an unprefixed path would authenticate as root, which no managed host authorizes. It
+# defaults to primary_user, the account rsnapshot_sudo relies on. A host that logs in
+# already privileged sets `user: root` and `sudo: false`, and its points restate
+# rsync_long_args without the remote sudo wrapper: pfSense has no sudo at all.
+#
+# A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds
+# an `exclude=` per pattern. --delete-excluded is already in force, so a pattern added here
+# also drops what earlier runs stored. Each pattern is quoted: rsnapshot appends it to
+# rsync_long_args and re-splits on unquoted whitespace, so a bare pattern holding a space
+# excludes neither half and the run reports only a partial-transfer warning.
 {% for host in rsnapshot_hosts %}
-{% for directory in host.directories|default((), true) %}
-backup	{% if not host.local|default(false) and host.name != 'localhost' %}{{ primary_user }}@{{ host.name }}:{% endif %}{{ directory }}	{{ host.name }}/
+{% set is_local = host.local | default(false) %}
+{% set host_sudo = host.sudo | default(rsnapshot_sudo) %}
+{% for directory in host.directories | default((), true) %}
+{% set path = directory.path if directory is mapping else directory %}
+{% set excludes = directory.exclude | default([], true) if directory is mapping else [] %}
+{% set sudo_option = ['rsync_long_args=' ~ (rsync_long_args_sudo if host_sudo else rsync_long_args_plain)] if host_sudo != rsnapshot_sudo else [] %}
+{% set point_options = sudo_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
+{% set point_field = ('\t' ~ point_options | join(',')) if point_options else '' %}
+backup	{% if not is_local %}{{ host.user | default(primary_user) }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
 {% endfor %}
-{% for script in host.scripts|default((), true) %}
+{% for script in host.scripts | default((), true) %}
 backup_script	{{ script.command }} {{ script.args }}	{{ host.name }}_{{ script.command|basename }}/
 {% endfor %}
 {% endfor %}

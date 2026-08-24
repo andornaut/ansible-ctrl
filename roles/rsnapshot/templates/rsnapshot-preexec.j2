@@ -1,0 +1,22 @@
+#!/bin/bash
+# rsnapshot cmd_preexec - managed by ansible-role-rsnapshot.
+# rsnapshot reads an unmounted source as an empty directory, so a run made with one missing
+# replaces the newest snapshot with nothing and rotates the last good copy out. A non-zero
+# exit aborts the run before either happens. rsnapshot runs this for the lowest configured
+# interval only, which is also the only one that reads sources.
+set -euo pipefail
+
+mountpoints=(
+{% for mountpoint in rsnapshot_required_mountpoints %}
+    '{{ mountpoint }}'
+{% endfor %}
+)
+
+status=0
+for path in "${mountpoints[@]}"; do
+    if ! mountpoint -q "${path}"; then
+        echo "${0##*/}: ${path} is not mounted" >&2
+        status=1
+    fi
+done
+exit "${status}"

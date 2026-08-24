@@ -1,9 +1,32 @@
 ---
 rsnapshot_directory: /var/backups/rsnapshot/
 rsnapshot_hosts: []
+rsnapshot_preexec_script: /usr/local/bin/rsnapshot-preexec
+# Mountpoints checked before the lowest configured interval, the only one rsnapshot runs
+# cmd_preexec for and the only one that reads sources at all, the higher intervals rotating
+# what is already stored. An unmounted source reads as an empty directory, so without this
+# the run replaces the newest snapshot with nothing. Empty omits cmd_preexec.
+rsnapshot_required_mountpoints: []
 rsnapshot_retention:
   hourly:
   daily: 7
   weekly: 4
   monthly: 12
+# One cron job per retention interval, keyed to match rsnapshot_retention. Staggered so a
+# longer interval never starts while a shorter one still holds the lockfile. weekday 1 is
+# Monday and day 1 is the first of the month.
+rsnapshot_schedule:
+  hourly:
+    minute: "1"
+  daily:
+    minute: "10"
+    hour: "1"
+  weekly:
+    minute: "30"
+    hour: "3"
+    weekday: "1"
+  monthly:
+    minute: "50"
+    hour: "5"
+    day: "1"
 rsnapshot_sudo: false
