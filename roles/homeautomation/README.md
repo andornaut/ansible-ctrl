@@ -29,7 +29,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
 | llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
 | matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
-| [memryx](https://www.memryx.com/) | GPU accelerator drivers |
+| [memryx](https://memryx.com/) | GPU accelerator drivers |
 | [mosquitto](https://mosquitto.org/) | The MQTT broker on its own. No flag; also applied by `homeassistant` |
 | otbr | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter` |
 | teardown | Remove the containers and host files of components this host does not install |

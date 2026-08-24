@@ -20,7 +20,7 @@ make dev -- --tags rust
 | apt | Development tools and the build headers other tags need: `git` and its helpers, `gh`, `adb`, `jq`, `shellcheck`, `snmp`, `wireshark`, and the database clients and `-dev` packages |
 | [claude](https://code.claude.com/docs) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
-| [cursor](https://www.cursor.com/) | AI code editor (AppImage) |
+| [cursor](https://cursor.com/) | AI code editor (AppImage) |
 | [go](https://go.dev/) | Go toolchain |
 | java | [OpenJDK](https://openjdk.org/) 17 and 21 |
 | javascript | [Node.js](https://nodejs.org/en) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default |
@@ -29,7 +29,7 @@ make dev -- --tags rust
 | pi | Two coding agents: [pi](https://github.com/earendil-works/pi) (`pi`) and [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`), a fork of it |
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby), [ruby-install](https://github.com/postmodern/ruby-install), and `dev_ruby_version` built under `~/.rubies` with [Bundler](https://bundler.io/) |
-| [rust](https://www.rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
+| [rust](https://rust-lang.org/) | Rust toolchain via [rustup](https://rustup.rs/) |
 | [virtualbox](https://www.virtualbox.org/) | Virtualization platform, from Oracle's apt repo, gated on `dev_install_virtualbox` |
 | [vscode](https://code.visualstudio.com/) | Visual Studio Code |
 
