@@ -1,17 +1,19 @@
 ---
-# hostvars answers for a host outside the inventory with an undefined marker rather than an
-# error, and the template's fallback to primary_user swallows it: a mistyped `host` renders a
-# backup point that logs in as the wrong account, and nothing reports it until the cron run's
-# rsync fails. Held here instead, where the entry that carries the mistake is named.
+# `host` decides the login, whether the point is read locally, and whether that login has to
+# escalate, so the template cannot render an entry without one. hostvars answers for a host
+# outside the inventory with an undefined marker rather than an error, and the template's
+# fallback to primary_user would swallow it: a mistyped `host` renders a backup point that
+# logs in as the wrong account, and nothing reports it until the cron run's rsync fails. Held
+# here instead, where the entry that carries the mistake is named.
 - name: Require each backed-up host to name an inventory host and something to back up
   ansible.builtin.assert:
     that:
       - item.name | default('') | length > 0
-      - item.host is not defined or item.host in hostvars
+      - item.host is defined and item.host in hostvars
       - (item.directories | default([]) | length > 0) or (item.scripts | default([]) | length > 0)
     fail_msg: >-
-      Each rsnapshot_hosts entry names `name`, an inventory host wherever it names `host`, and
-      at least one of `directories` or `scripts`. This one is {{ item }}.
+      Each rsnapshot_hosts entry names `name`, `host` as a host in the inventory, and at least
+      one of `directories` or `scripts`. This one is {{ item }}.
     quiet: true
   loop: "{{ rsnapshot_hosts }}"
   loop_control:

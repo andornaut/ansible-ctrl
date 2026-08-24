@@ -2,6 +2,11 @@
 - name: Apply msmtp role
   # Every Ubuntu host. The routers have no apt, and pfSense sends its own mail.
   hosts: all:!routers
+  # The msmtpd restart is a handler, and a handler is dropped when the play fails. A run that
+  # writes /etc/msmtprc-relay and then fails before the flush would leave the daemon on the
+  # superseded config for good: the next run finds the file unchanged, notifies nothing, and
+  # nothing reports the drift.
+  force_handlers: true
   # See homeautomation.yml.
   pre_tasks:
     - name: Require the credentials this play reads

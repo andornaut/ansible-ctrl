@@ -8,6 +8,11 @@
 # Every adb call is wrapped in `timeout`, and none of them is given the task keyword of
 # that name: a task that times out fails whatever failed_when says, while a wrapped one
 # returns 124 and can be skipped like any other unreachable set.
+#
+# The probes below carry `check_mode: false`. They write nothing to the set, and a skipped
+# command module registers rc 0 with an empty stdout, which reads as an adb that answered and
+# a package at no version: under --check that enters the install block, where tempfile has no
+# check mode of its own and leaves the path get_url templates undefined.
 
 # A set that is off, or on with wireless debugging not yet turned back on, answers
 # nothing here and is left alone: there is no adb to install through, and the copy it
@@ -27,6 +32,7 @@
       {{ homeautomation_adb_auto_enable_host }}:{{ homeautomation_adb_auto_enable_port }}
   changed_when: false
   failed_when: false
+  check_mode: false
   when: homeautomation_adb_auto_enable_probe is succeeded
 
 # A set in standby accepts the connection above and services nothing behind it, so the
@@ -40,6 +46,7 @@
   register: homeautomation_adb_auto_enable_alive
   changed_when: false
   failed_when: false
+  check_mode: false
   when: homeautomation_adb_auto_enable_probe is succeeded
 
 - name: Read the version installed on {{ homeautomation_adb_auto_enable_host }}
@@ -52,6 +59,7 @@
   # A set that answered above and has since left the network reports `device offline`, and
   # one that stalls returns 124. Neither is this run's failure to have.
   failed_when: false
+  check_mode: false
   when: homeautomation_adb_auto_enable_alive.rc | default(1) == 0
 
 - name: Install the release missing from {{ homeautomation_adb_auto_enable_host }}
@@ -60,11 +68,15 @@
     - homeautomation_adb_auto_enable_installed_version
       != homeautomation_adb_auto_enable_version_name
   block:
+    # check_mode: false, the module having none of its own: a --check run reaching here
+    # needs the directory to exist for get_url below to template a dest. The always: removes
+    # it under --check for the same reason.
     - name: Create a temporary directory for the adb-auto-enable release
       ansible.builtin.tempfile:
         state: directory
         suffix: adb-auto-enable
       register: homeautomation_adb_auto_enable_tmp
+      check_mode: false
 
     - name: Download adb-auto-enable {{ homeautomation_adb_auto_enable_version }}
       ansible.builtin.get_url:
@@ -125,6 +137,7 @@
         path: "{{ homeautomation_adb_auto_enable_tmp.path }}"
         state: absent
       when: homeautomation_adb_auto_enable_tmp.path is defined
+      check_mode: false
 
 # It holds no permission a manifest can ask for, and the app needs it to turn wireless
 # debugging on. A reinstall preserves the grant, so this is for a set that has just taken a

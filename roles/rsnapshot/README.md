@@ -20,17 +20,23 @@ See [defaults/main.yml](./defaults/main.yml).
 | `rsnapshot_required_mountpoints` | Mountpoints checked before the lowest interval. Empty installs no check |
 | `rsnapshot_retention` | Snapshots kept per interval. A null value omits both the `retain` line and the cron job |
 | `rsnapshot_schedule` | Cron time per interval, keyed to match `rsnapshot_retention` |
-| `rsnapshot_sudo` | Run the remote rsync via `sudo`, for directories the SSH user cannot read |
 
-Each entry in `rsnapshot_hosts` takes a `name` and at least one of `directories` (trailing slash
-required by rsnapshot) or `scripts`, plus these optional keys:
+Each entry in `rsnapshot_hosts` takes `name`, `host`, and at least one of `directories` (trailing
+slash required by rsnapshot) or `scripts`, plus one optional key:
 
 | Key | Purpose |
 | --- | --- |
-| `host` | Inventory name of the host, which `name` is not: that one is the address rsync dials and the snapshot directory. Supplies the login default. The role asserts the name is in the inventory: `hostvars` answers for one outside it with nothing rather than an error, which the login default would take for an omitted key |
-| `local` | Read from the local filesystem instead of pulling over SSH |
-| `user` | Login account, defaulting to the `ansible_user` of `host` and then to `primary_user`: the account the fleet authorizes and the one `rsnapshot_sudo` escalates from |
-| `sudo` | Override `rsnapshot_sudo` for this host. A host logging in already privileged sets `false` |
+| `name` | The address rsync dials and the directory the snapshot lands in. Required |
+| `host` | Inventory name of the host, which `name` is not. Required, and asserted to be in the inventory: it decides the login account, whether the point is read locally, and whether that login escalates |
+| `user` | Login account, overriding the `ansible_user` of `host`, which is otherwise used and then `primary_user` |
+
+Locality and escalation are derived, not declared:
+
+| Condition | Effect |
+| --- | --- |
+| `host` is the host running the role | Read from the local filesystem, with no login prefix and no escalation |
+| Login account is `root` | Pulled over SSH with no escalation. pfSense has no `sudo` at all |
+| Any other login account | Pulled over SSH, the point restating `rsync_long_args` with `--rsync-path='sudo /usr/bin/rsync'` |
 
 A path naming an account belongs to the host being backed up, not the one running the role, so it
 resolves through `hostvars`, which templates in the owning host's scope. A bare `{{ primary_user }}`
@@ -59,8 +65,6 @@ rsnapshot_hosts:
 
   - name: router.example.com
     host: router-example
-    user: root
-    sudo: false
     directories:
       - /conf/config.xml
 
@@ -77,7 +81,7 @@ rsnapshot_retention:
 ## Notes
 
 - Cron runs one job per retention interval as root.
-- Remote hosts are pulled over SSH; hosts marked `local: true` are read from the local filesystem.
+- Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem.
 - `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as `scripts`.
 - Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{host}/`,
   script output in `{host}_{script}/`.
@@ -89,6 +93,14 @@ rsnapshot_retention:
   is already stored, so a missing filesystem cannot replace the newest snapshot with nothing.
 - An `exclude` pattern is emitted quoted, so one containing a space works. Patterns containing a double
   quote do not: rsnapshot permits no nested quoting.
+- The cron runs as root, so a remote point authenticates with root's key on the host running the role,
+  not the operator's. That key has to be authorized for the account `user` names on the target, which for
+  a point taking `user: root` is the target's root login. Nothing in this role distributes it, and an
+  unauthorized key fails only at the next cron run, as `rsync returned 255` with `Permission denied
+  (publickey)` in `/var/log/rsnapshot.log`.
+- On a pfSense target the key belongs in `authorized_keys2`. `authorized_keys` is regenerated from
+  `config.xml` on boot and on every user save, which drops anything written to it directly; `sshd -T`
+  reports both files under `authorizedkeysfile`.
 
 ## Operations
 

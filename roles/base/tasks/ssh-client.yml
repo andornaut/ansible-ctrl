@@ -1,0 +1,26 @@
+---
+# The client, not the server: lockdown.yml owns sshd. Read once per invocation, so nothing
+# reloads and no handler is notified.
+#
+# ssh keeps the first value it finds for a parameter, and /etc/ssh/ssh_config's Include sits
+# above its own `Host *`, so this outranks the shipped defaults while a user's ~/.ssh/config,
+# read earlier still, outranks this.
+#
+# For the ssh no ansible run invokes: ansible passes a --timeout of its own, so what is left
+# is cron. A host that is merely off costs the full TCP retry without this, about 135 seconds
+# per connection, which an rsnapshot run pays once per backup point.
+#
+# Validated because the file is read by every ssh on the host: a malformed drop-in would take
+# ansible's own next connection with it.
+- name: Bound how long the ssh client waits to connect
+  ansible.builtin.copy:
+    dest: /etc/ssh/ssh_config.d/00-ansible-role-base.conf
+    content: |
+      # Managed by ansible-role-base.
+      Host *
+          ConnectTimeout {{ base_ssh_client_connect_timeout }}
+    owner: root
+    group: root
+    mode: "0644"
+    validate: ssh -F %s -G example.com
+  become: true

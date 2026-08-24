@@ -39,24 +39,31 @@ lockfile	/var/run/rsnapshot.pid
 {% set rsync_long_args_plain = '--delete --numeric-ids --relative --delete-excluded' %}
 {% set rsync_long_args_sudo = rsync_long_args_plain ~ " --rsync-path='sudo /usr/bin/rsync'" %}
 rsync_short_args	-az
-# rsnapshot's own defaults, named rather than left implicit so that a host opting out of
-# rsnapshot_sudo can restate them in its backup points' 4th field.
-rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_plain }}
+# The fleet norm: a login that is not root, escalating to read what it cannot. A point that
+# needs otherwise restates this in its own 4th field, which replaces this line rather than
+# adding to it. Named rather than left implicit so that such a point has something to restate.
+rsync_long_args	{{ rsync_long_args_sudo }}
 
 # Backup points: directories pulled per host, then backup_script output.
 #
 # Remote paths name the login account rather than leaving it to ssh: the cron runs as root,
 # and an unprefixed path would authenticate as root, which no managed host authorizes. It
 # defaults to the inventory ansible_user of the host named by `host`, falling back to
-# primary_user, the account rsnapshot_sudo relies on. A host that logs in already privileged
-# sets `user: root` and `sudo: false`, and its points restate rsync_long_args without the
-# remote sudo wrapper: pfSense has no sudo at all.
+# primary_user.
 #
 # `host` is the inventory name, which the `name` field is not: that one is the address rsync
-# dials and the directory the snapshot lands in. An entry omitting `host` takes primary_user.
-# One naming a host outside the inventory is refused by the assert in tasks/main.yml, hostvars
-# answering for such a name with an undefined marker that the default below would otherwise
-# swallow into primary_user.
+# dials and the directory the snapshot lands in. Required, and asserted in tasks/main.yml: it
+# decides the login, whether the point is read locally, and whether the login has to escalate.
+#
+# A point naming the host this role is running on is read off the local filesystem, with no
+# login prefix. Derived rather than declared, so one inventory renders correctly on every host
+# in the rsnapshot group rather than only on the one a flag was written for.
+#
+# Escalation follows the login, and the line above already carries it. What restates that line
+# is a remote point logging in as root, which has nothing to escalate to: pfSense has no sudo
+# at all. A local point inherits the wrapper and is unaffected by it, rsync ignoring
+# --rsync-path when neither side is remote, so it is left alone rather than given a 4th field
+# to strip a flag that does nothing.
 #
 # A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds
 # an `exclude=` per pattern. --delete-excluded is already in force, so a pattern added here
@@ -64,15 +71,15 @@ rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_p
 # rsync_long_args and re-splits on unquoted whitespace, so a bare pattern holding a space
 # excludes neither half and the run reports only a partial-transfer warning.
 {% for host in rsnapshot_hosts %}
-{% set is_local = host.local | default(false) %}
-{% set host_sudo = host.sudo | default(rsnapshot_sudo) %}
-{% set host_inventory_vars = hostvars[host.host] if host.host is defined else {} %}
+{% set is_local = host.host == inventory_hostname %}
+{% set host_inventory_vars = hostvars[host.host] %}
 {% set host_login = host.user | default(host_inventory_vars.ansible_user | default(primary_user)) %}
+{% set host_sudo = not is_local and host_login != 'root' %}
 {% for directory in host.directories | default((), true) %}
 {% set path = directory.path if directory is mapping else directory %}
 {% set excludes = directory.exclude | default([], true) if directory is mapping else [] %}
-{% set sudo_option = ['rsync_long_args=' ~ (rsync_long_args_sudo if host_sudo else rsync_long_args_plain)] if host_sudo != rsnapshot_sudo else [] %}
-{% set point_options = sudo_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
+{% set long_args_option = ['rsync_long_args=' ~ rsync_long_args_plain] if not is_local and not host_sudo else [] %}
+{% set point_options = long_args_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
 {% set point_field = ('\t' ~ point_options | join(',')) if point_options else '' %}
 backup	{% if not is_local %}{{ host_login }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
 {% endfor %}

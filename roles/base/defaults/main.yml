@@ -56,3 +56,9 @@ base_inotify_max_user_watches: 65536
 # server's socket and a forwarded ssh-agent socket live in /tmp and are not otherwise protected,
 # so a shorter age collects them out from under an idle session.
 base_tmp_max_age: 14d
+
+# How long the ssh client waits to connect, in seconds. Bounds the ssh no ansible run invokes,
+# ansible passing a timeout of its own: a host that is off otherwise costs the full TCP retry,
+# about 135 seconds per connection. Covers the connect and banner exchange only, not
+# authentication and not an sshd that accepts and then stalls.
+base_ssh_client_connect_timeout: 10

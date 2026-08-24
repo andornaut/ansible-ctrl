@@ -29,4 +29,3 @@ rsnapshot_schedule:
     minute: "50"
     hour: "5"
     day: "1"
-rsnapshot_sudo: false

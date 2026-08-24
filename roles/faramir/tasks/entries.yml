@@ -82,6 +82,11 @@
 #
 # The one faramir command here that root buys nothing for: the listing reads config.toml,
 # which is 0644, rather than the store or the log. The writes above and doctor below need it.
+#
+# Both readers of this register default with `default('[]', true)` rather than the
+# one-argument form: under --check the command module is skipped and still registers a full
+# result, so stdout is defined and empty, which only the boolean form substitutes for.
+# from_json('') raises.
 - name: List the block entries this host declares
   ansible.builtin.command:
     argv: "{{ [faramir_binary, 'block', 'ls', '--declared', '--json'] }}"
@@ -100,7 +105,7 @@
     quiet: true
   vars:
     faramir_block_unknown_kinds: >-
-      {{ (faramir_block_ls.stdout | default('[]') | from_json)
+      {{ (faramir_block_ls.stdout | default('[]', true) | from_json)
          | map(attribute='kind') | unique | difference(['name', 'path', 'command']) }}
 
 # Compared per form, the form being part of what identifies an entry: a name is not the same
@@ -126,7 +131,7 @@
            | map(attribute='entry') | reject('in', faramir_blocked_commands) | list }}
   become: false
   vars:
-    faramir_block_rows: "{{ faramir_block_ls.stdout | default('[]') | from_json }}"
+    faramir_block_rows: "{{ faramir_block_ls.stdout | default('[]', true) | from_json }}"
 
 - name: Stop blocking an entry this role no longer declares
   ansible.builtin.command:

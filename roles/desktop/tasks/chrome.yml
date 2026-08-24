@@ -10,6 +10,10 @@
   register: desktop_chrome_check
   failed_when: false
   changed_when: false
+  # Run under --check too: skipped, it registers an empty stdout, which reads as a Chrome
+  # that is not installed and sends the task below to fetch the .deb. package: deb: downloads
+  # before its own check-mode guard, so that is ~120MB per host on every check run.
+  check_mode: false
 
 - name: Install Google Chrome
   ansible.builtin.package:

@@ -213,6 +213,11 @@
     base_tool_name: mrs
   tags: mrs
 
+# Above lockdown, whose proofs reach other hosts over ssh and so want the bound in place.
+- name: Import ssh client tasks
+  ansible.builtin.import_tasks: ssh-client.yml
+  tags: ssh-client
+
 - name: Import lockdown tasks
   ansible.builtin.import_tasks: lockdown.yml
   tags: lockdown
