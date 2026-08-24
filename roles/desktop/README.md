@@ -86,6 +86,7 @@ entry at login. Nothing reloads them, so a change takes effect at the next login
 | Constraint | Detail |
 | --- | --- |
 | A blanked screen is not a locked one | X11 blanking takes no keyboard grab, so during the blank-to-lock grace a keystroke both wakes the screen and lands in the focused window. Setting `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` closes that window, at the cost of the no-password return period |
+| Under gnome the lock rests on four keys, not `lock-enabled` alone ([tasks/idle.yml](./tasks/idle.yml)) | `screensaver/idle-activation-enabled` has to be true for the screensaver to activate at all, and `lockdown/disable-lock-screen` false for a lock to be permitted; neither is visible from `lock-enabled`, so a host with that set can still leave the session open. `screensaver/ubuntu-lock-on-suspend` covers the resume path. All four are GNOME defaults, named anyway so a run corrects one turned off through Settings rather than reporting converged beside it |
 | Two `XSECURELOCK_*` settings are security-relevant ([templates/xsecurelock-session.j2](./templates/xsecurelock-session.j2)) | `FORCE_GRAB=1` forces the grab, so a fullscreen game or open menu cannot leave the session unlocked silently. `DISCARD_FIRST_KEYPRESS=1` swallows the key that dismisses the blank screen, so nobody types a password at a black screen. Authentication needs nothing setuid (`common-auth` PAM service, `unix_chkpwd`) |
 
 ### Suspend

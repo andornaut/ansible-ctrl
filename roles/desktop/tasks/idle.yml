@@ -38,11 +38,27 @@
         value: "uint32 {{ desktop_screen_blank_seconds }}"
         state: present
 
-    - name: Enable the GNOME lock screen
+    # Four keys, not lock-enabled alone: a screensaver that does not activate on idle
+    # never reaches the lock, and the lockdown key forbids one outright. Neither is
+    # visible from lock-enabled, so a host with it set can still be leaving the session
+    # open. Each is a GNOME default, named here so a run corrects one turned off through
+    # Settings rather than reporting converged beside it. The last is Ubuntu's own key.
+    - name: Guarantee the GNOME lock screen
       community.general.dconf:
-        key: /org/gnome/desktop/screensaver/lock-enabled
-        value: "true"
+        key: /org/gnome/desktop/{{ item.key }}
+        value: "{{ item.value }}"
         state: present
+      loop:
+        - key: screensaver/lock-enabled
+          value: "true"
+        - key: screensaver/idle-activation-enabled
+          value: "true"
+        - key: screensaver/ubuntu-lock-on-suspend
+          value: "true"
+        - key: lockdown/disable-lock-screen
+          value: "false"
+      loop_control:
+        label: "{{ item.key }}"
 
     - name: Set the GNOME screen lock delay
       community.general.dconf:
