@@ -131,7 +131,7 @@
         mode: "0755"
       check_mode: false
 
-    # CLEANUP (added 2026-08-21): read by both renames below, so it goes when
+    # CLEANUP (added 2026-08-21): read by every migration below, so it goes when
     # the last of them does.
     #
     # Here rather than at the top of the run, the two disagreeing in both
@@ -182,6 +182,19 @@
         # Unanchored, for the reason the rename above is.
         regexp: '\[escalation\]'
         replace: '[sudo]'
+      when: faramir_config_stat.stat.exists
+
+    # CLEANUP (added 2026-08-24): drop this once every host in the `faramir`
+    # group has run this play, no config naming the removed key left.
+    #
+    # faramir removed `min_refresh_sec` from [secret], and its loader rejects a
+    # key it does not know. A host whose config still names it fails the same
+    # way the renames above do, and is not repaired by the next run either.
+    - name: Drop the key this faramir no longer parses
+      ansible.builtin.lineinfile:
+        path: "{{ faramir_config_dir }}/config.toml"
+        regexp: '^\s*min_refresh_sec\s*='
+        state: absent
       when: faramir_config_stat.stat.exists
 
     # changed_when runs even on failure, where an empty report would add a parse
