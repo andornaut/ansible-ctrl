@@ -56,14 +56,6 @@
         dest: "{{ dev_ai_attributions_binary_path }}"
         remote_src: true
         mode: "0755"
-
-    # CLEANUP (added 2026-08-14): the cron entry calls the binary directly, the
-    # tool having gained --quiet and the sweep the wrapper existed to provide.
-    # Remove once every host has run this role.
-    - name: Remove the superseded ai-attributions scan script
-      ansible.builtin.file:
-        path: "{{ dev_user_home }}/.local/bin/ai-attributions-scan"
-        state: absent
   always:
     - name: Remove the temporary directory for the ai-attributions release
       ansible.builtin.file:

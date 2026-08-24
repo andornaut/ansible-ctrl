@@ -215,11 +215,6 @@
       ansible.builtin.import_tasks: rofi.yml
       tags: rofi
 
-# CLEANUP (added 2026-08-23): remove with the file it imports.
-- name: Purge the system packages a GNOME host no longer installs
-  ansible.builtin.import_tasks: cleanup_dropped_packages.yml
-  tags: cleanup-dropped-packages
-
 # Last, and unconditional: the file branches on the node list itself, so emptying it
 # removes the drop-in an earlier run installed. Last because a host that asks for node
 # properties its WirePlumber cannot read fails here, and that must not take the rest of

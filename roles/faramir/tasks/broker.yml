@@ -131,72 +131,6 @@
         mode: "0755"
       check_mode: false
 
-    # CLEANUP (added 2026-08-21): read by every migration below, so it goes when
-    # the last of them does.
-    #
-    # Here rather than at the top of the run, the two disagreeing in both
-    # directions: the archive is unpacked by this point, so a failed download
-    # leaves the config alone, and init is the next task.
-    - name: Check for a config this faramir may not parse
-      ansible.builtin.stat:
-        path: "{{ faramir_config_dir }}/config.toml"
-      register: faramir_config_stat
-      check_mode: false
-
-    # CLEANUP (added 2026-08-21): drop this once every host in the `faramir`
-    # group has run this play, no config naming the old key left.
-    #
-    # faramir renamed [[secret.refuse]] to [[secret.block]], and its loader
-    # rejects a key it does not know. A host whose config still names the old
-    # one is not repaired by the next run: init reads the config before it
-    # rewrites it, and the daemons do not start on one that will not load.
-    #
-    # No check_mode: false, unlike its siblings here, and the same holds for the
-    # rename after it. A --check run reports the rewrite rather than making it,
-    # which leaves the config as the installed binary expects it.
-    #
-    # The cost is that --check against a host still carrying the old key fails at
-    # the init below, which parses the config it was not allowed to rewrite. That
-    # is the right way round: a --check that wrote would be no check at all, and
-    # the failure names a host that has not converged since the rename.
-    - name: Rename the entries this faramir no longer parses
-      ansible.builtin.replace:
-        path: "{{ faramir_config_dir }}/config.toml"
-        # Unanchored, matching the rewrite this was verified with. An anchored
-        # pattern that missed on leading whitespace would report success and
-        # leave the host unable to start its broker.
-        regexp: '\[\[secret\.refuse\]\]'
-        replace: '[[secret.block]]'
-      when: faramir_config_stat.stat.exists
-
-    # CLEANUP (added 2026-08-24): drop this once every host in the `faramir`
-    # group has run this play, no config naming the old section left.
-    #
-    # faramir renamed the [escalation] section to [sudo], the keys under it
-    # unchanged, and its loader rejects a section it does not know. A host whose
-    # config still names the old one fails the same way the key above does, and
-    # is not repaired by the next run either.
-    - name: Rename the section this faramir no longer parses
-      ansible.builtin.replace:
-        path: "{{ faramir_config_dir }}/config.toml"
-        # Unanchored, for the reason the rename above is.
-        regexp: '\[escalation\]'
-        replace: '[sudo]'
-      when: faramir_config_stat.stat.exists
-
-    # CLEANUP (added 2026-08-24): drop this once every host in the `faramir`
-    # group has run this play, no config naming the removed key left.
-    #
-    # faramir removed `min_refresh_sec` from [secret], and its loader rejects a
-    # key it does not know. A host whose config still names it fails the same
-    # way the renames above do, and is not repaired by the next run either.
-    - name: Drop the key this faramir no longer parses
-      ansible.builtin.lineinfile:
-        path: "{{ faramir_config_dir }}/config.toml"
-        regexp: '^\s*min_refresh_sec\s*='
-        state: absent
-      when: faramir_config_stat.stat.exists
-
     # changed_when runs even on failure, where an empty report would add a parse
     # error to the real one.
     - name: Install faramir
@@ -210,21 +144,6 @@
       ansible.builtin.set_fact:
         faramir_report: "{{ faramir_init.stdout | from_json }}"
       when: faramir_init.stdout | length > 0
-
-    # CLEANUP (added 2026-08-22): drop this once every host in the `faramir`
-    # group has run this play, no install carrying the old helper left.
-    #
-    # faramir renamed the helper PAM execs from pam-approve to pam-escalate.
-    # init writes the new one and repoints the PAM stack and [escalation]
-    # helper at it, but removes neither the old file nor reports it.
-    #
-    # After init and not before: until init has rewritten them both name the
-    # old path, and the auth line is `requisite`, so a host that lost the file
-    # first fails every brokered sudo until the next run.
-    - name: Remove the PAM helper this faramir no longer execs
-      ansible.builtin.file:
-        path: /usr/local/libexec/faramir/pam-approve
-        state: absent
   always:
     - name: Remove the temporary directory for the faramir binaries
       ansible.builtin.file:
@@ -272,11 +191,6 @@
   ansible.builtin.debug:
     msg: "{{ item }}"
   loop: "{{ (faramir_report.warnings | default([])) + (faramir_project_report.warnings | default([])) }}"
-
-# After the enrolment, which is what renders this run's rules into the agent files: a
-# cleanup ahead of it would read a file the run is about to rewrite.
-- name: Remove the rendered rules that predate faramir's record
-  ansible.builtin.import_tasks: cleanup_rendered_rules.yml
 
 - name: Close what the install opened
   ansible.builtin.import_tasks: harden.yml
