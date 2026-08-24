@@ -47,9 +47,14 @@ rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_p
 #
 # Remote paths name the login account rather than leaving it to ssh: the cron runs as root,
 # and an unprefixed path would authenticate as root, which no managed host authorizes. It
-# defaults to primary_user, the account rsnapshot_sudo relies on. A host that logs in
-# already privileged sets `user: root` and `sudo: false`, and its points restate
-# rsync_long_args without the remote sudo wrapper: pfSense has no sudo at all.
+# defaults to the inventory ansible_user of the host named by `host`, falling back to
+# primary_user, the account rsnapshot_sudo relies on. A host that logs in already privileged
+# sets `user: root` and `sudo: false`, and its points restate rsync_long_args without the
+# remote sudo wrapper: pfSense has no sudo at all.
+#
+# `host` is the inventory name, which the `name` field is not: that one is the address rsync
+# dials and the directory the snapshot lands in. An entry omitting `host` takes primary_user,
+# and one naming a host outside the inventory fails the run rather than guessing.
 #
 # A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds
 # an `exclude=` per pattern. --delete-excluded is already in force, so a pattern added here
@@ -59,13 +64,15 @@ rsync_long_args	{{ rsync_long_args_sudo if rsnapshot_sudo else rsync_long_args_p
 {% for host in rsnapshot_hosts %}
 {% set is_local = host.local | default(false) %}
 {% set host_sudo = host.sudo | default(rsnapshot_sudo) %}
+{% set host_inventory_vars = hostvars[host.host] if host.host is defined else {} %}
+{% set host_login = host.user | default(host_inventory_vars.ansible_user | default(primary_user)) %}
 {% for directory in host.directories | default((), true) %}
 {% set path = directory.path if directory is mapping else directory %}
 {% set excludes = directory.exclude | default([], true) if directory is mapping else [] %}
 {% set sudo_option = ['rsync_long_args=' ~ (rsync_long_args_sudo if host_sudo else rsync_long_args_plain)] if host_sudo != rsnapshot_sudo else [] %}
 {% set point_options = sudo_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
 {% set point_field = ('\t' ~ point_options | join(',')) if point_options else '' %}
-backup	{% if not is_local %}{{ host.user | default(primary_user) }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
+backup	{% if not is_local %}{{ host_login }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
 {% endfor %}
 {% for script in host.scripts | default((), true) %}
 backup_script	{{ script.command }} {{ script.args }}	{{ host.name }}_{{ script.command|basename }}/

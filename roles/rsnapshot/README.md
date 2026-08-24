@@ -27,9 +27,16 @@ required by rsnapshot) or `scripts`, plus these optional keys:
 
 | Key | Purpose |
 | --- | --- |
+| `host` | Inventory name of the host, which `name` is not: that one is the address rsync dials and the snapshot directory. Supplies the login default and is what a path reaches through `hostvars`. A name outside the inventory fails the run |
 | `local` | Read from the local filesystem instead of pulling over SSH |
-| `user` | Login account, defaulting to `primary_user`: the account the fleet authorizes and the one `rsnapshot_sudo` escalates from |
+| `user` | Login account, defaulting to the `ansible_user` of `host` and then to `primary_user`: the account the fleet authorizes and the one `rsnapshot_sudo` escalates from |
 | `sudo` | Override `rsnapshot_sudo` for this host. A host logging in already privileged sets `false` |
+
+A path naming an account belongs to the host being backed up, not the one running the role, so it
+resolves through `hostvars`, which templates in the owning host's scope. A bare `{{ primary_user }}`
+resolves in the scope of the host rsnapshot runs on and is only correct where the two agree. Role
+defaults are not inventory data and so are absent from `hostvars`: a host taking `{role}_user`'s
+default rather than declaring it has only `primary_user` to name.
 
 A directory may be a mapping of `path` and `exclude` rather than a plain path, which adds one
 `exclude=` per pattern to that backup point. `--delete-excluded` is in force, so a pattern added
@@ -38,8 +45,11 @@ later also drops what earlier runs stored.
 ```yaml
 rsnapshot_hosts:
   - name: example.com
+    host: example
     directories:
       - /etc/
+      - "/home/{{ hostvars['example'].primary_user }}/.ssh/"
+      - "/home/{{ hostvars['example'].desktop_user }}/.gnupg/"
       - path: /var/docker-volumes/
         exclude:
           - cache/
@@ -48,6 +58,7 @@ rsnapshot_hosts:
         args: --host root@example.com --container postgresql postgresql.gz
 
   - name: router.example.com
+    host: router-example
     user: root
     sudo: false
     directories:
