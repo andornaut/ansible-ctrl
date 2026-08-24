@@ -10,14 +10,16 @@
         purge_pin_name: telemetry
         purge_pin_packages: "{{ base_telemetry_packages }}"
 
-    # Purge leaves per-user state behind; depth 3 reaches <home>/.cache/ubuntu-insights.
+    - name: Resolve the account home directories
+      ansible.builtin.include_tasks: account_homes.yml
+
+    # Purge leaves per-user state behind; depth 3 reaches both <home>/.cache/ubuntu-insights
+    # and <home>/.local/share/ubuntu-insights.
     - name: Find leftover ubuntu-insights user state
       ansible.builtin.find:
         depth: 3
         file_type: directory
-        paths:
-          - /home
-          - /root
+        paths: "{{ base_account_homes }}"
         patterns: ubuntu-insights
         recurse: true
       register: base_telemetry_insights_state

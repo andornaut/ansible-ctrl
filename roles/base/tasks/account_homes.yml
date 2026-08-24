@@ -1,0 +1,46 @@
+---
+# Resolve the home directories a host-wide sweep has to reach: root's, and every login
+# account's, wherever passwd names it. Listing /home instead misses a home outside it and
+# names no account, so an entry there that is not a home cannot be told from one that is.
+# Include under `become: true`: the stat reaches homes closed to all but their owner.
+#
+# Sets base_account_homes to the homes that exist, so a caller's `find` is handed no path
+# to warn about.
+- name: Start from an empty set of homes
+  ansible.builtin.set_fact:
+    base_account_homes: []
+
+# Read here rather than once per role: a --tags run reaches one caller and not the others,
+# and the read is a file the host already has open.
+- name: Read the passwd database
+  ansible.builtin.getent:
+    database: passwd
+
+# A when: rather than a selectattr filter, which would compare passwd's uids as the strings
+# they are and order 999 above 1000. Stat first: a passwd entry can name a home the host
+# does not have.
+- name: Check which accounts have a home
+  ansible.builtin.stat:
+    path: "{{ item.value[4] }}"
+  register: base_account_home_stat
+  loop: "{{ ansible_facts['getent_passwd'] | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    # The uid range is not enough on its own: an installer that omits --system takes one
+    # from the login range, so the placeholder home excludes those.
+    - item.value[1] | int == 0 or item.value[1] | int >= base_account_min_uid
+    - item.value[1] | int != 65534
+    - item.value[4] not in base_account_exclude_homes
+
+- name: Collect the homes that exist
+  ansible.builtin.set_fact:
+    base_account_homes: "{{ base_account_homes + [item.stat.path] }}"
+  loop: >-
+    {{ base_account_home_stat.results
+       | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir') | list }}
+  loop_control:
+    label: "{{ item.stat.path }}"
+  # A home is owned by its account. A passwd entry pointing at a directory owned by somebody
+  # else names a shared area, which is nobody's home and nothing here deletes from.
+  when: item.stat.pw_name | default('') == item.item.key

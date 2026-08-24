@@ -9,31 +9,45 @@
     update_cache: true
   become: true
 
-# dconf writes to the invoking user's database, so run as desktop_user.
-# XDG_RUNTIME_DIR is unset when Ansible escalates to a user it did not log in as.
-- name: Configure keyboard settings
+# System-wide and locked, not written into desktop_user's database: every account that logs
+# into GNOME gets the host's layout, and an unlocked default would sit underneath whatever an
+# account has already set. base owns 00-keyboard for the capslock remap, so this is 01.
+- name: Configure keyboard settings for every account
+  when: desktop_environment == "gnome"
   become: true
-  become_user: "{{ desktop_user }}"
-  environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
   block:
-    - name: Prevent Super+Space from switching input sources
-      community.general.dconf:
-        key: "/org/gnome/desktop/wm/keybindings/switch-input-source"
-        value: "@au []"
-        state: present
+    - name: Create the system dconf database
+      ansible.builtin.include_tasks: dconf_local_db.yml
 
-    - name: Set US keyboard layout as the only available layout
-      community.general.dconf:
-        key: "/org/gnome/desktop/input-sources/sources"
-        value: "[('xkb', 'us')]"
-        state: present
+    - name: Set the keyboard defaults
+      ansible.builtin.template:
+        src: dconf-keyboard.j2
+        dest: /etc/dconf/db/local.d/01-keyboard
+        mode: "0644"
+      notify: Update dconf database
 
-    - name: Prevent ibus-daemon from interfering with keyboard shortcuts
-      community.general.dconf:
-        key: "/org/gnome/settings-daemon/plugins/keyboard/active"
-        value: "false"
-        state: present
+    - name: Pin the keyboard defaults against a per-account override
+      ansible.builtin.template:
+        src: dconf-keyboard-locks.j2
+        dest: /etc/dconf/db/local.d/locks/01-keyboard
+        mode: "0644"
+      notify: Update dconf database
+
+# A permanent off switch, not a migration: a leftover default is a value an account can
+# change, but a leftover lock makes the key unwritable and is reachable only by deleting the
+# file, so a host that leaves gnome must not keep one.
+- name: Remove the GNOME keyboard policy
+  when: desktop_environment != "gnome"
+  become: true
+  block:
+    - name: Remove the keyboard defaults and their lock
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/dconf/db/local.d/01-keyboard
+        - /etc/dconf/db/local.d/locks/01-keyboard
+      notify: Update dconf database
 
 # The Ubuntu Dock is an extension of the GNOME session, so this runs nowhere else.
 - name: Configure the Ubuntu Dock

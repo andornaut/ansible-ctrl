@@ -98,6 +98,9 @@
       ansible.builtin.find:
         paths: "{{ faramir_user_home }}/.config"
         file_type: any
+        # An entry named with a leading dot is closed like any other; find skips those
+        # by default and would report converged beside one left open.
+        hidden: true
         recurse: false
       register: faramir_config_siblings
 

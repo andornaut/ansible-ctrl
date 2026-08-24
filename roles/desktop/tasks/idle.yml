@@ -23,67 +23,38 @@
       {{ desktop_screen_lock_minutes }}m, monitor powers off after
       {{ desktop_screen_off_minutes }}m
 
-# dconf writes the invoking user's database; XDG_RUNTIME_DIR finds their session bus.
-- name: Configure GNOME idle timeouts
+# Four keys, not lock-enabled alone: a screensaver that does not activate on idle never
+# reaches the lock, and the lockdown key forbids one outright. Neither is visible from
+# lock-enabled, so a host with it set can still be leaving the session open. The timeouts
+# belong to the same guarantee rather than beside it: idle-delay at 0 disables the
+# screensaver, so the session never locks, and a long lock-delay leaves it unlocked for
+# that long after it blanks.
+#
+# System-wide and locked, not written into desktop_user's database: every account that logs
+# into GNOME gets the policy and none can turn it off, where a per-account write reaches one
+# account and reports converged beside another whose session never locks. The lock is also
+# what keeps the host's value authoritative, an unlocked default sitting underneath whatever
+# an account has already set.
+- name: Guarantee the GNOME lock and idle policy for every account
   when: desktop_environment == "gnome"
   become: true
-  become_user: "{{ desktop_user }}"
-  environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
   block:
-    # Needs the dconf binary from dconf.yml, so --tags idle wants a prior full run.
-    - name: Set the GNOME screen blank timeout
-      community.general.dconf:
-        key: /org/gnome/desktop/session/idle-delay
-        value: "uint32 {{ desktop_screen_blank_seconds }}"
-        state: present
+    - name: Create the system dconf database
+      ansible.builtin.include_tasks: dconf_local_db.yml
 
-    # Four keys, not lock-enabled alone: a screensaver that does not activate on idle
-    # never reaches the lock, and the lockdown key forbids one outright. Neither is
-    # visible from lock-enabled, so a host with it set can still be leaving the session
-    # open. Each is a GNOME default, named here so a run corrects one turned off through
-    # Settings rather than reporting converged beside it. The last is Ubuntu's own key.
-    - name: Guarantee the GNOME lock screen
-      community.general.dconf:
-        key: /org/gnome/desktop/{{ item.key }}
-        value: "{{ item.value }}"
-        state: present
-      loop:
-        - key: screensaver/lock-enabled
-          value: "true"
-        - key: screensaver/idle-activation-enabled
-          value: "true"
-        - key: screensaver/ubuntu-lock-on-suspend
-          value: "true"
-        - key: lockdown/disable-lock-screen
-          value: "false"
-      loop_control:
-        label: "{{ item.key }}"
+    - name: Set the lock and idle policy
+      ansible.builtin.template:
+        src: dconf-idle.j2
+        dest: /etc/dconf/db/local.d/00-idle
+        mode: "0644"
+      notify: Update dconf database
 
-    - name: Set the GNOME screen lock delay
-      community.general.dconf:
-        key: /org/gnome/desktop/screensaver/lock-delay
-        value: "uint32 {{ desktop_screen_lock_delay_seconds }}"
-        state: present
-
-    # AC and battery take the same value; the role does not distinguish them.
-    - name: Set the GNOME idle-suspend policy
-      when: desktop_suspend_inactive_managed
-      community.general.dconf:
-        key: /org/gnome/settings-daemon/plugins/power/{{ item.key }}
-        value: "{{ item.value }}"
-        state: present
-      loop:
-        - key: sleep-inactive-ac-type
-          value: "{{ desktop_suspend_inactive_action }}"
-        - key: sleep-inactive-battery-type
-          value: "{{ desktop_suspend_inactive_action }}"
-        - key: sleep-inactive-ac-timeout
-          value: uint32 {{ desktop_suspend_inactive_seconds }}
-        - key: sleep-inactive-battery-timeout
-          value: uint32 {{ desktop_suspend_inactive_seconds }}
-      loop_control:
-        label: "{{ item.key }}"
+    - name: Pin the lock and idle policy against a per-account override
+      ansible.builtin.template:
+        src: dconf-idle-locks.j2
+        dest: /etc/dconf/db/local.d/locks/00-idle
+        mode: "0644"
+      notify: Update dconf database
 
 - name: Configure bspwm idle timeouts
   when: desktop_environment == "bspwm"
@@ -206,6 +177,22 @@
         path: "{{ desktop_logind_idle_action_conf }}"
         state: absent
       notify: Reload systemd-logind
+
+# The same permanent off switch as above, for a stronger reason: a leftover default is a
+# value an account can change, but a leftover lock makes the key unwritable and is reachable
+# only by deleting the file.
+- name: Remove the GNOME lock and idle policy
+  when: desktop_environment != "gnome"
+  become: true
+  block:
+    - name: Remove the lock and idle policy and its lock file
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/dconf/db/local.d/00-idle
+        - /etc/dconf/db/local.d/locks/00-idle
+      notify: Update dconf database
 
 # Last, so its assert reads the timeouts the blocks above have already validated.
 - name: Configure the idle backstop

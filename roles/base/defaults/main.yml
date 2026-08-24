@@ -15,8 +15,8 @@ base_lockdown_umask: "002"
 # disagree; adduser ships 0700, which this widens by the traversal bit alone.
 base_lockdown_home_mode: "0710"
 
-# Ubuntu's UID_MIN, and so the floor for a home this role closes.
-base_lockdown_min_uid: 1000
+# Ubuntu's UID_MIN, and so the floor for a login account this role closes or sweeps.
+base_account_min_uid: 1000
 
 # Read by both the socket unit and the fail2ban jail, so the two cannot disagree.
 base_lockdown_ssh_port: 22
@@ -35,7 +35,7 @@ base_fail2ban_maxretry: 5
 
 # passwd entries that name no home. By path, not uid: a service account created without
 # --system takes a uid from the login range. Add a path here to leave a home alone.
-base_lockdown_exclude_homes:
+base_account_exclude_homes:
   - /nonexistent
   - /dev/null
   - /

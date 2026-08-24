@@ -9,34 +9,36 @@
         purge_pin_name: snap
         purge_pin_packages: "{{ base_snap_packages }}"
 
+    - name: Resolve the account home directories
+      ansible.builtin.include_tasks: account_homes.yml
+
     - name: Find user snap directories
       ansible.builtin.find:
-        paths: /home
+        paths: "{{ base_account_homes }}"
         patterns: snap
-        depth: 2
         file_type: directory
-        recurse: true
       register: base_snap_directories_result
 
     - name: Remove the discovered snap directories
       ansible.builtin.file:
-        path: "{{ item.path | default(item) }}"
+        path: "{{ item }}"
         state: absent
-      loop: "{{ base_snap_directories_result.files + ['/root/snap', '/var/cache/snapd'] }}"
+      loop: "{{ (base_snap_directories_result.files | map(attribute='path') | list) + ['/var/cache/snapd'] }}"
 
     # Purging snapd leaves dangling .wants symlinks in ~/.config/systemd/user,
     # which systemd reports as not-found at login.
-    - name: Find user systemd unit directories
-      ansible.builtin.find:
-        paths: /home
-        file_type: directory
-      register: base_home_directories_result
+    - name: Check which accounts have a user unit directory
+      ansible.builtin.stat:
+        path: "{{ item }}/.config/systemd/user"
+      register: base_snap_unit_dir_stat
+      loop: "{{ base_account_homes }}"
 
     # snap.* misses snapd's own session-agent units: it needs a literal dot.
     - name: Find leftover snap enable symlinks
       ansible.builtin.find:
-        paths: "{{ (base_home_directories_result.files | map(attribute='path') | list + ['/root'])
-          | product(['/.config/systemd/user']) | map('join') | list }}"
+        paths: >-
+          {{ base_snap_unit_dir_stat.results | selectattr('stat.isdir', 'defined')
+             | selectattr('stat.isdir') | map(attribute='stat.path') | list }}
         patterns:
           - snap.*
           - snapd.*

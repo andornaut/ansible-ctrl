@@ -134,3 +134,10 @@
       - --action=change
   changed_when: false
   become: true
+
+# Compiles /etc/dconf/db/local.d into the system database. A locked key does not take
+# effect until this runs.
+- name: Update dconf database
+  ansible.builtin.command: dconf update
+  changed_when: false
+  become: true

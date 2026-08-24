@@ -1,0 +1,12 @@
+{{ ansible_managed | comment }}
+# GVariant text format, and GSettings ignores a value whose type does not match the key's
+# schema: both keybindings are `as`, so an empty array has to be @as and not @au.
+#
+# Both directions, not the forward binding alone: switch-input-source-backward defaults to
+# Shift+Super+Space, which keeps cycling sources once the forward one is cleared.
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'us')]
+
+[org/gnome/desktop/wm/keybindings]
+switch-input-source=@as []
+switch-input-source-backward=@as []

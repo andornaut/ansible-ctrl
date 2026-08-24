@@ -1,0 +1,23 @@
+{{ ansible_managed | comment }}
+# GVariant text format, and the type has to match the key's schema or GSettings ignores the
+# value and uses its default: idle-delay and lock-delay are uint32, the sleep-inactive
+# timeouts int32, the rest booleans and one enum string.
+[org/gnome/desktop/screensaver]
+lock-enabled=true
+idle-activation-enabled=true
+ubuntu-lock-on-suspend=true
+lock-delay=uint32 {{ desktop_screen_lock_delay_seconds }}
+
+[org/gnome/desktop/lockdown]
+disable-lock-screen=false
+
+[org/gnome/desktop/session]
+idle-delay=uint32 {{ desktop_screen_blank_seconds }}
+{% if desktop_suspend_inactive_managed %}
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type={{ desktop_suspend_inactive_action }}
+sleep-inactive-ac-timeout={{ desktop_suspend_inactive_seconds }}
+sleep-inactive-battery-type={{ desktop_suspend_inactive_action }}
+sleep-inactive-battery-timeout={{ desktop_suspend_inactive_seconds }}
+{% endif %}

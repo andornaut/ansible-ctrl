@@ -72,9 +72,9 @@
       when:
         # The uid range is not enough on its own: an installer that omits --system takes
         # one from the login range, so the placeholder home excludes those.
-        - item.value[1] | int >= base_lockdown_min_uid
+        - item.value[1] | int >= base_account_min_uid
         - item.value[1] | int != 65534
-        - item.value[4] not in base_lockdown_exclude_homes
+        - item.value[4] not in base_account_exclude_homes
 
     - name: Take other's access and the group's read from each one
       ansible.builtin.file:
@@ -86,7 +86,7 @@
         label: "{{ item.stat.path }}"
       # A home is owned by its account. A passwd entry pointing at a directory owned by
       # somebody else names a shared area: the printer account's home is a NAS share.
-      when: item.stat.pw_name == item.item.key
+      when: item.stat.pw_name | default('') == item.item.key
 
 # Every managed host grants the account ansible connects as NOPASSWD sudo, so a password
 # is a second way to root that no key rotation reaches. No opt-out flag: the proof below

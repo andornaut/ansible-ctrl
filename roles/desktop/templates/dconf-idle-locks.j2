@@ -1,0 +1,16 @@
+{{ ansible_managed | comment }}
+# One path per line: each key here reads from the system database and no account can change
+# it. The suspend keys are listed only where the host manages them, a lock over a key no
+# database defines freezing it at the schema default instead.
+/org/gnome/desktop/screensaver/lock-enabled
+/org/gnome/desktop/screensaver/idle-activation-enabled
+/org/gnome/desktop/screensaver/ubuntu-lock-on-suspend
+/org/gnome/desktop/screensaver/lock-delay
+/org/gnome/desktop/lockdown/disable-lock-screen
+/org/gnome/desktop/session/idle-delay
+{% if desktop_suspend_inactive_managed %}
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-timeout
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-timeout
+{% endif %}

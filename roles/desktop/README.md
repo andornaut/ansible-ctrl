@@ -18,7 +18,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | [alacritty](https://alacritty.org/) | Terminal emulator |
 | browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.firefox.com/), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control |
-| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME settings (keyboard layout, input sources, Ubuntu Dock) |
+| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME keyboard layout and input sources, on a gnome host only, written to the system database at `/etc/dconf/db/local.d` and pinned in `local.d/locks/` so they reach every account and none can change them. The Ubuntu Dock is `desktop_user`'s alone. The lock and idle policy is the `idle` tag's |
 | display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly), *tiling* |
 | [dunst](https://dunst-project.org/) | Notification daemon, built from source, *tiling* |
 | [eww](https://github.com/elkowar/eww) | Widget daemon, *tiling* |
@@ -28,7 +28,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | fonts | System fonts |
 | gnome | GNOME Shell and gdm3, gnome only |
 | [grub](https://www.gnu.org/software/grub/) | Bootloader settings |
-| idle | Screen blanking, session locking, monitor power-off, idle suspend, and the backstop under them all |
+| idle | Screen blanking, session locking, monitor power-off, idle suspend, and the backstop under them all. Under gnome it is a locked system dconf database, so it reaches every account |
 | [insync](https://www.insynchq.com/) | Google Drive sync client (`desktop_install_insync`) |
 | [it87](https://github.com/frankcrawford/it87) | DKMS Super I/O driver for ITE chips on Gigabyte AM5 boards (`desktop_install_it87`) |
 | [lact](https://github.com/ilya-zlobintsev/LACT) | AMD GPU control utility |
@@ -76,7 +76,7 @@ apart from powering the monitor down:
 
 | Environment | Mechanism | Timeouts honoured |
 | --- | --- | --- |
-| gnome | dconf | blank, lock |
+| gnome | dconf, system database | blank, lock |
 | bspwm | `xss-lock` and the X server | blank, lock, power-off |
 | niri | `hypridle` | lock, power-off |
 
@@ -86,7 +86,9 @@ entry at login. Nothing reloads them, so a change takes effect at the next login
 | Constraint | Detail |
 | --- | --- |
 | A blanked screen is not a locked one | X11 blanking takes no keyboard grab, so during the blank-to-lock grace a keystroke both wakes the screen and lands in the focused window. Setting `desktop_screen_lock_minutes` equal to `desktop_screen_blank_minutes` closes that window, at the cost of the no-password return period |
-| Under gnome the lock rests on four keys, not `lock-enabled` alone ([tasks/idle.yml](./tasks/idle.yml)) | `screensaver/idle-activation-enabled` has to be true for the screensaver to activate at all, and `lockdown/disable-lock-screen` false for a lock to be permitted; neither is visible from `lock-enabled`, so a host with that set can still leave the session open. `screensaver/ubuntu-lock-on-suspend` covers the resume path. All four are GNOME defaults, named anyway so a run corrects one turned off through Settings rather than reporting converged beside it |
+| Under gnome the lock rests on six keys, not `lock-enabled` alone ([tasks/idle.yml](./tasks/idle.yml)) | `screensaver/idle-activation-enabled` has to be true for the screensaver to activate at all, and `lockdown/disable-lock-screen` false for a lock to be permitted; neither is visible from `lock-enabled`, so a host with that set can still leave the session open. `screensaver/ubuntu-lock-on-suspend` covers the resume path. `session/idle-delay` at 0 disables the screensaver outright, and `screensaver/lock-delay` leaves the session unlocked for that long after it blanks, so both belong to the guarantee rather than beside it |
+| The gnome policy is locked, not written into an account's database ([templates/dconf-idle-locks.j2](./templates/dconf-idle-locks.j2)) | A lock makes the system value authoritative and the key unwritable, so every account that logs into GNOME gets the policy and none can turn it off. An unlocked default would sit underneath whatever an account has already set, which for `desktop_user` is these very keys. The suspend keys are locked only where the host manages them: a lock over a key no database defines freezes it at the schema default |
+| A lock is written only on a gnome host, and removed when one stops being gnome | A leftover default is a value an account can change from Settings, but a leftover lock makes the key unwritable and is reachable only by deleting the file and recompiling. Both `00-idle` and `01-keyboard` and their lock files are removed where `desktop_environment` is not `gnome` |
 | Two `XSECURELOCK_*` settings are security-relevant ([templates/xsecurelock-session.j2](./templates/xsecurelock-session.j2)) | `FORCE_GRAB=1` forces the grab, so a fullscreen game or open menu cannot leave the session unlocked silently. `DISCARD_FIRST_KEYPRESS=1` swallows the key that dismisses the blank screen, so nobody types a password at a black screen. Authentication needs nothing setuid (`common-auth` PAM service, `unix_chkpwd`) |
 
 ### Suspend

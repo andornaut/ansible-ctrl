@@ -1,0 +1,27 @@
+---
+# The system dconf database every account's session reads: db/local.d holds the defaults,
+# db/local.d/locks the keys an account may not change, and the profile is what puts the
+# database in the lookup path at all. Include under `become: true`.
+#
+# Written here rather than read from another role: no role reads another's files or handlers.
+# Both writes are idempotent, so a task file that needs the database can include this whether
+# or not another already has.
+- name: Create the dconf profile and database directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/dconf/profile
+    - /etc/dconf/db/local.d
+    - /etc/dconf/db/local.d/locks
+  notify: Update dconf database
+
+- name: Add the local database to the default dconf profile
+  ansible.builtin.copy:
+    dest: /etc/dconf/profile/user
+    content: |
+      user-db:user
+      system-db:local
+    mode: "0644"
+  notify: Update dconf database
