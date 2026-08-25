@@ -13,6 +13,7 @@
         repo: >-
           deb [signed-by=/etc/apt/keyrings/insync.asc]
           http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
+        mode: "0644"
         filename: insync
         update_cache: true
       become: true

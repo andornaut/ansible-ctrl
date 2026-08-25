@@ -120,6 +120,7 @@
 - name: Enable universe and multiverse repositories
   ansible.builtin.apt_repository:
     repo: "{{ item }}"
+    mode: "0644"
   loop:
     - universe
     - multiverse

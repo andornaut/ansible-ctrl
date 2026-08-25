@@ -30,6 +30,7 @@
         repo: >-
           deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
           https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable
+        mode: "0644"
         filename: docker
         state: present
         update_cache: true

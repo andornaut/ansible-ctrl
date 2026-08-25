@@ -8,6 +8,7 @@
     - name: Add the FreeCAD stable apt repository
       ansible.builtin.apt_repository:
         repo: ppa:freecad-maintainers/freecad-stable
+        mode: "0644"
         update_cache: true
 
     # freecad-python3 carries the bindings the GUI package does not require.

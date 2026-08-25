@@ -16,6 +16,7 @@
           signed-by=/etc/apt/keyrings/antigravity-repo-key.asc]
           https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/
           antigravity-debian main
+        mode: "0644"
         state: present
         update_cache: true
 

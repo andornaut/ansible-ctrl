@@ -58,6 +58,7 @@
     - name: Add MemryX repository
       ansible.builtin.apt_repository:
         repo: "deb https://developer.memryx.com/deb stable main"
+        mode: "0644"
         filename: memryx
         state: present
 

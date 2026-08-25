@@ -26,6 +26,7 @@
     repo: >-
       deb https://download.virtualbox.org/virtualbox/debian
       {{ ansible_facts['distribution_release'] }} contrib
+    mode: "0644"
     filename: oracle-virtualbox
     state: present
   become: true

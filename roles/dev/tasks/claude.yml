@@ -44,6 +44,7 @@
           deb [arch={{ dev_arch }}
           signed-by=/etc/apt/keyrings/claude-desktop.asc]
           https://pkg.claude-desktop-debian.dev stable main
+        mode: "0644"
         state: present
         update_cache: true
 

@@ -14,6 +14,7 @@
           deb [signed-by=/usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc]
           https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/deb/ubuntu
           {{ ansible_facts['distribution_release'] }} main
+        mode: "0644"
         filename: coolercontrol
         update_cache: true
 

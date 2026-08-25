@@ -6,6 +6,7 @@
     - name: Add the KiCad releases apt repository
       ansible.builtin.apt_repository:
         repo: "ppa:kicad/kicad-{{ hobbies_kicad_version }}-releases"
+        mode: "0644"
         update_cache: true
 
     - name: Install KiCad package
