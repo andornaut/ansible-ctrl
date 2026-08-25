@@ -6,13 +6,14 @@
   become: true
   when: desktop_install_it87
   block:
+    - name: Require the kernel headers DKMS builds against
+      ansible.builtin.include_tasks: require_kernel_headers.yml
+
     - name: Install it87 DKMS build prerequisites
       ansible.builtin.apt:
         name:
           - build-essential
-          - dkms
           - git
-          - "linux-headers-{{ ansible_facts['kernel'] }}"
         state: present
         update_cache: true
 

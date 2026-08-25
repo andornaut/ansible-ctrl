@@ -3,20 +3,11 @@
 # https://github.com/blakeblackshear/frigate/blob/dev/docker/memryx/user_installation.sh
 # https://developer.memryx.com/get_started/install_driver.html
 
-- name: Gather installed package facts
-  ansible.builtin.package_facts:
-    manager: apt
-
 # Outside the reinstall block below: a kernel upgrade leaves the new kernel
 # without headers, so DKMS cannot rebuild even at the desired package version.
-- name: Install DKMS and kernel headers
-  ansible.builtin.apt:
-    name:
-      - dkms
-      - "linux-headers-{{ ansible_facts['kernel'] }}"
-    state: latest
-    update_cache: true
-  become: true
+# This gathers the package facts the reinstall decision below reads.
+- name: Require the kernel headers DKMS builds against
+  ansible.builtin.include_tasks: require_kernel_headers.yml
 
 # The apt pin globs "{{ version }}.*", so match the installed version on the same
 # prefix.

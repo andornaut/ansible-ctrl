@@ -6,13 +6,14 @@
   become: true
   when: desktop_install_nct6687d
   block:
+    - name: Require the kernel headers DKMS builds against
+      ansible.builtin.include_tasks: require_kernel_headers.yml
+
     - name: Install nct6687d DKMS build prerequisites
       ansible.builtin.apt:
         name:
           - build-essential
-          - dkms
           - git
-          - "linux-headers-{{ ansible_facts['kernel'] }}"
         state: present
         update_cache: true
 

@@ -30,12 +30,15 @@
     state: present
   become: true
 
+# Oracle's postinst builds vboxdrv itself rather than via DKMS, so it declares no
+# headers dependency. vboxdrv.service rebuilds the modules at each boot, which needs
+# headers for the kernel being booted rather than the one this run sees.
+- name: Require the kernel headers VirtualBox builds against
+  ansible.builtin.include_tasks: require_kernel_headers.yml
+
 - name: Install VirtualBox
   ansible.builtin.apt:
     name:
-      # Oracle's postinst builds vboxdrv itself rather than via DKMS, so it
-      # declares no headers dependency.
-      - "linux-headers-{{ ansible_facts['kernel'] }}"
       - "virtualbox-{{ dev_virtualbox_version }}"
     state: latest
     install_recommends: false

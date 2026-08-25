@@ -1,0 +1,28 @@
+---
+# Install the headers DKMS builds against, for the running kernel and for the kernels to
+# come. Copied per role because roles share no task files; keep the copies in sync.
+#
+# The metapackage is derived rather than named: a host on its release's GA kernel carries
+# linux-image-generic and one on HWE carries linux-image-generic-hwe-<release>, and only
+# the headers metapackage matching the installed image one follows the kernel apt upgrades
+# to. Without it the kernel upgrades alone, and both kernel hooks run dkms autoinstall
+# against absent headers, so every module is skipped for the new kernel and nothing says
+# so until it is booted. The versioned package beside it covers a host already booted onto
+# a kernel whose headers never arrived.
+#
+# Callers wrap the include in a tagged block: a tag on include_tasks filters out what it
+# includes.
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Install DKMS and the kernel headers it builds against
+  ansible.builtin.apt:
+    name: "{{ ['dkms', 'linux-headers-' ~ ansible_facts['kernel']]
+              + (ansible_facts['packages'].keys()
+                 | select('match', '^linux-image-generic')
+                 | map('regex_replace', '^linux-image-', 'linux-headers-')
+                 | list) }}"
+    state: latest
+    update_cache: true
+  become: true
