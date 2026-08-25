@@ -20,7 +20,7 @@ make dev -- --tags rust
 | apt | Development tools and the build headers other tags need: `git` and its helpers, `gh`, `adb`, `jq`, `shellcheck`, `snmp`, `wireshark`, and the database clients and `-dev` packages |
 | [claude](https://code.claude.com/docs) | AI coding assistant |
 | [codex](https://github.com/openai/codex) | OpenAI Codex CLI |
-| [cursor](https://cursor.com/) | AI code editor (AppImage) |
+| [cursor](https://cursor.com/) | AI code editor (AppImage) and the `cursor-agent` CLI |
 | [go](https://go.dev/) | Go toolchain |
 | java | [OpenJDK](https://openjdk.org/) 17 and 21 |
 | javascript | [Node.js](https://nodejs.org/en) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default |

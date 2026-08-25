@@ -63,3 +63,13 @@
     path: /usr/share/applications/cursor.desktop
     mode: "0644"
   become: true
+
+# The editor and the CLI are separate installs from separate sources: the AppImage
+# above is system-wide, and cursor-agent is a self-contained binary that upstream's
+# shell installer writes under the user's ~/.local/bin.
+- name: Install Cursor CLI (cursor-agent)
+  ansible.builtin.include_tasks: install_user_cli.yml
+  vars:
+    dev_cli_name: Cursor CLI (cursor-agent)
+    dev_cli_bin: cursor-agent
+    dev_cli_url: https://cursor.com/install
