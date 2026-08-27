@@ -56,11 +56,25 @@
 # One task per direction rather than one per form: the form is the flag the entry goes in
 # under, no form being the default and a bare argument refused.
 #
+# --strict on the path entries alone, so a command naming one is refused whatever it meant to
+# do with it, `ls` and `stat` included. A path names one file on this host, so that is a rule
+# whose reach is known when it is written.
+#
+# Not on a name entry: a name matches the tail of whatever the agent writes, wherever it
+# turns up, so `*.key` or `.env*` under --strict would refuse every command mentioning any
+# such file in any checkout on the host. Not on a command entry either, which faramir refuses
+# the flag for, a command entry already being about what a command does.
+#
+# The strictness converges with the entry, an add naming a different one changing the entry
+# rather than writing a second.
+#
 # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
 # skips them rather than writing entries.
 - name: Block a path, a name or a command to the agent
   ansible.builtin.command:
-    argv: "{{ faramir_block_argv + ['--' ~ item.0.key, item.1] }}"
+    argv: >-
+      {{ faramir_block_argv + ['--' ~ item.0.key, item.1]
+         + (['--strict'] if item.0.key == 'path' else []) }}
   become: true
   loop: "{{ faramir_block_declared | dict2items | subelements('value') }}"
   loop_control:

@@ -98,6 +98,12 @@ faramir_sudo_timeout_sec: 300
 # expands. A directory refuses everything under it. Only the entries this host has are
 # configured, the rest named in the run's output; how the three lists differ and what a
 # removal cannot undo is in README.md.
+#
+# Every entry in this list is written --strict, so a command naming one is refused whatever
+# it meant to do with it and not only where it would read, copy or move it. A path names one
+# file on this host, which bounds what that refuses; faramir_blocked_names does not carry it,
+# for the reason its own comment gives, and faramir_blocked_commands cannot. What --strict
+# costs is in README.md.
 faramir_blocked_paths:
   # The operator's own credential store, and the keys and keyrings beside it.
   - "{{ faramir_user_home }}/.private"
@@ -161,6 +167,11 @@ faramir_blocked_paths:
 # The same refusal by name, matched against the whole of the path the agent writes rather
 # than against this filesystem. So a name reaches inside a container, where a path cannot,
 # and an entry matching no file here is armed rather than skipped.
+#
+# Not written --strict, unlike the paths above: a name matches wherever it turns up, so a
+# strict `*.key` or `.env*` refuses every command mentioning any such file in any checkout on
+# the host. These stay at the default reading, which refuses a command that would read, copy
+# or move the file and leaves the rest alone.
 #
 # The shape comes from the pattern, and faramir refuses one that is nothing but wildcards:
 #
@@ -334,6 +345,8 @@ faramir_blocked_commands:
 # A link is the stronger entry, and the one that can stop the host. What it grants, when to
 # prefer a block, and why a linked path does not also go in `faramir_blocked_paths`:
 # README.md.
+#
+# Written --strict, as the blocks above are: the file is named by ref and never by path.
 faramir_links: []
 
 # What a linked file is set to, so the broker keeps reading it. The broker is the only

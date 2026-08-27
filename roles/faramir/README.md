@@ -166,6 +166,14 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 | `faramir_blocked_names` | `name` | the same | no, so an entry matching nothing today is armed rather than dead |
 | `faramir_blocked_commands` | `command` | the shell alone, a command being neither | no |
 
+- **`faramir_blocked_paths` and `faramir_links` are written `--strict`; the other two lists are not.** The shell
+  guard then refuses a command that names the file at all, not only one that would read, copy or move it, so
+  `ls`, `stat` and `chmod` are refused it too, and the value is asked for by ref instead. The cost is that nothing
+  converges such a file through the agent any more: rotating a key or fixing a mode is the operator's at a
+  terminal. A path bounds that to one file on this host, which is why it carries the flag and a name does not: a
+  strict `*.key` or `.env*` would refuse every command mentioning any such file in any checkout. A command entry
+  cannot carry it at all, faramir refusing the pair, a command entry already being about what a command does.
+
 - **A name is matched against the end of the path an agent writes, so it crosses a container boundary and a path
   cannot.** `docker exec ha cat /config/.storage/auth` names the mount point, and an entry for the host directory
   under it covers nothing. Its shape comes from the pattern: a bare name, a name carrying a directory component,
@@ -209,7 +217,8 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   entry already carried is re-applied, which is what puts back a grant a tool took away and a rule an agent's
   settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards.
 - **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand, a flag per form
-  with no default, `--json` on each, `--declared` on `block ls`, and no `--config-dir` on any of them but `init`.
+  with no default, `--json` on each, `--declared` on `block ls`, `--strict` on `block add` and `link add` under
+  that name rather than `--any-mention`, and no `--config-dir` on any of them but `init`.
   An older tag fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
   entry to the next `init`, and a build that still takes `--config-dir`, which without one falls through to
   `/etc/faramir` and configures an install this host does not have.
@@ -228,7 +237,7 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   writes.
 - **`faramir_links` is adds only.** A link grants the broker read and regroups the file, so dropping one changes
   what the host can serve rather than bringing a list back into agreement. Take an entry out of `faramir_links`
-  and run the `rm` yourself.
+  and run the `rm` yourself. `link rm` takes no `--strict`, an entry coming out whichever strictness it carried.
 
 ## Agents
 

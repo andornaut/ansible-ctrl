@@ -92,8 +92,12 @@ faramir_block_argv: >-
 faramir_block_rm_argv: >-
   {{ [faramir_binary, 'block', 'rm', '--json'] }}
 
+# --strict on every link, so a command naming the file is refused whatever it meant to do
+# with it, rather than only the ones that would read, copy or move it. The value is asked for
+# by ref instead. Re-adding a ref under a different strictness changes the entry, so this
+# converges like the rest of one.
 faramir_link_argv: >-
-  {{ [faramir_binary, 'link', 'add', '--json'] }}
+  {{ [faramir_binary, 'link', 'add', '--json', '--strict'] }}
 
 # Nothing to pass: doctor reads the client group and the service accounts off the config and
 # the units, and the operator off [server] agent_user, which is what `init` recorded. It took
