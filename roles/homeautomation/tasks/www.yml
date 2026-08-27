@@ -48,13 +48,17 @@
     # Named here rather than on the unarchive above, which applies file attributes to dest
     # joined with the paths recorded in the archive: -j did not create those, so a mode
     # there fails the task on every run. These are served to a browser, so the mode is
-    # named rather than left to whatever umask extracted them.
+    # named rather than left to whatever umask extracted them. Ownership is named for a
+    # second reason: extraction keeps the uid and gid the archive records, and the rest of
+    # the config volume is root's.
     - name: Let every account read the advanced-camera-card files
       ansible.builtin.file:
         path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
         state: directory
         recurse: true
         mode: u=rwX,go=rX
+        owner: root
+        group: root
       become: true
   always:
     - name: Remove the temporary directory

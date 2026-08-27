@@ -27,6 +27,10 @@
         dest: "{{ hobbies_betaflight_release_dir }}"
         remote_src: true
         creates: "{{ hobbies_betaflight_app_dir }}"
+        # Named, not left to the archive: extraction keeps the uid and gid the
+        # archive records, which lands on whichever local account holds that id.
+        owner: root
+        group: root
       become: true
       register: hobbies_betaflight_unarchive
 

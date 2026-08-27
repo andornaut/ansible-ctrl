@@ -114,8 +114,11 @@
         # Named, not left to the archive: extraction puts the recorded mode through the
         # run's umask, and one that closes `other` leaves a launcher run by a user that
         # cannot read what it launches. Capital X grants execute only where the archive
-        # already had it.
+        # already had it. Ownership is named for the same reason: extraction keeps the
+        # uid and gid the archive records.
         mode: u=rwX,go=rX
+        owner: root
+        group: root
       become: true
 
     - name: Symlink stable Freerouting path to the installed version

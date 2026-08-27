@@ -68,12 +68,16 @@
             # Named, not left to the archive: extraction puts the recorded mode through
             # the run's umask, and one that closes `other` leaves a toolchain only root
             # can read. Capital X grants execute only where the archive already had it.
+            # Ownership is named for the same reason: extraction keeps the uid and gid
+            # the archive records.
             - name: Install zig compiler
               ansible.builtin.unarchive:
                 src: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
                 dest: /opt/zig
                 remote_src: true
                 mode: u=rwX,go=rX
+                owner: root
+                group: root
                 extra_opts:
                   - --strip-components
                   - 1

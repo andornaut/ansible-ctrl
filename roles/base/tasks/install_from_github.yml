@@ -28,4 +28,9 @@
     remote_src: true
     include: ["{{ base_tool_name }}"]
     mode: "0755"
+    # Named, not left to the archive: extraction preserves the uid and gid the
+    # archive records, which is the release builder's account and lands on
+    # whichever local account happens to hold that id.
+    owner: root
+    group: root
   become: true

@@ -64,13 +64,16 @@
     # Named, not left to the archive: extraction puts the recorded mode through the
     # run's umask, and one that closes `other` installs a toolchain no account but root
     # can traverse. Capital X grants execute only where the archive already had it, so
-    # the binaries stay binaries and the sources stay data.
+    # the binaries stay binaries and the sources stay data. Ownership is named for the
+    # same reason: extraction keeps the uid and gid the archive records.
     - name: Extract Go tarball to /usr/local
       ansible.builtin.unarchive:
         src: "{{ dev_go_tmp.path }}/go.tar.gz"
         dest: /usr/local
         remote_src: true
         mode: u=rwX,go=rX
+        owner: root
+        group: root
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:
