@@ -248,6 +248,7 @@ only after it has run here once unguarded.
 | Agent | In this tree | In the operator's home | Redaction |
 | --- | --- | --- | --- |
 | claude | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md` | full |
+| codex | `PreToolUse` hook in `.codex/hooks.json`, which routes; credentials section in `AGENTS.md` | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md` | full |
 | opencode | plugin in `.opencode/plugins/`, MCP server in `opencode.json` | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md` | full |
 | kilocode | plugin in `.kilo/plugin/`, MCP server in `kilo.json` | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md` | full |
 | pi | extension in `.pi/extensions/`, which carries the deny rules | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: the extension is where pi reads them | full |
@@ -256,10 +257,15 @@ only after it has run here once unguarded.
 - **Antigravity is partial support.** Its hooks decide and cannot rewrite a tool call, so nothing routes what it
   runs through the broker and nothing redacts what comes back. It gets the MCP tools and the instructions to use
   them, and every enrolment warns as much.
-- **Codex and Cursor are installed here and faramir configures neither**, so a credential a command of theirs
-  prints reaches the model.
-- Enrolling claude gives up this project's Bash prompts: a rewritten command matches no permission rule, so the
-  hook approves it. The other four have no approval to return.
+- **Codex has no rule file, so its hook is the whole of what refuses it a path.** Its own `.rules` files are an
+  exec policy, which decides commands and names none, so the hook matches every tool rather than Bash alone.
+  It also runs no hook it has not been told to trust and says nothing when it skips one, so an enrolment does
+  nothing until Codex has been started once and the hook trusted; and it must run without its own sandbox.
+- **Cursor is installed here and faramir does not configure it**, so a credential a command of its prints
+  reaches the model.
+- Enrolling claude or codex gives up this project's Bash prompts: a rewritten command matches no permission
+  rule, so the hook approves it, and that approval covers every command the deny list does not name. The
+  other four have no approval to return.
 - The files an enrolment writes into a tree are gitignored: claude's by this repo's `.gitignore` (`.claude/*`),
   the rest globally.
 

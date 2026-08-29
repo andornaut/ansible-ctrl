@@ -40,6 +40,7 @@ faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 faramir_agents:
   - antigravity
   - claude
+  - codex
   - kilocode
   - opencode
   - pi
