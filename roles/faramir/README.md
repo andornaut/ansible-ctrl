@@ -266,8 +266,8 @@ only after it has run here once unguarded.
 - Enrolling claude or codex gives up this project's Bash prompts: a rewritten command matches no permission
   rule, so the hook approves it, and that approval covers every command the deny list does not name. The
   other four have no approval to return.
-- The files an enrolment writes into a tree are gitignored: claude's by this repo's `.gitignore` (`.claude/*`),
-  the rest globally.
+- Nothing an enrolment writes into a tree is committed: this repo's `.gitignore` covers `.claude/*` and the
+  agents' instruction filenames, and the operator's global ignore covers the rest.
 
 ## Verification
 
