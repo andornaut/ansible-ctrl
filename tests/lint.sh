@@ -2,7 +2,7 @@
 # The checks CI gates on, defined once so a local run and a CI run cannot disagree.
 # CI and `make lint` both call them all; the argument runs one on its own.
 #
-# Usage: tests/lint.sh [ansible-lint|syntax|shell|python|identity]   (default: all)
+# Usage: tests/lint.sh [ansible-lint|syntax|shell|python|identity|markdown]   (default: all)
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -142,14 +142,27 @@ check_identity() {
     "${python}" tests/identity.py
 }
 
+# markdownlint-cli2 reads .markdownlint-cli2.yaml, matching the CI workflow step.
+# Prefers markdownlint-cli2 on PATH, falling back to npx markdownlint-cli2 if available.
+check_markdown() {
+    if command -v markdownlint-cli2 >/dev/null 2>&1; then
+        markdownlint-cli2
+    elif command -v npx >/dev/null 2>&1; then
+        npx --no markdownlint-cli2
+    else
+        echo "neither markdownlint-cli2 nor npx found on PATH" >&2
+        return 1
+    fi
+}
+
 main() {
     local checks check result status=0
 
     case "${1:-all}" in
-    all) checks=(ansible-lint syntax shell python identity) ;;
-    ansible-lint | syntax | shell | python | identity) checks=("$1") ;;
+    all) checks=(ansible-lint syntax shell python identity markdown) ;;
+    ansible-lint | syntax | shell | python | identity | markdown) checks=("$1") ;;
     *)
-        echo "usage: ${0} [ansible-lint|syntax|shell|python|identity]" >&2
+        echo "usage: ${0} [ansible-lint|syntax|shell|python|identity|markdown]" >&2
         return 2
         ;;
     esac

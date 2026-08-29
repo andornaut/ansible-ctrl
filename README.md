@@ -173,10 +173,10 @@ rather than the lines a change touched.
 | `shell` | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders |
 | `python` | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions |
 | `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)) |
+| `markdown` | tracked `.md` files outside `.claude/`, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml), via `markdownlint-cli2` or `npx` |
 
-Two more gates that `make lint` does not run:
+One more gate in CI that `make lint` does not run:
 
 | Gate | Covers |
 | --- | --- |
-| markdownlint, a second step of the same workflow | Tracked `.md` files outside `.claude/`, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). Run it locally with `markdownlint-cli2` and no arguments, which reads the same config |
 | [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution or a long dash, and one that ships a local-only agent instruction file. The last two are opt-in flags: the action leaves them off and this workflow sets them |
