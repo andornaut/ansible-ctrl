@@ -27,50 +27,27 @@
   loop_control:
     label: "{{ item.ref | default('an entry naming no ref') }}"
 
-# As root, so the answer is the path's and not the running account's, a directory it cannot
-# traverse reading as absent. get_checksum off: a checksum is read out of the file's own
-# bytes, and every path here is a credential store.
-- name: Find which blocked paths the controller has
-  ansible.builtin.stat:
-    path: "{{ item }}"
-    get_attributes: false
-    get_checksum: false
-    get_mime: false
-  become: true
-  loop: "{{ faramir_blocked_paths }}"
-  register: faramir_blocked_stat
-  changed_when: false
-
-# An entry naming a path this host does not have is skipped rather than failing the run: what
-# the host has is what the host blocks. Absent can only mean the host has no such thing,
-# broker.yml having already refused a home that is encrypted and not mounted.
-#
-# The names and commands are not stat-checked: a name is matched against what the agent
-# writes rather than resolved against this host, and a command may be on no host at all.
-- name: Keep the blocked paths that are there
-  ansible.builtin.set_fact:
-    faramir_blocked_present: >-
-      {{ faramir_blocked_stat.results | selectattr('stat.exists') | map(attribute='item') | list }}
-  become: false
-
 # One task per direction rather than one per form: the form is the flag the entry goes in
 # under, no form being the default and a bare argument refused.
+#
+# Every path is named whether or not this host has the file. faramir writes the rule for an
+# absent path and it holds when the file appears, which is the window a credential store is
+# worth a rule in: a tool signed in after a converge is covered before the next one. The run
+# warns for each path that is not there, and a path spelled wrong warns the same way.
 #
 # --strict on the path entries alone, so a command naming one is refused whatever it meant to
 # do with it, `ls` and `stat` included. A path names one file on this host, so that is a rule
 # whose reach is known when it is written.
 #
-# Not on a name entry: a name matches the tail of whatever the agent writes, wherever it
-# turns up, so `*.key` or `.env*` under --strict would refuse every command mentioning any
-# such file in any checkout on the host. Not on a command entry either, which faramir refuses
-# the flag for, a command entry already being about what a command does.
+# Not on a command entry, which faramir refuses the flag for, a command entry already being
+# about what a command does.
 #
 # The strictness converges with the entry, an add naming a different one changing the entry
 # rather than writing a second.
 #
 # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
 # skips them rather than writing entries.
-- name: Block a path, a name or a command to the agent
+- name: Block a path or a command to the agent
   ansible.builtin.command:
     argv: >-
       {{ faramir_block_argv + ['--' ~ item.0.key, item.1]
@@ -81,8 +58,7 @@
     label: "{{ item.0.key }} {{ item.1 }}"
   vars:
     faramir_block_declared:
-      path: "{{ faramir_blocked_present }}"
-      name: "{{ faramir_blocked_names }}"
+      path: "{{ faramir_blocked_paths }}"
       command: "{{ faramir_blocked_commands }}"
   register: faramir_block
   changed_when: faramir_block.stdout | length > 0 and (faramir_block.stdout | from_json).changed
@@ -120,14 +96,9 @@
   vars:
     faramir_block_unknown_kinds: >-
       {{ (faramir_block_ls.stdout | default('[]', true) | from_json)
-         | map(attribute='kind') | unique | difference(['name', 'path', 'command']) }}
+         | map(attribute='kind') | unique | difference(['path', 'command']) }}
 
-# Compared per form, the form being part of what identifies an entry: a name is not the same
-# entry as a path spelled the same way.
-#
-# Against the whole of faramir_blocked_paths rather than the present half above: a path this
-# host does not have today is one the adds skip, not one the lists dropped, and removing it
-# would leave the entry going in and out with the file.
+# Compared per form, the form being part of what identifies an entry.
 #
 # stdout defaults for the --check run, where the listing above is skipped along with the adds
 # and there is nothing to compare.
@@ -137,9 +108,6 @@
       path: >-
         {{ faramir_block_rows | selectattr('kind', 'equalto', 'path')
            | map(attribute='entry') | reject('in', faramir_blocked_paths) | list }}
-      name: >-
-        {{ faramir_block_rows | selectattr('kind', 'equalto', 'name')
-           | map(attribute='entry') | reject('in', faramir_blocked_names) | list }}
       command: >-
         {{ faramir_block_rows | selectattr('kind', 'equalto', 'command')
            | map(attribute='entry') | reject('in', faramir_blocked_commands) | list }}
@@ -169,16 +137,6 @@
     label: "{{ item.ref }}"
   register: faramir_link
   changed_when: faramir_link.stdout | length > 0 and (faramir_link.stdout | from_json).changed
-
-# Named rather than passed over quietly: a path skipped here is a credential store this host
-# does not have. A path created after a run is blocked by the next one and not before, and an
-# entry an earlier run wrote stands whatever became of the file.
-- name: Name the blocked paths the controller does not have
-  ansible.builtin.debug:
-    msg: >-
-      Skipped, no such path:
-      {{ faramir_blocked_paths | difference(faramir_blocked_present) | sort | join(', ') }}
-  when: faramir_blocked_paths | difference(faramir_blocked_present) | length > 0
 
 # Named because a removal only half finishes. Under --json the command reports the removal
 # and says none of this, printing that line only where a person is reading its output.

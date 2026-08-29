@@ -96,15 +96,16 @@ faramir_sudo_timeout_sec: 300
 # across these three lists is the whole of what covers the store it names.
 #
 # Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
-# expands. A directory refuses everything under it. Only the entries this host has are
-# configured, the rest named in the run's output; how the three lists differ and what a
-# removal cannot undo is in README.md.
+# expands. A directory refuses everything under it. Every entry is configured whether or not
+# this host has the file, the rule holding when the file appears and the run warning for each
+# one that is not there; how the three lists differ and what a removal cannot undo is in
+# README.md.
 #
 # Every entry in this list is written --strict, so a command naming one is refused whatever
 # it meant to do with it and not only where it would read, copy or move it. A path names one
-# file on this host, which bounds what that refuses; faramir_blocked_names does not carry it,
-# for the reason its own comment gives, and faramir_blocked_commands cannot. What --strict
-# costs is in README.md.
+# file on this host, which bounds what that refuses; faramir_blocked_commands cannot carry it,
+# a command entry already being about what a command does. What --strict costs is in
+# README.md.
 faramir_blocked_paths:
   # The operator's own credential store, and the keys and keyrings beside it.
   - "{{ faramir_user_home }}/.private"
@@ -117,6 +118,26 @@ faramir_blocked_paths:
   # The NSS databases, holding client certificates and the private keys that go with them
   # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
   - "{{ faramir_user_home }}/.pki"
+  # The standard locations for an age identity, which is the key kind faramir's own store is
+  # opened with: sops reads `~/.config/sops/age/keys.txt` and age-keygen writes `~/.age`.
+  # Neither is matched by `*.key` below, a file called `keys.txt` carrying no such suffix.
+  - "{{ faramir_user_home }}/.config/sops"
+  - "{{ faramir_user_home }}/.age"
+  # Passwords a client library reads without a keyring in front of it: `.netrc` for ftp, curl
+  # and git, `.pgpass` for libpq. Both are the password in the clear under a fixed name.
+  - "{{ faramir_user_home }}/.netrc"
+  - "{{ faramir_user_home }}/.pgpass"
+  # A kubeconfig, which holds a client certificate and key or a bearer token per cluster. The
+  # file and not `.kube/`, the cache and the http cache beside it being neither.
+  - "{{ faramir_user_home }}/.kube/config"
+  # The operator's own SSH private keys, named here as well as below: a path entry survives
+  # the name form's removal from faramir and is written --strict, and the names cross a
+  # container boundary that a path cannot. The directory is not blocked, `config`,
+  # `known_hosts` and `authorized_keys` beside the keys being files an agent is asked to read.
+  # A key under a name of the operator's choosing is covered by neither and needs an entry.
+  - "{{ faramir_user_home }}/.ssh/id_rsa"
+  - "{{ faramir_user_home }}/.ssh/id_ecdsa"
+  - "{{ faramir_user_home }}/.ssh/id_ed25519"
   # Site passwords the application keeps itself rather than handing to a keyring: MQTT
   # Explorer holds a broker's in `settings.json`, and irssi a server's and its NickServ
   # password in `config`. Neither is encrypted and neither is named by any rule.
@@ -135,6 +156,10 @@ faramir_blocked_paths:
   # name covering either install method; these stay because the app directory holds more than
   # the profile.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
+  # Firefox's native profile store, holding the same `logins.json`, `key4.db` and cookie jar
+  # as the flatpak's. Named by path as well as below because the path is the form that
+  # survives, and it is written whether or not this host has the native install today.
+  - "{{ faramir_user_home }}/.mozilla"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # FileZilla encodes each site's password in `sitemanager.xml` and `recentservers.xml`
@@ -156,125 +181,112 @@ faramir_blocked_paths:
   # shell.
   - "{{ faramir_user_home }}/.var/app/net.lutris.Lutris"
   - "{{ faramir_user_home }}/.var/app/com.valvesoftware.Steam"
+  # Where a native Lutris keeps the same per-storefront auth files, the flatpak path above
+  # covering only an install made that way. `~/.steam` for the same reason: it is the other
+  # spelling of the store below it, and a rule matches the path as written.
+  - "{{ faramir_user_home }}/.cache/lutris"
+  - "{{ faramir_user_home }}/.steam"
   # What vim persists between sessions, which is content and not only filenames: a register
   # holds the text of the last yank or delete, so a line taken out of a decrypted file is
   # written to disk and survives there. Where the dotfiles' `vimrc` points `viminfofile`; the
   # default location any other vim writes is named below.
   - "{{ faramir_user_home }}/.vim/tmp"
+  # Registry and package-index tokens, each under a fixed name its tool reads without a
+  # keyring in front of it: npm's `_authToken`, poetry's PyPI tokens, and the two spellings
+  # of git's plaintext credential store. The cargo and git ones are not here today, and the
+  # rule holds when they appear.
+  - "{{ faramir_user_home }}/.npmrc"
+  - "{{ faramir_user_home }}/.config/pypoetry/auth.toml"
+  - "{{ faramir_user_home }}/.git-credentials"
+  - "{{ faramir_user_home }}/.config/git/credentials"
+  - "{{ faramir_user_home }}/.cargo/credentials.toml"
+  # One signed-in token per tool, each at the fixed path its tool writes. `.credentials.json`
+  # is not the `credentials` name it reads like, and `config.yaml` is a config carrying a
+  # model provider's API key inline. faramir configures codex and cursor not at all, so for
+  # those a rule is the whole of what covers them.
+  - "{{ faramir_user_home }}/.claude/.credentials.json"
+  - "{{ faramir_user_home }}/.codex/auth.json"
+  - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
+  - "{{ faramir_user_home }}/.continue/config.yaml"
+  - "{{ faramir_user_home }}/.gemini/config/config.json"
+  # The rest of the agents' tokens, each under the fixed name its tool writes: the pi, kilo
+  # and cursor CLIs, and the two files a gemini sign-in leaves beside its config. The gemini
+  # pair is not here until someone signs that CLI in, and the rule holds when it appears.
+  - "{{ faramir_user_home }}/.pi/agent/auth.json"
+  - "{{ faramir_user_home }}/.local/share/kilo/auth.json"
+  - "{{ faramir_user_home }}/.config/cursor/auth.json"
+  - "{{ faramir_user_home }}/.gemini/oauth_creds.json"
+  - "{{ faramir_user_home }}/.gemini/google_accounts.json"
+  # Two agent configs that carry a provider's key inline rather than naming an environment
+  # variable. Blocking them means adding a model provider to either is the operator's at a
+  # terminal; the MCP configs beside them name no credential and stay readable.
+  - "{{ faramir_user_home }}/.config/kilo/kilo.json"
+  - "{{ faramir_user_home }}/.config/opencode/opencode.json"
+  # Then Claude Desktop's, the GitHub CLI's and clasp's Google refresh token. `hosts.yml` and
+  # not `.config/gh`: `config.yml` beside it is aliases and editor settings, which an agent is
+  # asked to edit.
+  - "{{ faramir_user_home }}/.config/Claude/buddy-tokens.json"
+  - "{{ faramir_user_home }}/.config/gh/hosts.yml"
+  - "{{ faramir_user_home }}/.clasprc.json"
+  # Docker's registry auth, which with no credsStore holds base64 user:pass and which no
+  # managed ref carries, so nothing redacts it either. Blocked rather than linked: `docker
+  # login` replaces the file by rename, and the replacement is created 0600, which would take
+  # the broker's read with it.
+  - "{{ faramir_user_home }}/.docker/config.json"
+  # A cloud CLI's credential file, kept for the tool that writes it whether or not it is
+  # installed here.
+  - "{{ faramir_user_home }}/.aws"
+  # The default location vim writes its register history to, which is content and not only
+  # filenames: a register holds the text of the last yank or delete. The directory the
+  # dotfiles' `vimrc` points `viminfofile` at is above; this covers any other vim.
+  - "{{ faramir_user_home }}/.viminfo"
+  # Claude Code's own config, which holds each MCP server's environment and so whatever key
+  # was written into one. The file and not `.claude/`, which holds the instructions and the
+  # settings an agent is asked to edit; `.claude/.credentials.json` is named below.
+  - "{{ faramir_user_home }}/.claude.json"
+  # Shell environment the dotfiles keep out of the committed `bashrc`, which is where an
+  # export carrying a token goes. Beside `.private` above, and blocked for the same reason.
+  - "{{ faramir_user_home }}/.bashrc.private"
+  # The adb private key, which is what a paired device authorizes. `adbkey` carries no suffix
+  # any rule below matches, and the public half beside it is not blocked.
+  - "{{ faramir_user_home }}/.android/adbkey"
+  # Zoom's signed-in session, which it keeps outside a keyring. The directory, a session
+  # being more than one file.
+  - "{{ faramir_user_home }}/.zoom/data"
+  # Two Electron profiles keeping a signed-in session outside a keyring: the chat client's
+  # under its flatpak app home, and the sync client's web view beside the config directory
+  # already blocked above. The session is more than one file, so the directory in each case.
+  - "{{ faramir_user_home }}/.var/app/com.discordapp.Discord"
+  - "{{ faramir_user_home }}/.local/share/Insync"
+  # The RubyGems API key, which publishes as its owner. Two locations because gem reads
+  # whichever the environment points it at.
+  - "{{ faramir_user_home }}/.gnome/.gem/credentials"
+  - "{{ faramir_user_home }}/.local/share/gem/credentials"
+  # Each editor's secret store, `state.vscdb` and the extensions' saved tokens beside it. The
+  # globalStorage directory and not the editor's own, which holds `settings.json`, the
+  # keybindings and the MCP config, all files an agent is asked to edit. The per-workspace
+  # copy of `state.vscdb` is left readable: an editor writes a new one for every workspace
+  # opened, and no list of paths keeps up with that.
+  - "{{ faramir_user_home }}/.config/Code/User/globalStorage"
+  - "{{ faramir_user_home }}/.config/Cursor/User/globalStorage"
+  - "{{ faramir_user_home }}/.config/Antigravity/User/globalStorage"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - "{{ faramir_user_home }}/.clipboard"
   - "{{ faramir_user_home }}/.var/app/app.getclipboard.Clipboard"
 
-# The same refusal by name, matched against the whole of the path the agent writes rather
-# than against this filesystem. So a name reaches inside a container, where a path cannot,
-# and an entry matching no file here is armed rather than skipped.
+# faramir has no name form: an entry is a path or a command, and a path is absolute. So a
+# rule that matched the tail of whatever an agent named, wherever it turned up, has no
+# equivalent here, and what only a pattern could say is not said at all.
 #
-# Not written --strict, unlike the paths above: a name matches wherever it turns up, so a
-# strict `*.key` or `.env*` refuses every command mentioning any such file in any checkout on
-# the host. These stay at the default reading, which refuses a command that would read, copy
-# or move the file and leaves the rest alone.
+# Left uncovered by that, each checked against this host before it was given up: `*.key` and
+# `*.pem`, whose every instance here is a CA bundle or a test fixture; `*.vault` and
+# `vault.yml`, which nothing here writes; `.env*`, which lives in working trees that come and
+# go; and `state.vscdb*`, which an editor writes once per workspace and again for each new
+# one, so no list of paths keeps up. The globalStorage directory holding the secret store is
+# blocked by path instead.
 #
-# The shape comes from the pattern, and faramir refuses one that is nothing but wildcards:
-#
-#   credentials                  that exact name, in any directory
-#   .storage/core.config_entries that file inside any directory of that name
-#   *.key                        a suffix
-#   .env*                        a prefix, so `.env.local` and not `faramir.env`
-#   secrets*.yml                 a wildcard inside a name, not crossing a separator
-#   .storage/                    a directory, and everything under it
-faramir_blocked_names:
-  # The operator's own SSH identities under the names ssh-keygen gives them, and the private
-  # key and certificate suffixes. No uid boundary covers any of these: the agent runs as the
-  # operator.
-  #
-  # The current key types only. `id_dsa` is left out: OpenSSH has refused DSA for
-  # authentication by default since 7.0, so a key under that name is one nothing accepts.
-  - id_rsa
-  - id_ecdsa
-  - id_ed25519
-  - "*.key"
-  - "*.pem"
-  # A file called `credentials`, which is the name the cloud CLIs give theirs, and a dotenv
-  # file. The dotenv entry is a prefix so that `faramir.env` stays readable: it holds
-  # `faramir://` refs and no values, and both injection routes read it.
-  - credentials
-  - ".env*"
-  # Docker's registry auth, which with no credsStore holds base64 user:pass and which no
-  # managed ref carries, so nothing redacts it either. A name because `docker login` writes
-  # the file whenever someone runs it, and a path absent when the role stats it is skipped.
-  #
-  # Blocked rather than linked for the same reason: `docker login` replaces the file by
-  # rename, and the replacement is created 0600, which takes the broker's read with it.
-  - ".docker/config.json"
-  # Antigravity's OAuth refresh token and the API key beside it. A name for the same reason
-  # as the entry above: `~/.gemini/config/` is not there to stat until someone signs the CLI
-  # in, and a path absent when the role runs is skipped. It carries more here than for the
-  # other agents, this being the one faramir gives neither deny rules nor redaction, so the
-  # rule is the whole of what stands in front of it. The file and not `.gemini/`, which also
-  # holds the instructions an enrolment writes.
-  - ".gemini/config/config.json"
-  # Every other signed-in token on the host, names for that same reason: none of these files
-  # is there to stat until someone signs the tool in, so a path entry would be skipped on
-  # every converge until the token it guards already existed, which is the whole window that
-  # matters on a host being set up.
-  #
-  # The agents' own tokens first. `.credentials.json` is not the `credentials` name below, so
-  # nothing else covers it; `config.yaml` is a config holding a model provider's API key
-  # inline. faramir configures codex and cursor not at all, so for those a rule is the whole
-  # of what covers them.
-  - ".claude/.credentials.json"
-  - ".codex/auth.json"
-  - ".local/share/opencode/auth.json"
-  - ".continue/config.yaml"
-  # Then Claude Desktop's, the GitHub CLI's and clasp's Google refresh token. The cookie jar
-  # and the leveldb stores beside Claude Desktop's are covered by the Electron names below,
-  # as are the VS Code forks'. `hosts.yml` and not `.config/gh/`: `config.yml` beside it is
-  # aliases and editor settings, which an agent is asked to edit.
-  - ".config/Claude/buddy-tokens.json"
-  - ".config/gh/hosts.yml"
-  - ".clasprc.json"
-  # The default location vim writes its register history to, which is content and not only
-  # filenames: a register holds the text of the last yank or delete. The directory the
-  # dotfiles' `vimrc` points `viminfofile` at is a path above; this covers any other vim.
-  - ".viminfo"
-  # Where an Electron profile keeps a signed-in session: the cookie jar and the journal
-  # beside it, which holds the same rows until it is checkpointed, and the leveldb stores the
-  # web views write to. The VS Code forks add a sqlite secret store, `state.vscdb`, whose
-  # `.backup` and `.options.json` the prefix takes with it.
-  #
-  # Names rather than paths because each editor and each Electron application keeps this same
-  # set under a profile directory of its own, and blocking those directories would take
-  # `settings.json`, `keybindings.json` and the MCP configs with them, which are files an
-  # agent is asked to edit. `User/sync/` is the Settings Sync cache, which holds a synced
-  # copy of those same files and so whatever key was pasted into one.
-  #
-  # The two carrying a space are matched literally by the shell guard, which sees the command
-  # as written: the quoted form is refused and a backslash-escaped one is not. The file tools
-  # match the path either way, and no other spelling closes it, a path entry being quoted the
-  # same way.
-  - "state.vscdb*"
-  - Cookies
-  - Cookies-journal
-  - "User/sync/"
-  - "Local Storage/"
-  - "Session Storage/"
-  - "WebStorage/"
-  # Firefox's profile store, which holds every saved password, session cookie and card in
-  # `logins.json` and `key4.db`. A name rather than a path because the native store is
-  # `~/.mozilla` and the flatpak keeps its own under `.var/app`, and one name covers both.
-  # The Chromium family is blocked by path instead, each install having a directory of its
-  # own that a single name does not span.
-  - ".mozilla/"
-  # ansible-vault, which nothing here uses. Both entries, because neither covers the other:
-  # the suffix takes `group_vars/all.vault` and the name takes `vault.yml`, which ends in
-  # `.yml`. The `vault*` that would span them also takes the vault binary.
-  - "*.vault"
-  - vault.yml
-  # Home Assistant's config entries, which hold every integration's credentials in the clear.
-  # Reachable only through the container, so only a name reaches it. Read a config-entry
-  # field with ha-mcp's `ha_get_integration` instead, whose diagnostics dump the integration
-  # redacts itself.
-  - ".storage/core.config_entries"
+# A name also reached a file an agent opened inside a container, where the path is the mount
+# point's and not the host's. Nothing reaches that now.
 
 # Commands the agent's shell is refused. Literal words, not a pattern: the space between them
 # matches any run of whitespace and nothing else is special, so write what you would type.

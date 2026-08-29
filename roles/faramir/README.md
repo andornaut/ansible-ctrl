@@ -158,26 +158,24 @@ Enrol another tree with `cd <dir> && sudo faramir init-project`.
 **faramir compiles in no credential rules.** What an install refuses by default is its own directories at their
 real paths: the config dir, the store, `/var/log/faramir`, `/usr/local/libexec/faramir`, and the service accounts'
 state dirs. Everything else on a host is covered because the lists here declare it, and nothing reports what is
-missing, so a gap is found by sweeping a host rather than by asking one. `tasks/entries.yml` converges the three.
+missing, so a gap is found by sweeping a host rather than by asking one. `tasks/entries.yml` converges the two.
 
 | List | Entry | Reaches | Checked against the host |
 | --- | --- | --- | --- |
-| `faramir_blocked_paths` | `path` | the agent's file tools and its shell | yes, and an absent path is skipped |
-| `faramir_blocked_names` | `name` | the same | no, so an entry matching nothing today is armed rather than dead |
+| `faramir_blocked_paths` | `path` | the agent's file tools and its shell | no, and a rule for a path that is not there holds when it appears |
 | `faramir_blocked_commands` | `command` | the shell alone, a command being neither | no |
 
-- **`faramir_blocked_paths` and `faramir_links` are written `--strict`; the other two lists are not.** The shell
+- **`faramir_blocked_paths` and `faramir_links` are written `--strict`; `faramir_blocked_commands` is not.** The shell
   guard then refuses a command that names the file at all, not only one that would read, copy or move it, so
   `ls`, `stat` and `chmod` are refused it too, and the value is asked for by ref instead. The cost is that nothing
   converges such a file through the agent any more: rotating a key or fixing a mode is the operator's at a
-  terminal. A path bounds that to one file on this host, which is why it carries the flag and a name does not: a
-  strict `*.key` or `.env*` would refuse every command mentioning any such file in any checkout. A command entry
-  cannot carry it at all, faramir refusing the pair, a command entry already being about what a command does.
+  terminal. A path bounds that to one file on this host, which is why it carries the flag. A command entry cannot
+  carry it at all, faramir refusing the pair, a command entry already being about what a command does.
 
-- **A name is matched against the end of the path an agent writes, so it crosses a container boundary and a path
-  cannot.** `docker exec ha cat /config/.storage/auth` names the mount point, and an entry for the host directory
-  under it covers nothing. Its shape comes from the pattern: a bare name, a name carrying a directory component,
-  `*.suffix`, `prefix*`, a wildcard inside a name, or a trailing `/` for a directory.
+- **A path is the only form that names a file, and it is absolute.** Nothing matches a suffix, a prefix, or the
+  tail of a path, so a store with no fixed location cannot be declared, and neither can a file an agent opens
+  inside a container, where the path is the mount point's and not the host's. What that leaves uncovered on this
+  fleet is listed in `defaults/main.yml` beside the paths.
 - **A command is literal words, not a pattern.** The space between them matches any run of whitespace and nothing
   else is special. An alternation is spelled out as separate entries.
 - **A command entry matches where a command starts**: the beginning of a line, after a separator, or behind a
@@ -188,7 +186,7 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 | | a block entry | `faramir_links` |
 | --- | --- | --- |
 | Entry | `[[secret.block]]` | `[[secret.link]]` |
-| Names | a path, a name or a command | a ref, a path, a type, and a key for the types that select |
+| Names | a path or a command | a ref, a path, a type, and a key for the types that select |
 | Blocked to the agent's file tools | yes, except a command | yes |
 | Regrouped, so a brokered command is refused it | no, the mode is left alone | yes |
 | In the redactor, tokenised wherever it appears | no, the file is never opened | yes |
@@ -205,14 +203,14 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   besides, so the second entry adds nothing and faramir says so.
 - **`faramir_links` is set in `host_vars`, not here.** `link add` refuses a new entry whose file is not there, so a
   link in the committed defaults fails the run on a controller without that file. An absent blocked path is
-  skipped and named, so those stay in defaults.
+  written and warned about, so those stay in defaults.
 - **A path is absolute and in its shortest form**, a rule matching it as written; no `~`, which nothing expands. A
   directory blocks everything under it, whether or not it is one on the day the rule is written. The run prints
   what each entry warned about.
-- **Only a blocked path the host has is configured.** The role stats each one as root and names the rest in its
-  output rather than blocking them. A file that appears after a run is blocked by the next one and not before,
-  which is safe because an absent path can only mean the host has no such thing: `broker.yml` has already refused
-  a home that is encrypted and not mounted.
+- **Every blocked path is configured, whether or not the host has the file.** faramir writes the rule for an
+  absent path and it holds when the file appears, so a tool signed in after a converge is covered before the next
+  one runs. The run warns for each path that is not there, and a path spelled wrong warns the same way, so read
+  the warnings against the list rather than as noise.
 - **Both commands are idempotent**, so the role names every entry on every run rather than diffing the install: an
   entry already carried is re-applied, which is what puts back a grant a tool took away and a rule an agent's
   settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards.
