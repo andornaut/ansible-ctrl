@@ -8,6 +8,7 @@
 #
 # Optional vars:
 #   dev_cli_shell (str): default bash
+#   dev_cli_env (dict): default {}, extra environment for the installer
 - name: Install {{ dev_cli_name }} # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL {{ dev_cli_url }} | {{ dev_cli_shell | default('bash') }}
@@ -17,5 +18,4 @@
     executable: /bin/bash
   become: true
   become_user: "{{ dev_user }}"
-  environment:
-    HOME: "{{ dev_user_home }}"
+  environment: "{{ {'HOME': dev_user_home} | combine(dev_cli_env | default({})) }}"

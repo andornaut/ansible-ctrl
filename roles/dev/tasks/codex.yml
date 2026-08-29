@@ -1,5 +1,40 @@
 ---
-- name: Install Codex
-  ansible.builtin.include_tasks: install_global_npm.yml
+# CLEANUP (added 2026-08-29): drop this block once every host with the codex tag
+# has run it. Upstream leads with the standalone installer below, and the two
+# installs coexist: the npm one keeps its symlink in the npm prefix's bin and
+# PATH order alone decides which codex runs.
+#
+# The probe is what makes this skippable rather than a new npm dependency: this
+# tag no longer installs node, so a host that never had it has nothing to remove.
+- name: Remove the npm-managed Codex
+  become: true
+  block:
+    # shell, not command: `command -v` is a builtin with no binary to exec.
+    - name: Check for npm
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: command -v npm
+      register: dev_codex_npm_bin
+      changed_when: false
+      failed_when: false
+
+    - name: Uninstall the npm-managed Codex
+      community.general.npm:
+        name: "@openai/codex"
+        global: true
+        state: absent
+      when: dev_codex_npm_bin.rc == 0
+
+# CODEX_NON_INTERACTIVE answers no to every prompt the installer asks. Without it
+# the run blocks on a tty it may or may not have: the installer offers to launch
+# the TUI when it is done, and offers to uninstall the npm package above, which
+# it must not do here because the block above already has.
+- name: Install Codex CLI
+  ansible.builtin.include_tasks: install_user_cli.yml
   vars:
-    dev_npm_package: "@openai/codex"
+    dev_cli_name: Codex CLI
+    dev_cli_bin: codex
+    dev_cli_url: https://chatgpt.com/codex/install.sh
+    dev_cli_shell: sh
+    dev_cli_env:
+      CODEX_NON_INTERACTIVE: "true"
