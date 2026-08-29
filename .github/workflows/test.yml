@@ -46,6 +46,14 @@ jobs:
         with:
           python-version-file: .python-version
 
+      # The markdown check calls markdownlint-cli2, which package.json pins and
+      # Dependabot bumps through the npm ecosystem.
+      - name: Set up Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
       - name: Cache Ansible collections
         uses: actions/cache@v6.1.0
         with:
@@ -64,19 +72,11 @@ jobs:
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r requirements.yml
 
+      # markdownlint-cli2, which the markdown check calls through npx.
+      - name: Install Node packages
+        run: npm ci
+
       # Every check in one step. The script runs them all and names each result,
       # so a failure still says which check failed.
       - name: Run every check
         run: tests/lint.sh
-
-      # The action bundles markdownlint-cli2, so its own tag is the tool pin and
-      # Dependabot proposes the bump through the github-actions ecosystem. It
-      # fetches nothing at run time, so a slow host cannot turn this red.
-      - name: Run markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v24.2.0
-        with:
-          # Empty on purpose. The action defaults this to `*.{md,markdown}`,
-          # which is the repository root only, and anything passed here outranks
-          # the `globs` in .markdownlint-cli2.yaml. Empty leaves the config file
-          # deciding, so this gate and a local `markdownlint-cli2` read one list.
-          globs: ""

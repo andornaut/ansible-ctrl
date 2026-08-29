@@ -1,6 +1,7 @@
 .ansible/
 .ruff_cache/
 __pycache__/
+node_modules/
 
 # Inventory and variables: these name hosts and bind credentials, so the whole
 # directory is ignored rather than the files known to exist today.

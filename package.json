@@ -1,0 +1,8 @@
+{
+  "name": "ansible-ctrl",
+  "private": true,
+  "description": "Lint tooling only. Nothing here is installed on a host: the playbooks reach Node through the roles.",
+  "devDependencies": {
+    "markdownlint-cli2": "0.23.2"
+  }
+}

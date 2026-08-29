@@ -66,7 +66,7 @@ AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@echo "Available targets:"
-	@echo "  clean                 - Remove temporary role files"
+	@echo "  clean                 - Remove downloaded roles, collections and lint tooling"
 	@echo "  help                  - Show this help message"
 	@echo "  lint                  - Run every check CI gates on"
 	@echo "  requirements          - Install required Ansible roles and collections"
@@ -100,9 +100,9 @@ help:
 	@echo "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
 
 clean:
-	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv
+	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules
 
-# The same five checks CI runs, from the same script. Depends on requirements:
+# The same six checks CI runs, from the same script. Depends on requirements:
 # ansible-lint's syntax-check reports every collection module unknown without them.
 lint: requirements
 	@$(AS_OPERATOR) tests/lint.sh

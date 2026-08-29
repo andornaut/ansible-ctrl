@@ -142,17 +142,21 @@ check_identity() {
     "${python}" tests/identity.py
 }
 
-# markdownlint-cli2 reads .markdownlint-cli2.yaml, matching the CI workflow step.
-# Prefers markdownlint-cli2 on PATH, falling back to npx markdownlint-cli2 if available.
+# markdownlint-cli2 is pinned in package.json and run out of node_modules/,
+# which a local run installs on first use and CI installs in a step of its own.
+# Never a bare `npx markdownlint-cli2`: that fetches whatever version is current
+# when nothing is installed, so the local run would gate on a version no commit
+# here names. Passing no arguments leaves the file list to
+# .markdownlint-cli2.yaml, so this and a hand-run markdownlint-cli2 read one list.
 check_markdown() {
-    if command -v markdownlint-cli2 >/dev/null 2>&1; then
-        markdownlint-cli2
-    elif command -v npx >/dev/null 2>&1; then
-        npx --no markdownlint-cli2
-    else
-        echo "neither markdownlint-cli2 nor npx found on PATH" >&2
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "npm not found on PATH" >&2
         return 1
     fi
+    # npm ci, not install: the lockfile is the pin, and it rebuilds the tree
+    # from it rather than resolving a new one beside it.
+    [[ -x node_modules/.bin/markdownlint-cli2 ]] || npm ci --silent || return 1
+    node_modules/.bin/markdownlint-cli2
 }
 
 main() {
