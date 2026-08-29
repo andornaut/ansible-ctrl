@@ -21,14 +21,14 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- `nas-mount.service` is a systemd oneshot that mounts the array on boot if the LUKS key file exists. It runs
-  after `local-fs.target` and starts `media-nas.mount`, which pulls in the LUKS unlock via fstab's systemd
-  dependencies.
+- `nas-mount.service` is a systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts
+  `media-nas.mount`. With `nas_key_file_mount_unit` set it runs after and binds to that unit; otherwise it runs
+  after `local-fs.target` only if the LUKS key file exists.
 
 ## Setup
 
-The role does not create the LUKS devices, the filesystem, or the fstab and crypttab entries. Do that once, by
-hand, before applying it.
+The role does not create the LUKS devices or the filesystem: do that once, by hand, before applying it. The
+crypttab and fstab entries are written by the role.
 
 1. Create the LUKS-encrypted devices:
 
@@ -56,22 +56,6 @@ hand, before applying it.
        /media/nas
 
    btrfs filesystem show /media/nas
-   ```
-
-3. Add the mapper devices to `/etc/crypttab`, as `<mapper name> <UUID> <key file> <options>`:
-
-   ```text
-   nas0 UUID-0000-1111-2222 /root/luks-key luks,noauto
-   nas1 UUID-3333-4444-5555 /root/luks-key luks,noauto
-   nasbackup /dev/disk/by-id/ata-XXX-YYY_ZZZZ /root/luks-key luks,noauto
-   ```
-
-4. Add the mount points to `/etc/fstab`, as `<device> <mount point> <filesystem> <options>`:
-
-   ```text
-   /dev/mapper/nas0 /media/nas btrfs defaults,noauto,nofail,device=/dev/mapper/nas0,x-systemd.after=blockdev@dev-mapper-nas0.target,x-systemd.requires=dev-mapper-nas0.device,x-systemd.requires-mounts-for=/dev/mapper/nas0,device=/dev/mapper/nas1,x-systemd.after=blockdev@dev-mapper-nas1.target,x-systemd.requires=dev-mapper-nas1.device,x-systemd.requires-mounts-for=/dev/mapper/nas1,x-systemd.device-timeout=20s 0 0
-
-   /dev/mapper/nasbackup /media/nasbackup btrfs defaults,noauto,nofail,x-systemd.after=blockdev@dev-mapper-nasbackup.target,x-systemd.requires=dev-mapper-nasbackup.device,x-systemd.requires-mounts-for=/dev/mapper/nasbackup,x-systemd.device-timeout=20s 0 0
    ```
 
 ## Operations

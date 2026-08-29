@@ -14,7 +14,8 @@ make homeautomation -- --tags frigate
 
 ## Tags
 
-Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone runs nothing.
+Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone installs nothing.
+A tag whose flag is off may still remove what an earlier run installed.
 
 | Tag | Description |
 | --- | --- |
@@ -29,7 +30,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
 | llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
 | matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
-| [memryx](https://memryx.com/) | GPU accelerator drivers |
+| [memryx](https://memryx.com/) | MemryX MX3 AI accelerator drivers |
 | [mosquitto](https://mosquitto.org/) | The MQTT broker on its own. No flag; also applied by `homeassistant` |
 | otbr | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter` |
 | teardown | Remove the containers and host files of components this host does not install |
@@ -63,8 +64,8 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
 [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
 resolves to its bridge IP, so use the container's **internal** port, not always the published one: openwebui
-listens on 8080 and publishes host port 3000. Several publish no host port at all; uncomment their port mappings
-in the task files if host-port access is needed.
+listens on 8080 and publishes host port 3000. Several publish no host port at all; of those, only llamacpp's
+task file carries a commented-out mapping to enable when host-port access is needed.
 
 Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then
 [teardown.yml](./tasks/teardown.yml) releases the names, ports and devices of removed components, then
@@ -73,8 +74,8 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 
 ### Container ports
 
-Internal ports. Those that are configurable are `homeautomation_*_port` in
-[defaults/main.yml](./defaults/main.yml).
+Internal ports. The `homeautomation_*_port` variables in [defaults/main.yml](./defaults/main.yml) set the
+published host side of a bridge container's mapping, not the internal port listed here.
 
 | Container | Network | Port | Protocol | Description |
 | --- | --- | --- | --- | --- |
@@ -102,7 +103,7 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern 
 
 | Measure | Constraint |
 | --- | --- |
-| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), with a uid above the range `adduser` allocates from | A file on a bind mount then names the service that wrote it. The uids are in [vars/main.yml](./vars/main.yml), asserted distinct before any account is created. mosquitto follows the uid baked into its image instead |
+| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), each with a fixed uid | A file on a bind mount then names the service that wrote it. The uids are in [defaults/main.yml](./defaults/main.yml) and `host_vars`, collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto follows the uid baked into its image instead |
 | `cap_drop: ALL` for every container running as a non-root uid | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set |
 | `no-new-privileges` everywhere, root included | It blocks the setuid transition that would make a permitted capability effective |
 | Directories closed rather than files, wherever a service rewrites its own state with its own umask | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings |
@@ -141,10 +142,9 @@ advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so seve
 models. An agent sees only entities exposed to Assist, and does not fire
 [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
 
-Home Assistant uses host networking, so Docker gives it a **copy** of the host's `/etc/hosts` (see
-[moby](https://github.com/moby/moby/blob/master/daemon/container_operations_unix.go)) rather than a mount.
-Recreating llamacpp on a different bridge IP therefore leaves Home Assistant on the old address until
-`docker restart homeassistant`.
+Home Assistant uses host networking, so [tasks/docker_homeassistant.yml](./tasks/docker_homeassistant.yml)
+bind-mounts the host's `/etc/hosts` into it read-only, and `docker_etc_hosts` overwrites the file in place
+rather than renaming into it, so a recreated container's new bridge IP is visible without a restart.
 
 ### Matter and Thread
 
@@ -190,7 +190,7 @@ built one among them, needs `adb uninstall` first, and that costs the app's own 
 | --- | --- |
 | The newest release already installed | Nothing. The versionName matches, so nothing is downloaded or installed |
 | A newer release published | Downloads it and installs over the old one, which keeps the pairing |
-| The app absent | Installs, grants, starts it, and reports the pairing code it now needs |
+| The app absent | Installs, grants, and starts it, ready for the pairing code it now needs |
 | A set off, or in standby | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
 | A build signed with another key | Fails, naming the uninstall that clears it |
 
@@ -241,13 +241,18 @@ letsencrypt_nginx_websites:
   # is bound to loopback for that reason; proxying it publishes the camera UI.
   - domain: frigate.example.com
     proxy_port: 8971
-    websocket_enabled: true
+    websocket_paths:
+      - /live/jsmpeg
+      - /live/mse/api/ws
+      - /live/webrtc/api/ws
   - domain: ai.example.com
     proxy_port: 3000
-    websocket_path: /ws/socket.io
+    websocket_paths:
+      - /ws/socket.io
   - domain: ha.example.com
     proxy_port: 8123
-    websocket_path: /api/websocket
+    websocket_paths:
+      - /api/websocket
 ```
 
 ### ha-mcp

@@ -35,8 +35,8 @@ Locality and escalation are derived, not declared:
 | Condition | Effect |
 | --- | --- |
 | `host` is the host running the role | Read from the local filesystem, with no login prefix and no escalation |
-| Login account is `root` | Pulled over SSH with no escalation. pfSense has no `sudo` at all |
-| Any other login account | Pulled over SSH, the point restating `rsync_long_args` with `--rsync-path='sudo /usr/bin/rsync'` |
+| Login account is `root` | Pulled over SSH with no escalation: the point restates `rsync_long_args` without the sudo wrapper. pfSense has no `sudo` at all |
+| Any other login account | Pulled over SSH, escalating through the global `rsync_long_args`, which carries `--rsync-path='sudo /usr/bin/rsync'` |
 
 A path naming an account belongs to the host being backed up, not the one running the role, so it
 resolves through `hostvars`, which templates in the owning host's scope. A bare `{{ primary_user }}`
@@ -83,8 +83,8 @@ rsnapshot_retention:
 - Cron runs one job per retention interval as root.
 - Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem.
 - `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as `scripts`.
-- Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{host}/`,
-  script output in `{host}_{script}/`.
+- Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{name}/`,
+  script output in `{name}_{script}/`.
 - Unchanged files are hard-linked between snapshots, so `du` over the whole root overstates disk usage.
   A file rewritten between runs is stored in full each time, so a large database costs its own size per
   retained snapshot.

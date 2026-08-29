@@ -8,7 +8,7 @@ the source of truth and applies the Android divergences in [`profile.yml`](profi
 | --- | --- |
 | What it owns on the device, and what it leaves alone | The module docstring of [`syncretroid.py`](syncretroid.py) |
 | The flags | `syncretroid --help` |
-| Why each divergence exists | `profile.yml`'s inline comments, and the "Retroid Pocket Mini / Flip 2" and "Cores" sections of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md) |
+| Why each divergence exists | `profile.yml`'s inline comments, and the "Retroid Pocket Flip 2" and "Cores" sections of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md) |
 
 This file covers what the code cannot show: values that must be read off the device by hand, the shader setup, and
 the failure modes.
@@ -37,10 +37,10 @@ adb shell 'sed -n "s/^rgui_config_directory = \"\(.*\)\"/\1/p" \
 adb shell ls "/storage/emulated/0/RetroArch/config"
 ```
 
-**Pad indices.** `profile.yml`'s `controller` block binds rewind/fast-forward, but the axis/button values are
-physical device indices that differ per pad, so they ship as `nul`. Bind the two hotkeys in RetroArch
-(Settings > Input > Hotkeys: **Rewind** and **Fast-Forward Hold**), close it, and copy the four resolved values
-into `profile.yml`.
+**Pad indices.** `profile.yml`'s `controller` block binds rewind/fast-forward as Android keycodes (L3/R3); the
+right-stick axes stay `nul` on purpose, this pad's being Z/RZ, which N64, PSP, DS and Dreamcast use in-game. For
+a different pad, bind the two hotkeys in RetroArch (Settings > Input > Hotkeys: **Rewind** and
+**Fast-Forward Hold**), close it, and copy the resolved values into `profile.yml`.
 
 ```bash
 adb shell 'grep -E "input_(rewind|hold_fast_forward)_(btn|axis)" \
@@ -65,8 +65,8 @@ and get no shader.
 | PPSSPP | `gl` | The libretro core's Vulkan path on Android has a long run of crash reports. `gl` is what it runs on today |
 
 Everything else, including Flycast and Beetle PSX HW (already on vulkan), gets
-`config/<library_name>/<library_name>.slangp`: a one-line `#reference` to the pushed preset, so the pack keeps its
-relative paths.
+`config/<library_name>/<library_name>.slangp`: a `#reference` to the pushed preset (plus any `shaders.params`
+keys), so the pack keeps its relative paths.
 
 - `syncretroid` owns those preset files, so tune the shader in `profile.yml`'s `shaders.params` rather than by
   saving parameters in RetroArch, which the next sync overwrites. Keys are the `#pragma parameter` names in

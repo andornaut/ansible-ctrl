@@ -25,7 +25,7 @@ make dev -- --tags rust
 | java | [OpenJDK](https://openjdk.org/) 17 and 21 |
 | javascript | [Node.js](https://nodejs.org/en) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default |
 | [kilocode](https://github.com/Kilo-Org/kilocode) | Kilo Code CLI and VS Code extension |
-| [opencode](https://github.com/opencode-ai/opencode) | OpenCode AI tool |
+| [opencode](https://github.com/anomalyco/opencode) | OpenCode AI tool |
 | pi | Two coding agents: [pi](https://github.com/earendil-works/pi) (`pi`) and [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`), a fork of it |
 | [python](https://www.python.org/) | Python 3 with pip, venv, pipenv, and [uv](https://github.com/astral-sh/uv) |
 | [ruby](https://www.ruby-lang.org/) | Ruby with [chruby](https://github.com/postmodern/chruby), [ruby-install](https://github.com/postmodern/ruby-install), and `dev_ruby_version` built under `~/.rubies` with [Bundler](https://bundler.io/) |
@@ -42,9 +42,9 @@ configure their cron jobs and the directories they operate on.
 
 | Tag | Constraint |
 | --- | --- |
-| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. `dev_ai_attributions_release_url` pins a version or follows the rolling `dev` release. The cron entry scans with `--quiet`, printing nothing when every repository is clean and the `apply --push` command for each one that is not. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` it suggests does |
+| ai_attributions | The binary comes from the project's newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. `dev_ai_attributions_release_url` is a role var in [vars/main.yml](./vars/main.yml), not a host knob, and follows version tags only: the latest-release redirect skips the rolling `dev` release. The cron entry scans with `--quiet`, printing nothing when every repository is clean and the `apply --push` command for each one that is not. Forks are skipped by the tool. `git-filter-repo` is a system package rather than a dependency of this tag: scanning does not need it, the `apply` it suggests does |
 | ai_maintainer | Symlinks [ai-maintainer](https://github.com/andornaut/ai-maintainer) from a local checkout (`dev_ai_maintainer_project_script_path`) when present, and downloads it otherwise |
-| android_sdk | Installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google names the command line tools archive after a build number with no stable alias for the newest, so `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. sdkmanager requires the archive be installed as `cmdline-tools/latest`, and installs nothing until the license hash files under `licenses/` exist, which the role writes directly |
+| android_sdk | Installs to `dev_android_sdk_root` (`~/Android/Sdk`), where Android Studio also looks. Google names the command line tools archive after a build number with no stable alias for the newest, so `dev_android_sdk_cmdline_tools_build` pins it and has to be raised by hand. sdkmanager requires the archive be installed as `cmdline-tools/latest`, and installs nothing until the license hash files under `licenses/` exist, which the role has sdkmanager write by accepting every license |
 | cursor | Unprivileged user namespaces come from a dedicated AppArmor profile, not from disabling the restriction globally |
 | javascript | `dev_node_version` copies the pin the JavaScript repositories hold in `.nvmrc`. The apt `nodejs` is separate and stays: it serves other users and the Ansible tasks, neither of which sources nvm. The default alias is written as `~/.nvm/alias/default`, `nvm alias default` reporting no difference between a change and a no-op |
 | java | Two JDKs. 21 is Ubuntu's default and answers a plain `java`; 17 is what Gradle's Android plugin is built against, so `android_sdk` sets `JAVA_HOME` to 17. A Gradle build that picks the default JDK fails with a toolchain error naming the JDK it found |
@@ -61,7 +61,7 @@ where its flag is set, and the file is removed where neither is.
 # Run ai-maintainer by hand
 ~/.local/bin/ai-maintainer --dry-run --verbose
 
-# Scan every repository, not only the ones with a finding as the cron entry does
+# Scan every repository, with output for clean ones that the cron entry's --quiet suppresses
 ~/.local/bin/ai-attributions scan --agents-files --emdashes ~/src/github.com/andornaut/*
 
 # Fix one repository, with or without publishing (the second prints the push command)

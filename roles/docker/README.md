@@ -8,7 +8,7 @@ Installs Docker CE and Docker Compose on Ubuntu, and adds `docker_user` to the `
 make docker
 
 # Kubernetes is gated on a flag as well as its tag, so the tag alone runs nothing
-make docker -- --tags kubernetes -e docker_install_kubernetes=true
+make docker ARGS='--tags kubernetes -e docker_install_kubernetes=true'
 ```
 
 ## Tags

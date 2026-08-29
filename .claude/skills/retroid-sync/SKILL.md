@@ -37,5 +37,5 @@ Run from the controller, where the ROM library is local and the command is on PA
 
 - **Cores are never synced.** sdcard and emulated storage are mounted `noexec`, so RetroArch can only `dlopen` from the app-private cores dir, which adb cannot write on a non-rooted device. Install them with RetroArch's in-app Core Updater; playlists just point `core_path` there.
 - **ES-DE ROM dirs use North-America short names** (genesis, segacd, sega32xna, tg16, tg-cd, ...), not the library's No-Intro names; the `rom_dir_names` map bridges them.
-- **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match ES-DE's bundled `es_systems.xml` `<command label>`.
+- **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match an ES-DE `es_systems.xml` `<command label>` (bundled, or from the installed custom_systems for PS2).
 - Two values `syncretroid` cannot derive and that fail silently: core `library_name`s and the pad rewind/FF indices. See the README's "Verify on the device" section.

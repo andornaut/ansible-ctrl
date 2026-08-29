@@ -55,12 +55,12 @@ flatpak run --command=grep org.libretro.RetroArch -E '^input_(r_y_minus_axis|r_y
 
 ### VRR
 
-`vrr_runloop_enable` is the one optional per-host setting, turned on in `games_retroarch_extra_settings` for a VRR
+`vrr_runloop_enable` is an optional per-host setting, turned on in `games_retroarch_extra_settings` for a VRR
 panel. The play asserts its preconditions:
 
 | Precondition | Detail |
 | --- | --- |
-| No other video-to-audio sync method | vsync, a swap interval above 1, and black frame insertion all conflict. On a fixed-refresh panel leave it off and use BFI instead |
+| No conflicting video-to-audio sync method | vsync must be on with a swap interval of 1 (or 0 for auto), and black frame insertion off. On a fixed-refresh panel leave VRR off and use BFI instead |
 | VRR enabled outside RetroArch | A compositor setting under Wayland; `Option "VariableRefresh"` in `xorg.conf.d` under X11, where it conflicts with `TearFree` |
 
 ## GameMode

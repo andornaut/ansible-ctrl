@@ -34,8 +34,8 @@ See [defaults/main.yml](./defaults/main.yml).
 ## Notes
 
 - betaflight is pinned because upstream is PWA-only now, so only older releases ship a Linux portable build. It
-  installs to `/opt/betaflight/<version>`, exposed as `/opt/betaflight/current`, with `betaflight-configurator`
-  on PATH.
+  installs to `/opt/betaflight/<version>`, with `/opt/betaflight/current` linking to the application directory
+  inside it and `betaflight-configurator` on PATH.
 - freecad comes from the maintainers' stable PPA, Ubuntu shipping no freecad package. That series lags the latest
   major release. `freecadcmd` runs headless scripts against its bundled OpenCascade.
 - freerouting installs to `/opt/freerouting`. The `freerouting` wrapper on PATH passes `-da` to disable analytics.

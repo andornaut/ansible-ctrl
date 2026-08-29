@@ -27,7 +27,10 @@ Links for the [homeautomation](../README.md) role.
 ## Custom cards
 
 - [Advanced camera card](https://github.com/dermotduffy/advanced-camera-card)
+- [Button card](https://github.com/custom-cards/button-card)
 - [Card mod](https://github.com/thomasloven/lovelace-card-mod)
+- [Custom features tile card](https://github.com/Nerwyn/custom-card-features)
+- [Decluttering card](https://github.com/custom-cards/decluttering-card)
 - [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
 
 ## Integrations
@@ -38,8 +41,7 @@ Built-in:
 - [Denon AVR](https://www.home-assistant.io/integrations/denonavr/)
 - [Ecobee](https://www.home-assistant.io/integrations/ecobee/)
 - [Elgato Light](https://www.home-assistant.io/integrations/elgato/)
-- [Envisalink](https://www.home-assistant.io/integrations/envisalink/) and
-  [Envisalink Refactored](https://github.com/ufodone/envisalink_new)
+- [Envisalink](https://www.home-assistant.io/integrations/envisalink/)
 - [Google Cast](https://www.home-assistant.io/integrations/cast/)
 - [HomeKit](https://www.home-assistant.io/integrations/homekit/)
 - [llama.cpp](https://www.home-assistant.io/integrations/llama_cpp): conversation agent backed by the llamacpp
@@ -56,10 +58,13 @@ Custom:
 - [Bambu Lab](https://github.com/greghesp/ha-bambulab)
 - [Custom Icons](https://github.com/thomasloven/hass-custom_icons)
 - [Dreo](https://github.com/JeffSteinbok/hass-dreo)
+- [Envisalink Refactored](https://github.com/ufodone/envisalink_new)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration) and its
   [notifications blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
 - [Govee2MQTT](https://github.com/wez/govee2mqtt)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
+- [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule)
+- [Watchman](https://github.com/dummylabs/thewatchman)
 
 ## Other
 

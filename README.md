@@ -40,7 +40,7 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | --- | --- |
 | Arguments after `--` | forwarded to `ansible-playbook` |
 | An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead |
-| `--ask-become-pass` | added only when the run reaches the controller, the one host whose sudo asks: either it is in the play's host list, or a role in the run has a `become` task under `delegate_to: localhost` |
+| `--ask-become-pass` | added unless the run provably avoids the controller, the one host whose sudo asks: added when it is in the play's host list, when a role in the run mentions `delegate_to: localhost` (a text grep over the role directory), or when the `faramir_controller` group resolves to no host. A root run never gets it |
 | `ASK_PASS=1` | forces the prompt |
 | `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential |
 | `PREFLIGHT=none` | skips the reachability probe, and attempts every host |
@@ -176,5 +176,5 @@ Two more gates that `make lint` does not run:
 
 | Gate | Covers |
 | --- | --- |
-| markdownlint, a second step of the same workflow | Every tracked `.md` file, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). Run it locally with `markdownlint-cli2` and no arguments, which reads the same config |
+| markdownlint, a second step of the same workflow | Tracked `.md` files outside `.claude/`, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). Run it locally with `markdownlint-cli2` and no arguments, which reads the same config |
 | [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution or a long dash, and one that ships a local-only agent instruction file. The last two are opt-in flags: the action leaves them off and this workflow sets them |

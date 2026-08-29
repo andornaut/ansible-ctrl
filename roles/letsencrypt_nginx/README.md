@@ -17,7 +17,7 @@ make webservers -- --tags nginx
 | cron | Certificate renewal cron job |
 | docker | Manage the NGINX Docker container |
 | [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job |
-| nginx | apt, www, basicauth, and configuration |
+| nginx | Everything: `webservers.yml` applies both `nginx` and `letsencrypt` at play level, so either selects every task. Only `configuration`, `cron`, `docker` and `www` narrow a run |
 | www | Set up web root directories and clone site repos |
 
 ## Variables

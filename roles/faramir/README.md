@@ -42,7 +42,7 @@ membership is read at login.
 
 | Play | Entry point | Hosts | Effect |
 | --- | --- | --- | --- |
-| first | `tasks/broker.yml` (via `tasks/main.yml`) | `faramir` | Installs the broker on each of them |
+| first | `tasks/broker.yml` (`tasks_from`) | `faramir` | Installs the broker on each of them |
 | second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the controller's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
 
 `faramir_controller_host` is derived from the `faramir_controller` group rather than named here, this repo being public, and
@@ -71,10 +71,10 @@ routes around that:
 Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every
 managed host. The one password prompt comes before anything applies.
 
-Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, and `SUDO_USER` otherwise.
-Each covers what the other gets wrong: `SUDO_USER` is the operator wherever a human typed the sudo, and the
-executor account on a brokered run, which is the one `FARAMIR_OPERATOR` answers. A run that resolves the executor
-refuses, naming the home it looked in.
+Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, `SUDO_USER` on a typed
+sudo, and the invoking account on an unprivileged run. Each covers what the others get wrong: `SUDO_USER` is the
+operator wherever a human typed the sudo, and the executor account on a brokered run, which is the one
+`FARAMIR_OPERATOR` answers. A run that resolves the executor refuses, naming the home it looked in.
 
 The agent's route takes no password:
 
@@ -117,7 +117,7 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
 - **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir_controller'`: commands run as
   `faramir-exec`, whose only sudo is the one `faramir_allow_sudo` grants, and that one asks a person per command,
   so a play would raise a question per task. Apply the controller's own playbooks as the operator, or under the
-  single approval [above](#running-playbooks) buys.
+  single approval that [Running playbooks](#running-playbooks) buys.
 - **`faramir_allow_sudo` works under either `sudo`.** Ubuntu ships two implementations from 25.10 on, and the
   install probes the `sudo` alternatives group and writes the arrangement that one reads. The grant sets
   `noninteractive_auth`, which needs sudo 1.9.11 or sudo-rs 0.2.9; the install names the floor and writes nothing
@@ -260,12 +260,13 @@ only after it has run here once unguarded.
   prints reaches the model.
 - Enrolling claude gives up this project's Bash prompts: a rewritten command matches no permission rule, so the
   hook approves it. The other four have no approval to return.
-- The files an enrolment writes into a tree are gitignored globally rather than by this repo.
+- The files an enrolment writes into a tree are gitignored: claude's by this repo's `.gitignore` (`.claude/*`),
+  the rest globally.
 
 ## Verification
 
 From the repository root: an ad-hoc `ansible` command has no playbook, so the vars plugin looks for
-`faramir.env` in the working directory, and run from anywhere else it reports the credential undefined.
+`faramir.env` in the working directory, and run from anywhere else it fails naming the missing file.
 
 ```bash
 faramir run --env-file faramir.env -- \
@@ -276,7 +277,7 @@ faramir run --env-file faramir.env -- \
 | Output | Meaning |
 | --- | --- |
 | `«SECRET:...»` | the chain works end to end |
-| a bare name | the ref was not injected |
+| `VARIABLE IS NOT DEFINED!` | the ref was not injected |
 | `ENC[AES256_GCM,...]` | the encrypted file sits where Ansible auto-loads it |
 
 `sudo faramir doctor` adds the boundary checks, which ask each account what it can reach and need a uid other than

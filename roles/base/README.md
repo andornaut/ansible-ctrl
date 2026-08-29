@@ -4,7 +4,7 @@ Installs base packages and system configuration common to every Ubuntu host.
 
 ## Usage
 
-Applied to every host by `base.yml`. `homeautomation.yml` and `webservers.yml` carry a commented-out `- base`
+Applied to every host but the routers by `base.yml` (`all:!routers`). `homeautomation.yml` and `webservers.yml` carry a commented-out `- base`
 entry to uncomment on a host's first run.
 
 ```bash
@@ -43,7 +43,7 @@ Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)):
 | Accounts are closed to each other | `HOME_MODE` and `adduser`'s `DIR_MODE` at `0710`, `o-rwx,g-r` on each login account's home. Nothing below the home needs converging. Subtractive only, and ownership is never set: `USERGROUPS_ENAB` gives each account a private group, so the group bits reach nobody but the owner until a home's group is deliberately shared, and a shared group keeps the traversal it needs without a listing |
 | A session's default modes | `UMASK 002` in `/etc/login.defs`, read by `pam_umask` for login shells and SSH sessions. A default, not a boundary: a process may change it, and systemd units read `UMask=` instead. 002 keeps a file created in a setgid share group-writable, as the NAS share and others like it need |
 | A home is closed only when its account owns it | A passwd entry naming a shared directory is left alone, and `base_account_exclude_homes` excludes the placeholder homes that service accounts created without `--system` point at |
-| SSH accepts keys only | `sshd_config.d/00-ansible-role-base.conf` sets `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`. Validated with `sshd -t` before it lands, applied with a reload that established connections survive |
+| SSH accepts keys only | `sshd_config.d/00-ansible-role-base.conf` sets `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`. Validated with `sshd -t` before it lands, applied with a reload that established connections survive, skipped where `ssh.service` is not running, as under socket activation |
 | No opt-out flag | The role proves key-only SSH already works, from the controller and with ansible's own connection settings, and **fails the play** where it does not, naming the `ssh-copy-id` to run |
 | The SSH port is `base_lockdown_ssh_port`, 22 unless `host_vars` names another | Set through `sshd_config`, which `sshd-socket-generator` turns into `ssh.socket`'s `ListenStream` at `daemon-reload`. A `Port` left anywhere else is cleared, sshd accumulating them rather than taking the first. Before the port moves, the host's keys are pinned on the controller under the name ssh looks them up by: the bare address on 22, `[host]:port` otherwise |
 

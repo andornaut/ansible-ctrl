@@ -18,7 +18,7 @@ Tags marked *tiling* are skipped when `desktop_environment` is `gnome`.
 | [alacritty](https://alacritty.org/) | Terminal emulator |
 | browser | [Google Chrome](https://www.google.com/chrome/) and [Firefox](https://www.firefox.com/), then points `xdg-settings` at `desktop_default_browser` |
 | [coolercontrol](https://gitlab.com/coolercontrol/coolercontrol) | Fan and pump curve control |
-| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME keyboard layout and input sources, on a gnome host only, written to the system database at `/etc/dconf/db/local.d` and pinned in `local.d/locks/` so they reach every account and none can change them. The Ubuntu Dock is `desktop_user`'s alone. The lock and idle policy is the `idle` tag's |
+| [dconf](https://wiki.gnome.org/Projects/dconf) | GNOME keyboard layout and input sources, written on a gnome host and removed on the rest (`dconf-cli` and `python3-psutil` are installed on every desktop), to the system database at `/etc/dconf/db/local.d` and pinned in `local.d/locks/` so they reach every account and none can change them. The Ubuntu Dock is `desktop_user`'s alone. The lock and idle policy is the `idle` tag's |
 | display-manager | [lemurs](https://github.com/coastalwhite/lemurs) or [ly](https://github.com/fairyglade/ly), *tiling* |
 | [dunst](https://dunst-project.org/) | Notification daemon, built from source, *tiling* |
 | [eww](https://github.com/elkowar/eww) | Widget daemon, *tiling* |
@@ -48,7 +48,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | --- | --- |
 | `desktop_environment` | `bspwm`, `niri`, or `gnome`. Selects the window manager `desktop.yml` applies, and which tags run. Required and asserted; no default |
 | `desktop_default_browser` | `firefox` or `google-chrome`. The one `xdg-settings` marks as default |
-| `desktop_install_*` | Feature flags, all defaulting to `false`. `parental_controls`, `firefox` and the optional flatpaks still run when false, undoing what an earlier run enforced. An optional flatpak turned off is uninstalled with its permission override, its `~/.var/app` data and any runtime left unused |
+| `desktop_install_*` | Feature flags, all defaulting to `false`. `parental_controls`, `firefox`, `it87`, `nct6687d` and the optional flatpaks still run when false, undoing what an earlier run enforced. An optional flatpak turned off is uninstalled with its permission override, its `~/.var/app` data and any runtime left unused |
 | `desktop_screen_*_minutes` | Idle timeouts, in order: blank, lock, monitor power-off |
 | `desktop_suspend_inactive_minutes` | Idle suspend. Unset leaves the host's policy alone; 0 disables it |
 | `desktop_idle_backstop_minutes` | Minutes of real input idle after which the panel is powered down whatever holds an idle inhibitor; 0 disables it |
@@ -157,5 +157,5 @@ everyone else, so the `/etc/nsswitch.conf` edit is system-wide while the policy 
 | Chrome merges every file in `/etc/opt/chrome/policies/managed/`, later name winning | A `family.json.bak` outranks the original, so the role owns the directory and sweeps anything it did not deploy |
 | The role asserts the chosen list type has entries | An empty allow list sinkholes everything; an empty block list filters nothing while reporting filtering is on |
 | Both flatpak installation permissions are passed explicitly | Setting any OARS ceiling also disallows installation from the system repository, which the role restores when it clears the filter |
-| Clearing `desktop_install_parental_controls` lifts the controls rather than ceasing to reassert them | The tag runs on every desktop host and, with the flag false, clears both `malcontent` filters and removes the Chrome policy. Remove the host's `desktop_parental_controls_*` block too: the role asserts no setting is left describing a policy nothing enforces |
+| Clearing `desktop_install_parental_controls` lifts the controls rather than ceasing to reassert them | The tag runs on every desktop host and, with the flag false, clears both `malcontent` filters and removes the Chrome policy. Remove the host's `desktop_parental_controls_*` block too: the role asserts the OARS ceiling and web filter type are unset with the flag false |
 | `malcontent-webd-update.service` needs a `network-online.target` override | The packaged unit is `WantedBy=multi-user.target` with no network ordering, so at boot the fetch fails 69/UNAVAILABLE before a resolver answers and the unit stays failed until the timer's `OnBootSec=15min` run. The role deploys the drop-in |

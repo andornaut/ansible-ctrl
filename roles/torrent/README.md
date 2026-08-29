@@ -54,7 +54,7 @@ Installed to `/usr/local/bin/` on the controller:
 
 | Behaviour | Constraint |
 | --- | --- |
-| Each script is generated with one call per host in the `torrent` group, from that host's own `hostvars[host].torrent_root_directory` (falling back to the play host's value), appending the `watch/` and `completed/` subdirectory names | The role's `torrent_watch_directory` and `torrent_completed_directory` would name one host's paths for every host |
+| Each script is generated with one call per host in the play batch (a `--limit` run generates scripts covering only those hosts), from that host's own `hostvars[host].torrent_root_directory` (falling back to the play host's value), appending the `watch/` and `completed/` subdirectory names | The role's `torrent_watch_directory` and `torrent_completed_directory` would name one host's paths for every host |
 | `mvt`, `synct` and `unrart` keep going past a failed host, file or archive, and exit non-zero at the end | cron notices the exit code, not the warnings |
 | `--quiet` suppresses progress output only; `warn()` and `error()` print regardless | A healthy quiet run prints nothing, so anything in the log names something that failed |
 | `mvt` and `synct` take a `flock` (`mvt` one for the whole run, `synct` one per host and directory) and fail when it is held | A transfer takes seconds and cron fires every 2 minutes, so a held lock means a prior run is wedged |
@@ -87,7 +87,7 @@ Prompt and safety:
 
 | Rule | Why |
 | --- | --- |
-| Invoking the script is the up-front sign-off, for exactly the listed entries | The media-root guides require sign-off for a batch over 10 items or spanning libraries, which nobody can give under `-p`. Every other safety rule stands (per-pass dry-run, collision detection, non-overwriting moves, post-verify counts, `HISTORY.md`), and anything the run would otherwise ask about stays in the incoming directory and is reported at the end |
+| Invoking the script is the up-front sign-off, for exactly the listed entries | The media-root guides require sign-off for a multi-item, multi-library batch, which nobody can give under `-p`. Every other safety rule stands (per-pass dry-run, collision detection, non-overwriting moves, post-verify counts, `HISTORY.md`), and anything the run would otherwise ask about stays in the incoming directory and is reported at the end |
 | The entry list is fenced between `BEGIN ENTRIES`/`END ENTRIES` and labelled as data the run must not act on, each line prefixed with dash-space | This run has every permission check disabled, so a release name that reads like an instruction must stay part of the name and must not be able to reproduce the end marker. Names containing a newline are skipped |
 | `claude` runs from the library root, not the incoming directory | Every destination is a sibling of `incoming/`, so the root is the smallest cwd covering them all without an `--add-dir` grant. Sessions bucket by cwd, so the first streamed line prints the full `cd ... && claude --resume ...` command |
 | `--dry-run` prints its list even under `--quiet` | That list is the only thing the run produces |

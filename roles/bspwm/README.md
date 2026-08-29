@@ -24,10 +24,10 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects` are built from source into
-  `/usr/local/bin`.
+- BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects` are built from source and staged
+  over `/usr/local` (binaries, man pages, completions).
 - Owns the X11 tools that [niri](../niri/) replaces with Wayland equivalents (`scrot`, `xsecurelock`, `xss-lock`,
-  `xbacklight`), plus `dex` and `xorg`. Tools both sessions share live in [desktop](../desktop/).
+  `xbacklight`), plus `dex`, `dbus-x11` and `xorg`. Tools both sessions share live in [desktop](../desktop/).
 - Locking uses three programs: the X server blanks and powers off the monitor on `xset` timers, and `xss-lock`
   watches the X screensaver extension and `logind` to start `xsecurelock`. All three timeouts are written into the
   session script by [desktop](../desktop/README.md#idle-locking-and-suspend).

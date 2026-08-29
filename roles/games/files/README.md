@@ -1,8 +1,8 @@
 # RetroArch helper scripts
 
-The four scripts that implement the `games` role's RetroArch convergence. The role runs them
-(`../tasks/retroarch.yml`), but each takes its input from arguments, an environment variable, or a
-committed file, so any can be run by hand to debug a single stage.
+The four scripts that implement the `games` role's RetroArch convergence. The role runs three of them
+(`../tasks/retroarch.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its output committed. Each can be
+run by hand to debug a single stage.
 
 **Each script's module docstring is the authoritative reference** for its full input schema, defaults,
 and edge cases. This file is the operator's quick start.
@@ -23,8 +23,9 @@ and edge cases. This file is the operator's quick start.
   `dlopen`s each one, and a core needing a library only the runtime carries (LRPS2 wants `libaio`) will not load
   on the host. A core that will not load in the sandbox either is a broken build, so the script exits non-zero
   and names it.
-- Playlist generation and thumbnail fetching are also driven over `adb`, against a different mount layout, by
-  [`retroid/syncretroid.py`](retroid/syncretroid.py). The examples below are the desktop invocation.
+- Playlist generation is also driven, against a different mount layout, by
+  [`retroid/syncretroid.py`](retroid/syncretroid.py), which then mirrors the desktop's filled thumbnail cache
+  over `adb` rather than fetching. The examples below are the desktop invocation.
 
 ## Paths
 
@@ -64,8 +65,8 @@ JSON
 ) ./retroarch-generate-playlists.py
 
 # Fill the thumbnail cache. Prints one line per thumbnail written; games left with no box art
-# go to stderr. Exits non-zero only if the repository was unreachable, since that is
-# indistinguishable from a complete cache.
+# go to stderr. Exits non-zero if the repository was unreachable (indistinguishable from a
+# complete cache) or a system names a thumbnail_db the repository does not publish.
 RETROARCH_THUMBNAILS_CONFIG=$(cat <<JSON
 {"playlist_dir": "$config/playlists", "thumbnails_dir": "/media/nas/games/_Thumbnails"}
 JSON
