@@ -1,4 +1,5 @@
 .ansible/
+.ruff_cache/
 __pycache__/
 
 # Inventory and variables: these name hosts and bind credentials, so the whole
@@ -13,8 +14,8 @@ host_vars/
 # this entry guards against the directory reappearing.
 secrets/
 
-# Holds no value, only faramir:// references, but those references map this
-# repo's variables onto the secret store's layout.
+# Holds no value, only credential names, but those names carry site names and
+# this repository is public.
 faramir.env
 
 # AI agent instructions, local only. Named here as well as in the global

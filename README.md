@@ -95,14 +95,15 @@ primary_user=andornaut
 
 Every credential lives in `~/.config/faramir/secrets/ansible-ctrl.sops.yml`, encrypted with
 [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age), and named for
-what it is: `msmtp_password`, `hamcp_token_kaon`. `faramir.env` names every one, which is both what the broker
-injects and what [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) reads to decide which environment
-variables are credentials. Each arrives as a variable of that name, so `host_vars/` needs an entry only where the
+what it is: `msmtp_password`, `cloudflare_api_token`, with a per-site suffix where two sites hold separate
+values for the same thing. `faramir.env` names every one, which is both what the broker injects and what
+[vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) reads to decide which environment variables are
+credentials. Each arrives as a variable of that name, so `host_vars/` needs an entry only where the
 destination is named something else:
 
 ```yaml
 # host_vars/example.yml
-homeautomation_esphome_password: "{{ esphome_password_cybertron }}"
+homeautomation_esphome_password: "{{ esphome_password_example_site }}"
 ```
 
 That mapping is what routes a site-scoped credential, or one credential to several consumers. A destination whose
@@ -117,13 +118,14 @@ rather than reporting every credential undefined, which would read as a broker t
 beside the playbook, so an ad-hoc `ansible` command, which has no playbook and uses the working directory
 instead, has to run from the repository root.
 
-Adding a credential is two edits, three where it needs a mapping: the value into the sops file, the `faramir://`
-ref into `faramir.env`, and a reference in `host_vars/` only if the destination is named differently. A value reaches a play only through the environment, by one of three paths:
+Adding a credential is two edits, three where it needs a mapping: the value into the sops file, its name into
+`faramir.env`, and a reference in `host_vars/` only if the destination is named differently. A value reaches a
+play only through the environment, by one of three paths:
 
 | Path | How |
 | --- | --- |
 | `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and those targets [re-enter as root](roles/faramir/README.md#running-playbooks) |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`. `faramir.env` holds `faramir://` refs and no values, gitignored because those refs map this repo's variable names onto the store's layout |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`. `faramir.env` holds refs and no values, gitignored because the names it declares carry site names and this repository is public |
 | certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
 
 | Gotcha | Detail |
