@@ -90,7 +90,6 @@
       tags:
         - esphome
         - frigate
-        - govee2mqtt
         - hamcp
         - homeassistant
         - llm

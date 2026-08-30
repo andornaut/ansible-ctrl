@@ -173,7 +173,7 @@ rather than the lines a change touched.
 | `shell` | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders |
 | `python` | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions |
 | `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)) |
-| `markdown` | tracked `.md` files outside `.claude/`, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). markdownlint-cli2 is pinned in [package.json](package.json); a local run installs it under `node_modules/` on first use and CI installs it with `npm ci` |
+| `markdown` | tracked `.md` files outside the agent directories, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). markdownlint-cli2 is pinned in [package.json](package.json); a local run installs it under `node_modules/` on first use and CI installs it with `npm ci` |
 
 One more gate in CI that `make lint` does not run:
 

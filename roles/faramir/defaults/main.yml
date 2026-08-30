@@ -93,12 +93,12 @@ faramir_sudo_timeout_sec: 300
 
 # Paths the agent's file tools are refused. faramir compiles in no credential rules: an
 # install refuses its own directories at their real paths and nothing else, so each entry
-# across these three lists is the whole of what covers the store it names.
+# across these two lists is the whole of what covers the store it names.
 #
 # Absolute and in shortest form, a rule matching the path as written; no `~`, which nothing
 # expands. A directory refuses everything under it. Every entry is configured whether or not
 # this host has the file, the rule holding when the file appears and the run warning for each
-# one that is not there; how the three lists differ and what a removal cannot undo is in
+# one that is not there; how the two lists differ and what a removal cannot undo is in
 # README.md.
 #
 # Every entry in this list is written --strict, so a command naming one is refused whatever
@@ -115,12 +115,11 @@ faramir_blocked_paths:
   # the `.bak` beside each one no less so, though that one opens under the password the vault
   # carried before the last change. The manager itself is refused as a command below.
   - "{{ faramir_user_home }}/.local/share/mrs"
-  # The NSS databases, holding client certificates and the private keys that go with them
-  # under names (`key4.db`, `cert9.db`) that no suffix rule matches.
+  # The NSS databases, holding client certificates and the private keys that go with them in
+  # `key4.db` and `cert9.db`.
   - "{{ faramir_user_home }}/.pki"
   # The standard locations for an age identity, which is the key kind faramir's own store is
   # opened with: sops reads `~/.config/sops/age/keys.txt` and age-keygen writes `~/.age`.
-  # Neither is matched by `*.key` below, a file called `keys.txt` carrying no such suffix.
   - "{{ faramir_user_home }}/.config/sops"
   - "{{ faramir_user_home }}/.age"
   # Passwords a client library reads without a keyring in front of it: `.netrc` for ftp, curl
@@ -130,11 +129,9 @@ faramir_blocked_paths:
   # A kubeconfig, which holds a client certificate and key or a bearer token per cluster. The
   # file and not `.kube/`, the cache and the http cache beside it being neither.
   - "{{ faramir_user_home }}/.kube/config"
-  # The operator's own SSH private keys, named here as well as below: a path entry survives
-  # the name form's removal from faramir and is written --strict, and the names cross a
-  # container boundary that a path cannot. The directory is not blocked, `config`,
-  # `known_hosts` and `authorized_keys` beside the keys being files an agent is asked to read.
-  # A key under a name of the operator's choosing is covered by neither and needs an entry.
+  # The operator's own SSH private keys, one entry per key name. The directory is not
+  # blocked, `config`, `known_hosts` and `authorized_keys` beside the keys being files an
+  # agent is asked to read. A key under a name of the operator's choosing needs its own entry.
   - "{{ faramir_user_home }}/.ssh/id_rsa"
   - "{{ faramir_user_home }}/.ssh/id_ecdsa"
   - "{{ faramir_user_home }}/.ssh/id_ed25519"
@@ -144,29 +141,26 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.config/MQTT-Explorer"
   - "{{ faramir_user_home }}/.irssi"
   # The Chromium family's profile stores, holding every saved password, session cookie and
-  # card in `Login Data` and its keyring entry. One entry per directory rather than a name:
-  # the three chrome installs are three profiles, and a name matching `google-chrome` takes
-  # neither of the other two.
+  # card in `Login Data` and its keyring entry. One entry per directory: the three chrome
+  # installs keep three profiles, and a rule matches the path as written, so none of them
+  # covers another.
   - "{{ faramir_user_home }}/.config/google-chrome"
   - "{{ faramir_user_home }}/.config/google-chrome-for-testing"
   - "{{ faramir_user_home }}/.config/google-chrome-headless"
   - "{{ faramir_user_home }}/.config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
-  # keeps a second copy of the store above. Firefox's profile is named below instead, one
-  # name covering either install method; these stay because the app directory holds more than
-  # the profile.
+  # keeps a second copy of the store above. An entry per install method, each covering the
+  # profile and whatever else that app home holds.
   - "{{ faramir_user_home }}/.var/app/org.mozilla.firefox"
   # Firefox's native profile store, holding the same `logins.json`, `key4.db` and cookie jar
-  # as the flatpak's. Named by path as well as below because the path is the form that
-  # survives, and it is written whether or not this host has the native install today.
+  # as the flatpak's. Written whether or not this host has the native install today.
   - "{{ faramir_user_home }}/.mozilla"
   - "{{ faramir_user_home }}/.var/app/org.chromium.Chromium"
   - "{{ faramir_user_home }}/.var/app/com.heroicgameslauncher.hgl"
   # FileZilla encodes each site's password in `sitemanager.xml` and `recentservers.xml`
   # rather than encrypting it. The flatpak's copy is the whole of it, that being the only way
   # it is installed here, so no native `~/.config/filezilla` is written. Installing the apt
-  # build would want those two file names added below rather than a path: an apt purge leaves
-  # a home directory alone, and a path entry is skipped while the file is absent.
+  # build would want that directory added here as well, a rule matching the path as written.
   - "{{ faramir_user_home }}/.var/app/org.filezillaproject.Filezilla"
   # Session tokens, which stand in for the password they were issued against: a sync account
   # and two storefronts, itch keeping its API key in `db/butler.db`. Heroic and the
@@ -202,8 +196,8 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.cargo/credentials.toml"
   # One signed-in token per tool, each at the fixed path its tool writes. `.credentials.json`
   # is not the `credentials` name it reads like, and `config.yaml` is a config carrying a
-  # model provider's API key inline. faramir configures codex and cursor not at all, so for
-  # those a rule is the whole of what covers them.
+  # model provider's API key inline. faramir configures cursor not at all, so there a rule is
+  # the whole of what covers it.
   - "{{ faramir_user_home }}/.claude/.credentials.json"
   - "{{ faramir_user_home }}/.codex/auth.json"
   - "{{ faramir_user_home }}/.local/share/opencode/auth.json"
@@ -242,13 +236,13 @@ faramir_blocked_paths:
   - "{{ faramir_user_home }}/.viminfo"
   # Claude Code's own config, which holds each MCP server's environment and so whatever key
   # was written into one. The file and not `.claude/`, which holds the instructions and the
-  # settings an agent is asked to edit; `.claude/.credentials.json` is named below.
+  # settings an agent is asked to edit; `.claude/.credentials.json` is named above.
   - "{{ faramir_user_home }}/.claude.json"
   # Shell environment the dotfiles keep out of the committed `bashrc`, which is where an
   # export carrying a token goes. Beside `.private` above, and blocked for the same reason.
   - "{{ faramir_user_home }}/.bashrc.private"
-  # The adb private key, which is what a paired device authorizes. `adbkey` carries no suffix
-  # any rule below matches, and the public half beside it is not blocked.
+  # The adb private key, which is what a paired device authorizes. The file alone, the public
+  # half beside it not blocked.
   - "{{ faramir_user_home }}/.android/adbkey"
   # Zoom's signed-in session, which it keeps outside a keyring. The directory, a session
   # being more than one file.
@@ -278,15 +272,14 @@ faramir_blocked_paths:
 # rule that matched the tail of whatever an agent named, wherever it turned up, has no
 # equivalent here, and what only a pattern could say is not said at all.
 #
-# Left uncovered by that, each checked against this host before it was given up: `*.key` and
-# `*.pem`, whose every instance here is a CA bundle or a test fixture; `*.vault` and
-# `vault.yml`, which nothing here writes; `.env*`, which lives in working trees that come and
-# go; and `state.vscdb*`, which an editor writes once per workspace and again for each new
-# one, so no list of paths keeps up. The globalStorage directory holding the secret store is
-# blocked by path instead.
+# Left uncovered by that: `*.key` and `*.pem`, whose every instance here is a CA bundle or a
+# test fixture; `*.vault` and `vault.yml`, which nothing here writes; `.env*`,
+# which lives in working trees that come and go; and `state.vscdb*`, which an editor writes
+# once per workspace and again for each new one, so no list of paths keeps up. The
+# globalStorage directory holding the secret store is blocked by path instead.
 #
-# A name also reached a file an agent opened inside a container, where the path is the mount
-# point's and not the host's. Nothing reaches that now.
+# Nothing reaches a file an agent opens inside a container either, where the path is the
+# mount point's and not the host's.
 
 # Commands the agent's shell is refused. Literal words, not a pattern: the space between them
 # matches any run of whitespace and nothing else is special, so write what you would type.
@@ -311,7 +304,7 @@ faramir_blocked_paths:
 # already.
 faramir_blocked_commands:
   # The GitHub CLI's token, which it keeps in `~/.config/gh/hosts.yml`. That file is blocked
-  # by name already, so these are the other way to the same value: `gh auth token` prints it,
+  # by path already, so these are the other way to the same value: `gh auth token` prints it,
   # and `--show-token` (`-t`) unmasks what `gh auth status` otherwise prints as `gho_****`.
   #
   # `status` bare rather than the flag spelled out, because an entry is literal words with any

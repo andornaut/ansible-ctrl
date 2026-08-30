@@ -144,7 +144,7 @@ of that, the role:
   `/releases/latest` never returns it
 - On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
-- Converges the three block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
+- Converges the two block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
   that name a file rather than hold a value
 - Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in
   `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values
@@ -222,13 +222,11 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   `/etc/faramir` and configures an install this host does not have.
 - **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
   account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
-- **The block entries converge both ways.** A run adds what the three lists name and removes every declared entry
-  they do not, reading the host's own with `block ls --declared` and comparing per form, since a name and a path
-  spelled the same way are different entries. So the listing and `defaults/main.yml` agree once a run finishes, and
-  an entry added on a host by hand does not survive one. The run asserts that every `kind` it reads back is one of
-  the three, a fourth being one it would compare against no list and leave standing. A path is compared against
-  the whole of
-  `faramir_blocked_paths` rather than the present half, or an entry would come and go with the file.
+- **The block entries converge both ways.** A run adds what the two lists name and removes every declared entry
+  they do not, reading the host's own with `block ls --declared` and comparing per form, the form being part of
+  what identifies an entry. So the listing and `defaults/main.yml` agree once a run finishes, and an entry added
+  on a host by hand does not survive one. The run asserts that every `kind` it reads back is one of the two, a
+  third being one it would compare against no list and leave standing.
 - **A removal ends the declaration and no more.** It cannot take the rule out of an agent's settings, those files
   being merged rather than replaced, so the host goes on refusing what the entry named until that line is deleted
   by hand. The run names what it removed, and `faramir doctor` warns for as long as a rule stands that no entry
