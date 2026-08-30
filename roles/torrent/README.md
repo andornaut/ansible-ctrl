@@ -16,7 +16,9 @@ tmux -L rtorrent attach -t rtorrent
 ```
 
 The play targets the `torrent` group (the remote rtorrent host). [tasks/localhost.yml](./tasks/localhost.yml) is
-delegated to the implicit `localhost` (the controller) and runs only when the target is not localhost.
+delegated to the implicit `localhost` (the controller) and runs only when the target is not localhost. The
+`localhost` tag selects it on its own: `make torrent -- --tags localhost` reconciles the controller's scripts and
+cron jobs without applying the rtorrent half.
 
 - A delegated task resolves plain variables from the play host, not the delegate, so the controller-side
   `torrent_local_*` vars live in the play host's `host_vars/`, not a `localhost` host_vars file.

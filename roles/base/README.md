@@ -33,8 +33,9 @@ make base -- --tags filectrl
 | ubuntu-pro | Turns off the apt-news fetch, leaving the client installed |
 | unwanted | Purges and pins `base_unwanted_packages` ([vars/main.yml](./vars/main.yml)) |
 
-The apt package set, the timezone, the Caps Lock remap, `cache-command` and the editor alternative carry no tag,
-so a `--tags` run skips them.
+The apt configuration and package set, the universe and multiverse repositories, the motd-news opt-out, the
+timezone, the Caps Lock remap, `cache-command` and the editor alternative carry no tag, so a `--tags` run skips
+them.
 
 ## Variables
 
