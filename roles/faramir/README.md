@@ -167,7 +167,7 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 
 - **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
   `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
-  refused under every home. 119 shapes and one other account is 238 declared paths per host, most of them
+  refused under every home. 123 shapes and one other account is 246 declared paths per host, most of them
   absent. Every home, not every depth: a path is literal, so the same store nested somewhere else is a separate
   entry, and nothing reports the ones that are missing.
 - **Another account's stores are declared on every faramir host, not just the one holding the account.** A rule

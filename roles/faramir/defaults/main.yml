@@ -197,6 +197,9 @@ faramir_blocked_home_paths:
   # shell.
   - ".var/app/net.lutris.Lutris"
   - ".var/app/com.valvesoftware.Steam"
+  # The Bedrock launcher signs in to a Microsoft account and keeps the token beside a device
+  # key of its own, so it goes whole like the storefronts above it.
+  - ".var/app/io.github.wyze3306.BedrockOnLinux"
   # `~/.steam`, the other spelling of the store above it, a rule matching the path as written.
   - ".steam"
   # What vim persists between sessions, which is content and not only filenames: a register
@@ -265,6 +268,11 @@ faramir_blocked_home_paths:
   # was written into one. The file and not `.claude/`, which holds the instructions and the
   # settings an agent is asked to edit; `.claude/.credentials.json` is named above.
   - ".claude.json"
+  # The keys authenticating to the daemon and to each session's socket. Two directories rather
+  # than `.claude/`, which also holds the skills, the plugins and the projects tree, all of them
+  # read and written in ordinary work.
+  - ".claude/daemon"
+  - ".claude/sessions"
   # Shell environment the dotfiles keep out of the committed `bashrc`, which is where an
   # export carrying a token goes. Beside `.private` above, and blocked for the same reason.
   - ".bashrc.private"
@@ -312,6 +320,10 @@ faramir_blocked_home_paths:
   - ".config/Code/User/workspaceStorage"
   - ".config/Cursor/User/workspaceStorage"
   - ".config/Antigravity/User/workspaceStorage"
+  # The same store again, in the directory the forks share rather than under any one of them.
+  # It holds nothing else, so the directory is the entry: the `-shm` and `-wal` companions are
+  # the same database and there is no use in naming them apart.
+  - ".vscode-shared/sharedStorage"
   # The web session each of those editors keeps beside `globalStorage`, every one of them an
   # Electron profile: the cookie jar and its journal, which holds rows written but not yet
   # merged, and the stores a signed-in extension puts a token in. Per file for the reason
