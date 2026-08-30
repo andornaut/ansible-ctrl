@@ -12,6 +12,30 @@ make base
 make base -- --tags filectrl
 ```
 
+## Tags
+
+| Tag | Description |
+| --- | --- |
+| cloud-init | Purges and pins `cloud-init`, and removes `/etc/cloud` and `/var/lib/cloud` |
+| disk-cleanup | The `disk-cleanup` sweep and its weekly cron entry |
+| fail2ban | fail2ban and the sshd jail, from the `base_fail2ban_*` settings |
+| [filectrl](https://github.com/andornaut/filectrl) | File manager, from its newest GitHub release |
+| [gog](https://github.com/andornaut/gog) | Dotfiles manager, from its newest GitHub release |
+| lockdown | Home directory modes, the login umask, and key-only SSH on `base_lockdown_ssh_port` |
+| [mrs](https://github.com/andornaut/mrs) | Command line secrets manager, from its newest GitHub release |
+| rasdaemon | Hardware error recording, gated on `base_install_rasdaemon` |
+| snap | Purges and pins snapd, then sweeps the user directories and unit symlinks it leaves |
+| ssh-client | The ssh client defaults every host shares: connect timeout, keepalives, GSSAPI |
+| storage-space-alert | The alert script and its hourly cron entry |
+| sysctl | `fs.inotify.max_user_watches`, from `base_inotify_max_user_watches` |
+| systemd | Unit timeout and restart defaults, journald retention, and the `/tmp` age at `base_tmp_max_age` |
+| telemetry | Purges and pins the telemetry and crash-reporting packages, sweeps the leftover user state, and masks the crash-report units |
+| ubuntu-pro | Turns off the apt-news fetch, leaving the client installed |
+| unwanted | Purges and pins `base_unwanted_packages` ([vars/main.yml](./vars/main.yml)) |
+
+The apt package set, the timezone, the Caps Lock remap, `cache-command` and the editor alternative carry no tag,
+so a `--tags` run skips them.
+
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
