@@ -42,8 +42,9 @@ make faramir ARGS="--extra-vars k=v"             # Forward an argument containin
 | An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead |
 | `--ask-become-pass` | added unless the run provably avoids the controller, the one host whose sudo asks: added when it is in the play's host list, when a role in the run mentions `delegate_to: localhost` (a text grep over the role directory), or when the `faramir_controller` group resolves to no host. A root run never gets it |
 | `ASK_PASS=1` | forces the prompt |
-| `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential |
-| `PREFLIGHT=none` | skips the reachability probe, and attempts every host |
+| `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential. It also passes `secrets_required=false`, so the `pre_tasks` assert below does not outlive the decision to skip the injection |
+| reachability probe | `ansible -m raw -a true -T 1` runs before the play and drops through `--limit` every host it cannot reach, whatever the reason: off, refusing the identity, a moved host key and a wedged sshd all read the same. It reports `Preflight: dropped <host> (no connection)` per host, and stops the run only when nothing is left |
+| `PREFLIGHT=none` | skips that probe, and attempts every host |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for
 the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
