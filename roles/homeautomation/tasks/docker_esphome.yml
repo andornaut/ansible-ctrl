@@ -94,8 +94,6 @@
           logging: "{{ homeautomation_default_logging }}"
           # mDNS device discovery: the multicast does not cross the bridge.
           network_mode: host
-          # ports:
-          #   - "6052:6052"
           restart: unless-stopped
           security_opt: "{{ homeautomation_no_new_privileges }}"
           user: "{{ homeautomation_esphome_uid }}:{{ homeautomation_esphome_gid }}"
