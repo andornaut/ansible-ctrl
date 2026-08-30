@@ -291,15 +291,36 @@ faramir_blocked_home_paths:
   - ".config/Code/User/globalStorage"
   - ".config/Cursor/User/globalStorage"
   - ".config/Antigravity/User/globalStorage"
-  # The web session each of those editors keeps beside that store, every one of them an
+  # The local history beside it, which is the exception to `User/` being readable. It is not
+  # configuration but a mirror: a verbatim copy of every file the editor saved, whatever the
+  # file was and wherever it lives, kept under a hashed directory naming the source. So it
+  # holds past copies of `settings.json` and of any inventory or config opened for an edit,
+  # and blocking a file by its own path leaves the copies behind. Nothing an agent is asked
+  # to edit is in here: the editor writes it and reads it back through its own UI.
+  - ".config/Code/User/History"
+  - ".config/Cursor/User/History"
+  - ".config/Antigravity/User/History"
+  # Settings Sync's cache, which is a synced copy of the settings files and carries the account
+  # that signed the sync in. Blocking `settings.json` and leaving this behind blocks nothing.
+  - ".config/Code/User/sync"
+  - ".config/Cursor/User/sync"
+  - ".config/Antigravity/User/sync"
+  # Per-workspace state, each directory named by an opaque id and holding a `state.vscdb` of the
+  # same kind as the one in `globalStorage`. Named as the directory because the ids are
+  # unbounded: one is minted per workspace opened, so the files under it cannot be listed ahead
+  # of time. Nothing here is edited, the editor writing it and reading it back itself.
+  - ".config/Code/User/workspaceStorage"
+  - ".config/Cursor/User/workspaceStorage"
+  - ".config/Antigravity/User/workspaceStorage"
+  # The web session each of those editors keeps beside `globalStorage`, every one of them an
   # Electron profile: the cookie jar and its journal, which holds rows written but not yet
-  # merged, and the three stores a signed-in extension puts a token in. Per file for the reason
+  # merged, and the stores a signed-in extension puts a token in. Per file for the reason
   # globalStorage is: everything an agent is asked to edit lives under `User/`, and a rule
   # naming the editor's directory would take that with it.
   #
-  # `IndexedDB` is not under every editor today and the rule holds when it appears. What is
-  # deliberately left out is `Network Persistent State`, which records the hosts a profile has
-  # spoken to and carries no credential.
+  # `IndexedDB`, `Service Worker` and `WebStorage` are not under every editor today and the rule
+  # holds when they appear. What is deliberately left out is `Network Persistent State`, which
+  # records the hosts a profile has spoken to and carries no credential.
   #
   # The two names carrying a space are matched as the literal path, so the file tools are
   # refused them outright and a shell command reaches them only in the escaped spelling
@@ -309,19 +330,56 @@ faramir_blocked_home_paths:
   - ".config/Code/Local Storage"
   - ".config/Code/Session Storage"
   - ".config/Code/IndexedDB"
+  - ".config/Code/Service Worker"
+  - ".config/Code/WebStorage"
   - ".config/Cursor/Cookies"
   - ".config/Cursor/Cookies-journal"
   - ".config/Cursor/Local Storage"
   - ".config/Cursor/Session Storage"
   - ".config/Cursor/IndexedDB"
+  - ".config/Cursor/Service Worker"
+  - ".config/Cursor/WebStorage"
   - ".config/Antigravity/Cookies"
   - ".config/Antigravity/Cookies-journal"
   - ".config/Antigravity/Local Storage"
   - ".config/Antigravity/Session Storage"
   - ".config/Antigravity/IndexedDB"
+  - ".config/Antigravity/Service Worker"
+  - ".config/Antigravity/WebStorage"
   # Clipboard history, which holds whatever was copied through it, a password included.
   - ".clipboard"
   - ".var/app/app.getclipboard.Clipboard"
+  # Claude Desktop, an Electron profile like the editors above and split the same way, the
+  # session stores by path. `buddy-tokens.json` is declared further up, and its two MCP configs
+  # below. `Partitions/` is named whole rather than per partition: the app adds one per embedded
+  # view, each a profile of its own, and nothing under there is edited.
+  - ".config/Claude/Cookies"
+  - ".config/Claude/Cookies-journal"
+  - ".config/Claude/Local Storage"
+  - ".config/Claude/Session Storage"
+  - ".config/Claude/IndexedDB"
+  - ".config/Claude/WebStorage"
+  - ".config/Claude/Partitions"
+  # Electron and QtWebEngine apps whose whole directory goes, there being no file in them an
+  # agent is asked to edit. Each keeps a cookie jar, and a device configurator signs in to a
+  # vendor account like anything else.
+  - ".config/uhk-agent"
+  - ".config/ExpressLRS Configurator"
+  - ".config/betaflight-configurator"
+  - ".local/share/org.coolercontrol.CoolerControl"
+  # The launcher's web cache, which holds the account session. The rest of `.minecraft` is
+  # saves and mods, so the directory itself stays readable.
+  - ".minecraft/webcache"
+  # An MCP config names each server's environment, so a server configured with a literal key
+  # rather than a `faramir://` ref holds that key in the clear. Editing one is ordinary work,
+  # and this stops that: the guard refuses a declared path named at all, so a change to a server
+  # list is the operator's to make. Declared for the editors that have no such file yet, the
+  # rule holding when it appears.
+  - ".config/Code/User/mcp.json"
+  - ".config/Cursor/User/mcp.json"
+  - ".config/Antigravity/User/mcp.json"
+  - ".config/Claude/config.json"
+  - ".config/Claude/claude_desktop_config.json"
 
 # faramir has no name form: an entry is a path or a command, and a path is absolute and
 # literal, a wildcard in one refused at load. So a rule that matched the tail of whatever an
