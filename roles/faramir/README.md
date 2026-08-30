@@ -162,15 +162,41 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 
 | List | Entry | Reaches | Checked against the host |
 | --- | --- | --- | --- |
-| `faramir_blocked_paths` | `path` | the agent's file tools and its shell | no, and a rule for a path that is not there holds when it appears |
-| `faramir_blocked_commands` | `command` | the shell alone, a command being neither | no |
+| `faramir_blocked_home_paths` | `path` | the agent's file tools and its shell | no, and a rule for a path that is not there holds when it appears |
+| `faramir_blocked_commands` | `command` | the agent's shell and a brokered command, a command being neither a file nor a path | no |
 
-- **`faramir_blocked_paths` and `faramir_links` are written `--strict`; `faramir_blocked_commands` is not.** The shell
-  guard then refuses a command that names the file at all, not only one that would read, copy or move it, so
-  `ls`, `stat` and `chmod` are refused it too, and the value is asked for by ref instead. The cost is that nothing
-  converges such a file through the agent any more: rotating a key or fixing a mode is the operator's at a
-  terminal. A path bounds that to one file on this host, which is why it carries the flag. A command entry cannot
-  carry it at all, faramir refusing the pair, a command entry already being about what a command does.
+- **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
+  `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
+  refused wherever it turns up. 85 shapes and one other account is 170 declared paths per host, most of them
+  absent.
+- **Another account's stores are declared on every faramir host, not just the one holding the account.** A rule
+  refuses a command that names the path, and the agent works from the controller, where
+  `ssh <host> sudo cat <path>` reaches a second account's files over a NOPASSWD sudo that no local file mode
+  answers for. `faramir_shared_user_homes` is empty in the defaults and set in `group_vars/faramir.yml`, an
+  account name being inventory data, and the role asserts it is a list of absolute homes before anything is
+  written: a bare string would otherwise be joined one character at a time.
+- **The finer shape wins where a home holds a store and a readable file beside it.** `.ssh/id_rsa` and its five
+  siblings rather than `.ssh/`, because the operator's `config` and `known_hosts` are files an agent opens; the
+  same for each editor's `User/globalStorage` against its settings and MCP config, and for an agent's token
+  against its instruction file. Nothing can except a file from a directory rule, so the cost falls on the other
+  accounts, where a key named outside the list is not covered. Name it here rather than blocking the directory
+  under one home and the files under another.
+
+- **The agent is refused a declared path named at all**, whatever it meant to do with it, so `ls`, `stat`, `chmod`
+  and a sentence quoting the path in an `echo` are refused alike, across its file tools and its shell. The guard
+  holds no list of verbs: a verb list leaves any tool not on it unrefused. The entry's strictness does not enter
+  into this. Declaring a file also refuses a shell pattern in its directory that could reach it: with `~/.npmrc`
+  declared, a glob over the home directory is refused and `ls ~/*.md` is not. Nothing expands the pattern; the
+  literal parts are compared against the declared name.
+- **The path entries and `faramir_links` are written `--strict`; `faramir_blocked_commands` is not.** The
+  flag reaches the brokered route alone, and there only what a command does to the file where it stands. Reading a
+  declared file and moving it with `mv` or `ln` are refused either way, a mover leaving the contents readable
+  under a name no rule was written for. What `--strict` adds is refusing `chmod`, `chown`, `rm`, `truncate` and a
+  redirect over the file, and refusing a command that uses the credential in place (`cryptsetup --key-file`,
+  `ssh -i`, `restic --password-file`), which is otherwise the point of the brokered route. The cost is that
+  nothing converges such a file through a brokered command: rotating a key or fixing a mode is the operator's at a
+  terminal. A command entry cannot carry the flag at all, faramir refusing the pair, a command entry already being
+  about what a command does.
 
 - **A path is the only form that names a file, and it is absolute.** Nothing matches a suffix, a prefix, or the
   tail of a path, so a store with no fixed location cannot be declared, and neither can a file an agent opens
@@ -192,25 +218,31 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 | In the redactor, tokenised wherever it appears | no, the file is never opened | yes |
 | Injectable by ref | no | yes |
 
-- **A block stops the agent, not a brokered command.** It reaches the agent's own file tools and its shell, so a
-  path entry refuses both `Read` and `cat`. A brokered command runs as another account and is held by file modes
-  alone, so one whose mode allows it may still read a blocked file and print it in the clear.
+- **A block reaches the agent's file tools and its shell**, so a path entry refuses both `Read` and `cat`. A
+  command entry reaches a brokered command as well, which `block ls` reports for each one: refused to the agent's
+  shell and to a brokered command alike. What a brokered command may do to a declared path is the `--strict`
+  question above.
 - **Reserve a link for a file its owning tool rewrites in place.** A linked file that is there and will not read
   leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool that rewrites its own
   file by rename takes the broker's read with it: `make faramir` grants it again, and between runs the agent has no
   broker at all. Block the file instead where nothing asks for the value by name.
-- **A linked path does not also go in `faramir_blocked_paths`.** A link renders the same rule and three things
-  besides, so the second entry adds nothing and faramir says so.
+- **A linked path keeps its shape, and the host holding the link declares it once.** A link renders the same rule
+  and three things besides, so on that host the block entry adds nothing and gives a refusal two removals, neither
+  of which lifts it alone. The shape is not what comes out: `vars/main.yml` subtracts the paths a host's own links
+  name, so `~/.npmrc` stays blocked on a `dev` host that has npm and no link, and is a link where there is one.
+  The link is the entry that stays, having the ref the value is asked for by.
 - **`faramir_links` is set in `host_vars`, not here.** `link add` refuses a new entry whose file is not there, so a
   link in the committed defaults fails the run on a controller without that file. An absent blocked path is
   written and warned about, so those stay in defaults.
-- **A path is absolute and in its shortest form**, a rule matching it as written; no `~`, which nothing expands. A
-  directory blocks everything under it, whether or not it is one on the day the rule is written. The run prints
-  what each entry warned about.
+- **A shape is relative to a home and in its shortest form**, joined to each home and then matched as written; no
+  leading slash and no `~`, which nothing expands. A directory blocks everything under it, whether or not it is
+  one on the day the rule is written. The run prints what each entry warned about.
 - **Every blocked path is configured, whether or not the host has the file.** faramir writes the rule for an
   absent path and it holds when the file appears, so a tool signed in after a converge is covered before the next
   one runs. The run warns for each path that is not there, and a path spelled wrong warns the same way, so read
-  the warnings against the list rather than as noise.
+  the warnings against the list rather than as noise. What earns an entry is not presence but producibility: a
+  host here has the tool that writes the file, or a role installs it. A store nothing on this fleet can produce is
+  left out, and adding the tool adds its path.
 - **Both commands are idempotent**, so the role names every entry on every run rather than diffing the install: an
   entry already carried is re-applied, which is what puts back a grant a tool took away and a rule an agent's
   settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards.
@@ -227,10 +259,11 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   what identifies an entry. So the listing and `defaults/main.yml` agree once a run finishes, and an entry added
   on a host by hand does not survive one. The run asserts that every `kind` it reads back is one of the two, a
   third being one it would compare against no list and leave standing.
-- **A removal ends the declaration and no more.** It cannot take the rule out of an agent's settings, those files
-  being merged rather than replaced, so the host goes on refusing what the entry named until that line is deleted
-  by hand. The run names what it removed, and `faramir doctor` warns for as long as a rule stands that no entry
-  writes.
+- **A removal takes its rendered rules with it.** `block rm` re-renders the agent rule files as `block add` does,
+  and faramir keeps a record of what it last wrote into each one (`written-rules.json`, beside the config), so a
+  rule it rendered and no longer renders comes out while one nobody recorded is left as the operator's. A rule
+  written before that record existed is in the second class until a later run re-records it. The run names what it
+  removed.
 - **`faramir_links` is adds only.** A link grants the broker read and regroups the file, so dropping one changes
   what the host can serve rather than bringing a list back into agreement. Take an entry out of `faramir_links`
   and run the `rm` yourself. `link rm` takes no `--strict`, an entry coming out whichever strictness it carried.

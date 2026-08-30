@@ -10,6 +10,21 @@
 #
 # Why each entry is shaped the way it is: README.md.
 
+# A bare string here is the mistake a one-account list invites, and it does not fail as one:
+# the join in vars/main.yml iterates a string per character, so the run reaches faramir with
+# `h/.ssh` and `//.ssh` and fails partway through the adds, with the paths before them already
+# applied. Held to the shape before anything is written.
+- name: Require the shared account homes to be a list of absolute paths
+  ansible.builtin.assert:
+    that:
+      - faramir_shared_user_homes | type_debug == "list"
+      - faramir_shared_user_homes | reject('match', '^/[^/]') | list | length == 0
+      - faramir_shared_user_homes | select('match', '.*/$') | list | length == 0
+    fail_msg: >-
+      faramir_shared_user_homes is one absolute home per account, in a list and without a
+      trailing slash. This host has {{ faramir_shared_user_homes | to_json }}.
+    quiet: true
+
 # faramir holds each entry to its own rules, but only once the command runs: a missing key
 # here builds a command naming the wrong thing, or fails as an undefined attribute rather
 # than as the entry it came from.
@@ -27,17 +42,29 @@
   loop_control:
     label: "{{ item.ref | default('an entry naming no ref') }}"
 
-# One task per direction rather than one per form: the form is the flag the entry goes in
-# under, no form being the default and a bare argument refused.
+# One invocation per form rather than one per entry: `--path` and `--command` are repeatable,
+# and an add either writes every entry it names and the rules for them or leaves the host as
+# it was. The form is what has to stay apart, being the flag an entry goes in under and the
+# thing --strict rides on; no form is the default and a bare argument is refused.
+#
+# Two calls rather than one per entry because each one re-renders every agent's rule files,
+# which is the cost that scales with the list and not with what changed. What it gives up is
+# per-entry reporting: the label names the form and a count, `changed` is true where any entry
+# in the call changed, and a single malformed entry fails the whole call.
 #
 # Every path is named whether or not this host has the file. faramir writes the rule for an
 # absent path and it holds when the file appears, which is the window a credential store is
 # worth a rule in: a tool signed in after a converge is covered before the next one. The run
 # warns for each path that is not there, and a path spelled wrong warns the same way.
 #
-# --strict on the path entries alone, so a command naming one is refused whatever it meant to
-# do with it, `ls` and `stat` included. A path names one file on this host, so that is a rule
-# whose reach is known when it is written.
+# One entry per shape and home, vars/main.yml having joined the list to the operator's home
+# and to each in faramir_shared_user_homes. Most of what that produces is absent, which is the
+# case above: the rule is there to refuse a command naming the path, wherever that command
+# would have reached it.
+#
+# --strict on the path entries alone, the agent being refused one named at all whatever the
+# entry carries. What the flag adds on the brokered route: README.md. A path names one file on
+# this host, so that is a rule whose reach is known when it is written.
 #
 # Not on a command entry, which faramir refuses the flag for, a command entry already being
 # about what a command does.
@@ -47,15 +74,17 @@
 #
 # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
 # skips them rather than writing entries.
-- name: Block a path or a command to the agent
+- name: Block the declared paths and commands to the agent
   ansible.builtin.command:
     argv: >-
-      {{ faramir_block_argv + ['--' ~ item.0.key, item.1]
-         + (['--strict'] if item.0.key == 'path' else []) }}
+      {{ faramir_block_argv + (['--' ~ item.key] | product(item.value) | flatten | list)
+         + (['--strict'] if item.key == 'path' else []) }}
   become: true
-  loop: "{{ faramir_block_declared | dict2items | subelements('value') }}"
+  # An empty list would name no entry at all, which the command refuses.
+  when: item.value | length > 0
+  loop: "{{ faramir_block_declared | dict2items }}"
   loop_control:
-    label: "{{ item.0.key }} {{ item.1 }}"
+    label: "{{ item.key }} ({{ item.value | length }})"
   vars:
     faramir_block_declared:
       path: "{{ faramir_blocked_paths }}"
@@ -115,13 +144,16 @@
   vars:
     faramir_block_rows: "{{ faramir_block_ls.stdout | default('[]', true) | from_json }}"
 
-- name: Stop blocking an entry this role no longer declares
+- name: Stop blocking the entries this role no longer declares
   ansible.builtin.command:
-    argv: "{{ faramir_block_rm_argv + ['--' ~ item.0.key, item.1] }}"
+    argv: >-
+      {{ faramir_block_rm_argv + (['--' ~ item.key] | product(item.value) | flatten | list) }}
   become: true
-  loop: "{{ faramir_block_stale | dict2items | subelements('value') }}"
+  # Usually nothing, and a removal naming no entry is refused like an add.
+  when: item.value | length > 0
+  loop: "{{ faramir_block_stale | dict2items }}"
   loop_control:
-    label: "{{ item.0.key }} {{ item.1 }}"
+    label: "{{ item.key }} ({{ item.value | length }})"
   register: faramir_block_rm
   changed_when: faramir_block_rm.stdout | length > 0 and (faramir_block_rm.stdout | from_json).changed
 
@@ -144,23 +176,61 @@
   ansible.builtin.debug:
     msg: >-
       No longer declared, so removed: {{ faramir_block_stale_entries | sort | join(', ') }}.
-      Each rendered rule stays in the agent's settings, which are merged rather than
-      replaced, until it is deleted by hand.
+      The rules each one rendered come out of the agent's settings with it, faramir keeping a
+      record of what it wrote there.
   when: faramir_block_stale_entries | length > 0
   vars:
     faramir_block_stale_entries: "{{ faramir_block_stale.values() | flatten }}"
 
 # What installs cleanly and then does not work: a linked file that has gone, and whatever
-# else an add reports without failing on.
+# else an add reports without failing on. Gathered once, both readers below being over the
+# same list.
+- name: Collect what the entries warned about
+  ansible.builtin.set_fact:
+    faramir_entry_warnings: >-
+      {{ (faramir_block.results | default([])
+          + faramir_block_rm.results | default([])
+          + faramir_link.results | default([]))
+         | map(attribute='stdout', default='')
+         | reject('equalto', '')
+         | map('from_json')
+         | map(attribute='warnings', default=[])
+         | flatten }}
+  become: false
+
 - name: Show what the entries warned about
   ansible.builtin.debug:
     msg: "{{ item }}"
-  loop: >-
-    {{ (faramir_block.results | default([])
-        + faramir_block_rm.results | default([])
-        + faramir_link.results | default([]))
-       | map(attribute='stdout', default='')
-       | reject('equalto', '')
-       | map('from_json')
-       | map(attribute='warnings', default=[])
-       | flatten }}
+  loop: "{{ faramir_entry_warnings | reject('search', 'is not there') | list }}"
+
+# The rest of them, which is one per declared path this host does not have: most of the list
+# under every home, and the summary below is the reading that means anything. Kept behind -v
+# rather than dropped, a run that has to name which path is the run that has just changed one.
+#
+# One message rather than a loop: a debug the verbosity skips still reports per item, so a
+# loop here would print the line it exists to avoid.
+- name: Name the declared paths this host does not have
+  ansible.builtin.debug:
+    msg: "{{ faramir_entry_warnings | select('search', 'is not there') | list }}"
+    verbosity: 1
+
+# The list is declared under every home and most of it is absent under each, so the warnings
+# above are not something to read entry by entry. Counted per home instead, which is the one
+# reading that separates them: a home with nothing present is what an account name spelled
+# wrong looks like, and a home that is simply new has most of its paths present.
+#
+# Counted from the warnings rather than from the filesystem: an absent path is exactly what
+# the add reported, so this asks the host nothing it was not already told.
+- name: Say how much of the list each home has
+  ansible.builtin.debug:
+    msg: >-
+      {{ item }}: {{ faramir_home_declared | int - faramir_home_absent | int }} of
+      {{ faramir_home_declared }} declared paths are present.
+      {{ 'None of them, so read the home as spelled wrong until proven otherwise.'
+         if faramir_home_absent | int == faramir_home_declared | int else '' }}
+  loop: "{{ [faramir_user_home] + faramir_shared_user_homes }}"
+  vars:
+    faramir_home_declared: "{{ faramir_blocked_home_paths | length }}"
+    faramir_home_absent: >-
+      {{ faramir_entry_warnings | select('match', item ~ '/')
+         | select('search', 'is not there') | list | length }}

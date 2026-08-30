@@ -38,8 +38,8 @@
     # which the status line does not carry. `warn` covers what doctor could not ask as well
     # as what it found, and a skipped check reads as a passing one anywhere else.
     #
-    # Expect one per rule an agent's settings still carry for an entry taken out of the block
-    # lists, until that line is deleted by hand.
+    # `agent rule drift` is not where a removed block entry shows up: it reports only rules
+    # naming faramir's own install paths, and a removal takes its own rules out.
     - name: Show what faramir doctor warned about
       ansible.builtin.debug:
         msg: "{{ item.check }}: {{ item.detail }}"

@@ -18,6 +18,20 @@ faramir_deb_arch: >-
 # The account ansible connects to a managed host as, set per host by the inventory.
 faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 
+# What is declared on this host: every shape in faramir_blocked_home_paths under every home,
+# the operator's first. One list joined to each home rather than a list per account, so a
+# store named once is refused wherever it turns up.
+#
+# Less whatever faramir_links already names. A link is written --strict, so a block entry
+# beside one renders the same rule a second time and gives a refusal two removals, neither
+# of which lifts it alone. The link is the entry that stays: it carries the ref the value is
+# asked for by, which a block entry has nothing to offer in place of. A shape linked under
+# one home keeps its block entry under every other, no link there naming it.
+faramir_blocked_paths: >-
+  {{ ([faramir_user_home] + faramir_shared_user_homes)
+     | product(faramir_blocked_home_paths) | map('join', '/')
+     | reject('in', faramir_links | map(attribute='path') | list) | list }}
+
 faramir_release_repo: andornaut/faramir
 
 # Assets hang off the tag itself, so faramir_release_tag is enough and nothing has to be
@@ -75,10 +89,10 @@ faramir_init_project_argv: >-
   }}
 
 # The entry commands, each taking its subject after these under the flag naming its form:
-# --path, --name or --command. No form is the default and a bare argument is refused. Both
-# are idempotent, so the role names every entry on every run rather than diffing the host
-# first: re-applying is what puts back a grant a tool took away by renaming its own file, and
-# a rule an agent's settings dropped.
+# --path or --command. No form is the default and a bare argument is refused. Both are
+# idempotent, so the role names every entry on every run rather than diffing the host first:
+# re-applying is what puts back a grant a tool took away by renaming its own file, and a rule
+# an agent's settings dropped.
 #
 # No --agent-user, and none of these takes one: `faramir init` is the only command that
 # names the operator, and each of these reads what it recorded in [server] agent_user. A
@@ -92,10 +106,9 @@ faramir_block_argv: >-
 faramir_block_rm_argv: >-
   {{ [faramir_binary, 'block', 'rm', '--json'] }}
 
-# --strict on every link, so a command naming the file is refused whatever it meant to do
-# with it, rather than only the ones that would read, copy or move it. The value is asked for
-# by ref instead. Re-adding a ref under a different strictness changes the entry, so this
-# converges like the rest of one.
+# --strict on every link, which reaches the brokered route alone, the agent being refused the
+# path either way. What the flag adds there: README.md. Re-adding a ref under a different
+# strictness changes the entry, so this converges like the rest of one.
 faramir_link_argv: >-
   {{ [faramir_binary, 'link', 'add', '--json', '--strict'] }}
 
