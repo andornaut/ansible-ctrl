@@ -2,7 +2,7 @@
 # The checks CI gates on, defined once so a local run and a CI run cannot disagree.
 # CI and `make lint` both call them all; the argument runs one on its own.
 #
-# Usage: tests/lint.sh [ansible-lint|syntax|shell|python|identity|markdown]   (default: all)
+# Usage: tests/lint.sh [ansible-lint|config|shell|python|identity|markdown]   (default: all)
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -14,10 +14,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 readonly VENV=.ansible/lint-venv
 
 # The directory every tool from requirements-dev.txt is run out of: ansible-lint, and the
-# ansible-config and ansible-playbook the syntax check runs, which come from the pinned
-# ansible-core beside it. Never bare names off PATH: the distro ships its own ansible-core,
-# whose version no commit here names, so a syntax check taking that one rejects against a
-# version the gate does not.
+# ansible-config the config check runs, which comes from the pinned ansible-core beside it.
+# Never bare names off PATH: the distro ships its own ansible-core, whose version no commit
+# here names, so a check taking that one rejects against a version the gate does not.
 #
 # ansible-lint is the marker of a requirements-dev.txt install, being the one tool the distro
 # does not package: on PATH in CI, which pip-installs the file, and absent locally, where the
@@ -45,23 +44,16 @@ check_ansible_lint() {
     "${LINT_BIN_DIR}/ansible-lint"
 }
 
-# The real inventory is gitignored, so parse against tests/inventory.ini, which has
-# a resolvable member for every targeted group.
+# An ini key ansible does not recognize is ignored in every other run, so a setting reads as
+# made and is not. -t all covers the plugin options too, which is where the keys that do not
+# match their option name live.
 #
-# ansible.cfg first: an ini key ansible does not recognize is ignored in every other run,
-# so a setting reads as made and is not. -t all covers the plugin options too, which is
-# where the keys that do not match their option name live.
-check_syntax() {
-    local status=0 playbook
+# Named for what it validates rather than syntax: ansible-lint runs a --syntax-check itself
+# on every playbook it finds, which is all of them, so a second pass here would reject
+# nothing the first does not.
+check_config() {
     require_lint_bin_dir || return 1
-    echo "== ansible.cfg =="
-    "${LINT_BIN_DIR}/ansible-config" validate -t all || status=1
-    for playbook in *.yml; do
-        [[ ${playbook} == requirements.yml ]] && continue
-        echo "== ${playbook} =="
-        "${LINT_BIN_DIR}/ansible-playbook" --syntax-check -i tests/inventory.ini "${playbook}" || status=1
-    done
-    return "${status}"
+    "${LINT_BIN_DIR}/ansible-config" validate -t all
 }
 
 # Found by shebang rather than an enumerated list, so a new script needs no edit here. Line
@@ -131,15 +123,24 @@ check_python() {
 # call below builds the venv a fresh checkout does not have yet and its python is the one to
 # run. An ansible-lint already on PATH short-circuits that venv and may sit beside no python
 # at all (pipx), so the distro's is the fallback, and it is checked rather than assumed.
+#
+# The unit tests run first and the scan runs whatever they say, on the same reasoning as
+# main(): one run should name everything that needs fixing. They cover the branches this
+# repository's own shape never reaches, so an edit to one of those is red here rather than
+# green on both. stdlib unittest, so there is nothing to pin for it.
 check_identity() {
-    local python=python3
+    local python=python3 status=0
     require_lint_bin_dir || return 1
     [[ -x ${LINT_BIN_DIR}/python ]] && python="${LINT_BIN_DIR}/python"
     if ! "${python}" -c 'import yaml' >/dev/null 2>&1; then
         echo "${python} has no PyYAML: pip install -r requirements-dev.txt" >&2
         return 1
     fi
-    "${python}" tests/identity.py
+    echo "== identity.py =="
+    "${python}" -m unittest discover -s tests || status=1
+    echo "== roles, handlers and playbooks =="
+    "${python}" tests/identity.py || status=1
+    return "${status}"
 }
 
 # markdownlint-cli2 is pinned in package.json and run out of node_modules/,
@@ -163,10 +164,10 @@ main() {
     local checks check result status=0
 
     case "${1:-all}" in
-    all) checks=(ansible-lint syntax shell python identity markdown) ;;
-    ansible-lint | syntax | shell | python | identity | markdown) checks=("$1") ;;
+    all) checks=(ansible-lint config shell python identity markdown) ;;
+    ansible-lint | config | shell | python | identity | markdown) checks=("$1") ;;
     *)
-        echo "usage: ${0} [ansible-lint|syntax|shell|python|identity|markdown]" >&2
+        echo "usage: ${0} [ansible-lint|config|shell|python|identity|markdown]" >&2
         return 2
         ;;
     esac

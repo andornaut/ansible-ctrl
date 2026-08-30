@@ -3,8 +3,9 @@
 # ecosystem.
 ansible-lint==26.8.0
 # A dependency of ansible-lint rather than a tool installed on its own, pinned
-# because the syntax check runs ansible-config and ansible-playbook from it:
-# without this a core release moves under the gate while ansible-lint stays put.
+# because the config check runs its ansible-config, and ansible-lint runs its
+# ansible-playbook: without this a core release moves under the gate while
+# ansible-lint stays put.
 ansible-core==2.21.3
 # The Python gate, the same pin the other Python repositories here carry so one
 # version decides what is rejected everywhere.

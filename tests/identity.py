@@ -10,6 +10,7 @@
 # an entry matching nothing is an error, so a task that gains an identity has to lose its
 # line here in the same commit.
 
+import dataclasses
 import pathlib
 import sys
 
@@ -17,6 +18,21 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ALLOWLIST = pathlib.Path(__file__).with_name("identity-allowlist.txt")
+
+
+@dataclasses.dataclass
+class Scan:
+    """One run: the tree to read, the allowlist to read it against, and what it could not read.
+
+    Carried rather than held at module level so a run states its own inputs, and so two runs
+    in one process cannot inherit each other's errors. `main` builds the one this file exists
+    for; a test builds one over a fixture tree.
+    """
+
+    root: pathlib.Path
+    allowlist: pathlib.Path
+    errors: list[str] = dataclasses.field(default_factory=list)
+
 
 # Leaves nothing behind, and answers the same whoever asks. `stat`, `find` and `slurp` are
 # deliberately absent: they write nothing, but their answer is the account's, and a path it
@@ -125,14 +141,11 @@ def module_of(task):
     return "?"
 
 
-ERRORS = []
-
-
-def load(path):
+def load(scan, path):
     try:
         return yaml.safe_load(path.read_text()) or []
     except (OSError, yaml.YAMLError) as exc:
-        ERRORS.append(f"unreadable, so nothing in it was checked: {path}: {exc}")
+        scan.errors.append(f"unreadable, so nothing in it was checked: {path}: {exc}")
         return []
 
 
@@ -145,7 +158,7 @@ def declares(node):
     return "become" in node or "become_user" in node
 
 
-def resolve_include(path, target):
+def resolve_include(scan, path, target):
     """Where ansible looks for an included file, or None.
 
     The role's `tasks/` first, then beside the including file: the two are the same for a
@@ -155,15 +168,15 @@ def resolve_include(path, target):
     parts = pathlib.PurePath(path).parts
     candidates = []
     if len(parts) > 2 and parts[0] == "roles":
-        candidates.append(ROOT / parts[0] / parts[1] / "tasks" / target)
-    candidates.append((ROOT / path).parent / target)
+        candidates.append(scan.root / parts[0] / parts[1] / "tasks" / target)
+    candidates.append((scan.root / path).parent / target)
     for candidate in candidates:
         if candidate.is_file():
             return candidate.resolve()
     return None
 
 
-def walk(node, path, declared, found, seen, depth=0, chain=()):
+def walk(scan, node, path, declared, found, seen, depth=0, chain=()):
     """Collect leaf tasks, carrying the nearest declaration down the chain.
 
     `chain` is the call sites an included file was reached through, so a report names the
@@ -172,7 +185,7 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
     if not isinstance(node, dict):
         return
     if depth > MAX_DEPTH:
-        ERRORS.append(f"nested deeper than {MAX_DEPTH}, so the rest went unchecked: {path}")
+        scan.errors.append(f"nested deeper than {MAX_DEPTH}, so the rest went unchecked: {path}")
         return
     declared = declared or declares(node)
 
@@ -180,7 +193,7 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
     if nested:
         for key in nested:
             for child in node[key] or []:
-                walk(child, path, declared, found, seen, depth + 1, chain)
+                walk(scan, child, path, declared, found, seen, depth + 1, chain)
         return
 
     module = module_of(node)
@@ -191,16 +204,16 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
         # A computed name resolves per host, so it cannot be followed from here. That fails
         # the gate rather than passing every task in the file unchecked: name the file.
         if not isinstance(target, str) or "{{" in target:
-            ERRORS.append(f"include target is computed, so nothing it holds was checked: {site} -> {target}")
+            scan.errors.append(f"include target is computed, so nothing it holds was checked: {site} -> {target}")
             return
-        included = resolve_include(path, target)
+        included = resolve_include(scan, path, target)
         if included is None:
-            ERRORS.append(f"include target does not resolve, so nothing it holds was checked: {site} -> {target}")
+            scan.errors.append(f"include target does not resolve, so nothing it holds was checked: {site} -> {target}")
             return
-        rel = str(included.relative_to(ROOT))
+        rel = str(included.relative_to(scan.root))
         seen.add(rel)
-        for child in load(included):
-            walk(child, rel, declared, found, seen, depth + 1, (*chain, site))
+        for child in load(scan, included):
+            walk(scan, child, rel, declared, found, seen, depth + 1, (*chain, site))
         return
 
     if declared or reads_only(node, module):
@@ -208,55 +221,55 @@ def walk(node, path, declared, found, seen, depth=0, chain=()):
     found.append((*chain, f"{path}::{node.get('name', '(unnamed)')}"))
 
 
-def scan(path, found, seen):
-    doc = load(path)
+def scan_file(scan, path, found, seen):
+    doc = load(scan, path)
     if not isinstance(doc, list):
         return
-    rel = str(path.relative_to(ROOT))
+    rel = str(path.relative_to(scan.root))
     for item in doc:
         if not isinstance(item, dict):
             continue
         if "hosts" in item:
             for section in ("pre_tasks", "tasks", "post_tasks"):
                 for child in item.get(section) or []:
-                    walk(child, rel, declares(item), found, seen, 0)
+                    walk(scan, child, rel, declares(item), found, seen, 0)
             continue
-        walk(item, rel, False, found, seen, 0)
+        walk(scan, item, rel, False, found, seen, 0)
 
 
-def collect():
+def collect(scan):
     """Every task whose account comes from the connection rather than the task."""
     entries = (
-        sorted(ROOT.glob("roles/*/tasks/*.yml"))
-        + sorted(ROOT.glob("roles/*/handlers/*.yml"))
-        + sorted(ROOT.glob("*.yml"))
+        sorted(scan.root.glob("roles/*/tasks/*.yml"))
+        + sorted(scan.root.glob("roles/*/handlers/*.yml"))
+        + sorted(scan.root.glob("*.yml"))
     )
 
     # First pass names the files reached through an include. Those carry their caller's
     # become, so scanning one standalone would report every task in it as undeclared.
     seen = set()
     for path in entries:
-        scan(path, [], seen)
+        scan_file(scan, path, [], seen)
 
     found = []
     for path in entries:
-        if str(path.relative_to(ROOT)) in seen:
+        if str(path.relative_to(scan.root)) in seen:
             continue
-        scan(path, found, set())
+        scan_file(scan, path, found, set())
     return sorted(set(found))
 
 
-def read_allowlist():
-    if not ALLOWLIST.is_file():
+def read_allowlist(scan):
+    if not scan.allowlist.is_file():
         return set()
-    lines = ALLOWLIST.read_text().splitlines()
+    lines = scan.allowlist.read_text().splitlines()
     stripped = (line.strip() for line in lines)
     return {line for line in stripped if line and not line.startswith("#")}
 
 
-def main():
-    undeclared = {" -> ".join(entry) for entry in collect()}
-    allowed = read_allowlist()
+def main(scan):
+    undeclared = {" -> ".join(entry) for entry in collect(scan)}
+    allowed = read_allowlist(scan)
 
     new = sorted(undeclared - allowed)
     stale = sorted(allowed - undeclared)
@@ -268,12 +281,12 @@ def main():
 
     # Deduplicated: collect() scans every file twice, once to name the files reached
     # through an include and once to report, so each error is raised on both passes.
-    for error in dict.fromkeys(ERRORS):
+    for error in dict.fromkeys(scan.errors):
         print(error, file=sys.stderr)
 
     print(f"{len(undeclared)} undeclared, {len(allowed)} allowed, {len(new)} new, {len(stale)} stale")
-    return 1 if new or stale or ERRORS else 0
+    return 1 if new or stale or scan.errors else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(Scan(root=ROOT, allowlist=ALLOWLIST)))

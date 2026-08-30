@@ -153,7 +153,7 @@ against, and the [faramir role](roles/faramir/README.md) covers this repo's part
 
 ```bash
 make lint                  # every check CI gates on
-tests/lint.sh syntax       # or one of ansible-lint, syntax, shell, python, identity, markdown
+tests/lint.sh config       # or one of ansible-lint, config, shell, python, identity, markdown
 
 # Upgrade all collections, which `make requirements` does not do
 ansible-galaxy collection install --upgrade -r requirements.yml
@@ -169,10 +169,10 @@ rather than the lines a change touched.
 | Check | Covers |
 | --- | --- |
 | `ansible-lint` | the repo. Not packaged for Ubuntu, so the script keeps it in a venv under `.ansible/`, built on first use; CI installs it with `pip` and the script takes whichever is on `PATH` |
-| `syntax` | `ansible-config validate -t all`, then `ansible-playbook --syntax-check` per playbook against [tests/inventory.ini](tests/inventory.ini), the real inventory being gitignored |
+| `config` | `ansible-config validate -t all`: an ini key ansible does not recognize is ignored everywhere else, so a setting reads as made and is not. No `--syntax-check` pass over the playbooks, `ansible-lint` running one itself on every playbook it finds |
 | `shell` | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders |
 | `python` | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions |
-| `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)) |
+| `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)). Its own unit tests ([tests/test_identity.py](tests/test_identity.py)) run first, covering the branches no shape in this repository reaches |
 | `markdown` | tracked `.md` files outside the agent directories, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). markdownlint-cli2 is pinned in [package.json](package.json); a local run installs it under `node_modules/` on first use and CI installs it with `npm ci` |
 
 One more gate in CI that `make lint` does not run:
