@@ -5,11 +5,18 @@ description: Sync the Retroid Pocket Flip 2 handheld with roles/games/files/retr
 
 # Retroid Pocket Flip 2 (games role, syncretroid)
 
-Everything lives in `roles/games/files/retroid/`: `syncretroid.py` (its module docstring is the reference for what it owns on the device), `profile.yml` (the Android divergences, inline-commented) and [README.md](../../../roles/games/files/retroid/README.md) (the values that must be read off the device by hand, the shader rationale, the failure modes). Read those before changing `syncretroid`. Per-divergence reasoning: `../til/docs/retro-games.md`.
-
 Ansible cannot run on the device, so `syncretroid` reproduces the `games` role's convergence over adb: it reads `roles/games/vars/main.yml` as the source of truth, applies `profile.yml`, and reconciles retroarch.cfg (only the keys it owns), playlists, per-core overrides/options, shaders, BIOS, thumbnails, the ES-DE `<alternativeEmulator>` choices, and the ROM library mirror.
 
-The `games` role's `retroid` tag installs `/usr/local/bin/syncretroid` on the controller: a rendered wrapper (`roles/games/templates/syncretroid.j2`) that execs `syncretroid.py` from the checkout with the library path and adb serial passed in. Everything is read from that checkout, so edits to the script, `vars/main.yml` or `profile.yml` apply on the next run; only a change to the library path, the serial or the location of the checkout needs `make games -- --tags retroid`. To test an edit without the wrapper: `python3 roles/games/files/retroid/syncretroid.py --library-dir <library> --dry-run` (`--serial` is needed only when more than one device is on adb; the run refuses any device that does not have both RetroArch and ES-DE installed).
+Everything lives in `roles/games/files/retroid/`. Read these before changing `syncretroid`:
+
+| Source | Covers |
+| --- | --- |
+| [files/retroid/README.md](../../../roles/games/files/retroid/README.md) | The values that must be read off the device by hand, the shader rationale, the failure modes |
+| `syncretroid.py`'s module docstring | What it owns on the device, and what it leaves alone |
+| `profile.yml`'s inline comments | Each Android divergence, with the reasoning in `../til/docs/retro-games.md` |
+| [roles/games/README.md](../../../roles/games/README.md#handheld-sync-retroid-pocket-flip-2) | How the `retroid` tag installs the wrapper on the controller, and when an edit needs the tag re-run |
+
+To test an edit without the wrapper: `python3 roles/games/files/retroid/syncretroid.py --library-dir <library> --dry-run` (`--serial` is needed only when more than one device is on adb; the run refuses any device that does not have both RetroArch and ES-DE installed).
 
 ## Sync runbook (device plugged in, "sync it")
 
@@ -35,7 +42,7 @@ Run from the controller, where the ROM library is local and the command is on PA
 
 ## Things that bite
 
-- **Cores are never synced.** sdcard and emulated storage are mounted `noexec`, so RetroArch can only `dlopen` from the app-private cores dir, which adb cannot write on a non-rooted device. Install them with RetroArch's in-app Core Updater; playlists just point `core_path` there.
+- **Cores are never synced**: storage is mounted `noexec`, so they come from RetroArch's in-app Core Updater and playlists just point `core_path` at the app-private cores dir. That and the other device-side failure modes are in the README's "Gotchas".
 - **ES-DE ROM dirs use North-America short names** (genesis, segacd, sega32xna, tg16, tg-cd, ...), not the library's No-Intro names; the `rom_dir_names` map bridges them.
 - **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match an ES-DE `es_systems.xml` `<command label>` (bundled, or from the installed custom_systems for PS2).
 - Two values `syncretroid` cannot derive and that fail silently: core `library_name`s and the pad rewind/FF indices. See the README's "Verify on the device" section.

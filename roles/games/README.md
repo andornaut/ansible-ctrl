@@ -140,11 +140,14 @@ Behind the table above, the parts that are easy to undo by accident:
 ## Handheld sync (Retroid Pocket Flip 2)
 
 [files/retroid/](./files/retroid/) mirrors this managed config onto a Retroid Pocket Flip 2 (stock Android +
-ES-DE), which Ansible cannot reach. See [files/retroid/README.md](./files/retroid/README.md).
+ES-DE), which Ansible cannot reach. [files/retroid/README.md](./files/retroid/README.md) covers the device side:
+the values that must be read off it by hand, the shader setup, and the failure modes.
 
-- The `retroid` tag installs `/usr/local/bin/syncretroid`, a wrapper that runs `files/retroid/syncretroid.py` from
-  this checkout with the ROM library mount and adb serial baked in, so the command takes no arguments. An edit to
-  the script or its data applies without re-running the role; re-run the tag if the checkout moves.
+- The `retroid` tag installs `/usr/local/bin/syncretroid`, a wrapper ([templates/syncretroid.j2](./templates/syncretroid.j2))
+  that runs `files/retroid/syncretroid.py` from this checkout with the ROM library mount and adb serial baked in,
+  so the command takes no arguments. An edit to the script or its data applies without re-running the role; re-run
+  the tag if the checkout moves or either baked-in value changes.
 - The handheld is a USB peripheral of the controller rather than an inventory host, so the command is installed on
   the controller (`delegate_to: localhost`) and gated on `games_install_retroid_sync`.
-- No playbook runs the sync itself. Run it by hand.
+- No playbook runs the sync itself. Run it by hand: the runbook and the device's storage layout are in the
+  [retroid-sync skill](../../.claude/skills/retroid-sync/SKILL.md).
