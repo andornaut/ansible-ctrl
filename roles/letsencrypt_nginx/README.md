@@ -11,14 +11,14 @@ make webservers -- --tags nginx
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
-| configuration | Regenerate NGINX configuration files |
-| cron | Certificate renewal cron job |
-| docker | Manage the NGINX Docker container |
-| [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job |
-| nginx | Everything: `webservers.yml` applies both `nginx` and `letsencrypt` at play level, so either selects every task. Only `configuration`, `cron`, `docker` and `www` narrow a run |
-| www | Set up web root directories and clone site repos |
+| Tag                                     | Description                                                                                                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| configuration                           | Regenerate NGINX configuration files                                                                                                                                           |
+| cron                                    | Certificate renewal cron job                                                                                                                                                   |
+| docker                                  | Manage the NGINX Docker container                                                                                                                                              |
+| [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job                                                                                                   |
+| nginx                                   | Everything: `webservers.yml` applies both `nginx` and `letsencrypt` at play level, so either selects every task. Only `configuration`, `cron`, `docker` and `www` narrow a run |
+| www                                     | Set up web root directories and clone site repos                                                                                                                               |
 
 ## Variables
 
@@ -28,10 +28,10 @@ See [defaults/main.yml](./defaults/main.yml).
 
 The `nginx` container runs with `network_mode: host`, binding directly to the host's network interfaces.
 
-| Port | Protocol | Description |
-| --- | --- | --- |
-| 80 | HTTP | Redirect to HTTPS; ACME certificate validation |
-| 443 | HTTPS | TLS-terminated reverse proxy with HTTP/2 and QUIC |
+| Port | Protocol | Description                                       |
+| ---- | -------- | ------------------------------------------------- |
+| 80   | HTTP     | Redirect to HTTPS; ACME certificate validation    |
+| 443  | HTTPS    | TLS-terminated reverse proxy with HTTP/2 and QUIC |
 
 ## Notes
 

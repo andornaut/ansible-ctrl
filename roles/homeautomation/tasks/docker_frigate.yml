@@ -31,7 +31,7 @@
       {{ homeautomation_common_volumes + frigate_base_volumes + homeautomation_frigate_extra_volumes }}
 
     frigate_tmpfs_volume:
-      type: tmpfs  # Optional ram-drive to reduce storage wear
+      type: tmpfs # Optional ram-drive to reduce storage wear
       target: /tmp/cache
       tmpfs:
         size: "{{ homeautomation_frigate_tmpfs_size_mb * 1024 * 1024 }}"

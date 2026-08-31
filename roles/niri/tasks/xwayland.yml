@@ -33,7 +33,8 @@
 
     - name: Download and unarchive xwayland-satellite
       ansible.builtin.unarchive:
-        src: "https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/\
+        src:
+          "https://github.com/Supreeeme/xwayland-satellite/archive/refs/tags/\
           {{ niri_xwayland_version }}.tar.gz"
         dest: "{{ niri_xwayland_tmp.path }}"
         remote_src: true

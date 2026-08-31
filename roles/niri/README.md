@@ -14,10 +14,10 @@ make desktop -- --tags niri
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
-| [hypr](https://hypr.land/) | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper) |
-| [niri](https://github.com/niri-wm/niri) | Wayland compositor |
+| Tag                                         | Description                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [hypr](https://hypr.land/)                  | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper)                                                  |
+| [niri](https://github.com/niri-wm/niri)     | Wayland compositor                                                                                        |
 | [wayland](https://wayland.freedesktop.org/) | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 
 Most of the work also carries a narrower tag, for rebuilding one component without the rest: `packages` (the

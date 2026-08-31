@@ -75,7 +75,8 @@
     # reason. LC_ALL pins the locale, the report below being matched as text.
     - name: Remove the flatpak runtimes nothing installed still needs
       ansible.builtin.command:
-        argv: [flatpak, uninstall, --user, --unused, --assumeyes, --noninteractive]
+        argv:
+          [flatpak, uninstall, --user, --unused, --assumeyes, --noninteractive]
       environment:
         LC_ALL: C
       register: games_flatpak_unused

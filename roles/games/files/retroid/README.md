@@ -4,11 +4,11 @@
 Android + ES-DE), which Ansible cannot reach. It reads the role's [`../../vars/main.yml`](../../vars/main.yml) as
 the source of truth and applies the Android divergences in [`profile.yml`](profile.yml).
 
-| Question | Answer |
-| --- | --- |
-| What it owns on the device, and what it leaves alone | The module docstring of [`syncretroid.py`](syncretroid.py) |
-| The flags | `syncretroid --help` |
-| Why each divergence exists | `profile.yml`'s inline comments, and the "Retroid Pocket Flip 2" and "Cores" sections of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md) |
+| Question                                             | Answer                                                                                                                                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What it owns on the device, and what it leaves alone | The module docstring of [`syncretroid.py`](syncretroid.py)                                                                                                                         |
+| The flags                                            | `syncretroid --help`                                                                                                                                                               |
+| Why each divergence exists                           | `profile.yml`'s inline comments, and the "Retroid Pocket Flip 2" and "Cores" sections of [til/docs/retro-games.md](https://github.com/andornaut/til/blob/main/docs/retro-games.md) |
 
 This file covers what the code cannot show: values that must be read off the device by hand, the shader setup, and
 the failure modes.
@@ -59,10 +59,10 @@ driver: the Android build ships `gl` and `vulkan` only (no `glcore`) and `gl` lo
 driver here**. Cores whose renderer cannot follow are pinned back to `gl` in `profile.yml`'s `core_overrides_set`
 and get no shader.
 
-| Core | Driver | Why |
-| --- | --- | --- |
-| Mupen64Plus-Next | `gl` | GLideN64 is an OpenGL renderer and fails to load content at all under vulkan. ParaLLEl-RDP is the Vulkan path and no Adreno driver can run it |
-| PPSSPP | `gl` | The libretro core's Vulkan path on Android has a long run of crash reports. `gl` is what it runs on today |
+| Core             | Driver | Why                                                                                                                                           |
+| ---------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mupen64Plus-Next | `gl`   | GLideN64 is an OpenGL renderer and fails to load content at all under vulkan. ParaLLEl-RDP is the Vulkan path and no Adreno driver can run it |
+| PPSSPP           | `gl`   | The libretro core's Vulkan path on Android has a long run of crash reports. `gl` is what it runs on today                                     |
 
 Everything else, including Flycast and Beetle PSX HW (already on vulkan), gets
 `config/<library_name>/<library_name>.slangp`: a `#reference` to the pushed preset (plus any `shaders.params`
@@ -75,8 +75,8 @@ keys), so the pack keeps its relative paths.
   ```yaml
   shaders:
     params:
-      aperture_brightboost: "0.6"   # masks are dim at 1080p on a handheld panel
-      halation: "0"                 # with phosphor_amplitude 0, drops the expensive passes
+      aperture_brightboost: "0.6" # masks are dim at 1080p on a handheld panel
+      halation: "0" # with phosphor_amplitude 0, drops the expensive passes
   ```
 
 - The push is additive and carries only the files the preset opens (11 of the pack's ~5500), so a later full pack
@@ -105,6 +105,7 @@ keys), so the pack keeps its relative paths.
   Move `gamelists/<old>/gamelist.xml` and `downloaded_media/<old>/` to the new name first to keep the scraped
   metadata and media, which `syncretroid` does not manage (it only sets `<alternativeEmulator>`) and re-scraping is
   the only other way to recover. Renaming `ROMS/<old>` too saves re-pushing the set over USB.
+
 - **PS2 uses NetherSX2-Turnip** (`xyz.aethersx2.tturnip`) for the Turnip Adreno driver. Two device-side edits
   `syncretroid` does not manage, reverted by re-copying the custom_systems:
   - `ES-DE/custom_systems/es_find_rules.xml`: repoint the `AETHERSX2-TURNIP` entry to

@@ -13,10 +13,10 @@ make desktop -- --tags bspwm
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
-| bspwm | Everything in this role |
-| x11 | X11 packages and build dependencies, but not the source builds |
+| Tag   | Description                                                    |
+| ----- | -------------------------------------------------------------- |
+| bspwm | Everything in this role                                        |
+| x11   | X11 packages and build dependencies, but not the source builds |
 
 ## Variables
 

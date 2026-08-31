@@ -13,10 +13,10 @@ make docker ARGS='--tags kubernetes -e docker_install_kubernetes=true'
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
-| docker | Docker CE, Docker Compose, and the Docker Registry when `docker_install_registry` |
-| kubernetes | helm, kubectl, and minikube, gated on `docker_install_kubernetes` |
+| Tag        | Description                                                                       |
+| ---------- | --------------------------------------------------------------------------------- |
+| docker     | Docker CE, Docker Compose, and the Docker Registry when `docker_install_registry` |
+| kubernetes | helm, kubectl, and minikube, gated on `docker_install_kubernetes`                 |
 
 The registry has no tag of its own.
 

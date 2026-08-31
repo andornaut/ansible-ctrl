@@ -337,7 +337,8 @@ core_probe:
     block_extract: false
   picodrive:
     library_name: PicoDrive
-    valid_extensions: [bin, gen, smd, md, 32x, cue, iso, sms, 68k, chd, m3u, zip]
+    valid_extensions:
+      [bin, gen, smd, md, 32x, cue, iso, sms, 68k, chd, m3u, zip]
     block_extract: false
   flycast:
     library_name: Flycast
@@ -345,7 +346,8 @@ core_probe:
     block_extract: false
   genesis_plus_gx:
     library_name: Genesis Plus GX
-    valid_extensions: [mdx, md, smd, gen, bin, cue, iso, sms, gg, sg, 68k, sgd, chd, m3u, zip]
+    valid_extensions:
+      [mdx, md, smd, gen, bin, cue, iso, sms, gg, sg, 68k, sgd, chd, m3u, zip]
     block_extract: false
   yabasanshiro:
     library_name: YabaSanshiro

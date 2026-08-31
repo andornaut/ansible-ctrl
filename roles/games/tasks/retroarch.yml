@@ -222,7 +222,7 @@
 - name: Enforce the RetroArch settings
   ansible.builtin.lineinfile:
     path: "{{ games_retroarch_config_dir }}/retroarch.cfg"
-    regexp: '^{{ item.key }} = '
+    regexp: "^{{ item.key }} = "
     line: '{{ item.key }} = "{{ item.value }}"'
     create: true
     mode: "0644"

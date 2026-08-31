@@ -12,14 +12,14 @@ make msmtp
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable | Purpose |
-| --- | --- |
-| `msmtp_domain` | Mail domain, used to build `msmtp_send_all_email_to`. Required |
-| `msmtp_user` | Upstream SMTP username. Required |
-| `msmtp_password` | Upstream SMTP password. Required, rendered into `/etc/msmtprc-relay` only |
-| `msmtp_host`, `msmtp_port` | Upstream SMTP server |
-| `msmtp_relay_interface` | Interface `msmtpd` listens on. Must be `127.0.0.1` or `::1` |
-| `msmtp_relay_port` | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535) |
+| Variable                   | Purpose                                                                   |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `msmtp_domain`             | Mail domain, used to build `msmtp_send_all_email_to`. Required            |
+| `msmtp_user`               | Upstream SMTP username. Required                                          |
+| `msmtp_password`           | Upstream SMTP password. Required, rendered into `/etc/msmtprc-relay` only |
+| `msmtp_host`, `msmtp_port` | Upstream SMTP server                                                      |
+| `msmtp_relay_interface`    | Interface `msmtpd` listens on. Must be `127.0.0.1` or `::1`               |
+| `msmtp_relay_port`         | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535)            |
 
 Set the required vars per host in `host_vars/`. `msmtp_password` is not among them: it is injected under that name
 rather than holding a value. The role asserts them, and the relay constraints, before its first

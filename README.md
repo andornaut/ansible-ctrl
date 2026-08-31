@@ -7,12 +7,12 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.redhat.com/
 
 ## Terms
 
-| Term | Meaning |
-| --- | --- |
-| controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir_controller` group |
-| fleet | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo |
-| `faramir` | Every host running the secret broker. The controller is one of them, and gets what the rest have no use for: the checkout enrolled, and a key the fleet authorizes |
-| `routers` | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, as `root` |
+| Term       | Meaning                                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| controller | The host Ansible runs from. Also a managed host, the only one whose sudo prompts, and the only member of the `faramir_controller` group                                             |
+| fleet      | Every other Ubuntu inventory host, reached over SSH with NOPASSWD sudo                                                                                                              |
+| `faramir`  | Every host running the secret broker. The controller is one of them, and gets what the rest have no use for: the checkout enrolled, and a key the fleet authorizes                  |
+| `routers`  | The pfSense routers, one per site. FreeBSD, so no role installs to them and the Ubuntu-only plays are written `all:!routers`. `faramir.yml`'s fleet play does reach them, as `root` |
 
 ## Requirements
 
@@ -36,47 +36,47 @@ make desktop -- --tags alacritty --limit example # Forward arguments to ansible-
 make faramir ARGS="--extra-vars k=v"             # Forward an argument containing "="
 ```
 
-| Rule | Detail |
-| --- | --- |
-| Arguments after `--` | forwarded to `ansible-playbook` |
-| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead |
-| `--ask-become-pass` | added unless the run provably avoids the controller, the one host whose sudo asks: added when it is in the play's host list, when a role in the run mentions `delegate_to: localhost` (a text grep over the role directory), or when the `faramir_controller` group resolves to no host. A root run never gets it |
-| `ASK_PASS=1` | forces the prompt |
-| `SECRETS=none` | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential. It also passes `secrets_required=false`, so the `pre_tasks` assert below does not outlive the decision to skip the injection |
-| reachability probe | `ansible -m raw -a true -T 1` runs before the play and drops through `--limit` every host it cannot reach, whatever the reason: off, refusing the identity, a moved host key and a wedged sshd all read the same. It reports `Preflight: dropped <host> (no connection)` per host, and stops the run only when nothing is left |
-| `PREFLIGHT=none` | skips that probe, and attempts every host |
+| Rule                       | Detail                                                                                                                                                                                                                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Arguments after `--`       | forwarded to `ansible-playbook`                                                                                                                                                                                                                                                                                                |
+| An argument containing `=` | cannot go after `--`: make reads any such word as a variable assignment. Assign `ARGS` instead                                                                                                                                                                                                                                 |
+| `--ask-become-pass`        | added unless the run provably avoids the controller, the one host whose sudo asks: added when it is in the play's host list, when a role in the run mentions `delegate_to: localhost` (a text grep over the role directory), or when the `faramir_controller` group resolves to no host. A root run never gets it              |
+| `ASK_PASS=1`               | forces the prompt                                                                                                                                                                                                                                                                                                              |
+| `SECRETS=none`             | skips the `sops exec-env` re-entry, for a `--tags` run that reaches no credential. It also passes `secrets_required=false`, so the `pre_tasks` assert below does not outlive the decision to skip the injection                                                                                                                |
+| reachability probe         | `ansible -m raw -a true -T 1` runs before the play and drops through `--limit` every host it cannot reach, whatever the reason: off, refusing the identity, a moved host key and a wedged sshd all read the same. It reports `Preflight: dropped <host> (no connection)` per host, and stops the run only when nothing is left |
+| `PREFLIGHT=none`           | skips that probe, and attempts every host                                                                                                                                                                                                                                                                                      |
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer` for
 the [dev](roles/dev/README.md) role's cron job, gated on `dev_install_ai_maintainer`.
 
 ## Playbooks and roles
 
-| Playbook | Hosts | Role | Purpose |
-| --- | --- | --- | --- |
-| [base.yml](base.yml) | `all:!routers` | [base](roles/base/README.md) | Base packages and system configuration |
-| [desktop.yml](desktop.yml) | `desktop` | [desktop](roles/desktop/README.md), then [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) per the host's `desktop_environment` | Display manager, browser, fonts and themes, plus the window manager and its X11 or Wayland utilities |
-| [dev.yml](dev.yml) | `dev` | [dev](roles/dev/README.md) | Development tools and programming languages |
-| [docker.yml](docker.yml) | `dev`, `homeautomation`, `webservers` | [docker](roles/docker/README.md) | Docker CE and Compose, optional Kubernetes and Docker Registry |
-| [faramir.yml](faramir.yml) | `faramir`, then `all` | [faramir](roles/faramir/README.md), then its `ssh` entry point (`tasks_from`) | Secret broker on each faramir host, then the controller's SSH key and a NOPASSWD sudoers entry on the managed hosts |
-| [games.yml](games.yml) | `games` | [games](roles/games/README.md) | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists) |
-| [hobbies.yml](hobbies.yml) | `hobbies` | [hobbies](roles/hobbies/README.md) | 3D printing, electronics, FPV tools |
-| [homeautomation.yml](homeautomation.yml) | `homeautomation` | [homeautomation](roles/homeautomation/README.md) | Home Assistant and related Docker containers |
-| [msmtp.yml](msmtp.yml) | `all:!routers` | [msmtp](roles/msmtp/README.md) | Email forwarding via MSMTP |
-| [nas.yml](nas.yml) | `nas` | [nas](roles/nas/README.md) | Encrypted BTRFS RAID arrays (LUKS) |
-| [rsnapshot.yml](rsnapshot.yml) | `rsnapshot` | [rsnapshot](roles/rsnapshot/README.md) | Incremental backups with rsnapshot |
-| [torrent.yml](torrent.yml) | `torrent` | [torrent](roles/torrent/README.md) | rtorrent on the remote host, plus the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs on the controller |
-| [upgrade.yml](upgrade.yml) | `all:!routers` | none | apt dist-upgrade and flatpak upgrade |
-| [webservers.yml](webservers.yml) | `webservers` | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md) | NGINX reverse proxy with Let's Encrypt HTTPS |
+| Playbook                                 | Hosts                                 | Role                                                                                                                                         | Purpose                                                                                                             |
+| ---------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [base.yml](base.yml)                     | `all:!routers`                        | [base](roles/base/README.md)                                                                                                                 | Base packages and system configuration                                                                              |
+| [desktop.yml](desktop.yml)               | `desktop`                             | [desktop](roles/desktop/README.md), then [bspwm](roles/bspwm/README.md) or [niri](roles/niri/README.md) per the host's `desktop_environment` | Display manager, browser, fonts and themes, plus the window manager and its X11 or Wayland utilities                |
+| [dev.yml](dev.yml)                       | `dev`                                 | [dev](roles/dev/README.md)                                                                                                                   | Development tools and programming languages                                                                         |
+| [docker.yml](docker.yml)                 | `dev`, `homeautomation`, `webservers` | [docker](roles/docker/README.md)                                                                                                             | Docker CE and Compose, optional Kubernetes and Docker Registry                                                      |
+| [faramir.yml](faramir.yml)               | `faramir`, then `all`                 | [faramir](roles/faramir/README.md), then its `ssh` entry point (`tasks_from`)                                                                | Secret broker on each faramir host, then the controller's SSH key and a NOPASSWD sudoers entry on the managed hosts |
+| [games.yml](games.yml)                   | `games`                               | [games](roles/games/README.md)                                                                                                               | Gaming packages via flatpak, and RetroArch (cores, BIOS, settings, playlists)                                       |
+| [hobbies.yml](hobbies.yml)               | `hobbies`                             | [hobbies](roles/hobbies/README.md)                                                                                                           | 3D printing, electronics, FPV tools                                                                                 |
+| [homeautomation.yml](homeautomation.yml) | `homeautomation`                      | [homeautomation](roles/homeautomation/README.md)                                                                                             | Home Assistant and related Docker containers                                                                        |
+| [msmtp.yml](msmtp.yml)                   | `all:!routers`                        | [msmtp](roles/msmtp/README.md)                                                                                                               | Email forwarding via MSMTP                                                                                          |
+| [nas.yml](nas.yml)                       | `nas`                                 | [nas](roles/nas/README.md)                                                                                                                   | Encrypted BTRFS RAID arrays (LUKS)                                                                                  |
+| [rsnapshot.yml](rsnapshot.yml)           | `rsnapshot`                           | [rsnapshot](roles/rsnapshot/README.md)                                                                                                       | Incremental backups with rsnapshot                                                                                  |
+| [torrent.yml](torrent.yml)               | `torrent`                             | [torrent](roles/torrent/README.md)                                                                                                           | rtorrent on the remote host, plus the `mvt`/`orgt`/`synct`/`unrart` scripts and cron jobs on the controller         |
+| [upgrade.yml](upgrade.yml)               | `all:!routers`                        | none                                                                                                                                         | apt dist-upgrade and flatpak upgrade                                                                                |
+| [webservers.yml](webservers.yml)         | `webservers`                          | [letsencrypt_nginx](roles/letsencrypt_nginx/README.md)                                                                                       | NGINX reverse proxy with Let's Encrypt HTTPS                                                                        |
 
 ## Inventory
 
-| Path | Contents |
-| --- | --- |
-| `hosts` (gitignored) | The inventory. Its group names are the `hosts:` field of each playbook |
-| `host_vars/<hostname>.yml` (gitignored) | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
-| [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) | Turns each environment variable `faramir.env` names into a variable of the same name |
-| `~/.config/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets) |
-| `roles/<role>/defaults/main.yml` | Role defaults. Override them in `host_vars/`, not here |
+| Path                                                                  | Contents                                                                                           |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `hosts` (gitignored)                                                  | The inventory. Its group names are the `hosts:` field of each playbook                             |
+| `host_vars/<hostname>.yml` (gitignored)                               | Per-host overrides: feature flags (`{role}_install_{component}`), Docker image tags, extra volumes |
+| [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py)            | Turns each environment variable `faramir.env` names into a variable of the same name               |
+| `~/.config/faramir/secrets/ansible-ctrl.sops.yml` (outside this repo) | Every credential value, and nothing else. See [Secrets](#secrets)                                  |
+| `roles/<role>/defaults/main.yml`                                      | Role defaults. Override them in `host_vars/`, not here                                             |
 
 Every host names its address, port and login rather than leaving them to the operator's ssh config, which
 root's cron and the broker's executor do not read. `[all:vars]` sets `primary_user`, the account user-scoped
@@ -123,16 +123,16 @@ Adding a credential is two edits, three where it needs a mapping: the value into
 `faramir.env`, and a reference in `host_vars/` only if the destination is named differently. A value reaches a
 play only through the environment, by one of three paths:
 
-| Path | How |
-| --- | --- |
-| `make` (operator) | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and those targets [re-enter as root](roles/faramir/README.md#running-playbooks) |
-| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`. `faramir.env` holds refs and no values, gitignored because the names it declares carry site names and this repository is public |
-| certificate renewal cron (root) | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home |
+| Path                                       | How                                                                                                                                                                                                                                                                  |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make` (operator)                          | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`; the rest read no credential. Once the broker is installed the store stops being readable by the operator, and those targets [re-enter as root](roles/faramir/README.md#running-playbooks) |
+| [faramir](roles/faramir/README.md) (agent) | `faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`. `faramir.env` holds refs and no values, gitignored because the names it declares carry site names and this repository is public                               |
+| certificate renewal cron (root)            | [roles/letsencrypt_nginx/tasks/cron.yml](roles/letsencrypt_nginx/tasks/cron.yml) runs `ansible-playbook` under `sops exec-env` rather than through `make`, which would leave root-owned files in `.ansible/` inside the operator's home                              |
 
-| Gotcha | Detail |
-| --- | --- |
-| `vars_plugins_enabled` replaces the default list rather than adding to it | [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `faramir_env`, or `host_vars/` stops loading |
-| Credentials arrive as a set | `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that one did. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated |
+| Gotcha                                                                    | Detail                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vars_plugins_enabled` replaces the default list rather than adding to it | [ansible.cfg](ansible.cfg) names `host_group_vars` alongside `faramir_env`, or `host_vars/` stops loading                                                                                                                                    |
+| Credentials arrive as a set                                               | `homeautomation.yml`, `msmtp.yml` and `webservers.yml` assert in `pre_tasks` that one did. Without it the first task to read one fails with the tasks before it already applied, which for a container means it is removed and not recreated |
 
 ## Getting started with the secret broker
 
@@ -167,17 +167,17 @@ make clean
 every branch and pull request. Each check runs even after an earlier one fails, and the gate is the whole repo
 rather than the lines a change touched.
 
-| Check | Covers |
-| --- | --- |
-| `ansible-lint` | the repo. Not packaged for Ubuntu, so the script keeps it in a venv under `.ansible/`, built on first use; CI installs it with `pip` and the script takes whichever is on `PATH` |
-| `config` | `ansible-config validate -t all`: an ini key ansible does not recognize is ignored everywhere else, so a setting reads as made and is not. No `--syntax-check` pass over the playbooks, `ansible-lint` running one itself on every playbook it finds |
-| `shell` | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders |
-| `python` | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions |
-| `identity` | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)). Its own unit tests ([tests/test_identity.py](tests/test_identity.py)) run first, covering the branches no shape in this repository reaches |
-| `markdown` | tracked `.md` files, the committed skills under `.claude/skills/` included, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). markdownlint-cli2 is pinned in [package.json](package.json); a local run installs it under `node_modules/` on first use and CI installs it with `npm ci` |
+| Check          | Covers                                                                                                                                                                                                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible-lint` | the repo. Not packaged for Ubuntu, so the script keeps it in a venv under `.ansible/`, built on first use; CI installs it with `pip` and the script takes whichever is on `PATH`                                                                                                             |
+| `config`       | `ansible-config validate -t all`: an ini key ansible does not recognize is ignored everywhere else, so a setting reads as made and is not. No `--syntax-check` pass over the playbooks, `ansible-lint` running one itself on every playbook it finds                                         |
+| `shell`        | every tracked shell script, discovered by shebang, wherever it lies. A script under `templates/` is rendered to a temporary copy first, Jinja2 expressions to placeholders                                                                                                                   |
+| `python`       | `ruff check` and `ruff format --check` over the whole tree, `ruff.toml` naming the exceptions                                                                                                                                                                                                |
+| `identity`     | no task leaves its account to the connection: the task or a block around it declares one ([tests/identity.py](tests/identity.py)). Its own unit tests ([tests/test_identity.py](tests/test_identity.py)) run first, covering the branches no shape in this repository reaches                |
+| `markdown`     | tracked `.md` files, the committed skills under `.claude/skills/` included, per [.markdownlint-cli2.yaml](.markdownlint-cli2.yaml). markdownlint-cli2 is pinned in [package.json](package.json); a local run installs it under `node_modules/` on first use and CI installs it with `npm ci` |
 
 One more gate in CI that `make lint` does not run:
 
-| Gate | Covers |
-| --- | --- |
+| Gate                                                                           | Covers                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [.github/workflows/ai-attributions.yml](.github/workflows/ai-attributions.yml) | Fails a push or pull request whose added commits carry an AI attribution or a long dash, and one that ships a local-only agent instruction file. The last two are opt-in flags: the action leaves them off and this workflow sets them |

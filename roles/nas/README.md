@@ -11,8 +11,8 @@ make nas -- --tags backupnas
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
+| Tag       | Description                                                      |
+| --------- | ---------------------------------------------------------------- |
 | backupnas | Configure backup LUKS devices and install the `backupnas` script |
 
 ## Variables

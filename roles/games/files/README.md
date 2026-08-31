@@ -7,12 +7,12 @@ run by hand to debug a single stage.
 **Each script's module docstring is the authoritative reference** for its full input schema, defaults,
 and edge cases. This file is the operator's quick start.
 
-| Script | Role | Input |
-| --- | --- | --- |
-| `retroarch-probe-cores.py` | Reports what each installed core says about itself (`library_name`, `valid_extensions`, `block_extract`) as JSON on stdout | Cores directory, as its sole argument |
-| `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library | `RETROARCH_GENERATOR_CONFIG`, a JSON document |
-| `retroarch-fetch-thumbnails.py` | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com) | `RETROARCH_THUMBNAILS_CONFIG`, a JSON document with `playlist_dir` and `thumbnails_dir` |
-| `gen-fbneo-arcade-names.py` | Regenerates the committed `fbneo-arcade-names.json` romset-to-title map | None. Needs network access |
+| Script                            | Role                                                                                                                       | Input                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `retroarch-probe-cores.py`        | Reports what each installed core says about itself (`library_name`, `valid_extensions`, `block_extract`) as JSON on stdout | Cores directory, as its sole argument                                                   |
+| `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                                                      | `RETROARCH_GENERATOR_CONFIG`, a JSON document                                           |
+| `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com)                           | `RETROARCH_THUMBNAILS_CONFIG`, a JSON document with `playlist_dir` and `thumbnails_dir` |
+| `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json` romset-to-title map                                                    | None. Needs network access                                                              |
 
 - Runtime pipeline: probe -> generate -> fetch. `gen-fbneo-arcade-names.py` is a maintenance script, run by hand
   only when fbneo adds games; commit the regenerated JSON afterward.
@@ -32,14 +32,14 @@ and edge cases. This file is the operator's quick start.
 The examples use the paths a `--user` flatpak install of RetroArch exposes (`$HOME` is the target user's home).
 Substitute your own if RetroArch lives elsewhere.
 
-| What | Path |
-| --- | --- |
-| Config tree | `$HOME/.var/app/org.libretro.RetroArch/config/retroarch` |
-| Cores | `<config tree>/cores` |
-| Playlists | `<config tree>/playlists` |
-| Per-core config | `<config tree>/config` |
+| What               | Path                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| Config tree        | `$HOME/.var/app/org.libretro.RetroArch/config/retroarch`                                         |
+| Cores              | `<config tree>/cores`                                                                            |
+| Playlists          | `<config tree>/playlists`                                                                        |
+| Per-core config    | `<config tree>/config`                                                                           |
 | Core `.info` files | `$HOME/.local/share/flatpak/app/org.libretro.RetroArch/current/active/files/share/libretro/info` |
-| ROM library | Wherever the library is mounted (e.g. `/media/nas/games`) |
+| ROM library        | Wherever the library is mounted (e.g. `/media/nas/games`)                                        |
 
 ## Running by hand
 

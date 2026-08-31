@@ -128,34 +128,34 @@ Setup:
 
 [Custom mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/custom_mode.md):
 
-| Mode | Description |
-| --- | --- |
-| 101 | Silent |
-| 102 | Balanced |
-| 103 | Turbo |
-| 104 | Max |
-| 105 | Off (mop only) |
-| 106 | Custom (Auto) |
+| Mode | Description    |
+| ---- | -------------- |
+| 101  | Silent         |
+| 102  | Balanced       |
+| 103  | Turbo          |
+| 104  | Max            |
+| 105  | Off (mop only) |
+| 106  | Custom (Auto)  |
 
 [Water box custom mode](https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/water_box_custom_mode.md#set-water-box-custom-mode):
 
-| Mode | Flow level |
-| --- | --- |
-| 200 | Off |
-| 201 | Low |
-| 202 | Medium |
-| 203 | High |
-| 204 | Custom (Auto) |
-| 207 | Custom (Levels) |
+| Mode | Flow level      |
+| ---- | --------------- |
+| 200  | Off             |
+| 201  | Low             |
+| 202  | Medium          |
+| 203  | High            |
+| 204  | Custom (Auto)   |
+| 207  | Custom (Levels) |
 
 Mop mode:
 
 | Mode | Description |
-| --- | --- |
-| 300 | Standard |
-| 301 | Deep |
-| 302 | Custom |
-| 303 | Deep+ |
+| ---- | ----------- |
+| 300  | Standard    |
+| 301  | Deep        |
+| 302  | Custom      |
+| 303  | Deep+       |
 
 ### Sensi thermostat
 

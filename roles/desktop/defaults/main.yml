@@ -116,8 +116,8 @@ desktop_chrome_family_policies:
   ExtensionInstallBlocklist:
     - "*"
   ExtensionInstallAllowlist:
-    - cjpalhdlnbpafiamejdnhcphjbkeiagm  # uBlock Origin
-    - ddkjiahejlhfcafbddmgiahcphecmpfh  # uBlock Origin Lite
+    - cjpalhdlnbpafiamejdnhcphjbkeiagm # uBlock Origin
+    - ddkjiahejlhfcafbddmgiahcphecmpfh # uBlock Origin Lite
 
 # Enforced by the nss-malcontent module, not the browser (README.md). "none" disables it,
 # "block-list" allows all but the listed, "allow-list" blocks all but the listed and breaks

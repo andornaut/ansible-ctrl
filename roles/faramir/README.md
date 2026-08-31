@@ -7,13 +7,13 @@ specific to this repo.
 
 Two kinds of install, from one role:
 
-| | Controller | Every other faramir host |
-| --- | --- | --- |
-| Inventory | in `faramir_controller` and in `faramir` | in `faramir` |
-| Blocked paths, linked secrets, redaction | yes | yes |
-| Checkout enrolled with `init-project` | yes | no, it runs no playbook |
-| SSH key authorized on the fleet | yes | no, one is minted and reaches nothing |
-| Reached by a brokered playbook run | no, `--limit '!faramir_controller'` | yes, like any managed host |
+|                                          | Controller                               | Every other faramir host              |
+| ---------------------------------------- | ---------------------------------------- | ------------------------------------- |
+| Inventory                                | in `faramir_controller` and in `faramir` | in `faramir`                          |
+| Blocked paths, linked secrets, redaction | yes                                      | yes                                   |
+| Checkout enrolled with `init-project`    | yes                                      | no, it runs no playbook               |
+| SSH key authorized on the fleet          | yes                                      | no, one is minted and reaches nothing |
+| Reached by a brokered playbook run       | no, `--limit '!faramir_controller'`      | yes, like any managed host            |
 
 The second is the install for a machine that only wants its own credentials kept out of an agent's reach.
 
@@ -40,10 +40,10 @@ membership is read at login.
 
 `faramir.yml` applies the role's two entry points in order:
 
-| Play | Entry point | Hosts | Effect |
-| --- | --- | --- | --- |
-| first | `tasks/broker.yml` (`tasks_from`) | `faramir` | Installs the broker on each of them |
-| second | `tasks/ssh.yml` (`tasks_from`) | `all` | Authorizes the controller's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
+| Play   | Entry point                       | Hosts     | Effect                                                                                                                                                                         |
+| ------ | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| first  | `tasks/broker.yml` (`tasks_from`) | `faramir` | Installs the broker on each of them                                                                                                                                            |
+| second | `tasks/ssh.yml` (`tasks_from`)    | `all`     | Authorizes the controller's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
 
 `faramir_controller_host` is derived from the `faramir_controller` group rather than named here, this repo being public, and
 `faramir_is_controller` is what gates the controller-only tasks. `broker.yml` refuses to run on a host outside the
@@ -62,11 +62,11 @@ faramir's own defaults, so they are not knobs here.
 run straight through. Once the broker is installed the store stops being readable by the operator, and `make`
 routes around that:
 
-| Run | What `make <playbook>` does |
-| --- | --- |
-| no credential | one `ansible-playbook`, as the operator |
-| credential, store readable | one `ansible-playbook`, under `sops exec-env` |
-| credential, store unreadable | `sudo make <playbook>`, then the row above |
+| Run                          | What `make <playbook>` does                   |
+| ---------------------------- | --------------------------------------------- |
+| no credential                | one `ansible-playbook`, as the operator       |
+| credential, store readable   | one `ansible-playbook`, under `sops exec-env` |
+| credential, store unreadable | `sudo make <playbook>`, then the row above    |
 
 Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every
 managed host. The one password prompt comes before anything applies.
@@ -160,10 +160,10 @@ real paths: the config dir, the store, `/var/log/faramir`, `/usr/local/libexec/f
 state dirs. Everything else on a host is covered because the lists here declare it, and nothing reports what is
 missing, so a gap is found by sweeping a host rather than by asking one. `tasks/entries.yml` converges the two.
 
-| List | Entry | Reaches | Checked against the host |
-| --- | --- | --- | --- |
-| `faramir_blocked_home_paths` | `path` | the agent's file tools and its shell | no, and a rule for a path that is not there holds when it appears |
-| `faramir_blocked_commands` | `command` | the agent's shell and a brokered command, a command being neither a file nor a path | no |
+| List                         | Entry     | Reaches                                                                             | Checked against the host                                          |
+| ---------------------------- | --------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `faramir_blocked_home_paths` | `path`    | the agent's file tools and its shell                                                | no, and a rule for a path that is not there holds when it appears |
+| `faramir_blocked_commands`   | `command` | the agent's shell and a brokered command, a command being neither a file nor a path | no                                                                |
 
 - **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
   `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
@@ -210,14 +210,14 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   tool and not the same word inside a flag or a path argument, and a spelled-out subcommand narrows it to that one
   use.
 
-| | a block entry | `faramir_links` |
-| --- | --- | --- |
-| Entry | `[[secret.block]]` | `[[secret.link]]` |
-| Names | a path or a command | a ref, a path, a type, and a key for the types that select |
-| Blocked to the agent's file tools | yes, except a command | yes |
-| Regrouped, so a brokered command is refused it | no, the mode is left alone | yes |
-| In the redactor, tokenised wherever it appears | no, the file is never opened | yes |
-| Injectable by ref | no | yes |
+|                                                | a block entry                | `faramir_links`                                            |
+| ---------------------------------------------- | ---------------------------- | ---------------------------------------------------------- |
+| Entry                                          | `[[secret.block]]`           | `[[secret.link]]`                                          |
+| Names                                          | a path or a command          | a ref, a path, a type, and a key for the types that select |
+| Blocked to the agent's file tools              | yes, except a command        | yes                                                        |
+| Regrouped, so a brokered command is refused it | no, the mode is left alone   | yes                                                        |
+| In the redactor, tokenised wherever it appears | no, the file is never opened | yes                                                        |
+| Injectable by ref                              | no                           | yes                                                        |
 
 - **A block reaches the agent's file tools and its shell**, so a path entry refuses both `Read` and `cat`. A
   command entry reaches a brokered command as well, which `block ls` reports for each one: refused to the agent's
@@ -275,14 +275,14 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 same list goes to `init` and to `init-project`. Named rather than left to faramir's `auto`, which reaches an agent
 only after it has run here once unguarded.
 
-| Agent | In this tree | In the operator's home | Redaction |
-| --- | --- | --- | --- |
-| claude | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md` | full |
-| codex | `PreToolUse` hook in `.codex/hooks.json`, which routes; credentials section in `AGENTS.md` | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md` | full |
-| opencode | plugin in `.opencode/plugins/`, MCP server in `opencode.json` | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md` | full |
-| kilocode | plugin in `.kilo/plugin/`, MCP server in `kilo.json` | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md` | full |
-| pi | extension in `.pi/extensions/`, which carries the deny rules | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: the extension is where pi reads them | full |
-| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md` | a credentials section in `.gemini/GEMINI.md`, and no deny rules | none |
+| Agent       | In this tree                                                                                 | In the operator's home                                                                                  | Redaction |
+| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------- |
+| claude      | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                     | full      |
+| codex       | `PreToolUse` hook in `.codex/hooks.json`, which routes; credentials section in `AGENTS.md`   | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`       | full      |
+| opencode    | plugin in `.opencode/plugins/`, MCP server in `opencode.json`                                | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md`   | full      |
+| kilocode    | plugin in `.kilo/plugin/`, MCP server in `kilo.json`                                         | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md`           | full      |
+| pi          | extension in `.pi/extensions/`, which carries the deny rules                                 | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: the extension is where pi reads them | full      |
+| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md`   | a credentials section in `.gemini/GEMINI.md`, and no deny rules                                         | none      |
 
 - **Antigravity is partial support.** Its hooks decide and cannot rewrite a tool call, so nothing routes what it
   runs through the broker and nothing redacts what comes back. It gets the MCP tools and the instructions to use
@@ -310,11 +310,11 @@ faramir run --env-file faramir.env -- \
 # -> "msmtp_password": "«SECRET:msmtp_password»"
 ```
 
-| Output | Meaning |
-| --- | --- |
-| `«SECRET:...»` | the chain works end to end |
-| `VARIABLE IS NOT DEFINED!` | the ref was not injected |
-| `ENC[AES256_GCM,...]` | the encrypted file sits where Ansible auto-loads it |
+| Output                     | Meaning                                             |
+| -------------------------- | --------------------------------------------------- |
+| `«SECRET:...»`             | the chain works end to end                          |
+| `VARIABLE IS NOT DEFINED!` | the ref was not injected                            |
+| `ENC[AES256_GCM,...]`      | the encrypted file sits where Ansible auto-loads it |
 
 `sudo faramir doctor` adds the boundary checks, which ask each account what it can reach and need a uid other than
 your own.

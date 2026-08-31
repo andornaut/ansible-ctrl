@@ -9,11 +9,11 @@ Ansible cannot run on the device, so `syncretroid` reproduces the `games` role's
 
 Everything lives in `roles/games/files/retroid/`. Read these before changing `syncretroid`:
 
-| Source | Covers |
-| --- | --- |
-| [files/retroid/README.md](../../../roles/games/files/retroid/README.md) | The values that must be read off the device by hand, the shader rationale, the failure modes |
-| `syncretroid.py`'s module docstring | What it owns on the device, and what it leaves alone |
-| `profile.yml`'s inline comments | Each Android divergence, with the reasoning in `../til/docs/retro-games.md` |
+| Source                                                                                      | Covers                                                                                              |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [files/retroid/README.md](../../../roles/games/files/retroid/README.md)                     | The values that must be read off the device by hand, the shader rationale, the failure modes        |
+| `syncretroid.py`'s module docstring                                                         | What it owns on the device, and what it leaves alone                                                |
+| `profile.yml`'s inline comments                                                             | Each Android divergence, with the reasoning in `../til/docs/retro-games.md`                         |
 | [roles/games/README.md](../../../roles/games/README.md#handheld-sync-retroid-pocket-flip-2) | How the `retroid` tag installs the wrapper on the controller, and when an edit needs the tag re-run |
 
 To test an edit without the wrapper: `python3 roles/games/files/retroid/syncretroid.py --library-dir <library> --dry-run` (`--serial` is needed only when more than one device is on adb; the run refuses any device that does not have both RetroArch and ES-DE installed).
@@ -31,6 +31,7 @@ Run from the controller, where the ROM library is local and the command is on PA
    ```
 
    ROMs and thumbnails are mirrored by default. The ROM mirror is hundreds of GB over USB, so a first run takes hours, but it is resumable and pushes only new/changed files: re-runs are usually quick and finish an interrupted transfer. Run it in the background and report progress periodically.
+
 4. Skip flags for a faster or narrower run: `--skip-roms`, `--skip-thumbnails` (ES-DE uses its own scraped media), `--skip-bios`, `--skip-shaders`. Preview any run with `--dry-run`.
 
 ## The device

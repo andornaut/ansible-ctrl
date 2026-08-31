@@ -17,24 +17,24 @@ make homeautomation -- --tags frigate
 Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone installs nothing.
 A tag whose flag is off may still remove what an earlier run installed.
 
-| Tag | Description |
-| --- | --- |
-| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, installed on each set from its newest release |
-| [avahi](https://avahi.org/) | mDNS discovery service |
-| bluetooth | `bluez`, `dbus-broker` and the AppArmor policy a container needs to reach BLE. No flag; always applied |
-| customizations | HA custom components, themes, and www assets |
-| docker | All Docker container tasks |
-| [esphome](https://esphome.io/) | ESP device firmware and dashboard |
-| [frigate](https://github.com/blakeblackshear/frigate) | Video surveillance with AI detection |
-| [hamcp](https://github.com/homeassistant-ai/ha-mcp) | Home Assistant MCP server |
-| homeassistant | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt) |
-| llm | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui) |
-| matter | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
-| [memryx](https://memryx.com/) | MemryX MX3 AI accelerator drivers |
-| [mosquitto](https://mosquitto.org/) | The MQTT broker on its own. No flag; also applied by `homeassistant` |
-| otbr | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter` |
-| teardown | Remove the containers and host files of components this host does not install |
-| voice | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT |
+| Tag                                                               | Description                                                                                                                                                                              |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, installed on each set from its newest release                                                                                             |
+| [avahi](https://avahi.org/)                                       | mDNS discovery service                                                                                                                                                                   |
+| bluetooth                                                         | `bluez`, `dbus-broker` and the AppArmor policy a container needs to reach BLE. No flag; always applied                                                                                   |
+| customizations                                                    | HA custom components, themes, and www assets                                                                                                                                             |
+| docker                                                            | All Docker container tasks                                                                                                                                                               |
+| [esphome](https://esphome.io/)                                    | ESP device firmware and dashboard                                                                                                                                                        |
+| [frigate](https://github.com/blakeblackshear/frigate)             | Video surveillance with AI detection                                                                                                                                                     |
+| [hamcp](https://github.com/homeassistant-ai/ha-mcp)               | Home Assistant MCP server                                                                                                                                                                |
+| homeassistant                                                     | [Home Assistant](https://www.home-assistant.io/) core with [Mosquitto](https://mosquitto.org/) and [Govee2MQTT](https://github.com/wez/govee2mqtt)                                       |
+| llm                                                               | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui)                                                                            |
+| matter                                                            | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
+| [memryx](https://memryx.com/)                                     | MemryX MX3 AI accelerator drivers                                                                                                                                                        |
+| [mosquitto](https://mosquitto.org/)                               | The MQTT broker on its own. No flag; also applied by `homeassistant`                                                                                                                     |
+| otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter`                         |
+| teardown                                                          | Remove the containers and host files of components this host does not install                                                                                                            |
+| voice                                                             | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT                                                                     |
 
 ## Variables
 
@@ -46,20 +46,20 @@ Clearing a `homeautomation_install_*` flag removes the component on the next run
 host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
 as the `ping_group_range` sysctl drop-in ESPHome needs.
 
-| Not removed | Why |
-| --- | --- |
-| Volumes | They hold the only copy of a service's data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
-| Home Assistant, Mosquitto | No flag; always configured |
-| Avahi | A host daemon the run stops, not a container |
-| MemryX | The DKMS driver and apt sources are not reversed |
-| adb-auto-enable | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable` |
+| Not removed               | Why                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Volumes                   | They hold the only copy of a service's data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
+| Home Assistant, Mosquitto | No flag; always configured                                                                                                                                  |
+| Avahi                     | A host daemon the run stops, not a container                                                                                                                |
+| MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
+| adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
 
 ## Networking
 
-| Mode | Containers | Detail |
-| --- | --- | --- |
-| host | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery |
-| `homeautomation_default` (`br-ha`) bridge | everything else | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]` |
+| Mode                                      | Containers                                                  | Detail                                                                                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| host                                      | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery                                                                                                                                   |
+| `homeautomation_default` (`br-ha`) bridge | everything else                                             | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]` |
 
 Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
 [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
@@ -77,47 +77,47 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 Internal ports. The `homeautomation_*_port` variables in [defaults/main.yml](./defaults/main.yml) set the
 published host side of a bridge container's mapping, not the internal port listed here.
 
-| Container | Network | Port | Protocol | Description |
-| --- | --- | --- | --- | --- |
-| homeassistant | host | 8123 | HTTP | Web UI and API |
-| esphome | host | 6052 | HTTP | Dashboard |
-| govee2mqtt | host | none | UDP | LAN broadcast discovery |
-| otbr | host | 8080 | HTTP | Thread Border Router web UI |
-| otbr | host | 8081 | REST | Thread Border Router REST API |
-| matterjs | host | 5580 | HTTP/WS | Web UI and WebSocket API |
-| pythonmatterserver | host | 5580 | HTTP/WS | Web UI and WebSocket API (legacy) |
-| mosquitto | bridge | 1883 | MQTT | MQTT broker |
-| frigate | bridge | 5000 | HTTP | Web UI (unauthenticated) |
-| frigate | bridge | 8971 | HTTP | Web UI (authenticated) |
-| frigate | bridge | 8554 | RTSP | RTSP streams |
-| frigate | bridge | 8555 | WebRTC | WebRTC streams |
-| llamacpp | bridge | 8080 | HTTP | Web UI and OpenAI-compatible API |
-| openwebui | bridge | 8080 | HTTP | Web UI, published on host port 3000 |
-| hamcp | bridge | 8086 | HTTP | MCP server |
-| piper | bridge | 10200 | Wyoming | Text-to-speech, also published on the host |
-| whisper | bridge | 10300 | Wyoming | Speech-to-text, also published on the host |
+| Container          | Network | Port  | Protocol | Description                                |
+| ------------------ | ------- | ----- | -------- | ------------------------------------------ |
+| homeassistant      | host    | 8123  | HTTP     | Web UI and API                             |
+| esphome            | host    | 6052  | HTTP     | Dashboard                                  |
+| govee2mqtt         | host    | none  | UDP      | LAN broadcast discovery                    |
+| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI                |
+| otbr               | host    | 8081  | REST     | Thread Border Router REST API              |
+| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API                   |
+| pythonmatterserver | host    | 5580  | HTTP/WS  | Web UI and WebSocket API (legacy)          |
+| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                |
+| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated)                   |
+| frigate            | bridge  | 8971  | HTTP     | Web UI (authenticated)                     |
+| frigate            | bridge  | 8554  | RTSP     | RTSP streams                               |
+| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                             |
+| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API           |
+| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host port 3000        |
+| hamcp              | bridge  | 8086  | HTTP     | MCP server                                 |
+| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also published on the host |
+| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also published on the host |
 
 ### Container hardening
 
 Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern is:
 
-| Measure | Constraint |
-| --- | --- |
+| Measure                                                                                                                      | Constraint                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), each with a fixed uid | A file on a bind mount then names the service that wrote it. The uids are in [defaults/main.yml](./defaults/main.yml) and `host_vars`, collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto follows the uid baked into its image instead |
-| `cap_drop: ALL` for every container running as a non-root uid | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set |
-| `no-new-privileges` everywhere, root included | It blocks the setuid transition that would make a permitted capability effective |
-| Directories closed rather than files, wherever a service rewrites its own state with its own umask | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings |
-| Listeners bound to loopback where nothing off-host consumes them | The MQTT broker allows anonymous access and Frigate serves a second copy of its UI with no login |
+| `cap_drop: ALL` for every container running as a non-root uid                                                                | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                            |
+| `no-new-privileges` everywhere, root included                                                                                | It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                 |
+| Directories closed rather than files, wherever a service rewrites its own state with its own umask                           | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                                            |
+| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker allows anonymous access and Frigate serves a second copy of its UI with no login                                                                                                                                                                                                 |
 
 ### llama.cpp models and context
 
 Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
 defaults to 4096 tokens. Two places set what a child runs with:
 
-| Where | Scope | Holds |
-| --- | --- | --- |
-| `homeautomation_llamacpp_env` | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident |
-| `homeautomation_llamacpp_model_presets` | one model | any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name |
+| Where                                   | Scope                       | Holds                                                                                                                                                                                                    |
+| --------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `homeautomation_llamacpp_env`           | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident |
+| `homeautomation_llamacpp_model_presets` | one model                   | any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name                      |
 
 - `LLAMA_ARG_CTX_SIZE` must stay at or below the smallest `homeautomation_llamacpp_models` entry's native
   training context, or quality degrades without YaRN. A model that cannot afford it in VRAM sets a lower `c`
@@ -148,11 +148,11 @@ rather than renaming into it, so a recreated container's new bridge IP is visibl
 
 ### Matter and Thread
 
-| Constraint | Detail |
-| --- | --- |
-| Exactly one Matter server | `homeautomation_install_matterjs` or the superseded `homeautomation_install_legacy_pythonmatterserver`, asserted not both |
+| Constraint                                 | Detail                                                                                                                                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exactly one Matter server                  | `homeautomation_install_matterjs` or the superseded `homeautomation_install_legacy_pythonmatterserver`, asserted not both                                                                                                           |
 | The Matter server must use host networking | It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable |
-| Avahi cannot run alongside Matter/Thread | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts |
+| Avahi cannot run alongside Matter/Thread   | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts                                                                                                                            |
 
 ## Operations
 
@@ -186,13 +186,13 @@ task keyword of that name, a task that times out failing whatever `failed_when` 
 installed, and it is refused across a signature change. A set carrying a build signed with another key, a locally
 built one among them, needs `adb uninstall` first, and that costs the app's own adb key and the pairing made to it.
 
-| A run finds | What it does |
-| --- | --- |
-| The newest release already installed | Nothing. The versionName matches, so nothing is downloaded or installed |
-| A newer release published | Downloads it and installs over the old one, which keeps the pairing |
-| The app absent | Installs, grants, and starts it, ready for the pairing code it now needs |
-| A set off, or in standby | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
-| A build signed with another key | Fails, naming the uninstall that clears it |
+| A run finds                          | What it does                                                                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------- |
+| The newest release already installed | Nothing. The versionName matches, so nothing is downloaded or installed                |
+| A newer release published            | Downloads it and installs over the old one, which keeps the pairing                    |
+| The app absent                       | Installs, grants, and starts it, ready for the pairing code it now needs               |
+| A set off, or in standby             | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
+| A build signed with another key      | Fails, naming the uninstall that clears it                                             |
 
 The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
 own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing
@@ -204,12 +204,12 @@ curl http://<tv>:9093/api/status     # isPaired true, and currentPort once it ha
 adb shell pm query-receivers --components -a android.intent.action.BOOT_COMPLETED | grep adbautoenable
 ```
 
-| Gotcha | Detail |
-| --- | --- |
-| Boot is slow | `BOOT_COMPLETED` reaches the app about five minutes after a reboot on these sets, and adb about a minute after that |
-| Wireless debugging does not persist | It is off after every boot, so the app starting is the only thing that brings adb back |
-| An unarmed boot needs a person | With the receiver pruned and the app not started, there is no adb to fix it through, and recovery is a pairing code read off the screen |
-| Reproducing the prune | Only against a debuggable build, which a release is not: `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand. `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
+| Gotcha                              | Detail                                                                                                                                                                                                                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boot is slow                        | `BOOT_COMPLETED` reaches the app about five minutes after a reboot on these sets, and adb about a minute after that                                                                                                                                                                             |
+| Wireless debugging does not persist | It is off after every boot, so the app starting is the only thing that brings adb back                                                                                                                                                                                                          |
+| An unarmed boot needs a person      | With the receiver pruned and the app not started, there is no adb to fix it through, and recovery is a pairing code read off the screen                                                                                                                                                         |
+| Reproducing the prune               | Only against a debuggable build, which a release is not: `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand. `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
 
 ### Home Assistant
 
@@ -266,15 +266,15 @@ letsencrypt_nginx_websites:
 
 Clients connect to `http://<name>.internal:8086/mcp`, the container's internal port on the bridge network.
 
-| Rule | Why |
-| --- | --- |
+| Rule                                                                                 | Why                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so keeping every instance on the bridge network publishes no MCP port anywhere |
-| Each entry needs its own `name` and `uid` | The name becomes both the container name and the service account; the uid must be distinct across every service in this role |
+| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be distinct across every service in this role                                                               |
 
 ## Documentation
 
-| Document | Contents |
-| --- | --- |
-| [docs/hardware.md](docs/hardware.md) | Device setup, Matter pairing, firmware flashing |
+| Document                                           | Contents                                                          |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                   |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | EnvisaLink credentials, Frigate, MemryX, Coral.ai, entity cleanup |
-| [docs/references.md](docs/references.md) | Integrations, custom cards, LLM and voice links |
+| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                   |

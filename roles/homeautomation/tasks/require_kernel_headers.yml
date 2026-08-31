@@ -19,10 +19,10 @@
 - name: Install DKMS and the kernel headers it builds against
   ansible.builtin.apt:
     name: "{{ ['dkms', 'linux-headers-' ~ ansible_facts['kernel']]
-              + (ansible_facts['packages'].keys()
-                 | select('match', '^linux-image-generic')
-                 | map('regex_replace', '^linux-image-', 'linux-headers-')
-                 | list) }}"
+      + (ansible_facts['packages'].keys()
+      | select('match', '^linux-image-generic')
+      | map('regex_replace', '^linux-image-', 'linux-headers-')
+      | list) }}"
     state: latest
     update_cache: true
   become: true

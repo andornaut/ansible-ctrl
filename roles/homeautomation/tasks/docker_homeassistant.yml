@@ -93,7 +93,13 @@
         # Gates govee2mqtt via depends_on. Reports only: nothing here restarts an
         # unhealthy container.
         healthcheck:
-          test: ["CMD", "curl", "-sf", "http://localhost:{{ homeautomation_homeassistant_port }}/manifest.json"]
+          test:
+            [
+              "CMD",
+              "curl",
+              "-sf",
+              "http://localhost:{{ homeautomation_homeassistant_port }}/manifest.json",
+            ]
           interval: 30s
           timeout: 10s
           retries: 3
@@ -113,7 +119,19 @@
         # Anonymous access is on. 1883 is the in-container listener, not the
         # published host port.
         healthcheck:
-          test: ["CMD", "mosquitto_pub", "-h", "localhost", "-p", "1883", "-t", "healthcheck", "-m", "ping"]
+          test:
+            [
+              "CMD",
+              "mosquitto_pub",
+              "-h",
+              "localhost",
+              "-p",
+              "1883",
+              "-t",
+              "healthcheck",
+              "-m",
+              "ping",
+            ]
           interval: 30s
           timeout: 10s
           retries: 3

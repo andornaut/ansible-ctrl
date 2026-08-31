@@ -21,7 +21,8 @@
     # creates is evaluated before the download, so an installed release skips it.
     - name: Download and extract Betaflight Configurator
       ansible.builtin.unarchive:
-        src: "https://github.com/betaflight/betaflight-configurator/releases/download/\
+        src:
+          "https://github.com/betaflight/betaflight-configurator/releases/download/\
           {{ hobbies_betaflight_version }}/\
           betaflight-configurator_{{ hobbies_betaflight_version }}_linux64-portable.zip"
         dest: "{{ hobbies_betaflight_release_dir }}"

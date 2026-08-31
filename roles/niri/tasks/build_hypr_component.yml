@@ -21,7 +21,8 @@
   ansible.builtin.include_tasks: build_component.yml
   vars:
     build_component_name: "{{ hypr_component_name }}"
-    build_component_src_url: "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
+    build_component_src_url:
+      "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
       {{ niri_hypr_component_release.name }}.tar.gz"
     build_component_configure_cmd: "{{ niri_hypr_cmake_configure }}"
     build_component_build_cmd: >-

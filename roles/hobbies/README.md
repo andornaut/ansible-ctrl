@@ -11,25 +11,25 @@ make hobbies -- --tags kicad
 
 ## Tags
 
-| Tag | Description |
-| --- | --- |
-| [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator |
-| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool |
-| fpv | betaflight and expresslrs |
-| [freecad](https://www.freecad.org/) | Parametric CAD for modelling parts around PCBs |
-| [freerouting](https://github.com/freerouting/freerouting) | PCB autorouter for KiCad; a subset of `kicad` |
-| [kicad](https://www.kicad.org/) | Electronics schematic and PCB design, with plugins |
-| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer) | 3D printer slicer (user flatpak) |
+| Tag                                                                 | Description                                        |
+| ------------------------------------------------------------------- | -------------------------------------------------- |
+| [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator                 |
+| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool            |
+| fpv                                                                 | betaflight and expresslrs                          |
+| [freecad](https://www.freecad.org/)                                 | Parametric CAD for modelling parts around PCBs     |
+| [freerouting](https://github.com/freerouting/freerouting)           | PCB autorouter for KiCad; a subset of `kicad`      |
+| [kicad](https://www.kicad.org/)                                     | Electronics schematic and PCB design, with plugins |
+| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer)              | 3D printer slicer (user flatpak)                   |
 
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable | Purpose |
-| --- | --- |
+| Variable                     | Purpose                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------- |
 | `hobbies_betaflight_version` | Pinned release; only raise it to one whose assets include `linux64-portable.zip` |
-| `hobbies_kicad_version` | Selects both the release PPA and the plugin directory |
-| `hobbies_user` | Account that user-scoped installs (flatpaks, KiCad plugins) apply to |
+| `hobbies_kicad_version`      | Selects both the release PPA and the plugin directory                            |
+| `hobbies_user`               | Account that user-scoped installs (flatpaks, KiCad plugins) apply to             |
 
 ## Notes
 

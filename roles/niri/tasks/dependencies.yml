@@ -78,7 +78,8 @@
       ansible.builtin.include_tasks: build_component.yml
       vars:
         build_component_name: libsdbus
-        build_component_src_url: "https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/\
+        build_component_src_url:
+          "https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/\
           {{ niri_libsdbus_release.name }}.tar.gz"
         build_component_configure_cmd: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
         build_component_build_cmd: cmake --build build
