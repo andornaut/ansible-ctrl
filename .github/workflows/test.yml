@@ -46,8 +46,9 @@ jobs:
         with:
           python-version-file: .python-version
 
-      # The markdown check calls markdownlint-cli2, which package.json pins and
-      # Dependabot bumps through the npm ecosystem.
+      # The markdown check calls markdownlint-cli2, and the commit hook calls
+      # prettier. package.json pins both, and Dependabot bumps them through the
+      # npm ecosystem.
       - name: Set up Node
         uses: actions/setup-node@v7.0.0
         with:
@@ -74,23 +75,17 @@ jobs:
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r requirements.yml
 
-      # markdownlint-cli2, which the markdown check calls through npx.
+      # markdownlint-cli2 and prettier, which the markdown check and the commit
+      # hook run out of node_modules/ rather than through npx: a bare npx fetches
+      # whatever is current when nothing is installed, which is a version no
+      # commit here names.
       - name: Install Node packages
         run: npm ci
 
       # Every check in one step. The script runs them all and names each result,
-      # so a failure still says which check failed.
+      # so a failure still says which check failed. markdownlint has no step of
+      # its own here: check_markdown runs markdownlint-cli2 at the version
+      # package-lock.json pins, so this gate and `make lint` cannot gate on
+      # different versions, where the shared action would bundle a second copy.
       - name: Run every check
         run: tests/lint.sh
-
-      # The action bundles markdownlint-cli2, so its own tag is the tool pin and
-      # Dependabot proposes the bump through the github-actions ecosystem. It
-      # fetches nothing at run time, so a slow host cannot turn this red.
-      - name: Run markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v24.2.0
-        with:
-          # Empty on purpose. The action defaults this to `*.{md,markdown}`,
-          # which is the repository root only, and anything passed here outranks
-          # the `globs` in .markdownlint-cli2.yaml. Empty leaves the config file
-          # deciding, so this gate and a local `markdownlint-cli2` read one list.
-          globs: ""
