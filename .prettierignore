@@ -1,0 +1,17 @@
+.github/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+package-lock.json
+
+# Local-only trees. Named here rather than left to this machine's global git
+# ignore, which a runner does not have: without them a local run passes and CI
+# walks an installed dependency. .ansible/ holds both the lint venv and the
+# galaxy collections ansible-galaxy installs, which are upstream's.
+node_modules/
+.ansible/
+
+# A lookup table, one rom name per line. Prettier reindents all 7720 of them
+# onto its own wrapping, which turns any future entry into a diff against our
+# formatting rather than against the row that changed.
+roles/games/files/fbneo-arcade-names.json
