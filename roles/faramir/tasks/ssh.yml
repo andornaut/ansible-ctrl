@@ -219,6 +219,9 @@
   vars:
     faramir_fleet_ping_hosts: "{{ ansible_play_hosts | difference([faramir_controller_host]) }}"
   block:
+    # Nothing is piped in. What ansible leaves on a module's child is an anonymous pipe
+    # every writer has closed, which faramir lets through; one that refuses it refuses the
+    # run instead, and every host below then reads as silent.
     - name: Ping the hosts this run authorized, through the broker
       ansible.builtin.command:
         argv: >-
