@@ -101,9 +101,11 @@ faramir_sudo_timeout_sec: 300
 # home and faramir matches the result as written. A directory refuses everything under it.
 #
 # The same shape everywhere, and the finer one where a home holds both a store and something
-# the agent is asked to read beside it: `.ssh/id_rsa` rather than `.ssh/`, because this
-# account's `config` and `known_hosts` are files an agent opens. The cost falls on the other
-# accounts, where a key under a name nothing lists is not covered, and the answer there is to
+# the agent is asked to read beside it: `.ssh/id_*` rather than `.ssh/`, because this
+# account's `config` and `known_hosts` are files an agent opens. An entry may carry one
+# wildcard, a trailing `*` on its last component after at least one literal character, which
+# is what lets a name be declared by the part of it that is fixed. The cost falls on the other
+# accounts, where a name outside every shape here is not covered, and the answer there is to
 # name it here rather than to block the directory in one home and the files in another.
 #
 # Every entry is configured whether or not a host has the file, the rule holding when the file
@@ -143,32 +145,34 @@ faramir_blocked_home_paths:
   # A kubeconfig, which holds a client certificate and key or a bearer token per cluster. The
   # file and not `.kube/`, the cache and the http cache beside it being neither.
   - ".kube/config"
-  # SSH private keys, one entry per key name, `ssh-keygen`'s own names for every type it
-  # writes and the two hardware-backed spellings. The directory is not blocked, `config`,
-  # `known_hosts` and `authorized_keys` beside the keys being files an agent is asked to read.
-  # A key under a name of somebody's choosing needs its own entry.
+  # SSH private keys, named by the prefix `ssh-keygen` gives every type it writes. That covers
+  # a key renamed around that prefix, `id_rsa_work` and `id_ed25519_old` among them, which one
+  # entry per key type could not. The directory stays unblocked, `config`, `known_hosts` and
+  # `authorized_keys` beside the keys being files an agent is asked to read.
   #
-  # Weaker than a rule on the directory in two ways, both accepted: a pipeline where neither
-  # half names a declared path reaches these, and a key named outside this list is not covered
-  # under any home.
-  - ".ssh/id_rsa"
-  - ".ssh/id_dsa"
-  - ".ssh/id_ecdsa"
-  - ".ssh/id_ecdsa_sk"
-  - ".ssh/id_ed25519"
-  - ".ssh/id_ed25519_sk"
+  # A key named off the prefix entirely, `work_ed25519` or `github`, is still covered under no
+  # home and needs its own entry. The wildcard narrows that gap and does not close it: it
+  # opens the end of a name and there is no form that opens the start.
+  #
+  # The public halves go with the private ones, `.pub` being a suffix and the wildcard only
+  # opening the end of a name. Accepted: reading one is ordinary and this refuses it, which is
+  # a refusal rather than a disclosure, and the brokered route does not get it back, every
+  # entry here being written --strict.
+  #
+  # Still weaker than a rule on the directory in one way, accepted as before: a pipeline where
+  # neither half names a declared path reaches these.
+  - ".ssh/id_*"
   # Site passwords the application keeps itself rather than handing to a keyring: MQTT
   # Explorer holds a broker's in `settings.json`, and irssi a server's and its NickServ
   # password in `config`. Neither is encrypted and neither is named by any rule.
   - ".config/MQTT-Explorer"
   - ".irssi"
   # The Chromium family's profile stores, holding every saved password, session cookie and
-  # card in `Login Data` and its keyring entry. One entry per directory: the three chrome
-  # installs keep three profiles, and a rule matches the path as written, so none of them
-  # covers another.
-  - ".config/google-chrome"
-  - ".config/google-chrome-for-testing"
-  - ".config/google-chrome-headless"
+  # card in `Login Data` and its keyring entry. Each chrome install keeps a profile of its
+  # own, so the prefix is what covers them: the three here today, and the `-beta`,
+  # `-unstable` and `-canary` channels that are installed under the same name and one suffix.
+  # Chromium's own directory shares no prefix with those and is its own entry.
+  - ".config/google-chrome*"
   - ".config/chromium"
   # A flatpak gets a home of its own under `.var/app`, so an application installed that way
   # keeps a second copy of the store above. An entry per install method, each covering the
@@ -178,30 +182,123 @@ faramir_blocked_home_paths:
   # as the flatpak's. Written whether or not this host has the native install today.
   - ".mozilla"
   - ".var/app/org.chromium.Chromium"
-  - ".var/app/com.heroicgameslauncher.hgl"
   # FileZilla encodes each site's password in `sitemanager.xml` and `recentservers.xml`
   # rather than encrypting it. The flatpak's copy is the whole of it, that being the only way
   # it is installed here, so no native `~/.config/filezilla` is written. Installing the apt
   # build would want that directory added here as well, a rule matching the path as written.
   - ".var/app/org.filezillaproject.Filezilla"
   # Session tokens, which stand in for the password they were issued against: a sync account
-  # and two storefronts, itch keeping its API key in `db/butler.db`. Heroic and the
-  # `legendary` it signs in with are installed as flatpaks, so the app directory above is
-  # what covers those.
+  # and a storefront, itch keeping its API key in `db/butler.db`.
   - ".config/Insync"
-  - ".local/share/Steam"
   - ".config/itch"
-  # Lutris keeps one per storefront it has been signed in to, under `cache/lutris`: GOG,
-  # Amazon, Humble Bundle and Origin, each an auth file or a cookie jar. Steam's own is
-  # covered by the flatpak path, an install made that way leaving `.local/share/Steam` a
-  # shell.
-  - ".var/app/net.lutris.Lutris"
-  - ".var/app/com.valvesoftware.Steam"
   # The Bedrock launcher signs in to a Microsoft account and keeps the token beside a device
-  # key of its own, so it goes whole like the storefronts above it.
+  # key of its own, so it goes whole.
   - ".var/app/io.github.wyze3306.BedrockOnLinux"
-  # `~/.steam`, the other spelling of the store above it, a rule matching the path as written.
-  - ".steam"
+  #
+  # The three game launchers are named file by file rather than whole, unlike the stores
+  # above them. Each keeps its credentials in a few known places and keeps its installed-game
+  # database, wine prefixes and runner versions everywhere else, and that second half is what
+  # an agent is asked to read and change. A whole-tree entry refuses both.
+  #
+  # All three are installed as flatpaks here, so a `.var/app` home is the live copy and no
+  # native path is earned under the rule above: a path earns an entry where a host here has
+  # the tool that writes it. Steam is the exception and its native spellings are written
+  # anyway, that one having an apt build the others do not and a `~/.steam` outside any
+  # flatpak home. Lutris's `~/.cache/lutris` and Heroic's `~/.config/heroic` are deliberately
+  # absent; installing either from apt would want them added.
+  #
+  # One spelling never covers another: faramir matches a path under a home in full rather than
+  # any tail of it, so each is its own entry.
+  #
+  # Lutris keeps every storefront it has signed in to under the flatpak's `cache`: GOG,
+  # Amazon, Humble Bundle, Epic, Steam, Battle.net, EA, Ubisoft and its own lutris.net token,
+  # each an auth file or a cookie jar, and the directory holds nothing else that is not a
+  # library cache, cover art or a downloaded runner tarball. The webkit view it signs in
+  # through keeps those sessions a second time under `data/lutris`, which is why three
+  # directories there go with it. `pga.db` beside them is the installed-game database and
+  # `games`, `runners`, `runtime` and `system.yml` are its settings, so those stay readable.
+  - ".var/app/net.lutris.Lutris/cache"
+  - ".var/app/net.lutris.Lutris/data/lutris/localstorage"
+  - ".var/app/net.lutris.Lutris/data/lutris/storage"
+  - ".var/app/net.lutris.Lutris/data/lutris/databases"
+  # Steam's `config` directory is a credential store rather than the game configuration:
+  # `config.vdf` and `loginusers.vdf` hold the refresh tokens and `cefdata` and `htmlcache`
+  # hold the store's cookies, while `libraryfolders.vdf` beside them names the libraries on
+  # other disks and is how installed games are found. Named one by one for that reason.
+  # `local.vdf` and the `ssfn` sentry sit in the root beside `steamapps`, `appcache`,
+  # `compatdata` and `userdata`, which stay readable for the same purpose.
+  #
+  # One tree, four spellings, and an entry covers the one it is written as: faramir matches
+  # the path as text and resolves no symlink. `data` is a symlink to `.local/share` inside the
+  # flatpak home, and `.steam/root` and `.steam/steam` are two more pointing at the same
+  # place, which is how Steam's own launcher reaches it.
+  #
+  # The two canonical spellings are named file by file, so `steamapps`, `appcache`,
+  # `compatdata` and `userdata` stay readable through them. The two symlinks go whole instead:
+  # nothing needs reaching through one when the same file is readable at the spelling beside
+  # it, and enumerating a second and third copy of the credential list is how a file gets left
+  # out of one of them. That omission is the refresh tokens read through a path no rule
+  # mentions, which is what a whole-directory entry cannot have.
+  #
+  # The `ssfn` sentry is named by its prefix, the one shape a path entry may carry a wildcard
+  # in: a trailing `*` on the last component, after at least one literal character. Its full
+  # name carries a per-account number, which this repo is public and does not hold, and a
+  # re-authorization writes a different one that the prefix covers without an edit.
+  - ".var/app/com.valvesoftware.Steam/data/Steam/config/config.vdf"
+  - ".var/app/com.valvesoftware.Steam/data/Steam/config/loginusers.vdf"
+  - ".var/app/com.valvesoftware.Steam/data/Steam/config/cefdata"
+  - ".var/app/com.valvesoftware.Steam/data/Steam/config/htmlcache"
+  - ".var/app/com.valvesoftware.Steam/data/Steam/local.vdf"
+  - ".var/app/com.valvesoftware.Steam/data/Steam/ssfn*"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/config/config.vdf"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/config/loginusers.vdf"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/config/cefdata"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/config/htmlcache"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/local.vdf"
+  - ".var/app/com.valvesoftware.Steam/.local/share/Steam/ssfn*"
+  - ".var/app/com.valvesoftware.Steam/.steam/root"
+  - ".var/app/com.valvesoftware.Steam/.steam/steam"
+  - ".var/app/com.valvesoftware.Steam/.steam/steam.token"
+  # The native spellings of the same, for a host carrying the apt build, `~/.steam`'s two
+  # symlinks among them: the apt build writes the same pair, pointing at `.local/share/Steam`.
+  - ".local/share/Steam/config/config.vdf"
+  - ".local/share/Steam/config/loginusers.vdf"
+  - ".local/share/Steam/config/cefdata"
+  - ".local/share/Steam/config/htmlcache"
+  - ".local/share/Steam/local.vdf"
+  - ".local/share/Steam/ssfn*"
+  - ".steam/root"
+  - ".steam/steam"
+  - ".steam/steam.token"
+  # Heroic signs in through three storefront backends, each keeping its credentials under a
+  # config directory of its own, and through an Electron view that keeps those sessions a
+  # second time. `config.json`, `GamesConfig`, `store`, `store_cache`, `lib-cache`,
+  # `sideload_apps`, `tools` and the `legendary` metadata beside them are the settings and
+  # the installed-game lists, and stay readable. Its `cache` sibling needs no entry, holding
+  # shader and wine caches and no credential.
+  - ".var/app/com.heroicgameslauncher.hgl/config/legendary/user.json"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/legendaryConfig"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/gogdlConfig"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/nile_config"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/gog_store/auth.json"
+  # The Electron half: the cookie jar, the per-storefront partitions each holding a login of
+  # its own, and the profile files that carry a session beside them. The two SQLite stores are
+  # named by prefix, so each covers whichever journal sidecar its mode writes.
+  #
+  # The same set the editors further down block, `IndexedDB`, `Service Worker` and
+  # `WebStorage` included: this view signs in to Epic, GOG and Amazon, and a session persisted
+  # in one of those is the session `Local Storage` holds. Not under this profile today, and
+  # the rule holds when they appear.
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Cookies*"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Partitions"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Local Storage"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Session Storage"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/IndexedDB"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Service Worker"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/WebStorage"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Local State"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Network Persistent State"
+  - ".var/app/com.heroicgameslauncher.hgl/config/heroic/Trust Tokens*"
   # What vim persists between sessions, which is content and not only filenames: a register
   # holds the text of the last yank or delete, so a line taken out of a decrypted file is
   # written to disk and survives there. Where the dotfiles' `vimrc` points `viminfofile`; the
@@ -337,22 +434,24 @@ faramir_blocked_home_paths:
   # The two names carrying a space are matched as the literal path, so the file tools are
   # refused them outright and a shell command reaches them only in the escaped spelling
   # (`Local\ Storage`); the quoted one is refused like any other path.
-  - ".config/Code/Cookies"
-  - ".config/Code/Cookies-journal"
+  #
+  # `Cookies*` rather than the file and its `-journal`: the jar is SQLite, so the sidecar
+  # beside it is named for the journal mode in force and holds the same rows either way.
+  # `-journal` is the rollback one and `-wal`/`-shm` the write-ahead one, which no list of
+  # literal names had.
+  - ".config/Code/Cookies*"
   - ".config/Code/Local Storage"
   - ".config/Code/Session Storage"
   - ".config/Code/IndexedDB"
   - ".config/Code/Service Worker"
   - ".config/Code/WebStorage"
-  - ".config/Cursor/Cookies"
-  - ".config/Cursor/Cookies-journal"
+  - ".config/Cursor/Cookies*"
   - ".config/Cursor/Local Storage"
   - ".config/Cursor/Session Storage"
   - ".config/Cursor/IndexedDB"
   - ".config/Cursor/Service Worker"
   - ".config/Cursor/WebStorage"
-  - ".config/Antigravity/Cookies"
-  - ".config/Antigravity/Cookies-journal"
+  - ".config/Antigravity/Cookies*"
   - ".config/Antigravity/Local Storage"
   - ".config/Antigravity/Session Storage"
   - ".config/Antigravity/IndexedDB"
@@ -365,8 +464,7 @@ faramir_blocked_home_paths:
   # session stores by path. `buddy-tokens.json` is declared further up, and its two MCP configs
   # below. `Partitions/` is named whole rather than per partition: the app adds one per embedded
   # view, each a profile of its own, and nothing under there is edited.
-  - ".config/Claude/Cookies"
-  - ".config/Claude/Cookies-journal"
+  - ".config/Claude/Cookies*"
   - ".config/Claude/Local Storage"
   - ".config/Claude/Session Storage"
   - ".config/Claude/IndexedDB"

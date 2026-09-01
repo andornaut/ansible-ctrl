@@ -167,7 +167,7 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 
 - **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
   `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
-  refused under every home. 123 shapes and one other account is 246 declared paths per host, most of them
+  refused under every home. 150 shapes and one other account is 300 declared paths per host, most of them
   absent. Every home, not every depth: a path is literal, so the same store nested somewhere else is a separate
   entry, and nothing reports the ones that are missing.
 - **Another account's stores are declared on every faramir host, not just the one holding the account.** A rule
@@ -176,12 +176,12 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   answers for. `faramir_shared_user_homes` is empty in the defaults and set in `group_vars/faramir.yml`, an
   account name being inventory data, and the role asserts it is a list of absolute homes before anything is
   written: a bare string would otherwise be joined one character at a time.
-- **The finer shape wins where a home holds a store and a readable file beside it.** `.ssh/id_rsa` and its five
-  siblings rather than `.ssh/`, because the operator's `config` and `known_hosts` are files an agent opens; the
-  same for each editor's `User/globalStorage` against its settings and MCP config, and for an agent's token
-  against its instruction file. Nothing can except a file from a directory rule, so the cost falls on the other
-  accounts, where a key named outside the list is not covered. Name it here rather than blocking the directory
-  under one home and the files under another.
+- **The finer shape wins where a home holds a store and a readable file beside it.** `.ssh/id_*` rather than
+  `.ssh/`, because the operator's `config` and `known_hosts` are files an agent opens; the same for each editor's
+  `User/globalStorage` against its settings and MCP config, and for an agent's token against its instruction
+  file. Nothing can except a file from a directory rule, so the cost falls on the other accounts, where a key
+  named off the prefix entirely is not covered. Name it here rather than blocking the directory under one home
+  and the files under another.
 
 - **The agent is refused a declared path named at all**, whatever it meant to do with it, so `ls`, `stat`, `chmod`
   and a sentence quoting the path in an `echo` are refused alike, across its file tools and its shell. The guard
@@ -199,10 +199,13 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   terminal. A command entry cannot carry the flag at all, faramir refusing the pair, a command entry already being
   about what a command does.
 
-- **A path is the only form that names a file, and it is absolute.** Nothing matches a suffix, a prefix, or the
-  tail of a path, so a store with no fixed location cannot be declared, and neither can a file an agent opens
-  inside a container, where the path is the mount point's and not the host's. What that leaves uncovered on this
-  fleet is listed in `defaults/main.yml` beside the paths.
+- **A path is the only form that names a file, and it is absolute.** One wildcard is allowed and only one: a
+  trailing `*` on the last component, after at least one literal character, which declares a name by the part of
+  it that is fixed. `ssfn*` and `id_*` are the shapes here that use it. Nothing else matches a suffix or a
+  wildcard higher up the path, so a store with no fixed location cannot be declared, and neither can a file an
+  agent opens inside a container, where the path is the mount point's and not the host's. A rule also resolves no
+  symlink: a tree reachable by two names wants an entry per name. What that leaves uncovered on this fleet is
+  listed in `defaults/main.yml` beside the paths.
 - **A command is literal words, not a pattern.** The space between them matches any run of whitespace and nothing
   else is special. An alternation is spelled out as separate entries.
 - **A command entry matches where a command starts**: the beginning of a line, after a separator, or behind a
