@@ -18,9 +18,9 @@
   become: true
 
 # The levels between the home and the enrolled tree, and neither end: the home is set above,
-# and the tree itself is faramir's, shared setgid by init-project. Declared here rather than
-# left to the install, which reaches them by walking down from the home and so decides the
-# mode of directories that are the operator's and no part of any enrolled tree.
+# and the tree itself is faramir's, shared setgid by enrol. Declared here rather than left
+# to the install, which reaches them by walking down from the home and so decides the mode
+# of directories that are the operator's and no part of any enrolled tree.
 #
 # The same mode and group as the home, so the walk to a shared tree is gated the same way at
 # every step. Redundant while the home holds, and the whole of the gate if it is ever widened
@@ -134,7 +134,7 @@
     create: true
     owner: "{{ faramir_user }}"
     group: "{{ faramir_client_group }}"
-    # init-project adds group write to every file, so 0644 here would never converge.
+    # enrol adds group write to every file, so 0644 here would never converge.
     mode: "0664"
     marker: "<!-- {mark} ansible-ctrl: brokered runs -->"
     block: |

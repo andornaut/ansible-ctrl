@@ -80,9 +80,9 @@ faramir_init_argv: >-
 
 # The same, for the one tree this repo enrols. The directory is an argument rather than a
 # flag, and naming it pins the enrolment to playbook_dir.
-faramir_init_project_argv: >-
+faramir_enrol_argv: >-
   {{
-    [faramir_binary, 'init-project', '--json']
+    [faramir_binary, 'enrol', '--json']
     + (['--agent'] | product(faramir_agents) | flatten)
     + (['--dry-run'] if ansible_check_mode else [])
     + [playbook_dir]

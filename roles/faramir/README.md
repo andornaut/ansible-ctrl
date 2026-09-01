@@ -11,7 +11,7 @@ Two kinds of install, from one role:
 | ---------------------------------------- | ---------------------------------------- | ------------------------------------- |
 | Inventory                                | in `faramir_controller` and in `faramir` | in `faramir`                          |
 | Blocked paths, linked secrets, redaction | yes                                      | yes                                   |
-| Checkout enrolled with `init-project`    | yes                                      | no, it runs no playbook               |
+| Checkout enrolled with `enrol`           | yes                                      | no, it runs no playbook               |
 | SSH key authorized on the fleet          | yes                                      | no, one is minted and reaches nothing |
 | Reached by a brokered playbook run       | no, `--limit '!faramir_controller'`      | yes, like any managed host            |
 
@@ -142,7 +142,7 @@ of that, the role:
   pins it, provided that tag carries the CLI the [entry commands](#blocked-paths-and-linked-secrets) need. The tag
   is named rather than resolved through the API: `dev` is published with `make_latest=false`, so
   `/releases/latest` never returns it
-- On the controller only: runs `faramir init-project` against `playbook_dir`, writes the block covering how to run
+- On the controller only: runs `faramir enrol` against `playbook_dir`, writes the block covering how to run
   these playbooks through the broker, and prints the public key the next play distributes
 - Converges the two block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
   that name a file rather than hold a value
@@ -151,7 +151,7 @@ of that, the role:
   injected into it. `~` leaves the host's value alone
 - Runs `faramir doctor` and asserts on its report
 
-Enrol another tree with `cd <dir> && sudo faramir init-project`.
+Enrol another tree with `cd <dir> && sudo faramir enrol`.
 
 ## Blocked paths and linked secrets
 
@@ -275,8 +275,8 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 ## Agents
 
 `faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure, and the
-same list goes to `init` and to `init-project`. Named rather than left to faramir's `auto`, which reaches an agent
-only after it has run here once unguarded.
+same list goes to `init` and to `enrol`. Named rather than left to faramir's `auto`, which reaches an agent only
+after it has run here once unguarded.
 
 | Agent       | In this tree                                                                                 | In the operator's home                                                                                  | Redaction |
 | ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------- |

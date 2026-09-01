@@ -171,7 +171,7 @@
 
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:
-    argv: "{{ faramir_init_project_argv }}"
+    argv: "{{ faramir_enrol_argv }}"
   become: true
   register: faramir_project
   check_mode: false
@@ -185,8 +185,8 @@
     faramir_project_report: "{{ faramir_project.stdout | from_json }}"
   when: faramir_project.stdout | default('') | length > 0
 
-# init and init-project warn rather than fail on what installs cleanly but does nothing,
-# such as a group membership needing a fresh login.
+# init and enrol warn rather than fail on what installs cleanly but does nothing, such as
+# a group membership needing a fresh login.
 - name: Show what faramir warned about
   ansible.builtin.debug:
     msg: "{{ item }}"

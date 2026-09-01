@@ -34,9 +34,9 @@ faramir_client_group: dev
 # login.
 faramir_config_dir: "{{ faramir_user_home }}/.config/faramir"
 
-# One --agent each, passed to both init and init-project. Every agent the dev role installs
-# that faramir knows, named rather than left to its `auto`, which covers an agent only after
-# it has run once unguarded. What each one gets is in the README.
+# One --agent each, passed to both init and enrol. Every agent the dev role installs that
+# faramir knows, named rather than left to its `auto`, which covers an agent only after it
+# has run once unguarded. What each one gets is in the README.
 faramir_agents:
   - antigravity
   - claude
