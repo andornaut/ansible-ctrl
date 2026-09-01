@@ -45,6 +45,20 @@ games_lutris_app_id: net.lutris.Lutris
 games_lutris_config_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/config/lutris"
 games_lutris_data_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/data/lutris"
 
+# World of Warcraft, registered by tasks/lutris.yml as its own Lutris game where Battle.net's
+# prefix holds it, with a desktop entry that launches it without the Lutris window. The slug is
+# lutris.net's, which is where the icon comes from. The game entry keeps Battle.net's
+# executable and adds the argument that makes the Battle.net client launch the game itself:
+# Wow.exe run directly asks for the account password and authenticator on every launch.
+games_lutris_wow_slug: world-of-warcraft
+games_lutris_wow_name: World of Warcraft
+games_lutris_wow_source_slug: battlenet
+games_lutris_wow_exe: >-
+  {{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}/drive_c/Program Files (x86)/World of Warcraft/_retail_/Wow.exe
+games_lutris_wow_game_settings:
+  args: --exec="launch WoW"
+games_lutris_wow_icon_url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
+
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.
 games_retroarch_app_id: org.libretro.RetroArch

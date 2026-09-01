@@ -1,8 +1,8 @@
-# RetroArch helper scripts
+# Helper scripts
 
-The four scripts that implement the `games` role's RetroArch convergence. The role runs three of them
-(`../tasks/retroarch.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its output committed. Each can be
-run by hand to debug a single stage.
+The four scripts that implement the `games` role's RetroArch convergence, and the one that registers a Lutris
+game. The role runs four of them (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is
+run by hand only, its output committed. Each can be run by hand to debug a single stage.
 
 **Each script's module docstring is the authoritative reference** for its full input schema, defaults,
 and edge cases. This file is the operator's quick start.
@@ -13,6 +13,7 @@ and edge cases. This file is the operator's quick start.
 | `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                                                      | `RETROARCH_GENERATOR_CONFIG`, a JSON document                                           |
 | `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com)                           | `RETROARCH_THUMBNAILS_CONFIG`, a JSON document with `playlist_dir` and `thumbnails_dir` |
 | `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json` romset-to-title map                                                    | None. Needs network access                                                              |
+| `lutris-register-game.py`         | Registers a Lutris game whose configuration is derived from another game's, in `pga.db` and `games/<slug>.yml`             | `LUTRIS_REGISTER_CONFIG`, a JSON document                                               |
 
 - Runtime pipeline: probe -> generate -> fetch. `gen-fbneo-arcade-names.py` is a maintenance script, run by hand
   only when fbneo adds games; commit the regenerated JSON afterward.
@@ -71,4 +72,16 @@ RETROARCH_THUMBNAILS_CONFIG=$(cat <<JSON
 {"playlist_dir": "$config/playlists", "thumbnails_dir": "/media/nas/games/_Thumbnails"}
 JSON
 ) ./retroarch-fetch-thumbnails.py
+```
+
+## Lutris
+
+`lutris-register-game.py` runs inside the Lutris sandbox, which carries the PyYAML Lutris reads its own
+configuration with. It prints one line per change and nothing when converged.
+
+```bash
+LUTRIS_REGISTER_CONFIG='{"data_dir": "'"$HOME"'/.var/app/net.lutris.Lutris/data/lutris",
+  "source_slug": "battlenet", "slug": "world-of-warcraft", "name": "World of Warcraft",
+  "game": {"args": "--exec=\"launch WoW\""}}' \
+  flatpak run --command=python3 net.lutris.Lutris - < lutris-register-game.py
 ```

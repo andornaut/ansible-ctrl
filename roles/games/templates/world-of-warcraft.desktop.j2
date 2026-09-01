@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=World of Warcraft
+GenericName=World of Warcraft
+Comment=Launch World of Warcraft through Lutris without opening the Lutris window
+Exec=flatpak run {{ games_lutris_app_id }} lutris:rungame/{{ games_lutris_wow_slug }}
+Icon=lutris_{{ games_lutris_wow_slug }}
+Terminal=false
+Categories=Game;RolePlaying;
+Keywords=wow;warcraft;blizzard;battle.net;
+StartupNotify=false
+StartupWMClass=wow.exe

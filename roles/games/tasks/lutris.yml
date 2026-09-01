@@ -60,3 +60,69 @@
         dest: "{{ games_lutris_config_file }}"
         content: "{{ games_lutris_config | combine({'system': games_lutris_merged}) | to_nice_yaml }}"
         mode: "0644"
+
+# World of Warcraft as its own Lutris game, so `lutris:rungame/<slug>` launches it without the
+# client's window. Not a Lutris entry the client created: it shares Battle.net's prefix and
+# derives its configuration from Battle.net's on every run, so the client's own settings for
+# Battle.net are the ones to edit. The entry is Battle.net's executable with an argument that
+# makes the client launch the game, which is why a Battle.net session must already be logged in.
+- name: Check for a World of Warcraft install in the Battle.net prefix
+  ansible.builtin.stat:
+    path: "{{ games_lutris_wow_exe }}"
+  register: games_lutris_wow
+  changed_when: false
+
+- name: Register World of Warcraft as its own Lutris game
+  when: games_lutris_active_dir | length > 0 and games_lutris_wow.stat.exists
+  vars:
+    games_lutris_wow_icon_dir: "{{ games_user_home }}/.local/share/icons/hicolor/128x128/apps"
+  block:
+    # Inside the sandbox, which carries the PyYAML Lutris itself reads its configuration with.
+    - name: Derive the World of Warcraft entry from Battle.net's
+      ansible.builtin.command:
+        argv:
+          - flatpak
+          - run
+          - --command=python3
+          - "{{ games_lutris_app_id }}"
+          # On stdin rather than ansible.builtin.script, which runs what it transfers
+          # directly; this has to go through flatpak.
+          - "-"
+        stdin: "{{ lookup('ansible.builtin.file', 'lutris-register-game.py') }}"
+      environment:
+        LUTRIS_REGISTER_CONFIG: >-
+          {{ {'data_dir': games_lutris_active_dir,
+              'source_slug': games_lutris_wow_source_slug,
+              'slug': games_lutris_wow_slug,
+              'name': games_lutris_wow_name,
+              'game': games_lutris_wow_game_settings} | to_json }}
+      register: games_lutris_wow_register
+      changed_when: games_lutris_wow_register.stdout | length > 0
+
+    - name: Create the user icon theme directory
+      ansible.builtin.file:
+        path: "{{ games_lutris_wow_icon_dir }}"
+        state: directory
+        mode: "0755"
+
+    # The icon Lutris would fetch for the slug, at the size and name it uses, placed where
+    # the host's launcher looks rather than in the sandbox's own data directory. Fetched
+    # once: get_url leaves an existing destination alone.
+    - name: Install the World of Warcraft icon
+      ansible.builtin.get_url:
+        url: "{{ games_lutris_wow_icon_url }}"
+        dest: "{{ games_lutris_wow_icon_dir }}/lutris_{{ games_lutris_wow_slug }}.png"
+        mode: "0644"
+      notify: Mark the user hicolor icon cache stale
+
+    - name: Create the user applications directory
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/share/applications"
+        state: directory
+        mode: "0755"
+
+    - name: Install the World of Warcraft desktop entry
+      ansible.builtin.template:
+        src: world-of-warcraft.desktop.j2
+        dest: "{{ games_user_home }}/.local/share/applications/{{ games_lutris_wow_slug }}.desktop"
+        mode: "0644"

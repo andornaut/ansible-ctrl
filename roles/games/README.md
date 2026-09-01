@@ -19,7 +19,7 @@ make games -- --tags retroarch
 | flatpak   | Flatpak runtime, flathub remote, applications, extensions, and overrides                                                                                                                                                   |
 | gamemode  | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else                                                                                                                                                   |
 | heroic    | Heroic install path and the store token-refresh timer                                                                                                                                                                      |
-| lutris    | Lutris default install path                                                                                                                                                                                                |
+| lutris    | Lutris default install path, and a World of Warcraft entry plus desktop entry that launches it through Lutris without the client's window, where the Battle.net prefix holds the game                                      |
 | retroarch | Libretro cores, BIOS, settings, per-core overrides, playlists, and thumbnails                                                                                                                                              |
 | retroid   | `syncretroid`, the handheld sync command, installed on the controller                                                                                                                                                      |
 
@@ -136,6 +136,19 @@ Behind the table above, the parts that are easy to undo by accident:
   order being unstable across launches.
 - **The thumbnail directory must be setgid and in the library's group**, or the share will not serve what RetroArch
   creates under it. The play cannot police this: a network client is served ownership and mode the protocol invents.
+
+## Lutris
+
+Where Battle.net's prefix holds World of Warcraft (`_retail_/Wow.exe`), the `lutris` tag registers the game as its
+own Lutris entry and installs a desktop entry whose `Exec` is `lutris:rungame/world-of-warcraft`: Lutris launches
+the game without showing its window, and the client shows the new entry after its next start.
+
+| Detail                                                                     | Why                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The entry is Battle.net's executable with `--exec="launch WoW"`            | The client launches the game under its own session, so no password or authenticator prompt. `Wow.exe` run directly asks for both on every launch. Set Battle.net's "When I launch a game" to exit, or its window stays behind the game      |
+| Its configuration is derived from Battle.net's on every run                | The `game`, `system` and `wine` sections are copied and only `args` differs, so a runner or environment change made to Battle.net in the client follows. A change made to the World of Warcraft entry itself is overwritten by the next run |
+| The icon is the one lutris.net serves for the slug, under `~/.local/share` | Lutris keeps its own copy inside the sandbox, where the host's launcher does not look. Fetched once, and left alone once present                                                                                                            |
+| Nothing is removed                                                         | Uninstalling the game leaves the entry, which then launches Battle.net on the game's page. Delete it in the client                                                                                                                          |
 
 ## Handheld sync (Retroid Pocket Flip 2)
 
