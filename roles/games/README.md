@@ -19,7 +19,7 @@ make games -- --tags retroarch
 | flatpak   | Flatpak runtime, flathub remote, applications, extensions, and overrides                                                                                                                                                   |
 | gamemode  | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else                                                                                                                                                   |
 | heroic    | Heroic install path and the store token-refresh timer                                                                                                                                                                      |
-| lutris    | Lutris default install path, and a World of Warcraft entry plus desktop entry that launches it through Lutris without the client's window, where the Battle.net prefix holds the game                                      |
+| lutris    | Lutris default install path, the prefix-teardown launcher, and a World of Warcraft entry plus desktop entry that launches it through Lutris without the client's window, where the Battle.net prefix holds the game        |
 | retroarch | Libretro cores, BIOS, settings, per-core overrides, playlists, and thumbnails                                                                                                                                              |
 | retroid   | `syncretroid`, the handheld sync command, installed on the controller                                                                                                                                                      |
 
@@ -140,8 +140,9 @@ Behind the table above, the parts that are easy to undo by accident:
 ## Lutris
 
 Where Battle.net's prefix holds World of Warcraft (`_retail_/Wow.exe`), the `lutris` tag registers the game as its
-own Lutris entry and installs a desktop entry whose `Exec` is `lutris:rungame/world-of-warcraft`: Lutris launches
-the game without showing its window, and the client shows the new entry after its next start.
+own Lutris entry and installs a desktop entry that launches `lutris:rungame/world-of-warcraft` through
+[`files/lutris-launch-game.py`](files/lutris-launch-game.py): Lutris launches the game without showing its window,
+and the client shows the new entry after its next start.
 
 | Detail                                                                     | Why                                                                                                                                                                                                                                         |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,6 +150,21 @@ the game without showing its window, and the client shows the new entry after it
 | Its configuration is derived from Battle.net's on every run                | The `game`, `system` and `wine` sections are copied and only `args` differs, so a runner or environment change made to Battle.net in the client follows. A change made to the World of Warcraft entry itself is overwritten by the next run |
 | The icon is the one lutris.net serves for the slug, under `~/.local/share` | Lutris keeps its own copy inside the sandbox, where the host's launcher does not look. Fetched once, and left alone once present                                                                                                            |
 | Nothing is removed                                                         | Uninstalling the game leaves the entry, which then launches Battle.net on the game's page. Delete it in the client                                                                                                                          |
+
+### Stale prefixes
+
+Lutris leaves a Battle.net prefix running after it reports the game stopped, and the next launch then fails.
+`lutris-launch-game.py` tears the prefix down before handing off, so every launch through the desktop entry starts
+clean.
+
+| Detail                                                                  | Why                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lutris cannot stop the prefix itself                                    | Its `ProcessWatcher` never signals a process named in `exclude_processes` (`Agent.exe`, `Battle.net Helper.exe`) nor in its own `SYSTEM_PROCESSES` (`wineserver` among them), and it misses processes systemd reparented                                                                 |
+| A survivor breaks the next launch                                       | It holds the Steam runtime's `.ref` lock, so the launch cannot rebuild the merged `ld.so.cache`, falls back to its previous `LD_LIBRARY_PATH`, and Proton's python fails on `libffi.so.8`. The runtime ships only `libffi.so.8.1.4`, with no SONAME symlink, so nothing else resolves it |
+| The teardown runs on the host, not in the sandbox                       | Each `flatpak run` is its own bubblewrap instance with its own PID namespace, so a Lutris prelaunch hook sees neither the previous launch's processes nor its own container's. The host sees every one of them                                                                           |
+| Processes are matched on an exact `WINEPREFIX`/`STEAM_COMPAT_DATA_PATH` | Read from `/proc/<pid>/environ`, and compared whole rather than by path prefix, so a sibling prefix is not swept up. `SIGTERM`, then `SIGKILL` five seconds later                                                                                                                        |
+| Launching from the Lutris client window bypasses it                     | Only the desktop entry runs the launcher. A prefix left running that way is cleared by the next launch from the desktop entry, or by a reboot                                                                                                                                            |
+| The prefix is Battle.net's, shared with the client                      | An intentionally open Battle.net window is torn down with it. The entry launches Battle.net again anyway, `--exec="launch WoW"` going through the client                                                                                                                                 |
 
 ## Handheld sync (Retroid Pocket Flip 2)
 

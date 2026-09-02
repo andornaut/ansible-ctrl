@@ -1,29 +1,10 @@
 ---
-# Role-internal, and in vars/ so a host can neither desync base_arch from its fact
-# nor override the purge sets.
+# Role-internal, and in vars/ so a host can neither desync base_arch from its fact nor
+# override the set of packages tasks/unwanted.yml purges and pins.
 
 # GoReleaser's names for the gog/mrs assets: x86_64 kept, aarch64 to arm64.
 base_arch: >-
   {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
-
-# Purged and negatively pinned by tasks/cloud-init.yml.
-base_cloud_init_packages:
-  - cloud-init
-  - cloud-init-base
-
-# Purged and negatively pinned by tasks/snap.yml.
-base_snap_packages:
-  - gnome-software-plugin-snap
-  - snapd
-
-# Purged and negatively pinned by tasks/telemetry.yml.
-base_telemetry_packages:
-  - apport
-  - kerneloops
-  - popularity-contest
-  - ubuntu-insights
-  - ubuntu-report
-  - whoopsie
 
 # Purged and negatively pinned by tasks/unwanted.yml. Ubuntu installs these by default and no
 # host here has the hardware or the role for them: no modems, no crash dumps anyone reads, no

@@ -67,7 +67,11 @@
             - NET_BIND_SERVICE
             - SETGID
             - SETUID
-          logging: "{{ letsencrypt_nginx_default_logging }}"
+          logging:
+            driver: "json-file"
+            options:
+              max-size: "{{ letsencrypt_nginx_docker_log_max_size }}"
+              max-file: "{{ letsencrypt_nginx_docker_log_max_file }}"
           network_mode: host
           restart: unless-stopped
           # Safe: the master drops privileges with setuid(), not by exec'ing a

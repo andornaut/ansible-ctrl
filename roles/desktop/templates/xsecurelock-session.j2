@@ -12,7 +12,9 @@ set -eu
 # period. Failures must not abort: a server without DPMS would cost the session xss-lock,
 # and with it the lock keybinding.
 xset s blank || true
-xset s {{ desktop_screen_blank_seconds }} {{ desktop_xsecurelock_grace_seconds }} || true
+# The cycle is floored at 1s: `xset s <timeout> 0` disables cycling, so a host locking
+# the moment it blanks would never lock.
+xset s {{ desktop_screen_blank_seconds }} {{ [1, desktop_screen_lock_delay_seconds | int] | max }} || true
 xset dpms {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} {{ desktop_screen_off_seconds }} || true
 
 XSECURELOCK_PASSWORD_PROMPT='{{ desktop_xsecurelock_password_prompt }}'
@@ -37,7 +39,8 @@ XSECURELOCK_FORCE_GRAB=1
 XSECURELOCK_DISCARD_FIRST_KEYPRESS=1
 # xsecurelock runs its own clock from lock time, so this is what remains of the
 # power-off timeout; its own default is 10min after locking.
-XSECURELOCK_BLANK_TIMEOUT={{ desktop_xsecurelock_blank_seconds }}
+# Floored at 1s, upstream rejecting zero.
+XSECURELOCK_BLANK_TIMEOUT={{ [1, desktop_screen_off_seconds | int - desktop_screen_lock_seconds | int] | max }}
 XSECURELOCK_BLANK_DPMS_STATE=off
 export XSECURELOCK_AUTH_SOUNDS XSECURELOCK_BLANK_DPMS_STATE XSECURELOCK_BLANK_TIMEOUT \
     XSECURELOCK_DISCARD_FIRST_KEYPRESS XSECURELOCK_FORCE_GRAB XSECURELOCK_PASSWORD_PROMPT \

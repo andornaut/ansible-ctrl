@@ -8,7 +8,9 @@
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: cloud-init
-        purge_pin_packages: "{{ base_cloud_init_packages }}"
+        purge_pin_packages:
+          - cloud-init
+          - cloud-init-base
 
     # Not package-owned, so purge leaves them. /etc/netplan is left alone:
     # subiquity wrote a static config there and nothing regenerates it.

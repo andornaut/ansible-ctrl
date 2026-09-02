@@ -38,7 +38,9 @@
     # and moved into place rather than extracted over the target.
     - name: Download and unpack the Android command line tools
       ansible.builtin.unarchive:
-        src: "{{ dev_android_sdk_cmdline_tools_url }}"
+        src: >-
+          https://dl.google.com/android/repository/commandlinetools-linux-{{
+          dev_android_sdk_cmdline_tools_build }}_latest.zip
         dest: "{{ dev_android_sdk_tempdir.path }}"
         remote_src: true
         creates: "{{ dev_android_sdk_sdkmanager }}"

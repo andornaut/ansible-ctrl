@@ -1,7 +1,6 @@
 ---
 # Build one github.com/hyprwm/{name} component from its latest stable release, with the
-# cmake commands in vars/main.yml and the scaffold in build_component.yml. Post-install
-# steps belong at the call site.
+# scaffold in build_component.yml. Post-install steps belong at the call site.
 #
 # Required vars:
 #   hypr_component_name (str): repository name under github.com/hyprwm/, e.g. "hyprlock"
@@ -24,9 +23,19 @@
     build_component_src_url:
       "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
       {{ niri_hypr_component_release.name }}.tar.gz"
-    build_component_configure_cmd: "{{ niri_hypr_cmake_configure }}"
+    build_component_configure_cmd: >-
+      cmake
+      --no-warn-unused-cli
+      -DCMAKE_BUILD_TYPE:STRING=Release
+      -DCMAKE_PREFIX_PATH:PATH=/usr/local
+      -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
+      -DCMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu
+      -S .
+      -B build
     build_component_build_cmd: >-
-      {{ niri_hypr_cmake_build }}{{ ' --target ' ~ hypr_component_build_target
-      if hypr_component_build_target | default('') else '' }}
-    build_component_install_cmd: "{{ niri_hypr_cmake_install }}"
+      cmake --build build --config Release
+      -j $(nproc 2>/dev/null || getconf _NPROCESSORS_CONF)
+      {{ '--target ' ~ hypr_component_build_target
+         if hypr_component_build_target | default('') else '' }}
+    build_component_install_cmd: cmake --install build
     build_component_build_become: "{{ hypr_component_build_become | default(false) }}"

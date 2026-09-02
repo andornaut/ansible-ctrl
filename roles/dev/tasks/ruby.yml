@@ -177,4 +177,4 @@
   become_user: "{{ dev_user }}"
   environment:
     HOME: "{{ dev_user_home }}"
-    GEM_HOME: "{{ dev_ruby_gem_home }}"
+    GEM_HOME: "{{ dev_user_home }}/.gem/ruby/{{ dev_ruby_version }}"

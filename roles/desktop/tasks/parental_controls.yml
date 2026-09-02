@@ -45,8 +45,11 @@
     # malcontent's postinst creates its own users. It ships sysusers.d declarations but never
     # runs systemd-sysusers, so its daemons die 217/USER. check_mode: false, the tasks below
     # branching on this rc.
+    # The account names come from /usr/lib/sysusers.d and are not all derivable from the
+    # unit names: malcontent-timer-extension-agent runs as malcontent-timer-ext-agent.
     - name: Check whether the malcontent service users exist
-      ansible.builtin.command: getent passwd {{ desktop_malcontent_users | join(' ') }}
+      ansible.builtin.command: >-
+        getent passwd malcontent-timer-ext-agent malcontent-timerd malcontent-webd
       register: desktop_malcontent_getent
       changed_when: false
       check_mode: false
@@ -104,7 +107,7 @@
     - name: Deploy Chrome family policy
       ansible.builtin.copy:
         content: "{{ desktop_chrome_family_policies | to_nice_json }}\n"
-        dest: "{{ desktop_chrome_family_policy_path }}"
+        dest: "{{ desktop_chrome_policies_dir }}/family.json"
         mode: "0644"
 
     # nss-malcontent sinkholes only for users with a compiled filter list, so the
@@ -161,7 +164,7 @@
 # that never enabled the controls having nothing to clear.
 - name: Check whether the malcontent client is installed
   ansible.builtin.stat:
-    path: "{{ desktop_malcontent_client }}"
+    path: /usr/bin/malcontent-client
   register: desktop_malcontent_client_stat
   become: true
 
@@ -174,11 +177,17 @@
       register: desktop_app_filter_before
       changed_when: false
 
-    # set-app-filter reports no change, so read the filter either side of it.
+    # set-app-filter reports no change, so read the filter either side of it. It overwrites
+    # the whole filter, so no OARS pairs lifts it. The installation permissions are stated
+    # either way, which is what restores the system repository.
     - name: Set the app filter for {{ desktop_user }}
       ansible.builtin.command: >-
         malcontent-client set-app-filter --no-interactive
-        {{ desktop_parental_controls_app_filter_args | join(' ') }}
+        {{ (['--allow-user-installation']
+            + (['--disallow-system-installation'] if desktop_parental_controls_oars | length > 0
+               else ['--allow-system-installation'])
+            + [desktop_user]
+            + (desktop_parental_controls_oars.items() | map('join', '=') | list)) | join(' ') }}
       changed_when: false
 
     - name: Report whether the app filter moved
@@ -191,10 +200,23 @@
       register: desktop_web_filter_before
       changed_when: false
 
+    # set-web-filter likewise overwrites the whole filter, and takes the type alone when
+    # clearing. Entries list as `id=uri`, hostnames bare; a `~` prefix moves either onto the
+    # allow list. Idempotency is decided by diffing `get-web-filter`, not this list.
     - name: Set the web filter for {{ desktop_user }}
       ansible.builtin.command: >-
         malcontent-client set-web-filter --no-interactive
-        {{ desktop_parental_controls_web_filter_args | join(' ') }}
+        {{ (['--filter-type', desktop_parental_controls_web_filter_type]
+            + (['--force-safe-search'] if desktop_parental_controls_web_filter_enabled
+               and desktop_parental_controls_web_force_safe_search else [])
+            + [desktop_user]
+            + ((desktop_parental_controls_web_block_lists.items() | map('join', '=') | list)
+               + (desktop_parental_controls_web_allow_lists.items() | map('join', '=')
+                  | map('regex_replace', '^', '~') | list)
+               + desktop_parental_controls_web_blocked_hosts
+               + (desktop_parental_controls_web_allowed_hosts
+                  | map('regex_replace', '^', '~') | list)
+               if desktop_parental_controls_web_filter_enabled else [])) | join(' ') }}
       changed_when: false
 
     # Recompiling re-downloads every filter list, so let the re-read decide. Clearing

@@ -133,9 +133,27 @@
 
     # changed_when runs even on failure, where an empty report would add a parse
     # error to the real one.
+    # argv rather than a command string: the paths come from the inventory and may need
+    # quoting. The one command taking --config-dir; the rest read $FARAMIR_CONFIG, then the
+    # running broker, then the broker's unit, so a config outside the default directory is
+    # found without being named.
     - name: Install faramir
       ansible.builtin.command:
-        argv: "{{ faramir_init_argv }}"
+        argv: >-
+          {{
+            [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
+             '--agent-user', faramir_user,
+             '--client-group', faramir_client_group,
+             '--config-dir', faramir_config_dir]
+            + (['--agent'] | product(faramir_agents) | flatten)
+            + (['--allow-sudo'] if faramir_allow_sudo | bool else [])
+            + ((['--notify-command'] | product(faramir_notify_command) | flatten)
+               if (faramir_allow_sudo | bool and faramir_notify_command | length > 0)
+               else [])
+            + (['--sudo-timeout', faramir_sudo_timeout_sec | string]
+               if faramir_allow_sudo | bool else [])
+            + (['--dry-run'] if ansible_check_mode else [])
+          }}
       register: faramir_init
       check_mode: false
       changed_when: faramir_init.stdout | length > 0 and (faramir_init.stdout | from_json).changed
@@ -169,9 +187,17 @@
   ansible.builtin.import_tasks: entries.yml
   when: faramir_binary_stat.stat.exists | default(false)
 
+# The directory is an argument rather than a flag, and naming it pins the enrolment to
+# playbook_dir.
 - name: Enrol this checkout as a faramir project
   ansible.builtin.command:
-    argv: "{{ faramir_enrol_argv }}"
+    argv: >-
+      {{
+        [faramir_binary, 'enrol', '--json']
+        + (['--agent'] | product(faramir_agents) | flatten)
+        + (['--dry-run'] if ansible_check_mode else [])
+        + [playbook_dir]
+      }}
   become: true
   register: faramir_project
   check_mode: false

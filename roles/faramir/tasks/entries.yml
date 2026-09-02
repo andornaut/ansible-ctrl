@@ -74,10 +74,20 @@
 #
 # No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
 # skips them rather than writing entries.
+#
+# Each entry command takes its subject under the flag naming its form, --path or --command; no
+# form is the default and a bare argument is refused. Both are idempotent, so the role names
+# every entry on every run rather than diffing the host first: re-applying is what puts back a
+# grant a tool took away by renaming its own file, and a rule an agent's settings dropped.
+#
+# No --agent-user, and none of these takes one: `init` is the only command that names the
+# operator, and each of these reads what it recorded in [server] agent_user. A command that
+# resolved it afresh would rename the host's owner as a side effect of adding an entry.
 - name: Block the declared paths and commands to the agent
   ansible.builtin.command:
     argv: >-
-      {{ faramir_block_argv + (['--' ~ item.key] | product(item.value) | flatten | list)
+      {{ [faramir_binary, 'block', 'add', '--json']
+         + (['--' ~ item.key] | product(item.value) | flatten | list)
          + (['--strict'] if item.key == 'path' else []) }}
   become: true
   # An empty list would name no entry at all, which the command refuses.
@@ -144,10 +154,13 @@
   vars:
     faramir_block_rows: "{{ faramir_block_ls.stdout | default('[]', true) | from_json }}"
 
+# An entry comes back out under the flag it went in under, the form being part of what
+# identifies it, and a removal ends the declaration and no more: README.md.
 - name: Stop blocking the entries this role no longer declares
   ansible.builtin.command:
     argv: >-
-      {{ faramir_block_rm_argv + (['--' ~ item.key] | product(item.value) | flatten | list) }}
+      {{ [faramir_binary, 'block', 'rm', '--json']
+         + (['--' ~ item.key] | product(item.value) | flatten | list) }}
   become: true
   # Usually nothing, and a removal naming no entry is refused like an add.
   when: item.value | length > 0
@@ -157,11 +170,15 @@
   register: faramir_block_rm
   changed_when: faramir_block_rm.stdout | length > 0 and (faramir_block_rm.stdout | from_json).changed
 
+# --strict on every link, which reaches the brokered route alone, the agent being refused the
+# path either way. What the flag adds there: README.md. Re-adding a ref under a different
+# strictness changes the entry, so this converges like the rest of one.
 - name: Read a linked secret out of the file its own tool maintains
   ansible.builtin.command:
     # --key only for the types that select, faramir refusing it for the two that do not.
     argv: >-
-      {{ faramir_link_argv + [item.ref, item.path, '--type', item.type]
+      {{ [faramir_binary, 'link', 'add', '--json', '--strict',
+          item.ref, item.path, '--type', item.type]
          + (['--key', item.key] if item.key | default('') | length > 0 else []) }}
   become: true
   loop: "{{ faramir_links }}"

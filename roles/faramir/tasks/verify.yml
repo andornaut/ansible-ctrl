@@ -6,9 +6,11 @@
 - name: Check that the install works
   when: not ansible_check_mode
   block:
+    # Nothing to pass: doctor reads the client group and the service accounts off the config
+    # and the units, and the operator off [server] agent_user, which is what `init` recorded.
     - name: Ask faramir whether the install is doing its job
       ansible.builtin.command:
-        argv: "{{ faramir_doctor_argv }}"
+        argv: "{{ [faramir_binary, 'doctor', '--json'] }}"
       become: true
       register: faramir_doctor
       changed_when: false

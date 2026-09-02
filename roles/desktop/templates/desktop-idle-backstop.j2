@@ -9,7 +9,7 @@
 set -euo pipefail
 
 readonly MECHANISM={{ desktop_idle_backstop_mechanism }}
-readonly THRESHOLD_MS={{ desktop_idle_backstop_milliseconds }}
+readonly THRESHOLD_MS={{ desktop_idle_backstop_minutes | int * 60 * 1000 }}
 # Coarse while the panel is lit, nothing waiting on the answer. Fine once it is dark: this
 # is what turns the panel back on, and that latency is felt at the keyboard.
 readonly POLL_LIT_SECONDS=30

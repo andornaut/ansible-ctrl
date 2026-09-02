@@ -18,38 +18,14 @@ dev_ai_attributions_release_url: https://github.com/andornaut/ai-attributions/re
 # goreleaser's names rather than Debian's, so dev_arch does not serve here: x86_64
 # kept, aarch64 to arm64. The kernel is unmapped: ai-attributions builds for no other.
 # Same mapping as faramir_arch, which reads assets from the same CI.
-dev_ai_attributions_arch: >-
-  {{ {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
-
-dev_ai_attributions_release_archive: "ai-attributions_linux_{{ dev_ai_attributions_arch }}.tar.gz"
+dev_ai_attributions_release_archive: >-
+  ai-attributions_linux_{{
+  {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}.tar.gz
 
 # Where ruby-install writes for a user, and what chruby's auto.sh switches to.
 dev_ruby_root: "{{ dev_user_home }}/.rubies/ruby-{{ dev_ruby_version }}"
 
-# What chruby exports as GEM_HOME: $HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION, naming the
-# full patch version. `gem install --user-install` writes to ~/.gem/ruby/3.2.0 instead,
-# the ABI directory, which chruby puts on neither GEM_HOME nor GEM_PATH. A gem installed
-# that way is one `bundle exec` cannot see, so the install below names this directory
-# rather than asking for a user install.
-dev_ruby_gem_home: "{{ dev_user_home }}/.gem/ruby/{{ dev_ruby_version }}"
-
 dev_oh_my_pi_repository: can1357/oh-my-pi
-
-# bun's names rather than Debian's, so dev_arch does not serve here: x86_64 to
-# x64, aarch64 to arm64. The glibc build, because every host here is Ubuntu; the
-# project's musl builds are named linux-musl-*.
-dev_oh_my_pi_arch: >-
-  {{ {'x86_64': 'x64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
-
-dev_oh_my_pi_release_binary: "omp-linux-{{ dev_oh_my_pi_arch }}"
-
-# System PATH plus the directories the role's cron scripts live in. Not for cron, which
-# runs both by absolute path, but for what those scripts then invoke: the agent command
-# ai-maintainer is given by name resolves here. One file schedules both, so one PATH
-# covers both, and the two directories are the same wherever neither path is overridden.
-dev_cron_path: >-
-  /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{
-  [dev_ai_attributions_binary_path | dirname, dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
 
 # Stated once, both halves of cron.yml reading it, so a third scheduled component does not
 # have to be added to a condition and to its hand-written negation.
@@ -57,9 +33,6 @@ dev_cron_scheduled: "{{ dev_install_ai_attributions or dev_install_ai_maintainer
 
 dev_android_sdk_cmdline_tools_dir: "{{ dev_android_sdk_root }}/cmdline-tools"
 dev_android_sdk_sdkmanager: "{{ dev_android_sdk_cmdline_tools_dir }}/latest/bin/sdkmanager"
-dev_android_sdk_cmdline_tools_url: >-
-  https://dl.google.com/android/repository/commandlinetools-linux-{{
-  dev_android_sdk_cmdline_tools_build }}_latest.zip
 
 # JAVA_HOME names 17 rather than letting the default JDK answer: Gradle's Android
 # plugin is built against 17, and Ubuntu's default is 21.

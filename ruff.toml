@@ -57,8 +57,9 @@ ignore = [
 # Local to this repository. These are files a role copies to a host and runs
 # there, not modules this project imports.
 "roles/**/*.py" = [
-    # Running adb, git and npm, and finding them on PATH, is the job.
+    # Running adb, git and npm, finding them on PATH, and exec'ing one in place, is the job.
     "S603",
+    "S606",
     "S607",
     # A directory of files a role copies is not a package, and adding
     # __init__.py to it would ship a file no role installs.

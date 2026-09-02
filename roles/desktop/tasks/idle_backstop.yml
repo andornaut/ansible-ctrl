@@ -93,9 +93,12 @@
   when: desktop_idle_backstop_enabled | bool
   become: true
   block:
+    # ddcutil ships the modules-load.d entry that loads i2c-dev and the udev rule that grants
+    # the logged-in user the bus, so the backstop needs no root and no group of its own.
     - name: Install the idle backstop packages
       ansible.builtin.apt:
-        name: "{{ desktop_idle_backstop_packages }}"
+        name: >-
+          {{ {"ddc": ["ddcutil"], "xset": ["xprintidle"]}.get(desktop_idle_backstop_mechanism, []) }}
         state: latest
         install_recommends: false
         update_cache: true

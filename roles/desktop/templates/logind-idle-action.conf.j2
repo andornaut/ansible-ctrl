@@ -8,5 +8,5 @@
 [Login]
 IdleAction={{ desktop_suspend_idle_action }}
 {% if desktop_suspend_idle_action == 'suspend' %}
-IdleActionSec={{ desktop_suspend_idle_action_seconds }}
+IdleActionSec={{ [60, desktop_suspend_inactive_seconds | int - desktop_screen_blank_seconds | int] | max }}
 {% endif %}

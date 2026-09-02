@@ -1,8 +1,8 @@
 # Helper scripts
 
-The four scripts that implement the `games` role's RetroArch convergence, and the one that registers a Lutris
-game. The role runs four of them (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is
-run by hand only, its output committed. Each can be run by hand to debug a single stage.
+Six scripts: four converge RetroArch, two back the Lutris entries. The role runs four and installs one on the
+host (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its
+output committed. Each can be run by hand to debug a single stage.
 
 **Each script's module docstring is the authoritative reference** for its full input schema, defaults,
 and edge cases. This file is the operator's quick start.
@@ -14,6 +14,7 @@ and edge cases. This file is the operator's quick start.
 | `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com)                           | `RETROARCH_THUMBNAILS_CONFIG`, a JSON document with `playlist_dir` and `thumbnails_dir` |
 | `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json` romset-to-title map                                                    | None. Needs network access                                                              |
 | `lutris-register-game.py`         | Registers a Lutris game whose configuration is derived from another game's, in `pga.db` and `games/<slug>.yml`             | `LUTRIS_REGISTER_CONFIG`, a JSON document                                               |
+| `lutris-launch-game.py`           | Tears down a wine prefix an earlier session left running, then execs Lutris on the slug                                    | Wine prefix, flatpak application ID and Lutris slug, as its three arguments             |
 
 - Runtime pipeline: probe -> generate -> fetch. `gen-fbneo-arcade-names.py` is a maintenance script, run by hand
   only when fbneo adds games; commit the regenerated JSON afterward.
@@ -84,4 +85,12 @@ LUTRIS_REGISTER_CONFIG='{"data_dir": "'"$HOME"'/.var/app/net.lutris.Lutris/data/
   "source_slug": "battlenet", "slug": "world-of-warcraft", "name": "World of Warcraft",
   "game": {"args": "--exec=\"launch WoW\""}}' \
   flatpak run --command=python3 net.lutris.Lutris - < lutris-register-game.py
+```
+
+`lutris-launch-game.py` runs on the **host**, not in the sandbox (`../README.md` says why). The role installs it
+to `/usr/local/bin/lutris-launch-game` and the desktop entry runs it in place of `flatpak run`. It prints a line
+per process it signals and nothing when the prefix is already clear.
+
+```bash
+./lutris-launch-game.py "$HOME/.local/games/Lutris/battlenet" net.lutris.Lutris world-of-warcraft
 ```

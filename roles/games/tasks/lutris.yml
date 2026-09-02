@@ -61,6 +61,18 @@
         content: "{{ games_lutris_config | combine({'system': games_lutris_merged}) | to_nice_yaml }}"
         mode: "0644"
 
+# Why the teardown is a host binary rather than a Lutris hook: README.md.
+- name: Install the Lutris game launcher
+  ansible.builtin.copy:
+    src: lutris-launch-game.py
+    dest: "{{ games_lutris_launcher_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  # main.yml imports this file under become_user, which a task inherits.
+  become_user: root
+
 # World of Warcraft as its own Lutris game, so `lutris:rungame/<slug>` launches it without the
 # client's window. Not a Lutris entry the client created: it shares Battle.net's prefix and
 # derives its configuration from Battle.net's on every run, so the client's own settings for
@@ -68,7 +80,7 @@
 # makes the client launch the game, which is why a Battle.net session must already be logged in.
 - name: Check for a World of Warcraft install in the Battle.net prefix
   ansible.builtin.stat:
-    path: "{{ games_lutris_wow_exe }}"
+    path: "{{ games_lutris_wow_prefix }}/drive_c/Program Files (x86)/World of Warcraft/_retail_/Wow.exe"
   register: games_lutris_wow
   changed_when: false
 
@@ -94,8 +106,8 @@
           {{ {'data_dir': games_lutris_active_dir,
               'source_slug': games_lutris_wow_source_slug,
               'slug': games_lutris_wow_slug,
-              'name': games_lutris_wow_name,
-              'game': games_lutris_wow_game_settings} | to_json }}
+              'name': 'World of Warcraft',
+              'game': {'args': '--exec="launch WoW"'}} | to_json }}
       register: games_lutris_wow_register
       changed_when: games_lutris_wow_register.stdout | length > 0
 
@@ -110,7 +122,7 @@
     # once: get_url leaves an existing destination alone.
     - name: Install the World of Warcraft icon
       ansible.builtin.get_url:
-        url: "{{ games_lutris_wow_icon_url }}"
+        url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
         dest: "{{ games_lutris_wow_icon_dir }}/lutris_{{ games_lutris_wow_slug }}.png"
         mode: "0644"
       notify: Mark the user hicolor icon cache stale

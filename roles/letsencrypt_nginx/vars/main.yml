@@ -1,9 +1,3 @@
 ---
 # Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
 # a host cannot desync one from its source.
-
-letsencrypt_nginx_default_logging:
-  driver: "json-file"
-  options:
-    max-size: "{{ letsencrypt_nginx_docker_log_max_size }}"
-    max-file: "{{ letsencrypt_nginx_docker_log_max_file }}"

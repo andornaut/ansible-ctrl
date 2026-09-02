@@ -32,13 +32,11 @@ faramir_blocked_paths: >-
      | product(faramir_blocked_home_paths) | map('join', '/')
      | reject('in', faramir_links | map(attribute='path') | list) | list }}
 
-faramir_release_repo: andornaut/faramir
-
 # Assets hang off the tag itself, so faramir_release_tag is enough and nothing has to be
 # resolved through the API first. The archive and the checksums.txt it is verified against
 # both come from here, so both are read from the one release.
 faramir_release_url: >-
-  https://github.com/{{ faramir_release_repo }}/releases/download/{{ faramir_release_tag }}
+  https://github.com/andornaut/faramir/releases/download/{{ faramir_release_tag }}
 
 # goreleaser's names rather than Debian's: x86_64 kept, aarch64 to arm64. Same
 # mapping as base_arch, which reads assets from the same CI.
@@ -55,65 +53,3 @@ faramir_binary: /usr/local/bin/faramir
 # passing --ssh-key, which relocates a key init mints either way: an override here would
 # name a path init never writes, and tasks/ssh.yml reads the public half from it.
 faramir_broker_ssh_key: "{{ faramir_config_dir }}/id_ed25519"
-
-# argv rather than a command string: the paths come from the inventory and may need quoting.
-# Resolves only inside the install block, which registers faramir_release_tmp.
-#
-# The one command taking --config-dir. The rest read $FARAMIR_CONFIG, then the running
-# broker, then the broker's unit, so a config outside the default directory is found without
-# being named.
-faramir_init_argv: >-
-  {{
-    [faramir_release_tmp.path ~ '/faramir', 'init', '--json',
-     '--agent-user', faramir_user,
-     '--client-group', faramir_client_group,
-     '--config-dir', faramir_config_dir]
-    + (['--agent'] | product(faramir_agents) | flatten)
-    + (['--allow-sudo'] if faramir_allow_sudo | bool else [])
-    + ((['--notify-command'] | product(faramir_notify_command) | flatten)
-       if (faramir_allow_sudo | bool and faramir_notify_command | length > 0)
-       else [])
-    + (['--sudo-timeout', faramir_sudo_timeout_sec | string]
-       if faramir_allow_sudo | bool else [])
-    + (['--dry-run'] if ansible_check_mode else [])
-  }}
-
-# The same, for the one tree this repo enrols. The directory is an argument rather than a
-# flag, and naming it pins the enrolment to playbook_dir.
-faramir_enrol_argv: >-
-  {{
-    [faramir_binary, 'enrol', '--json']
-    + (['--agent'] | product(faramir_agents) | flatten)
-    + (['--dry-run'] if ansible_check_mode else [])
-    + [playbook_dir]
-  }}
-
-# The entry commands, each taking its subject after these under the flag naming its form:
-# --path or --command. No form is the default and a bare argument is refused. Both are
-# idempotent, so the role names every entry on every run rather than diffing the host first:
-# re-applying is what puts back a grant a tool took away by renaming its own file, and a rule
-# an agent's settings dropped.
-#
-# No --agent-user, and none of these takes one: `faramir init` is the only command that
-# names the operator, and each of these reads what it recorded in [server] agent_user. A
-# command that resolved it afresh would rename the host's owner as a side effect of adding an
-# entry, which is what a brokered run did, sudo naming the executor there.
-faramir_block_argv: >-
-  {{ [faramir_binary, 'block', 'add', '--json'] }}
-
-# The removal half. An entry comes back out under the flag it went in under, the form being
-# part of what identifies it, and a removal ends the declaration and no more: README.md.
-faramir_block_rm_argv: >-
-  {{ [faramir_binary, 'block', 'rm', '--json'] }}
-
-# --strict on every link, which reaches the brokered route alone, the agent being refused the
-# path either way. What the flag adds there: README.md. Re-adding a ref under a different
-# strictness changes the entry, so this converges like the rest of one.
-faramir_link_argv: >-
-  {{ [faramir_binary, 'link', 'add', '--json', '--strict'] }}
-
-# Nothing to pass: doctor reads the client group and the service accounts off the config and
-# the units, and the operator off [server] agent_user, which is what `init` recorded. It took
-# --agent-user while that record was the one thing it could not read.
-faramir_doctor_argv: >-
-  {{ [faramir_binary, 'doctor', '--json'] }}

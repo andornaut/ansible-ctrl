@@ -8,7 +8,13 @@
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: telemetry
-        purge_pin_packages: "{{ base_telemetry_packages }}"
+        purge_pin_packages:
+          - apport
+          - kerneloops
+          - popularity-contest
+          - ubuntu-insights
+          - ubuntu-report
+          - whoopsie
 
     - name: Resolve the account home directories
       ansible.builtin.include_tasks: account_homes.yml

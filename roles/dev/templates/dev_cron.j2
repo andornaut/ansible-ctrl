@@ -1,6 +1,12 @@
 # Ansible managed - dev role cron entries
 
-PATH={{ dev_cron_path }}
+# System PATH plus the directories the role's cron scripts live in. Not for cron, which
+# runs both by absolute path, but for what those scripts then invoke: the agent command
+# ai-maintainer is given by name resolves here. The two directories are the same wherever
+# neither path is overridden, hence the unique.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{
+  [dev_ai_attributions_binary_path | dirname,
+   dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
 
 {% if dev_install_ai_attributions %}
 # ai-attributions: daily attribution scan. The checkouts are listed by find

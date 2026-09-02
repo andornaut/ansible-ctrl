@@ -27,4 +27,5 @@
     state: latest
     install_recommends: false
   become: true
-  when: games_gamescope_apt_available | bool
+  # A platform probe, not a preference: the package exists only on Ubuntu >= 26.04.
+  when: ansible_facts['distribution_version'] is version('26.04', '>=')

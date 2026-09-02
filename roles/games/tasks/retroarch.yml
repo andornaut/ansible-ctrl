@@ -161,13 +161,16 @@
     patterns: "*_libretro.so"
   register: games_retroarch_installed_cores
 
-# The buildbot ships nightlies only, so there is nothing to pin; every run fetches the
+# Cores are packaged for neither apt nor flatpak, so they come from the buildbot the in-app
+# Core Updater uses. It ships nightlies only, so there is nothing to pin; every run fetches the
 # current build, which also repairs a core the flatpak runtime stopped loading. get_url
 # rather than unarchive's own download, which cannot report changed: the buildbot always
 # answers 200, so the bytes come over either way.
 - name: Download the libretro cores
   ansible.builtin.get_url:
-    url: "{{ games_retroarch_buildbot_url }}/{{ item }}_libretro.so.zip"
+    url: >-
+      https://buildbot.libretro.com/nightly/linux/{{ games_retroarch_arch }}/latest/{{
+      item }}_libretro.so.zip
     dest: "{{ games_retroarch_core_archives_dir }}/{{ item }}_libretro.so.zip"
     force: true
     mode: "0644"
@@ -379,7 +382,11 @@
   ansible.builtin.script:
     cmd: retroarch-fetch-thumbnails.py
   environment:
-    RETROARCH_THUMBNAILS_CONFIG: "{{ games_retroarch_thumbnails_config | to_json }}"
+    # No systems table: the fetcher reads the playlists just written, which name every
+    # system, game and path.
+    RETROARCH_THUMBNAILS_CONFIG: >-
+      {{ {"playlist_dir": games_retroarch_playlists_dir,
+          "thumbnails_dir": games_retroarch_thumbnails_dir} | to_json }}
   register: games_retroarch_thumbnails
   changed_when: games_retroarch_thumbnails.stdout | length > 0
   when: games_retroarch_thumbnails_writable | bool

@@ -7,7 +7,9 @@
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:
         purge_pin_name: snap
-        purge_pin_packages: "{{ base_snap_packages }}"
+        purge_pin_packages:
+          - gnome-software-plugin-snap
+          - snapd
 
     - name: Resolve the account home directories
       ansible.builtin.include_tasks: account_homes.yml

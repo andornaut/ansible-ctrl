@@ -23,9 +23,12 @@
       only themes this role installs.
     success_msg: GTK theme "{{ desktop_gtk_theme }}" is valid
 
+# gnome-themes-extra ships Adwaita and Adwaita-dark, yaru-theme-gtk the Yaru accents.
 - name: Install GTK theme packages
   ansible.builtin.apt:
-    name: "{{ desktop_gtk_theme_packages }}"
+    name:
+      - gnome-themes-extra
+      - yaru-theme-gtk
     state: latest
     install_recommends: false
     update_cache: true
@@ -74,7 +77,7 @@
         - key: /org/gnome/desktop/interface/gtk-theme
           value: "{{ desktop_gtk_theme }}"
         - key: /org/gnome/desktop/interface/color-scheme
-          value: "{{ desktop_gtk_theme_color_scheme }}"
+          value: "{{ desktop_gtk_theme_prefer_dark | ternary('prefer-dark', 'default') }}"
 
     - name: Create the flatpak theme directory
       ansible.builtin.file:

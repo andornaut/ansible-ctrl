@@ -24,9 +24,13 @@
         name: "{{ games_flatpak_apps }}"
         method: user
 
+    # Sandboxed games cannot see the host binaries. Pinned to the runtime branch, flathub
+    # publishing these on several at once.
     - name: Install flatpak Vulkan layer extensions
       community.general.flatpak:
-        name: "{{ games_flatpak_extensions }}"
+        name:
+          - org.freedesktop.Platform.VulkanLayer.MangoHud//{{ games_flatpak_runtime_branch }}
+          - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
         method: user
 
     # `flatpak override` reports nothing, so diff `--show` either side of it.

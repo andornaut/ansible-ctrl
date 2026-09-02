@@ -33,7 +33,13 @@
 
     - name: Install the oh-my-pi binary
       ansible.builtin.get_url:
-        url: "{{ dev_oh_my_pi_release_url }}/{{ dev_oh_my_pi_release_binary }}"
+        # bun's architecture names rather than Debian's, so dev_arch does not serve here.
+        # The glibc build, because every host here is Ubuntu; the musl builds are
+        # named linux-musl-*.
+        url: >-
+          {{ dev_oh_my_pi_release_url }}/omp-linux-{{
+          {'x86_64': 'x64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'],
+          ansible_facts['architecture']) }}
         dest: "{{ dev_oh_my_pi_binary_path }}"
         checksum: "sha256:{{ dev_oh_my_pi_release_url }}/SHA256SUMS.txt"
         mode: "0755"

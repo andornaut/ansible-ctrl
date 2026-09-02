@@ -16,13 +16,8 @@ homeautomation_adb_auto_enable_installed_version: >-
 # looks. The port adbd picks for itself at boot is ephemeral and known only to the set.
 homeautomation_adb_auto_enable_port: 5555
 
-# The three below come from the release fact set in tasks/adb_auto_enable.yml.
+# The two below come from the release fact set in tasks/adb_auto_enable.yml.
 homeautomation_adb_auto_enable_version: "{{ homeautomation_adb_auto_enable_release.tag_name }}"
-
-# The tag carries a leading v that the APK's versionName does not, and a set reports that
-# versionName back through dumpsys, which is how it is compared against the release.
-homeautomation_adb_auto_enable_version_name: >-
-  {{ homeautomation_adb_auto_enable_version | regex_replace('^v', '') }}
 
 homeautomation_adb_auto_enable_url: >-
   {{ (homeautomation_adb_auto_enable_release.assets
@@ -66,22 +61,15 @@ homeautomation_no_new_privileges:
 # ha-mcp is merged in rather than listed, its accounts coming one per entry in
 # homeautomation_hamcp_instances.
 homeautomation_service_account_uids: >-
-  {{ homeautomation_service_account_uids_fixed
-     | combine(homeautomation_hamcp_service_account_uids) }}
-
-homeautomation_service_account_uids_fixed:
-  esphome: "{{ homeautomation_esphome_uid }}"
-  govee2mqtt: "{{ homeautomation_govee2mqtt_uid }}"
-  llamacpp: "{{ homeautomation_llamacpp_uid }}"
-  matterjs: "{{ homeautomation_matterjs_uid }}"
-  mosquitto: "{{ homeautomation_mosquitto_uid }}"
-  openwebui: "{{ homeautomation_openwebui_uid }}"
-  piper: "{{ homeautomation_piper_uid }}"
-  whisper: "{{ homeautomation_whisper_uid }}"
-
-homeautomation_hamcp_service_account_uids: >-
-  {{ dict(homeautomation_hamcp_instances | map(attribute='name')
-          | zip(homeautomation_hamcp_instances | map(attribute='uid'))) }}
+  {{ {'esphome': homeautomation_esphome_uid,
+      'govee2mqtt': homeautomation_govee2mqtt_uid,
+      'llamacpp': homeautomation_llamacpp_uid,
+      'matterjs': homeautomation_matterjs_uid,
+      'mosquitto': homeautomation_mosquitto_uid,
+      'openwebui': homeautomation_openwebui_uid,
+      'piper': homeautomation_piper_uid,
+      'whisper': homeautomation_whisper_uid}
+     | combine(homeautomation_hamcp_instances | items2dict(key_name='name', value_name='uid')) }}
 
 homeautomation_tz: "{{ homeautomation_system_timezone.stdout.strip() }}"
 

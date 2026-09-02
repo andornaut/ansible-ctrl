@@ -2,9 +2,6 @@
 # Not operator knobs. Role vars outrank host_vars, so the derived values below cannot
 # desync from defaults/main.yml and the canonical data cannot be overridden per host.
 
-# A platform probe, not a preference: the package exists only on Ubuntu >= 26.04.
-games_gamescope_apt_available: "{{ ansible_facts['distribution_version'] is version('26.04', '>=') }}"
-
 # The optional applications, each keyed to the flag it answers to. The IDs sit here rather than
 # in host_vars, so a host names a decision and the role keeps the list.
 games_flatpak_optional:
@@ -23,12 +20,6 @@ games_flatpak_removed_apps: >-
   {{ games_flatpak_optional | dict2items | rejectattr('value')
      | map(attribute='key') | list }}
 
-# Sandboxed games cannot see the host binaries. Pinned to the runtime branch, flathub
-# publishing these on several at once.
-games_flatpak_extensions:
-  - org.freedesktop.Platform.VulkanLayer.MangoHud//{{ games_flatpak_runtime_branch }}
-  - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
-
 # From the getent in tasks/main.yml. The home builds absolute paths; the uid locates
 # /run/user/<uid> for Heroic's token-refresh timer.
 games_user_home: "{{ ansible_facts['getent_passwd'][games_user][4] }}"
@@ -45,19 +36,18 @@ games_lutris_app_id: net.lutris.Lutris
 games_lutris_config_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/config/lutris"
 games_lutris_data_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/data/lutris"
 
+# The launcher every Lutris desktop entry runs in place of `flatpak run`, so a prefix an earlier
+# session left running is torn down first. See files/lutris-launch-game.py.
+games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
+
 # World of Warcraft, registered by tasks/lutris.yml as its own Lutris game where Battle.net's
-# prefix holds it, with a desktop entry that launches it without the Lutris window. The slug is
-# lutris.net's, which is where the icon comes from. The game entry keeps Battle.net's
-# executable and adds the argument that makes the Battle.net client launch the game itself:
-# Wow.exe run directly asks for the account password and authenticator on every launch.
+# prefix holds it. The slug is lutris.net's, which is where the icon comes from.
 games_lutris_wow_slug: world-of-warcraft
-games_lutris_wow_name: World of Warcraft
 games_lutris_wow_source_slug: battlenet
-games_lutris_wow_exe: >-
-  {{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}/drive_c/Program Files (x86)/World of Warcraft/_retail_/Wow.exe
-games_lutris_wow_game_settings:
-  args: --exec="launch WoW"
-games_lutris_wow_icon_url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
+
+# Battle.net's, shared with the client. Both the probe that decides whether to register the game
+# and the teardown the desktop entry asks for must name the same one.
+games_lutris_wow_prefix: "{{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}"
 
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.
@@ -112,19 +102,17 @@ games_retroarch_core_library_names: >-
   {{ dict(games_retroarch_cores_probed.keys()
           | zip(games_retroarch_cores_probed.values() | map(attribute='library_name'))) }}
 
-# Only the host with a writable mount fills the cache; on by default, so the rest would
-# retry an unsaveable download on every scroll. Per host, hence not in the static set.
-games_retroarch_thumbnails_settings:
-  network_on_demand_thumbnails: "{{ games_retroarch_thumbnails_writable | bool | ternary('true', 'false') }}"
-
 # The enforced retroarch.cfg keys, in ascending specificity: the role's set, this host's
 # hardware, what its mount allows, then per-host additions. Refresh rate and pad are
-# separate variables because the role asserts both.
+# separate variables because the role asserts both. Only the host with a writable mount
+# fills the thumbnail cache; on-demand is on by default, so the rest would retry an
+# unsaveable download on every scroll.
 games_retroarch_settings: >-
   {{ games_retroarch_required_settings
      | combine({"video_refresh_rate": games_retroarch_video_refresh_rate})
      | combine(games_retroarch_controllers[games_retroarch_controller])
-     | combine(games_retroarch_thumbnails_settings)
+     | combine({"network_on_demand_thumbnails":
+                games_retroarch_thumbnails_writable | bool | ternary('true', 'false')})
      | combine(games_retroarch_extra_settings) }}
 
 # Where tasks/retroarch.yml copies files/fbneo-arcade-names.json, ansible.builtin.script
@@ -144,12 +132,6 @@ games_retroarch_generator_config:
   # Romset -> full title, so arcade playlists show real names.
   arcade_names_path: "{{ games_retroarch_arcade_names_dest }}"
   arcade_name_cores: "{{ games_retroarch_arcade_name_cores }}"
-
-# Input to files/retroarch-fetch-thumbnails.py. No systems table: the fetcher reads the
-# playlists just written, which name every system, game and path.
-games_retroarch_thumbnails_config:
-  playlist_dir: "{{ games_retroarch_playlists_dir }}"
-  thumbnails_dir: "{{ games_retroarch_thumbnails_dir }}"
 
 # ---------------------------------------------------------------------------------------------
 # Canonical RetroArch data: systems table, enforced retroarch.cfg keys, per-core overrides
@@ -557,10 +539,6 @@ games_retroarch_bios_dir: "{{ games_retroarch_library_dir }}/_BIOS/retroarch-sys
 # points RetroArch at it and checks only that it exists. Nothing else belongs here: the rest
 # is written on every launch and the library is read-only on most hosts.
 games_retroarch_thumbnails_dir: "{{ games_retroarch_library_dir }}/_Thumbnails"
-
-# Cores are packaged for neither apt nor flatpak; the in-app Core Updater fetches them
-# from here, one manual download per core per host.
-games_retroarch_buildbot_url: https://buildbot.libretro.com/nightly/linux/{{ games_retroarch_arch }}/latest
 
 # Rewind and fast-forward on the pad, per model: right stick up and down, free on almost
 # every console here, L3/R3 as the dual-analog fallback. Not a Hotkey-Enable combo, which
