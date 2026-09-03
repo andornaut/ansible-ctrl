@@ -78,11 +78,49 @@
 # derives its configuration from Battle.net's on every run, so the client's own settings for
 # Battle.net are the ones to edit. The entry is Battle.net's executable with an argument that
 # makes the client launch the game, which is why a Battle.net session must already be logged in.
+#
+# Lutris keeps a game's configuration in config/lutris/games if that directory exists and in
+# data/lutris/games otherwise, which is the fallback games_lutris_active_dir mirrors. pga.db is
+# not subject to it: that one is always in data/lutris.
+- name: Read Battle.net's Lutris configuration
+  ansible.builtin.slurp:
+    src: "{{ games_lutris_active_dir }}/games/{{ games_lutris_wow_source_slug }}.yml"
+  register: games_lutris_wow_source_raw
+  failed_when: false
+  changed_when: false
+  when: games_lutris_active_dir | length > 0
+
+# The prefix the entry shares, read out of Lutris rather than assumed: Battle.net was installed
+# where the default install path pointed at the time, which is not always where it points now,
+# and both the probe below and the teardown the desktop entry asks for must name the real one.
+# The derived path stands in where that file is not there, which is a Battle.net whose
+# configuration Lutris keeps under a configpath that is not its slug.
+- name: Resolve Battle.net's wine prefix
+  ansible.builtin.set_fact:
+    games_lutris_wow_prefix: >-
+      {{ games_lutris_wow_source_game.prefix | default(games_lutris_wow_prefix_derived, true) }}
+  vars:
+    games_lutris_wow_source_config: >-
+      {{ (games_lutris_wow_source_raw.content | b64decode | from_yaml) or {}
+         if games_lutris_wow_source_raw.content is defined else {} }}
+    games_lutris_wow_source_game: "{{ games_lutris_wow_source_config.game | default({}, true) }}"
+
 - name: Check for a World of Warcraft install in the Battle.net prefix
   ansible.builtin.stat:
     path: "{{ games_lutris_wow_prefix }}/drive_c/Program Files (x86)/World of Warcraft/_retail_/Wow.exe"
   register: games_lutris_wow
   changed_when: false
+
+# Named rather than skipped quietly: the block below is the whole of what the tag does for this
+# game, and a prefix read off the wrong install looks exactly like a game that is not there.
+- name: Warn when the Battle.net prefix holds no World of Warcraft
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: {{ games_lutris_wow_prefix }} holds no
+      drive_c/Program Files (x86)/World of Warcraft/_retail_/Wow.exe, so the game was not
+      registered with Lutris. Install it through Battle.net, or check that this is the prefix
+      Battle.net actually uses, then re-run.
+  when: games_lutris_active_dir | length > 0 and not games_lutris_wow.stat.exists
 
 - name: Register World of Warcraft as its own Lutris game
   when: games_lutris_active_dir | length > 0 and games_lutris_wow.stat.exists
@@ -103,13 +141,28 @@
         stdin: "{{ lookup('ansible.builtin.file', 'lutris-register-game.py') }}"
       environment:
         LUTRIS_REGISTER_CONFIG: >-
-          {{ {'data_dir': games_lutris_active_dir,
+          {{ {'config_dir': games_lutris_active_dir,
+              'data_dir': games_lutris_data_dir,
               'source_slug': games_lutris_wow_source_slug,
               'slug': games_lutris_wow_slug,
               'name': 'World of Warcraft',
               'game': {'args': '--exec="launch WoW"'}} | to_json }}
       register: games_lutris_wow_register
       changed_when: games_lutris_wow_register.stdout | length > 0
+
+    - name: Create the user applications directory
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/share/applications"
+        state: directory
+        mode: "0755"
+
+    # Before the icon, which is the one task here that reaches the network: the entry is what
+    # launches the game, and a host that cannot fetch box art still gets that.
+    - name: Install the World of Warcraft desktop entry
+      ansible.builtin.template:
+        src: world-of-warcraft.desktop.j2
+        dest: "{{ games_user_home }}/.local/share/applications/{{ games_lutris_wow_slug }}.desktop"
+        mode: "0644"
 
     - name: Create the user icon theme directory
       ansible.builtin.file:
@@ -120,21 +173,23 @@
     # The icon Lutris would fetch for the slug, at the size and name it uses, placed where
     # the host's launcher looks rather than in the sandbox's own data directory. Fetched
     # once: get_url leaves an existing destination alone.
+    #
+    # Not fatal. lutris.net is the only thing the tag needs off this host, and the entry it
+    # decorates is already installed; a failure leaves the launcher's generic icon.
     - name: Install the World of Warcraft icon
       ansible.builtin.get_url:
         url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
         dest: "{{ games_lutris_wow_icon_dir }}/lutris_{{ games_lutris_wow_slug }}.png"
         mode: "0644"
+      register: games_lutris_wow_icon
+      failed_when: false
       notify: Mark the user hicolor icon cache stale
 
-    - name: Create the user applications directory
-      ansible.builtin.file:
-        path: "{{ games_user_home }}/.local/share/applications"
-        state: directory
-        mode: "0755"
-
-    - name: Install the World of Warcraft desktop entry
-      ansible.builtin.template:
-        src: world-of-warcraft.desktop.j2
-        dest: "{{ games_user_home }}/.local/share/applications/{{ games_lutris_wow_slug }}.desktop"
-        mode: "0644"
+    # get_url reports the destination on every outcome that wrote or kept one, so its absence
+    # is the download having failed.
+    - name: Warn when the World of Warcraft icon could not be fetched
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ games_lutris_wow_icon.msg | default('the icon could not be fetched') }}.
+          The desktop entry is installed and shows a generic icon until a re-run fetches it.
+      when: games_lutris_wow_icon.dest is not defined

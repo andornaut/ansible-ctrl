@@ -36,8 +36,9 @@ games_lutris_app_id: net.lutris.Lutris
 games_lutris_config_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/config/lutris"
 games_lutris_data_dir: "{{ games_user_home }}/.var/app/{{ games_lutris_app_id }}/data/lutris"
 
-# The launcher every Lutris desktop entry runs in place of `flatpak run`, so a prefix an earlier
-# session left running is torn down first. See files/lutris-launch-game.py.
+# The launcher the World of Warcraft desktop entry runs in place of `flatpak run`, so a prefix an
+# earlier session left running is torn down first. Lutris's own entries do not go through it.
+# See files/lutris-launch-game.py.
 games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
 
 # World of Warcraft, registered by tasks/lutris.yml as its own Lutris game where Battle.net's
@@ -45,9 +46,10 @@ games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
 games_lutris_wow_slug: world-of-warcraft
 games_lutris_wow_source_slug: battlenet
 
-# Battle.net's, shared with the client. Both the probe that decides whether to register the game
-# and the teardown the desktop entry asks for must name the same one.
-games_lutris_wow_prefix: "{{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}"
+# Where Lutris puts Battle.net's prefix when its default install path is the one enforced above.
+# A guess, and not the authority: tasks/lutris.yml prefers the prefix Battle.net's own Lutris
+# configuration names and falls back to this, the client being free to install anywhere.
+games_lutris_wow_prefix_derived: "{{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}"
 
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.

@@ -3,16 +3,23 @@
 
 Reads LUTRIS_REGISTER_CONFIG, a JSON document:
 
-    {"data_dir": "/home/user/.var/app/net.lutris.Lutris/data/lutris",
+    {"config_dir": "/home/user/.var/app/net.lutris.Lutris/data/lutris",
+     "data_dir": "/home/user/.var/app/net.lutris.Lutris/data/lutris",
      "source_slug": "battlenet",
      "slug": "world-of-warcraft",
      "name": "World of Warcraft",
      "game": {"args": "--exec=\\"launch WoW\\""}}
 
+`config_dir` holds `games/<slug>.yml` and `data_dir` holds `pga.db`. Lutris keeps them apart:
+the configuration directory is `~/.config/lutris` where that exists and `~/.local/share/lutris`
+otherwise, and the database is in the latter either way, so the two are equal on most hosts and
+must still be given separately.
+
 The target's configuration is the source's `game`, `system` and `wine` sections, with `game`
 overlaid by the `game` given, so the target shares the source's prefix, executable and runner
-settings and differs only where told to. It is rewritten every run, so a runner change made to
-the source in the client follows, and a change made to the target's own entry does not survive.
+settings and differs only where told to. A section the source leaves empty is not written, the
+client dropping an empty one itself. It is rewritten every run, so a runner change made to the
+source in the client follows, and a change made to the target's own entry does not survive.
 
 The pga.db row is inserted once, with only the columns a launch reads, and re-aligned with the
 source's `directory`, `runner` and `platform` after that. Lutris reads the table at startup, so
@@ -51,8 +58,8 @@ def converge_config(games_dir, source, cfg):
     source_config = read_config(games_dir / f"{source['configpath']}.yml")
     if source_config is None:
         sys.exit(f"{source['configpath']}.yml, the configuration of {cfg['source_slug']!r}, is missing")
-    desired = {section: dict(source_config.get(section) or {}) for section in SECTIONS}
-    desired["game"].update(cfg["game"])
+    desired = {section: dict(source_config[section]) for section in SECTIONS if source_config.get(section)}
+    desired["game"] = {**desired.get("game", {}), **cfg["game"]}
     path = games_dir / f"{cfg['slug']}.yml"
     if read_config(path) != desired:
         path.write_text(yaml.safe_dump(desired, default_flow_style=False))
@@ -86,14 +93,18 @@ def converge_row(db, source, cfg):
 
 def main():
     cfg = json.loads(os.environ["LUTRIS_REGISTER_CONFIG"])
-    data_dir = Path(cfg["data_dir"])
-    db = sqlite3.connect(data_dir / "pga.db")
+    db_path = Path(cfg["data_dir"]) / "pga.db"
+    # sqlite3.connect creates the file, so an absent database would otherwise be reported as a
+    # missing table, after a stray pga.db had been left where the caller pointed.
+    if not db_path.exists():
+        sys.exit(f"{db_path} is not there; Lutris has not run on this host")
+    db = sqlite3.connect(db_path)
     db.row_factory = sqlite3.Row
     with db:
         source = game_row(db, cfg["source_slug"])
         if source is None:
             sys.exit(f"no Lutris game has the slug {cfg['source_slug']!r}")
-        converge_config(data_dir / "games", source, cfg)
+        converge_config(Path(cfg["config_dir"]) / "games", source, cfg)
         converge_row(db, source, cfg)
 
 

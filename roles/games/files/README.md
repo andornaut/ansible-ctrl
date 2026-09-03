@@ -81,7 +81,8 @@ JSON
 configuration with. It prints one line per change and nothing when converged.
 
 ```bash
-LUTRIS_REGISTER_CONFIG='{"data_dir": "'"$HOME"'/.var/app/net.lutris.Lutris/data/lutris",
+lutris=$HOME/.var/app/net.lutris.Lutris/data/lutris
+LUTRIS_REGISTER_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'",
   "source_slug": "battlenet", "slug": "world-of-warcraft", "name": "World of Warcraft",
   "game": {"args": "--exec=\"launch WoW\""}}' \
   flatpak run --command=python3 net.lutris.Lutris - < lutris-register-game.py
