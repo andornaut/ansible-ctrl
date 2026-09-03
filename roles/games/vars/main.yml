@@ -46,11 +46,6 @@ games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
 games_lutris_wow_slug: world-of-warcraft
 games_lutris_wow_source_slug: battlenet
 
-# Where Lutris puts Battle.net's prefix when its default install path is the one enforced above.
-# A guess, and not the authority: tasks/lutris.yml prefers the prefix Battle.net's own Lutris
-# configuration names and falls back to this, the client being free to install anywhere.
-games_lutris_wow_prefix_derived: "{{ games_lutris_dir }}/{{ games_lutris_wow_source_slug }}"
-
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.
 games_retroarch_app_id: org.libretro.RetroArch

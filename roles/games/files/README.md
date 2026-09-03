@@ -1,7 +1,7 @@
 # Helper scripts
 
-Six scripts: four converge RetroArch, two back the Lutris entries. The role runs four and installs one on the
-host (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its
+Seven scripts: four converge RetroArch, three back the Lutris entries. The role runs five and installs one on
+the host (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its
 output committed. Each can be run by hand to debug a single stage.
 
 **Each script's module docstring is the authoritative reference** for its full input schema, defaults,
@@ -13,6 +13,7 @@ and edge cases. This file is the operator's quick start.
 | `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                                                      | `RETROARCH_GENERATOR_CONFIG`, a JSON document                                           |
 | `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com)                           | `RETROARCH_THUMBNAILS_CONFIG`, a JSON document with `playlist_dir` and `thumbnails_dir` |
 | `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json` romset-to-title map                                                    | None. Needs network access                                                              |
+| `lutris-game-prefix.py`           | Prints a Lutris game's wine prefix, resolved through the configpath `pga.db` names for the slug                            | `LUTRIS_PREFIX_CONFIG`, a JSON document                                                 |
 | `lutris-register-game.py`         | Registers a Lutris game whose configuration is derived from another game's, in `pga.db` and `games/<slug>.yml`             | `LUTRIS_REGISTER_CONFIG`, a JSON document                                               |
 | `lutris-launch-game.py`           | Tears down a wine prefix an earlier session left running, then execs Lutris on the slug                                    | Wine prefix, flatpak application ID and Lutris slug, as its three arguments             |
 
@@ -77,8 +78,16 @@ JSON
 
 ## Lutris
 
-`lutris-register-game.py` runs inside the Lutris sandbox, which carries the PyYAML Lutris reads its own
-configuration with. It prints one line per change and nothing when converged.
+`lutris-game-prefix.py` and `lutris-register-game.py` both run inside the Lutris sandbox, which carries the
+PyYAML Lutris reads its own configuration with, and both take `config_dir` (holding `games/`) and `data_dir`
+(holding `pga.db`). The register script prints one line per change and nothing when converged; the prefix script
+prints the prefix, and an empty line where the slug is not registered.
+
+```bash
+lutris=$HOME/.var/app/net.lutris.Lutris/data/lutris
+LUTRIS_PREFIX_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'", "slug": "battlenet"}' \
+  flatpak run --command=python3 net.lutris.Lutris - < lutris-game-prefix.py
+```
 
 ```bash
 lutris=$HOME/.var/app/net.lutris.Lutris/data/lutris
