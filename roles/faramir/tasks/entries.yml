@@ -139,6 +139,12 @@
 
 # Compared per form, the form being part of what identifies an entry.
 #
+# The derived rows are dropped first. A symlink is blocked at both names: an add records the
+# spelling it did not get as a second entry, whether it was `block add` resolving to a target
+# or `link add` resolving away from the path that was typed. This role's lists name neither,
+# and the entry that derived one is what removes it, so comparing them against these lists
+# would take one out every run and derive it again on the next.
+#
 # stdout defaults for the --check run, where the listing above is skipped along with the adds
 # and there is nothing to compare.
 - name: Find the entries this role no longer declares
@@ -152,7 +158,9 @@
            | map(attribute='entry') | reject('in', faramir_blocked_commands) | list }}
   become: false
   vars:
-    faramir_block_rows: "{{ faramir_block_ls.stdout | default('[]', true) | from_json }}"
+    faramir_block_rows: >-
+      {{ (faramir_block_ls.stdout | default('[]', true) | from_json)
+         | rejectattr('source', 'equalto', 'derived') | list }}
 
 # An entry comes back out under the flag it went in under, the form being part of what
 # identifies it, and a removal ends the declaration and no more: README.md.
