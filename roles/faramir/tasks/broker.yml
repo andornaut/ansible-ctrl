@@ -211,6 +211,11 @@
     faramir_project_report: "{{ faramir_project.stdout | from_json }}"
   when: faramir_project.stdout | default('') | length > 0
 
+# After both, so the record it prunes against is the one this run just wrote.
+- name: Take the stale entries out of the agent rule files
+  ansible.builtin.import_tasks: prune.yml
+  when: faramir_binary_stat.stat.exists | default(false)
+
 # init and enrol warn rather than fail on what installs cleanly but does nothing, such as
 # a group membership needing a fresh login.
 - name: Show what faramir warned about

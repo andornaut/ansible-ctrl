@@ -170,12 +170,17 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
   refused under every home. 150 shapes and one other account is 300 declared paths per host, most of them
   absent. Every home, not every depth: a path is literal, so the same store nested somewhere else is a separate
   entry, and nothing reports the ones that are missing.
-- **Another account's stores are declared on every faramir host, not just the one holding the account.** A rule
-  refuses a command that names the path, and the agent works from the controller, where
-  `ssh <host> sudo cat <path>` reaches a second account's files over a NOPASSWD sudo that no local file mode
-  answers for. `faramir_shared_user_homes` is empty in the defaults and set in `group_vars/faramir.yml`, an
-  account name being inventory data, and the role asserts it is a list of absolute homes before anything is
-  written: a bare string would otherwise be joined one character at a time.
+- **Another account's stores are declared on every faramir host, not just the one holding the account.** An
+  entry is enforced on the host where the command is typed rather than the host holding the file, which
+  faramir's [configuration doc](https://github.com/andornaut/faramir/blob/main/docs/configuration.md#where-an-entry-is-enforced)
+  covers. What makes that reach real on this fleet is `base`, which grants the account ansible connects as
+  NOPASSWD sudo on every managed host, so `ssh <host> sudo cat <path>` reaches a second account's files over a
+  sudo no local file mode answers for. A faramir host outside the `dev` group runs no agent and so evaluates
+  nothing, which leaves its copy inert rather than wrong: the entry is declared there so that a host moving
+  into `dev` is covered before anyone remembers its inventory. `faramir_shared_user_homes` is empty in the
+  defaults and set in
+  `group_vars/faramir.yml`, an account name being inventory data, and the role asserts it is a list of absolute
+  homes before anything is written: a bare string would otherwise be joined one character at a time.
 - **The finer shape wins where a home holds a store and a readable file beside it.** `.ssh/id_*` rather than
   `.ssh/`, because the operator's `config` and `known_hosts` are files an agent opens; the same for each editor's
   `User/globalStorage` against its settings and MCP config, and for an agent's token against its instruction
@@ -296,9 +301,17 @@ after it has run here once unguarded.
   nothing until Codex has been started once and the hook trusted; and it must run without its own sandbox.
 - **Cursor is installed here and faramir does not configure it**, so a credential a command of its prints
   reaches the model.
-- Enrolling claude or codex gives up this project's Bash prompts: a rewritten command matches no permission
-  rule, so the hook approves it, and that approval covers every command the deny list does not name. The
-  other four have no approval to return.
+- Enrolling claude or codex gives up this project's Bash prompts: the hook rewrites each command into a
+  sourced wrapper, which no permission rule can approve, so the hook approves it, and that approval covers
+  every command the deny list does not name. The other four have no approval to return.
+- **The deny lists are pruned to what faramir renders**, after every install and enrolment, by
+  `files/prune-agent-rules.py`. faramir's own merge removes only a rule its record names, so one written
+  before that record existed accumulates: an entry for a path nothing declares any more, or in a spelling
+  that stopped working. The pass deletes every deny entry the record does not name, including one added by
+  hand, and copies each file it rewrites to a `.pruned-<stamp>.bak` beside it. Claude's are the only
+  array-shaped deny lists among the six, so they are the only ones it changes: opencode's and Kilo Code's are an
+  object keyed by pattern, which the record does not describe, pi keeps its rules in an extension rather than in
+  JSON, and codex and Antigravity have no rule file. Each of those is reported as skipped and left alone.
 - Nothing an enrolment writes into a tree is committed: this repo's `.gitignore` covers `.claude/*` and the
   agents' instruction filenames, and the operator's global ignore covers the rest.
 

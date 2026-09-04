@@ -1,0 +1,56 @@
+---
+# Take out of the agent rule files every deny entry faramir's own record does not name.
+#
+# faramir's merge removes a rule the record names and the current render no longer
+# produces. A rule written before that record existed is in neither, so nothing removes it:
+# the file keeps refusing paths nothing declares any more, in spellings that stopped
+# working when a rule's anchoring was corrected. This is the pass that reconciles them.
+#
+# It deletes a deny rule an operator added to one of these files by hand as well. That is
+# what it is for: after this an agent deny list holds what faramir renders and nothing
+# else. The script copies each file it rewrites to a .pruned-<stamp>.bak beside it.
+#
+# After the enrolment, never before it. The record is rewritten by every install and
+# enrolment, so the ordering is what makes it trustworthy rather than a convenience: pruning
+# against a stale one takes out rules the run is about to write back, and a faramir upgrade
+# that changes which rules it renders leaves a record and a file that disagree until both
+# have been written by the same version.
+
+- name: Prune the agent deny lists to what faramir wrote
+  ansible.builtin.script:
+    cmd: >-
+      prune-agent-rules.py
+      {{ '--check' if ansible_check_mode else '' }}
+      {{ faramir_config_dir | quote }}
+    executable: /usr/bin/python3
+  become: true
+  # Reads the record and the agent files, both of which are the operator's or root's.
+  check_mode: false
+  register: faramir_prune
+  # changed_when runs even on failure, where an empty report would add a parse error to the
+  # real one.
+  changed_when: faramir_prune.stdout | length > 0 and (faramir_prune.stdout | from_json).changed
+
+- name: Read what the prune removed
+  ansible.builtin.set_fact:
+    faramir_prune_report: "{{ faramir_prune.stdout | from_json }}"
+  when: faramir_prune.stdout | default('') | length > 0
+
+# Silent about the rules themselves, which are paths this repository is public about not
+# writing down, and specific about the count and the file, which is what tells you whether
+# to go and look.
+- name: Show what the prune removed
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.path }}: {{ item.removed | default([]) | length }} stale deny entr{{
+      'y' if (item.removed | default([]) | length) == 1 else 'ies' }} removed{{
+      ', original at ' ~ item.backup if item.backup | default(none) else '' }}{{
+      ' (skipped: ' ~ item.skipped ~ ')' if item.skipped | default(none) else '' }}
+  loop: "{{ faramir_prune_report.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Say when the record could not be read
+  ansible.builtin.debug:
+    msg: "{{ faramir_prune_report.note }}"
+  when: faramir_prune_report.note | default('') | length > 0
