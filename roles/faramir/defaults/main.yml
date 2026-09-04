@@ -240,6 +240,25 @@ faramir_blocked_home_paths:
   # out of one of them. That omission is the refresh tokens read through a path no rule
   # mentions, which is what a whole-directory entry cannot have.
   #
+  # Both halves are load-bearing and neither covers the other: a rule refuses the path as
+  # written and the tail of it below the home, so a credential named under a spelling nothing
+  # declares is allowed. Dropping a symlink entry opens its whole subtree, whatever the
+  # canonical entries say.
+  #
+  # Declaring a symlink whole also blocks the directory it points at, which is what keeps the
+  # readable half from being read off this list. `block add` resolves a declared symlink and
+  # records the target as a derived whole-directory entry, so the canonical spelling that
+  # symlink resolves to is refused entirely, file-by-file entries and all. The flatpak carries
+  # two names for one directory, and the game directories stay reachable through whichever of
+  # them nothing resolves to. Read `faramir block ls` rather than this list to see what a host
+  # actually refuses.
+  #
+  # Getting a target's siblings back means naming each credential at the symlink's spelling as
+  # well as the canonical one, which is the duplicate list this entry avoids. Derivation reads
+  # only a path's last component, so a file named under a symlinked directory derives nothing
+  # and refuses that one spelling; it is the symlink named on its own that takes the target
+  # whole. Neither is worth doing here while the second canonical name reaches the same files.
+  #
   # The `ssfn` sentry is named by its prefix, the one shape a path entry may carry a wildcard
   # in: a trailing `*` on the last component, after at least one literal character. Its full
   # name carries a per-account number, which this repo is public and does not hold, and a
