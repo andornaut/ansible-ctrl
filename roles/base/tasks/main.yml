@@ -183,6 +183,44 @@
           xkb-options=['caps:escape']
         mode: "0644"
 
+# Both of the above act on the keysym, and a program that reads the key by position (a game
+# through raw input, where a scan code is the key's place on the board) still sees Caps
+# Lock. udev's keyboard builtin remaps the key at the input device, so every consumer gets
+# Escape. A udev rule rather than a hardware database entry: the database matches by bus
+# and vendor, not by what a device is, and a bus-wide entry reaches mice and buttons, whose
+# keycode ioctl then fails on every boot. The rule runs after input_id has classified the
+# device, keys on ID_INPUT_KEYBOARD, and re-runs the builtin with the entry set: USB and
+# Bluetooth keyboards key on the HID usage, PS/2 and laptop ones on the AT scan code. The
+# handler re-triggers every input device, so no reboot or replug is needed.
+- name: Re-map capslock key to escape key at the input device
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/61-ansible-role-base-keyboard-caps-escape.rules
+    content: |
+      # Managed by Ansible (base role). Do not edit.
+      ACTION=="remove", GOTO="caps_escape_end"
+      SUBSYSTEM!="input", GOTO="caps_escape_end"
+      KERNEL!="event*", GOTO="caps_escape_end"
+      ENV{ID_INPUT_KEYBOARD}!="1", GOTO="caps_escape_end"
+      ENV{ID_BUS}=="usb|bluetooth", ENV{KEYBOARD_KEY_70039}="esc", RUN{builtin}+="keyboard"
+      ATTRS{modalias}=="input:b0011*", ENV{KEYBOARD_KEY_3a}="esc", RUN{builtin}+="keyboard"
+      LABEL="caps_escape_end"
+    mode: "0644"
+  become: true
+  notify:
+    - Reload the udev rules
+    - Apply keyboard changes
+
+# CLEANUP (added 2026-09-05): the rule's predecessor, a hardware database entry that reached
+# every device on the bus. Delete once every host has converged, with its handler.
+- name: Remove the hardware database entry the udev rule replaced
+  ansible.builtin.file:
+    path: /etc/udev/hwdb.d/60-keyboard-caps-escape.hwdb
+    state: absent
+  become: true
+  notify:
+    - Rebuild the hardware database
+    - Re-add the input devices
+
 - name: Install cache-command
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/cache-command/main/cache-command

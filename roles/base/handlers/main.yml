@@ -9,8 +9,32 @@
   changed_when: false
   become: true
 
+# In this order, which handlers run in: the reload is what makes udevd read the rules and
+# the hardware database afresh, so the database is rebuilt first, and the trigger comes
+# after both, its keyboard builtin reading what udevd then holds.
+- name: Rebuild the hardware database
+  ansible.builtin.command: systemd-hwdb update
+  changed_when: false
+  become: true
+
+- name: Reload the udev rules
+  ansible.builtin.command: udevadm control --reload
+  changed_when: false
+  become: true
+
 - name: Apply keyboard changes
   ansible.builtin.command: udevadm trigger --subsystem-match=input --action=change
+  changed_when: false
+  become: true
+
+# CLEANUP (added 2026-09-05): goes with the hardware database removal in tasks/main.yml. A
+# property a withdrawn entry set stays in udev's database through change events; a remove
+# and an add rebuild each device's entry from the rules as they are.
+- name: Re-add the input devices
+  ansible.builtin.shell:
+    cmd: >-
+      udevadm trigger --subsystem-match=input --action=remove &&
+      udevadm trigger --subsystem-match=input --action=add
   changed_when: false
   become: true
 
