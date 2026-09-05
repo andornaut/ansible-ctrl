@@ -131,6 +131,10 @@
       ansible.builtin.import_tasks: usb_hub_autosuspend.yml
       tags: usb-autosuspend
 
+    - name: Grant the keyboard configurator interfaces to the seat
+      ansible.builtin.import_tasks: keyboard_configurator.yml
+      tags: keyboard-configurator
+
     - name: Configure dconf
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf

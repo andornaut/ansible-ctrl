@@ -23,6 +23,16 @@ desktop_nct6687d_version: main
 # USB vendor IDs whose hubs reset their downstream tree on autosuspend, dropping input
 # and audio for seconds. Each gets power/control pinned on. Empty removes the rule.
 desktop_usb_no_autosuspend_vendor_ids: []
+# Keyboards whose configurator (VIA, Keychron Launcher) the desktop user runs, as
+# {vendor, product} USB ids in lower-case hex, product optional. Each gets its raw HID
+# interface granted to the seat and no other: README.md's keyboard-configurator row says
+# why the keyboard interfaces must stay root-only. Empty removes the rule.
+desktop_keyboard_configurator_ids: []
+# The keyboards' firmware bootloaders (DFU, RP2040), as {vendor, product}: a bootloader is
+# not a keyboard, so the whole device is granted.
+desktop_keyboard_configurator_bootloader_ids: []
+# The vendors' own rule files under /etc/udev/rules.d the rule above replaces, by name.
+desktop_keyboard_configurator_superseded_rules: []
 # WirePlumber property overrides, keyed by the PipeWire node.name that `wpctl status`
 # and `pw-cli ls Node` report. Each value is a map of properties to set on that node:
 # audio.format pins a device to a format it can sustain, node.disabled hides one whose

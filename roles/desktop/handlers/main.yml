@@ -124,6 +124,28 @@
   changed_when: false
   become: true
 
+# A remove and an add rather than a change, on every raw HID node: a change event leaves a
+# withdrawn grant in place, the tag staying in udev's database and the ACL on the node. The
+# remove drops the database entry, the add rebuilds it from the rules as they are, and a node
+# that comes back without the uaccess tag has its ACL flushed here, since udev never removes
+# one it set. Every node rather than the configured keyboards', so a keyboard dropped from
+# the list, or the list emptied, loses its grant too. The device nodes stay, devtmpfs owning
+# them; a raw HID handle another program holds sees a hotplug and reopens.
+- name: Apply the udev rules to the HID devices
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -o pipefail
+      for d in /sys/class/hidraw/hidraw*; do
+        [ -e "$d" ] || continue
+        node=/dev/$(basename "$d")
+        udevadm trigger --action=remove "$d" && udevadm trigger --action=add "$d"
+        udevadm settle
+        udevadm info "$node" | grep -q '^E: CURRENT_TAGS=.*:uaccess:' || setfacl -b "$node"
+      done
+  changed_when: false
+  become: true
+
 # --action=change re-asserts power/control on plugged hubs without a reboot.
 - name: Apply the udev rules to the USB devices
   ansible.builtin.command:

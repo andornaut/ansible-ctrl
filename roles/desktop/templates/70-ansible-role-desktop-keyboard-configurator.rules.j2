@@ -1,13 +1,19 @@
 # Managed by Ansible (desktop role). Do not edit.
-# The raw HID interface a keyboard configurator talks to, and nothing else of the keyboard:
-# its boot keyboard and mouse interfaces (USB interface protocol 01 and 02) stay root-only.
-# A grant on those lets a game's Wine open the keyboard as a HID device and read keys from
-# its reports, below the kernel keymap and every XKB remap. The vendor is matched by udev
-# property rather than sysfs attribute, the protocol living on the interface and the vendor
-# on the device, which one ATTRS group cannot span.
+# The raw HID interface a keyboard configurator talks to, and nothing else of the keyboard.
+# A grant on a keyboard interface lets a game's Wine open the keyboard as a HID device and
+# read keys from its reports, below the kernel keymap and every XKB remap. The kernel makes
+# an input device for every interface whose usage it knows, keyboard and mouse included,
+# and none for a vendor-usage one, so the raw interface is the one with no `input` beside
+# its hidraw; the interface protocol does not tell them apart, a keyboard's NKRO interface
+# being protocol 00 too. The input device is registered before the hidraw node, so the test
+# holds at the hidraw's own add event. Matched on the USB interface's modalias, which
+# names vendor and product in one attribute of one device. The other interfaces have their
+# ACLs flushed on every event: udev sets an ACL and never removes one, so a grant a previous
+# rule made would otherwise outlive it.
 {% for dev in desktop_keyboard_configurator_ids %}
-SUBSYSTEM=="hidraw", ENV{ID_VENDOR_ID}=="{{ dev.vendor }}"{% if dev.product is defined %}, ENV{ID_MODEL_ID}=="{{ dev.product }}"{% endif %}, ATTRS{bInterfaceProtocol}=="00", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTR{idVendor}=="{{ dev.vendor }}"{% if dev.product is defined %}, ATTR{idProduct}=="{{ dev.product }}"{% endif %}, ENV{ID_MM_DEVICE_IGNORE}="1"
+{% set id = "usb:v" ~ (dev.vendor | upper) ~ "p" ~ (dev.product | default('') | upper) %}
+SUBSYSTEM=="hidraw", ATTRS{modalias}=="{{ id }}*ic03*", TEST!="../../input", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{modalias}=="{{ id }}*ic03*", TEST=="../../input", TAG-="uaccess", RUN+="/usr/bin/setfacl -b $devnode"
 {% endfor %}
 {% for dev in desktop_keyboard_configurator_bootloader_ids %}
 SUBSYSTEM=="usb", ATTR{idVendor}=="{{ dev.vendor }}", ATTR{idProduct}=="{{ dev.product }}", TAG+="uaccess"
