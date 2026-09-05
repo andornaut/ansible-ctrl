@@ -70,58 +70,52 @@ panel. The play asserts its preconditions:
 A game that sizes its window to the display without setting `_NET_WM_STATE_FULLSCREEN` leaves GNOME's top bar
 and dock drawn above it, and mutter can composite such a window as a blank surface after the game recreates it
 across a display-mode change. `games_gamescope_enabled` runs Lutris games and Minecraft (Bedrock) inside
-gamescope, which takes the fullscreen state itself and gives the game a nested compositor of its own, so neither
-depends on what the game asks the desktop compositor for. It costs a nested compositing step, so roughly a frame
-of latency. Off by default: a host turns it on beside `games_gamescope_resolution`.
+gamescope, which takes the fullscreen state itself and gives the game a nested compositor of its own, at the
+cost of roughly a frame of latency. Off by default: a host turns it on beside `games_gamescope_resolution`. Works
+on X11 and Wayland alike, gamescope selecting its own backend. With the flag off, Lutris's own gamescope settings
+are left alone.
 
-Works on X11 and Wayland alike: gamescope nests in whichever is there and selects its own backend.
+The host's own gamescope comes from the archive on Ubuntu >= 26.04. Below that `gamescope.yml` builds the pinned
+`games_gamescope_version` into `/usr/local`, first building Wayland `games_gamescope_wayland_version` where the
+archive's is below the 1.23 that tag's wlroots needs. That Wayland goes into `games_gamescope_deps_prefix`, found
+by the gamescope build through `PKG_CONFIG_PATH` and an rpath and by nothing else on the host. The build, its
+dependency install included, is skipped while `/usr/local/bin/gamescope --version` reports the tag.
 
-The host's own gamescope, for native games, comes from the archive on Ubuntu >= 26.04. Below that `gamescope.yml`
-builds the tag `games_gamescope_version` pins into `/usr/local`, after Wayland `games_gamescope_wayland_version`
-where the archive's is under the 1.23 that tag's wlroots wants. That Wayland goes into `games_gamescope_deps_prefix`
-and nowhere on the host's library path: the gamescope build finds it through `PKG_CONFIG_PATH` and keeps it through
-an rpath, and every other Wayland process keeps the archive's. Nothing below the version probe runs, the dependency
-install included, while `/usr/local/bin/gamescope --version` reports the pinned tag.
+Lutris games get gamescope through `gamescope: true` in `system.yml`, Minecraft (Bedrock) through `BOL_GAMESCOPE`
+in its flatpak override, and each launcher runs whatever `gamescope` its sandbox PATH finds first: the role's
+wrapper, granted to both sandboxes from `games_gamescope_helper_dir`. Plain gamescope cannot present either
+launcher's game: both run it under umu in a pressure-vessel sub-sandbox the flatpak portal spawns, and the portal
+sets that sub-sandbox's `DISPLAY` and `WAYLAND_DISPLAY` to the host's after every environment option. The game
+then connects to the host X server while gamescope's nested one sits unused, and the Gamescope WSI layer fails its
+swapchain with `Failed to get Xwayland server id`; on a Wayland host it instead takes a `WAYLAND_DISPLAY` that is
+not gamescope's socket as proof it is not under gamescope and stops on a `Hooking has failed somewhere!` dialog.
+Nothing in umu, pressure-vessel or Proton carries either variable past that point, so the wrapper does:
 
-Lutris games get it through `gamescope: true` in `system.yml`, and Minecraft (Bedrock) through `BOL_GAMESCOPE`
-in its flatpak override. Each launcher then wraps the game in whatever `gamescope` its sandbox PATH finds first,
-and what it finds is the role's wrapper, granted to both sandboxes from `games_gamescope_helper_dir`, because
-plain gamescope cannot present a game either launcher runs: both run it under umu, in a pressure-vessel
-sub-sandbox the flatpak portal spawns, and the portal sets that sub-sandbox's `DISPLAY` and `WAYLAND_DISPLAY` to
-the host's after every environment option is applied. The game's X connection therefore goes to the host X
-server, gamescope's nested one sits unused at the next display number, and the Gamescope WSI layer fails its
-swapchain with `Failed to get Xwayland server id`. On a Wayland host the layer never gets that far: it reads a
-`WAYLAND_DISPLAY` that is not gamescope's own socket as proof it is not under gamescope, creates a plain swapchain
-instead, and stops on a `Hooking has failed somewhere!` dialog the game waits on. Nothing in umu, pressure-vessel
-or Proton takes either variable past that point, so the wrapper carries the `DISPLAY` in a variable of its own and
-restores both from inside:
+| File in `games_gamescope_helper_dir`      | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gamescope`                               | Runs the extension's binary with the game command prefixed by `gamescope-child`. An invocation with no command, which is how Lutris reads `--help` for the options a version has, goes to the binary as is                                                                                                                                                                                                                                                                          |
+| `gamescope-child`                         | Runs as gamescope's child, where `DISPLAY` is the nested server: exports it as `GAMESCOPE_CHILD_XDISPLAY`, adds the library to `LD_PRELOAD`, and unsets `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP`, since umu-run drops `LD_PRELOAD` when either reads `gamescope`                                                                                                                                                                                                             |
+| `lib/<multiarch>/libgamescope-display.so` | Preloaded into every process of the game container, pressure-vessel forwarding `LD_PRELOAD` as `--ld-preload`; its constructor sets `DISPLAY` from `GAMESCOPE_CHILD_XDISPLAY` and unsets `WAYLAND_DISPLAY`, as gamescope does for its child. One build per ELF class, `x86_64-linux-gnu` and `i386-linux-gnu`, named by a single `LD_PRELOAD` entry through ld.so's `$LIB`; a prefix runs both. Built on the host by `gamescope-wrapper.yml`, which installs `gcc` and its multilib |
 
-| File in `games_gamescope_helper_dir`      | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gamescope`                               | Runs the extension's binary with the game command prefixed by `gamescope-child`. An invocation with no command, which is how Lutris reads `--help` for the options a version has, goes to the binary as is                                                                                                                                                                                                                                                                                                 |
-| `gamescope-child`                         | Runs as gamescope's child, where `DISPLAY` is the nested server: exports it as `GAMESCOPE_CHILD_XDISPLAY`, adds the library to `LD_PRELOAD`, and unsets `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP`, either of which umu-run answers by dropping `LD_PRELOAD` when it reads `gamescope`, which gamescope sets the first to                                                                                                                                                                             |
-| `lib/<multiarch>/libgamescope-display.so` | Preloaded into every process of the game container, pressure-vessel forwarding `LD_PRELOAD` as `--ld-preload`; its constructor sets `DISPLAY` from `GAMESCOPE_CHILD_XDISPLAY` and unsets `WAYLAND_DISPLAY`, as gamescope does for its child. One build per class under the directory ld.so's `$LIB` expands to, `x86_64-linux-gnu` and `i386-linux-gnu`, named by one `LD_PRELOAD` entry; a prefix runs both. Built on the host by `gamescope-wrapper.yml`, which installs `gcc` and `gcc-multilib` for it |
-
-`/proc/<pid>/environ` can still read `DISPLAY=:0` and `WAYLAND_DISPLAY=wayland-0` for the game: `setenv` changes
-the process's environment, not the block that file shows. Look for the swapchain line instead, or for the game window on gamescope's display:
-`DISPLAY=:1 xwininfo -root -children`.
+`/proc/<pid>/environ` still reads the host's `DISPLAY` and `WAYLAND_DISPLAY` for the game: `setenv` does not
+rewrite that block. Look for the WSI layer's `Created swapchain` line instead, or for the game window on gamescope's
+display: `DISPLAY=:1 xwininfo -root -children`.
 
 `games_gamescope_resolution` is a per-host setting rather than something the role probes. A probe would need
 `games_user` logged in at converge time, and a run that found no session would write a resolution-less
 `gamescope: true`, which is the 1280x720 window the constraint table describes. The assert in `main.yml` keeps
 the flag and the size paired.
 
-Every flatpak override the role writes is the whole of it: `flatpak_override.yml` resets the application's and
-writes the role's grants on every run, for the applications `flatpak.yml` installs as for the two launchers, whose
-helper grants, `PATH` and, for BedrockOnLinux, `BOL_GAMESCOPE` come from `bedrock.yml` and `lutris.yml`. A
-`flatpak override --user` edit made by hand does not survive the next converge. Each launcher's `PATH` is its
+Every flatpak override the role writes is written whole by `flatpak_override.yml`: reset, then the role's grants,
+so a hand `flatpak override --user` edit does not survive the next converge. BedrockOnLinux's comes from
+`bedrock.yml`, Lutris's from `flatpak.yml` under the flatpak and lutris tags alike. Each launcher's `PATH` is its
 manifest's with the helper directories ahead of it; BedrockOnLinux's manifest sets none, so its is the runtime
 default.
 
 | Constraint                                                                                                      | Detail                                                                                                                                                                                                                                                                                                                                                                                      |
 | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The sandboxes find gamescope in the `org.freedesktop.Platform.VulkanLayer.gamescope` extension, not on the host | `flatpak.yml` installs it, and it carries the binary and the WSI layer beside it. The wrapper execs it by path: the extension's `bin` is on Lutris's PATH behind the wrapper and not on BedrockOnLinux's at all. The host gamescope `gamescope.yml` installs is used by neither                                                                                                             |
-| gamescope's keyboard map is its own                                                                             | Its nested server's map comes from the `XKB_DEFAULT_*` variables alone; the host's map is received on the Wayland backend and discarded, and the SDL backend never has it, so the session's Caps Lock remap stops at gamescope's window. Both launchers' overrides carry `XKB_DEFAULT_OPTIONS` from `games_gamescope_xkb_options`, and a game already running keeps the map it started with |
+| The sandboxes find gamescope in the `org.freedesktop.Platform.VulkanLayer.gamescope` extension, not on the host | `flatpak.yml` installs it, binary and WSI layer together, and the wrapper execs it by path: the extension's `bin` is behind the wrapper on Lutris's PATH and absent from BedrockOnLinux's. The host gamescope `gamescope.yml` installs is used by neither launcher                                                                                                                          |
+| gamescope's keyboard map is its own                                                                             | Its nested server's map comes from the `XKB_DEFAULT_*` variables alone, never from the host's, so the session's Caps Lock remap stops at gamescope's window. Both launchers' overrides carry `XKB_DEFAULT_OPTIONS` from `games_gamescope_xkb_options`; a game already running keeps the map it started with                                                                                 |
 | gamescope's nested output defaults to 1280x720                                                                  | Lutris passes nothing when `gamescope_output_res` and `gamescope_game_res` are unset, and BedrockOnLinux sizes from its own xrandr probe when `BOL_GAMESCOPE` is a bare `1`, so both are given `games_gamescope_resolution` outright. A bare `gamescope: true` gives a 720p window rather than a fullscreen one, which is what a game that runs but cannot be seen looks like               |
 | BedrockOnLinux's own "Gamescope arguments" setting outranks `BOL_GAMESCOPE`                                     | The launcher reads its persisted setting first and the environment variable only when that is empty. A `0`, `off` or `false` there turns gamescope off for the game while the role reports the override converged, and the setting lives in the launcher's data directory, which the role does not read. Clear it in the launcher's GUI                                                     |
 | gamescope's own screenshot is the capture that works                                                            | `import -window root` reads a fullscreen Vulkan window back as black. `flatpak run --command=/usr/lib/extensions/vulkan/gamescope/bin/gamescopectl --env=GAMESCOPE_WAYLAND_DISPLAY=gamescope-0 <app-id> screenshot <path>` asks the running gamescope for one. That instance writes the file, so the path must be inside a grant it already has, such as its own `~/.var/app/<app-id>/data` |
