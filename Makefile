@@ -326,8 +326,7 @@ $(PLAYBOOKS): %: requirements
 	     echo "and the first task to read one fails with the rest already applied." >&2; \
 	     exit 1; \
 	   fi; \
-	   echo "$(SOPS_FILE) is not readable by $(OPERATOR), so this run re-enters as" >&2; \
-	   echo "root, which reads the store and reaches every host." >&2; \
+	   echo "Re-entering as root: $(SOPS_FILE) is not readable by $(OPERATOR)." >&2; \
 	   sudo $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS)) $(REENTRY_VARS); \
 	 elif [ -n "$(LOAD_SECRETS)" ]; then \
 	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS))); \
