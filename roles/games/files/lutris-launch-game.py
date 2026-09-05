@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tear down a stale wine session for a prefix, then hand off to Lutris.
 
-    lutris-launch-game.py <wine-prefix> <flatpak-app-id> <lutris-slug>
+    lutris-launch-game.py <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]
 
 Lutris cannot do this itself. Its ProcessWatcher never signals a process named in the game's
 `exclude_processes`, nor any of its own SYSTEM_PROCESSES (wineserver among them), and its comment
@@ -19,13 +19,26 @@ This runs on the host rather than inside the sandbox, which is the only place it
 sees neither the previous launch's processes nor its own container's. The host sees every one of
 them, and they carry WINEPREFIX in their environment whatever namespace they run in.
 
-Exits with whatever the exec'd Lutris returns. A teardown that cannot read or signal something is
-not fatal: the launch is still worth attempting.
+Lutris is single-instance: a second `flatpak run` hands its `lutris:rungame` to the instance already
+on the bus. The instance that ran the session just torn down is shutting itself down at that moment
+(a `rungame` instance quits once its game stops), and a request handed to it is lost. So the hand-off
+waits for that instance, found as the sandbox ancestors of what was killed, to exit. An instance the
+user opened as a window does not exit, and the wait ends at its deadline.
+
+A desktop entry has no other channel, and the teardown and the wait can take twenty seconds
+with nothing on screen, so one notification is kept current through the launch: it says when a
+previous session is being closed first, and it reports a Lutris that exits non-zero. A clean exit
+gets nothing, Lutris showing its own errors in dialogs. The icon is the one the games role installs
+for the slug.
+
+Exits with whatever Lutris returns. A teardown that cannot read or signal something is not fatal:
+the launch is still worth attempting.
 """
 
 import contextlib
 import os
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -38,6 +51,32 @@ PREFIX_KEYS = ("WINEPREFIX", "STEAM_COMPAT_DATA_PATH")
 # feel stalled. Everything still up afterwards gets SIGKILL.
 TERM_GRACE_SECONDS = 5.0
 POLL_SECONDS = 0.2
+
+# How long the previous Lutris instance gets to leave the bus. Its shutdown is a few seconds
+# after its game stops; an instance with a window never does, and the launch proceeds.
+LUTRIS_EXIT_SECONDS = 15.0
+
+
+class Notifier:
+    """One desktop notification, replaced in place as the launch moves on."""
+
+    def __init__(self, name, icon):
+        self.name = name
+        self.icon = icon
+        self.notification_id = None
+
+    def show(self, summary, body="", urgency="low"):
+        argv = ["notify-send", "--print-id", "--app-name", self.name, "--icon", self.icon, "--urgency", urgency]
+        if urgency == "low":
+            argv += ["--transient", "--expire-time", "8000"]
+        if self.notification_id:
+            argv += ["--replace-id", self.notification_id]
+        try:
+            result = subprocess.run([*argv, summary, body], capture_output=True, text=True, check=False)
+        except OSError:
+            return
+        if result.returncode == 0 and result.stdout.strip():
+            self.notification_id = result.stdout.strip()
 
 
 def stat_fields(pid):
@@ -95,12 +134,42 @@ def signal_pids(pids, sig):
             os.kill(pid, sig)
 
 
-def teardown(prefix):
+def sandbox_ancestors(pids, app_id, exclude):
+    """The processes inside the application's sandbox that the given ones descend from.
+
+    The game itself runs in a sub-sandbox the portal spawned, whose ancestor is the portal; the
+    launcher wrapper Lutris runs it through carries the prefix too and descends from Lutris.
+    """
+    wanted = f"FLATPAK_ID={app_id}".encode()
+    found = set()
+    for pid in pids:
+        ancestor = pid
+        while ancestor > 1:
+            fields = stat_fields(ancestor)
+            if not fields:
+                break
+            if ancestor not in exclude and wanted in environ_of(ancestor):
+                found.add(ancestor)
+            ancestor = int(fields[1])
+    return found
+
+
+def wait_for_exit(pids, seconds):
+    deadline = time.monotonic() + seconds
+    while pids and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        pids = [pid for pid in pids if is_running(pid)]
+    return pids
+
+
+def teardown(prefix, app_id, notifier):
     exclude = own_pids()
     pids = prefix_pids(prefix, exclude)
     if not pids:
         return
+    owners = sandbox_ancestors(pids, app_id, exclude)
     print(f"lutris-launch-game: terminating {len(pids)} stale process(es) in {prefix}")
+    notifier.show(f"Launching {notifier.name}", "Closing the previous session first.")
     signal_pids(pids, signal.SIGTERM)
 
     # Poll the set already signalled rather than walking /proc again: nothing can join it, and a
@@ -114,18 +183,33 @@ def teardown(prefix):
         print(f"lutris-launch-game: killing {len(pids)} process(es) that ignored SIGTERM")
         signal_pids(pids, signal.SIGKILL)
 
+    if owners:
+        print(f"lutris-launch-game: waiting for the previous {app_id} instance to exit")
+        if wait_for_exit(owners, LUTRIS_EXIT_SECONDS):
+            print("lutris-launch-game: it is still up; handing the launch to it")
+
 
 def main():
-    if len(sys.argv) != 4:
-        sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug>")
-    prefix, app_id, slug = sys.argv[1:]
+    if len(sys.argv) not in (4, 5):
+        sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]")
+    prefix, app_id, slug = sys.argv[1:4]
+    name = sys.argv[4] if len(sys.argv) == 5 else slug
+    notifier = Notifier(name, f"lutris_{slug}")
 
+    notifier.show(f"Launching {name}", "The window takes a moment to appear.")
     try:
-        teardown(prefix)
+        teardown(prefix, app_id, notifier)
     except OSError as error:
         print(f"lutris-launch-game: teardown incomplete ({error}); launching anyway", file=sys.stderr)
 
-    os.execvp("flatpak", ["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
+    # A child rather than an exec, so the exit code can be reported. A second Lutris hands its
+    # request to the first and returns at once, so this returns then too.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    returncode = subprocess.call(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
+    if returncode != 0:
+        notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
+    sys.exit(returncode)
 
 
 if __name__ == "__main__":

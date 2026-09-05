@@ -8,6 +8,33 @@ games_user: "{{ primary_user }}"
 # lit for the length of a play session. True restores upstream's default.
 games_gamemode_inhibit_screensaver: false
 
+# Run games inside gamescope. A game that sizes its window to the display without setting
+# the fullscreen state leaves GNOME's top bar and dock drawn above it; gamescope takes the
+# fullscreen state itself and the game renders inside it. It also keeps a game's own
+# display-mode changes off the desktop compositor, which can composite a recreated window
+# as a blank surface.
+#
+# Reaches Lutris games, through system.yml, and Minecraft (Bedrock), through BedrockOnLinux's
+# flatpak override, both running a gamescope wrapper on their sandbox PATH that README.md
+# describes. Steam and Heroic games are not covered.
+#
+# The cost is a nested compositing step, so roughly a frame of latency, and an overlay or a
+# screen recorder outside gamescope sees its window rather than the game.
+#
+# Off by default: it needs games_gamescope_resolution, which is site data with no default.
+games_gamescope_enabled: false
+
+# XKB options for the keyboard map gamescope gives the game. gamescope builds its nested
+# server's map from the XKB_DEFAULT_* variables alone and ignores the host's, so a remap the
+# session applies stops at its window. Duplicates the base role's Caps Lock remap, this role
+# depending on no other. Empty for the plain layout.
+games_gamescope_xkb_options: "caps:escape"
+
+# The panel's mode as WIDTHxHEIGHT, which gamescope is told to output at. No default, and
+# asserted when the flag is on: README.md's Gamescope section says why a guess fails
+# silently. `xrandr --current` names it.
+games_gamescope_resolution: ""
+
 # Optional flatpak applications, each installed for games_user where its flag is on, and
 # uninstalled where it is off. vars/main.yml holds the application ID each flag stands for.
 #

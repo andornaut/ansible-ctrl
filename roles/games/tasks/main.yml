@@ -24,6 +24,21 @@
     success_msg: 'games_retroarch_library_dir "{{ games_retroarch_library_dir | default("") }}" is set'
   tags: always
 
+# Site data the role cannot see, asserted rather than probed: README.md's Gamescope section.
+# Here rather than in lutris.yml because bedrock.yml reads it too, and either tag can run
+# alone.
+- name: Validate games_gamescope_resolution
+  ansible.builtin.assert:
+    that:
+      - games_gamescope_resolution is match('^[0-9]+x[0-9]+$')
+    fail_msg: >-
+      games_gamescope_resolution is "{{ games_gamescope_resolution | default('') }}", which is
+      not a WIDTHxHEIGHT mode. Set it in host_vars/ to this panel's mode, which
+      `xrandr --current` names, or set games_gamescope_enabled to false.
+    success_msg: 'games_gamescope_resolution "{{ games_gamescope_resolution }}" is set'
+  when: games_gamescope_enabled | bool
+  tags: [lutris, bedrock]
+
 # games_user_home and every path built from it index this.
 - name: Look up games_user home directory
   ansible.builtin.getent:
@@ -43,6 +58,20 @@
 - name: Import flatpak tasks
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
+
+# No become: gamescope.yml builds as games_user and installs as root, naming each.
+- name: Install gamescope
+  ansible.builtin.import_tasks: gamescope.yml
+  tags: gamescope
+
+# Before bedrock.yml and lutris.yml, which put what this installs on their sandbox PATHs.
+# Tagged with both and not with gamescope: a flag turned off removes the directory, and
+# the overrides naming it converge under these tags only.
+- name: Install the gamescope wrapper
+  ansible.builtin.import_tasks: gamescope-wrapper.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: [bedrock, lutris]
 
 # After flatpak.yml, whose flathub remote resolves the runtime.
 - name: Install BedrockOnLinux

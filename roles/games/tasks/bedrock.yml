@@ -176,48 +176,71 @@
         dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
         mode: "0644"
 
-# BOL's gpu_safety check fail-closes under X11, the freedesktop runtime shipping no xrandr.
-# Vendoring the host binary into a read-only grant on PATH keeps every check active, unlike
-# BOL_ALLOW_UNSAFE_GPU or a --filesystem=host-os grant. No-op on Wayland, and xrandr links
-# only against runtime libraries.
+# The sandbox PATH grant for BOL's own gpu_safety check: it fail-closes under X11, the
+# freedesktop runtime shipping no xrandr. Vendoring the host binary into a read-only grant
+# on PATH keeps every check active, unlike BOL_ALLOW_UNSAFE_GPU or a --filesystem=host-os
+# grant. No-op on Wayland, and xrandr links only against runtime libraries.
+- name: Create the BedrockOnLinux sandbox helper directory
+  ansible.builtin.file:
+    path: "{{ games_bedrock_helper_dir }}"
+    state: directory
+    mode: "0755"
+
 - name: Check for the host xrandr
   ansible.builtin.stat:
     path: /usr/bin/xrandr
   register: games_bedrock_xrandr
 
-- name: Let BedrockOnLinux's graphics safety check reach a vendored xrandr
+- name: Copy the host xrandr into the sandbox helper directory
   when: games_bedrock_xrandr.stat.exists
+  ansible.builtin.copy:
+    src: /usr/bin/xrandr
+    dest: "{{ games_bedrock_helper_dir }}/xrandr"
+    remote_src: true
+    mode: "0755"
+
+# BOL wraps the game in whatever `gamescope` its PATH finds when BOL_GAMESCOPE is set, so
+# the gamescope helper directory goes first on it, as it does for Lutris; the extension's
+# `bin` is not on this sandbox's PATH. The manifest's PATH is read rather than restated so
+# the override tracks it. BOL_GAMESCOPE carrying options rather than `1`: BOL then passes
+# them through instead of sizing the output from its own xrandr probe, so the size is the
+# asserted one, as it is for Lutris. --force-windows-fullscreen sizes the game's window to
+# that output too: a windowed game is otherwise shown at its own saved size, centred in the
+# output.
+- name: Read the BedrockOnLinux manifest
+  ansible.builtin.command:
+    argv: [flatpak, info, --user, -m, io.github.wyze3306.BedrockOnLinux]
+  register: games_bedrock_manifest
+  changed_when: false
+  check_mode: false
+
+- name: Grant the helper directories to the sandbox, on PATH, and turn on gamescope
+  ansible.builtin.include_tasks: flatpak_override.yml
   vars:
-    games_bedrock_xrandr_dir: "{{ games_user_home }}/.local/share/bol-xrandr"
-  block:
-    - name: Create the vendored-xrandr directory
-      ansible.builtin.file:
-        path: "{{ games_bedrock_xrandr_dir }}"
-        state: directory
-        mode: "0755"
+    games_flatpak_override_app: io.github.wyze3306.BedrockOnLinux
+    games_flatpak_override_args: >-
+      {{ ['--filesystem=' ~ games_bedrock_helper_dir ~ ':ro',
+          '--env=PATH=' ~ games_bedrock_path]
+         + games_bedrock_gamescope_grants }}
+    games_bedrock_wh: "{{ games_gamescope_resolution.split('x') }}"
+    # /app/bin:/usr/bin is the runtime's default, for a manifest that sets none.
+    games_bedrock_manifest_path: >-
+      {{ games_bedrock_manifest.stdout | regex_findall('(?m)^PATH=(.*)$')
+         | first | default('/app/bin:/usr/bin', true) }}
+    games_bedrock_path: >-
+      {{ ((games_gamescope_helper_dir ~ ':') if games_gamescope_enabled | bool else '')
+         ~ games_bedrock_manifest_path ~ ':' ~ games_bedrock_helper_dir }}
+    games_bedrock_gamescope_grants: >-
+      {{ ['--filesystem=' ~ games_gamescope_helper_dir ~ ':ro',
+          '--env=BOL_GAMESCOPE=-f -W ' ~ games_bedrock_wh[0] ~ ' -H ' ~ games_bedrock_wh[1]
+          ~ ' -w ' ~ games_bedrock_wh[0] ~ ' -h ' ~ games_bedrock_wh[1]
+          ~ ' --force-windows-fullscreen',
+          '--env=XKB_DEFAULT_OPTIONS=' ~ games_gamescope_xkb_options]
+         if games_gamescope_enabled | bool else [] }}
 
-    - name: Copy the host xrandr into the sandbox-readable directory
-      ansible.builtin.copy:
-        src: /usr/bin/xrandr
-        dest: "{{ games_bedrock_xrandr_dir }}/xrandr"
-        remote_src: true
-        mode: "0755"
-
-    # Reset first so the override converges to exactly this set. `flatpak override`
-    # reports nothing, so diff `--show` either side of it.
-    - name: Grant the vendored xrandr to the sandbox and put it on PATH
-      ansible.builtin.shell:
-        executable: /bin/bash
-        cmd: |
-          app=io.github.wyze3306.BedrockOnLinux
-          dir={{ games_bedrock_xrandr_dir | quote }}
-          before="$(flatpak override --user --show "$app")"
-          flatpak override --user --reset "$app"
-          flatpak override --user \
-            --filesystem="${dir}:ro" \
-            --env=PATH="/app/bin:/usr/bin:${dir}" \
-            "$app"
-          after="$(flatpak override --user --show "$app")"
-          [ "$before" = "$after" ] || echo CHANGED
-      register: games_bedrock_override
-      changed_when: "'CHANGED' in games_bedrock_override.stdout"
+# CLEANUP (added 2026-09-05): the helper directory's previous name. Delete once every
+# gaming host has converged.
+- name: Remove the vendored-xrandr directory the helper directory replaced
+  ansible.builtin.file:
+    path: "{{ games_user_home }}/.local/share/bol-xrandr"
+    state: absent

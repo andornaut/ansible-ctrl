@@ -12,16 +12,17 @@ make games -- --tags retroarch
 
 ## Tags
 
-| Tag       | Description                                                                                                                                                                                                                |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| apt       | Native gaming packages                                                                                                                                                                                                     |
-| bedrock   | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, the `ntsync` module Wine 11 needs for fast synchronization, and a desktop entry that launches the game directly, carrying the game's own icon |
-| flatpak   | Flatpak runtime, flathub remote, applications, extensions, and overrides                                                                                                                                                   |
-| gamemode  | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else                                                                                                                                                   |
-| heroic    | Heroic install path and the store token-refresh timer                                                                                                                                                                      |
-| lutris    | Lutris default install path, the prefix-teardown launcher, and a World of Warcraft entry plus desktop entry that launches it through Lutris without the client's window, where the Battle.net prefix holds the game        |
-| retroarch | Libretro cores, BIOS, settings, per-core overrides, playlists, and thumbnails                                                                                                                                              |
-| retroid   | `syncretroid`, the handheld sync command, installed on the controller                                                                                                                                                      |
+| Tag       | Description                                                                                                                                                                                                                                                                                                |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| apt       | Native gaming packages                                                                                                                                                                                                                                                                                     |
+| bedrock   | Minecraft Bedrock launcher (BedrockOnLinux) from its release flatpak bundle, the `ntsync` module Wine 11 needs for fast synchronization, a desktop entry that launches the game directly, carrying the game's own icon, and the sandbox PATH grants that carry a vendored xrandr and the gamescope wrapper |
+| flatpak   | Flatpak runtime, flathub remote, applications, extensions, and overrides                                                                                                                                                                                                                                   |
+| gamemode  | `/etc/gamemode.ini`, which is the screensaver inhibitor and nothing else                                                                                                                                                                                                                                   |
+| gamescope | gamescope on the host, from the archive on Ubuntu >= 26.04 and built from a pinned tag into `/usr/local` below that. The wrapper the sandboxed launchers run their games through belongs to the bedrock and lutris tags                                                                                    |
+| heroic    | Heroic install path and the store token-refresh timer                                                                                                                                                                                                                                                      |
+| lutris    | Lutris default install path and gamescope settings, the sandbox PATH grant that carries the gamescope wrapper, the prefix-teardown launcher, and a World of Warcraft entry plus desktop entry that launches it through Lutris without the client's window, where the Battle.net prefix holds the game      |
+| retroarch | Libretro cores, BIOS, settings, per-core overrides, playlists, and thumbnails                                                                                                                                                                                                                              |
+| retroid   | `syncretroid`, the handheld sync command, installed on the controller                                                                                                                                                                                                                                      |
 
 ## Variables
 
@@ -44,6 +45,7 @@ Site data or hardware the role cannot see. Each is asserted by the play, a guess
 | `games_retroarch_library_dir`                       | Where the host mounts the ROM library. The tag also asserts the library is mounted: an unmounted share looks exactly like an empty one                                                                     |
 | `games_retroarch_controller`                        | Names a key of `games_retroarch_controllers`. RetroArch's `input_*_btn` and `input_*_axis` are _physical_ device indices, not RetroPad IDs, so a wrong value binds a different button rather than no-oping |
 | `games_retroarch_video_refresh_rate`                | RetroArch derives the audio resampling ratio from it, so its 60.0 default mistimes every core on a high-refresh panel, heard as drift. "Estimate Screen Refresh Rate" in the menu reports it               |
+| `games_gamescope_resolution`                        | The panel's mode as WIDTHxHEIGHT, which gamescope is told to output at. Asserted when `games_gamescope_enabled` is on; the Gamescope section says why a guess fails silently. `xrandr --current` names it  |
 | `games_retroid_library_dir`, `games_retroid_serial` | Baked into `syncretroid`. Asserted only when `games_install_retroid_sync` is on                                                                                                                            |
 
 Read a new pad's indices out of its autoconfig profile and add an entry to `games_retroarch_controllers`:
@@ -62,6 +64,69 @@ panel. The play asserts its preconditions:
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No conflicting video-to-audio sync method | vsync must be on with a swap interval of 1 (or 0 for auto), and black frame insertion off. On a fixed-refresh panel leave VRR off and use BFI instead |
 | VRR enabled outside RetroArch             | A compositor setting under Wayland; `Option "VariableRefresh"` in `xorg.conf.d` under X11, where it conflicts with `TearFree`                         |
+
+## Gamescope
+
+A game that sizes its window to the display without setting `_NET_WM_STATE_FULLSCREEN` leaves GNOME's top bar
+and dock drawn above it, and mutter can composite such a window as a blank surface after the game recreates it
+across a display-mode change. `games_gamescope_enabled` runs Lutris games and Minecraft (Bedrock) inside
+gamescope, which takes the fullscreen state itself and gives the game a nested compositor of its own, so neither
+depends on what the game asks the desktop compositor for. It costs a nested compositing step, so roughly a frame
+of latency. Off by default: a host turns it on beside `games_gamescope_resolution`.
+
+Works on X11 and Wayland alike: gamescope nests in whichever is there and selects its own backend.
+
+The host's own gamescope, for native games, comes from the archive on Ubuntu >= 26.04. Below that `gamescope.yml`
+builds the tag `games_gamescope_version` pins into `/usr/local`, after Wayland `games_gamescope_wayland_version`
+where the archive's is under the 1.23 that tag's wlroots wants. That Wayland goes into `games_gamescope_deps_prefix`
+and nowhere on the host's library path: the gamescope build finds it through `PKG_CONFIG_PATH` and keeps it through
+an rpath, and every other Wayland process keeps the archive's. Nothing below the version probe runs, the dependency
+install included, while `/usr/local/bin/gamescope --version` reports the pinned tag.
+
+Lutris games get it through `gamescope: true` in `system.yml`, and Minecraft (Bedrock) through `BOL_GAMESCOPE`
+in its flatpak override. Each launcher then wraps the game in whatever `gamescope` its sandbox PATH finds first,
+and what it finds is the role's wrapper, granted to both sandboxes from `games_gamescope_helper_dir`, because
+plain gamescope cannot present a game either launcher runs: both run it under umu, in a pressure-vessel
+sub-sandbox the flatpak portal spawns, and the portal sets that sub-sandbox's `DISPLAY` and `WAYLAND_DISPLAY` to
+the host's after every environment option is applied. The game's X connection therefore goes to the host X
+server, gamescope's nested one sits unused at the next display number, and the Gamescope WSI layer fails its
+swapchain with `Failed to get Xwayland server id`. On a Wayland host the layer never gets that far: it reads a
+`WAYLAND_DISPLAY` that is not gamescope's own socket as proof it is not under gamescope, creates a plain swapchain
+instead, and stops on a `Hooking has failed somewhere!` dialog the game waits on. Nothing in umu, pressure-vessel
+or Proton takes either variable past that point, so the wrapper carries the `DISPLAY` in a variable of its own and
+restores both from inside:
+
+| File in `games_gamescope_helper_dir`      | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gamescope`                               | Runs the extension's binary with the game command prefixed by `gamescope-child`. An invocation with no command, which is how Lutris reads `--help` for the options a version has, goes to the binary as is                                                                                                                                                                                                                                                                                                 |
+| `gamescope-child`                         | Runs as gamescope's child, where `DISPLAY` is the nested server: exports it as `GAMESCOPE_CHILD_XDISPLAY`, adds the library to `LD_PRELOAD`, and unsets `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP`, either of which umu-run answers by dropping `LD_PRELOAD` when it reads `gamescope`, which gamescope sets the first to                                                                                                                                                                             |
+| `lib/<multiarch>/libgamescope-display.so` | Preloaded into every process of the game container, pressure-vessel forwarding `LD_PRELOAD` as `--ld-preload`; its constructor sets `DISPLAY` from `GAMESCOPE_CHILD_XDISPLAY` and unsets `WAYLAND_DISPLAY`, as gamescope does for its child. One build per class under the directory ld.so's `$LIB` expands to, `x86_64-linux-gnu` and `i386-linux-gnu`, named by one `LD_PRELOAD` entry; a prefix runs both. Built on the host by `gamescope-wrapper.yml`, which installs `gcc` and `gcc-multilib` for it |
+
+`/proc/<pid>/environ` can still read `DISPLAY=:0` and `WAYLAND_DISPLAY=wayland-0` for the game: `setenv` changes
+the process's environment, not the block that file shows. Look for the swapchain line instead, or for the game window on gamescope's display:
+`DISPLAY=:1 xwininfo -root -children`.
+
+`games_gamescope_resolution` is a per-host setting rather than something the role probes. A probe would need
+`games_user` logged in at converge time, and a run that found no session would write a resolution-less
+`gamescope: true`, which is the 1280x720 window the constraint table describes. The assert in `main.yml` keeps
+the flag and the size paired.
+
+Every flatpak override the role writes is the whole of it: `flatpak_override.yml` resets the application's and
+writes the role's grants on every run, for the applications `flatpak.yml` installs as for the two launchers, whose
+helper grants, `PATH` and, for BedrockOnLinux, `BOL_GAMESCOPE` come from `bedrock.yml` and `lutris.yml`. A
+`flatpak override --user` edit made by hand does not survive the next converge. Each launcher's `PATH` is its
+manifest's with the helper directories ahead of it; BedrockOnLinux's manifest sets none, so its is the runtime
+default.
+
+| Constraint                                                                                                      | Detail                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The sandboxes find gamescope in the `org.freedesktop.Platform.VulkanLayer.gamescope` extension, not on the host | `flatpak.yml` installs it, and it carries the binary and the WSI layer beside it. The wrapper execs it by path: the extension's `bin` is on Lutris's PATH behind the wrapper and not on BedrockOnLinux's at all. The host gamescope `gamescope.yml` installs is used by neither                                                                                                             |
+| gamescope's keyboard map is its own                                                                             | Its nested server's map comes from the `XKB_DEFAULT_*` variables alone; the host's map is received on the Wayland backend and discarded, and the SDL backend never has it, so the session's Caps Lock remap stops at gamescope's window. Both launchers' overrides carry `XKB_DEFAULT_OPTIONS` from `games_gamescope_xkb_options`, and a game already running keeps the map it started with |
+| gamescope's nested output defaults to 1280x720                                                                  | Lutris passes nothing when `gamescope_output_res` and `gamescope_game_res` are unset, and BedrockOnLinux sizes from its own xrandr probe when `BOL_GAMESCOPE` is a bare `1`, so both are given `games_gamescope_resolution` outright. A bare `gamescope: true` gives a 720p window rather than a fullscreen one, which is what a game that runs but cannot be seen looks like               |
+| BedrockOnLinux's own "Gamescope arguments" setting outranks `BOL_GAMESCOPE`                                     | The launcher reads its persisted setting first and the environment variable only when that is empty. A `0`, `off` or `false` there turns gamescope off for the game while the role reports the override converged, and the setting lives in the launcher's data directory, which the role does not read. Clear it in the launcher's GUI                                                     |
+| gamescope's own screenshot is the capture that works                                                            | `import -window root` reads a fullscreen Vulkan window back as black. `flatpak run --command=/usr/lib/extensions/vulkan/gamescope/bin/gamescopectl --env=GAMESCOPE_WAYLAND_DISPLAY=gamescope-0 <app-id> screenshot <path>` asks the running gamescope for one. That instance writes the file, so the path must be inside a grant it already has, such as its own `~/.var/app/<app-id>/data` |
+| The binary is `gamescope-brokey` in the flatpak                                                                 | `bin/gamescope` there is a shell wrapper that execs it, so log lines read `[gamescope-brokey]`. That is the binary's name and says nothing about its health                                                                                                                                                                                                                                 |
+| `Starting headless backend` is not the output backend                                                           | wlroots logs it for gamescope's own nested wlserver on every run, Wayland ones included. Look for the window with `xwininfo -root -children`, not for a log line                                                                                                                                                                                                                            |
 
 ## GameMode
 

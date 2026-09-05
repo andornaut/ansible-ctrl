@@ -1,0 +1,37 @@
+---
+# Gated here rather than at the import, so emptying the list removes the rule. The file
+# name carries the ansible-role marker that makes it safe to remove.
+- name: Grant the keyboard configurator interfaces to the seat
+  become: true
+  when: desktop_keyboard_configurator_ids | length > 0
+  block:
+    - name: Install the keyboard configurator udev rule
+      ansible.builtin.template:
+        src: 70-ansible-role-desktop-keyboard-configurator.rules.j2
+        dest: /etc/udev/rules.d/70-ansible-role-desktop-keyboard-configurator.rules
+        mode: "0644"
+      notify:
+        - Reload the udev rules
+        - Apply the udev rules to the HID devices
+
+- name: Remove the keyboard configurator udev rule when disabled
+  become: true
+  when: desktop_keyboard_configurator_ids | length == 0
+  ansible.builtin.file:
+    path: /etc/udev/rules.d/70-ansible-role-desktop-keyboard-configurator.rules
+    state: absent
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the HID devices
+
+# The vendors' own rule files, which grant the whole keyboard: README.md says what that
+# costs. Named per host, the file names being the vendors' choice.
+- name: Remove the keyboard configurator rules this one supersedes
+  ansible.builtin.file:
+    path: "/etc/udev/rules.d/{{ item }}"
+    state: absent
+  loop: "{{ desktop_keyboard_configurator_superseded_rules }}"
+  become: true
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the HID devices

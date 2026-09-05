@@ -33,23 +33,65 @@
           - org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }}
         method: user
 
-    # `flatpak override` reports nothing, so diff `--show` either side of it.
+    # Lutris is left to the block below: its override carries a PATH read from its manifest.
     - name: Apply flatpak overrides
-      ansible.builtin.shell:
-        cmd: |
-          before="$(flatpak override --user --show {{ item }})"
-          flatpak override --user {{ grants | map('quote') | join(' ') }} {{ item }}
-          after="$(flatpak override --user --show {{ item }})"
-          [ "${before}" = "${after}" ] || echo CHANGED
-        executable: /bin/bash
+      ansible.builtin.include_tasks: flatpak_override.yml
       vars:
+        games_flatpak_override_app: "{{ item }}"
         # Blanket grants plus this app's own; either may be absent.
-        grants: >-
+        games_flatpak_override_args: >-
           {{ (games_flatpak_overrides['default'] | default([]))
              + (games_flatpak_overrides[item] | default([])) }}
-      loop: "{{ games_flatpak_apps }}"
-      register: games_flatpak_override
-      changed_when: "'CHANGED' in games_flatpak_override.stdout"
+      loop: "{{ games_flatpak_apps | reject('eq', games_lutris_app_id) | list }}"
+
+    # Lutris resolves the bare `gamescope` it inserts against its sandbox PATH, so the wrapper
+    # directory goes first on it, ahead of the extension's `bin`. The manifest's PATH is read
+    # rather than restated so the override tracks it, which is why this application's whole
+    # override is written here and not in the loop. Under the lutris tag too, that tag's
+    # launcher depending on it: the block's tag joins the import's. Guarded on the
+    # application being installed, which under the lutris tag alone nothing above ensures.
+    - name: Converge the Lutris override
+      tags: lutris
+      block:
+        - name: List the flatpak applications installed for {{ games_user }}
+          ansible.builtin.command:
+            argv: [flatpak, list, --user, --app, --columns=application]
+          register: games_flatpak_installed
+          changed_when: false
+          check_mode: false
+
+        - name: Warn when Lutris is not installed
+          ansible.builtin.debug:
+            msg: >-
+              WARNING: {{ games_lutris_app_id }} is not installed for {{ games_user }}, so its
+              override was not written. It comes from this role's flatpak tag: make games --
+              --tags flatpak
+          when: games_lutris_app_id not in games_flatpak_installed.stdout_lines
+
+        - name: Read the Lutris manifest
+          ansible.builtin.command:
+            argv: [flatpak, info, --user, -m, "{{ games_lutris_app_id }}"]
+          register: games_lutris_manifest
+          changed_when: false
+          check_mode: false
+          when: games_lutris_app_id in games_flatpak_installed.stdout_lines
+
+        - name: Grant the gamescope helper directory to the Lutris sandbox, first on PATH
+          ansible.builtin.include_tasks: flatpak_override.yml
+          vars:
+            games_flatpak_override_app: "{{ games_lutris_app_id }}"
+            games_flatpak_override_args: >-
+              {{ (games_flatpak_overrides['default'] | default([]))
+                 + (games_flatpak_overrides[games_lutris_app_id] | default([]))
+                 + (['--filesystem=' ~ games_gamescope_helper_dir ~ ':ro',
+                     '--env=PATH=' ~ games_gamescope_helper_dir ~ ':' ~ games_lutris_manifest_path,
+                     '--env=XKB_DEFAULT_OPTIONS=' ~ games_gamescope_xkb_options]
+                    if games_gamescope_enabled | bool else []) }}
+            # /app/bin:/usr/bin is the runtime's default, for a manifest that sets none.
+            games_lutris_manifest_path: >-
+              {{ games_lutris_manifest.stdout | regex_findall('(?m)^PATH=(.*)$')
+                 | first | default('/app/bin:/usr/bin', true) }}
+          when: games_lutris_app_id in games_flatpak_installed.stdout_lines
 
     - name: Uninstall the flatpak applications this host has turned off
       community.general.flatpak:

@@ -1,0 +1,169 @@
+---
+# The gamescope wrapper both game launchers run when games_gamescope_enabled is on, in one
+# directory each sandbox is granted read-only and finds first on PATH. Plain gamescope cannot
+# present a game either launcher runs through umu: the wrapper points the game at gamescope's
+# own display. README.md's Gamescope section explains the three files. bedrock.yml and
+# lutris.yml write their own application's grant and PATH, and run under the same tags as
+# this: a flag turned off removes the directory, and an override naming it converges beside.
+#
+# Neither the bedrock nor the lutris tag selects the flatpak tag, and the check below shells
+# out to the binary.
+- name: Require flatpak
+  ansible.builtin.include_tasks: require_tools.yml
+  vars:
+    require_tools:
+      - name: flatpak
+        probe: flatpak --version
+        hint: "It comes from this role's flatpak tag: make games -- --tags flatpak"
+
+- name: Install the gamescope wrapper
+  when: games_gamescope_enabled | bool
+  block:
+    # Asserted rather than assumed: the wrapper's presence is what commits a launcher to
+    # gamescope, and it execs the extension's binary by path, so without the extension the
+    # game fails to start rather than running without gamescope.
+    - name: List the user flatpak refs
+      ansible.builtin.command:
+        argv: [flatpak, list, --user, --columns=ref]
+      register: games_gamescope_flatpak_refs
+      changed_when: false
+      check_mode: false
+
+    # On the runtime branch flatpak.yml pins: the wrapper execs the binary of whichever the
+    # application's runtime mounts, and only that branch's is installed.
+    - name: Require the gamescope Vulkan layer extension
+      ansible.builtin.assert:
+        that:
+          - games_gamescope_flatpak_refs.stdout_lines
+            | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.]gamescope/[^/]+/'
+            ~ (games_flatpak_runtime_branch | regex_escape) ~ '$')
+            | list | length > 0
+        fail_msg: >-
+          org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }} is
+          not installed for {{ games_user }}. It comes from this role's flatpak tag:
+          make games -- --tags flatpak
+        success_msg: The gamescope Vulkan layer extension is installed
+
+    # libc6-dev is a recommend of gcc, and this installs no recommends.
+    - name: Install the compiler the display preload library is built with
+      ansible.builtin.apt:
+        name:
+          - gcc
+          - libc6-dev
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+      become_user: root
+
+    # The 32-bit build: a prefix mixes 32- and 64-bit processes, and ld.so loads into each
+    # only a library of its own class. The multilib is per compiler version and `gcc` is
+    # whichever version the host's alternatives name, so it is asked rather than assumed:
+    # the gcc-multilib metapackage follows the archive's default and not that choice.
+    - name: Read the compiler version
+      ansible.builtin.command:
+        argv: [gcc, -dumpversion]
+      register: games_gamescope_gcc_version
+      changed_when: false
+      check_mode: false
+
+    - name: Install the 32-bit build support of that compiler
+      ansible.builtin.apt:
+        name: "gcc-{{ games_gamescope_gcc_version.stdout | trim | split('.') | first }}-multilib"
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+      become_user: root
+
+    - name: Create the gamescope helper directory
+      ansible.builtin.file:
+        path: "{{ games_gamescope_helper_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the gamescope wrapper scripts
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ games_gamescope_helper_dir }}/{{ item.dest }}"
+        mode: "0755"
+      loop:
+        - { src: gamescope.sh, dest: gamescope }
+        - { src: gamescope-child.sh, dest: gamescope-child }
+      loop_control:
+        label: "{{ item.dest }}"
+
+    - name: Copy the display preload source
+      ansible.builtin.copy:
+        src: gamescope-display.c
+        dest: "{{ games_gamescope_helper_dir }}/gamescope-display.c"
+        mode: "0644"
+
+    # Built on the host rather than shipped as a binary: a source file is reviewable and the
+    # host has the toolchain. The container's glibc is newer than the host's, so the library
+    # links against nothing the container lacks. Once per class, under the multiarch directory
+    # name ld.so's `$LIB` expands to, so one LD_PRELOAD entry names the right one in every
+    # process. Built on every run, to a temporary directory the copy compares with the
+    # installed files: a build cut short leaves a library that exists beside a source that has
+    # not changed, which no cheaper test tells from a whole one. The scratch directory comes
+    # and goes within the run, so neither end of it is a change.
+    - name: Build and install the display preload library
+      vars:
+        games_gamescope_preload_classes:
+          - { dir: x86_64-linux-gnu, flag: -m64 }
+          - { dir: i386-linux-gnu, flag: -m32 }
+      block:
+        - name: Create a temporary directory for the display preload library
+          ansible.builtin.tempfile:
+            state: directory
+          register: games_gamescope_preload_tmp
+          changed_when: false
+
+        - name: Build the display preload library
+          ansible.builtin.command:
+            argv:
+              - gcc
+              - "{{ item.flag }}"
+              - -shared
+              - -fPIC
+              - -O2
+              - -Wall
+              - -o
+              - "{{ games_gamescope_preload_tmp.path }}/{{ item.dir }}.so"
+              - "{{ games_gamescope_helper_dir }}/gamescope-display.c"
+          changed_when: false
+          loop: "{{ games_gamescope_preload_classes }}"
+          loop_control:
+            label: "{{ item.dir }}"
+
+        - name: Create the display preload library directories
+          ansible.builtin.file:
+            path: "{{ games_gamescope_helper_dir }}/lib/{{ item.dir }}"
+            state: directory
+            mode: "0755"
+          loop: "{{ games_gamescope_preload_classes }}"
+          loop_control:
+            label: "{{ item.dir }}"
+
+        - name: Install the display preload library
+          ansible.builtin.copy:
+            src: "{{ games_gamescope_preload_tmp.path }}/{{ item.dir }}.so"
+            dest: "{{ games_gamescope_helper_dir }}/lib/{{ item.dir }}/libgamescope-display.so"
+            remote_src: true
+            mode: "0755"
+          loop: "{{ games_gamescope_preload_classes }}"
+          loop_control:
+            label: "{{ item.dir }}"
+      always:
+        - name: Remove the temporary directory for the display preload library
+          ansible.builtin.file:
+            path: "{{ games_gamescope_preload_tmp.path }}"
+            state: absent
+          when: games_gamescope_preload_tmp.path is defined
+          changed_when: false
+
+- name: Remove the gamescope helper directory
+  when: not games_gamescope_enabled | bool
+  ansible.builtin.file:
+    path: "{{ games_gamescope_helper_dir }}"
+    state: absent

@@ -1,8 +1,10 @@
 ---
 # Point Lutris's default install directory at games_lutris_dir. Stored as system.game_path
-# in system.yml, which lives in config/lutris if that exists, else data/lutris. Only
-# game_path is enforced, and the file is safe to create when absent, unlike Heroic's
-# config.json. The flatpak already has `home` access.
+# in system.yml, which lives in config/lutris if that exists, else data/lutris. game_path is
+# enforced, and the gamescope keys with it where games_gamescope_enabled is on; off, the
+# gamescope keys are left as Lutris's own settings have them. The file is safe to create
+# when absent, unlike Heroic's config.json. The flatpak already has `home` access. The
+# sandbox override, PATH included, is flatpak.yml's.
 - name: Check for the deprecated Lutris config directory
   ansible.builtin.stat:
     path: "{{ games_lutris_config_dir }}"
@@ -50,8 +52,22 @@
         # default({}, true): a present-but-empty `system:` key is None, which the
         # combine below cannot take.
         games_lutris_system: "{{ games_lutris_config.system | default({}, true) }}"
-        games_lutris_desired:
-          game_path: "{{ games_lutris_dir }}"
+        # gamescope here rather than per game: system.yml is Lutris's own default layer, so
+        # every game inherits it and no per-game file has to be written. Lutris finds the
+        # binary in the sandbox through the VulkanLayer.gamescope extension flatpak.yml
+        # installs, not on the host. gamescope_window_mode is left unset, its own default
+        # already being fullscreen.
+        #
+        # The two resolution keys go with the flag rather than after it: README.md's Gamescope
+        # section. The assert in main.yml is what keeps them paired. With the flag off the
+        # three keys are not written at all: a `gamescope: true` the user set in Lutris's own
+        # preferences is theirs to keep.
+        games_lutris_desired: >-
+          {{ {'game_path': games_lutris_dir}
+             | combine({'gamescope': true,
+                        'gamescope_output_res': games_gamescope_resolution,
+                        'gamescope_game_res': games_gamescope_resolution}
+                       if games_gamescope_enabled | bool else {}) }}
         # Merged once, for the change test and the content alike.
         games_lutris_merged: "{{ games_lutris_system | combine(games_lutris_desired) }}"
       # system.yml is machine-written, so re-serialising it whole loses nothing.

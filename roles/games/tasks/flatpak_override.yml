@@ -1,0 +1,24 @@
+---
+# Converge one application's user override to exactly the arguments given. Reset first, so a
+# grant no longer named goes with the rest; `flatpak override` reports nothing, so `--show`
+# is diffed either side of it.
+#
+# Required vars:
+#   games_flatpak_override_app (str): the application ID
+#   games_flatpak_override_args (list): `flatpak override` arguments, each one option
+#
+# Callers put any become/become_user on the enclosing block or import: this inherits and
+# must never set it.
+- name: Converge the flatpak override of {{ games_flatpak_override_app }}
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      app={{ games_flatpak_override_app | quote }}
+      args=({{ games_flatpak_override_args | map('quote') | join(' ') }})
+      before="$(flatpak override --user --show "$app")"
+      flatpak override --user --reset "$app"
+      [ -z "${args[*]}" ] || flatpak override --user "${args[@]}" "$app"
+      after="$(flatpak override --user --show "$app")"
+      [ "$before" = "$after" ] || echo CHANGED
+  register: games_flatpak_override
+  changed_when: "'CHANGED' in games_flatpak_override.stdout"

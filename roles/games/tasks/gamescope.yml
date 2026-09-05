@@ -1,0 +1,241 @@
+---
+# gamescope on the host. From the archive where it is packaged, which is Ubuntu >= 26.04, and
+# otherwise built from the tag vars/main.yml pins into /usr/local, with the Wayland library
+# that tag's wlroots needs where the archive's is older. The sandboxed launchers use neither:
+# their games find gamescope in the Vulkan layer extension flatpak.yml installs, through the
+# wrapper gamescope-wrapper.yml puts on their PATH.
+- name: Install gamescope from the archive
+  ansible.builtin.apt:
+    name: gamescope
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+  # A platform probe, not a preference: the package exists only on Ubuntu >= 26.04.
+  when: ansible_facts['distribution_version'] is version('26.04', '>=')
+
+- name: Build gamescope from source
+  when: ansible_facts['distribution_version'] is version('26.04', '<')
+  block:
+    # The version line is `git describe` at build time, so a tag checkout reports the tag. Read
+    # first: everything below, the dependency install included, runs only for a build.
+    - name: Read the installed gamescope version
+      ansible.builtin.command:
+        argv: [/usr/local/bin/gamescope, --version]
+      register: games_gamescope_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      become: false
+
+    - name: Build and install gamescope {{ games_gamescope_version }}
+      when: >-
+        ('gamescope version ' ~ games_gamescope_version ~ ' ')
+        not in (games_gamescope_installed.stdout ~ games_gamescope_installed.stderr)
+      block:
+        # noble's "meson" is 1.3; it ships meson-1.5 as well, which conflicts with it and which
+        # other roles install on the same hosts, so the same package is named here.
+        - name: Install the gamescope build dependencies
+          ansible.builtin.apt:
+            name:
+              - "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
+              - git
+              - glslang-tools
+              - hwdata
+              - libavif-dev
+              - libcap-dev
+              - libdecor-0-dev
+              - libdisplay-info-dev
+              - libdrm-dev
+              - libeis-dev
+              - libglm-dev
+              - libinput-dev
+              - libluajit-5.1-dev
+              - libpipewire-0.3-dev
+              - libpixman-1-dev
+              - libsdl2-dev
+              - libseat-dev
+              - libstb-dev
+              - libudev-dev
+              - libvulkan-dev
+              - libwayland-dev
+              - libx11-dev
+              - libx11-xcb-dev
+              - libxcb-composite0-dev
+              - libxcb-dri3-dev
+              - libxcb-ewmh-dev
+              - libxcb-icccm4-dev
+              - libxcb-present-dev
+              - libxcb-render0-dev
+              - libxcb-res0-dev
+              - libxcb-xfixes0-dev
+              - libxcb-xinput-dev
+              - libxcb1-dev
+              - libxcomposite-dev
+              - libxcursor-dev
+              - libxdamage-dev
+              - libxext-dev
+              - libxfixes-dev
+              - libxi-dev
+              - libxkbcommon-dev
+              - libxmu-dev
+              - libxrender-dev
+              - libxres-dev
+              - libxtst-dev
+              - libxxf86vm-dev
+              - ninja-build
+              - pkg-config
+              - wayland-protocols
+              - xwayland
+            state: latest
+            install_recommends: false
+            update_cache: true
+          become: true
+          become_user: root
+
+        # The private prefix ahead of the archive: a Wayland already built here satisfies it.
+        - name: Read the Wayland library version
+          ansible.builtin.command:
+            argv: [pkg-config, --modversion, wayland-server]
+          environment:
+            PKG_CONFIG_PATH: "{{ games_gamescope_deps_libdir }}/pkgconfig"
+          register: games_gamescope_wayland_installed
+          changed_when: false
+          failed_when: false
+          check_mode: false
+          become: false
+
+        # gamescope's own floor is 1.21, but the wlroots it builds in wants 1.23. Into a prefix
+        # of its own rather than /usr/local, which ld.so searches ahead of the archive: a
+        # libwayland there would be the one every Wayland process on the host loads, out of
+        # apt's sight. The gamescope build finds it through PKG_CONFIG_PATH and keeps it
+        # through an rpath, so nothing else does.
+        - name: Build and install Wayland {{ games_gamescope_wayland_version }}
+          when: >-
+            games_gamescope_wayland_installed.rc != 0
+            or games_gamescope_wayland_installed.stdout is version('1.23', '<')
+          become: true
+          become_user: "{{ games_user }}"
+          block:
+            - name: Create a temporary directory for Wayland
+              ansible.builtin.tempfile:
+                state: directory
+              register: games_gamescope_wayland_tmp
+
+            - name: Download and unarchive Wayland
+              ansible.builtin.unarchive:
+                src: >-
+                  https://gitlab.freedesktop.org/wayland/wayland/-/releases/{{
+                  games_gamescope_wayland_version }}/downloads/wayland-{{
+                  games_gamescope_wayland_version }}.tar.xz
+                dest: "{{ games_gamescope_wayland_tmp.path }}"
+                remote_src: true
+                extra_opts:
+                  - --strip-components
+                  - 1
+
+            - name: Configure the Wayland build
+              ansible.builtin.command:
+                argv:
+                  - meson
+                  - setup
+                  - build
+                  - "--prefix={{ games_gamescope_deps_prefix }}"
+                  - "--libdir={{ games_gamescope_deps_libdir }}"
+                  - --buildtype=release
+                  - -Ddocumentation=false
+                  - -Dtests=false
+                chdir: "{{ games_gamescope_wayland_tmp.path }}"
+              changed_when: true
+
+            - name: Build Wayland
+              ansible.builtin.command:
+                argv: [ninja, -C, build]
+                chdir: "{{ games_gamescope_wayland_tmp.path }}"
+              changed_when: true
+
+            - name: Install Wayland
+              ansible.builtin.command:
+                argv: [ninja, -C, build, install]
+                chdir: "{{ games_gamescope_wayland_tmp.path }}"
+              changed_when: true
+              become: true
+              become_user: root
+          always:
+            - name: Remove the temporary directory for Wayland
+              ansible.builtin.file:
+                path: "{{ games_gamescope_wayland_tmp.path }}"
+                state: absent
+              when: games_gamescope_wayland_tmp.path is defined
+              become: true
+              become_user: root
+
+        # Built as games_user in a directory of its own: a root-owned 0700 staging directory is
+        # one an unprivileged build cannot chdir into. The install and the cleanup name root.
+        - name: Build gamescope in a directory of its own
+          become: true
+          become_user: "{{ games_user }}"
+          block:
+            - name: Create a temporary directory for gamescope
+              ansible.builtin.tempfile:
+                state: directory
+              register: games_gamescope_tmp
+
+            # A clone rather than the tag's tarball, which carries none of the submodules the
+            # build pins: wlroots, libliftoff, vkroots, reshade and the rest. git rather than
+            # the git module, whose submodule step takes no depth and fetches every one whole.
+            - name: Clone gamescope {{ games_gamescope_version }}
+              ansible.builtin.command:
+                argv:
+                  - git
+                  - clone
+                  - --depth=1
+                  - "--branch={{ games_gamescope_version }}"
+                  - --recurse-submodules
+                  - --shallow-submodules
+                  - https://github.com/ValveSoftware/gamescope.git
+                  - "{{ games_gamescope_tmp.path }}"
+              changed_when: true
+
+            # The unit tests are on by default and want catch2, and nothing installs them.
+            # LDFLAGS is what meson turns into link arguments at setup, and the rpath it
+            # carries is kept on install, unlike the build-tree one meson adds itself.
+            - name: Configure the gamescope build
+              ansible.builtin.command:
+                argv:
+                  - meson
+                  - setup
+                  - build
+                  - --prefix=/usr/local
+                  - --buildtype=release
+                  - -Denable_tests=false
+                chdir: "{{ games_gamescope_tmp.path }}"
+              environment:
+                PKG_CONFIG_PATH: "{{ games_gamescope_deps_libdir }}/pkgconfig"
+                PATH: "{{ games_gamescope_deps_prefix }}/bin:{{ ansible_env.PATH }}"
+                LDFLAGS: "-Wl,-rpath,{{ games_gamescope_deps_libdir }}"
+              changed_when: true
+
+            - name: Build gamescope
+              ansible.builtin.command:
+                argv: [ninja, -C, build]
+                chdir: "{{ games_gamescope_tmp.path }}"
+              environment:
+                PATH: "{{ games_gamescope_deps_prefix }}/bin:{{ ansible_env.PATH }}"
+              changed_when: true
+
+            - name: Install gamescope
+              ansible.builtin.command:
+                argv: [ninja, -C, build, install]
+                chdir: "{{ games_gamescope_tmp.path }}"
+              changed_when: true
+              become: true
+              become_user: root
+          always:
+            - name: Remove the temporary directory for gamescope
+              ansible.builtin.file:
+                path: "{{ games_gamescope_tmp.path }}"
+                state: absent
+              when: games_gamescope_tmp.path is defined
+              become: true
+              become_user: root

@@ -30,6 +30,25 @@ games_user_uid: "{{ ansible_facts['getent_passwd'][games_user][1] }}"
 games_heroic_app_id: com.heroicgameslauncher.hgl
 games_heroic_config_file: "{{ games_user_home }}/.var/app/{{ games_heroic_app_id }}/config/heroic/config.json"
 
+# What tasks/bedrock.yml puts on BedrockOnLinux's sandbox PATH through a read-only grant: the
+# vendored xrandr.
+games_bedrock_helper_dir: "{{ games_user_home }}/.local/share/bol-helpers"
+
+# The gamescope tasks/gamescope.yml builds where the archive has none (Ubuntu < 26.04), and
+# the Wayland release it builds first where the archive's is under the 1.23 that tag's wlroots
+# wants. Later gamescope tags pin a wlroots whose libdrm, xkbcommon and pixman floors noble is
+# under, so this stays until the last such host moves on.
+games_gamescope_version: "3.16.24"
+games_gamescope_wayland_version: "1.24.0"
+# Where that Wayland goes: a prefix of its own, found by the gamescope build alone through
+# PKG_CONFIG_PATH and an rpath, so the host's own Wayland processes keep the archive's.
+games_gamescope_deps_prefix: /usr/local/lib/gamescope-deps
+games_gamescope_deps_libdir: "{{ games_gamescope_deps_prefix }}/lib/x86_64-linux-gnu"
+
+# The gamescope wrapper tasks/gamescope-wrapper.yml installs, which tasks/bedrock.yml and
+# tasks/lutris.yml each grant read-only and put first on their application's sandbox PATH.
+games_gamescope_helper_dir: "{{ games_user_home }}/.local/share/gamescope-helpers"
+
 # Lutris prefers config/lutris and falls back to data/lutris, which a fresh flatpak
 # install has; tasks/lutris.yml mirrors that to find system.yml.
 games_lutris_app_id: net.lutris.Lutris

@@ -18,14 +18,3 @@
     install_recommends: false
     update_cache: true
   become: true
-
-# Only packaged on Ubuntu >= 26.04, and only native games use it; flatpak games
-# use the Vulkan layer extension from flatpak.yml.
-- name: Install gamescope
-  ansible.builtin.apt:
-    name: gamescope
-    state: latest
-    install_recommends: false
-  become: true
-  # A platform probe, not a preference: the package exists only on Ubuntu >= 26.04.
-  when: ansible_facts['distribution_version'] is version('26.04', '>=')
