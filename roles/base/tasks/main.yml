@@ -281,6 +281,10 @@
   ansible.builtin.import_tasks: storage-space-alert.yml
   tags: storage-space-alert
 
+- name: Import router-kva-sample tasks
+  ansible.builtin.import_tasks: router-kva-sample.yml
+  tags: router-kva-sample
+
 - name: Import sysctl tasks
   ansible.builtin.import_tasks: sysctl.yml
   tags: sysctl

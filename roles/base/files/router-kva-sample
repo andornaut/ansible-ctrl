@@ -1,0 +1,64 @@
+#!/bin/bash
+# Managed by Ansible (base role). Do not edit.
+#
+# Samples a pfSense router's remaining kernel virtual address space and pushes it to Home
+# Assistant as a sensor, so the drain is graphed and the threshold lives in an automation
+# rather than here.
+#
+# vm.kvm_free is the gap between kernel_vm_end and the top of the kernel map. kernel_vm_end
+# only ever advances, so the value falls monotonically over an uptime and no amount of freed
+# memory returns any of it. At zero every `pfctl -f` blocks in the "kernel arena" wait
+# channel and no firewall rule change loads, while the running ruleset keeps filtering and
+# reads still answer, so the failure is silent. Only a reboot clears it.
+
+set -e -o pipefail
+
+NAME="$(basename "$0")"
+
+[[ "$#" -ge 2 && "$#" -le 4 ]] \
+    || { echo "Usage: ${NAME} <router> <entityId> [haContainer] [haUrl]" >&2; exit 1; }
+
+router=${1}
+entityId=${2}
+haContainer=${3-hamcp}
+haUrl=${4-http://localhost:8123}
+
+# paste rather than tr, so the line the remote sends ends in a newline: read returns
+# non-zero at an unterminated EOF and set -e would end the run having read both values.
+read -r free size < <(
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "root@${router}" \
+        'sysctl -n vm.kvm_free vm.kvm_size | paste -sd" " -'
+)
+
+[[ "${free}" =~ ^[0-9]+$ && "${size}" =~ ^[0-9]+$ && "${size}" -gt 0 ]] \
+    || { echo "${NAME}: unexpected sysctl output from ${router}" >&2; exit 1; }
+
+# The token reaches curl on stdin rather than in argv, where every account on the host could
+# read it out of the process list for as long as the request runs.
+token=$(docker exec "${haContainer}" printenv HOMEASSISTANT_TOKEN)
+
+payload=$(mktemp)
+trap 'rm -f "${payload}"' EXIT
+
+cat > "${payload}" <<JSON
+{
+  "state": ${free},
+  "attributes": {
+    "friendly_name": "Router kernel address space free",
+    "unit_of_measurement": "B",
+    "device_class": "data_size",
+    "state_class": "measurement",
+    "icon": "mdi:chip",
+    "kvm_size": ${size},
+    "kvm_used_percent": $(( (size - free) * 100 / size ))
+  }
+}
+JSON
+
+curl -sf -o /dev/null -K - <<CURLRC
+url = "${haUrl}/api/states/${entityId}"
+request = "POST"
+header = "Authorization: Bearer ${token}"
+header = "Content-Type: application/json"
+data = "@${payload}"
+CURLRC

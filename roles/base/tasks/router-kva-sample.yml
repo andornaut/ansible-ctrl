@@ -1,0 +1,41 @@
+---
+# Records a pfSense router's remaining kernel virtual address space in Home Assistant. Off
+# unless a host asks for it: it needs ssh to the router and a Home Assistant instance to push
+# to, which only a site's controller has. Home Assistant owns the threshold, so what is
+# alert-worthy changes in an automation rather than here.
+- name: Sample the router's kernel address space
+  when: base_install_router_kva_sample | bool
+  block:
+    - name: Assert the router kernel address space sampler is configured
+      ansible.builtin.assert:
+        that:
+          - base_router_kva_sample_host | length > 0
+          - base_router_kva_sample_entity_id | length > 0
+          - base_router_kva_sample_user != "root"
+        fail_msg: >-
+          base_install_router_kva_sample needs base_router_kva_sample_host and
+          base_router_kva_sample_entity_id set in host_vars, and a
+          base_router_kva_sample_user that is not root.
+      become: false
+
+    - name: Install router-kva-sample
+      ansible.builtin.copy:
+        src: router-kva-sample
+        dest: /usr/local/bin/router-kva-sample
+        mode: "0755"
+      become: true
+
+    # As the primary user rather than root: the key that reaches the router and the docker
+    # group that reads the token are that account's, and root's ssh configuration on the
+    # controller is hand-maintained rather than provisioned here.
+    - name: Periodically run router-kva-sample
+      ansible.builtin.cron:
+        name: router-kva-sample
+        cron_file: /etc/cron.d/ansible-role-base
+        user: "{{ base_router_kva_sample_user }}"
+        minute: "5"
+        job: >-
+          /usr/local/bin/router-kva-sample {{ base_router_kva_sample_host | quote }}
+          {{ base_router_kva_sample_entity_id | quote }}
+          {{ base_router_kva_sample_container | quote }}
+      become: true
