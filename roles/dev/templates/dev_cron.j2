@@ -9,12 +9,13 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{
    dev_ai_maintainer_script_path | dirname] | unique | join(':') }}
 
 {% if dev_install_ai_attributions %}
-# ai-attributions: daily attribution scan. The checkouts are listed by find
-# rather than by a glob, so a directory under the base that is not a repository
-# is passed over instead of failing the run. Command substitution rather than
-# xargs, which reports its own status in place of the scan's for anything that
-# adds --exit-code to the flags.
-{{ dev_ai_attributions_cron_minute }} {{ dev_ai_attributions_cron_hour }} * * * {{ dev_user }} {{ dev_ai_attributions_binary_path }} scan {{ dev_ai_attributions_scan_flags }} $(find {{ dev_ai_attributions_src_base_dir }} -mindepth 2 -maxdepth 2 -name .git -exec dirname {} +{% if dev_ai_attributions_exclude_repositories %} | grep -vxF{% for repo in dev_ai_attributions_exclude_repositories %} -e {{ dev_ai_attributions_src_base_dir }}/{{ repo }}{% endfor %}{% endif %})
+# ai-attributions: daily attribution rewrite, force-pushed. The checkouts are
+# listed by find rather than by a glob, so a directory under the base that is
+# not a repository is passed over instead of failing the run. Command
+# substitution rather than xargs, which reports its own status in place of the
+# run's for anything that adds --exit-code to the flags. A checkout with
+# uncommitted tracked changes is reported and left alone, and the rest still run.
+{{ dev_ai_attributions_cron_minute }} {{ dev_ai_attributions_cron_hour }} * * * {{ dev_user }} {{ dev_ai_attributions_binary_path }} apply --push {{ dev_ai_attributions_apply_flags }} $(find {{ dev_ai_attributions_src_base_dir }} -mindepth 2 -maxdepth 2 -name .git -exec dirname {} +{% if dev_ai_attributions_exclude_repositories %} | grep -vxF{% for repo in dev_ai_attributions_exclude_repositories %} -e {{ dev_ai_attributions_src_base_dir }}/{{ repo }}{% endfor %}{% endif %})
 {% endif %}
 {% if dev_install_ai_maintainer %}
 # ai-maintainer: weekly repo maintenance

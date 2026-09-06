@@ -51,8 +51,8 @@ dev_virtualbox_version: "7.2"
 # Where upstream's own installer puts it.
 dev_oh_my_pi_binary_path: "{{ dev_user_home }}/.local/bin/omp"
 
-# The cron job scans every checkout under dev_ai_attributions_src_base_dir, so
-# enable it only where those checkouts are.
+# The cron job rewrites and force-pushes every checkout under
+# dev_ai_attributions_src_base_dir, so enable it only where those checkouts are.
 dev_install_ai_attributions: false
 # ai-attributions cron job (see README).
 dev_ai_attributions_src_base_dir: "{{ dev_user_home }}/src/github.com/andornaut"
@@ -66,17 +66,33 @@ dev_ai_attributions_exclude_repositories: []
 dev_ai_attributions_binary_path: "{{ dev_user_home }}/.local/bin/ai-attributions"
 
 # --quiet prints nothing for a repository that found nothing, so cron mails the
-# days that need an answer and no others. --agents-files opts in to the agent
+# days that rewrote something and no others. --agents-files opts in to the agent
 # instruction file check, which the tool leaves off, and --emdashes to the dash
 # check, which it also leaves off. Both are on in every repository's CI, and CI
 # scans only what a push added: without them here the two checks have a window
-# one push wide and nothing that looks at settled history.
+# one push wide and nothing that looks at settled history. --emdashes reaches
+# commit messages and leaves file content alone, so every rewritten tree is
+# byte-identical and no run of it needs the repository's tests afterwards.
 #
 # --exit-code is left off deliberately. Nothing here reads the status, and a
 # non-zero one is always printed with the report explaining it, so asking for a
 # status would mail a notice about the same fork every morning. The mail is the
 # signal: a finding prints either way.
-dev_ai_attributions_scan_flags: --quiet --agents-files --emdashes
+#
+# --base is not passed and cannot be: one command spans every checkout, and the
+# base differs per repository. Each ref is re-emitted from its earliest finding
+# onward, so the hashes change from there and re-emitted signed commits lose
+# their signature. apply saves the pre-rewrite refs under
+# refs/ai-attributions-backup/<timestamp>/ and keeps the last four runs.
+#
+# --push publishes each repository in one atomic push, so any ref it cannot
+# force takes the whole repository with it while the local rewrite stands: a
+# tag ruleset carrying non_fast_forward with no bypass actor, or a rolling tag
+# the remote has moved past, whose lease then reads as stale. Nothing reports
+# the divergence afterwards, the next scan finding nothing left to rewrite.
+# Forcing a version tag also re-triggers whatever the repository runs on tag
+# pushes, re-cutting that release.
+dev_ai_attributions_apply_flags: --quiet --agents-files --emdashes
 
 # The cron job runs a coding agent against every checkout under
 # dev_ai_maintainer_src_base_dir, so enable it only where those checkouts are.
