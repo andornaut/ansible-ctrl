@@ -15,7 +15,7 @@
 - name: Configure the certificate renewal cron job
   ansible.builtin.cron:
     name: Let's Encrypt certificate renewal
-    cron_file: ansible-role-letsencrypt_nginx
+    cron_file: /etc/cron.d/ansible-role-letsencrypt_nginx
     user: root
     hour: "{{ letsencrypt_nginx_renewal_cron_hour }}"
     minute: "{{ letsencrypt_nginx_renewal_cron_minute }}"

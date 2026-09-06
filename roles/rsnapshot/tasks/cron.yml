@@ -4,7 +4,7 @@
 - name: Configure the rsnapshot backup cron jobs
   ansible.builtin.cron:
     name: "rsnapshot {{ item.key }}"
-    cron_file: ansible-role-rsnapshot
+    cron_file: /etc/cron.d/ansible-role-rsnapshot
     user: root
     minute: "{{ item.value.minute }}"
     hour: "{{ item.value.hour | default(omit) }}"
