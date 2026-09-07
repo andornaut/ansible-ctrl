@@ -164,6 +164,10 @@
       tags: voice
       when: homeautomation_install_voice
 
+- name: Import router kernel address space sampler tasks
+  ansible.builtin.import_tasks: router_kva_sample.yml
+  tags: router-kva-sample
+
 # Last: it reaches hosts of its own, and one that cannot take the install must not stop
 # this host from being configured.
 - name: Import adb-auto-enable tasks

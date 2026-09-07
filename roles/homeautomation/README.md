@@ -33,12 +33,30 @@ A tag whose flag is off may still remove what an earlier run installed.
 | [memryx](https://memryx.com/)                                     | MemryX MX3 AI accelerator drivers                                                                                                                                                        |
 | [mosquitto](https://mosquitto.org/)                               | The MQTT broker on its own. No flag; also applied by `homeassistant`                                                                                                                     |
 | otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter`                         |
+| router-kva-sample                                                 | The site router's kernel address space sampler and its hourly cron entry on this host, gated on `homeautomation_install_router_kva_sample`                                               |
 | teardown                                                          | Remove the containers and host files of components this host does not install                                                                                                            |
 | voice                                                             | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT                                                                     |
 
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
+
+### Router kernel address space sampler
+
+`homeautomation_install_router_kva_sample` installs `/usr/local/bin/router-kva-sample` and an hourly cron entry
+that reads `vm.kvm_free` off a pfSense router over ssh and writes it to
+`homeautomation_router_kva_sample_entity_id`, borrowing a token from the `homeautomation_router_kva_sample_container`
+container so none is written to disk.
+
+Here rather than in the [router](../router/README.md) role because it runs on this host, needs the ha-mcp
+container this role installs, and writes a Home Assistant entity. The router is only the data source.
+
+| Behaviour                                                                | Constraint                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The cron entry runs as `homeautomation_router_kva_sample_user`, not root | The key that reaches the router and the docker group that reads the token are that account's, and root's ssh configuration on this host is hand-maintained rather than provisioned here                                                                                                                                                                                                                                |
+| Worth sampling only where the kernel map is small                        | A pfSense router's kernel map only ever advances, so the figure falls over an uptime and no freed memory returns any of it. At zero every `pfctl -f` blocks in the kernel arena wait channel and firewall rule changes stop loading while the running ruleset keeps filtering, so the failure is silent and only a reboot clears it. That is a 32-bit concern; an amd64 router has a 2 TiB map and never approaches it |
+| An unchanged reading moves no Home Assistant timestamp                   | Posting an identical state and attributes returns 200 and updates neither `last_changed` nor `last_reported`, so a correctly running sampler looks stale in the UI whenever the figure holds steady                                                                                                                                                                                                                    |
+| Home Assistant owns the threshold                                        | What counts as alert-worthy changes in an automation rather than here                                                                                                                                                                                                                                                                                                                                                  |
 
 ### Removing a component
 

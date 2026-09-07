@@ -11,6 +11,7 @@ homeautomation_install_llm: false
 homeautomation_install_matterjs: false
 homeautomation_install_legacy_pythonmatterserver: false
 homeautomation_install_memryx: false
+homeautomation_install_router_kva_sample: false
 homeautomation_install_voice: false
 homeautomation_ipv6_enabled: true
 
@@ -95,6 +96,17 @@ homeautomation_hamcp_env: {}
 # own. They bind-mount nothing; the point is the process identity.
 homeautomation_hamcp_instances: []
 homeautomation_install_hamcp: false
+
+# The site router's remaining kernel virtual address space, sampled hourly into Home
+# Assistant. The router is a pfSense host, so the sampler reads vm.kvm_free; on hardware
+# where that arena is small a long uptime exhausts it and firewall rule changes stop loading
+# with no error. Name the router and the entity in host_vars.
+homeautomation_router_kva_sample_host: ""
+homeautomation_router_kva_sample_entity_id: sensor.router_kernel_address_space_free
+# The container the sampler borrows a Home Assistant token from, so no token is written to disk.
+homeautomation_router_kva_sample_container: hamcp
+homeautomation_router_kva_sample_user: "{{ primary_user }}"
+homeautomation_router_kva_sample_minute: "5"
 
 # Govee2mqtt
 homeautomation_govee2mqtt_env: {}

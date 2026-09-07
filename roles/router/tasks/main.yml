@@ -1,6 +1,4 @@
 ---
-# The router half. The controller half is kva-sample.yml, which router.yml's second play
-# imports against the controller rather than delegating: see the role README.
 - name: Import pingtest tasks
   ansible.builtin.import_tasks: pingtest.yml
   tags: pingtest

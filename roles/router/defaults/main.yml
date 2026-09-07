@@ -43,15 +43,3 @@ router_dns_healthcheck_confirm_seconds: 90
 # router_dns_healthcheck_minute; a lock rather than this arithmetic is what keeps two runs
 # from overlapping, the later one exiting rather than starting a second resolver.
 router_dns_healthcheck_restart_timeout: 45
-
-# The controller half, applied by router.yml's second play rather than delegated: it
-# installs a script and a cron entry on the controller, owned by the controller's account
-# and reading a token from a container there, so the controller is the subject and these
-# belong in its host_vars.
-router_install_kva_sample: false
-router_kva_sample_host: ""
-router_kva_sample_entity_id: sensor.router_kernel_address_space_free
-# The container the sampler borrows a Home Assistant token from, so no token is written to disk.
-router_kva_sample_container: hamcp
-router_kva_sample_user: "{{ primary_user }}"
-router_kva_sample_minute: "5"
