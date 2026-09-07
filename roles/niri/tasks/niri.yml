@@ -21,6 +21,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: niri_tmp
+      check_mode: false
 
     - name: Get latest niri release
       ansible.builtin.include_tasks: get_latest_release.yml
@@ -123,3 +124,5 @@
       when: niri_tmp.path is defined
       become: true
       become_user: root
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false

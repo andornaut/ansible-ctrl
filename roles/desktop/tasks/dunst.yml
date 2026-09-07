@@ -24,6 +24,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: desktop_dunst_tmp
+      check_mode: false
 
     - name: Get latest dunst release
       ansible.builtin.include_tasks: get_latest_release.yml
@@ -58,3 +59,5 @@
         path: "{{ desktop_dunst_tmp.path }}"
         state: absent
       when: desktop_dunst_tmp.path is defined
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false

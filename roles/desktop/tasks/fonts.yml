@@ -51,6 +51,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: desktop_source_code_pro_tmp
+      check_mode: false
 
     - name: Download and extract Source Code Pro package
       ansible.builtin.unarchive:
@@ -95,3 +96,5 @@
         path: "{{ desktop_source_code_pro_tmp.path }}"
         state: absent
       when: desktop_source_code_pro_tmp.path is defined
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false

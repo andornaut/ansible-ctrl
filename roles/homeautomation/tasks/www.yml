@@ -15,6 +15,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: homeautomation_advanced_camera_card_tmp
+      check_mode: false
 
     # GitHub closes some connections without a response, and one failed fetch aborts every
     # card after it. See tasks/install_github_release_component.yml, which retries the same way.
@@ -67,6 +68,8 @@
         state: absent
       when: homeautomation_advanced_camera_card_tmp.path is defined
       become: true
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false
 
 - name: Install Button Card
   ansible.builtin.get_url:
@@ -113,3 +116,102 @@
     github_component_repo: thomasloven/lovelace-slider-entity-row
     github_component_src: slider-entity-row.js
     github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
+
+- name: Install Super Text Input
+  block:
+    # The release list, not /releases/latest, on the same reasoning as
+    # tasks/install_github_release_component.yml.
+    - name: Get releases of Super Text Input
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/skavan/super-text-input/releases
+        return_content: true
+      register: homeautomation_super_text_input_releases
+      # uri supports no check mode, so a --check run would skip this and leave the
+      # register undefined for every task that templates it. The request only reads.
+      check_mode: false
+      retries: 3
+      delay: 5
+      # Retry network errors and 5xx only; 4xx is deterministic.
+      until: >-
+        homeautomation_super_text_input_releases.status == 200 or
+        (homeautomation_super_text_input_releases.status >= 400 and homeautomation_super_text_input_releases.status < 500)
+
+    - name: Set version fact for Super Text Input
+      ansible.builtin.set_fact:
+        homeautomation_super_text_input_version: >-
+          {{ (homeautomation_super_text_input_releases.json
+          | selectattr('prerelease', 'equalto', false)
+          | selectattr('draft', 'equalto', false)
+          | list | first).tag_name }}
+
+    - name: Create a temporary directory for Super Text Input
+      become: true
+      ansible.builtin.tempfile:
+        state: directory
+      register: homeautomation_super_text_input_tmp
+      check_mode: false
+
+    # The project ships no release asset and no built bundle, so the tag's source
+    # archive is the only source. GitHub closes some connections without a response,
+    # and one failed fetch aborts every card after it.
+    - name: Download and unarchive Super Text Input
+      become: true
+      ansible.builtin.unarchive:
+        src: >-
+          https://github.com/skavan/super-text-input/archive/refs/tags/{{
+          homeautomation_super_text_input_version }}.tar.gz
+        dest: "{{ homeautomation_super_text_input_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+      register: homeautomation_super_text_input_unarchive
+      retries: 3
+      delay: 5
+      until: homeautomation_super_text_input_unarchive is succeeded
+
+    - name: Create the Super Text Input directory
+      ansible.builtin.file:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/super-text-input"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    # A directory of its own, holding every module the release ships: super-text-input.js
+    # imports ./card-utils.js and ./editor.js, and editor.js imports ./base-editor.js, so
+    # they resolve relative to each other and one the install misses breaks the card with
+    # no error the dashboard shows. Matched by pattern rather than by name so a module a
+    # later release adds is installed too, and copied rather than extracted here, which
+    # would put the whole repository under www/, where Home Assistant serves it to any
+    # browser.
+    - name: Find the Super Text Input modules
+      ansible.builtin.find:
+        paths: "{{ homeautomation_super_text_input_tmp.path }}"
+        patterns: "*.js"
+        recurse: false
+      register: homeautomation_super_text_input_modules
+      become: true
+
+    - name: Install the Super Text Input files
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/super-text-input/"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ homeautomation_super_text_input_modules.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      become: true
+  always:
+    - name: Remove the temporary directory for Super Text Input
+      ansible.builtin.file:
+        path: "{{ homeautomation_super_text_input_tmp.path }}"
+        state: absent
+      when: homeautomation_super_text_input_tmp.path is defined
+      become: true
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false

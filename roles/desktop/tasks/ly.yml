@@ -48,6 +48,7 @@
               ansible.builtin.tempfile:
                 state: directory
               register: desktop_zig_tmp
+              check_mode: false
 
             # ziglang.org asks tooling to use a community mirror. Mirrors host the
             # tarball under its basename; verify against the origin's shasum.
@@ -88,6 +89,8 @@
                 path: "{{ desktop_zig_tmp.path }}"
                 state: absent
               when: desktop_zig_tmp.path is defined
+              # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+              check_mode: false
 
     - name: Install ly display manager
       become: true
@@ -96,6 +99,7 @@
           ansible.builtin.tempfile:
             state: directory
           register: desktop_ly_tmp
+          check_mode: false
 
         - name: Get latest ly release
           ansible.builtin.include_tasks: get_latest_release.yml
@@ -136,6 +140,8 @@
             path: "{{ desktop_ly_tmp.path }}"
             state: absent
           when: desktop_ly_tmp.path is defined
+          # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+          check_mode: false
 
     - name: Configure ly
       block:
