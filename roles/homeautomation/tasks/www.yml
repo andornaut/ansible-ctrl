@@ -30,6 +30,15 @@
       delay: 5
       until: homeautomation_advanced_camera_card_download is succeeded
 
+    # Emptied rather than extracted over: -j writes the archive's files into the
+    # destination and deletes nothing, so every chunk a later release stopped shipping
+    # would stay here for good, served alongside the ones that replaced it.
+    - name: Empty the advanced-camera-card directory
+      ansible.builtin.file:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
+        state: absent
+      become: true
+
     - name: Create advanced-camera-card directory
       ansible.builtin.file:
         path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
