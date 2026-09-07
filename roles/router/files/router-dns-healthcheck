@@ -50,14 +50,22 @@ restart_timeout=${3:-45}
 if [ "${ROUTER_DNS_HEALTHCHECK_LOCKED:-}" != "1" ]; then
     ROUTER_DNS_HEALTHCHECK_LOCKED=1
     export ROUTER_DNS_HEALTHCHECK_LOCKED
+    # -k keeps the file, so its mtime is the last-run timestamp and nothing else here has
+    # one: a healthy run logs nothing, and pfSense records no cron output. It also keeps
+    # lockf from unlinking the file another run may already have open, which would leave
+    # the two holding locks on different inodes.
     # -s: lockf announces a contended lock on stderr, and cron mails that.
-    lockf -s -t 0 "${LOCK}" "$0" "$@"
+    lockf -k -s -t 0 "${LOCK}" "$0" "$@"
     rc=$?
     # 75 is EX_TEMPFAIL, which is lockf saying another run holds it. Not an error: the run
     # already under way is doing the work, and cron mails a non-zero exit.
     [ "${rc}" -eq 75 ] && exit 0
     exit "${rc}"
 fi
+
+# The heartbeat the mtime above reports. Inside the lock, so it marks a run that got as
+# far as doing something rather than one that found the lock held.
+touch "${LOCK}"
 
 log() { logger -t "${NAME}" -p daemon.notice "$*"; }
 warn() { logger -t "${NAME}" -p daemon.err "$*"; }
