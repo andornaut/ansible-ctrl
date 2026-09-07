@@ -1,0 +1,39 @@
+---
+# Restarts the resolver when it stops answering. Off by default, this being the one thing
+# here that acts on a running service rather than describing one.
+- name: Install the resolver health check
+  when: router_install_dns_healthcheck | bool
+  block:
+    - name: Assert the resolver health check is configured
+      ansible.builtin.assert:
+        that:
+          - router_dns_healthcheck_query | length > 0
+          - router_dns_healthcheck_confirm_seconds | int > 0
+          - router_dns_healthcheck_restart_timeout | int > 0
+        fail_msg: >-
+          router_install_dns_healthcheck needs a router_dns_healthcheck_query, and a
+          router_dns_healthcheck_confirm_seconds and router_dns_healthcheck_restart_timeout
+          above zero.
+        quiet: true
+      # pfSense carries no sudo and ansible connects to the routers as root.
+      become: false
+
+    - name: Install router-dns-healthcheck
+      ansible.builtin.copy:
+        src: router-dns-healthcheck
+        dest: /usr/local/bin/router-dns-healthcheck
+        mode: "0755"
+      become: false
+
+    - name: Periodically run router-dns-healthcheck
+      ansible.builtin.cron:
+        name: router-dns-healthcheck
+        cron_file: /etc/cron.d/ansible-role-router
+        user: root
+        minute: "{{ router_dns_healthcheck_minute }}"
+        job: >-
+          /usr/local/bin/router-dns-healthcheck
+          {{ router_dns_healthcheck_query | quote }}
+          {{ router_dns_healthcheck_confirm_seconds | quote }}
+          {{ router_dns_healthcheck_restart_timeout | quote }}
+      become: false

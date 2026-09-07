@@ -1,0 +1,57 @@
+---
+# The routers are pfSense, so FreeBSD: no apt, no systemd, no dconf and no sudo. Ansible
+# connects to them as root, so every task here is become: false.
+#
+# Both halves are off by default. The router half needs the inventory to name a routers
+# group; the controller half needs ssh to a router and a Home Assistant instance to push to.
+
+# Bounces the WAN interface when every target is unreachable, for a link that comes back
+# only after a reset. Off by default: the interface has no derivable name, pfSense's own
+# being a device name rather than the WAN/LAN label the GUI shows.
+router_install_pingtest: false
+router_pingtest_interface: ""
+# Addresses, never names: a name cannot tell a dead link from a resolver that stopped
+# answering, and bouncing the WAN over the latter takes the link down for a minute and
+# fixes nothing. What answers for the resolver is router_install_dns_healthcheck.
+router_pingtest_targets:
+  - 1.1.1.1
+  - 8.8.8.8
+router_pingtest_minute: "*/5"
+# Seconds the interface is left down, and then the settle before the retry. A pfSense WAN
+# on PPPoE has to redial, which the shipped 10 and 60 were sized for.
+router_pingtest_down_seconds: 10
+router_pingtest_settle_seconds: 60
+
+# Restarts the resolver when it stops answering. A pfBlockerNG DNSBL reload stops unbound
+# and starts it again, and a stop that overruns the package's fixed 30-second wait leaves
+# the replacement unable to bind. The reload path has no retry, so DNS stays down with the
+# firewall otherwise healthy: pf keeps filtering, the gateway keeps answering ICMP, and
+# nothing on the box notices.
+router_install_dns_healthcheck: false
+# Answered from unbound's own local zone, so the probe needs no recursion and stays up when
+# the WAN is down. Naming an external host would restart the resolver over an outage it
+# cannot fix.
+router_dns_healthcheck_query: localhost
+router_dns_healthcheck_minute: "*/5"
+# How long the resolver has to stay silent before it is restarted. A legitimate DNSBL
+# reload takes it down for about 30 seconds, and restarting it mid-reload is how two starts
+# end up racing for the port, so this has to clear that with margin. Nothing is logged for
+# a silence it absorbs.
+router_dns_healthcheck_confirm_seconds: 90
+# Bounds both the restart call and the wait for an answer after it, each of which happens
+# twice at worst. A run that escalates all the way can therefore outlast
+# router_dns_healthcheck_minute; a lock rather than this arithmetic is what keeps two runs
+# from overlapping, the later one exiting rather than starting a second resolver.
+router_dns_healthcheck_restart_timeout: 45
+
+# The controller half, applied by router.yml's second play rather than delegated: it
+# installs a script and a cron entry on the controller, owned by the controller's account
+# and reading a token from a container there, so the controller is the subject and these
+# belong in its host_vars.
+router_install_kva_sample: false
+router_kva_sample_host: ""
+router_kva_sample_entity_id: sensor.router_kernel_address_space_free
+# The container the sampler borrows a Home Assistant token from, so no token is written to disk.
+router_kva_sample_container: hamcp
+router_kva_sample_user: "{{ primary_user }}"
+router_kva_sample_minute: "5"

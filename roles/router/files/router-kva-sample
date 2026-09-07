@@ -1,5 +1,5 @@
 #!/bin/bash
-# Managed by Ansible (base role). Do not edit.
+# Managed by Ansible (router role). Do not edit.
 #
 # Samples a pfSense router's remaining kernel virtual address space and pushes it to Home
 # Assistant as a sensor, so the drain is graphed and the threshold lives in an automation

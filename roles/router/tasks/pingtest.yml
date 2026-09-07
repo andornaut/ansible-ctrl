@@ -1,0 +1,37 @@
+---
+# Bounces the WAN interface when every target is unreachable. Off unless a host asks for
+# it: the interface has no derivable name.
+- name: Install the connectivity check
+  when: router_install_pingtest | bool
+  block:
+    - name: Assert the connectivity check is configured
+      ansible.builtin.assert:
+        that:
+          - router_pingtest_interface | length > 0
+          - router_pingtest_targets | length > 0
+        fail_msg: >-
+          router_install_pingtest needs router_pingtest_interface and at least one
+          router_pingtest_targets entry set in host_vars.
+        quiet: true
+      # pfSense carries no sudo and ansible connects to the routers as root.
+      become: false
+
+    - name: Install router-pingtest
+      ansible.builtin.copy:
+        src: router-pingtest
+        dest: /usr/local/bin/router-pingtest
+        mode: "0755"
+      become: false
+
+    - name: Periodically run router-pingtest
+      ansible.builtin.cron:
+        name: router-pingtest
+        cron_file: /etc/cron.d/ansible-role-router
+        user: root
+        minute: "{{ router_pingtest_minute }}"
+        job: >-
+          /usr/local/bin/router-pingtest {{ router_pingtest_interface | quote }}
+          {{ router_pingtest_down_seconds | quote }}
+          {{ router_pingtest_settle_seconds | quote }}
+          {{ router_pingtest_targets | map('quote') | join(' ') }}
+      become: false

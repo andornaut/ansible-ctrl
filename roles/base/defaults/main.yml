@@ -75,15 +75,3 @@ base_ssh_client_alive_count_max: 3
 # Kerberos, which nothing here runs. Left at the shipped yes, every connection attempt tries
 # GSSAPI first and pays a lookup for it before falling through to publickey.
 base_ssh_client_gssapi: false
-
-# Records the site router's remaining kernel virtual address space in Home Assistant, hourly.
-# Off by default: it needs ssh to the router and a Home Assistant instance to push to, which
-# only a site's controller has. Name the router and the entity in host_vars. The router is a
-# pfSense host, so the sampler reads vm.kvm_free; on hardware where that arena is small a long
-# uptime exhausts it and firewall rule changes stop loading with no error.
-base_install_router_kva_sample: false
-base_router_kva_sample_host: ""
-base_router_kva_sample_entity_id: sensor.router_kernel_address_space_free
-# The container the sampler borrows a Home Assistant token from, so no token is written to disk.
-base_router_kva_sample_container: hamcp
-base_router_kva_sample_user: "{{ primary_user }}"

@@ -1,0 +1,121 @@
+#!/bin/sh
+# Managed by Ansible (router role). Do not edit.
+#
+# Restarts pfSense's DNS Resolver when it stops answering.
+#
+# A pfBlockerNG DNSBL reload stops unbound and starts it again. The stop waits a fixed 30
+# seconds, and a teardown that overruns it leaves the old process holding :53 while the
+# replacement fails to bind, which the reload path reports and does not retry. The firewall
+# stays healthy throughout: pf keeps filtering, the gateway keeps answering ICMP, and every
+# other check on the box passes, so nothing notices that name resolution is gone.
+#
+# The query is answered from unbound's own local zone, so it needs no recursion and keeps
+# answering while the WAN is down. A probe naming an external host would restart the
+# resolver over an outage a restart cannot fix.
+#
+# Restart before kill: `playback svc restart unbound` goes through
+# services_unbound_configure(), which rebuilds the chroot mounts that the rc script alone
+# leaves stale. The kill is the second attempt only, for the wedged process that a restart
+# cannot displace because it never releases the port.
+#
+# Every call to the resolver and to pfSense is bounded by timeout(1). Both block without
+# one against exactly the fault this is for: a query to a port that is bound and silent
+# waits out drill's own retries, and pfSense's stop sends SIGTERM and waits for a process
+# that is not in a state to handle it, which leaves the kill below unreachable.
+
+# cron gives a job a minimal PATH, and this reaches binaries in four directories.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+export PATH
+
+set -u
+
+NAME="$(basename "$0")"
+PFSSH=/usr/local/sbin/pfSsh.php
+RESOLVER=127.0.0.1
+LOCK=/var/run/router-dns-healthcheck.lock
+# One query. Unbound answers this from local data in milliseconds when it is healthy, and
+# nothing is gained by waiting on a resolver that is not.
+PROBE_TIMEOUT=5
+
+[ "$#" -le 3 ] \
+    || { echo "Usage: ${NAME} [query] [confirmSeconds] [restartTimeoutSeconds]" >&2; exit 1; }
+
+query=${1:-localhost}
+confirm_seconds=${2:-90}
+restart_timeout=${3:-45}
+
+# One run at a time. Two overlapping runs would race to restart the resolver, which is the
+# failure this exists to clear rather than to cause. -t 0 gives up rather than queueing:
+# the next cron run is the retry.
+if [ "${ROUTER_DNS_HEALTHCHECK_LOCKED:-}" != "1" ]; then
+    ROUTER_DNS_HEALTHCHECK_LOCKED=1
+    export ROUTER_DNS_HEALTHCHECK_LOCKED
+    # -s: lockf announces a contended lock on stderr, and cron mails that.
+    lockf -s -t 0 "${LOCK}" "$0" "$@"
+    rc=$?
+    # 75 is EX_TEMPFAIL, which is lockf saying another run holds it. Not an error: the run
+    # already under way is doing the work, and cron mails a non-zero exit.
+    [ "${rc}" -eq 75 ] && exit 0
+    exit "${rc}"
+fi
+
+log() { logger -t "${NAME}" -p daemon.notice "$*"; }
+warn() { logger -t "${NAME}" -p daemon.err "$*"; }
+
+answers() {
+    timeout "${PROBE_TIMEOUT}" drill -Q "${query}" "@${RESOLVER}" >/dev/null 2>&1
+}
+
+# Polls rather than sleeping the whole window: a resolver that comes back in two seconds
+# should not hold the run open, and this runs from cron. Against a deadline rather than a
+# count of sleeps, so a blocked probe spends the window rather than extending it.
+wait_for_answer() {
+    _deadline=$(( $(date +%s) + ${1} ))
+    while [ "$(date +%s)" -lt "${_deadline}" ]; do
+        sleep 5
+        if answers; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Bounded: pfSense's stop signals the resolver and waits for it to go, which never returns
+# for a process that is not handling signals. Returns non-zero when it had to be cut off,
+# and the caller treats that the way it treats a restart that did not restore service.
+restart_resolver() {
+    timeout "${restart_timeout}" "${PFSSH}" playback svc restart unbound >/dev/null 2>&1
+}
+
+answers && exit 0
+
+# A legitimate DNSBL reload takes the resolver down for about 30 seconds, and restarting it
+# mid-reload is how two starts end up racing for the port. Nothing is logged for a silence
+# this window absorbs: it is ordinary.
+wait_for_answer "${confirm_seconds}" && exit 0
+
+log "resolver did not answer ${query} for ${confirm_seconds}s, restarting"
+restart_resolver
+
+if wait_for_answer "${restart_timeout}"; then
+    log "resolver answered ${query} after a restart"
+    exit 0
+fi
+
+# The wedged case: the process is still there holding the port, so a restart cannot bind
+# and the replacement dies the way the original reload's did.
+warn "resolver still silent after a restart, killing unbound"
+pkill -9 -x unbound >/dev/null 2>&1
+
+# The port is released when the kernel reaps the process, which is not the moment pkill
+# returns, so the restart below would race it.
+sleep 5
+restart_resolver
+
+if wait_for_answer "${restart_timeout}"; then
+    log "resolver answered ${query} after a kill and restart"
+    exit 0
+fi
+
+warn "resolver still silent after a kill and restart, giving up"
+exit 1

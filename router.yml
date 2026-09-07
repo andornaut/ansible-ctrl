@@ -1,0 +1,26 @@
+---
+# The routers are pfSense, so FreeBSD, which is why base.yml, msmtp.yml and upgrade.yml are
+# written all:!routers. This playbook is where anything router-shaped goes instead.
+#
+# No facts: nothing in the role reads one, and gathering them on the routers pays for a
+# python startup on a 32-bit armv7 box every run.
+- name: Configure the routers
+  hosts: routers
+  gather_facts: false
+  roles:
+    - router
+
+# The controller half of the same role. A second play rather than delegate_to: the sampler
+# installs a script and a cron entry on the controller, owned by the controller's account
+# and reading a token from a container there, so the controller is the host being
+# configured. A delegated task resolves plain variables from the play host, which would put
+# the controller's settings in a router's host_vars.
+- name: Install the controller-side router tooling
+  hosts: faramir_controller
+  gather_facts: false
+  tasks:
+    # tasks_from, not roles:, which would apply the router half here as well.
+    - name: Install the router kernel address space sampler
+      ansible.builtin.import_role:
+        name: router
+        tasks_from: kva-sample

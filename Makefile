@@ -31,7 +31,7 @@ endif
 	@:
 
 PLAYBOOKS := base desktop dev docker faramir \
-             games hobbies homeautomation msmtp nas rsnapshot torrent upgrade \
+             games hobbies homeautomation msmtp nas router rsnapshot torrent upgrade \
              webservers
 
 .DEFAULT_GOAL := help
@@ -83,6 +83,7 @@ help:
 	@echo "  homeautomation        - Configure home automation"
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
+	@echo "  router                - Configure the routers, and the controller-side router tooling"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  torrent               - Configure rtorrent host and controller scripts"
 	@echo "  upgrade               - Run system upgrades"
