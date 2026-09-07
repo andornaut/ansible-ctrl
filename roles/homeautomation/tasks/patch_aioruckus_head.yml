@@ -14,12 +14,16 @@
   register: homeautomation_aioruckus
   changed_when: false
   failed_when: false
-  # The command only reads, and a --check run that skipped it would leave the register
-  # without the rc the until below and the when on the next task both read.
-  check_mode: false
+  # Skipped under --check rather than run: the patch below cannot be applied there anyway,
+  # docker_container_exec supporting no check mode, and on a host whose container this run
+  # would only have reported creating, the wait would spend its full thirty attempts first.
+  when: not ansible_check_mode
   retries: 30
   delay: 10
-  until: homeautomation_aioruckus.rc == 0
+  # default(1): the module returns rc only when the exec ran. A container that is missing,
+  # paused or still starting fails with a message and no rc, which is the case this wait
+  # exists for, and reading the attribute directly raises instead of retrying.
+  until: homeautomation_aioruckus.rc | default(1) == 0
 
 - name: Patch aioruckus to use GET instead of HEAD
   become: true
@@ -35,5 +39,5 @@
         echo patched
   register: homeautomation_aioruckus_patch
   changed_when: "'patched' in homeautomation_aioruckus_patch.stdout"
-  when: homeautomation_aioruckus.rc == 0
+  when: homeautomation_aioruckus.rc | default(1) == 0
   notify: Restart homeassistant
