@@ -11,12 +11,6 @@
     mode: "0700"
   become: true
 
-- name: Remove Python Matter Server container if it exists
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - pythonmatterserver
-
 - name: Start Python Matter Server Docker container
   become: true
   vars:

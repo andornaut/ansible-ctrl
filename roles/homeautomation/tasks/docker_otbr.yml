@@ -18,12 +18,6 @@
     mode: "0700"
   become: true
 
-- name: Remove OTBR container if it exists
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - otbr
-
 - name: Start Open Thread Border Router (OTBR) Docker container
   become: true
   vars:

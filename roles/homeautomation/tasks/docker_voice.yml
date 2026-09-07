@@ -18,13 +18,6 @@
       - "{{ homeautomation_whisper_required_volumes.data }}"
     service_account_mode: "0700"
 
-- name: Remove Piper and Whisper containers if they exist
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - piper
-      - whisper
-
 - name: Start Voice Docker containers
   become: true
   vars:

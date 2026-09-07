@@ -1,11 +1,4 @@
 ---
-- name: Remove Llama.cpp and OpenWebUI containers if they exist
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - openwebui
-      - llamacpp
-
 # Root-owned and mounted read-only: the download task below is the only writer.
 - name: Create the llama.cpp models directory
   ansible.builtin.file:

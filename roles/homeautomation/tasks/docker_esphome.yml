@@ -49,12 +49,6 @@
     reload: true
   become: true
 
-- name: Remove ESPHome container if it exists
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - esphome
-
 - name: Start ESPHome Docker container
   become: true
   vars:

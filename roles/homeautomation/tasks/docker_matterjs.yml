@@ -9,12 +9,6 @@
     # Holds the Matter fabric credentials the commissioned devices trust.
     service_account_mode: "0700"
 
-- name: Remove Matter.js container if it exists
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - matterjs
-
 - name: Start Matter.js Docker container
   become: true
   vars:

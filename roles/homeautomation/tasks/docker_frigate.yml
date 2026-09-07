@@ -15,12 +15,6 @@
     - "{{ homeautomation_frigate_required_volumes.media }}"
   become: true
 
-- name: Remove Frigate container if it exists
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names:
-      - frigate
-
 - name: Start Frigate Docker container
   become: true
   vars:

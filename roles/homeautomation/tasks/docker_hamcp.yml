@@ -11,11 +11,6 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Remove ha-mcp containers if they exist
-  ansible.builtin.include_tasks: remove_docker_containers.yml
-  vars:
-    container_names: "{{ homeautomation_hamcp_instances | map(attribute='name') | list }}"
-
 # One compose project per instance, so adding or removing one cannot disturb the
 # others' containers.
 - name: Start ha-mcp Docker containers
