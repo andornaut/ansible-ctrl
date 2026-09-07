@@ -43,6 +43,7 @@
       - dconf-cli
       - dnsutils
       - elinks
+      - ethtool
       - exfat-fuse
       - exuberant-ctags
       - fakeroot
@@ -58,13 +59,18 @@
       - iotop
       - iperf
       - irssi
+      - jq
       - libfontconfig
       - libfreetype6
       - libfreetype6-dev
       - linux-firmware
       - lm-sensors
+      - lsof
       - make
       - mercurial
+      - mtr-tiny
+      - ncdu
+      - netcat-openbsd
       - nethogs
       - net-tools
       - nmap
@@ -81,7 +87,9 @@
       - ssh
       - sshfs
       - sysstat
+      - tcpdump
       - tmux
+      - traceroute
       - tree
       - unrar
       - unzip
@@ -115,6 +123,16 @@
     # Renamed to libfuse2t64 by the 64-bit time_t transition on Ubuntu 24.04+.
     name: "{{ 'libfuse2t64' if ansible_facts['distribution_version'] is version('24.04', '>=') else 'libfuse2' }}"
     state: present
+  become: true
+
+# Both provide /usr/bin/traceroute through alternatives at the same priority, so on a host
+# carrying both the name resolves to whichever registered first. inetutils-traceroute is the
+# weaker of the two: IPv4 only, and no TCP probes.
+- name: Uninstall inetutils-traceroute
+  ansible.builtin.apt:
+    name: inetutils-traceroute
+    state: absent
+    purge: true
   become: true
 
 - name: Enable universe and multiverse repositories
