@@ -45,14 +45,3 @@
           {{ homeautomation_router_kva_sample_entity_id | quote }}
           {{ homeautomation_router_kva_sample_container | quote }}
       become: true
-
-# CLEANUP (added 2026-09-07): the entry this one replaced, written by the router role while
-# the sampler lived there. Both files are read, so a host that has not run this play samples
-# twice an hour. Delete once every Home Assistant host has converged.
-- name: Remove the router role's router-kva-sample cron entry
-  ansible.builtin.cron:
-    name: router-kva-sample
-    cron_file: /etc/cron.d/ansible-role-router
-    user: "{{ homeautomation_router_kva_sample_user }}"
-    state: absent
-  become: true
