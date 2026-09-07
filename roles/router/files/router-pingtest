@@ -19,9 +19,31 @@ export PATH
 set -u
 
 NAME="$(basename "$0")"
+LOCK=/var/run/router-pingtest.lock
 
 [ "$#" -ge 4 ] \
     || { echo "Usage: ${NAME} <interface> <downSeconds> <settleSeconds> <target>..." >&2; exit 1; }
+
+# One run at a time, and ahead of the shift below so the re-exec gets the arguments whole.
+# Two overlapping runs would have one downing the interface while the other decides whether
+# it answers, which reads as a dead link and bounces it again.
+#
+# -k keeps the file, so its mtime is the last-run timestamp and nothing else here has one:
+# a healthy run logs nothing, and pfSense records no cron output. It also keeps lockf from
+# unlinking a file another run may already have open. -s: lockf announces a contended lock
+# on stderr, and cron mails that.
+if [ "${ROUTER_PINGTEST_LOCKED:-}" != "1" ]; then
+    ROUTER_PINGTEST_LOCKED=1
+    export ROUTER_PINGTEST_LOCKED
+    lockf -k -s -t 0 "${LOCK}" "$0" "$@"
+    rc=$?
+    # 75 is EX_TEMPFAIL, which is lockf saying another run holds it. Not an error: the run
+    # already under way is doing the work, and cron mails a non-zero exit.
+    [ "${rc}" -eq 75 ] && exit 0
+    exit "${rc}"
+fi
+
+touch "${LOCK}"
 
 interface=${1}
 down_seconds=${2}
