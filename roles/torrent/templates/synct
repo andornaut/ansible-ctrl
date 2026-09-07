@@ -100,10 +100,8 @@ sync_host() {
 # An unreachable host is no reason to skip the rest. The names go in the message
 # because error() ignores the --quiet the cron job passes.
 failed_hosts=""
-{% for host in ansible_play_batch %}
-{% if host != "localhost" %}
-sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/completed/" || failed_hosts+=" {{ host }}"
-{% endif %}
+{% for host in groups['torrent'] | default([]) %}
+sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/" || failed_hosts+=" {{ host }}"
 {% endfor %}
 
 # Non-zero so cron reports the run, and the chained unrart does not run against a

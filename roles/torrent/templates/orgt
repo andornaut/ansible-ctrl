@@ -89,10 +89,8 @@ list_remote_entries() {
 
 header "Comparing ${incoming_dir} against remote completed directories"
 
-{% for host in ansible_play_batch -%}
-{% if host != "localhost" -%}
-list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/completed/"
-{% endif -%}
+{% for host in groups['torrent'] | default([]) -%}
+list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/"
 {% endfor -%}
 
 # Eligible: incoming entries on no remote and not a guide file. NUL-separated bare names,

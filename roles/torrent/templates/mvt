@@ -106,14 +106,12 @@ lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
     # A held lock means a prior run is wedged, an upload taking seconds.
     flock -n 9 || error "A previous upload is still running"
     upload_failed=false
-    # Derived from each host's own root: a delegated task resolves plain variables from
-    # the play host, so torrent_watch_directory would name this host's path for every.
-{% for host in ansible_play_batch %}
-{% if host != "localhost" %}
+    # Derived from each host's own root: torrent_watch_directory belongs to the play that
+    # configures one rtorrent host, and would name that host's path for every host here.
+{% for host in groups['torrent'] | default([]) %}
 {% for watch_dir in torrent_local_watch_directories %}
-    upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ hostvars[host].torrent_root_directory | default(torrent_root_directory) }}/watch/" || upload_failed=true
+    upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ hostvars[host].torrent_root_directory }}/watch/" || upload_failed=true
 {% endfor %}
-{% endif %}
 {% endfor %}
     "${upload_failed}" && exit 1
     exit 0

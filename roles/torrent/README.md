@@ -11,17 +11,24 @@ scripts on the controller.
 ```bash
 make torrent
 
+# The controller's scripts and cron jobs on their own
+make torrent -- --limit faramir_controller
+
 # Attach to the rtorrent UI on the remote host
 tmux -L rtorrent attach -t rtorrent
 ```
 
-The play targets the `torrent` group (the remote rtorrent host). [tasks/localhost.yml](./tasks/localhost.yml) is
-delegated to the implicit `localhost` (the controller) and runs only when the target is not localhost. The
-`localhost` tag selects it on its own: `make torrent -- --tags localhost` reconciles the controller's scripts and
-cron jobs without applying the rtorrent half.
+[torrent.yml](../../torrent.yml) has two plays. The first applies this role to the `torrent` group (the remote
+rtorrent hosts); the second imports [tasks/controller.yml](./tasks/controller.yml) against `faramir_controller`
+with `tasks_from`. `make torrent -- --limit faramir_controller` reconciles the controller's scripts and cron jobs
+without applying the rtorrent half.
 
-- A delegated task resolves plain variables from the play host, not the delegate, so the controller-side
-  `torrent_local_*` vars live in the play host's `host_vars/`, not a `localhost` host_vars file.
+- A second play rather than `delegate_to: localhost`, because the controller is the host being configured: the
+  `torrent_local_*` vars describe it, so they live in the controller's `host_vars/`.
+- The scripts name every host in the `torrent` group, read from `groups['torrent']` rather than from the play's
+  own hosts, so a `--limit` run still generates scripts covering the whole group.
+- Each torrent host must set `torrent_root_directory` in its `host_vars/`. The controller play reads it through
+  `hostvars` and the role defaults are not available there, so an unset host is refused by name.
 - Do not add `localhost` to the inventory: it would be swept into every `hosts: all` play.
 
 ## Variables
@@ -54,13 +61,13 @@ Installed to `/usr/local/bin/` on the controller:
 
 ### Shared behaviour
 
-| Behaviour                                                                                                                                                                                                                                                                                         | Constraint                                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Each script is generated with one call per host in the play batch (a `--limit` run generates scripts covering only those hosts), from that host's own `hostvars[host].torrent_root_directory` (falling back to the play host's value), appending the `watch/` and `completed/` subdirectory names | The role's `torrent_watch_directory` and `torrent_completed_directory` would name one host's paths for every host                                                                          |
-| `mvt`, `synct` and `unrart` keep going past a failed host, file or archive, and exit non-zero at the end                                                                                                                                                                                          | cron notices the exit code, not the warnings                                                                                                                                               |
-| `--quiet` suppresses progress output only; `warn()` and `error()` print regardless                                                                                                                                                                                                                | A healthy quiet run prints nothing, so anything in the log names something that failed                                                                                                     |
-| `mvt` and `synct` take a `flock` (`mvt` one for the whole run, `synct` one per host and directory) and fail when it is held                                                                                                                                                                       | A transfer takes seconds and cron fires every 2 minutes, so a held lock means a prior run is wedged                                                                                        |
-| Both pass ssh `ConnectTimeout=10`, `ServerAliveInterval=15`, `ServerAliveCountMax=4`                                                                                                                                                                                                              | Bounds how long that lock is held. Otherwise an unreachable host waits out the kernel's TCP connect timeout, and a stalled transfer hangs until `TCPKeepAlive` gives up, roughly two hours |
+| Behaviour                                                                                                                                                                                        | Constraint                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Each script is generated with one call per host in `groups['torrent']`, from that host's own `hostvars[host].torrent_root_directory`, appending the `watch/` and `completed/` subdirectory names | The role's `torrent_watch_directory` and `torrent_completed_directory` would name one host's paths for every host                                                                          |
+| `mvt`, `synct` and `unrart` keep going past a failed host, file or archive, and exit non-zero at the end                                                                                         | cron notices the exit code, not the warnings                                                                                                                                               |
+| `--quiet` suppresses progress output only; `warn()` and `error()` print regardless                                                                                                               | A healthy quiet run prints nothing, so anything in the log names something that failed                                                                                                     |
+| `mvt` and `synct` take a `flock` (`mvt` one for the whole run, `synct` one per host and directory) and fail when it is held                                                                      | A transfer takes seconds and cron fires every 2 minutes, so a held lock means a prior run is wedged                                                                                        |
+| Both pass ssh `ConnectTimeout=10`, `ServerAliveInterval=15`, `ServerAliveCountMax=4`                                                                                                             | Bounds how long that lock is held. Otherwise an unreachable host waits out the kernel's TCP connect timeout, and a stalled transfer hangs until `TCPKeepAlive` gives up, roughly two hours |
 
 ### mvt
 

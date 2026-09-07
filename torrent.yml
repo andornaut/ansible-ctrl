@@ -3,3 +3,18 @@
   hosts: torrent
   roles:
     - torrent
+
+# The controller half of the same role. A second play rather than delegate_to: the scripts
+# and cron entries are installed on the controller and configured by torrent_local_*, so
+# the controller is the host being configured and those settings belong in its host_vars. A
+# delegated task resolves plain variables from the play host, which would put them in the
+# rtorrent host's host_vars instead.
+- name: Install the controller-side torrent scripts
+  hosts: faramir_controller
+  gather_facts: false
+  tasks:
+    # tasks_from, not roles:, which would apply the rtorrent half here as well.
+    - name: Install the torrent scripts and cron entries
+      ansible.builtin.import_role:
+        name: torrent
+        tasks_from: controller

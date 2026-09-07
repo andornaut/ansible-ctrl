@@ -3,8 +3,8 @@ torrent_root_directory: "{{ torrent_user_home }}/torrents"
 torrent_completed_directory: "{{ torrent_root_directory }}/completed"
 torrent_incoming_directory: "{{ torrent_root_directory }}/incoming"
 # Derived once, rtorrent.rc, rtorrent.service and tasks/main.yml having to agree. The
-# controller scripts cannot use them: a delegated task resolves plain variables from the
-# play host, so each appends its own subdirectory name instead.
+# controller scripts cannot use them: they run in a play of their own and name every
+# torrent host, so each appends its own subdirectory name to that host's root instead.
 torrent_session_directory: "{{ torrent_root_directory }}/session"
 torrent_watch_directory: "{{ torrent_root_directory }}/watch"
 # A private socket: on the default one the service and the user share a server, and
@@ -17,7 +17,7 @@ torrent_local_synct_log_file: /tmp/synct.log
 # The account rtorrent runs as, whose home holds .rtorrent.rc.
 torrent_user: "{{ primary_user }}"
 torrent_group: "{{ torrent_user }}"
-# Owns the cron jobs installed via delegate_to: localhost.
+# Owns the cron jobs installed by torrent.yml's controller play.
 torrent_local_user: "{{ primary_user }}"
 torrent_download_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)
 torrent_upload_rate_kib: 0 # 0 = unlimited; kibibytes per second (KiB/s)

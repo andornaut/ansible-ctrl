@@ -1,4 +1,22 @@
 ---
+# The controller half of this role, applied by torrent.yml's second play. The scripts reach
+# every host in the torrent group, so they are generated from groups['torrent'] rather than
+# from the play's own hosts.
+- name: Require every torrent host to name its root directory
+  # No default(torrent_root_directory) fallback: the role defaults belong to the play that
+  # applies this role to the torrent hosts, and this is not that play. An unset host would
+  # template an empty path into every script instead, so it is refused here by name.
+  ansible.builtin.assert:
+    that:
+      - (groups['torrent'] | default([])) | length > 0
+      - groups['torrent'] | default([]) | map('extract', hostvars, 'torrent_root_directory') | select('undefined') | list | length == 0
+    fail_msg: >-
+      Every host in the torrent group needs torrent_root_directory set in its host_vars,
+      which this play reads through hostvars. The group holds
+      {{ groups['torrent'] | default([]) | join(', ') or 'no hosts' }}.
+    quiet: true
+  become: false
+
 - name: Install templated scripts
   ansible.builtin.template:
     src: "{{ item }}"
@@ -10,7 +28,6 @@
     - synct
     - unrart
   become: true
-  delegate_to: localhost
 
 - name: Set crontab mvt schedule
   ansible.builtin.cron:
@@ -21,7 +38,6 @@
     # mvt skips a watch directory that does not exist, so no test -d guard.
     job: /usr/local/bin/mvt --quiet
   become: true
-  delegate_to: localhost
 
 - name: Set crontab synct schedule
   ansible.builtin.cron:
@@ -36,4 +52,3 @@
       && /usr/local/bin/synct --quiet >> {{ torrent_local_synct_log_file }} 2>&1
       && /usr/local/bin/unrart --quiet >> {{ torrent_local_synct_log_file }} 2>&1
   become: true
-  delegate_to: localhost
