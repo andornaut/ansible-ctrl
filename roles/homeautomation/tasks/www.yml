@@ -30,13 +30,20 @@
       delay: 5
       until: homeautomation_advanced_camera_card_download is succeeded
 
-    # Emptied rather than extracted over: -j writes the archive's files into the
-    # destination and deletes nothing, so every chunk a later release stopped shipping
-    # would stay here for good, served alongside the ones that replaced it.
-    - name: Empty the advanced-camera-card directory
+    - name: Create the advanced-camera-card staging directory
       ansible.builtin.file:
-        path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
-        state: absent
+        path: "{{ homeautomation_advanced_camera_card_tmp.path }}/staging"
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Extract advanced-camera-card into the staging directory
+      ansible.builtin.unarchive:
+        src: "{{ homeautomation_advanced_camera_card_tmp.path }}/advanced-camera-card.zip"
+        dest: "{{ homeautomation_advanced_camera_card_tmp.path }}/staging"
+        remote_src: true
+        # -j flattens the archive's ./dist directory into the destination.
+        extra_opts: "-j"
       become: true
 
     - name: Create advanced-camera-card directory
@@ -46,21 +53,38 @@
         mode: "0755"
       become: true
 
+    # Staged and synced rather than extracted over the served directory. -j deletes
+    # nothing, so a chunk a later release stopped shipping would stay for good; --delete
+    # removes exactly those. Syncing also leaves the previous release serving until a
+    # complete new one exists, where extracting into an emptied directory 404s the card
+    # for the length of the extraction and indefinitely if it fails, and it leaves
+    # unchanged files alone, so browsers do not re-fetch every chunk after each run.
+    #
+    # Not --archive: that preserves permissions, and the task below owns those, so every
+    # file would differ from the staging copy and re-sync on every run. --times is what
+    # makes the comparison stable, the archive recording one mtime per release.
     - name: Install advanced-camera-card files
-      ansible.builtin.unarchive:
-        src: "{{ homeautomation_advanced_camera_card_tmp.path }}/advanced-camera-card.zip"
-        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
-        remote_src: true
-        # -j flattens the archive's ./dist directory into the destination.
-        extra_opts: "-j"
+      ansible.builtin.command:
+        argv:
+          - rsync
+          - --recursive
+          - --links
+          - --times
+          # The served directory's own mtime, which the staging directory being made
+          # afresh each run would otherwise rewrite, reporting a change every time.
+          - --omit-dir-times
+          - --delete
+          - --itemize-changes
+          - "{{ homeautomation_advanced_camera_card_tmp.path }}/staging/"
+          - "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card/"
+      register: homeautomation_advanced_camera_card_sync
+      changed_when: homeautomation_advanced_camera_card_sync.stdout != ""
       become: true
 
-    # Named here rather than on the unarchive above, which applies file attributes to dest
-    # joined with the paths recorded in the archive: -j did not create those, so a mode
-    # there fails the task on every run. These are served to a browser, so the mode is
-    # named rather than left to whatever umask extracted them. Ownership is named for a
-    # second reason: extraction keeps the uid and gid the archive records, and the rest of
-    # the config volume is root's.
+    # These are served to a browser, so the mode is named rather than left to whatever the
+    # archive recorded, which the sync above deliberately does not carry over. Ownership
+    # is named for a second reason: extraction keeps the uid and gid the archive records,
+    # and the rest of the config volume is root's.
     - name: Let every account read the advanced-camera-card files
       ansible.builtin.file:
         path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/advanced-camera-card"
