@@ -37,7 +37,13 @@
         mode: "0755"
       become: true
 
+    # Skipped under --check, where get_url above honours check mode and downloads
+    # nothing, so the archive this reads is not there and the task fails rather than
+    # reporting. The sync below needs no guard: a command task is skipped in check mode
+    # already, which is as well, because --delete against an empty staging directory
+    # would take the installed card with it.
     - name: Extract advanced-camera-card into the staging directory
+      when: not ansible_check_mode
       ansible.builtin.unarchive:
         src: "{{ homeautomation_advanced_camera_card_tmp.path }}/advanced-camera-card.zip"
         dest: "{{ homeautomation_advanced_camera_card_tmp.path }}/staging"

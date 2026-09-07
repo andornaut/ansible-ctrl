@@ -93,7 +93,13 @@
           delay: 5
           until: homeautomation_github_component_unarchive is succeeded
 
+        # Skipped under --check, where the unarchive above honours check mode and writes
+        # nothing, so the tree this copies from is not there and the task fails rather
+        # than reporting. Without this a --check run of the role stops at the first
+        # component whose version does not match, which is every component whose project
+        # ships a placeholder version.
         - name: Install files for {{ github_component_name }}
+          when: not ansible_check_mode
           ansible.builtin.copy:
             src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
             dest: "{{ github_component_dest_dir }}"

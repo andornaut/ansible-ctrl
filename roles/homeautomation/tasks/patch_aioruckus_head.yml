@@ -14,6 +14,9 @@
   register: homeautomation_aioruckus
   changed_when: false
   failed_when: false
+  # The command only reads, and a --check run that skipped it would leave the register
+  # without the rc the until below and the when on the next task both read.
+  check_mode: false
   retries: 30
   delay: 10
   until: homeautomation_aioruckus.rc == 0
