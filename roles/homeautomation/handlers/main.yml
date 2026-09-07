@@ -26,6 +26,12 @@
     name: llamacpp
     restart: true
 
+- name: Restart mxa-manager
+  ansible.builtin.systemd_service:
+    name: mxa-manager
+    state: restarted
+  become: true
+
 - name: Reload sysctl
   ansible.builtin.command: sysctl --system
   become: true

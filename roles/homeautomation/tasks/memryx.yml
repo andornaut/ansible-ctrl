@@ -99,16 +99,21 @@
   when: ansible_facts['kernel'] not in homeautomation_memryx_dkms_status.stdout
   changed_when: true
   become: true
+  notify: Restart mxa-manager
 
 - name: Load MemryX kernel module
   community.general.modprobe:
     name: memx_cascade_plus_pcie
     state: present
   become: true
+  notify: Restart mxa-manager
 
-- name: Restart mxa-manager service
+# started, not restarted: the manager has to match the loaded module, and the two tasks
+# above are the only things here that change it, so each notifies the restart. A plain
+# restarted would bounce the accelerator Frigate detects through on every converge.
+- name: Enable and start the mxa-manager service
   ansible.builtin.systemd_service:
     name: mxa-manager
-    state: restarted
+    state: started
     enabled: true
   become: true
