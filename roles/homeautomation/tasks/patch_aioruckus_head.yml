@@ -13,11 +13,12 @@
       - "import aioruckus, inspect, os; print(os.path.join(os.path.dirname(inspect.getfile(aioruckus)), 'ajaxsession.py'))"
   register: homeautomation_aioruckus
   changed_when: false
-  failed_when: false
   # Skipped under --check rather than run: the patch below cannot be applied there anyway,
   # docker_container_exec supporting no check mode, and on a host whose container this run
   # would only have reported creating, the wait would spend its full thirty attempts first.
   when: not ansible_check_mode
+  # Exhausting the retries marks the task failed whatever failed_when says, so the wait is
+  # left to fail the play: a host that never installs aioruckus cannot be patched.
   retries: 30
   delay: 10
   # default(1): the module returns rc only when the exec ran. A container that is missing,
@@ -35,7 +36,7 @@
       - >-
         f='{{ homeautomation_aioruckus.stdout | trim }}';
         grep -q 'self.websession.head(' "$f" || exit 0;
-        sed -i 's/self\.websession\.head(/self.websession.get(/g' "$f";
+        sed -i 's/self\.websession\.head(/self.websession.get(/g' "$f" &&
         echo patched
   register: homeautomation_aioruckus_patch
   changed_when: "'patched' in homeautomation_aioruckus_patch.stdout"
