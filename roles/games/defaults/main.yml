@@ -8,6 +8,12 @@ games_user: "{{ primary_user }}"
 # lit for the length of a play session. True restores upstream's default.
 games_gamemode_inhibit_screensaver: false
 
+# Accounts put in the `gamemode` group, which the package's own polkit rule grants the
+# daemon's root helpers to. The grant is account-wide rather than daemon-wide: README.md's
+# GameMode section. A host with a second login that launches games names it here.
+games_gamemode_users:
+  - "{{ games_user }}"
+
 # Run games inside gamescope. A game that sizes its window to the display without setting
 # the fullscreen state leaves GNOME's top bar and dock drawn above it; gamescope takes the
 # fullscreen state itself and the game renders inside it. It also keeps a game's own

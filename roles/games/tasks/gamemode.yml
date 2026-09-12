@@ -1,7 +1,8 @@
 ---
-# apt.yml installs the daemon; this is the one setting of its own the role owns. The
-# desktop role's idle backstop is what covers the rest, a game engine holding an inhibitor
-# of its own being outside anything this can turn off.
+# apt.yml installs the daemon. This owns two things: the one setting in /etc/gamemode.ini,
+# and membership of the `gamemode` group, which is what the daemon's root helpers are
+# granted to. The desktop role's idle backstop is what covers the rest, a game engine
+# holding an inhibitor of its own being outside anything this can turn off.
 - name: Install the GameMode configuration
   ansible.builtin.template:
     src: gamemode.ini.j2
@@ -11,14 +12,26 @@
     mode: "0644"
   become: true
 
-# The shipped policy answers "no" to every GameMode helper for every account, so without this
-# the daemon enters Game Mode and none of its system-wide settings (governor, core pinning,
-# split-lock mitigation, GPU clocks) land. polkitd watches rules.d, so nothing reloads.
-- name: Grant GameMode's helpers to {{ games_user }}
-  ansible.builtin.template:
-    src: gamemode.rules.j2
-    dest: /etc/polkit-1/rules.d/50-ansible-role-games-gamemode.rules
-    owner: root
-    group: root
-    mode: "0644"
+# The package ships the polkit rule that grants its helpers to the `gamemode` group and puts
+# nobody in it. polkitd resolves the group by name at each check, so no re-login is needed.
+- name: Create the gamemode group
+  ansible.builtin.group:
+    name: gamemode
+    system: true
+  become: true
+
+- name: Add the GameMode accounts to the gamemode group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: gamemode
+    append: true
+  loop: "{{ games_gamemode_users }}"
+  become: true
+
+# CLEANUP (added 2026-09-12): a polkit rule this role wrote in place of the membership above.
+# Delete once every host in the games group has converged.
+- name: Remove the polkit rule this role no longer writes
+  ansible.builtin.file:
+    path: /etc/polkit-1/rules.d/50-ansible-role-games-gamemode.rules
+    state: absent
   become: true
