@@ -26,11 +26,11 @@
     that:
       - desktop_idle_backstop_mechanism | length > 0
     fail_msg: >-
-      desktop_environment "{{ desktop_environment }}" has no idle reading an inhibitor
-      cannot freeze and no way to power the panel down from outside the compositor, so no
-      backstop can be built for it. Set desktop_idle_backstop_minutes to 0 on this host.
+      desktop_environment "{{ desktop_environment }}" has no way to power the panel down
+      from outside the compositor, so no backstop can be built for it. Set
+      desktop_idle_backstop_minutes to 0 on this host.
     success_msg: >-
-      Idle backstop reads and powers the display through "{{ desktop_idle_backstop_mechanism }}"
+      Idle backstop powers the display down through "{{ desktop_idle_backstop_mechanism }}"
 
 # Before the backstop, which exits and waits for a restart while the stamp is missing.
 - name: Install the idle input reader
@@ -62,8 +62,8 @@
         enabled: true
         state: started
 
-# A permanent off switch, not a migration: a host that leaves niri, or turns the backstop
-# off, would otherwise keep a root service reading every input device for nothing.
+# A permanent off switch, not a migration: a host that turns the backstop off would
+# otherwise keep a root service reading every input device for nothing.
 - name: Remove the idle input reader
   when: not desktop_idle_input_managed | bool
   become: true
@@ -98,7 +98,7 @@
     - name: Install the idle backstop packages
       ansible.builtin.apt:
         name: >-
-          {{ {"ddc": ["ddcutil"], "xset": ["xprintidle"]}.get(desktop_idle_backstop_mechanism, []) }}
+          {{ {"ddc": ["ddcutil"]}.get(desktop_idle_backstop_mechanism, []) }}
         state: latest
         install_recommends: false
         update_cache: true

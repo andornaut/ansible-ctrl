@@ -4,8 +4,8 @@
 # The floor under the session's blanking policy. GNOME, xss-lock and hypridle each honour
 # an idle inhibitor for as long as an application holds one, and none of them caps how
 # long that may be, so a game left running keeps a static image on the panel indefinitely.
-# This reads an idle time no inhibitor can freeze and powers the panel down from outside
-# the compositor once it passes the threshold.
+# This reads an idle time measured from the input devices and powers the panel down from
+# outside the compositor once it passes the threshold.
 set -euo pipefail
 
 readonly MECHANISM={{ desktop_idle_backstop_mechanism }}
@@ -14,11 +14,10 @@ readonly THRESHOLD_MS={{ desktop_idle_backstop_minutes | int * 60 * 1000 }}
 # is what turns the panel back on, and that latency is felt at the keyboard.
 readonly POLL_LIT_SECONDS=30
 readonly POLL_DARK_SECONDS=2
-# Consecutive failed idle reads before this exits for systemd to start it again. A unit
-# started outside a graphical session has no display and no session bus to read, and the
-# import that fixes that reaches the user manager rather than an already-running service,
-# so exiting is what picks the session up. Restarting is also the only signal that a
-# backstop is not backstopping anything.
+# Consecutive failed idle reads before this exits for systemd to start it again. A failed
+# read means desktop-idle-input.service is gone or its stamp has gone stale, so there is no
+# idle time to act on and no threshold this can honestly claim to enforce. Restarting is
+# also the only signal that a backstop is not backstopping anything.
 readonly MAX_READ_FAILURES=3
 # Wake attempts before giving up on a panel that will not answer, so a monitor that has
 # gone unreachable is not written to every two seconds for the rest of the session.
@@ -32,39 +31,28 @@ log() {
     printf '%s\n' "$*" >&2
 }
 
-# Milliseconds since the last real input.
+# Milliseconds since the last real input, off the stamp desktop-idle-input publishes.
+#
+# No compositor's own idle time will do, whatever it counts on paper. mutter resets
+# org.gnome.Mutter.IdleMonitor.GetIdletime when an idle inhibitor is released, an X server
+# resets XScreenSaverQueryInfo's for any client that calls XResetScreenSaver, and niri
+# exposes only ext-idle-notify-v1, which it gates on the inhibitors outright. Each can be
+# held under any threshold by the very policy this exists to floor. Reading the devices is
+# what is left.
+#
+# The stamp carries the idle time the reader measured, then a heartbeat. It does its own
+# measuring, on a clock that does not run while the host is suspended, so a resume is not
+# read as however long the machine was away.
+#
+# A heartbeat that is stale means that reader is gone and the number beside it is frozen,
+# which would read as a session going idle. One ahead of this clock means the clock stepped
+# back, leaving a stamp frozen by definition. Neither is believed.
 idle_ms() {
-    case "${MECHANISM}" in
-    ddc)
-        # mutter's idle monitor counts input, not policy: an inhibitor is honoured in
-        # gnome-session and leaves this climbing. GNOME is Wayland-only, so there is no X
-        # server to ask instead.
-        busctl --user call org.gnome.Mutter.IdleMonitor /org/gnome/Mutter/IdleMonitor/Core \
-            org.gnome.Mutter.IdleMonitor GetIdletime | awk '{print $2}'
-        ;;
-    xset)
-        # XScreenSaverQueryInfo counts input too. XScreenSaverSuspend, which is what an
-        # X11 application holds to keep the screen alive, stops the screensaver activating
-        # without freezing this counter.
-        xprintidle
-        ;;
-    niri)
-        # niri exposes no idle time of its own, only ext-idle-notify-v1, which it gates on
-        # the inhibitors this has to see past. The stamp is what desktop-idle-input reads
-        # off the input devices instead: the idle time it measured, then a heartbeat. It
-        # does its own measuring, on a clock that does not run while the host is suspended,
-        # so a resume is not read as however long the machine was away.
-        #
-        # A heartbeat that is stale means that reader is gone and the number beside it is
-        # frozen, which would read as a session going idle. One ahead of this clock means
-        # the clock stepped back, leaving a stamp frozen by definition. Neither is believed.
-        local idle beat now
-        read -r idle beat <{{ desktop_idle_input_stamp }} || return 1
-        now=$(printf '%(%s)T' -1)
-        ((now - beat >= 0 && now - beat <= {{ desktop_idle_input_stale_seconds }})) || return 1
-        echo "${idle}"
-        ;;
-    esac
+    local idle beat now
+    read -r idle beat <{{ desktop_idle_input_stamp }} || return 1
+    now=$(printf '%(%s)T' -1)
+    ((now - beat >= 0 && now - beat <= {{ desktop_idle_input_stale_seconds }})) || return 1
+    echo "${idle}"
 }
 
 # Every DDC-capable panel, not one. ddcutil addresses the first detected display when no
@@ -139,7 +127,7 @@ while true; do
         read_failures=$((read_failures + 1))
         log "could not read the idle time (${read_failures}/${MAX_READ_FAILURES})"
         if ((read_failures >= MAX_READ_FAILURES)); then
-            log "exiting, so the restart reads the session environment as it stands now"
+            log "exiting, so the restart picks up the input reader when it is back"
             finish 1
         fi
     elif ((idle >= THRESHOLD_MS)); then

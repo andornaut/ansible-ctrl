@@ -15,11 +15,12 @@ measured on a clock that does not run while the host is suspended. A wall clock 
 a resume look like however long the machine was away, which is past any threshold worth
 setting, and the panel would go dark as its user sat back down.
 
-This exists for niri. GNOME answers org.gnome.Mutter.IdleMonitor.GetIdletime and X11 answers
-XScreenSaverQueryInfo, both of them counting input rather than policy, so an idle inhibitor
-leaves them climbing. A Wayland compositor without such an interface offers only
-ext-idle-notify-v1, which it gates on those same inhibitors, so anything built on it is
-switched off by the one condition a backstop is for. Reading the devices is what is left.
+This exists because no compositor's own idle time can floor a policy, whatever it counts on
+paper. mutter resets org.gnome.Mutter.IdleMonitor.GetIdletime when an idle inhibitor is
+released, an X server resets the XScreenSaverQueryInfo idle time for any client that calls
+XResetScreenSaver, and a Wayland compositor without an idle-time interface offers only
+ext-idle-notify-v1, which it gates on those same inhibitors. Each can be held under any
+threshold by the very policy a backstop exists to floor. Reading the devices is what is left.
 
 It runs as root because the alternative is putting the session's account in the `input`
 group, which would let anything running as that account read every keystroke: on Wayland,
