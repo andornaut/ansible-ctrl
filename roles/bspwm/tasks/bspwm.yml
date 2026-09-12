@@ -75,3 +75,86 @@
     group: root
     mode: "0644"
   become: true
+
+# The session target and the wrapper that holds it: README.md's Notes. graphical-session.target
+# ships StopWhenUnneeded=yes, so it stays up only while an active unit requires it, and the
+# wrapper's bspwm-session.target is that unit for the length of the session. Nothing else may
+# stand in for it: a bar that Requires= the target takes every unit wanted by the session
+# down with it when it crashes.
+- name: Create the local systemd user unit directory
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/user
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Install the bspwm session target
+  ansible.builtin.copy:
+    src: bspwm-session.target
+    dest: /usr/local/lib/systemd/user/bspwm-session.target
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Install the bspwm session wrapper
+  ansible.builtin.copy:
+    src: bspwm-session
+    dest: /usr/local/bin/bspwm-session
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Validate bspwm_user
+  ansible.builtin.assert:
+    that:
+      - bspwm_user != "root"
+    fail_msg: >-
+      bspwm_user resolved to "root", whose user manager is not the session's. Set
+      primary_user in the inventory (or bspwm_user in host_vars) to the session's account.
+    success_msg: 'bspwm_user "{{ bspwm_user }}" is valid'
+  become: false
+
+- name: Resolve the uid of {{ bspwm_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ bspwm_user }}"
+  become: false
+
+# A running manager reads /usr/local/lib/systemd/user only on reload, so without this a
+# session logged in before the target existed could not start it until the next login.
+- name: Reload the systemd user manager
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: user
+  become: true
+  become_user: "{{ bspwm_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ bspwm_user_uid }}"
+
+- name: Check for a running bspwm session
+  ansible.builtin.command:
+    argv: [pgrep, -u, "{{ bspwm_user }}", -x, bspwm]
+  register: bspwm_session_running
+  changed_when: false
+  failed_when: bspwm_session_running.rc not in [0, 1]
+  # A --check run needs the register below, and pgrep changes nothing.
+  check_mode: false
+  become: false
+
+# A session logged in before the target existed gets it now, as a fresh login would. One
+# that is not running gets nothing: the target has no session to hold for, and raising it
+# would start every unit wanted by a session that does not exist.
+- name: Hold the session target for the running session
+  when: bspwm_session_running.rc == 0
+  ansible.builtin.systemd_service:
+    name: bspwm-session.target
+    scope: user
+    state: started
+  become: true
+  become_user: "{{ bspwm_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ bspwm_user_uid }}"

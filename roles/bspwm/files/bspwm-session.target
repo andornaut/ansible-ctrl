@@ -1,0 +1,10 @@
+[Unit]
+Description=bspwm session
+Documentation=man:systemd.special(7)
+# graphical-session.target ships StopWhenUnneeded=yes, so it stays up only while an active
+# unit requires it. This is that unit for the length of the session: bspwm-session holds it
+# while bspwm runs and stops it after. BindsTo rather than Requires so this also goes down
+# with it, the two rising and falling as one.
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

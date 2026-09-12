@@ -1,4 +1,9 @@
 ---
+# The account whose running session tasks/bspwm.yml reaches: its user manager is reloaded so
+# the session target is known before the next login, and the target is held for a session
+# already logged in. Never derived from who ansible connects as, which is root under cron.
+bspwm_user: "{{ primary_user }}"
+
 bspwm_projects:
   - { name: sres, repo: "https://github.com/baskerville/sres.git" }
   - { name: sutils, repo: "https://github.com/baskerville/sutils.git" }

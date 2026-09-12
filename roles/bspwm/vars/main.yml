@@ -1,0 +1,5 @@
+---
+# Derived from defaults/main.yml, not an operator knob. From the getent in tasks/bspwm.yml; the
+# uid feeds XDG_RUNTIME_DIR, which locates the user manager when Ansible escalates to an
+# account it did not log in as.
+bspwm_user_uid: "{{ ansible_facts['getent_passwd'][bspwm_user][1] }}"

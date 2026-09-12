@@ -1,0 +1,14 @@
+#!/bin/sh
+# The X session bspwm.desktop names. Holds bspwm-session.target, and through it
+# graphical-session.target, for exactly as long as bspwm runs: the units wanted by the session
+# start with it and stop with it, rather than with whichever of them happened to require the
+# target. No `set -e`: bspwm's exit status is reported after the target is released, whatever
+# it was.
+set -u
+
+systemctl --user import-environment DISPLAY XAUTHORITY
+systemctl --user start bspwm-session.target
+/usr/local/bin/bspwm
+status=$?
+systemctl --user stop bspwm-session.target
+exit "$status"

@@ -108,8 +108,11 @@
           [Unit]
           Description=ElKowars wacky widgets
           Documentation=https://elkowar.github.io/eww/
+          # PartOf and After only, never Requires: graphical-session.target ships
+          # StopWhenUnneeded=yes, so a unit that requires it is what keeps it up, and a bar
+          # in that position takes every unit wanted by the session down with it when it
+          # crashes. The session's own target holds it; the bar follows.
           PartOf=graphical-session.target
-          Requires=graphical-session.target
           After=graphical-session.target
           #ConditionEnvironment=WAYLAND_DISPLAY
 
@@ -118,6 +121,10 @@
           # The daemon ignores SIGTERM once its windows are mapped, so ExecStop uses
           # `eww kill`. The timeout and ExecStartPre catch a server that survives anyway.
           TimeoutStopSec=5
+          # It segfaults on a monitor reconnect now and then; a bar that stays dead until
+          # the next login is the wrong outcome. ExecStartPre clears what the crash left.
+          Restart=on-failure
+          RestartSec=2
           ExecStartPre=-/usr/local/bin/eww kill
           ExecStart=/usr/local/bin/eww daemon --no-daemonize --logs
           ExecStartPost=/usr/local/bin/eww open {{ desktop_eww_bar }}
