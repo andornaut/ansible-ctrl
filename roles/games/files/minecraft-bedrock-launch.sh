@@ -56,6 +56,22 @@ minecraft_window() {
     echo "$w"
 }
 
+# One launch at a time. A desktop entry gives no launch feedback and the game takes ten to
+# fifteen seconds to show a window, which makes a second click the ordinary case rather than
+# the exceptional one, and two runs racing decide independently that nothing is running, then
+# clear each other's GPU-session marker. Held for the whole run and released by the kernel
+# when this exits, so a run that is killed leaves nothing to clear.
+if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+    exec 9>"$XDG_RUNTIME_DIR/minecraft-bedrock-launch.lock"
+    if ! flock -n 9; then
+        log "Another launch is already running; leaving it to finish."
+        notify low "Minecraft is already launching" "The window takes a moment to appear."
+        exit 0
+    fi
+else
+    log "No XDG_RUNTIME_DIR; launching without the concurrency guard."
+fi
+
 log "Checking for a running BedrockOnLinux instance..."
 if running_instance; then
     log "BedrockOnLinux is already running."
@@ -121,9 +137,13 @@ done
 # reports a refused launch as a desktop notification, which is the only channel a desktop
 # entry has. Signing in stays a launcher step, its device-code flow having nowhere to
 # display from here.
+#
+# `9>&-` closes the lock descriptor in the child: a shell opens fd 9 inheritable, so a game
+# process that outlives this script would otherwise keep the lock held and refuse every later
+# launch. This blocks for the game's life, which is what holds the lock while it runs.
 log "Launching Minecraft..."
 notify low "Launching Minecraft" "The window takes a moment to appear."
-$FLATPAK_CMD play
+$FLATPAK_CMD play 9>&-
 rc=$?
 log "Play exited (exit code: $rc)."
 if [ "$rc" -ne 0 ]; then

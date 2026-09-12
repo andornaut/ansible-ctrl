@@ -31,11 +31,17 @@ previous session is being closed first, and it reports a Lutris that exits non-z
 gets nothing, Lutris showing its own errors in dialogs. Every one is transient, so none reaches
 the message list. The icon is the one the games role installs for the slug.
 
+One launch at a time per prefix, held under a lock in the runtime directory: a second activation
+would otherwise tear down what the first has just started, the teardown having no way to tell a
+stale session from a sibling run's. A second run says so and leaves the first alone.
+
 Exits with whatever Lutris returns. A teardown that cannot read or signal something is not fatal:
 the launch is still worth attempting.
 """
 
 import contextlib
+import fcntl
+import hashlib
 import os
 import signal
 import subprocess
@@ -93,6 +99,35 @@ class Notifier:
             return
         if result.returncode == 0 and result.stdout.strip():
             self.notification_id = result.stdout.strip()
+
+
+@contextlib.contextmanager
+def prefix_lock(prefix):
+    """Hold this prefix's launch lock for the block, yielding False when another run has it.
+
+    One launch at a time per prefix. teardown() cannot tell a stale session from one a sibling
+    run started a second ago, both carrying the prefix in their environment and neither being
+    an ancestor of the other, so a second launch kills what the first has just started. A
+    desktop entry gives no launch feedback and a launch takes twenty seconds to put a window
+    up, which makes a second click the ordinary case rather than the exceptional one.
+
+    Held for the whole run and released by the kernel when this process ends, so a run that is
+    killed or crashes leaves nothing to clear. The name is a digest because the lock belongs to
+    the prefix, not the game: two games sharing one prefix must not launch at once either.
+    """
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime_dir:
+        print("lutris-launch-game: no XDG_RUNTIME_DIR; launching without the concurrency guard", file=sys.stderr)
+        yield True
+        return
+    digest = hashlib.sha256(prefix.encode()).hexdigest()[:16]
+    with (Path(runtime_dir) / f"lutris-launch-game.{digest}.lock").open("w") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+            return
+        yield True
 
 
 def stat_fields(pid):
@@ -212,21 +247,27 @@ def main():
     name = sys.argv[4] if len(sys.argv) == 5 else slug
     notifier = Notifier(name, f"lutris_{slug}")
 
-    notifier.show(f"Launching {name}", "The window takes a moment to appear.")
-    try:
-        teardown(prefix, app_id, notifier)
-    except OSError as error:
-        print(f"lutris-launch-game: teardown incomplete ({error}); launching anyway", file=sys.stderr)
+    with prefix_lock(prefix) as acquired:
+        if not acquired:
+            print("lutris-launch-game: another launch holds this prefix; leaving it to finish")
+            notifier.show(f"{name} is already launching", "The window takes a moment to appear.")
+            return 0
 
-    # A child rather than an exec, so the exit code can be reported. A second Lutris hands its
-    # request to the first and returns at once, so this returns then too.
-    sys.stdout.flush()
-    sys.stderr.flush()
-    returncode = subprocess.call(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
-    if returncode != 0:
-        notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
-    sys.exit(returncode)
+        notifier.show(f"Launching {name}", "The window takes a moment to appear.")
+        try:
+            teardown(prefix, app_id, notifier)
+        except OSError as error:
+            print(f"lutris-launch-game: teardown incomplete ({error}); launching anyway", file=sys.stderr)
+
+        # A child rather than an exec, so the exit code can be reported. A second Lutris hands its
+        # request to the first and returns at once, so this returns then too.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        returncode = subprocess.call(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
+        if returncode != 0:
+            notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
+        return returncode
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
