@@ -1,0 +1,16 @@
+// {{ ansible_managed }}
+//
+// GameMode's helpers (cpugovctl, cpucorectl, gpuclockctl, procsysctl) run as root through
+// pkexec, and the shipped policy answers every one of them "no" for every account, so the
+// daemon enters Game Mode and none of its system-wide settings land. Granted to the games
+// account's own local, active session and to nothing else.
+polkit.addRule(function (action, subject) {
+    if (
+        action.id.indexOf("com.feralinteractive.GameMode.") === 0 &&
+        subject.user === "{{ games_user }}" &&
+        subject.local &&
+        subject.active
+    ) {
+        return polkit.Result.YES;
+    }
+});

@@ -10,3 +10,15 @@
     group: root
     mode: "0644"
   become: true
+
+# The shipped policy answers "no" to every GameMode helper for every account, so without this
+# the daemon enters Game Mode and none of its system-wide settings (governor, core pinning,
+# split-lock mitigation, GPU clocks) land. polkitd watches rules.d, so nothing reloads.
+- name: Grant GameMode's helpers to {{ games_user }}
+  ansible.builtin.template:
+    src: gamemode.rules.j2
+    dest: /etc/polkit-1/rules.d/50-ansible-role-games-gamemode.rules
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
