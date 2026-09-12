@@ -28,8 +28,8 @@ user opened as a window does not exit, and the wait ends at its deadline.
 A desktop entry has no other channel, and the teardown and the wait can take twenty seconds
 with nothing on screen, so one notification is kept current through the launch: it says when a
 previous session is being closed first, and it reports a Lutris that exits non-zero. A clean exit
-gets nothing, Lutris showing its own errors in dialogs. The icon is the one the games role installs
-for the slug.
+gets nothing, Lutris showing its own errors in dialogs. Every one is transient, so none reaches
+the message list. The icon is the one the games role installs for the slug.
 
 Exits with whatever Lutris returns. A teardown that cannot read or signal something is not fatal:
 the launch is still worth attempting.
@@ -56,6 +56,12 @@ POLL_SECONDS = 0.2
 # after its game stops; an instance with a window never does, and the launch proceeds.
 LUTRIS_EXIT_SECONDS = 15.0
 
+# Milliseconds each notification's banner asks for, by urgency. Every one is transient, so
+# none is added to the message list: one left there stays until it is dismissed by hand, and
+# a second run cannot replace it, the id reaching no further than the process that got it.
+# The failure asks for the longer banner, being the one worth reading.
+NOTIFY_EXPIRE_MS = {"low": "8000", "normal": "20000"}
+
 
 class Notifier:
     """One desktop notification, replaced in place as the launch moves on."""
@@ -66,9 +72,19 @@ class Notifier:
         self.notification_id = None
 
     def show(self, summary, body="", urgency="low"):
-        argv = ["notify-send", "--print-id", "--app-name", self.name, "--icon", self.icon, "--urgency", urgency]
-        if urgency == "low":
-            argv += ["--transient", "--expire-time", "8000"]
+        argv = [
+            "notify-send",
+            "--print-id",
+            "--app-name",
+            self.name,
+            "--icon",
+            self.icon,
+            "--urgency",
+            urgency,
+            "--transient",
+            "--expire-time",
+            NOTIFY_EXPIRE_MS.get(urgency, NOTIFY_EXPIRE_MS["low"]),
+        ]
         if self.notification_id:
             argv += ["--replace-id", self.notification_id]
         try:

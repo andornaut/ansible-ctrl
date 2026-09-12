@@ -8,14 +8,17 @@ FLATPAK_CMD="/usr/bin/flatpak run --branch=master --arch=x86_64 --command=bedroc
 log() { echo "[minecraft-launch] $*"; }
 
 # One notification, updated in place as the launch moves on: a desktop entry has no other
-# channel, and BedrockOnLinux takes ten to fifteen seconds to show a window. Low-urgency
-# ones are transient, so they leave the tray on their own; a failure stays.
+# channel, and BedrockOnLinux takes ten to fifteen seconds to show a window. Every one is
+# transient, so none is added to the message list: one left there stays until it is
+# dismissed by hand, and a second run cannot replace it, the id reaching no further than the
+# process that got it. A failure asks for the longer banner, being the one worth reading.
 NOTIFY_ID=""
 notify() {
-    local urgency=$1 summary=$2 body=${3:-}
-    local -a opts=(--print-id --app-name=Minecraft --icon=minecraft-bedrock --urgency="$urgency")
+    local urgency=$1 summary=$2 body=${3:-} expire=8000
+    [ "$urgency" = low ] || expire=20000
+    local -a opts=(--print-id --app-name=Minecraft --icon=minecraft-bedrock --urgency="$urgency"
+        --transient --expire-time="$expire")
     [ -n "$NOTIFY_ID" ] && opts+=(--replace-id="$NOTIFY_ID")
-    [ "$urgency" = low ] && opts+=(--transient --expire-time=8000)
     NOTIFY_ID=$(notify-send "${opts[@]}" "$summary" "$body" 2>/dev/null) || true
 }
 
