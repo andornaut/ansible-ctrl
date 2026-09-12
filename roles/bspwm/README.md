@@ -34,6 +34,6 @@ See [defaults/main.yml](./defaults/main.yml).
 - The X session is `/usr/local/bin/bspwm-session`, which `bspwm.desktop` names. It imports `DISPLAY` and
   `XAUTHORITY` into the user manager, holds `bspwm-session.target` while bspwm runs and stops it after.
   `graphical-session.target` ships `StopWhenUnneeded=yes`, so it stays up only while an active unit requires it, and
-  that target (`BindsTo=graphical-session.target`) is the one unit that does. A bar or applet must not `Requires=` it
-  in the session target's place: its crash would then end every unit wanted by the session, the idle backstop among
-  them. A session already logged in when the role runs has the target held for it, as a fresh login would.
+  that target (`BindsTo=graphical-session.target`) is the one unit that does, which is why no unit wanted by the
+  session may take its place ([desktop](../desktop/README.md#desktop-environments)). A session already logged in when
+  the role runs has the target held for it, as a fresh login would.
