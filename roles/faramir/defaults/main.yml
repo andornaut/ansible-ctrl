@@ -210,14 +210,35 @@ faramir_blocked_home_paths:
   # One spelling never covers another: faramir matches a path under a home in full rather than
   # any tail of it, so each is its own entry.
   #
-  # Lutris keeps every storefront it has signed in to under the flatpak's `cache`: GOG,
-  # Amazon, Humble Bundle, Epic, Steam, Battle.net, EA, Ubisoft and its own lutris.net token,
-  # each an auth file or a cookie jar, and the directory holds nothing else that is not a
-  # library cache, cover art or a downloaded runner tarball. The webkit view it signs in
-  # through keeps those sessions a second time under `data/lutris`, which is why three
-  # directories there go with it. `pga.db` beside them is the installed-game database and
-  # `games`, `runners`, `runtime` and `system.yml` are its settings, so those stay readable.
-  - ".var/app/net.lutris.Lutris/cache"
+  # Lutris keeps every storefront it has signed in to under the flatpak's `cache/lutris`: GOG,
+  # Amazon, Humble Bundle, Epic, EA, Origin and Ubisoft, each a per-store directory or an auth
+  # file, its own lutris.net token in `auth-token`, and the sessions of the webkit view it
+  # signs in through in `CacheStorage` and `WebKitCache`. That view keeps those sessions a
+  # second time under `data/lutris`, which is why three directories there go with it.
+  #
+  # Named one by one rather than by the directory that holds them: `lutris.log` and its
+  # rotations sit beside them and carry a game's launch output, which is what a failed launch
+  # is read from, so a whole-directory entry refuses the one file that debugging needs.
+  # `game-paths.json`, `gog-library.json`, `versions.json`, `updates.json`, `installer`,
+  # `shaders` and the downloaded runner tarballs stay readable for the same reason, as do the
+  # runtime caches beside `lutris` under `cache`: `umu`, `protonfixes`, `wine` and the shader
+  # caches. `pga.db` under `data/lutris` is the installed-game database and `games`, `runners`,
+  # `runtime` and `system.yml` are its settings, so those stay readable too.
+  - ".var/app/net.lutris.Lutris/cache/lutris/.amazon.auth"
+  - ".var/app/net.lutris.Lutris/cache/lutris/.gog.auth"
+  - ".var/app/net.lutris.Lutris/cache/lutris/.gog.token"
+  - ".var/app/net.lutris.Lutris/cache/lutris/.humblebundle.auth"
+  - ".var/app/net.lutris.Lutris/cache/lutris/auth-token"
+  - ".var/app/net.lutris.Lutris/cache/lutris/user.json"
+  - ".var/app/net.lutris.Lutris/cache/lutris/amazon"
+  - ".var/app/net.lutris.Lutris/cache/lutris/ea_app"
+  - ".var/app/net.lutris.Lutris/cache/lutris/egs"
+  - ".var/app/net.lutris.Lutris/cache/lutris/gog"
+  - ".var/app/net.lutris.Lutris/cache/lutris/humblebundle"
+  - ".var/app/net.lutris.Lutris/cache/lutris/origin"
+  - ".var/app/net.lutris.Lutris/cache/lutris/ubisoft"
+  - ".var/app/net.lutris.Lutris/cache/lutris/CacheStorage"
+  - ".var/app/net.lutris.Lutris/cache/lutris/WebKitCache"
   - ".var/app/net.lutris.Lutris/data/lutris/localstorage"
   - ".var/app/net.lutris.Lutris/data/lutris/storage"
   - ".var/app/net.lutris.Lutris/data/lutris/databases"
