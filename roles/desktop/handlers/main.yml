@@ -1,4 +1,6 @@
 ---
+# Every user-scope handler is gated on desktop_user_systemd, the probe in tasks/main.yml:
+# with no session there is no user bus, and the next login starts the unit fresh.
 # Deferred so it runs after eww.service is installed in a later block.
 - name: Restart eww
   ansible.builtin.systemd_service:
@@ -10,6 +12,7 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  when: desktop_user_systemd.stat.exists
 
 - name: Restart flameshot
   ansible.builtin.systemd_service:
@@ -21,6 +24,7 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  when: desktop_user_systemd.stat.exists
 
 # Built by the niri role, applied after this one, so the unit may not exist yet
 # on a --tags idle run; failed_when below tolerates that.
@@ -38,6 +42,7 @@
   failed_when:
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
+  when: desktop_user_systemd.stat.exists
 
 # Above the backstop, handlers running in definition order: the backstop reads the stamp
 # this publishes, and exits when it is missing.
@@ -49,7 +54,6 @@
   become: true
 
 # Reads its drop-ins at start, so the change otherwise waits for the next login.
-# A host whose desktop user has no session has no user bus to restart it on.
 - name: Restart WirePlumber
   ansible.builtin.systemd_service:
     name: wireplumber.service
@@ -59,10 +63,7 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
-  register: desktop_wireplumber_restart
-  failed_when:
-    - desktop_wireplumber_restart is failed
-    - "'Failed to connect to bus' not in desktop_wireplumber_restart.msg | default('')"
+  when: desktop_user_systemd.stat.exists
 
 - name: Reload systemd
   ansible.builtin.systemd_service:
@@ -79,6 +80,7 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  when: desktop_user_systemd.stat.exists
 
 # CanReload=yes, so the drop-in takes effect without restarting logind under a
 # live graphical session.

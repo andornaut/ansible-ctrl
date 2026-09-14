@@ -141,14 +141,32 @@
       notify: Restart eww
       become: true
 
+    # Symlinking works with the user manager down, so the unit activates at next login
+    # either way; the task below starts it now when a session is present.
+    - name: Create the wants directory for eww.service
+      ansible.builtin.file:
+        path: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants"
+        state: directory
+        mode: "0755"
+      become: true
+      become_user: "{{ desktop_user }}"
+
     - name: Enable eww service
+      ansible.builtin.file:
+        src: /usr/local/lib/systemd/user/eww.service
+        dest: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants/eww.service"
+        state: link
+      become: true
+      become_user: "{{ desktop_user }}"
+
+    - name: Start eww service in the active session
       ansible.builtin.systemd_service:
         name: eww.service
         daemon_reload: true
-        enabled: true
         scope: user
         state: started
       become: true
       become_user: "{{ desktop_user }}"
       environment:
         XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+      when: desktop_user_systemd.stat.exists

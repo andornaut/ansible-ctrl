@@ -19,6 +19,18 @@
     key: "{{ desktop_user }}"
   tags: always
 
+# systemctl --user reaches this socket, which exists only while the account's manager
+# runs, so only while it is logged in. Every user unit here is enabled by symlink and
+# started or restarted only when this finds it, converging the rest without a session.
+- name: Check for a running user manager for {{ desktop_user }}
+  ansible.builtin.stat:
+    path: "/run/user/{{ desktop_user_uid }}/systemd/private"
+  register: desktop_user_systemd
+  changed_when: false
+  become: true
+  become_user: "{{ desktop_user }}"
+  tags: always
+
 - name: Validate desktop environment
   ansible.builtin.assert:
     that:

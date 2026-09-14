@@ -131,17 +131,35 @@
         mode: "0644"
       notify: Restart the idle backstop
 
+    # Symlinking works with the user manager down, so the unit activates at next login
+    # either way; the task below starts it now when a session is present.
+    - name: Create the wants directory for the idle backstop service
+      ansible.builtin.file:
+        path: "{{ desktop_idle_backstop_wants | dirname }}"
+        state: directory
+        mode: "0755"
+      become: true
+      become_user: "{{ desktop_user }}"
+
     - name: Enable the idle backstop service
+      ansible.builtin.file:
+        src: "{{ desktop_idle_backstop_unit }}"
+        dest: "{{ desktop_idle_backstop_wants }}"
+        state: link
+      become: true
+      become_user: "{{ desktop_user }}"
+
+    - name: Start the idle backstop service in the active session
       ansible.builtin.systemd_service:
         name: desktop-idle-backstop.service
         daemon_reload: true
-        enabled: true
         scope: user
         state: started
       become: true
       become_user: "{{ desktop_user }}"
       environment:
         XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+      when: desktop_user_systemd.stat.exists
 
 # A permanent off switch, not a migration: the unit is wanted by graphical-session.target,
 # so leaving it behind would keep powering the panel down on a host that has since set the
@@ -150,22 +168,30 @@
   when: not desktop_idle_backstop_enabled | bool
   become: true
   block:
-    # Tolerates a host that never had it: the enable symlink lives in the user's own unit
-    # directory, so removing the unit file alone would leave a dangling one behind.
-    - name: Disable the idle backstop service
+    # Tolerates a host that never had it.
+    - name: Stop the idle backstop service in the active session
       ansible.builtin.systemd_service:
         name: desktop-idle-backstop.service
-        enabled: false
         scope: user
         state: stopped
       become: true
       become_user: "{{ desktop_user }}"
       environment:
         XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
-      register: desktop_idle_backstop_disable
+      register: desktop_idle_backstop_stop
       failed_when:
-        - desktop_idle_backstop_disable is failed
-        - "'Could not find the requested service' not in desktop_idle_backstop_disable.msg | default('')"
+        - desktop_idle_backstop_stop is failed
+        - "'Could not find the requested service' not in desktop_idle_backstop_stop.msg | default('')"
+      when: desktop_user_systemd.stat.exists
+
+    # The enable symlink lives in the user's own unit directory, so removing the unit
+    # file alone would leave a dangling one behind.
+    - name: Disable the idle backstop service
+      ansible.builtin.file:
+        path: "{{ desktop_idle_backstop_wants }}"
+        state: absent
+      become: true
+      become_user: "{{ desktop_user }}"
 
     - name: Remove the idle backstop service
       ansible.builtin.file:
@@ -177,7 +203,7 @@
         path: "{{ desktop_idle_backstop_command }}"
         state: absent
 
-    - name: Reload the systemd user manager
+    - name: Reload the systemd user manager in the active session
       ansible.builtin.systemd_service:
         daemon_reload: true
         scope: user
@@ -185,3 +211,4 @@
       become_user: "{{ desktop_user }}"
       environment:
         XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+      when: desktop_user_systemd.stat.exists

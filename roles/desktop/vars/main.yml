@@ -48,6 +48,7 @@ desktop_idle_backstop_mechanism: >-
   {{ {"gnome": "ddc", "bspwm": "xset", "niri": "niri"}.get(desktop_environment, "") }}
 desktop_idle_backstop_command: /usr/local/bin/desktop-idle-backstop
 desktop_idle_backstop_unit: /usr/local/lib/systemd/user/desktop-idle-backstop.service
+desktop_idle_backstop_wants: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants/desktop-idle-backstop.service"
 
 # The input reader behind every backstop. A compositor's own idle time counts policy as
 # well as input, so it cannot floor a policy: mutter's resets when an idle inhibitor is
