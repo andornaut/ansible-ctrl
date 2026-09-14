@@ -24,6 +24,10 @@
         mode: "0644"
         # Refetch so a rotated upstream key is picked up.
         force: true
+      register: docker_key_download
+      retries: 3
+      delay: 5
+      until: docker_key_download is succeeded
 
     - name: Add Docker repository
       ansible.builtin.apt_repository:

@@ -34,6 +34,9 @@
         group: root
       become: true
       register: hobbies_betaflight_unarchive
+      retries: 3
+      delay: 5
+      until: hobbies_betaflight_unarchive is succeeded
 
     # The zip ships files 0600/0700, unreadable by the launching user. Capital X
     # grants execute only where already set. Not a handler: the symlink below needs

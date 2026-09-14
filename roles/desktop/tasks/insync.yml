@@ -6,6 +6,10 @@
         url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xACCAF35C
         dest: /etc/apt/keyrings/insync.asc
         mode: "0644"
+      register: desktop_insync_key_download
+      retries: 3
+      delay: 5
+      until: desktop_insync_key_download is succeeded
       become: true
 
     - name: Add Insync apt repository

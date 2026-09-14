@@ -16,6 +16,10 @@
     owner: root
     group: root
     mode: "0755"
+  register: rsnapshot_backup_scripts_download
+  retries: 3
+  delay: 5
+  until: rsnapshot_backup_scripts_download is succeeded
   loop:
     - https://raw.githubusercontent.com/andornaut/backup-mysql/main/backupmysql
     - https://raw.githubusercontent.com/andornaut/backup-docker-postgresql/main/backupdockerpostgresql

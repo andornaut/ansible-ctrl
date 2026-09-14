@@ -134,6 +134,10 @@
                 extra_opts:
                   - --strip-components
                   - 1
+              register: games_gamescope_wayland_download
+              retries: 3
+              delay: 5
+              until: games_gamescope_wayland_download is succeeded
 
             - name: Configure the Wayland build
               ansible.builtin.command:

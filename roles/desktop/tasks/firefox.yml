@@ -59,6 +59,10 @@
             url: https://packages.mozilla.org/apt/repo-signing-key.gpg
             dest: /etc/apt/keyrings/packages.mozilla.org.asc
             mode: "0644"
+          register: desktop_firefox_key_download
+          retries: 3
+          delay: 5
+          until: desktop_firefox_key_download is succeeded
           become: true
 
         - name: Add Mozilla apt repository

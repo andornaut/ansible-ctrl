@@ -99,6 +99,10 @@
         dest: "{{ games_bedrock_tmp.path }}/{{ games_bedrock_bundle_name }}"
         checksum: "sha256:{{ games_bedrock_release_base }}/BedrockOnLinux-{{ games_bedrock_version }}-SHA256SUMS"
         mode: "0644"
+      register: games_bedrock_bundle_download
+      retries: 3
+      delay: 5
+      until: games_bedrock_bundle_download is succeeded
 
     # The bundle's ref is always "master", so a new version keeps the same ref and a
     # plain install fails with "already installed".

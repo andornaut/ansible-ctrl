@@ -58,6 +58,10 @@
         src: "{{ desktop_source_code_pro_url }}"
         dest: "{{ desktop_source_code_pro_tmp.path }}/"
         remote_src: true
+      register: desktop_source_code_pro_download
+      retries: 3
+      delay: 5
+      until: desktop_source_code_pro_download is succeeded
 
     - name: Create Source Code Pro font directory
       ansible.builtin.file:

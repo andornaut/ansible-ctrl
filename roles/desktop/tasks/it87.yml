@@ -23,6 +23,9 @@
         dest: /usr/src/it87
         version: "{{ desktop_it87_version }}"
       register: desktop_it87_source
+      retries: 3
+      delay: 5
+      until: desktop_it87_source is succeeded
 
     # The checkout arrives at the run's umask. Additive, so nothing the checkout chose is
     # taken away and a run that has nothing to open reports no change; capital X grants

@@ -33,4 +33,8 @@
     # whichever local account happens to hold that id.
     owner: root
     group: root
+  register: base_tool_download
+  retries: 3
+  delay: 5
+  until: base_tool_download is succeeded
   become: true

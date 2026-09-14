@@ -45,6 +45,10 @@
         dest: "{{ desktop_eww_tmp.path }}"
         version: master
         depth: 1
+      register: desktop_eww_clone
+      retries: 3
+      delay: 5
+      until: desktop_eww_clone is succeeded
 
     - name: Build eww
       ansible.builtin.command:

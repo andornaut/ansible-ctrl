@@ -176,6 +176,9 @@
     mode: "0644"
   loop: "{{ games_retroarch_cores }}"
   register: games_retroarch_core_archives
+  retries: 3
+  delay: 5
+  until: games_retroarch_core_archives is succeeded
 
 # Only when the archive moved or the core is missing, which covers a hand-deleted
 # core and a first run; unconditional, it would rewrite and report every core.

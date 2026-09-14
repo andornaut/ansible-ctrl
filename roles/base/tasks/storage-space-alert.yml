@@ -4,6 +4,10 @@
     url: https://raw.githubusercontent.com/andornaut/storage-space-alert/main/storage-space-alert
     dest: /usr/local/bin/
     mode: "0755"
+  register: base_storage_space_alert_download
+  retries: 3
+  delay: 5
+  until: base_storage_space_alert_download is succeeded
   become: true
 
 - name: Periodically run storage-space-alert

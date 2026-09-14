@@ -42,6 +42,10 @@
         extra_opts:
           - --strip-components
           - 1
+      register: niri_xwayland_download
+      retries: 3
+      delay: 5
+      until: niri_xwayland_download is succeeded
 
     - name: Build xwayland-satellite
       ansible.builtin.command:

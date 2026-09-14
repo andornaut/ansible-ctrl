@@ -44,6 +44,10 @@
         extra_opts:
           - --strip-components
           - 1
+      register: desktop_dunst_download
+      retries: 3
+      delay: 5
+      until: desktop_dunst_download is succeeded
 
     - name: Build dunst
       community.general.make:

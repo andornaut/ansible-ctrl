@@ -55,6 +55,10 @@
         url: "https://go.dev/dl/{{ dev_go_version }}.linux-{{ dev_arch }}.tar.gz"
         dest: "{{ dev_go_tmp.path }}/go.tar.gz"
         mode: "0644"
+      register: dev_go_download
+      retries: 3
+      delay: 5
+      until: dev_go_download is succeeded
 
     # unarchive merges into an existing tree rather than replacing it.
     - name: Remove old Go installation

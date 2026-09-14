@@ -22,6 +22,10 @@
         dest: "{{ desktop_pavolume_tmp.path }}"
         depth: 1
         version: main
+      register: desktop_pavolume_clone
+      retries: 3
+      delay: 5
+      until: desktop_pavolume_clone is succeeded
 
     - name: Build pavolume
       community.general.make:

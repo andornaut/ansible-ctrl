@@ -37,6 +37,10 @@
         url: https://pkg.claude-desktop-debian.dev/KEY.gpg
         dest: /etc/apt/keyrings/claude-desktop.asc
         mode: "0644"
+      register: dev_claude_key_download
+      retries: 3
+      delay: 5
+      until: dev_claude_key_download is succeeded
 
     - name: Add Claude Desktop repository
       ansible.builtin.apt_repository:

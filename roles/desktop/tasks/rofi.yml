@@ -50,6 +50,10 @@
         extra_opts:
           - --strip-components
           - 1
+      register: desktop_rofi_download
+      retries: 3
+      delay: 5
+      until: desktop_rofi_download is succeeded
 
     - name: Configure rofi build
       ansible.builtin.command:

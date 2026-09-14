@@ -65,6 +65,10 @@
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker_etc_hosts
     dest: /usr/local/bin/docker_etc_hosts
     mode: "0755"
+  register: homeautomation_docker_etc_hosts_download
+  retries: 3
+  delay: 5
+  until: homeautomation_docker_etc_hosts_download is succeeded
   become: true
 
 - name: Install docker-etc-hosts systemd service
@@ -72,6 +76,10 @@
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker-etc-hosts.service
     dest: /etc/systemd/system/docker-etc-hosts.service
     mode: "0644"
+  register: homeautomation_docker_etc_hosts_service_download
+  retries: 3
+  delay: 5
+  until: homeautomation_docker_etc_hosts_service_download is succeeded
   become: true
   notify: Reload systemd
 

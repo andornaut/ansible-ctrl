@@ -41,6 +41,10 @@
               }}/lemurs-x86_64-unknown-linux-gnu.tar.xz
             dest: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
             mode: "0644"
+          register: desktop_lemurs_download
+          retries: 3
+          delay: 5
+          until: desktop_lemurs_download is succeeded
 
         - name: Extract lemurs binary
           ansible.builtin.unarchive:
@@ -77,6 +81,10 @@
             url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version }}/extra/config.toml"
             dest: "/etc/lemurs/config.toml"
             mode: "0644"
+          register: desktop_lemurs_config_download
+          retries: 3
+          delay: 5
+          until: desktop_lemurs_config_download is succeeded
           become: true
 
         - name: Override configuration settings
@@ -100,6 +108,10 @@
               }}/extra/lemurs.service
             dest: /usr/lib/systemd/system/lemurs.service
             mode: "0644"
+          register: desktop_lemurs_service_download
+          retries: 3
+          delay: 5
+          until: desktop_lemurs_service_download is succeeded
           become: true
 
         - name: Update ExecStart path in service file
@@ -116,6 +128,10 @@
               }}/extra/xsetup.sh
             dest: /etc/lemurs/xsetup.sh
             mode: "0755"
+          register: desktop_lemurs_xsetup_download
+          retries: 3
+          delay: 5
+          until: desktop_lemurs_xsetup_download is succeeded
           become: true
 
         - name: Copy lemurs.pam file to /etc/pam.d/lemurs

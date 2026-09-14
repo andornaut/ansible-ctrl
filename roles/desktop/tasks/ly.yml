@@ -59,6 +59,10 @@
                 dest: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
                 mode: "0644"
                 timeout: 30
+              register: desktop_zig_download
+              retries: 3
+              delay: 5
+              until: desktop_zig_download is succeeded
 
             - name: Create zig installation directory
               ansible.builtin.file:
@@ -117,6 +121,10 @@
             dest: "{{ desktop_ly_tmp.path }}/ly.zip"
             mode: "0644"
             timeout: 120
+          register: desktop_ly_download
+          retries: 3
+          delay: 5
+          until: desktop_ly_download is succeeded
 
         # unzip has no --strip-components, so the build below chdirs into the wrapping ly/ dir.
         - name: Unarchive ly

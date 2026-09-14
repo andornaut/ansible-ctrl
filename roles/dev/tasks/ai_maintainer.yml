@@ -38,4 +38,8 @@
         dest: "{{ dev_ai_maintainer_script_path }}"
         mode: "0755"
         force: true
+      register: dev_ai_maintainer_download
+      retries: 3
+      delay: 5
+      until: dev_ai_maintainer_download is succeeded
       when: not dev_ai_maintainer_project_script.stat.exists

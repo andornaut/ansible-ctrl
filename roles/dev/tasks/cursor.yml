@@ -19,6 +19,10 @@
     url: "{{ dev_cursor_api_response.json.downloadUrl }}"
     dest: /usr/local/bin/cursor
     mode: "0755"
+  register: dev_cursor_download
+  retries: 3
+  delay: 5
+  until: dev_cursor_download is succeeded
   become: true
 
 - name: Create AppArmor profile for Cursor
@@ -42,6 +46,10 @@
     url: "https://www.cursor.so/brand/icon.svg"
     dest: "/usr/share/icons/cursor.svg"
     mode: "0644"
+  register: dev_cursor_icon_download
+  retries: 3
+  delay: 5
+  until: dev_cursor_icon_download is succeeded
   become: true
 
 - name: Create cursor.desktop

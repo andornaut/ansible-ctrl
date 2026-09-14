@@ -14,6 +14,10 @@
         dest: "{{ bspwm_tmp.path }}/{{ item.name }}"
         depth: 1
         version: "{{ item.version | default('HEAD') }}"
+      register: bspwm_repositories_clone
+      retries: 3
+      delay: 5
+      until: bspwm_repositories_clone is succeeded
       loop: "{{ bspwm_projects }}"
 
     - name: Build BSPWM projects

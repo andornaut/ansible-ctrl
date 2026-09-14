@@ -38,6 +38,10 @@
           - LICENSE
           - README.md
         remote_src: true
+      register: docker_helm_download
+      retries: 3
+      delay: 5
+      until: docker_helm_download is succeeded
       when: docker_helm_release.json.tag_name not in docker_helm_installed.stdout
 
     # Named here rather than on the unarchive above, as the kubectl and minikube tasks
@@ -77,6 +81,10 @@
         checksum: "sha256:https://dl.k8s.io/release/{{ docker_kubectl_version.content }}/bin/linux/{{ docker_arch }}/kubectl.sha256"
         dest: /usr/local/bin/kubectl
         mode: "0755"
+      register: docker_kubectl_download
+      retries: 3
+      delay: 5
+      until: docker_kubectl_download is succeeded
 
     - name: Install minikube binary
       ansible.builtin.get_url:
@@ -84,3 +92,7 @@
         checksum: "sha256:https://storage.googleapis.com/minikube/releases/latest/minikube-linux-{{ docker_arch }}.sha256"
         dest: /usr/local/bin/minikube
         mode: "0755"
+      register: docker_minikube_download
+      retries: 3
+      delay: 5
+      until: docker_minikube_download is succeeded

@@ -39,6 +39,10 @@
         dest: "{{ hobbies_user_home }}/.local/share/kicad/{{ hobbies_kicad_version }}/scripting/plugins/kicad-jlcpcb-tools"
         version: "{{ hobbies_jlcpcb_release.tag_name }}"
         update: true
+      register: hobbies_kicad_jlcpcb_tools_clone
+      retries: 3
+      delay: 5
+      until: hobbies_kicad_jlcpcb_tools_clone is succeeded
 
 # PCB panelizer. KiCad 10 support is git-master only, so far from PyPI; the venv
 # isolates that pin, and --system-site-packages exposes KiCad's own pcbnew, a C
@@ -65,6 +69,10 @@
         virtualenv: /opt/kikit
         virtualenv_command: python3 -m venv
         virtualenv_site_packages: true
+      register: hobbies_kikit_install
+      retries: 3
+      delay: 5
+      until: hobbies_kikit_install is succeeded
 
     # pip writes the console scripts 0755 and every module through the run's umask, so a
     # umask that closes `other` leaves a CLI that starts and then cannot import itself.
@@ -119,6 +127,10 @@
         mode: u=rwX,go=rX
         owner: root
         group: root
+      register: hobbies_freerouting_download
+      retries: 3
+      delay: 5
+      until: hobbies_freerouting_download is succeeded
       become: true
 
     - name: Symlink stable Freerouting path to the installed version

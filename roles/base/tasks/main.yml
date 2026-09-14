@@ -244,6 +244,10 @@
     url: https://raw.githubusercontent.com/andornaut/cache-command/main/cache-command
     dest: /usr/local/bin/
     mode: "0755"
+  register: base_cache_command_download
+  retries: 3
+  delay: 5
+  until: base_cache_command_download is succeeded
   become: true
 
 - name: Make Vim the default editor

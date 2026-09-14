@@ -50,6 +50,10 @@
             url: "{{ dev_chruby_download_url }}"
             dest: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
             mode: "0644"
+          register: dev_chruby_download
+          retries: 3
+          delay: 5
+          until: dev_chruby_download is succeeded
 
         - name: Extract chruby archive
           ansible.builtin.unarchive:
@@ -83,6 +87,10 @@
             url: "{{ dev_ruby_install_download_url }}"
             dest: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
             mode: "0644"
+          register: dev_ruby_install_download
+          retries: 3
+          delay: 5
+          until: dev_ruby_install_download is succeeded
 
         - name: Extract ruby-install archive
           ansible.builtin.unarchive:

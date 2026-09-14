@@ -10,6 +10,10 @@
         url: https://packages.microsoft.com/keys/microsoft.asc
         dest: /etc/apt/keyrings/microsoft-vscode.asc
         mode: "0644"
+      register: dev_vscode_key_download
+      retries: 3
+      delay: 5
+      until: dev_vscode_key_download is succeeded
 
     - name: Add Visual Studio Code repository
       ansible.builtin.apt_repository:

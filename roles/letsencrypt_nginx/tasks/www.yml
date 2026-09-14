@@ -35,6 +35,9 @@
         depth: 1
       loop: "{{ letsencrypt_nginx_websites }}"
       register: letsencrypt_nginx_git_clone
+      retries: 3
+      delay: 5
+      until: letsencrypt_nginx_git_clone is succeeded
       when: item.repo is defined
       # Loop items hold a Cloudflare API token and basicauth credentials.
       no_log: true

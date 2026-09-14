@@ -8,6 +8,10 @@
         url: https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg
         dest: /etc/apt/keyrings/antigravity-repo-key.asc
         mode: "0644"
+      register: dev_antigravity_key_download
+      retries: 3
+      delay: 5
+      until: dev_antigravity_key_download is succeeded
 
     - name: Add Google Antigravity repository
       ansible.builtin.apt_repository:

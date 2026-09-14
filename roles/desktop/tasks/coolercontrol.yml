@@ -7,6 +7,10 @@
         url: https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/gpg.668189E5007F5A8D.key
         dest: /usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc
         mode: "0644"
+      register: desktop_coolercontrol_key_download
+      retries: 3
+      delay: 5
+      until: desktop_coolercontrol_key_download is succeeded
 
     - name: Add CoolerControl apt repository
       ansible.builtin.apt_repository:

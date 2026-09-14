@@ -19,6 +19,10 @@
     url: https://www.virtualbox.org/download/oracle_vbox_2016.asc
     dest: /etc/apt/trusted.gpg.d/oracle-virtualbox.asc
     mode: "0644"
+  register: dev_virtualbox_key_download
+  retries: 3
+  delay: 5
+  until: dev_virtualbox_key_download is succeeded
   become: true
 
 - name: Add the Oracle VirtualBox repository
@@ -161,6 +165,10 @@
               https://download.virtualbox.org/virtualbox/{{ dev_virtualbox_extpack_version }}/{{ dev_virtualbox_extpack_file }}
             dest: "{{ dev_virtualbox_extpack_tmp.path }}/{{ dev_virtualbox_extpack_file }}"
             mode: "0644"
+          register: dev_virtualbox_extension_pack_download
+          retries: 3
+          delay: 5
+          until: dev_virtualbox_extension_pack_download is succeeded
 
         # --accept-license takes the SHA-256 of the pack's own licence text, so read it
         # out of the pack. The bad header after its first entry needs --ignore-zeros,
