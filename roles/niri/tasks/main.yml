@@ -15,6 +15,40 @@
     key: "{{ niri_user }}"
   tags: always
 
+# ecryptfs keeps its configuration beside the home rather than inside it, so this answers whether
+# the home is encrypted whether or not it is mounted now. Derived from the resolved home, never a
+# fixed /home: ecryptfs-setup-private writes to $(dirname $HOME)/.ecryptfs/$USER.
+- name: Check for an encrypted home for {{ niri_user }}
+  ansible.builtin.stat:
+    path: "{{ niri_user_home | dirname }}/.ecryptfs/{{ niri_user }}"
+  register: niri_user_home_ecryptfs
+  changed_when: false
+  become: true
+  tags: always
+
+# getent answers with the home's path whether or not anything is mounted there, so without this a
+# run against a locked home writes the enable symlinks onto the mountpoint and reports changed;
+# the next login mounts over them and the unit is not enabled. Fails closed without the mounts
+# fact, an encrypted home then counting as unmounted.
+- name: Record whether the home is mounted for {{ niri_user }}
+  ansible.builtin.set_fact:
+    niri_user_home_mounted: >-
+      {{ (not niri_user_home_ecryptfs.stat.exists)
+         or (niri_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount') | list)) }}
+  tags: always
+
+# systemctl --user reaches this socket, which exists only while the account's manager runs, so
+# only while it is logged in. Every user-scope task below gates on it, so a run against a host
+# sitting at the display manager converges the rest instead of failing here.
+- name: Check for a running user manager for {{ niri_user }}
+  ansible.builtin.stat:
+    path: "/run/user/{{ niri_user_uid }}/systemd/private"
+  register: niri_user_systemd
+  changed_when: false
+  become: true
+  become_user: "{{ niri_user }}"
+  tags: always
+
 - name: Install Wayland system packages
   ansible.builtin.import_tasks: apt.yml
   tags:

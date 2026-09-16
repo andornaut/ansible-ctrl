@@ -13,3 +13,4 @@
     no_extra_spaces: true
     mode: "0644"
   loop: "{{ desktop_file_roller_mime_types }}"
+  when: desktop_user_home_mounted | bool

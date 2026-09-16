@@ -1,6 +1,8 @@
 ---
 # Every user-scope handler is gated on desktop_user_systemd, the probe in tasks/main.yml:
-# with no session there is no user bus, and the next login starts the unit fresh.
+# with no session there is no user bus, and the next login starts the unit fresh. Each also
+# tolerates the bus error the gate is meant to prevent, because handlers flush at the end of the
+# play and the probe is from its start: a logout in between leaves the gate stale.
 # Deferred so it runs after eww.service is installed in a later block.
 - name: Restart eww
   ansible.builtin.systemd_service:
@@ -12,6 +14,10 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_eww_restart
+  failed_when:
+    - desktop_eww_restart is failed
+    - "'Failed to connect to bus' not in desktop_eww_restart.msg | default('')"
   when: desktop_user_systemd.stat.exists
 
 - name: Restart flameshot
@@ -24,6 +30,10 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_flameshot_restart
+  failed_when:
+    - desktop_flameshot_restart is failed
+    - "'Failed to connect to bus' not in desktop_flameshot_restart.msg | default('')"
   when: desktop_user_systemd.stat.exists
 
 # Built by the niri role, applied after this one, so the unit may not exist yet
@@ -42,6 +52,7 @@
   failed_when:
     - desktop_hypridle_restart is failed
     - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
+    - "'Failed to connect to bus' not in desktop_hypridle_restart.msg | default('')"
   when: desktop_user_systemd.stat.exists
 
 # Above the backstop, handlers running in definition order: the backstop reads the stamp
@@ -54,6 +65,8 @@
   become: true
 
 # Reads its drop-ins at start, so the change otherwise waits for the next login.
+# Gated like the rest, and tolerant besides: handlers run at the end of the play, so the probe
+# taken at its start is stale if the desktop user logged out in between.
 - name: Restart WirePlumber
   ansible.builtin.systemd_service:
     name: wireplumber.service
@@ -63,6 +76,10 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_wireplumber_restart
+  failed_when:
+    - desktop_wireplumber_restart is failed
+    - "'Failed to connect to bus' not in desktop_wireplumber_restart.msg | default('')"
   when: desktop_user_systemd.stat.exists
 
 - name: Reload systemd
@@ -80,6 +97,10 @@
   become_user: "{{ desktop_user }}"
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_idle_backstop_restart
+  failed_when:
+    - desktop_idle_backstop_restart is failed
+    - "'Failed to connect to bus' not in desktop_idle_backstop_restart.msg | default('')"
   when: desktop_user_systemd.stat.exists
 
 # CanReload=yes, so the drop-in takes effect without restarting logind under a

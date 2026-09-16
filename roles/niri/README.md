@@ -32,6 +32,15 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
+- `niri.service`, `hypridle.service`, `hyprpaper.service` and `xwayland-satellite.service` are enabled by
+  [tasks/enable_user_unit.yml](./tasks/enable_user_unit.yml), which symlinks each into `niri_user`'s own
+  `~/.config/systemd/user/<target>.wants/` and starts it only under a running user manager. The target is
+  read from the unit's own `[Install]` section rather than assumed, these units coming from upstream
+  tarballs, and a unit naming none fails the run. A host sitting at the display manager converges the
+  symlink and activates the unit at the next login.
+- Writes into `niri_user`'s home are gated on it being mounted, since an encrypted home is a mount point
+  that `getent` reports either way. A run against a locked home skips them rather than writing onto the
+  mountpoint. See [desktop](../desktop/README.md) for the same guard.
 - Owns only the Wayland-only utilities. X11 counterparts live in [bspwm](../bspwm/); tools both sessions share
   live in [desktop](../desktop/).
 - X11 applications such as Steam need `xwayland-run` in their desktop entry:

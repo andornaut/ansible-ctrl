@@ -90,15 +90,10 @@
       become: true
       become_user: root
 
-    - name: Enable xwayland-satellite.service
-      ansible.builtin.systemd_service:
-        name: xwayland-satellite.service
-        daemon_reload: true
-        enabled: true
-        scope: user
-        state: started
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+    - name: Enable and start xwayland-satellite.service
+      ansible.builtin.include_tasks: enable_user_unit.yml
+      vars:
+        niri_enable_unit: xwayland-satellite.service
   always:
     - name: Remove the temporary directory for xwayland-satellite
       ansible.builtin.file:

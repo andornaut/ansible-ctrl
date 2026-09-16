@@ -128,6 +128,16 @@
     key: "{{ bspwm_user }}"
   become: false
 
+# systemctl --user reaches this socket, which exists only while the account's manager runs, so
+# only while it is logged in.
+- name: Check for a running user manager for {{ bspwm_user }}
+  ansible.builtin.stat:
+    path: "/run/user/{{ bspwm_user_uid }}/systemd/private"
+  register: bspwm_user_systemd
+  changed_when: false
+  become: true
+  become_user: "{{ bspwm_user }}"
+
 # A running manager reads /usr/local/lib/systemd/user only on reload, so without this a
 # session logged in before the target existed could not start it until the next login.
 - name: Reload the systemd user manager
@@ -136,6 +146,7 @@
     scope: user
   become: true
   become_user: "{{ bspwm_user }}"
+  when: bspwm_user_systemd.stat.exists
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ bspwm_user_uid }}"
 

@@ -24,6 +24,9 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
+- The user manager reload gates on a probe of `bspwm_user`'s manager socket, which exists only while that
+  account is logged in, so a run against a host sitting at the display manager reports it skipped instead of
+  failing. A manager started after the role runs reads the unit directory fresh, so nothing is lost.
 - BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects` are built from source and staged
   over `/usr/local` (binaries, man pages, completions).
 - Owns the X11 tools that [niri](../niri/) replaces with Wayland equivalents (`scrot`, `xsecurelock`, `xss-lock`,

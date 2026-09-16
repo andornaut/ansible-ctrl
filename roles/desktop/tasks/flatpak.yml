@@ -74,6 +74,7 @@
             path: "{{ desktop_user_home }}/.local/share/flatpak/overrides/{{ item }}"
             state: absent
           loop: "{{ desktop_flatpak_removed_apps }}"
+          when: desktop_user_home_mounted | bool
 
         # A flag turned off leaves nothing behind, the application's own settings and state
         # included. Nothing else writes here, flatpak giving each application its own tree.
@@ -82,6 +83,7 @@
             path: "{{ desktop_user_home }}/.var/app/{{ item }}"
             state: absent
           loop: "{{ desktop_flatpak_removed_apps }}"
+          when: desktop_user_home_mounted | bool
 
         # Most of what an uninstalled application cost on disk is its runtime. --unused takes
         # only what nothing installed still needs. LC_ALL pins the locale, the report

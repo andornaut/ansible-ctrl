@@ -31,6 +31,42 @@
   become_user: "{{ desktop_user }}"
   tags: always
 
+# ecryptfs keeps its configuration beside the home rather than inside it, so this answers whether
+# the home is encrypted whether or not it is mounted now. The markers inside cannot: which of them
+# is visible is what the mount decides. Derived from the resolved home, never a fixed /home:
+# ecryptfs-setup-private writes to $(dirname $HOME)/.ecryptfs/$USER, so a home elsewhere would
+# miss the marker and this would answer "not encrypted", which is the wrong way to be wrong.
+- name: Check for an encrypted home for {{ desktop_user }}
+  ansible.builtin.stat:
+    path: "{{ desktop_user_home | dirname }}/.ecryptfs/{{ desktop_user }}"
+  register: desktop_user_home_ecryptfs
+  changed_when: false
+  become: true
+  tags: always
+
+# getent answers with the home's path whether or not anything is mounted there, so without this a
+# run against a locked home writes the enable symlinks onto the mountpoint and reports changed;
+# the next login mounts over them and the unit is not enabled. Fails closed: with no mounts fact
+# an encrypted home counts as unmounted, so those tasks skip rather than write where the mount
+# will hide them.
+- name: Record whether the home is mounted for {{ desktop_user }}
+  ansible.builtin.set_fact:
+    desktop_user_home_mounted: >-
+      {{ (not desktop_user_home_ecryptfs.stat.exists)
+         or (desktop_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount') | list)) }}
+  tags: always
+
+- name: Report a locked home for {{ desktop_user }}
+  ansible.builtin.debug:
+    msg: >-
+      {{ desktop_user }}'s home is encrypted and {{ desktop_user_home }} is not mounted, so the
+      user units this role writes will not be enabled and the settings it writes into the home
+      will be skipped. Log in as {{ desktop_user }}, or run ecryptfs-mount-private there, and
+      re-run. If that account has no encrypted home any more, remove the stale
+      {{ desktop_user_home | dirname }}/.ecryptfs/{{ desktop_user }}, which is what this reads.
+  when: not desktop_user_home_mounted | bool
+  tags: always
+
 - name: Validate desktop environment
   ansible.builtin.assert:
     that:

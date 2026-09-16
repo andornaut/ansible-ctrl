@@ -109,17 +109,13 @@
         line: "--ozone-platform-hint=auto"
         create: true
         mode: "0644"
+      when: niri_user_home_mounted | bool
 
-    - name: Enable niri.service
-      ansible.builtin.systemd_service:
-        name: niri.service
-        daemon_reload: true
-        enabled: true
-        scope: user
-        state: started
+    - name: Enable and start niri.service
+      ansible.builtin.include_tasks: enable_user_unit.yml
+      vars:
+        niri_enable_unit: niri.service
       when: ansible_service_mgr == 'systemd'
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:

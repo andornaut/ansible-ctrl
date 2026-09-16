@@ -47,12 +47,15 @@
     quiet: true
   tags: always
 
-# ecryptfs-utils keeps a user's configuration and ciphertext outside the home, under a fixed
-# path, so this answers whether the home is encrypted whether or not it is mounted right now.
+# ecryptfs-utils keeps a user's configuration and ciphertext beside the home rather than inside
+# it, so this answers whether the home is encrypted whether or not it is mounted right now.
 # The markers inside the home cannot: which of them is visible is what the mount decides.
+# Derived from the resolved home, never a fixed /home: ecryptfs-setup-private writes to
+# $(dirname $HOME)/.ecryptfs/$USER, so a home elsewhere would miss the marker and this would
+# answer "not encrypted", which is the wrong way to be wrong.
 - name: Check whether the operator's home is encrypted
   ansible.builtin.stat:
-    path: "/home/.ecryptfs/{{ faramir_user }}"
+    path: "{{ faramir_user_home | dirname }}/.ecryptfs/{{ faramir_user }}"
   become: true
   register: faramir_home_ecryptfs
   tags: always
