@@ -38,10 +38,17 @@ sandbox's stderr reaches no screen. The tarball lands in the sandbox's private /
 host cannot see, but umu holds a `tmp*` directory under the flatpak's umu cache for exactly the
 fetch-and-unpack span, so one that appears after the launch began and stays is the banner's cue.
 
-The wait ends at the prefix's wineserver, which umu starts only once it has a Proton to run.
+The wait ends when the game has a window, which is what the banner stands in for. gamescope
+gives the game a nested X server of its own, whose display the role's `gamescope-child` wrapper
+exports into the game's environment, so the host reads it out of `/proc` and asks that server
+what it is showing. The nested server is an Xwayland either way, so this works on an X11 host
+and a Wayland one alike, unlike a query against the host display.
+
 Lutris exits 0 whatever became of the launch, and a second instance exits 0 at once having
-handed its request to the first, so a clean exit ends nothing by itself: the wait ends when no
-process of the application's sandbox is left, or at a deadline, which is reported as a failure.
+handed its request to the first, so a clean exit ends nothing by itself: the wait also ends when
+no process of the application's sandbox is left, or at a deadline, which is reported as a
+failure. A launch with no gamescope puts the game's window among the desktop's own where it
+cannot be told apart, so that one ends at the prefix's wineserver instead.
 
 One launch at a time per prefix, held under a lock in the runtime directory: a second activation
 would otherwise tear down what the first has just started, the teardown having no way to tell a
@@ -55,6 +62,8 @@ import contextlib
 import fcntl
 import hashlib
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -74,11 +83,28 @@ POLL_SECONDS = 0.2
 # after its game stops; an instance with a window never does, and the launch proceeds.
 LUTRIS_EXIT_SECONDS = 15.0
 
-# How long the banner is kept up waiting for the prefix's wineserver, and how often it is
-# re-sent meanwhile. Long enough for a GE-Proton download on a slow link; a launch still silent
-# afterwards has failed some other way.
-WINE_UP_SECONDS = 600.0
+# How long the banner is kept up waiting for the game's window, and how often it is re-sent
+# meanwhile. Long enough for a GE-Proton download on a slow link and the launcher that follows
+# it; a launch with nothing on screen after this has failed some other way.
+WINDOW_SECONDS = 600.0
 NOTIFY_REFRESH_SECONDS = 3.0
+
+# The nested X display gamescope gave the game, named in the environment by the wrapper in
+# files/gamescope-child.sh.
+GAMESCOPE_DISPLAY_KEY = b"GAMESCOPE_CHILD_XDISPLAY="
+
+# A window at least this many pixels on both sides is one the user can see. Everything else on
+# that server is 1x1 bookkeeping, and a splash screen is well above it.
+WINDOW_MIN_PIXELS = 64
+
+# `<width>x<height>+<x>+<y>`, the geometry `xwininfo -children` prints for each child.
+WINDOW_GEOMETRY = re.compile(r"\b(\d+)x(\d+)[+-]\d+[+-]\d+")
+
+XWININFO_TIMEOUT_SECONDS = 5.0
+
+# How long a wineserver runs without a gamescope display before the launch is taken for one
+# that draws on the host display, where the game's window cannot be told from the desktop's.
+NO_GAMESCOPE_SECONDS = 15.0
 
 # How long a process gets to leave /proc after SIGKILL. One still there is blocked in the
 # kernel, its environ still readable, and must not pass for the new session's wineserver.
@@ -198,8 +224,8 @@ def comm_of(pid):
         return ""
 
 
-def prefix_pids(prefix, exclude, comm=None):
-    """Every process carrying the prefix, or only those with the given command name."""
+def prefix_pids(prefix, exclude):
+    """Every process carrying the prefix."""
     wanted = {f"{key}={value}".encode() for key in PREFIX_KEYS for value in prefix}
     found = []
     for entry in Path("/proc").iterdir():
@@ -207,8 +233,6 @@ def prefix_pids(prefix, exclude, comm=None):
             continue
         pid = int(entry.name)
         if pid in exclude:
-            continue
-        if comm is not None and comm_of(pid) != comm:
             continue
         if wanted & set(environ_of(pid)):
             found.append(pid)
@@ -319,24 +343,78 @@ def teardown(prefix, app_id, notifier):
     return set(pids)
 
 
-def wait_for_wine(child, prefix, app_id, notifier, exclude):
-    """Keep the banner current until the prefix's wineserver is up; False when the wait ran out.
+def gamescope_display(pids):
+    """The nested X display gamescope gave the game, or None before there is one."""
+    for pid in pids:
+        for value in environ_of(pid):
+            if value.startswith(GAMESCOPE_DISPLAY_KEY):
+                return value[len(GAMESCOPE_DISPLAY_KEY) :].decode(errors="replace")
+    return None
+
+
+def xwininfo(display, *args):
+    """What xwininfo says, or nothing when it cannot be run or the server does not answer."""
+    try:
+        result = subprocess.run(
+            ["xwininfo", "-display", display, *args],
+            capture_output=True,
+            text=True,
+            timeout=XWININFO_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout
+
+
+def window_shown(display):
+    """Whether that display is showing a window big enough for the user to see.
+
+    The listing carries each child's geometry but not whether it is mapped, and an unmapped
+    window of a usable size is ordinary (Battle.net keeps a 640x480 one), so every child that
+    is large enough is then asked for its own map state.
+    """
+    candidates = []
+    for line in xwininfo(display, "-root", "-children").splitlines():
+        fields = line.split()
+        geometry = WINDOW_GEOMETRY.search(line)
+        if not fields or not fields[0].startswith("0x") or not geometry:
+            continue
+        if min(int(geometry.group(1)), int(geometry.group(2))) >= WINDOW_MIN_PIXELS:
+            candidates.append(fields[0])
+    return any("IsViewable" in xwininfo(display, "-id", window) for window in candidates)
+
+
+def wait_for_window(child, prefix, app_id, notifier, exclude):
+    """Keep the banner current until the game has a window; False when the wait ran out.
 
     A non-zero exit ends it, the child having failed. A clean exit ends nothing: Lutris exits 0
     whatever became of the launch, and a second instance exits 0 at once having handed its
-    request to the first. The wait ends instead when no process of the sandbox is left.
+    request to the first. That case ends instead when no process of the sandbox is left.
     """
     watch = ProtonInstallWatch(app_id)
-    deadline = time.monotonic() + WINE_UP_SECONDS
+    can_probe = shutil.which("xwininfo") is not None
+    display = None
+    wine_since = None
+    deadline = time.monotonic() + WINDOW_SECONDS
     while time.monotonic() < deadline:
         returncode = child.poll()
         if returncode not in (None, 0):
             return True
-        if prefix_pids(prefix, exclude, comm="wineserver"):
+        pids = prefix_pids(prefix, exclude)
+        if can_probe and display is None:
+            display = gamescope_display(pids)
+        if display and window_shown(display):
             return True
         if returncode == 0 and not sandbox_pids(app_id, exclude):
             return True
-        if watch.in_progress():
+
+        if any(comm_of(pid) == "wineserver" for pid in pids):
+            wine_since = time.monotonic() if wine_since is None else wine_since
+            if display is None and time.monotonic() - wine_since >= NO_GAMESCOPE_SECONDS:
+                return True
+            body = "Waiting for the game's window."
+        elif watch.in_progress():
             body = "Installing a Proton update; this takes a few minutes."
         else:
             body = "The window takes a moment to appear."
@@ -375,13 +453,13 @@ def main():
         sys.stderr.flush()
         child = subprocess.Popen(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
         try:
-            wine_up = wait_for_wine(child, prefix, app_id, notifier, own_pids() | survivors)
+            shown = wait_for_window(child, prefix, app_id, notifier, own_pids() | survivors)
         except BaseException:
             child.kill()
             raise
-        if not wine_up:
-            print(f"lutris-launch-game: no wine session for {prefix[0]} after {WINE_UP_SECONDS:.0f}s", file=sys.stderr)
-            notifier.show(f"{name} did not start", "No Wine session appeared in ten minutes.", urgency="normal")
+        if not shown:
+            print(f"lutris-launch-game: no window for {prefix[0]} after {WINDOW_SECONDS:.0f}s", file=sys.stderr)
+            notifier.show(f"{name} did not start", "No window appeared in ten minutes.", urgency="normal")
         returncode = child.wait()
         if returncode != 0:
             notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")

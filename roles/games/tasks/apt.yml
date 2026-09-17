@@ -14,6 +14,9 @@
       - rsync
       # udev rules for gamepads.
       - steam-devices
+      # xwininfo, which files/lutris-launch-game.py asks gamescope's nested X server
+      # whether the game has a window yet.
+      - x11-utils
     state: latest
     install_recommends: false
     update_cache: true
