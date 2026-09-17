@@ -25,11 +25,18 @@ on the bus. The instance that ran the session just torn down is shutting itself 
 waits for that instance, found as the sandbox ancestors of what was killed, to exit. An instance the
 user opened as a window does not exit, and the wait ends at its deadline.
 
-A desktop entry has no other channel, and the teardown and the wait can take twenty seconds
-with nothing on screen, so one notification is kept current through the launch: it says when a
-previous session is being closed first, and it reports a Lutris that exits non-zero. A clean exit
-gets nothing, Lutris showing its own errors in dialogs. Every one is transient, so none reaches
-the message list. The icon is the one the games role installs for the slug.
+A desktop entry has no other channel, and a launch can run for minutes with nothing on screen,
+so one notification is kept current through it: it says when a previous session is being closed
+first, it is re-sent every few seconds until the prefix's wineserver is up, and it reports a
+Lutris that exits non-zero. A clean exit gets nothing, Lutris showing its own errors in dialogs.
+Every one is transient, so none reaches the message list. The icon is the one the games role
+installs for the slug.
+
+The long silence is umu fetching a Proton build: Lutris names `PROTONPATH=GE-Proton`, so a new
+GE-Proton release is downloaded and unpacked on the first launch after it ships, and the
+sandbox's stderr reaches no screen. The download is visible from the host as a `*.parts` file
+growing under the flatpak's umu cache, so the banner reports its size while it runs and says
+that it is being unpacked once it stops.
 
 One launch at a time per prefix, held under a lock in the runtime directory: a second activation
 would otherwise tear down what the first has just started, the teardown having no way to tell a
@@ -61,6 +68,16 @@ POLL_SECONDS = 0.2
 # How long the previous Lutris instance gets to leave the bus. Its shutdown is a few seconds
 # after its game stops; an instance with a window never does, and the launch proceeds.
 LUTRIS_EXIT_SECONDS = 15.0
+
+# How long the banner is kept up waiting for the prefix's wineserver, which umu starts only
+# once it has a Proton build to run, and how often it is re-sent meanwhile. Long enough for a
+# GE-Proton download on a slow link; a launch still silent afterwards has failed some other way.
+WINE_UP_SECONDS = 600.0
+NOTIFY_REFRESH_SECONDS = 3.0
+
+# A `.parts` file in umu's cache is a download in progress only while it is still being written:
+# an aborted one stays behind indefinitely.
+DOWNLOAD_FRESH_SECONDS = 10.0
 
 # Milliseconds each notification's banner asks for, by urgency. Every one is transient, so
 # none is added to the message list: one left there stays until it is dismissed by hand, and
@@ -205,6 +222,60 @@ def sandbox_ancestors(pids, app_id, exclude):
     return found
 
 
+def umu_cache_dir(app_id):
+    """Where umu downloads to: the flatpak's XDG_CACHE_HOME, under the user running the launch."""
+    return Path.home() / ".var" / "app" / app_id / "cache" / "umu"
+
+
+def download_in_progress(cache_dir):
+    """The bytes of the `.parts` file umu is writing now, or None when it is writing none."""
+    now = time.time()
+    try:
+        parts = [entry.stat() for entry in cache_dir.glob("*.parts")]
+    except OSError:
+        return None
+    fresh = [stat.st_size for stat in parts if now - stat.st_mtime < DOWNLOAD_FRESH_SECONDS]
+    return max(fresh) if fresh else None
+
+
+def wineserver_up(prefix, exclude):
+    """Whether a wineserver carrying the prefix is running: umu has its Proton and wine has started."""
+    wanted = {f"{key}={prefix}".encode() for key in PREFIX_KEYS}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit() or int(entry.name) in exclude:
+            continue
+        try:
+            comm = (entry / "comm").read_text().strip()
+        except OSError:
+            continue
+        if comm == "wineserver" and wanted & set(environ_of(int(entry.name))):
+            return True
+    return False
+
+
+def wait_for_wine(child, prefix, app_id, notifier):
+    """Keep the banner current until the prefix's wineserver is up, the child exits, or the deadline."""
+    exclude = own_pids()
+    cache_dir = umu_cache_dir(app_id)
+    downloaded = False
+    deadline = time.monotonic() + WINE_UP_SECONDS
+    # A second Lutris hands its request to the first and exits 0 at once, the launch carrying
+    # on in that instance, so a clean exit does not end the wait; a failure does.
+    while child.poll() in (None, 0) and time.monotonic() < deadline:
+        if wineserver_up(prefix, exclude):
+            return
+        size = download_in_progress(cache_dir)
+        if size is not None:
+            downloaded = True
+            body = f"Downloading a Proton update: {size // 1_000_000} MB so far."
+        elif downloaded:
+            body = "Unpacking the Proton update."
+        else:
+            body = "The window takes a moment to appear."
+        notifier.show(f"Launching {notifier.name}", body)
+        time.sleep(NOTIFY_REFRESH_SECONDS)
+
+
 def wait_for_exit(pids, seconds):
     deadline = time.monotonic() + seconds
     while pids and time.monotonic() < deadline:
@@ -263,7 +334,9 @@ def main():
         # request to the first and returns at once, so this returns then too.
         sys.stdout.flush()
         sys.stderr.flush()
-        returncode = subprocess.call(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
+        child = subprocess.Popen(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
+        wait_for_wine(child, prefix, app_id, notifier)
+        returncode = child.wait()
         if returncode != 0:
             notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
         return returncode
