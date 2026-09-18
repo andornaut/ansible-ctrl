@@ -25,12 +25,9 @@
           {% endif %}
       when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver or homeautomation_install_avahi
 
-    - name: Import Avahi tasks
-      ansible.builtin.import_tasks: avahi.yml
-      when: homeautomation_install_avahi
-
     # Ubuntu Server ships no avahi-daemon, and systemd_service fails on a unit it
-    # cannot find whenever enabled is set.
+    # cannot find whenever enabled is set. Stat both branches: the mask below has to
+    # be lifted again when the flag is turned back on.
     - name: Check for the host Avahi units
       ansible.builtin.stat:
         path: "/usr/lib/systemd/system/{{ item }}"
@@ -39,13 +36,34 @@
       loop:
         - avahi-daemon.socket
         - avahi-daemon.service
-      when: not homeautomation_install_avahi
 
-    - name: Disable host Avahi daemon when not needed
+    # Before avahi.yml: a masked unit cannot be started, so the package's postinst and
+    # the Restart Avahi handler both fail against one left masked by an earlier run.
+    - name: Unmask host Avahi units when needed
+      ansible.builtin.systemd_service:
+        name: "{{ item.item }}"
+        masked: false
+      become: true
+      loop: "{{ homeautomation_avahi_units.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when:
+        - homeautomation_install_avahi
+        - item.stat.exists | default(false)
+
+    - name: Import Avahi tasks
+      ansible.builtin.import_tasks: avahi.yml
+      when: homeautomation_install_avahi
+
+    # Masked, not just disabled: cups-browsed declares Wants=avahi-daemon.service and
+    # the units carry a D-Bus activation file, either of which starts a disabled unit.
+    # Only a mask refuses both.
+    - name: Disable and mask host Avahi daemon when not needed
       ansible.builtin.systemd_service:
         name: "{{ item.item }}"
         state: stopped
         enabled: false
+        masked: true
       become: true
       # The socket first: it can spawn the service.
       loop: "{{ homeautomation_avahi_units.results | default([]) }}"
