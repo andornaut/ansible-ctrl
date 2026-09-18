@@ -4,7 +4,7 @@
   "description": "Lint tooling only. Nothing here is installed on a host: the playbooks reach Node through the roles.",
   "devDependencies": {
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
+    "lint-staged": "^17.5.1",
     "markdownlint-cli2": "0.23.2",
     "prettier": "^3.9.6"
   },
