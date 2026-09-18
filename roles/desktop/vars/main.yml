@@ -107,6 +107,12 @@ desktop_flatpak_overrides:
     # Already granted by the application's own manifest. The override pins it, so neither a
     # manifest that drops it nor an edit in Flatseal takes it away.
     - --share=ipc
+  org.mozilla.firefox:
+    # Firefox stores autofill credit cards through libsecret. Without this it reaches no
+    # Secret Service at all and saving one fails with NS_ERROR_ABORT: the sandbox cannot
+    # talk to the bus name, and the portal fallback exists only where the desktop matches
+    # gnome-keyring.portal's UseIn=gnome.
+    - --talk-name=org.freedesktop.secrets
 
 # The .desktop id xdg-settings takes. Firefox's differs by install method.
 desktop_default_browser_desktop_id: >-
