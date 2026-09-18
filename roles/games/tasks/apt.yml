@@ -17,6 +17,9 @@
       # xwininfo, which files/lutris-launch-game.py asks gamescope's nested X server
       # whether the game has a window yet.
       - x11-utils
+      # gdbus, which the same launcher closes its notification with once a window is up:
+      # notify-send can post and replace one but not take one down.
+      - libglib2.0-bin
     state: latest
     install_recommends: false
     update_cache: true

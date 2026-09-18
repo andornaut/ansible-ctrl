@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tear down a stale wine session for a prefix, then hand off to Lutris.
 
-    lutris-launch-game.py <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]
+    lutris-launch-game.py <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name> [<game-exe>]]
 
 Lutris cannot do this itself. Its ProcessWatcher never signals a process named in the game's
 `exclude_processes`, nor any of its own SYSTEM_PROCESSES (wineserver among them), and its comment
@@ -44,7 +44,16 @@ The wait ends when the game has a window, which is what the banner stands in for
 gives the game a nested X server of its own, whose display the role's `gamescope-child` wrapper
 exports into the game's environment, so the host reads it out of `/proc` and asks that server
 what it is showing. The nested server is an Xwayland either way, so this works on an X11 host
-and a Wayland one alike, unlike a query against the host display.
+and a Wayland one alike, unlike a query against the host display. The banner is closed the
+moment a window is up, not left to expire.
+
+The first window is the client's when the entry goes through one (Battle.net), and the client
+does not always go on to launch the game: its remotely served frontend ignores the launch
+command on some builds, and the client then sits on the game's page. With `<game-exe>` named,
+the wait goes on past the client's window for a process running that executable. One that has
+not appeared a few seconds after the client's window is prompted for with a banner asking for
+Play, kept up until the process appears; one that appears and then exits before it has a
+window of its own is reported, since that is how a broken install fails.
 
 Lutris exits 0 whatever became of the launch, and a second instance exits 0 at once having
 handed its request to the first, so a clean exit ends nothing by itself: the wait also ends when
@@ -122,6 +131,11 @@ NO_GAMESCOPE_SECONDS = 15.0
 # How long a click waits for the lock another launch holds. A launch keeps it until its window
 # is up, so this is how long a second click sits behind a first one before giving up.
 LOCK_WAIT_SECONDS = 30.0
+
+# How long the client gets, after its window is up, to launch the game on its own before the
+# banner asks for Play. The client starts the game within a second or two of acting on the
+# launch command; longer means its frontend is not going to.
+PLAY_PROMPT_SECONDS = 15.0
 
 # How long a process gets to leave /proc after SIGKILL. One still there is blocked in the
 # kernel, its environ still readable, and must not pass for the new session's wineserver.
@@ -216,6 +230,35 @@ class Notifier:
         if (summary, body, urgency) != self.current or time.monotonic() - self.sent_at >= NOTIFY_REFRESH_SECONDS:
             self.show(summary, body, urgency)
 
+    def close(self):
+        """Take the banner down now. notify-send cannot; the notification daemon's bus method can."""
+        if not self.notification_id:
+            return
+        argv = [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.freedesktop.Notifications",
+            "--object-path",
+            "/org/freedesktop/Notifications",
+            "--method",
+            "org.freedesktop.Notifications.CloseNotification",
+            self.notification_id,
+        ]
+        try:
+            result = subprocess.run(argv, capture_output=True, text=True, check=False)
+        except OSError as error:
+            log.warning("gdbus failed: %s", error)
+            return
+        if result.returncode != 0:
+            log.warning("CloseNotification exited %d: %s", result.returncode, result.stderr.strip())
+        else:
+            log.info("notification closed")
+        # A closed id is not replaced; the next banner is a new one.
+        self.notification_id = None
+        self.current = None
+
 
 class PrefixLock:
     """The prefix's launch lock, held from the click until the game has a window.
@@ -238,11 +281,16 @@ class PrefixLock:
         self.path = Path(runtime_dir) / f"lutris-launch-game.{digest}.lock" if runtime_dir else None
         self.handle = None
 
-    def acquire(self, on_wait):
-        """Hold the lock; False when another launch kept it for LOCK_WAIT_SECONDS."""
+    def acquire(self, on_wait, in_use):
+        """ "acquired", or "in-use" when the holder's session has a window, or "busy" after LOCK_WAIT_SECONDS.
+
+        `in_use` is asked once, when the lock first turns out to be taken: a holder whose session
+        is on screen is a launch that has reached the client or the game, and waiting on it is
+        pointless; one with nothing on screen yet is still launching, and the wait is for that.
+        """
         if self.path is None:
             log.warning("no XDG_RUNTIME_DIR; launching without the concurrency guard")
-            return True
+            return "acquired"
         # Opened for append, never "w": the other launcher's handle is the same inode, and
         # truncation is a write to it while it is held.
         self.handle = self.path.open("a")
@@ -254,15 +302,18 @@ class PrefixLock:
             except OSError:
                 if not waited:
                     waited = True
-                    log.info("%s is held by another launch; waiting up to %.0fs", self.path, LOCK_WAIT_SECONDS)
+                    log.info("%s is held by another launch", self.path)
+                    if in_use():
+                        return "in-use"
+                    log.info("waiting up to %.0fs for it", LOCK_WAIT_SECONDS)
                 if time.monotonic() - started >= LOCK_WAIT_SECONDS:
                     log.warning("%s still held after %.0fs; giving up", self.path, LOCK_WAIT_SECONDS)
-                    return False
+                    return "busy"
                 on_wait()
                 time.sleep(POLL_SECONDS)
                 continue
             log.info("%s acquired after %.1fs", self.path, time.monotonic() - started)
-            return True
+            return "acquired"
 
     def release(self):
         if self.handle is None:
@@ -339,6 +390,21 @@ def prefix_pids(prefix, exclude):
         if pid in exclude:
             continue
         if wanted & set(environ_of(pid)):
+            found.append(pid)
+    return found
+
+
+def game_pids(pids, exe):
+    """Those of the prefix's processes running the named executable.
+
+    Matched on the command line's first argument rather than comm: a Chromium-based client
+    renames its threads, and comm follows the main thread.
+    """
+    wanted = exe.lower().encode()
+    found = []
+    for pid in pids:
+        argv0 = cmdline_of(pid).split(b"\0", 1)[0]
+        if argv0.replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower() == wanted:
             found.append(pid)
     return found
 
@@ -569,12 +635,16 @@ def session_on_screen(prefix, exclude):
     return window_shown(windows)
 
 
-def wait_for_window(child, prefix, app_id, notifier, exclude):
+def wait_for_launch(child, prefix, app_id, exe, notifier, exclude):
     """Keep the banner current until the game has a window; False when the wait ran out.
 
     A non-zero exit ends it, the child having failed. A clean exit ends nothing: Lutris exits 0
     whatever became of the launch, and a second instance exits 0 at once having handed its
     request to the first. That case ends instead when no process of the sandbox is left.
+
+    Without `exe`, the first window ends the wait. With it, the first window is the client's,
+    and the wait goes on for a process running `exe` and then for a window that was not there
+    before it, the banner asking for Play meanwhile once the client has had its chance.
     """
     watch = ProtonInstallWatch(app_id)
     can_probe = shutil.which("xwininfo") is not None
@@ -583,8 +653,12 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
     display = None
     wine_since = None
     last_windows = None
+    client_since = None
+    client_windows = set()
+    game_since = None
     deadline = time.monotonic() + WINDOW_SECONDS
     while time.monotonic() < deadline:
+        now = time.monotonic()
         returncode = child.poll()
         if returncode not in (None, 0):
             log.info("flatpak run exited %d before a window appeared", returncode)
@@ -594,59 +668,101 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
             display = gamescope_display(pids)
             if display:
                 log.info("gamescope display %s found in the game's environment", display)
-        if display:
-            windows = candidate_windows(display)
-            if windows != last_windows:
-                log.info("display %s shows %s", display, windows or "no window of usable size")
-                last_windows = windows
-            if window_shown(windows):
-                log.info("the game has a window")
-                return True
-        if returncode == 0 and not sandbox_pids(app_id, exclude):
-            log.info("flatpak run exited 0 and nothing of %s is left", app_id)
-            return True
+        windows = candidate_windows(display) if display else []
+        if windows != last_windows:
+            log.info("display %s shows %s", display, windows or "no window of usable size")
+            last_windows = windows
+        shown = {window for window, *_, state in windows if state == "viewable"}
 
-        if not pids:
-            body = "Starting Lutris."
-        elif any(comm_of(pid) == "wineserver" for pid in pids):
-            if wine_since is None:
-                wine_since = time.monotonic()
-                log.info("the prefix's wineserver is up")
-            if display is None and time.monotonic() - wine_since >= NO_GAMESCOPE_SECONDS:
-                log.info(
-                    "no gamescope display after %.0fs of wineserver; taking the window as shown", NO_GAMESCOPE_SECONDS
-                )
+        if client_since is None:
+            if shown:
+                client_since = now
+                client_windows = shown
+                notifier.close()
+                if not exe:
+                    log.info("the game has a window")
+                    return True
+                log.info("the client has a window; waiting for %s", exe)
+            elif returncode == 0 and not sandbox_pids(app_id, exclude):
+                log.info("flatpak run exited 0 and nothing of %s is left", app_id)
                 return True
-            body = "Waiting for the game's window."
-        elif watch.in_progress():
-            body = "Installing a Proton update; this takes a few minutes."
-        else:
-            body = "Starting the Wine session."
-        notifier.keep(f"Launching {notifier.name}", body)
-        # The probe runs xwininfo once per candidate window, so the poll is the banner's own.
+            elif not pids:
+                notifier.keep(f"Launching {notifier.name}", "Starting Lutris.")
+            elif any(comm_of(pid) == "wineserver" for pid in pids):
+                if wine_since is None:
+                    wine_since = now
+                    log.info("the prefix's wineserver is up")
+                if display is None and now - wine_since >= NO_GAMESCOPE_SECONDS:
+                    log.info(
+                        "no gamescope display after %.0fs of wineserver; taking the window as shown",
+                        NO_GAMESCOPE_SECONDS,
+                    )
+                    return True
+                notifier.keep(f"Launching {notifier.name}", "Waiting for the game's window.")
+            elif watch.in_progress():
+                notifier.keep(f"Launching {notifier.name}", "Installing a Proton update; this takes a few minutes.")
+            else:
+                notifier.keep(f"Launching {notifier.name}", "Starting the Wine session.")
+            time.sleep(NOTIFY_REFRESH_SECONDS)
+            continue
+
+        running = game_pids(pids, exe)
+        if running:
+            if game_since is None:
+                game_since = now
+                log.info("%s is running: %s", exe, describe(running))
+                notifier.close()
+            if shown - client_windows:
+                log.info("the game has a window")
+                notifier.close()
+                return True
+            notifier.keep(f"Launching {notifier.name}", "Waiting for the game's window.")
+        elif game_since is not None:
+            lived = now - game_since
+            log.warning("%s exited after %.0fs without a window of its own", exe, lived)
+            notifier.show(
+                f"{notifier.name} did not start",
+                f"{exe} exited after {lived:.0f} seconds without a window.",
+                urgency="normal",
+            )
+            return True
+        elif now - client_since >= PLAY_PROMPT_SECONDS:
+            notifier.keep(f"{notifier.name} has not started", "Press Play in the client.", urgency="normal")
         time.sleep(NOTIFY_REFRESH_SECONDS)
     log.warning("no window after %.0fs", WINDOW_SECONDS)
     return False
 
 
 def main():
-    if len(sys.argv) not in (4, 5):
-        sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]")
+    if len(sys.argv) not in (4, 5, 6):
+        usage = "<wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name> [<game-exe>]]"
+        sys.exit(f"usage: {Path(sys.argv[0]).name} {usage}")
     given, app_id, slug = sys.argv[1:4]
-    name = sys.argv[4] if len(sys.argv) == 5 else slug
+    name = sys.argv[4] if len(sys.argv) >= 5 else slug
+    exe = sys.argv[5] if len(sys.argv) == 6 else None
     setup_logging(slug)
     notifier = Notifier(name, f"lutris_{slug}")
     # umu resolves the prefix before exporting it, so a symlinked or trailing-slash path
     # matches its processes only in canonical form; the value as given still matches
     # Lutris's own.
     prefix = (str(Path(given).expanduser().resolve()), given)
-    log.info("launching %s: prefix %s, %s, lutris:rungame/%s", name, prefix[0], app_id, slug)
+    log.info(
+        "launching %s: prefix %s, %s, lutris:rungame/%s, game %s", name, prefix[0], app_id, slug, exe or "(any window)"
+    )
 
     def on_wait():
         notifier.keep(f"Launching {name}", "Another launch is in progress; waiting for it to finish.")
 
+    def in_use():
+        return session_on_screen(prefix, own_pids())
+
     lock = PrefixLock(prefix[0])
-    if not lock.acquire(on_wait):
+    state = lock.acquire(on_wait, in_use)
+    if state == "in-use":
+        log.info("%s has a session on screen; leaving it alone", prefix[0])
+        notifier.show(f"{name} is already running")
+        return 0
+    if state == "busy":
         notifier.show(
             f"{name} did not start",
             f"Another launch has held the prefix for {LOCK_WAIT_SECONDS:.0f} seconds.",
@@ -675,7 +791,7 @@ def main():
         child = subprocess.Popen(["flatpak", "run", app_id, f"lutris:rungame/{slug}"])
         log.info("started flatpak run as pid %d", child.pid)
         try:
-            shown = wait_for_window(child, prefix, app_id, notifier, own_pids() | survivors)
+            shown = wait_for_launch(child, prefix, app_id, exe, notifier, own_pids() | survivors)
         except BaseException:
             child.kill()
             raise
