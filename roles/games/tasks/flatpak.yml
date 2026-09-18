@@ -60,24 +60,36 @@
         | list | length == 0
       changed_when: true
 
-    # Installed by name, so pinned, so never unused below.
+    # Installed by name, so pinned, so never unused below. The uninstall keeps the pin, which
+    # is removed beside it: a pin outlives its ref and would hold a later install of the same
+    # branch out of --unused.
     - name: Uninstall the Vulkan layer extensions of the branches nothing mounts
-      ansible.builtin.command:
-        argv:
-          [
-            flatpak,
-            uninstall,
-            --user,
-            --assumeyes,
-            --noninteractive,
-            "{{ item }}",
-          ]
-      loop: >-
-        {{ games_flatpak_refs.stdout_lines
-           | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.](MangoHud|gamescope)/')
-           | reject('regex', '/(' ~ (games_flatpak_vulkan_branches | map('regex_escape') | join('|')) ~ ')$')
-           | list }}
-      changed_when: true
+      vars:
+        games_flatpak_vulkan_stale: >-
+          {{ games_flatpak_refs.stdout_lines
+             | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.](MangoHud|gamescope)/')
+             | reject('regex', '/(' ~ (games_flatpak_vulkan_branches | map('regex_escape') | join('|')) ~ ')$')
+             | list }}
+      block:
+        - name: Uninstall the Vulkan layer extensions of the branches nothing mounts
+          ansible.builtin.command:
+            argv:
+              [
+                flatpak,
+                uninstall,
+                --user,
+                --assumeyes,
+                --noninteractive,
+                "{{ item }}",
+              ]
+          loop: "{{ games_flatpak_vulkan_stale }}"
+          changed_when: true
+
+        - name: Unpin the uninstalled Vulkan layer extensions
+          ansible.builtin.command:
+            argv: [flatpak, pin, --user, --remove, "runtime/{{ item }}"]
+          loop: "{{ games_flatpak_vulkan_stale }}"
+          changed_when: true
 
     # Lutris is left to the block below: its override carries a PATH read from its manifest.
     - name: Apply flatpak overrides
