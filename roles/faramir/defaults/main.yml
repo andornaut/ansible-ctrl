@@ -83,13 +83,13 @@ faramir_ptrace_scope: 1
 faramir_notify_command: []
 
 # How long a sudo question waits for a human before it is refused, 1 to 600, against
-# faramir's own default of 120. Long enough to reach the terminal running
-# `sudo faramir sudo watch`.
+# faramir's own default of 120. The ceiling: long enough to reach the terminal running
+# `sudo faramir sudo watch` from another room.
 #
 # It is a window, not a grace period: silence is a refusal either way, and raising it only
 # moves when that refusal lands. The cost of a longer one is that a question nobody answers
 # holds every other brokered command on the host until it expires.
-faramir_sudo_timeout_sec: 300
+faramir_sudo_timeout_sec: 600
 
 # Paths the agent's file tools are refused. faramir compiles in no credential rules: an
 # install refuses its own directories at their real paths and nothing else, so each entry
