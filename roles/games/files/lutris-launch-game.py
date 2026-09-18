@@ -746,13 +746,18 @@ def main():
         lock.release()
 
     returncode = child.wait()
-    if returncode < 0 and -returncode in (signal.SIGTERM, signal.SIGKILL):
-        # A later launch's teardown, or the user's own kill: not a failure of this one.
-        log.info("Lutris was terminated by %s", signal.Signals(-returncode).name)
+    # Negative when this process's child took the signal, 128 + the signal when the sandbox
+    # did (`flatpak kill`) and flatpak run relayed it. A later launch's teardown, or the
+    # user's own kill: not a failure of this one.
+    terminated = {-s for s in (signal.SIGTERM, signal.SIGKILL)} | {128 + s for s in (signal.SIGTERM, signal.SIGKILL)}
+    if returncode in terminated:
+        log.info("Lutris was terminated by %s", signal.Signals(abs(returncode) % 128).name)
         return 0
     log.info("Lutris exited %d", returncode)
     if returncode != 0:
-        notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
+        # A window that was shown is a launch that happened, whatever Lutris returned after.
+        if not shown:
+            notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
         return returncode
     # A launch the wait already reported as failed is one, whatever Lutris returned.
     return 0 if shown else 1
