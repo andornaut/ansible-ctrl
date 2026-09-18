@@ -30,6 +30,9 @@ games_user_uid: "{{ ansible_facts['getent_passwd'][games_user][1] }}"
 games_heroic_app_id: com.heroicgameslauncher.hgl
 games_heroic_config_file: "{{ games_user_home }}/.var/app/{{ games_heroic_app_id }}/config/heroic/config.json"
 
+# Installed by tasks/bedrock.yml from its release bundle, so not in games_flatpak_apps.
+games_bedrock_app_id: io.github.wyze3306.BedrockOnLinux
+
 # What tasks/bedrock.yml puts on BedrockOnLinux's sandbox PATH through a read-only grant: the
 # vendored xrandr.
 games_bedrock_helper_dir: "{{ games_user_home }}/.local/share/bol-helpers"
@@ -540,12 +543,6 @@ games_retroarch_core_options:
   mupen64plus_next:
     mupen64plus-rdp-plugin: parallel
     mupen64plus-rsp-plugin: parallel
-
-# The org.freedesktop.Platform version every game runtime here accepts. Verify a bump with
-# `flatpak remote-info flathub com.valvesoftware.Steam | grep Runtime`. The flatpak module
-# matches on application ID only, so an extension on an older branch needs a manual
-# uninstall.
-games_flatpak_runtime_branch: "25.08"
 
 # Copied into RetroArch's system directory rather than pointed at in place: cores
 # treat that directory as writable scratch space, so it has to be local.

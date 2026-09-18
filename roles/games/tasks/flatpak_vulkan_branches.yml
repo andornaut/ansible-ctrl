@@ -1,0 +1,43 @@
+---
+# Sets games_flatpak_vulkan_branches: the org.freedesktop.Platform.VulkanLayer branches the
+# installed game applications mount, one per distinct runtime. A sandbox mounts the extension
+# of the branch its runtime's extension point names and no other, and the launchers' runtimes
+# move independently, so the branch is read from each application rather than pinned once.
+# BedrockOnLinux is named on its own, bedrock.yml installing it outside games_flatpak_apps.
+# Runs as games_user, whose installation is read.
+- name: List the flatpak applications installed for {{ games_user }}
+  ansible.builtin.command:
+    argv: [flatpak, list, --user, --app, --columns=application]
+  register: games_flatpak_vulkan_installed
+  changed_when: false
+  check_mode: false
+
+- name: Read the runtime of each game application
+  ansible.builtin.command:
+    argv: [flatpak, info, --user, -m, "{{ item }}"]
+  loop: >-
+    {{ (games_flatpak_apps + [games_bedrock_app_id])
+       | select('in', games_flatpak_vulkan_installed.stdout_lines) | list }}
+  register: games_flatpak_vulkan_manifests
+  changed_when: false
+  check_mode: false
+
+- name: Read the Vulkan layer extension point of each runtime
+  ansible.builtin.command:
+    argv: [flatpak, info, --user, -m, "{{ item }}"]
+  loop: >-
+    {{ games_flatpak_vulkan_manifests.results | map(attribute='stdout')
+       | map('regex_search', '(?m)^runtime=(.*)$', '\1') | map('first') | unique | list }}
+  register: games_flatpak_vulkan_runtimes
+  changed_when: false
+  check_mode: false
+
+# `[^\[]*?` keeps the match inside the section: the next `[` is the next section header.
+- name: Collect the Vulkan layer branches
+  ansible.builtin.set_fact:
+    games_flatpak_vulkan_branches: >-
+      {{ games_flatpak_vulkan_runtimes.results | map(attribute='stdout')
+         | map('regex_search',
+               '(?s)\[Extension org\.freedesktop\.Platform\.VulkanLayer\][^\[]*?version\s*=\s*([0-9.]+)',
+               '\1')
+         | reject('none') | map('first') | unique | sort | list }}

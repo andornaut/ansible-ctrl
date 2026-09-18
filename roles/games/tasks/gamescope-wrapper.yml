@@ -29,20 +29,24 @@
       changed_when: false
       check_mode: false
 
-    # On the runtime branch flatpak.yml pins: the wrapper execs the binary of whichever the
-    # application's runtime mounts, and only that branch's is installed.
-    - name: Require the gamescope Vulkan layer extension
+    - name: Read the Vulkan layer branches the game applications mount
+      ansible.builtin.include_tasks: flatpak_vulkan_branches.yml
+
+    # On every branch an installed application's runtime mounts: the wrapper execs the binary
+    # of whichever the sandbox mounts, and a runtime that moved branch mounts none until the
+    # extension of its new branch is installed.
+    - name: Require the gamescope Vulkan layer extension on each branch
       ansible.builtin.assert:
         that:
           - games_gamescope_flatpak_refs.stdout_lines
             | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.]gamescope/[^/]+/'
-            ~ (games_flatpak_runtime_branch | regex_escape) ~ '$')
+            ~ (item | regex_escape) ~ '$')
             | list | length > 0
         fail_msg: >-
-          org.freedesktop.Platform.VulkanLayer.gamescope//{{ games_flatpak_runtime_branch }} is
-          not installed for {{ games_user }}. It comes from this role's flatpak tag:
-          make games -- --tags flatpak
-        success_msg: The gamescope Vulkan layer extension is installed
+          org.freedesktop.Platform.VulkanLayer.gamescope//{{ item }} is not installed for
+          {{ games_user }}. It comes from this role's flatpak tag: make games -- --tags flatpak
+        success_msg: The gamescope Vulkan layer extension is installed on branch {{ item }}
+      loop: "{{ games_flatpak_vulkan_branches }}"
 
     # libc6-dev is a recommend of gcc, and this installs no recommends.
     - name: Install the compiler the display preload library is built with

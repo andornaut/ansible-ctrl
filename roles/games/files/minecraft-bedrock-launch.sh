@@ -310,10 +310,12 @@ play_running() {
 
 deadline=$((EPOCHSECONDS + WINDOW_SECONDS))
 shown=0
+exited_early=0
 last_display=""
 while [ "$EPOCHSECONDS" -lt "$deadline" ]; do
     if ! play_running; then
         log "play exited before a window appeared"
+        exited_early=1
         break
     fi
     if display=$(nested_display) && [ "$display" != "$last_display" ]; then
@@ -342,7 +344,19 @@ release_lock
 wait "$PLAY_PID"
 rc=$?
 case "$rc" in
-    0) log "play exited 0" ;;
+    0)
+        log "play exited 0"
+        # `play` exits 0 whatever became of the game, so a launch that showed nothing is a
+        # failure it did not report. The launcher's own log has the reason; its tail is
+        # copied here, where every other decision of the launch is.
+        if [ "$exited_early" = 1 ]; then
+            game_log="$HOME/.var/app/$APP_ID/data/bedrock-on-linux/logs/minecraft.log"
+            log "the game's log, $game_log, ends:"
+            tail -n 5 "$game_log" 2>/dev/null | while IFS= read -r line; do log "  $line"; done
+            notify normal "Minecraft did not start" "BedrockOnLinux exited without showing a window. See $LOG_FILE."
+            rc=1
+        fi
+        ;;
     # 128 + SIGTERM or SIGKILL: a later launch's teardown, or the user's own kill, not a
     # failure of this one.
     143 | 137) log "play was terminated (exit code $rc)" ; rc=0 ;;

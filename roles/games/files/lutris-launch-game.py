@@ -149,7 +149,10 @@ LAUNCHER_NAME = b"lutris-launch-game"
 
 
 def setup_logging(slug):
-    """Log to stderr for a terminal run, and to the state directory for a desktop-entry one."""
+    """Log to stderr for a terminal run, and to the state directory for a desktop-entry one.
+
+    Returns the log file's path, or None when there is none.
+    """
     formatter = logging.Formatter("%(asctime)s [%(process)d] %(levelname)s %(message)s")
     log.setLevel(logging.DEBUG)
     stderr = logging.StreamHandler()
@@ -164,9 +167,10 @@ def setup_logging(slug):
         )
     except OSError as error:
         log.warning("not logging to %s: %s", log_dir, error)
-        return
+        return None
     handler.setFormatter(formatter)
     log.addHandler(handler)
+    return log_dir / f"{slug}.log"
 
 
 class Notifier:
@@ -177,9 +181,11 @@ class Notifier:
     once when its text changes. Each change of text is logged, each re-send is not.
     """
 
-    def __init__(self, name, icon):
+    def __init__(self, name, icon, log_file=None):
         self.name = name
         self.icon = icon
+        # Named in a failure banner, being where the reason is.
+        self.log_file = log_file
         self.notification_id = None
         self.current = None
         self.sent_at = 0.0
@@ -644,7 +650,14 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
             notifier.close()
             return True
         if returncode == 0 and not sandbox_pids(app_id, exclude):
-            log.info("flatpak run exited 0 and nothing of %s is left", app_id)
+            # Lutris exits 0 whatever became of the launch, so a sandbox that emptied with
+            # nothing on screen is a failure it did not report.
+            log.warning("flatpak run exited 0 and nothing of %s is left, with no window shown", app_id)
+            notifier.show(
+                f"{notifier.name} did not start",
+                f"Lutris exited without the game showing a window. See {notifier.log_file or 'the log'}.",
+                urgency="normal",
+            )
             return True
 
         if not pids:
@@ -675,8 +688,8 @@ def main():
         sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]")
     given, app_id, slug = sys.argv[1:4]
     name = sys.argv[4] if len(sys.argv) == 5 else slug
-    setup_logging(slug)
-    notifier = Notifier(name, f"lutris_{slug}")
+    log_file = setup_logging(slug)
+    notifier = Notifier(name, f"lutris_{slug}", log_file)
     # umu resolves the prefix before exporting it, so a symlinked or trailing-slash path
     # matches its processes only in canonical form; the value as given still matches
     # Lutris's own.

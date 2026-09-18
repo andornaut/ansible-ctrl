@@ -81,7 +81,7 @@
 - name: Install the latest BedrockOnLinux from the release bundle
   when: games_bedrock_installed not in games_bedrock_flatpaks.stdout_lines
   vars:
-    games_bedrock_installed: "io.github.wyze3306.BedrockOnLinux\t{{ games_bedrock_version }}"
+    games_bedrock_installed: "{{ games_bedrock_app_id }}\t{{ games_bedrock_version }}"
     games_bedrock_release_base: "https://github.com/Wyze3306/BedrockOnLinux/releases/download/{{ games_bedrock_tag }}"
     games_bedrock_bundle_name: "BedrockOnLinux-{{ games_bedrock_version }}-x86_64.flatpak"
   block:
@@ -129,7 +129,7 @@
 - name: Install the direct-launch Minecraft (Bedrock) script and desktop entry
   vars:
     games_bedrock_icon_src: >-
-      {{ games_user_home }}/.var/app/io.github.wyze3306.BedrockOnLinux/data/bedrock-on-linux/content/LargeLogo.png
+      {{ games_user_home }}/.var/app/{{ games_bedrock_app_id }}/data/bedrock-on-linux/content/LargeLogo.png
     games_bedrock_icon_dir: "{{ games_user_home }}/.local/share/icons/hicolor/256x256/apps"
   block:
     - name: Create the user bin directory
@@ -216,7 +216,7 @@
 # output.
 - name: Read the BedrockOnLinux manifest
   ansible.builtin.command:
-    argv: [flatpak, info, --user, -m, io.github.wyze3306.BedrockOnLinux]
+    argv: [flatpak, info, --user, -m, "{{ games_bedrock_app_id }}"]
   register: games_bedrock_manifest
   changed_when: false
   check_mode: false
@@ -224,7 +224,7 @@
 - name: Grant the helper directories to the sandbox, on PATH, and turn on gamescope
   ansible.builtin.include_tasks: flatpak_override.yml
   vars:
-    games_flatpak_override_app: io.github.wyze3306.BedrockOnLinux
+    games_flatpak_override_app: "{{ games_bedrock_app_id }}"
     games_flatpak_override_args: >-
       {{ ['--filesystem=' ~ games_bedrock_helper_dir ~ ':ro',
           '--env=PATH=' ~ games_bedrock_path]
