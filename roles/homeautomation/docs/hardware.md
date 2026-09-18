@@ -6,7 +6,7 @@ Device-specific setup, pairing, and firmware notes for the [homeautomation](../R
 
 Prerequisites:
 
-- A Thread Border Router, such as the [Home Assistant Connect ZBT-1](#home-assistant-connect-zbt-1)
+- A Thread Border Router: OTBR, running against the [SLZB-MR1U](#smlight-slzb-mr1u)'s EFR32MG21 radio
 - Matter devices and controllers on the same L2 network
 - IPv6 networking enabled; link-local addresses are sufficient
 
@@ -91,12 +91,6 @@ M5Stack bluetooth proxy:
 - [Product page](https://www.evehome.com/en-us/eve-energy-outlet) and
   [support](https://www.evehome.com/en-us/support/eve-energy)
 - Factory reset: press the right LED for 10 seconds
-
-### Home Assistant Connect ZBT-1
-
-- [Official documentation](https://support.nabucasa.com/hc/en-us/categories/24734620813469)
-- [Thread](https://www.home-assistant.io/integrations/thread/#list-of-thread-border-router-devices) and
-  [enabling Thread support](https://support.nabucasa.com/hc/en-us/articles/26124710072861-Enabling-Thread-support)
 
 ### Inovelli White Series Switch
 
