@@ -33,6 +33,15 @@ games_heroic_config_file: "{{ games_user_home }}/.var/app/{{ games_heroic_app_id
 # Installed by tasks/bedrock.yml from its release bundle, so not in games_flatpak_apps.
 games_bedrock_app_id: io.github.wyze3306.BedrockOnLinux
 
+# The launchers whose sandboxes load the Vulkan layer extensions, and so whose runtimes decide
+# the branches tasks/flatpak_vulkan_branches.yml installs them on. Not every game
+# application: an emulator's runtime would add a branch nothing loads.
+games_flatpak_vulkan_apps:
+  - com.valvesoftware.Steam
+  - "{{ games_heroic_app_id }}"
+  - "{{ games_lutris_app_id }}"
+  - "{{ games_bedrock_app_id }}"
+
 # What tasks/bedrock.yml puts on BedrockOnLinux's sandbox PATH through a read-only grant: the
 # vendored xrandr.
 games_bedrock_helper_dir: "{{ games_user_home }}/.local/share/bol-helpers"

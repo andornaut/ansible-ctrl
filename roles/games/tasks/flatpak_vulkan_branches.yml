@@ -1,33 +1,24 @@
 ---
 # Sets games_flatpak_vulkan_branches: the org.freedesktop.Platform.VulkanLayer branches the
-# installed game applications mount, one per distinct runtime. A sandbox mounts the extension
-# of the branch its runtime's extension point names and no other, and the launchers' runtimes
-# move independently, so the branch is read from each application rather than pinned once.
-# BedrockOnLinux is named on its own, bedrock.yml installing it outside games_flatpak_apps.
-# Runs as games_user, whose installation is read.
-- name: List the flatpak applications installed for {{ games_user }}
+# installed launchers in games_flatpak_vulkan_apps mount, one per distinct runtime. A sandbox
+# mounts the extension of the branch its runtime's extension point names and no other, and the
+# launchers' runtimes move independently, so the branch is read from each rather than pinned
+# once. Runs as games_user, whose installation lists the applications; a runtime is looked up
+# in every installation, a user application taking its runtime from the system one as readily.
+- name: List the flatpak applications and their runtimes installed for {{ games_user }}
   ansible.builtin.command:
-    argv: [flatpak, list, --user, --app, --columns=application]
+    argv: [flatpak, list, --user, --app, "--columns=application,runtime"]
   register: games_flatpak_vulkan_installed
   changed_when: false
   check_mode: false
 
-- name: Read the runtime of each game application
+- name: Read the Vulkan layer extension point of each launcher's runtime
   ansible.builtin.command:
-    argv: [flatpak, info, --user, -m, "{{ item }}"]
+    argv: [flatpak, info, -m, "{{ item }}"]
   loop: >-
-    {{ (games_flatpak_apps + [games_bedrock_app_id])
-       | select('in', games_flatpak_vulkan_installed.stdout_lines) | list }}
-  register: games_flatpak_vulkan_manifests
-  changed_when: false
-  check_mode: false
-
-- name: Read the Vulkan layer extension point of each runtime
-  ansible.builtin.command:
-    argv: [flatpak, info, --user, -m, "{{ item }}"]
-  loop: >-
-    {{ games_flatpak_vulkan_manifests.results | map(attribute='stdout')
-       | map('regex_search', '(?m)^runtime=(.*)$', '\1') | map('first') | unique | list }}
+    {{ games_flatpak_vulkan_installed.stdout_lines | map('split', '\t')
+       | selectattr('0', 'in', games_flatpak_vulkan_apps)
+       | map('last') | unique | sort | list }}
   register: games_flatpak_vulkan_runtimes
   changed_when: false
   check_mode: false
@@ -41,3 +32,14 @@
                '(?s)\[Extension org\.freedesktop\.Platform\.VulkanLayer\][^\[]*?version\s*=\s*([0-9.]+)',
                '\1')
          | reject('none') | map('first') | unique | sort | list }}
+
+# An empty list would pass every per-branch check below it and mark every installed branch
+# as unmounted, so it is refused here, where the cause is named.
+- name: Require a launcher whose runtime names a Vulkan layer branch
+  ansible.builtin.assert:
+    that: games_flatpak_vulkan_branches | length > 0
+    fail_msg: >-
+      None of {{ games_flatpak_vulkan_apps | join(', ') }} is installed for {{ games_user }}
+      with a runtime that names a Vulkan layer branch. They come from this role's flatpak
+      and bedrock tags: make games -- --tags flatpak,bedrock
+    success_msg: "Vulkan layer branches: {{ games_flatpak_vulkan_branches | join(', ') }}"

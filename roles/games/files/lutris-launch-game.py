@@ -658,7 +658,7 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
                 f"Lutris exited without the game showing a window. See {notifier.log_file or 'the log'}.",
                 urgency="normal",
             )
-            return True
+            return False
 
         if not pids:
             body = "Starting Lutris."
@@ -680,6 +680,7 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
         # The probe runs xwininfo once per candidate window, so the poll is the banner's own.
         time.sleep(NOTIFY_REFRESH_SECONDS)
     log.warning("no window after %.0fs", WINDOW_SECONDS)
+    notifier.show(f"{notifier.name} did not start", "No window appeared in ten minutes.", urgency="normal")
     return False
 
 
@@ -744,8 +745,6 @@ def main():
     finally:
         lock.release()
 
-    if not shown:
-        notifier.show(f"{name} did not start", "No window appeared in ten minutes.", urgency="normal")
     returncode = child.wait()
     if returncode < 0 and -returncode in (signal.SIGTERM, signal.SIGKILL):
         # A later launch's teardown, or the user's own kill: not a failure of this one.
@@ -754,7 +753,9 @@ def main():
     log.info("Lutris exited %d", returncode)
     if returncode != 0:
         notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
-    return returncode
+        return returncode
+    # A launch the wait already reported as failed is one, whatever Lutris returned.
+    return 0 if shown else 1
 
 
 if __name__ == "__main__":

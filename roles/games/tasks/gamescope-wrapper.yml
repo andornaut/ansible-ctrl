@@ -29,7 +29,7 @@
       changed_when: false
       check_mode: false
 
-    - name: Read the Vulkan layer branches the game applications mount
+    - name: Read the Vulkan layer branches the launchers mount
       ansible.builtin.include_tasks: flatpak_vulkan_branches.yml
 
     # On every branch an installed application's runtime mounts: the wrapper execs the binary
