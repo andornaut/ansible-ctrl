@@ -4,7 +4,9 @@
   vars:
     service_account_name: "{{ item.name }}"
     service_account_uid: "{{ item.uid }}"
-    # The server keeps no state; the account exists only for the process identity.
+    # The server keeps no state that outlives a recreate: the settings UI, which would
+    # persist under ~/.ha-mcp, is disabled below. The account exists only for the
+    # process identity.
     service_account_paths: []
     service_account_mode: "0700"
   loop: "{{ homeautomation_hamcp_instances }}"
@@ -19,6 +21,11 @@
     hamcp_base_environment:
       HOMEASSISTANT_TOKEN: "{{ item.token }}"
       HOMEASSISTANT_URL: "{{ item.url }}"
+      # ha-mcp-web serves an unauthenticated settings UI at /mcp/settings that can
+      # re-enable disabled tools and rewrite overrides for the instance holding the
+      # admin token, and every container on the shared bridge can reach it. The switch
+      # fails closed on an unrecognised value.
+      HA_MCP_DISABLE_SETTINGS_UI: "true"
       TZ: "{{ homeautomation_tz }}"
     hamcp_environment: >-
       {{ hamcp_base_environment | combine(homeautomation_hamcp_env | default({})) }}
