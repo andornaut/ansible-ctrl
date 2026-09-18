@@ -12,11 +12,13 @@
   changed_when: false
   check_mode: false
 
+# Split on whitespace rather than the tab flatpak writes, neither column containing any: a
+# `\t` in a block scalar reaches Jinja as two characters and splits nothing.
 - name: Read the Vulkan layer extension point of each launcher's runtime
   ansible.builtin.command:
     argv: [flatpak, info, -m, "{{ item }}"]
   loop: >-
-    {{ games_flatpak_vulkan_installed.stdout_lines | map('split', '\t')
+    {{ games_flatpak_vulkan_installed.stdout_lines | map('split')
        | selectattr('0', 'in', games_flatpak_vulkan_apps)
        | map('last') | unique | sort | list }}
   register: games_flatpak_vulkan_runtimes
