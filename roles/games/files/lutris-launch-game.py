@@ -106,6 +106,10 @@ XWININFO_TIMEOUT_SECONDS = 5.0
 # that draws on the host display, where the game's window cannot be told from the desktop's.
 NO_GAMESCOPE_SECONDS = 15.0
 
+# How long a click waits for the lock the previous session's launcher still holds while its
+# Lutris instance shuts down. That takes a few seconds; longer means something else.
+LOCK_WAIT_SECONDS = 30.0
+
 # How long a process gets to leave /proc after SIGKILL. One still there is blocked in the
 # kernel, its environ still readable, and must not pass for the new session's wineserver.
 KILL_WAIT_SECONDS = 2.0
@@ -154,8 +158,11 @@ class Notifier:
 
 
 @contextlib.contextmanager
-def prefix_lock(prefix):
-    """Hold this prefix's launch lock for the block, yielding False when another run has it.
+def prefix_lock(prefix, in_use=None, on_wait=None):
+    """Hold this prefix's launch lock for the block, yielding what the attempt found.
+
+    "acquired" holds it for the block. "in-use" means another launcher keeps it and `in_use`
+    found a window up, so that session is live. "busy" means the wait ran out with neither.
 
     One launch at a time per prefix. teardown() cannot tell a stale session from one a sibling
     run started a second ago, both carrying the prefix in their environment and neither being
@@ -163,23 +170,46 @@ def prefix_lock(prefix):
     desktop entry gives no launch feedback and a launch takes twenty seconds to put a window
     up, which makes a second click the ordinary case rather than the exceptional one.
 
-    Held for the whole run and released by the kernel when this process ends, so a run that is
-    killed or crashes leaves nothing to clear. The name is a digest because the lock belongs to
-    the prefix, not the game: two games sharing one prefix must not launch at once either.
+    The holder keeps the lock for its whole run, which lasts as long as the game, so the click
+    that starts the next session finds it still taken while the Lutris instance of the last one
+    shuts down. That click waits instead of being refused: the holder is on its way out, and a
+    session that is merely ending has no window. One that still has a window is running, and
+    the click leaves it alone rather than waiting for something that is not going to happen.
+
+    Released by the kernel when this process ends, so a run that is killed or crashes leaves
+    nothing to clear. The name is a digest because the lock belongs to the prefix, not the
+    game: two games sharing one prefix must not launch at once either.
     """
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime_dir:
         print("lutris-launch-game: no XDG_RUNTIME_DIR; launching without the concurrency guard", file=sys.stderr)
-        yield True
+        yield "acquired"
         return
     digest = hashlib.sha256(prefix.encode()).hexdigest()[:16]
     with (Path(runtime_dir) / f"lutris-launch-game.{digest}.lock").open("w") as handle:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            yield False
+        deadline = time.monotonic() + LOCK_WAIT_SECONDS
+        # Asked once, when the lock first turns out to be taken: that is when the question is
+        # whether to wait at all. A holder that is still launching has no window either, and
+        # waiting out the deadline is the right answer for that one.
+        judged = False
+        while True:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                if not judged:
+                    judged = True
+                    if in_use is not None and in_use():
+                        yield "in-use"
+                        return
+                    if on_wait is not None:
+                        on_wait()
+                if time.monotonic() >= deadline:
+                    yield "busy"
+                    return
+                time.sleep(POLL_SECONDS)
+                continue
+            yield "acquired"
             return
-        yield True
 
 
 def stat_fields(pid):
@@ -385,6 +415,14 @@ def window_shown(display):
     return any("IsViewable" in xwininfo(display, "-id", window) for window in candidates)
 
 
+def session_on_screen(prefix, exclude):
+    """Whether this prefix has a window up, which tells a live session from one that is ending."""
+    if not shutil.which("xwininfo"):
+        return False
+    display = gamescope_display(prefix_pids(prefix, exclude))
+    return bool(display) and window_shown(display)
+
+
 def wait_for_window(child, prefix, app_id, notifier, exclude):
     """Keep the banner current until the game has a window; False when the wait ran out.
 
@@ -434,8 +472,18 @@ def main():
     # Lutris's own.
     prefix = (str(Path(given).expanduser().resolve()), given)
 
-    with prefix_lock(prefix[0]) as acquired:
-        if not acquired:
+    def in_use():
+        return session_on_screen(prefix, own_pids())
+
+    def on_wait():
+        notifier.show(f"Launching {name}", "Closing the previous session first.")
+
+    with prefix_lock(prefix[0], in_use=in_use, on_wait=on_wait) as lock:
+        if lock == "in-use":
+            print(f"lutris-launch-game: {prefix[0]} has a session on screen; leaving it alone")
+            notifier.show(f"{name} is already running")
+            return 0
+        if lock == "busy":
             print("lutris-launch-game: another launch holds this prefix; leaving it to finish")
             notifier.show(f"{name} is already launching", "The window takes a moment to appear.")
             return 0
