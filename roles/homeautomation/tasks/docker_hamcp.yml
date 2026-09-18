@@ -25,7 +25,7 @@
     hamcp_service:
       # http://<name>.internal:8086
       container_name: "{{ item.name }}"
-      command: "fastmcp run fastmcp-http.json"
+      command: ha-mcp-web
       environment: "{{ hamcp_environment }}"
       extra_hosts:
         - "host.docker.internal:host-gateway"
