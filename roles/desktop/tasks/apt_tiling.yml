@@ -28,3 +28,36 @@
     install_recommends: false
     update_cache: true
   become: true
+
+# CLEANUP (added 2026-09-19): packages and launcher entries removed by hand from the tiling
+# host that converged first, so the other tiling hosts reach the same state when they next
+# converge. Delete both tasks once every host with desktop_environment other than gnome has
+# converged. Not for a gnome host: gnome-terminal is part of its session there.
+- name: Purge the packages the tiling hosts no longer carry
+  ansible.builtin.apt:
+    name:
+      - arduino
+      - barrier
+      - gnome-terminal
+      - higan
+      - minecraft-launcher
+      - pocket-sync
+      - rxvt-unicode
+      - spotify-client
+      - winetricks
+      - xarchiver
+      - xsane
+    autoremove: true
+    purge: true
+    state: absent
+  become: true
+
+- name: Remove the launcher entries no package owns
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/share/applications/Alacritty.desktop
+    - /usr/share/applications/xscreensaver.desktop
+    - /usr/share/applications/xscreensaver-settings.desktop
+  become: true

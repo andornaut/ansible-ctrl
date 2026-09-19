@@ -163,6 +163,8 @@ desktop_apt_pinned_packages:
   - gimp
   - inkscape
   - libreoffice
+  # The meta package alone leaves the suite behind; core takes the rest with autoremove.
+  - libreoffice-core
   - vlc
 
 # Optional flatpak applications, each installed for desktop_user where its flag is on, and
