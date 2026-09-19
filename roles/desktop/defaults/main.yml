@@ -224,11 +224,9 @@ desktop_app_entry_overrides:
   net.lutris.Lutris.desktop: { categories: [Game] }
   com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
   net.davidotek.pupgui2.desktop: { categories: [Game] }
-  winetricks.desktop: { categories: [Game] }
   # Hobbies: Electronics and Engineering match none of nwg-drawer's buttons, so these land
   # under the one it labels Hobbies (tasks/nwg_drawer.yml). GNOME groups by folder, not category.
   expresslrs-configurator.desktop: { categories: [Electronics] }
-  arduino.desktop: { categories: [Electronics] }
   org.kicad.kicad.desktop: { categories: [Electronics] }
   org.freecadweb.FreeCAD.desktop: { categories: [Engineering] }
   openscad.desktop: { categories: [Engineering] }
@@ -239,7 +237,6 @@ desktop_app_entry_overrides:
   org.gnome.DiskUtility.desktop: { categories: [System] }
   org.gnome.Logs.desktop: { categories: [System] }
   pavucontrol.desktop: { categories: [System] }
-  barrier.desktop: { categories: [System] }
   org.coolercontrol.CoolerControl.desktop: { categories: [System] }
 
 # GNOME app grid folders for desktop_user, {folder name: [.desktop ids]}. The grid shows one
