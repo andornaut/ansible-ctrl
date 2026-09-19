@@ -79,6 +79,7 @@ import os
 import re
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -684,11 +685,28 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
     return False
 
 
+def game_name(app_id, slug):
+    """The game's name as Lutris shows it, from its database, or the slug when unknown.
+
+    Read here rather than passed on the command line: a quoted argument with spaces in a desktop
+    entry's Exec is one argument by the spec, but not to every launcher (nwg-drawer joins the
+    words and re-splits them), and a wrong argument count is an exit before anything is logged.
+    """
+    db = Path.home() / ".var/app" / app_id / "data/lutris/pga.db"
+    try:
+        with contextlib.closing(sqlite3.connect(f"file:{db}?mode=ro", uri=True)) as conn:
+            row = conn.execute("select name from games where slug = ?", (slug,)).fetchone()
+    except sqlite3.Error as exc:
+        log.debug("no name for %s from %s: %s", slug, db, exc)
+        return slug
+    return row[0] if row and row[0] else slug
+
+
 def main():
     if len(sys.argv) not in (4, 5):
         sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]")
     given, app_id, slug = sys.argv[1:4]
-    name = sys.argv[4] if len(sys.argv) == 5 else slug
+    name = sys.argv[4] if len(sys.argv) == 5 else game_name(app_id, slug)
     log_file = setup_logging(slug)
     notifier = Notifier(name, f"lutris_{slug}", log_file)
     # umu resolves the prefix before exporting it, so a symlinked or trailing-slash path
