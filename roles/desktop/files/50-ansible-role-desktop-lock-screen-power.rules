@@ -1,0 +1,14 @@
+// Keep Power Off and Restart on the GNOME lock screen while another user holds a session.
+//
+// logind answers CanPowerOff and CanReboot with "challenge" once a second user has any
+// session, an SSH login included, because the action becomes the *-multiple-sessions one
+// and its default is admin authentication. gnome-shell hides both entries on the lock screen
+// whenever the answer is "challenge", since the lock screen cannot prompt. Granting the two
+// actions to an active local session turns the answer back into "yes".
+polkit.addRule(function (action, subject) {
+    if ((action.id == "org.freedesktop.login1.power-off-multiple-sessions" ||
+         action.id == "org.freedesktop.login1.reboot-multiple-sessions") &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

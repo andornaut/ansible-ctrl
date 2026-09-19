@@ -31,3 +31,12 @@
     enabled: true
     masked: false
   become: true
+
+# polkitd watches rules.d, so the rule applies on write; gnome-shell re-asks logind on its
+# next session-state change, a lock or unlock included.
+- name: Keep Power Off and Restart on the lock screen while another user has a session
+  ansible.builtin.copy:
+    src: 50-ansible-role-desktop-lock-screen-power.rules
+    dest: /etc/polkit-1/rules.d/50-ansible-role-desktop-lock-screen-power.rules
+    mode: "0644"
+  become: true
