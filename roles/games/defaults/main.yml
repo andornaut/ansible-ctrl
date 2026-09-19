@@ -44,7 +44,7 @@ games_gamescope_resolution: ""
 # Optional flatpak applications, each installed for games_user where its flag is on, and
 # uninstalled where it is off. vars/main.yml holds the application ID each flag stands for.
 #
-# Off by default because neither is wanted on every gaming host, for different reasons:
+# Off by default because none is wanted on every gaming host, for different reasons:
 #   Dolphin is installed for dolphin-tool, which converts GameCube disc images between .iso
 #   and .rvz (noble packages no dolphin-emu), so it belongs where the library is converted:
 #     flatpak run --command=dolphin-tool org.DolphinEmu.dolphin-emu convert ...
@@ -52,7 +52,9 @@ games_gamescope_resolution: ""
 #   a real need on a host that plays, but it installs arbitrary third-party builds, so it is
 #   named rather than assumed. Without it a build is extracted by hand into
 #   ~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/.
+#   OpenJKDF2 is the Jedi Knight II engine and plays nothing without that game's data files.
 games_install_dolphin: false
+games_install_openjkdf2: false
 games_install_protonup_qt: false
 
 # Flatpak applications every gaming host installs and configures for games_user.
@@ -62,11 +64,9 @@ games_flatpak_common:
   # against a client that refuses to start once it is a version behind.
   - com.discordapp.Discord
   - com.heroicgameslauncher.hgl
-  - com.mojang.Minecraft
   - com.valvesoftware.Steam
   - net.lutris.Lutris
   - org.libretro.RetroArch
-  - org.openjkdf2.OpenJKDF2
 
 # Heroic's installs and wine prefixes, in its own ~/.local/games subdir. Granted in
 # games_flatpak_overrides and written into config.json by tasks/heroic.yml: the sandbox can

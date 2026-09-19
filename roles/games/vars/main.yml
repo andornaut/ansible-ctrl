@@ -6,6 +6,7 @@
 # in host_vars, so a host names a decision and the role keeps the list.
 games_flatpak_optional:
   org.DolphinEmu.dolphin-emu: "{{ games_install_dolphin | bool }}"
+  org.openjkdf2.OpenJKDF2: "{{ games_install_openjkdf2 | bool }}"
   net.davidotek.pupgui2: "{{ games_install_protonup_qt | bool }}"
 
 # Every application flatpak.yml installs: the common set, plus the optional ones turned on.

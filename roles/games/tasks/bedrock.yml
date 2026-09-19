@@ -131,6 +131,8 @@
     games_bedrock_icon_src: >-
       {{ games_user_home }}/.var/app/{{ games_bedrock_app_id }}/data/bedrock-on-linux/content/LargeLogo.png
     games_bedrock_icon_dir: "{{ games_user_home }}/.local/share/icons/hicolor/256x256/apps"
+    games_bedrock_export_entry: >-
+      {{ games_user_home }}/.local/share/flatpak/exports/share/applications/{{ games_bedrock_app_id }}.desktop
   block:
     - name: Create the user bin directory
       ansible.builtin.file:
@@ -181,6 +183,31 @@
       ansible.builtin.template:
         src: minecraft-bedrock.desktop.j2
         dest: "{{ games_user_home }}/.local/share/applications/minecraft-bedrock.desktop"
+        mode: "0644"
+
+    # The flatpak's own entry opens the launcher GUI the entry above skips, so the grid would
+    # show two Minecrafts. A copy with NoDisplay rather than a stub: the id stays launchable
+    # and its Play action intact, and the copy tracks whatever the export says on each run.
+    # Absent under --check on a host that has yet to install the flatpak, so gated like the icon.
+    - name: Check for the BedrockOnLinux desktop entry
+      ansible.builtin.stat:
+        path: "{{ games_bedrock_export_entry }}"
+      register: games_bedrock_export
+
+    - name: Read the BedrockOnLinux desktop entry
+      when: games_bedrock_export.stat.exists
+      ansible.builtin.slurp:
+        src: "{{ games_bedrock_export_entry }}"
+      register: games_bedrock_entry
+
+    - name: Hide the BedrockOnLinux desktop entry
+      when: games_bedrock_export.stat.exists
+      ansible.builtin.copy:
+        # Double-quoted so that YAML supplies the newlines; a folded scalar hands Jinja a
+        # literal backslash-n, which matches nothing.
+        content: "{{ (games_bedrock_entry.content | b64decode)
+          | replace('[Desktop Entry]\n', '[Desktop Entry]\nNoDisplay=true\n', 1) }}"
+        dest: "{{ games_user_home }}/.local/share/applications/{{ games_bedrock_app_id }}.desktop"
         mode: "0644"
 
 # The sandbox PATH grant for BOL's own gpu_safety check: it fail-closes under X11, the
