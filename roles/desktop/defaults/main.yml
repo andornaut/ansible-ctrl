@@ -213,7 +213,8 @@ desktop_app_entry_overrides:
   org.libreoffice.LibreOffice.base.desktop: { hidden: true }
   org.libreoffice.LibreOffice.math.desktop: { hidden: true }
   # One category where the packager listed two.
-  org.gnome.Evince.desktop: { categories: [Office] }
+  # A viewer, as the GNOME grid's Utilities folder files it; the packager lists Office first.
+  org.gnome.Evince.desktop: { categories: [Utility] }
   org.libreoffice.LibreOffice.draw.desktop: { categories: [Office] }
   org.gnome.DiskUtility.desktop: { categories: [System] }
   pavucontrol.desktop: { categories: [System] }
