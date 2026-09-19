@@ -1,0 +1,189 @@
+---
+# nwg-drawer is a fullscreen application grid: search, category buttons and one icon per
+# .desktop entry, the GNOME app grid's shape for the tiling hosts. It runs resident under a
+# user unit so opening it is a signal rather than a GTK start: SIGUSR1 toggles the window.
+#
+# Written for wlroots compositors; on an X11 session it skips layer-shell and opens an
+# undecorated maximized window, which bspwm tiles unless a rule makes it fullscreen. That
+# rule lives in the bspwmrc dotfile beside the sxhkd binding that sends the signal.
+
+# Before the build dependencies, so a host without a toolchain fails early. The dev role
+# installs Go under /usr/local/go, which is on no service account's PATH, so the probe and
+# the build name the binary.
+- name: Require the Go toolchain
+  become: true
+  become_user: "{{ desktop_user }}"
+  block:
+    - name: Probe for the Go toolchain
+      ansible.builtin.include_tasks: require_tools.yml
+      vars:
+        require_tools:
+          - name: go
+            probe: /usr/local/go/bin/go version
+            hint: "It comes from the dev role: make dev -- --tags go"
+
+# gotk4 is cgo over the GTK 3 headers; the layer-shell binding is a build dependency even
+# where the session is X11.
+- name: Install nwg-drawer build dependencies
+  ansible.builtin.apt:
+    name:
+      - gcc
+      - libgtk-3-dev
+      - libgtk-layer-shell-dev
+      - pkg-config
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+
+# The download and the build run as the account whose Go module cache holds the
+# dependencies. become_user propagates into the block, so the tasks that need root name
+# it back: a bare become: true would inherit this user and fail.
+- name: Build and install nwg-drawer
+  become: true
+  become_user: "{{ desktop_user }}"
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: desktop_nwg_drawer_tmp
+      check_mode: false
+
+    - name: Get latest nwg-drawer release
+      ansible.builtin.include_tasks: get_latest_release.yml
+      vars:
+        release_repo: nwg-piotr/nwg-drawer
+        release_fact: desktop_nwg_drawer_release
+
+    # The release publishes no assets, so the tag's source archive is the download.
+    - name: Download and unarchive nwg-drawer
+      ansible.builtin.unarchive:
+        src: "https://github.com/nwg-piotr/nwg-drawer/archive/refs/tags/{{ desktop_nwg_drawer_release.tag_name }}.tar.gz"
+        dest: "{{ desktop_nwg_drawer_tmp.path }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components
+          - 1
+      register: desktop_nwg_drawer_download
+      retries: 3
+      delay: 5
+      until: desktop_nwg_drawer_download is succeeded
+
+    - name: Build nwg-drawer
+      ansible.builtin.command:
+        cmd: /usr/local/go/bin/go build -o bin/nwg-drawer .
+        chdir: "{{ desktop_nwg_drawer_tmp.path }}"
+      changed_when: true
+
+    - name: Install nwg-drawer binary
+      ansible.builtin.copy:
+        src: "{{ desktop_nwg_drawer_tmp.path }}/bin/nwg-drawer"
+        dest: /usr/local/bin/nwg-drawer
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart nwg-drawer
+      become: true
+      become_user: root
+
+    # The program walks XDG_DATA_DIRS for a nwg-drawer/desktop-directories, and
+    # /usr/local/share is in the default list.
+    - name: Install nwg-drawer data files
+      ansible.builtin.copy:
+        src: "{{ desktop_nwg_drawer_tmp.path }}/{{ item }}"
+        dest: /usr/local/share/nwg-drawer/
+        remote_src: true
+        owner: root
+        group: root
+        mode: "u=rwX,go=rX"
+      loop:
+        - desktop-directories
+        - img
+        - drawer.css
+      notify: Restart nwg-drawer
+      become: true
+      become_user: root
+  always:
+    - name: Remove the temporary directory
+      ansible.builtin.file:
+        path: "{{ desktop_nwg_drawer_tmp.path }}"
+        state: absent
+      when: desktop_nwg_drawer_tmp.path is defined
+      become: true
+      become_user: root
+      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+      check_mode: false
+
+- name: Configure nwg-drawer service
+  block:
+    # eww.yml creates this too, but --tags nwg-drawer skips eww.yml.
+    - name: Create the local systemd user unit directory
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/user
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Install nwg-drawer.service
+      ansible.builtin.copy:
+        dest: /usr/local/lib/systemd/user/nwg-drawer.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=nwg-drawer application grid
+          Documentation=https://github.com/nwg-piotr/nwg-drawer
+          # PartOf and After only, never Requires: graphical-session.target ships
+          # StopWhenUnneeded=yes, and whatever requires it is what holds it up.
+          PartOf=graphical-session.target
+          After=graphical-session.target
+
+          [Service]
+          Type=exec
+          # Resident: the window is built once and SIGUSR1 toggles it. The terminal is what
+          # a "run in terminal" entry opens in; the default is foot, which no host here has.
+          ExecStart=/usr/local/bin/nwg-drawer -r -term alacritty
+          Restart=on-failure
+          RestartSec=2
+          Slice=session.slice
+
+          [Install]
+          WantedBy=graphical-session.target
+      notify: Restart nwg-drawer
+      become: true
+
+    # Symlinking works with the user manager down, so the unit activates at next login
+    # either way; the task below starts it now when a session is present.
+    - name: Create the wants directory for nwg-drawer.service
+      ansible.builtin.file:
+        path: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants"
+        state: directory
+        mode: "0755"
+      when: desktop_user_home_mounted | bool
+      become: true
+      become_user: "{{ desktop_user }}"
+
+    - name: Enable nwg-drawer service
+      ansible.builtin.file:
+        src: /usr/local/lib/systemd/user/nwg-drawer.service
+        dest: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants/nwg-drawer.service"
+        state: link
+        # state=link rejects an absent src before check mode is considered, and the unit file
+        # above is a no-op under --check. force skips that test, so a dry run reports the missing
+        # symlink instead of failing; a real run always has the unit, written immediately above.
+        force: true
+      when: desktop_user_home_mounted | bool
+      become: true
+      become_user: "{{ desktop_user }}"
+
+    - name: Start nwg-drawer service in the active session
+      ansible.builtin.systemd_service:
+        name: nwg-drawer.service
+        daemon_reload: true
+        scope: user
+        state: started
+      become: true
+      become_user: "{{ desktop_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+      when: desktop_user_systemd.stat.exists
