@@ -1,4 +1,13 @@
 ---
+# Every task file reads the home and uid of bspwm_user off this lookup, so it runs on every
+# tag: a --tags app-entries run would otherwise find the fact missing.
+- name: Resolve home directory for {{ bspwm_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ bspwm_user }}"
+  become: false
+  tags: always
+
 - name: Install X11 system packages and build dependencies
   ansible.builtin.import_tasks: apt.yml
   tags:
