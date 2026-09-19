@@ -38,12 +38,19 @@
     name:
       - arduino
       - barrier
+      - gnome-characters
+      - gnome-font-viewer
+      - gnome-power-manager
+      - gnome-screenshot
+      - gnome-startup-applications
       - gnome-terminal
       - higan
       - minecraft-launcher
       - pocket-sync
+      - ranger
       - rxvt-unicode
       - spotify-client
+      - usb-creator-gtk
       - winetricks
       - xarchiver
       - xsane
@@ -52,7 +59,7 @@
     state: absent
   become: true
 
-- name: Remove the launcher entries no package owns
+- name: Remove the launcher entries and binaries no package owns
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -60,4 +67,6 @@
     - /usr/share/applications/Alacritty.desktop
     - /usr/share/applications/xscreensaver.desktop
     - /usr/share/applications/xscreensaver-settings.desktop
+    - /usr/share/applications/org.kde.fancontrol.gui.desktop
+    - /usr/bin/fancontrol_gui
   become: true
