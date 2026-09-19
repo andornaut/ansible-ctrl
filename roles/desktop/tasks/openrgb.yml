@@ -1,0 +1,15 @@
+---
+# Ubuntu's package: it ships the udev rule that grants the RGB controllers to the seat. The
+# grant is a uaccess tag, on the hidraw node of a HID controller and on the usb device node of
+# one reached through libusb, so both handlers apply it without a replug.
+- name: Install OpenRGB
+  ansible.builtin.apt:
+    name: openrgb
+    state: latest
+    install_recommends: false
+    update_cache: true
+  become: true
+  notify:
+    - Reload the udev rules
+    - Apply the udev rules to the HID devices
+    - Apply the udev rules to the USB devices

@@ -187,6 +187,11 @@
       ansible.builtin.import_tasks: dconf.yml
       tags: dconf
 
+    # After dconf.yml, which installs the dconf-cli the folders are listed and reset with.
+    - name: Configure the GNOME app grid
+      ansible.builtin.import_tasks: app_grid.yml
+      tags: app-grid
+
     - name: Configure file-roller archive associations
       ansible.builtin.import_tasks: file_roller.yml
       tags: file-roller
@@ -233,6 +238,11 @@
     - name: Configure LACT
       ansible.builtin.import_tasks: lact.yml
       tags: lact
+
+    - name: Configure OpenRGB
+      ansible.builtin.import_tasks: openrgb.yml
+      tags: openrgb
+      when: desktop_install_openrgb
 
     # No `when`: the file branches on the flag itself, so that turning it off lifts
     # the filters an earlier run enforced.

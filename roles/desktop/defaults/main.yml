@@ -20,6 +20,8 @@ desktop_it87_version: master
 desktop_install_nct6687d: false
 desktop_nct6687d_repo: https://github.com/Fred78290/nct6687d.git
 desktop_nct6687d_version: main
+# RGB lighting control, from the Ubuntu archive.
+desktop_install_openrgb: false
 # USB vendor IDs whose hubs reset their downstream tree on autosuspend, dropping input
 # and audio for seconds. Each gets power/control pinned on. Empty removes the rule.
 desktop_usb_no_autosuspend_vendor_ids: []
@@ -171,6 +173,8 @@ desktop_apt_pinned_packages:
 desktop_install_audacity: false
 desktop_install_blender: false
 desktop_install_filezilla: false
+# The flatpak, for a gnome host; the tiling hosts get the apt build and its unit from the flameshot tag.
+desktop_install_flameshot: false
 desktop_install_handbrake: false
 desktop_install_mission_center: false
 desktop_install_obs_studio: false
@@ -181,3 +185,56 @@ desktop_flatpak_common:
   - org.inkscape.Inkscape
   - org.libreoffice.LibreOffice
   - org.videolan.VLC
+
+# GNOME app grid folders for desktop_user, {folder name: [.desktop ids]}. The grid shows one
+# icon per folder in place of its members, so what the account does not open goes into one
+# rather than being uninstalled from under it. The map is the whole set: a folder the shell
+# had that is not named here is removed, and empty leaves the shell's own set alone. An id
+# with no entry on the host is ignored by the shell, so the one map names everything this role
+# can install, under both the 24.04 and the 26.04 ids where they differ: System is what serves whoever maintains the host, Utilities the viewers that
+# keep the file associations Files and the browser hand documents to, Graphics the editors.
+# Office is the suite. Whatever is none of these, the games and the browser among them, stays
+# at the top level.
+desktop_app_grid_folders:
+  Graphics:
+    - org.audacityteam.Audacity.desktop
+    - org.blender.Blender.desktop
+    - org.flameshot.Flameshot.desktop
+    - org.gimp.GIMP.desktop
+    - org.inkscape.Inkscape.desktop
+    - com.obsproject.Studio.desktop
+    - fr.handbrake.ghb.desktop
+  Office:
+    - org.libreoffice.LibreOffice.desktop
+    - org.libreoffice.LibreOffice.base.desktop
+    - org.libreoffice.LibreOffice.calc.desktop
+    - org.libreoffice.LibreOffice.draw.desktop
+    - org.libreoffice.LibreOffice.impress.desktop
+    - org.libreoffice.LibreOffice.math.desktop
+    - org.libreoffice.LibreOffice.writer.desktop
+  System:
+    - display-im7.q16.desktop
+    - gnome-language-selector.desktop
+    - htop.desktop
+    - info.desktop
+    - io.github.ilya_zlobintsev.LACT.desktop
+    - io.missioncenter.MissionCenter.desktop
+    - nm-connection-editor.desktop
+    - org.coolercontrol.CoolerControl.desktop
+    - org.freedesktop.MalcontentControl.desktop
+    - org.freedesktop.IBus.Setup.desktop
+    - org.gnome.DiskUtility.desktop
+    - org.gnome.SystemMonitor.desktop
+    - org.openrgb.OpenRGB.desktop
+    - update-manager.desktop
+  Utilities:
+    - org.filezillaproject.Filezilla.desktop
+    - org.gnome.Calculator.desktop
+    - org.gnome.Evince.desktop
+    - org.gnome.FileRoller.desktop
+    - org.gnome.Loupe.desktop
+    - org.gnome.Papers.desktop
+    - org.gnome.TextEditor.desktop
+    - org.gnome.Yelp.desktop
+    - vim.desktop
+    - yelp.desktop

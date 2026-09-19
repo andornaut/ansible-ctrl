@@ -1,0 +1,70 @@
+---
+# Written into desktop_user's own dconf database, not the system one: the shell copies the
+# stock folders there on first login, and a system default sits underneath that copy.
+- name: Configure the GNOME app grid folders
+  when:
+    - desktop_environment == "gnome"
+    - desktop_app_grid_folders | length > 0
+    - desktop_user_home_mounted | bool
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  block:
+    - name: List the folders the shell has
+      ansible.builtin.command:
+        cmd: dconf list /org/gnome/desktop/app-folders/folders/
+      register: desktop_app_grid_existing
+      changed_when: false
+      check_mode: false
+
+    # Under dbus-run-session, which is what the dconf module does for itself: a write needs
+    # the dconf service, and a logged-out account has no session bus to reach it on.
+    - name: Remove the folders not named
+      ansible.builtin.command:
+        cmd: dbus-run-session -- dconf reset -f /org/gnome/desktop/app-folders/folders/{{ item }}/
+      loop: >-
+        {{ desktop_app_grid_existing.stdout_lines | map('regex_replace', '/$', '')
+           | reject('in', desktop_app_grid_folders) | list }}
+      changed_when: true
+
+    # translate=true reads name as a .directory file to look up, which the stock folders
+    # rely on and a literal name must switch off.
+    - name: Name each folder
+      community.general.dconf:
+        key: /org/gnome/desktop/app-folders/folders/{{ item.key }}/name
+        value: "'{{ item.key }}'"
+      loop: "{{ desktop_app_grid_folders | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Take each folder's name literally
+      community.general.dconf:
+        key: /org/gnome/desktop/app-folders/folders/{{ item.key }}/translate
+        value: "false"
+      loop: "{{ desktop_app_grid_folders | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Fill each folder
+      community.general.dconf:
+        key: /org/gnome/desktop/app-folders/folders/{{ item.key }}/apps
+        value: '[''{{ item.value | join("'', ''") }}'']'
+      loop: "{{ desktop_app_grid_folders | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    # The shell unions a folder's apps with whatever its categories match, and the stock
+    # folders carry one, so a kept name would keep pulling in what the map put elsewhere.
+    - name: Clear each folder's category match and exclusions
+      community.general.dconf:
+        key: /org/gnome/desktop/app-folders/folders/{{ item.0.key }}/{{ item.1 }}
+        state: absent
+      loop: "{{ desktop_app_grid_folders | dict2items | product(['categories', 'excluded-apps']) | list }}"
+      loop_control:
+        label: "{{ item.0.key }}/{{ item.1 }}"
+
+    - name: Show the named folders
+      community.general.dconf:
+        key: /org/gnome/desktop/app-folders/folder-children
+        value: '[''{{ desktop_app_grid_folders.keys() | join("'', ''") }}'']'

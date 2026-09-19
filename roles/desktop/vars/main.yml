@@ -81,6 +81,7 @@ desktop_flatpak_optional:
   org.audacityteam.Audacity: "{{ desktop_install_audacity | bool }}"
   org.blender.Blender: "{{ desktop_install_blender | bool }}"
   org.filezillaproject.Filezilla: "{{ desktop_install_filezilla | bool }}"
+  org.flameshot.Flameshot: "{{ desktop_install_flameshot | bool }}"
   fr.handbrake.ghb: "{{ desktop_install_handbrake | bool }}"
   io.missioncenter.MissionCenter: "{{ desktop_install_mission_center | bool }}"
   com.obsproject.Studio: "{{ desktop_install_obs_studio | bool }}"
