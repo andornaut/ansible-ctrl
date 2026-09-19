@@ -165,5 +165,5 @@
           Icon=/opt/freerouting/current/lib/freerouting.png
           Terminal=false
           Type=Application
-          Categories=Development;Electronics
+          Categories=Electronics
       become: true

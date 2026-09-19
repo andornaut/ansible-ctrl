@@ -116,6 +116,19 @@
       # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
       check_mode: false
 
+# The drawer's category buttons are fixed in its code; an entry whose categories match none
+# of them lands under "Other". Relabelled Hobbies, that button is where the override map
+# sends the electronics, FPV, CAD and 3D printing tools (Electronics and Engineering are
+# freedesktop additional categories the drawer does not map). Upstream's file carries a
+# Name[<locale>] for every locale, so this one names none.
+- name: Relabel the drawer's Other category as Hobbies
+  ansible.builtin.copy:
+    src: nwg-drawer-other.directory
+    dest: /usr/local/share/nwg-drawer/desktop-directories/other.directory
+    mode: "0644"
+  notify: Restart nwg-drawer
+  become: true
+
 - name: Configure nwg-drawer service
   block:
     # eww.yml creates this too, but --tags nwg-drawer skips eww.yml.

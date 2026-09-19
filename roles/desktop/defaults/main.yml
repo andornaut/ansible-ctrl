@@ -219,17 +219,23 @@ desktop_app_entry_overrides:
   cursor.desktop: { categories: [Development] }
   claude-desktop-unofficial.desktop: { categories: [Development] }
   app.getclipboard.Clipboard.desktop: { categories: [Development] }
-  expresslrs-configurator.desktop: { categories: [Development] }
   # Games only.
   com.valvesoftware.Steam.desktop: { categories: [Game] }
   net.lutris.Lutris.desktop: { categories: [Game] }
   com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
   net.davidotek.pupgui2.desktop: { categories: [Game] }
   winetricks.desktop: { categories: [Game] }
+  # Hobbies: Electronics and Engineering match none of nwg-drawer's buttons, so these land
+  # under the one it labels Hobbies (tasks/nwg_drawer.yml). GNOME groups by folder, not category.
+  expresslrs-configurator.desktop: { categories: [Electronics] }
+  arduino.desktop: { categories: [Electronics] }
+  org.kicad.kicad.desktop: { categories: [Electronics] }
+  org.freecadweb.FreeCAD.desktop: { categories: [Engineering] }
+  openscad.desktop: { categories: [Engineering] }
+  com.orcaslicer.OrcaSlicer.desktop: { categories: [Engineering] }
   # One category where the packager listed two.
   org.gnome.Evince.desktop: { categories: [Office] }
   org.libreoffice.LibreOffice.draw.desktop: { categories: [Office] }
-  org.freecadweb.FreeCAD.desktop: { categories: [Graphics] }
   org.gnome.DiskUtility.desktop: { categories: [System] }
   org.gnome.Logs.desktop: { categories: [System] }
   pavucontrol.desktop: { categories: [System] }
