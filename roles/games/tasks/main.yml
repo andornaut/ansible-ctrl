@@ -80,6 +80,13 @@
   become_user: "{{ games_user }}"
   tags: bedrock
 
+# After every launcher install, whose runtime decides the branch: the file says why.
+- name: Install the Vulkan layer extensions the launchers mount
+  ansible.builtin.import_tasks: flatpak_vulkan.yml
+  become: true
+  become_user: "{{ games_user }}"
+  tags: [flatpak, bedrock, lutris]
+
 - name: Configure Heroic Games Launcher
   ansible.builtin.import_tasks: heroic.yml
   become: true

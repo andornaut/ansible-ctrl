@@ -24,72 +24,8 @@
         name: "{{ games_flatpak_apps }}"
         method: user
 
-    # Sandboxed games cannot see the host binaries. Flathub publishes these on several
-    # branches at once, and a sandbox mounts only the one its runtime names.
-    - name: Read the Vulkan layer branches the launchers mount
-      ansible.builtin.include_tasks: flatpak_vulkan_branches.yml
-
-    # The flatpak module matches on ID alone, so with one branch installed it reports every
-    # other as present: the refs are compared by branch here and installed by the command.
-    - name: List the user flatpak refs
-      ansible.builtin.command:
-        argv: [flatpak, list, --user, --columns=ref]
-      register: games_flatpak_refs
-      changed_when: false
-      check_mode: false
-
-    - name: Install the Vulkan layer extensions on each branch the launchers mount
-      ansible.builtin.command:
-        argv:
-          [
-            flatpak,
-            install,
-            --user,
-            --assumeyes,
-            --noninteractive,
-            flathub,
-            "{{ item }}",
-          ]
-      loop: >-
-        {{ ['org.freedesktop.Platform.VulkanLayer.MangoHud', 'org.freedesktop.Platform.VulkanLayer.gamescope']
-           | product(games_flatpak_vulkan_branches) | map('join', '//') | list }}
-      when: >-
-        games_flatpak_refs.stdout_lines
-        | select('match', '^' ~ (item.split('//')[0] | regex_escape) ~ '/[^/]+/'
-                          ~ (item.split('//')[1] | regex_escape) ~ '$')
-        | list | length == 0
-      changed_when: true
-
-    # Installed by name, so pinned, so never unused below. The uninstall keeps the pin, which
-    # is removed beside it: a pin outlives its ref and would hold a later install of the same
-    # branch out of --unused.
-    - name: Uninstall the Vulkan layer extensions of the branches nothing mounts
-      vars:
-        games_flatpak_vulkan_stale: >-
-          {{ games_flatpak_refs.stdout_lines
-             | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.](MangoHud|gamescope)/')
-             | reject('regex', '/(' ~ (games_flatpak_vulkan_branches | map('regex_escape') | join('|')) ~ ')$')
-             | list }}
-      block:
-        - name: Uninstall the Vulkan layer extensions of the branches nothing mounts
-          ansible.builtin.command:
-            argv:
-              [
-                flatpak,
-                uninstall,
-                --user,
-                --assumeyes,
-                --noninteractive,
-                "{{ item }}",
-              ]
-          loop: "{{ games_flatpak_vulkan_stale }}"
-          changed_when: true
-
-        - name: Unpin the uninstalled Vulkan layer extensions
-          ansible.builtin.command:
-            argv: [flatpak, pin, --user, --remove, "runtime/{{ item }}"]
-          loop: "{{ games_flatpak_vulkan_stale }}"
-          changed_when: true
+    # The Vulkan layer extensions are flatpak_vulkan.yml, after bedrock.yml: their branches
+    # follow the launchers' runtimes, which the installs above and there can move.
 
     # Lutris is left to the block below: its override carries a PATH read from its manifest.
     - name: Apply flatpak overrides
@@ -175,7 +111,7 @@
 
     # Most of what an uninstalled application cost on disk is its runtime. --unused takes only
     # what nothing installed still needs and spares what is pinned, which is every runtime
-    # installed by name: the Vulkan layer extensions above are in `flatpak pin --user` for that
+    # installed by name: the Vulkan layer extensions of flatpak_vulkan.yml are in `flatpak pin --user` for that
     # reason. LC_ALL pins the locale, the report below being matched as text.
     - name: Remove the flatpak runtimes nothing installed still needs
       ansible.builtin.command:

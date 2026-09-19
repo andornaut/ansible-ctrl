@@ -19,34 +19,9 @@
 - name: Install the gamescope wrapper
   when: games_gamescope_enabled | bool
   block:
-    # Asserted rather than assumed: the wrapper's presence is what commits a launcher to
-    # gamescope, and it execs the extension's binary by path, so without the extension the
-    # game fails to start rather than running without gamescope.
-    - name: List the user flatpak refs
-      ansible.builtin.command:
-        argv: [flatpak, list, --user, --columns=ref]
-      register: games_gamescope_flatpak_refs
-      changed_when: false
-      check_mode: false
-
-    - name: Read the Vulkan layer branches the launchers mount
-      ansible.builtin.include_tasks: flatpak_vulkan_branches.yml
-
-    # On every branch an installed application's runtime mounts: the wrapper execs the binary
-    # of whichever the sandbox mounts, and a runtime that moved branch mounts none until the
-    # extension of its new branch is installed.
-    - name: Require the gamescope Vulkan layer extension on each branch
-      ansible.builtin.assert:
-        that:
-          - games_gamescope_flatpak_refs.stdout_lines
-            | select('match', '^org[.]freedesktop[.]Platform[.]VulkanLayer[.]gamescope/[^/]+/'
-            ~ (item | regex_escape) ~ '$')
-            | list | length > 0
-        fail_msg: >-
-          org.freedesktop.Platform.VulkanLayer.gamescope//{{ item }} is not installed for
-          {{ games_user }}. It comes from this role's flatpak tag: make games -- --tags flatpak
-        success_msg: The gamescope Vulkan layer extension is installed on branch {{ item }}
-      loop: "{{ games_flatpak_vulkan_branches }}"
+    # The gamescope extension the wrapper execs by path is flatpak_vulkan.yml, after
+    # bedrock.yml under these same tags, so a launcher whose runtime moved gets it in the
+    # same run.
 
     # libc6-dev is a recommend of gcc, and this installs no recommends.
     - name: Install the compiler the display preload library is built with
