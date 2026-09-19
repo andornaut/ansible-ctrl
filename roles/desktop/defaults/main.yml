@@ -206,6 +206,9 @@ desktop_app_entry_overrides:
   yad-icon-browser.desktop: { hidden: true }
   rofi.desktop: { hidden: true }
   rofi-theme-selector.desktop: { hidden: true }
+  # LibreOffice components the flatpak ships whether or not they are used.
+  org.libreoffice.LibreOffice.base.desktop: { hidden: true }
+  org.libreoffice.LibreOffice.math.desktop: { hidden: true }
   # Terminal programs.
   mutt.desktop: { hidden: true }
   minicom.desktop: { hidden: true }
