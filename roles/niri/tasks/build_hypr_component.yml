@@ -11,7 +11,7 @@
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
 - name: Get latest release of {{ hypr_component_name }}
-  ansible.builtin.include_tasks: get_latest_release.yml
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
   vars:
     release_repo: "hyprwm/{{ hypr_component_name }}"
     release_fact: niri_hypr_component_release

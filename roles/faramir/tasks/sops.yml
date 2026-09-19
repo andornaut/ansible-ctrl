@@ -8,7 +8,7 @@
   block:
     # Not packaged for Ubuntu, so the release .deb.
     - name: Get the latest sops release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: getsops/sops
         release_fact: faramir_sops_release

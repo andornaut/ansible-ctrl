@@ -14,7 +14,7 @@
         quiet: true
 
     - name: Require the tools the Android SDK needs
-      ansible.builtin.include_tasks: require_tools.yml
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
       vars:
         require_tools:
           - name: javac

@@ -3,7 +3,7 @@
 # declares `engines.bun` and its entrypoint runs under bun, which this role does
 # not install. The published binary is bun-compiled with the runtime inside it.
 - name: Get the latest oh-my-pi release
-  ansible.builtin.include_tasks: get_latest_release.yml
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
   vars:
     release_repo: "{{ dev_oh_my_pi_repository }}"
     release_fact: dev_oh_my_pi_release

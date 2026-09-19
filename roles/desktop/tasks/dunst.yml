@@ -27,7 +27,7 @@
       check_mode: false
 
     - name: Get latest dunst release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: dunst-project/dunst
         release_fact: desktop_dunst_release

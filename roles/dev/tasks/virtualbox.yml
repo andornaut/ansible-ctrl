@@ -39,7 +39,7 @@
 # headers dependency. vboxdrv.service rebuilds the modules at each boot, which needs
 # headers for the kernel being booted rather than the one this run sees.
 - name: Require the kernel headers VirtualBox builds against
-  ansible.builtin.include_tasks: require_kernel_headers.yml
+  ansible.builtin.include_tasks: ../../base/tasks/require_kernel_headers.yml
 
 - name: Install VirtualBox
   ansible.builtin.apt:

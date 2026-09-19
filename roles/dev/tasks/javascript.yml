@@ -11,7 +11,7 @@
 
 # nvm, for per-user node versions.
 - name: Get latest nvm release
-  ansible.builtin.include_tasks: get_latest_release.yml
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
   vars:
     release_repo: nvm-sh/nvm
     release_fact: dev_nvm_release

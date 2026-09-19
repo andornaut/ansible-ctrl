@@ -15,7 +15,7 @@
   become_user: "{{ desktop_user }}"
   block:
     - name: Probe for the Go toolchain
-      ansible.builtin.include_tasks: require_tools.yml
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
       vars:
         require_tools:
           - name: go
@@ -51,7 +51,7 @@
       check_mode: false
 
     - name: Get latest nwg-drawer release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: nwg-piotr/nwg-drawer
         release_fact: desktop_nwg_drawer_release

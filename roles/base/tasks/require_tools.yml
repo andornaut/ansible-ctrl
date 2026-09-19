@@ -1,6 +1,7 @@
 ---
 # Assert that the tools this role uses are present, naming what installs each.
-# Copied per role because roles share no task files; keep the copies in sync.
+# Shared by every role: a caller includes it by path, ../../base/tasks/require_tools.yml,
+# so the include inherits the caller's tags, become and when like any include_tasks.
 #
 # Required vars:
 #   require_tools (list of dicts): name (str), probe (shell command, exit 0 when usable),
@@ -13,7 +14,7 @@
   ansible.builtin.shell:
     executable: /bin/bash
     cmd: "{{ item.probe }}"
-  register: games_required_tools
+  register: base_required_tools
   changed_when: false
   failed_when: false
   check_mode: false
@@ -28,6 +29,6 @@
       {{ item.item.name }} is not usable{{ (': ' ~ item.stderr) if item.stderr else '' }}.
       {{ item.item.hint }}
     quiet: true
-  loop: "{{ games_required_tools.results }}"
+  loop: "{{ base_required_tools.results }}"
   loop_control:
     label: "{{ item.item.name }}"

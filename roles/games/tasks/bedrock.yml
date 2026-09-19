@@ -2,7 +2,7 @@
 # The bedrock tag does not select the flatpak tag, and every step here shells out
 # to the binary.
 - name: Require flatpak
-  ansible.builtin.include_tasks: require_tools.yml
+  ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
   vars:
     require_tools:
       - name: flatpak

@@ -33,7 +33,7 @@
     - name: Download and install chruby
       block:
         - name: Get latest chruby release
-          ansible.builtin.include_tasks: get_latest_release.yml
+          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
           vars:
             release_repo: postmodern/chruby
             release_fact: dev_chruby_release
@@ -70,7 +70,7 @@
     - name: Download and install ruby-install
       block:
         - name: Get latest ruby-install release
-          ansible.builtin.include_tasks: get_latest_release.yml
+          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
           vars:
             release_repo: postmodern/ruby-install
             release_fact: dev_ruby_install_release

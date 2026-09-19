@@ -7,7 +7,7 @@
   become_user: "{{ desktop_user }}"
   block:
     - name: Probe for the Rust toolchain
-      ansible.builtin.include_tasks: require_tools.yml
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
       vars:
         require_tools:
           - name: cargo

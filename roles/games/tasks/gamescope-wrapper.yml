@@ -9,7 +9,7 @@
 # Neither the bedrock nor the lutris tag selects the flatpak tag, and the check below shells
 # out to the binary.
 - name: Require flatpak
-  ansible.builtin.include_tasks: require_tools.yml
+  ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
   vars:
     require_tools:
       - name: flatpak

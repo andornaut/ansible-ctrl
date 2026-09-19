@@ -1,6 +1,8 @@
 ---
 # Install the headers DKMS builds against, for the running kernel and for the kernels to
-# come. Copied per role because roles share no task files; keep the copies in sync.
+# come. Shared by every role: a caller includes it by
+# path, ../../base/tasks/require_kernel_headers.yml, so the include inherits the caller's tags, become
+# and when like any include_tasks.
 #
 # The metapackage is derived rather than named: a host on its release's GA kernel carries
 # linux-image-generic and one on HWE carries linux-image-generic-hwe-<release>, and only

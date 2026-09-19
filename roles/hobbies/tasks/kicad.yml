@@ -28,7 +28,7 @@
   become_user: "{{ hobbies_user }}"
   block:
     - name: Get latest kicad-jlcpcb-tools release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: Bouni/kicad-jlcpcb-tools
         release_fact: hobbies_jlcpcb_release
@@ -89,7 +89,7 @@
   tags: freerouting
   block:
     - name: Get latest Freerouting release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: freerouting/freerouting
         release_fact: hobbies_freerouting_release

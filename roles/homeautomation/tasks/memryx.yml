@@ -7,7 +7,7 @@
 # without headers, so DKMS cannot rebuild even at the desired package version.
 # This gathers the package facts the reinstall decision below reads.
 - name: Require the kernel headers DKMS builds against
-  ansible.builtin.include_tasks: require_kernel_headers.yml
+  ansible.builtin.include_tasks: ../../base/tasks/require_kernel_headers.yml
 
 # The apt pin globs "{{ version }}.*", so match the installed version on the same
 # prefix.

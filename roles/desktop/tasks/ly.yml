@@ -106,7 +106,7 @@
           check_mode: false
 
         - name: Get latest ly release
-          ansible.builtin.include_tasks: get_latest_release.yml
+          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
           vars:
             release_repo: fairyglade/ly
             release_fact: desktop_ly_release

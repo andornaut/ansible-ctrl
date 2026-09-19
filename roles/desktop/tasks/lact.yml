@@ -2,7 +2,7 @@
 - name: Install LACT
   block:
     - name: Get latest LACT release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: ilya-zlobintsev/LACT
         release_fact: desktop_lact_release

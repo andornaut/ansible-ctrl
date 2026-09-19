@@ -9,7 +9,7 @@
   block:
     # Probed as the account that will build, cargo being per-user.
     - name: Require the Rust toolchain
-      ansible.builtin.include_tasks: require_tools.yml
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
       vars:
         require_tools:
           - name: cargo
@@ -23,7 +23,7 @@
       check_mode: false
 
     - name: Get latest xwayland-satellite release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: Supreeeme/xwayland-satellite
         release_fact: niri_xwayland_release

@@ -67,7 +67,7 @@
   tags: [libsdbus]
   block:
     - name: Get latest libsdbus release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: Kistler-Group/sdbus-cpp
         release_fact: niri_libsdbus_release
@@ -119,7 +119,7 @@
   tags: [hypr]
   block:
     - name: Get latest hyprland-protocols release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: hyprwm/hyprland-protocols
         release_fact: niri_hyprland_protocols_release

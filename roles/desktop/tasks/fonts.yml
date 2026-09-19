@@ -35,7 +35,7 @@
   become: true
   block:
     - name: Get latest Source Code Pro release
-      ansible.builtin.include_tasks: get_latest_release.yml
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
         release_repo: adobe-fonts/source-code-pro
         release_fact: desktop_source_code_pro_release
