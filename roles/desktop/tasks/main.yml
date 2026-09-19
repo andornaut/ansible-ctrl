@@ -192,6 +192,10 @@
       ansible.builtin.import_tasks: app_grid.yml
       tags: app-grid
 
+    - name: Configure the desktop entry overrides
+      ansible.builtin.import_tasks: app_entries.yml
+      tags: app-entries
+
     - name: Configure file-roller archive associations
       ansible.builtin.import_tasks: file_roller.yml
       tags: file-roller

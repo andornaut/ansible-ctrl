@@ -1,0 +1,43 @@
+---
+# One override: desktop_app_entry is {key: <id>.desktop, value: {hidden: bool} or {categories: [..]}}.
+# The source is the first copy along the data path a launcher would fall back to, the user's
+# own directory excluded since that is where the override goes. An id with no entry on the
+# host is skipped, so one map can name everything the role can install.
+- name: Find the packaged entry for {{ desktop_app_entry.key }}
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: >-
+      for d in {{ desktop_app_entry_source_dirs | map('quote') | join(' ') }}; do
+        f="$d/applications/{{ desktop_app_entry.key }}";
+        if [ -e "$f" ]; then echo "$f"; exit 0; fi;
+      done; exit 0
+  register: desktop_app_entry_source
+  changed_when: false
+  check_mode: false
+
+- name: Read and override the entry for {{ desktop_app_entry.key }}
+  when: desktop_app_entry_source.stdout | length > 0
+  block:
+    - name: Read the packaged entry for {{ desktop_app_entry.key }}
+      ansible.builtin.slurp:
+        src: "{{ desktop_app_entry_source.stdout }}"
+      register: desktop_app_entry_content
+
+    # Double-quoted so that YAML supplies the newlines; a folded scalar hands Jinja a literal
+    # backslash-n, which matches nothing. The marker line goes after the group header, where a
+    # comment is valid and where the prune step finds it.
+    - name: Write the override for {{ desktop_app_entry.key }}
+      ansible.builtin.copy:
+        content: "{{ desktop_app_entry_body }}"
+        dest: "{{ desktop_user_home }}/.local/share/applications/{{ desktop_app_entry.key }}"
+        mode: "0644"
+      vars:
+        desktop_app_entry_original: "{{ desktop_app_entry_content.content | b64decode }}"
+        desktop_app_entry_stripped: "{{ desktop_app_entry_original
+          | regex_replace('(?m)^(NoDisplay|Categories)=.*\\n', '') }}"
+        desktop_app_entry_fields: "{{ desktop_app_entry_marker ~ '\n'
+          ~ ('NoDisplay=true\n' if desktop_app_entry.value.hidden | default(false) else '')
+          ~ ('Categories=' ~ (desktop_app_entry.value.categories | join(';')) ~ ';\n'
+          if desktop_app_entry.value.categories is defined else '') }}"
+        desktop_app_entry_body: "{{ desktop_app_entry_stripped
+          | replace('[Desktop Entry]\n', '[Desktop Entry]\n' ~ desktop_app_entry_fields, 1) }}"

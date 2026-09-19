@@ -83,7 +83,7 @@
           Icon=/opt/betaflight/current/icon/bf_icon_128.png
           Terminal=false
           Type=Application
-          Categories=Utility
+          Categories=Development;Electronics
       become: true
 
 - name: Download and install ExpressLRS Configurator

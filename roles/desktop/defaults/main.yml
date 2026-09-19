@@ -186,6 +186,57 @@ desktop_flatpak_common:
   - org.libreoffice.LibreOffice
   - org.videolan.VLC
 
+# Desktop entry overrides for desktop_user, {<id>.desktop: {hidden: true} or {categories: [..]}}.
+# Every launcher reads ~/.local/share/applications ahead of the packaged entries, so a copy there
+# with one field changed hides an entry or moves it between the launcher's categories. The
+# categories are freedesktop names (Development, Game, Office, Graphics, System, Utility). The
+# map is the whole set: an override the role wrote that is not named here is removed, and an id
+# with no entry on the host is skipped, so the one map names everything this role can install.
+# Hidden: helpers a package ships beside its application, entries meant for another desktop's
+# session (a launcher ignores OnlyShowIn), and terminal programs. Moved: an entry whose packager
+# listed it under more categories than it belongs in, or the wrong one.
+desktop_app_entry_overrides:
+  # GNOME and KDE session utilities, and helpers a package ships beside its application.
+  yelp.desktop: { hidden: true }
+  blueman-adapters.desktop: { hidden: true }
+  im-config.desktop: { hidden: true }
+  gnome-system-monitor-kde.desktop: { hidden: true }
+  display-im6.q16.desktop: { hidden: true }
+  info.desktop: { hidden: true }
+  yad-icon-browser.desktop: { hidden: true }
+  rofi.desktop: { hidden: true }
+  rofi-theme-selector.desktop: { hidden: true }
+  # Terminal programs.
+  mutt.desktop: { hidden: true }
+  minicom.desktop: { hidden: true }
+  # The KiCad manager opens each of these.
+  org.kicad.gerbview.desktop: { hidden: true }
+  org.kicad.bitmap2component.desktop: { hidden: true }
+  org.kicad.pcbcalculator.desktop: { hidden: true }
+  org.kicad.pcbnew.desktop: { hidden: true }
+  org.kicad.eeschema.desktop: { hidden: true }
+  # Programming only.
+  cursor.desktop: { categories: [Development] }
+  claude-desktop-unofficial.desktop: { categories: [Development] }
+  app.getclipboard.Clipboard.desktop: { categories: [Development] }
+  expresslrs-configurator.desktop: { categories: [Development] }
+  # Games only.
+  com.valvesoftware.Steam.desktop: { categories: [Game] }
+  net.lutris.Lutris.desktop: { categories: [Game] }
+  com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
+  net.davidotek.pupgui2.desktop: { categories: [Game] }
+  winetricks.desktop: { categories: [Game] }
+  pocket-sync.desktop: { categories: [Game] }
+  # One category where the packager listed two.
+  org.gnome.Evince.desktop: { categories: [Office] }
+  org.libreoffice.LibreOffice.draw.desktop: { categories: [Office] }
+  org.freecadweb.FreeCAD.desktop: { categories: [Graphics] }
+  org.gnome.DiskUtility.desktop: { categories: [System] }
+  org.gnome.Logs.desktop: { categories: [System] }
+  pavucontrol.desktop: { categories: [System] }
+  barrier.desktop: { categories: [System] }
+  org.coolercontrol.CoolerControl.desktop: { categories: [System] }
+
 # GNOME app grid folders for desktop_user, {folder name: [.desktop ids]}. The grid shows one
 # icon per folder in place of its members, so what the account does not open goes into one
 # rather than being uninstalled from under it. The map is the whole set: a folder the shell
