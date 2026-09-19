@@ -116,3 +116,13 @@ dev_ai_maintainer_script_path: "{{ dev_user_home }}/.local/bin/ai-maintainer"
 # When this project checkout exists, the role symlinks the script to it instead
 # of downloading from GitHub.
 dev_ai_maintainer_project_script_path: "{{ dev_ai_maintainer_src_base_dir }}/ai-maintainer"
+
+# Desktop entry overrides for dev_user, {<id>.desktop: {hidden: true} or {categories: [..]}}:
+# a copy in ~/.local/share/applications with one field changed, for the applications this role
+# installs. The map is the whole set for this role: an override it wrote that is not named
+# here is removed, and an id with no entry on the host is skipped. The mechanism and the
+# category names are the desktop role's (roles/desktop/defaults/main.yml).
+dev_app_entry_overrides:
+  # Programming only; the packagers list them under Utility and Office as well.
+  cursor.desktop: { categories: [Development] }
+  claude-desktop-unofficial.desktop: { categories: [Development] }

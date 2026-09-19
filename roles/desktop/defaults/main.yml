@@ -191,58 +191,36 @@ desktop_flatpak_common:
 # Desktop entry overrides for desktop_user, {<id>.desktop: {hidden: true} or {categories: [..]}}.
 # Every launcher reads ~/.local/share/applications ahead of the packaged entries, so a copy there
 # with one field changed hides an entry or moves it between the launcher's categories. The
-# categories are freedesktop names (Development, Game, Office, Graphics, System, Utility). The
-# map is the whole set: an override the role wrote that is not named here is removed, and an id
-# with no entry on the host is skipped, so the one map names everything this role can install.
-# Hidden: helpers a package ships beside its application, entries meant for another desktop's
-# session (a launcher ignores OnlyShowIn), and terminal programs. Moved: an entry whose packager
-# listed it under more categories than it belongs in, or the wrong one.
+# categories are freedesktop names (Development, Game, Office, Graphics, System, Utility);
+# Electronics and Engineering match none of nwg-drawer's buttons and land under the one it
+# labels Hobbies (tasks/nwg_drawer.yml). GNOME groups by folder, not category.
+#
+# Each role carries the overrides for the applications it installs, in a map of this shape
+# beside its own copy of tasks/app_entries.yml: dev, games and hobbies have theirs. This map
+# names what this role installs; desktop_app_entry_overrides_extra, empty by default, is for
+# a host's hand-installed applications and belongs in host_vars. Together they are the whole
+# set: an override this role wrote that neither names is removed, and an id with no entry on
+# the host is skipped.
 desktop_app_entry_overrides:
-  # GNOME and KDE session utilities, and helpers a package ships beside its application.
-  yelp.desktop: { hidden: true }
+  # Entries meant for another desktop's session (a launcher ignores OnlyShowIn), and helpers
+  # a package ships beside its application.
   blueman-adapters.desktop: { hidden: true }
-  im-config.desktop: { hidden: true }
   gnome-system-monitor-kde.desktop: { hidden: true }
   display-im6.q16.desktop: { hidden: true }
-  info.desktop: { hidden: true }
-  yad-icon-browser.desktop: { hidden: true }
   rofi.desktop: { hidden: true }
   rofi-theme-selector.desktop: { hidden: true }
   # LibreOffice components the flatpak ships whether or not they are used.
   org.libreoffice.LibreOffice.base.desktop: { hidden: true }
   org.libreoffice.LibreOffice.math.desktop: { hidden: true }
-  # Terminal programs.
-  mutt.desktop: { hidden: true }
-  minicom.desktop: { hidden: true }
-  # The KiCad manager opens each of these.
-  org.kicad.gerbview.desktop: { hidden: true }
-  org.kicad.bitmap2component.desktop: { hidden: true }
-  org.kicad.pcbcalculator.desktop: { hidden: true }
-  org.kicad.pcbnew.desktop: { hidden: true }
-  org.kicad.eeschema.desktop: { hidden: true }
-  # Programming only.
-  cursor.desktop: { categories: [Development] }
-  claude-desktop-unofficial.desktop: { categories: [Development] }
-  app.getclipboard.Clipboard.desktop: { categories: [Development] }
-  # Games only.
-  com.valvesoftware.Steam.desktop: { categories: [Game] }
-  net.lutris.Lutris.desktop: { categories: [Game] }
-  com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
-  net.davidotek.pupgui2.desktop: { categories: [Game] }
-  # Hobbies: Electronics and Engineering match none of nwg-drawer's buttons, so these land
-  # under the one it labels Hobbies (tasks/nwg_drawer.yml). GNOME groups by folder, not category.
-  expresslrs-configurator.desktop: { categories: [Electronics] }
-  org.kicad.kicad.desktop: { categories: [Electronics] }
-  org.freecadweb.FreeCAD.desktop: { categories: [Engineering] }
-  openscad.desktop: { categories: [Engineering] }
-  com.orcaslicer.OrcaSlicer.desktop: { categories: [Engineering] }
   # One category where the packager listed two.
   org.gnome.Evince.desktop: { categories: [Office] }
   org.libreoffice.LibreOffice.draw.desktop: { categories: [Office] }
   org.gnome.DiskUtility.desktop: { categories: [System] }
-  org.gnome.Logs.desktop: { categories: [System] }
   pavucontrol.desktop: { categories: [System] }
   org.coolercontrol.CoolerControl.desktop: { categories: [System] }
+
+# Per-host additions to the map above, for applications no role installs.
+desktop_app_entry_overrides_extra: {}
 
 # GNOME app grid folders for desktop_user, {folder name: [.desktop ids]}. The grid shows one
 # icon per folder in place of its members, so what the account does not open goes into one

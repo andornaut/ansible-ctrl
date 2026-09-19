@@ -11,15 +11,16 @@ make hobbies -- --tags kicad
 
 ## Tags
 
-| Tag                                                                 | Description                                        |
-| ------------------------------------------------------------------- | -------------------------------------------------- |
-| [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator                 |
-| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool            |
-| fpv                                                                 | betaflight and expresslrs                          |
-| [freecad](https://www.freecad.org/)                                 | Parametric CAD for modelling parts around PCBs     |
-| [freerouting](https://github.com/freerouting/freerouting)           | PCB autorouter for KiCad; a subset of `kicad`      |
-| [kicad](https://www.kicad.org/)                                     | Electronics schematic and PCB design, with plugins |
-| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer)              | 3D printer slicer (user flatpak)                   |
+| Tag                                                                 | Description                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| app-entries                                                         | Desktop entry overrides for the applications this role installs, from `hobbies_app_entry_overrides`: copies in `~/.local/share/applications` that hide an entry or set its categories, pruned when unnamed. Same mechanism as the [desktop](../desktop/README.md) role's |
+| [betaflight](https://github.com/betaflight/betaflight-configurator) | FPV flight controller configurator                                                                                                                                                                                                                                       |
+| [expresslrs](https://github.com/ExpressLRS/ExpressLRS-Configurator) | ExpressLRS radio firmware flashing tool                                                                                                                                                                                                                                  |
+| fpv                                                                 | betaflight and expresslrs                                                                                                                                                                                                                                                |
+| [freecad](https://www.freecad.org/)                                 | Parametric CAD for modelling parts around PCBs                                                                                                                                                                                                                           |
+| [freerouting](https://github.com/freerouting/freerouting)           | PCB autorouter for KiCad; a subset of `kicad`                                                                                                                                                                                                                            |
+| [kicad](https://www.kicad.org/)                                     | Electronics schematic and PCB design, with plugins                                                                                                                                                                                                                       |
+| [orcaslicer](https://github.com/OrcaSlicer/OrcaSlicer)              | 3D printer slicer (user flatpak)                                                                                                                                                                                                                                         |
 
 ## Variables
 

@@ -9,3 +9,21 @@ hobbies_kicad_version: "10.0"
 # the last shipping a Linux portable build. Only raise it to a release whose assets
 # include linux64-portable.zip.
 hobbies_betaflight_version: "10.10.0"
+
+# Desktop entry overrides for hobbies_user, {<id>.desktop: {hidden: true} or {categories: [..]}}:
+# a copy in ~/.local/share/applications with one field changed, for the applications this role
+# installs. The map is the whole set for this role: an override it wrote that is not named
+# here is removed, and an id with no entry on the host is skipped. The mechanism and the
+# category names are the desktop role's (roles/desktop/defaults/main.yml): Electronics and
+# Engineering land under the app grid's Hobbies button, beside the entries this role writes.
+hobbies_app_entry_overrides:
+  expresslrs-configurator.desktop: { categories: [Electronics] }
+  org.kicad.kicad.desktop: { categories: [Electronics] }
+  org.freecadweb.FreeCAD.desktop: { categories: [Engineering] }
+  com.orcaslicer.OrcaSlicer.desktop: { categories: [Engineering] }
+  # The KiCad manager opens each of these.
+  org.kicad.gerbview.desktop: { hidden: true }
+  org.kicad.bitmap2component.desktop: { hidden: true }
+  org.kicad.pcbcalculator.desktop: { hidden: true }
+  org.kicad.pcbnew.desktop: { hidden: true }
+  org.kicad.eeschema.desktop: { hidden: true }

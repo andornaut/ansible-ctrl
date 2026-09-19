@@ -122,3 +122,10 @@
   tags:
     - ai_attributions
     - ai_maintainer
+
+# Last: the overrides cover entries the tasks above install. A host with no desktop has no
+# launcher to read them.
+- name: Configure the desktop entry overrides
+  ansible.builtin.import_tasks: app_entries.yml
+  when: desktop_environment is defined
+  tags: app-entries

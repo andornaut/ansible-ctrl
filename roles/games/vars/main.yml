@@ -605,3 +605,14 @@ games_flatpak_overrides:
 # games_retroarch_library_dir has no default: the mount point is site data and this repo
 # is public. Set it in host_vars/; tasks/main.yml asserts it. Read-only is enough for
 # every host but the one keeping the thumbnails current.
+
+# Desktop entry overrides (tasks/app_entries.yml). The marker names an override as this
+# role's, so its prune step leaves the other roles' copies alone; the source directories
+# are the data path a launcher falls back to, in order, minus the user's own directory,
+# which is where the override is written.
+games_app_entry_marker: "# Ansible managed override (games)"
+games_app_entry_source_dirs:
+  - "{{ games_user_home }}/.local/share/flatpak/exports/share"
+  - /var/lib/flatpak/exports/share
+  - /usr/local/share
+  - /usr/share

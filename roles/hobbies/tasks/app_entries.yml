@@ -1,45 +1,42 @@
 ---
 # Copied per role because roles share no task files; keep the copies in sync.
 #
-# Override copies of desktop entries in desktop_user's ~/.local/share/applications, which every
+# Override copies of desktop entries in hobbies_user's ~/.local/share/applications, which every
 # launcher reads ahead of the system and flatpak directories. A copy is the packaged entry
 # with one field changed, so the id, Exec and actions stay whatever the package ships on each
 # run; only the copies this role marks are pruned, so entries the account wrote itself stay.
 - name: Configure the desktop entry overrides
-  when: desktop_user_home_mounted | bool
-  vars:
-    desktop_app_entry_map: "{{ desktop_app_entry_overrides | combine(desktop_app_entry_overrides_extra) }}"
   become: true
-  become_user: "{{ desktop_user }}"
+  become_user: "{{ hobbies_user }}"
   block:
     - name: Create the user applications directory
       ansible.builtin.file:
-        path: "{{ desktop_user_home }}/.local/share/applications"
+        path: "{{ hobbies_user_home }}/.local/share/applications"
         state: directory
         mode: "0755"
 
     - name: Write each desktop entry override
       ansible.builtin.include_tasks: app_entry_override.yml
-      loop: "{{ desktop_app_entry_map | dict2items }}"
+      loop: "{{ hobbies_app_entry_overrides | dict2items }}"
       loop_control:
-        loop_var: desktop_app_entry
-        label: "{{ desktop_app_entry.key }}"
+        loop_var: hobbies_app_entry
+        label: "{{ hobbies_app_entry.key }}"
 
     - name: List the overrides this role wrote
       ansible.builtin.command:
-        cmd: grep -lF "{{ desktop_app_entry_marker }}" --include=*.desktop -r "{{ desktop_user_home }}/.local/share/applications"
-      register: desktop_app_entries_written
+        cmd: grep -lF "{{ hobbies_app_entry_marker }}" --include=*.desktop -r "{{ hobbies_user_home }}/.local/share/applications"
+      register: hobbies_app_entries_written
       changed_when: false
       # grep exits 1 with no match, which is a host with no overrides yet.
-      failed_when: desktop_app_entries_written.rc > 1
+      failed_when: hobbies_app_entries_written.rc > 1
       check_mode: false
 
     - name: Remove the overrides no longer named
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
-      loop: "{{ desktop_app_entries_written.stdout_lines | reject('in', desktop_app_entry_paths) | list }}"
+      loop: "{{ hobbies_app_entries_written.stdout_lines | reject('in', hobbies_app_entry_paths) | list }}"
       vars:
-        desktop_app_entry_paths: >-
-          {{ desktop_app_entry_map | map('regex_replace', '^',
-             desktop_user_home ~ '/.local/share/applications/') | list }}
+        hobbies_app_entry_paths: >-
+          {{ hobbies_app_entry_overrides | map('regex_replace', '^',
+             hobbies_user_home ~ '/.local/share/applications/') | list }}

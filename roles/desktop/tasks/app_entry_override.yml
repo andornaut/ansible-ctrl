@@ -1,4 +1,6 @@
 ---
+# Copied per role because roles share no task files; keep the copies in sync.
+#
 # One override: desktop_app_entry is {key: <id>.desktop, value: {hidden: bool} or {categories: [..]}}.
 # The source is the first copy along the data path a launcher would fall back to, the user's
 # own directory excluded since that is where the override goes. An id with no entry on the

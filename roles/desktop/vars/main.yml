@@ -123,7 +123,7 @@ desktop_default_browser_desktop_id: >-
 # Desktop entry overrides (tasks/app_entries.yml). The marker names an override as this
 # role's; the source directories are the data path a launcher falls back to, in order,
 # minus the user's own directory, which is where the override is written.
-desktop_app_entry_marker: "# Ansible managed override"
+desktop_app_entry_marker: "# Ansible managed override (desktop)"
 desktop_app_entry_source_dirs:
   - "{{ desktop_user_home }}/.local/share/flatpak/exports/share"
   - /var/lib/flatpak/exports/share

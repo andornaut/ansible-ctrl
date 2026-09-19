@@ -1,0 +1,45 @@
+---
+# Copied per role because roles share no task files; keep the copies in sync.
+#
+# One override: dev_app_entry is {key: <id>.desktop, value: {hidden: bool} or {categories: [..]}}.
+# The source is the first copy along the data path a launcher would fall back to, the user's
+# own directory excluded since that is where the override goes. An id with no entry on the
+# host is skipped, so one map can name everything the role can install.
+- name: Find the packaged entry for {{ dev_app_entry.key }}
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: >-
+      for d in {{ dev_app_entry_source_dirs | map('quote') | join(' ') }}; do
+        f="$d/applications/{{ dev_app_entry.key }}";
+        if [ -e "$f" ]; then echo "$f"; exit 0; fi;
+      done; exit 0
+  register: dev_app_entry_source
+  changed_when: false
+  check_mode: false
+
+- name: Read and override the entry for {{ dev_app_entry.key }}
+  when: dev_app_entry_source.stdout | length > 0
+  block:
+    - name: Read the packaged entry for {{ dev_app_entry.key }}
+      ansible.builtin.slurp:
+        src: "{{ dev_app_entry_source.stdout }}"
+      register: dev_app_entry_content
+
+    # Double-quoted so that YAML supplies the newlines; a folded scalar hands Jinja a literal
+    # backslash-n, which matches nothing. The marker line goes after the group header, where a
+    # comment is valid and where the prune step finds it.
+    - name: Write the override for {{ dev_app_entry.key }}
+      ansible.builtin.copy:
+        content: "{{ dev_app_entry_body }}"
+        dest: "{{ dev_user_home }}/.local/share/applications/{{ dev_app_entry.key }}"
+        mode: "0644"
+      vars:
+        dev_app_entry_original: "{{ dev_app_entry_content.content | b64decode }}"
+        dev_app_entry_stripped: "{{ dev_app_entry_original
+          | regex_replace('(?m)^(NoDisplay|Categories)=.*\\n', '') }}"
+        dev_app_entry_fields: "{{ dev_app_entry_marker ~ '\n'
+          ~ ('NoDisplay=true\n' if dev_app_entry.value.hidden | default(false) else '')
+          ~ ('Categories=' ~ (dev_app_entry.value.categories | join(';')) ~ ';\n'
+          if dev_app_entry.value.categories is defined else '') }}"
+        dev_app_entry_body: "{{ dev_app_entry_stripped
+          | replace('[Desktop Entry]\n', '[Desktop Entry]\n' ~ dev_app_entry_fields, 1) }}"

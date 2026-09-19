@@ -110,3 +110,15 @@ games_install_retroid_sync: false
 # tasks/retroid.yml asserts both when the flag is on.
 games_retroid_library_dir: ""
 games_retroid_serial: ""
+
+# Desktop entry overrides for games_user, {<id>.desktop: {hidden: true} or {categories: [..]}}:
+# a copy in ~/.local/share/applications with one field changed, for the applications this role
+# installs. The map is the whole set for this role: an override it wrote that is not named
+# here is removed, and an id with no entry on the host is skipped. The mechanism and the
+# category names are the desktop role's (roles/desktop/defaults/main.yml).
+games_app_entry_overrides:
+  # Games only; the packagers list the launchers under System and Network as well.
+  com.valvesoftware.Steam.desktop: { categories: [Game] }
+  net.lutris.Lutris.desktop: { categories: [Game] }
+  com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
+  net.davidotek.pupgui2.desktop: { categories: [Game] }
