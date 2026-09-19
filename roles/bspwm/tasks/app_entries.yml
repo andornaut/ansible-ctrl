@@ -1,0 +1,42 @@
+---
+# Copied per role because roles share no task files; keep the copies in sync.
+#
+# Override copies of desktop entries in bspwm_user's ~/.local/share/applications, which every
+# launcher reads ahead of the system and flatpak directories. A copy is the packaged entry
+# with one field changed, so the id, Exec and actions stay whatever the package ships on each
+# run; only the copies this role marks are pruned, so entries the account wrote itself stay.
+- name: Configure the desktop entry overrides
+  become: true
+  become_user: "{{ bspwm_user }}"
+  block:
+    - name: Create the user applications directory
+      ansible.builtin.file:
+        path: "{{ bspwm_user_home }}/.local/share/applications"
+        state: directory
+        mode: "0755"
+
+    - name: Write each desktop entry override
+      ansible.builtin.include_tasks: app_entry_override.yml
+      loop: "{{ bspwm_app_entry_overrides | dict2items }}"
+      loop_control:
+        loop_var: bspwm_app_entry
+        label: "{{ bspwm_app_entry.key }}"
+
+    - name: List the overrides this role wrote
+      ansible.builtin.command:
+        cmd: grep -lF "{{ bspwm_app_entry_marker }}" --include=*.desktop -r "{{ bspwm_user_home }}/.local/share/applications"
+      register: bspwm_app_entries_written
+      changed_when: false
+      # grep exits 1 with no match, which is a host with no overrides yet.
+      failed_when: bspwm_app_entries_written.rc > 1
+      check_mode: false
+
+    - name: Remove the overrides no longer named
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ bspwm_app_entries_written.stdout_lines | reject('in', bspwm_app_entry_paths) | list }}"
+      vars:
+        bspwm_app_entry_paths: >-
+          {{ bspwm_app_entry_overrides | map('regex_replace', '^',
+             bspwm_user_home ~ '/.local/share/applications/') | list }}

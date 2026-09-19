@@ -8,3 +8,10 @@
 - name: Build and install BSPWM
   ansible.builtin.import_tasks: bspwm.yml
   tags: bspwm
+
+# Last: the overrides cover entries the packages above install.
+- name: Configure the desktop entry overrides
+  ansible.builtin.import_tasks: app_entries.yml
+  tags:
+    - bspwm
+    - app-entries

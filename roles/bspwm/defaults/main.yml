@@ -12,3 +12,15 @@ bspwm_projects:
   - { name: xdo, repo: "https://github.com/baskerville/xdo.git" }
   - { name: xtitle, repo: "https://github.com/baskerville/xtitle.git" }
   - { name: bspwm, repo: "https://github.com/baskerville/bspwm" }
+
+# Desktop entry overrides for bspwm_user, {<id>.desktop: {hidden: true} or {categories: [..]}}:
+# a copy in ~/.local/share/applications with one field changed, for the applications this role
+# installs. The map is the whole set for this role: an override it wrote that is not named
+# here is removed, and an id with no entry on the host is skipped. The mechanism and the
+# category names are the desktop role's (roles/desktop/defaults/main.yml).
+bspwm_app_entry_overrides:
+  # xorg depends on gnome-terminal, xterm or a package providing x-terminal-emulator, which
+  # the alacritty build here does not, so xterm rides along as the fallback terminal. Its
+  # two entries stay out of the launcher.
+  debian-xterm.desktop: { hidden: true }
+  debian-uxterm.desktop: { hidden: true }

@@ -2,4 +2,16 @@
 # Derived from defaults/main.yml, not an operator knob. From the getent in tasks/bspwm.yml; the
 # uid feeds XDG_RUNTIME_DIR, which locates the user manager when Ansible escalates to an
 # account it did not log in as.
+bspwm_user_home: "{{ ansible_facts['getent_passwd'][bspwm_user][4] }}"
 bspwm_user_uid: "{{ ansible_facts['getent_passwd'][bspwm_user][1] }}"
+
+# Desktop entry overrides (tasks/app_entries.yml). The marker names an override as this
+# role's, so its prune step leaves the other roles' copies alone; the source directories
+# are the data path a launcher falls back to, in order, minus the user's own directory,
+# which is where the override is written.
+bspwm_app_entry_marker: "# Ansible managed override (bspwm)"
+bspwm_app_entry_source_dirs:
+  - "{{ bspwm_user_home }}/.local/share/flatpak/exports/share"
+  - /var/lib/flatpak/exports/share
+  - /usr/local/share
+  - /usr/share
