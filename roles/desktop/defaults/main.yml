@@ -226,7 +226,6 @@ desktop_app_entry_overrides:
   com.heroicgameslauncher.hgl.desktop: { categories: [Game] }
   net.davidotek.pupgui2.desktop: { categories: [Game] }
   winetricks.desktop: { categories: [Game] }
-  pocket-sync.desktop: { categories: [Game] }
   # One category where the packager listed two.
   org.gnome.Evince.desktop: { categories: [Office] }
   org.libreoffice.LibreOffice.draw.desktop: { categories: [Office] }
