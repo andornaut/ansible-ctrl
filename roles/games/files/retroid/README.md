@@ -15,8 +15,9 @@ the failure modes.
 
 ## Prerequisites
 
-Already installed on the device: RetroArch, ES-DE, the standalone emulators (Dolphin, NetherSX2-Turnip), the
-sdcard folder layout, and the ES-DE custom systems. The ROM library must be mounted on this host.
+Already installed on the device: RetroArch, ES-DE, the standalone emulators (Dolphin, ARMSX2, and NetherSX2-Turnip
+as the PS2 fallback), the sdcard folder layout, and the ES-DE custom systems. The ROM library must be mounted on
+this host.
 
 `syncretroid` checks the library mount, the sdcard root, and both apps before doing anything, which also confirms
 `adb` selected the handheld: `--serial` matters only when more than one device is attached. It does not check the
@@ -106,9 +107,25 @@ keys), so the pack keeps its relative paths.
   metadata and media, which `syncretroid` does not manage (it only sets `<alternativeEmulator>`) and re-scraping is
   the only other way to recover. Renaming `ROMS/<old>` too saves re-pushing the set over USB.
 
-- **PS2 uses NetherSX2-Turnip** (`xyz.aethersx2.tturnip`) for the Turnip Adreno driver. Two device-side edits
-  `syncretroid` does not manage, reverted by re-copying the custom_systems:
-  - `ES-DE/custom_systems/es_find_rules.xml`: repoint the `AETHERSX2-TURNIP` entry to
+- **PS2 uses ARMSX2** (`com.armsx2` for the sideloaded GitHub build, `come.nanodata.armsx2` for the Play one).
+  NetherSX2-Turnip (`xyz.aethersx2.tturnip`) stays installed as the fallback; the two share no configuration,
+  saves or memory cards, so a title carried over has to be re-saved. Device-side work `syncretroid` does not
+  manage, all of it reverted by re-copying the custom_systems:
+  - The installed `ES-DE/custom_systems/es_systems.xml` must carry an `ARMSX2 (Standalone)` command for `ps2`, or
+    the pinned label will not resolve and the game will not launch. Its `%EMULATOR_ARMSX2%` is resolved by ES-DE's
+    own find rules (`com.armsx2/.MainActivity` matches the sideloaded build), so no `es_find_rules.xml` edit is
+    needed for ARMSX2. Check both before the first launch:
+
+    ```bash
+    adb shell pm list packages | grep -E 'armsx2|aethersx2'
+    adb shell "grep -A 20 '<name>ps2</name>' /storage/emulated/0/ES-DE/custom_systems/es_systems.xml"
+    ```
+
+  - Set the renderer (Vulkan) and the controls by hand in the app, and import the BIOS from the sdcard
+    `BIOS/pcsx2/bios/` set that `syncretroid` already pushes: ARMSX2 validates the dumps and copies them into its
+    own data location, so the sdcard copy is only the import source. It can load a custom Adreno driver, which is
+    the one thing NetherSX2 needed its separate Turnip build for.
+  - The NetherSX2-Turnip label the fallback needs differs between custom_systems versions
+    (`AetherSX2-Turnip (Standalone)` in older copies, `NetherSX2-Turnip (Standalone)` now), and its find rule in
+    older copies points at the `xyz.aethersx2.custom` fork rather than the installed
     `xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity`.
-  - Set renderer, resolution, controls, and BIOS path by hand in the app, its storage being app-private. Seed the
-    PS2 BIOS into the app's `bios/` from the sdcard `BIOS/pcsx2/bios/` set.

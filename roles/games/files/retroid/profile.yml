@@ -216,9 +216,11 @@ esde_cores:
   neogeocd: NeoCD
   ngpc: Beetle NeoPop
   psx: Beetle PSX HW
-  # Not in ES-DE's bundle: from the GlazedBelmont custom_systems, whose es_find_rules.xml
-  # must target the installed package, not the .custom fork it ships with. See README.
-  ps2: AetherSX2-Turnip (Standalone)
+  # ARMSX2, the PCSX2 fork with an ARM64 recompiler, sideloaded as com.armsx2. The label
+  # comes from the installed custom_systems es_systems.xml, which replaces ES-DE's bundled
+  # ps2 block; ES-DE's own find rules resolve it to the package. NetherSX2-Turnip stays
+  # installed as the fallback: changing this label back is the whole switch. See README.
+  ps2: ARMSX2 (Standalone)
   psp: PPSSPP
   3do: Opera
 
