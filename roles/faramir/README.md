@@ -167,9 +167,9 @@ missing, so a gap is found by sweeping a host rather than by asking one. `tasks/
 
 - **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
   `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
-  refused under every home. 150 shapes and one other account is 300 declared paths per host, most of them
-  absent. Every home, not every depth: a path is literal, so the same store nested somewhere else is a separate
-  entry, and nothing reports the ones that are missing.
+  refused under every home. The whole list is declared once per home, so one other account doubles the paths a
+  host carries, most of them absent. Every home, not every depth: a path is literal, so the same store nested
+  somewhere else is a separate entry, and nothing reports the ones that are missing.
 - **Another account's stores are declared on every faramir host, not just the one holding the account.** An
   entry is enforced on the host where the command is typed rather than the host holding the file, which
   faramir's [configuration doc](https://github.com/andornaut/faramir/blob/main/docs/configuration.md#where-an-entry-is-enforced)
