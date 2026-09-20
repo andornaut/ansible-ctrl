@@ -111,21 +111,29 @@ keys), so the pack keeps its relative paths.
   NetherSX2-Turnip (`xyz.aethersx2.tturnip`) stays installed as the fallback; the two share no configuration,
   saves or memory cards, so a title carried over has to be re-saved. Device-side work `syncretroid` does not
   manage, all of it reverted by re-copying the custom_systems:
-  - The installed `ES-DE/custom_systems/es_systems.xml` must carry an `ARMSX2 (Standalone)` command for `ps2`, or
-    the pinned label will not resolve and the game will not launch. Its `%EMULATOR_ARMSX2%` is resolved by ES-DE's
-    own find rules (`com.armsx2/.MainActivity` matches the sideloaded build), so no `es_find_rules.xml` edit is
-    needed for ARMSX2. Check both before the first launch:
+  - `ES-DE/custom_systems/es_systems.xml` must carry an `ARMSX2 (Standalone)` command for `ps2`: its block
+    replaces ES-DE's bundled one, and copies older than the upstream set do not have it. A pinned label that does
+    not resolve stops the game launching.
+  - `ES-DE/custom_systems/es_find_rules.xml` needs an `ARMSX2` emulator entry listing
+    `com.armsx2/.MainActivity`. ES-DE 3.4.1's bundled rule covers only the Play package
+    (`come.nanodata.armsx2`) and its older `kr.co.iefriends.pcsx2.MainActivity` activity, so the sideloaded build
+    is not found without it. The custom file is parsed first and a repeated emulator name in the bundled file is
+    skipped, so a custom entry overrides rather than merges: list the Play package's entries too or they are
+    lost. Check the package, both files, and the resolved activity:
 
     ```bash
     adb shell pm list packages | grep -E 'armsx2|aethersx2'
     adb shell "grep -A 20 '<name>ps2</name>' /storage/emulated/0/ES-DE/custom_systems/es_systems.xml"
+    adb shell "grep -A 9 '<emulator name=\"ARMSX2\">' /storage/emulated/0/ES-DE/custom_systems/es_find_rules.xml"
+    adb shell "cmd package query-activities --brief -a android.intent.action.VIEW -d content://x --user 0 \
+      | grep -i armsx2"
     ```
 
-  - Set the renderer (Vulkan) and the controls by hand in the app, and import the BIOS from the sdcard
-    `BIOS/pcsx2/bios/` set that `syncretroid` already pushes: ARMSX2 validates the dumps and copies them into its
-    own data location, so the sdcard copy is only the import source. It can load a custom Adreno driver, which is
-    the one thing NetherSX2 needed its separate Turnip build for.
+  - Set the renderer (Vulkan) and the controls by hand in the app, and point its BIOS import at the sdcard
+    `BIOS/pcsx2/bios/` set that `syncretroid` already pushes: ARMSX2 validates the dumps and copies them into the
+    data location chosen in its first-run wizard, so the sdcard copy is only the import source. It can load a
+    custom Adreno driver in-app, which is the one thing NetherSX2 needed its separate Turnip build for.
   - The NetherSX2-Turnip label the fallback needs differs between custom_systems versions
-    (`AetherSX2-Turnip (Standalone)` in older copies, `NetherSX2-Turnip (Standalone)` now), and its find rule in
-    older copies points at the `xyz.aethersx2.custom` fork rather than the installed
+    (`AetherSX2-Turnip (Standalone)` in older copies, `NetherSX2-Turnip (Standalone)` in the upstream set), and
+    its find rule in older copies points at the `xyz.aethersx2.custom` fork rather than the installed
     `xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity`.
