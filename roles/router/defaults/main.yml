@@ -2,8 +2,7 @@
 # The routers are pfSense, so FreeBSD: no apt, no systemd, no dconf and no sudo. Ansible
 # connects to them as root, so every task here is become: false.
 #
-# Both halves are off by default. The router half needs the inventory to name a routers
-# group; the controller half needs ssh to a router and a Home Assistant instance to push to.
+# Both checks are off by default, and apply only to hosts in the inventory's routers group.
 
 # Bounces the WAN interface when every target is unreachable, for a link that comes back
 # only after a reset. Off by default: the interface has no derivable name, pfSense's own

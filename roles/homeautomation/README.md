@@ -291,8 +291,8 @@ Clients connect to `http://<name>.internal:8086/mcp`, the container's internal p
 
 ## Documentation
 
-| Document                                           | Contents                                                          |
-| -------------------------------------------------- | ----------------------------------------------------------------- |
-| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                   |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | EnvisaLink credentials, Frigate, MemryX, Coral.ai, entity cleanup |
-| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                   |
+| Document                                           | Contents                                                                                                              |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                                                                       |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Avahi and Google Cast, EnvisaLink credentials, Frigate, MemryX, Coral.ai, Reolink, entity cleanup, dependency pinning |
+| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                                                                       |

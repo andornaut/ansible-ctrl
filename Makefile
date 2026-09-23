@@ -83,7 +83,7 @@ help:
 	@echo "  homeautomation        - Configure home automation"
 	@echo "  msmtp                 - Configure email forwarding"
 	@echo "  nas                   - Configure NAS server"
-	@echo "  router                - Configure the routers, and the controller-side router tooling"
+	@echo "  router                - Configure the pfSense router health checks"
 	@echo "  rsnapshot             - Configure rsnapshot backup"
 	@echo "  torrent               - Configure rtorrent host and controller scripts"
 	@echo "  upgrade               - Run system upgrades"
