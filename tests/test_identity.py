@@ -53,10 +53,26 @@ DECLARATION_CASES = (
         "- name: Subject\n  ansible.builtin.uri:\n    url: https://example.invalid\n",
         False,
     ),
+    (
+        "a module that only reads, looped by a with_ keyword named before it",
+        "- name: Subject\n  with_sequence: count=2\n  ansible.builtin.debug:\n    msg: hi\n",
+        False,
+    ),
 )
 
 PLAY = """\
 - hosts: all
+  {section}:
+    - name: Subject
+      ansible.builtin.copy:
+        content: x
+        dest: /etc/example
+        mode: "0644"
+"""
+
+BLOCK = """\
+- name: Outer
+  block: []
   {section}:
     - name: Subject
       ansible.builtin.copy:
@@ -75,6 +91,16 @@ LOCATION_CASES = (
     ("a play's tasks", {"site.yml": PLAY.format(section="tasks")}, {"site.yml::Subject"}),
     ("a play's pre_tasks", {"site.yml": PLAY.format(section="pre_tasks")}, {"site.yml::Subject"}),
     ("a play's post_tasks", {"site.yml": PLAY.format(section="post_tasks")}, {"site.yml::Subject"}),
+    (
+        "a block's always section",
+        {"roles/r/tasks/main.yml": BLOCK.format(section="always")},
+        {"roles/r/tasks/main.yml::Subject"},
+    ),
+    (
+        "a block's rescue section",
+        {"roles/r/tasks/main.yml": BLOCK.format(section="rescue")},
+        {"roles/r/tasks/main.yml::Subject"},
+    ),
     (
         "a play that declares an account for its tasks",
         {"site.yml": PLAY.format(section="tasks").replace("- hosts: all\n", "- hosts: all\n  become: true\n")},
@@ -152,6 +178,21 @@ class FollowingAnInclude(IdentityTest):
             reported,
         )
 
+    def test_a_playbook_include_resolves_beside_the_playbook(self):
+        reported = self.reported(
+            {
+                "site.yml": (
+                    "- hosts: all\n"
+                    "  tasks:\n"
+                    "    - name: Subject\n"
+                    "      ansible.builtin.include_tasks: tasks/helper.yml\n"
+                ),
+                "tasks/helper.yml": f"- name: Helper\n{COPY}",
+            }
+        )
+        self.assertEqual([], self.last.errors)
+        self.assertEqual({"site.yml::Subject -> tasks/helper.yml::Helper"}, reported)
+
 
 class TheAllowlist(IdentityTest):
     def test_an_allowlisted_task_does_not_fail_the_run(self):
@@ -170,23 +211,39 @@ class TheAllowlist(IdentityTest):
         self.assertIn("stale allowlist entry", output)
 
 
+DECLARED_INCLUDE = """\
+- name: Declared
+  become: true
+  block:
+    - name: Include
+      ansible.builtin.include_tasks: {target}
+"""
+
+# Each fails the run. The last three hold no undeclared task, so they fail on the error alone:
+# a file the scan could not read means its tasks went unchecked, not that there are none.
+FAILING_RUN_CASES = (
+    ("an undeclared task", {"roles/r/tasks/main.yml": f"- name: Subject\n{COPY}"}, "declares no identity"),
+    (
+        "a computed include",
+        {"roles/r/tasks/main.yml": DECLARED_INCLUDE.format(target='"{{ item }}.yml"')},
+        "include target is computed",
+    ),
+    (
+        "an include naming a file that does not exist",
+        {"roles/r/tasks/main.yml": DECLARED_INCLUDE.format(target="missing.yml")},
+        "include target does not resolve",
+    ),
+    ("a file that is not valid YAML", {"roles/r/tasks/main.yml": "- name: [unclosed\n"}, "unreadable"),
+)
+
+
 class TheExitCode(IdentityTest):
-    def test_an_unreadable_include_fails_the_run_with_nothing_else_wrong(self):
-        # Every task here is declared, so the run fails on the error alone: a file the scan
-        # could not follow means the tasks inside it went unchecked, not that there are none.
-        status, output = self.run_main(
-            {
-                "roles/r/tasks/main.yml": (
-                    "- name: Declared\n"
-                    "  become: true\n"
-                    "  block:\n"
-                    "    - name: Computed include\n"
-                    '      ansible.builtin.include_tasks: "{{ item }}.yml"\n'
-                )
-            }
-        )
-        self.assertEqual(1, status)
-        self.assertIn("include target is computed", output)
+    def test_each_condition_that_fails_the_run(self):
+        for label, files, message in FAILING_RUN_CASES:
+            with self.subTest(label):
+                status, output = self.run_main(files)
+                self.assertEqual(1, status, output)
+                self.assertIn(message, output)
 
 
 if __name__ == "__main__":
