@@ -86,28 +86,28 @@ homeautomation_esphome_auth_configured: >-
 # rather than a container; and memryx, whose DKMS driver and apt sources are not the
 # reverse of a compose definition.
 homeautomation_teardown:
-  - install: "{{ homeautomation_install_esphome }}"
+  - install: "{{ homeautomation_install_esphome | bool }}"
     containers: [esphome]
     # Scoped to the ESPHome gid, so it narrows the host's range rather than
     # widening it, and outlives the container.
     files: [/etc/sysctl.d/60-esphome-ping.conf]
-  - install: "{{ homeautomation_install_frigate }}"
+  - install: "{{ homeautomation_install_frigate | bool }}"
     containers: [frigate]
-  - install: "{{ homeautomation_install_govee2mqtt }}"
+  - install: "{{ homeautomation_install_govee2mqtt | bool }}"
     containers: [govee2mqtt]
   # Names come from the instance list, plus the default one, for a host whose
   # instances were cleared along with the flag.
-  - install: "{{ homeautomation_install_hamcp }}"
+  - install: "{{ homeautomation_install_hamcp | bool }}"
     containers: >-
       {{ (['hamcp'] + (homeautomation_hamcp_instances | map(attribute='name') | list)) | unique }}
-  - install: "{{ homeautomation_install_llm }}"
+  - install: "{{ homeautomation_install_llm | bool }}"
     containers: [llamacpp, openwebui]
-  - install: "{{ homeautomation_install_matterjs }}"
+  - install: "{{ homeautomation_install_matterjs | bool }}"
     containers: [matterjs]
-  - install: "{{ homeautomation_install_legacy_pythonmatterserver }}"
+  - install: "{{ homeautomation_install_legacy_pythonmatterserver | bool }}"
     containers: [pythonmatterserver]
-  - install: "{{ homeautomation_install_voice }}"
+  - install: "{{ homeautomation_install_voice | bool }}"
     containers: [openwakeword, microwakeword, piper, whisper]
   # Serves either matter stack, so it goes only when both do.
-  - install: "{{ homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver }}"
+  - install: "{{ homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool }}"
     containers: [otbr]

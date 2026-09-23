@@ -4,8 +4,25 @@
 # card-mod.js, but a module is only loaded if extra_module_url names it: a host
 # that has the file and not the setting renders every card_mod block as though
 # it were absent, and reports no error.
+# Home Assistant writes configuration.yaml on its first start, which docker_homeassistant.yml
+# performs after this file runs.
+- name: Check for configuration.yaml
+  ansible.builtin.stat:
+    path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"
+  register: homeautomation_configuration_yaml_stat
+  become: true
+
+- name: Report the deferred frontend configuration
+  ansible.builtin.debug:
+    msg: >-
+      configuration.yaml does not exist yet, so the frontend integration is not configured.
+      Once Home Assistant has started and written it, add `frontend: !include frontend.yaml`
+      to it; the next run then installs frontend.yaml.
+  when: not homeautomation_configuration_yaml_stat.stat.exists
+
 - name: Configure the frontend integration
   become: true
+  when: homeautomation_configuration_yaml_stat.stat.exists
   block:
     - name: Install frontend.yaml
       ansible.builtin.template:

@@ -8,8 +8,8 @@
     - name: Check for mDNS service conflicts
       ansible.builtin.assert:
         that:
-          - not (homeautomation_install_avahi and (homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver))
-          - not (homeautomation_install_matterjs and homeautomation_install_legacy_pythonmatterserver)
+          - not (homeautomation_install_avahi | bool and (homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool))
+          - not (homeautomation_install_matterjs | bool and homeautomation_install_legacy_pythonmatterserver | bool)
         fail_msg: >-
           Cannot enable Avahi alongside Matter/Thread (both run a host mDNS
           responder, which conflict), nor both Matter servers at once.
@@ -18,12 +18,12 @@
     - name: Show the mDNS provisioning plan
       ansible.builtin.debug:
         msg: |
-          {% if homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver %}
+          {% if homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool %}
           Provisioning Matter/Thread (OTBR host mDNS), so Avahi will be disabled
-          {% elif homeautomation_install_avahi %}
+          {% elif homeautomation_install_avahi | bool %}
           Provisioning Avahi, so Matter/Thread (OTBR) will not be provisioned
           {% endif %}
-      when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver or homeautomation_install_avahi
+      when: homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool or homeautomation_install_avahi | bool
 
     # Ubuntu Server ships no avahi-daemon, and systemd_service fails on a unit it
     # cannot find whenever enabled is set. Stat both branches: the mask below has to
@@ -48,12 +48,12 @@
       loop_control:
         label: "{{ item.item }}"
       when:
-        - homeautomation_install_avahi
+        - homeautomation_install_avahi | bool
         - item.stat.exists | default(false)
 
     - name: Import Avahi tasks
       ansible.builtin.import_tasks: avahi.yml
-      when: homeautomation_install_avahi
+      when: homeautomation_install_avahi | bool
 
     # Masked, not just disabled: cups-browsed declares Wants=avahi-daemon.service and
     # the units carry a D-Bus activation file, either of which starts a disabled unit.
@@ -70,7 +70,7 @@
       loop_control:
         label: "{{ item.item }}"
       when:
-        - not homeautomation_install_avahi
+        - not homeautomation_install_avahi | bool
         - item.stat.exists | default(false)
 
 - name: Import Bluetooth tasks
@@ -80,12 +80,12 @@
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
   tags: memryx
-  when: homeautomation_install_memryx
+  when: homeautomation_install_memryx | bool
 
 - name: Import OTBR tasks
   ansible.builtin.import_tasks: otbr.yml
   tags: otbr
-  when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver
+  when: homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool
 
 - name: Install customizations
   tags: customizations
@@ -137,50 +137,50 @@
     - name: Work around aioruckus HEAD/aiohttp 3.14 incompatibility
       ansible.builtin.import_tasks: patch_aioruckus_head.yml
       tags: homeassistant
-      when: homeautomation_homeassistant_patch_aioruckus_head
+      when: homeautomation_homeassistant_patch_aioruckus_head | bool
 
     # Before docker_frigate, which may depend on llama.cpp.
     - name: Import LLM Docker tasks
       ansible.builtin.import_tasks: docker_llm.yml
       tags: llm
-      when: homeautomation_install_llm
+      when: homeautomation_install_llm | bool
 
     # Before the matter server containers.
     - name: Import OTBR Docker tasks
       ansible.builtin.import_tasks: docker_otbr.yml
       tags: matter
-      when: homeautomation_install_matterjs or homeautomation_install_legacy_pythonmatterserver
+      when: homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool
 
     - name: Import Matter.js Docker tasks
       ansible.builtin.import_tasks: docker_matterjs.yml
       tags: matter
-      when: homeautomation_install_matterjs
+      when: homeautomation_install_matterjs | bool
 
     - name: Import Python Matter Server Docker tasks
       ansible.builtin.import_tasks: docker_pythonmatterserver.yml
       tags: matter
-      when: homeautomation_install_legacy_pythonmatterserver
+      when: homeautomation_install_legacy_pythonmatterserver | bool
 
     # The rest are unordered.
     - name: Import ESPHome Docker tasks
       ansible.builtin.import_tasks: docker_esphome.yml
       tags: esphome
-      when: homeautomation_install_esphome
+      when: homeautomation_install_esphome | bool
 
     - name: Import Frigate Docker tasks
       ansible.builtin.import_tasks: docker_frigate.yml
       tags: frigate
-      when: homeautomation_install_frigate
+      when: homeautomation_install_frigate | bool
 
     - name: Import ha-mcp Docker tasks
       ansible.builtin.import_tasks: docker_hamcp.yml
       tags: hamcp
-      when: homeautomation_install_hamcp
+      when: homeautomation_install_hamcp | bool
 
     - name: Import Voice Docker tasks
       ansible.builtin.import_tasks: docker_voice.yml
       tags: voice
-      when: homeautomation_install_voice
+      when: homeautomation_install_voice | bool
 
 - name: Import router kernel address space sampler tasks
   ansible.builtin.import_tasks: router_kva_sample.yml
@@ -190,4 +190,4 @@
 # this host from being configured.
 - name: Import adb-auto-enable tasks
   ansible.builtin.import_tasks: adb_auto_enable.yml
-  when: homeautomation_install_adb_auto_enable
+  when: homeautomation_install_adb_auto_enable | bool

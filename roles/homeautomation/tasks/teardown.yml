@@ -23,3 +23,24 @@
     label: "{{ item.1 }}"
   become: true
   notify: Reload sysctl
+
+# Removing ESPHome's drop-in does not reset the live value: sysctl --system only applies
+# the files that remain. "1 0" is the kernel default, which no group can satisfy. Only
+# ESPHome's own range is reset, so a value another drop-in sets is left alone.
+- name: Restore the kernel default ping_group_range without ESPHome
+  when: not homeautomation_install_esphome | bool
+  block:
+    - name: Read the live ping_group_range
+      ansible.builtin.slurp:
+        src: /proc/sys/net/ipv4/ping_group_range
+      register: homeautomation_ping_group_range_result
+      become: false
+
+    - name: Reset ping_group_range to the kernel default
+      ansible.builtin.command:
+        argv: [sysctl, -w, "net.ipv4.ping_group_range=1 0"]
+      become: true
+      changed_when: true
+      when: >-
+        (homeautomation_ping_group_range_result.content | b64decode).split()
+        == [homeautomation_esphome_gid | string] * 2
