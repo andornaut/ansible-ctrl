@@ -18,13 +18,20 @@
   register: letsencrypt_nginx_find_conf_files
   become: true
 
-- name: Delete existing .conf files
+# Only the stale ones: deleting a current one makes its template report changed, which
+# restarts nginx on every run.
+- name: Delete .conf files for removed websites
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
   loop: "{{ letsencrypt_nginx_find_conf_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
   become: true
-  when: letsencrypt_nginx_find_conf_files.matched > 0
+  when: >-
+    item.path | basename not in
+    ['00-default.conf'] + letsencrypt_nginx_websites | map(attribute='domain') | map('regex_replace', '$', '.conf') | list
+  notify: Restart nginx
 
 - name: Copy partial configurations
   ansible.builtin.copy:

@@ -55,6 +55,9 @@
   ansible.builtin.pause:
     # Longer than the 60s DNS TTL so the record propagates to intermediaries.
     seconds: 300
+  when: >-
+    letsencrypt_nginx_dns_record.results | default([])
+    | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
 
 - name: Create HTTP challenge resource directories
   ansible.builtin.file:

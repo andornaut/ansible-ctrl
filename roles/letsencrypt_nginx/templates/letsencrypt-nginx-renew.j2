@@ -1,0 +1,41 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# The checkout, store and keys are in the operator's home, unmounted while the operator is
+# logged out. Each missing prerequisite is reported on stderr, outside the log redirect, so
+# cron mails it; one message per cause, since "certificates were not renewed" alone gets
+# ignored and then filtered.
+
+set -uo pipefail
+
+skip() {
+    echo "letsencrypt renewal SKIPPED: $1 Certificates were NOT renewed." >&2
+    exit 1
+}
+
+directory={{ letsencrypt_nginx_renewal_cron_directory | quote }}
+envFile={{ letsencrypt_nginx_renewal_cron_env_file | quote }}
+sopsFile={{ letsencrypt_nginx_renewal_cron_sops_file | quote }}
+ageKeyFile={{ letsencrypt_nginx_renewal_cron_age_key_file | quote }}
+sshKeyFile={{ letsencrypt_nginx_renewal_cron_ssh_key_file | quote }}
+log={{ letsencrypt_nginx_renewal_cron_log | quote }}
+
+[[ -d ${directory} ]] ||
+    skip "${directory} does not exist. If it is inside an encrypted home, it is only mounted while its owner is logged in."
+[[ -r ${envFile} ]] || skip "cannot read ${envFile}, which names the credentials the run needs."
+[[ -r ${sopsFile} ]] || skip "cannot read ${sopsFile}."
+[[ -r ${ageKeyFile} ]] || skip "cannot read ${ageKeyFile}."
+[[ -r ${sshKeyFile} ]] || skip "cannot read ${sshKeyFile}, so the run has no identity the web servers accept."
+
+# sops exec-env, credentials reaching a play through the environment and the wildcard
+# certificates needing dns-01. Not `make`, whose requirements stamp would run
+# ansible-galaxy as root into the operator's home. Both keys are named explicitly, root's
+# own ~ being /root.
+if ! {
+    cd "${directory}" &&
+        SOPS_AGE_KEY_FILE="${ageKeyFile}" ANSIBLE_PRIVATE_KEY_FILE="${sshKeyFile}" \
+            sops exec-env "${sopsFile}" 'ansible-playbook webservers.yml --tags letsencrypt'
+} >>"${log}" 2>&1; then
+    echo "letsencrypt renewal FAILED; see ${log}" >&2
+    exit 1
+fi
