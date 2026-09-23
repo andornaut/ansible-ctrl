@@ -4,7 +4,7 @@
 # CoolerControl manages: https://github.com/Fred78290/nct6687d
 - name: Install nct6687d fan control driver
   become: true
-  when: desktop_install_nct6687d
+  when: desktop_install_nct6687d | bool
   block:
     - name: Require the kernel headers DKMS builds against
       ansible.builtin.include_tasks: ../../base/tasks/require_kernel_headers.yml
@@ -81,7 +81,7 @@
 # the flag. The DKMS module stays; a full teardown is out of scope.
 - name: Remove the nct6687d drop-ins when disabled
   become: true
-  when: not desktop_install_nct6687d
+  when: not desktop_install_nct6687d | bool
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent

@@ -21,4 +21,5 @@
         path: /etc/default/grub
         regexp: '^#?GRUB_CMDLINE_LINUX_DEFAULT\s*='
         line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ desktop_grub_cmdline_linux_default }}"'
+      when: desktop_grub_cmdline_linux_default | length > 0
       become: true

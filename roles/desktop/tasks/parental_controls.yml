@@ -3,8 +3,8 @@
   ansible.builtin.assert:
     that:
       - desktop_parental_controls_web_filter_type in ["none", "block-list", "allow-list"]
-      - desktop_install_parental_controls or desktop_parental_controls_oars | length == 0
-      - desktop_install_parental_controls or desktop_parental_controls_web_filter_type == "none"
+      - desktop_install_parental_controls | bool or desktop_parental_controls_oars | length == 0
+      - desktop_install_parental_controls | bool or desktop_parental_controls_web_filter_type == "none"
     fail_msg: >-
       desktop_parental_controls_web_filter_type must be "none", "block-list" or "allow-list".
       With desktop_install_parental_controls false this role lifts the filters an earlier run
@@ -32,7 +32,7 @@
   when: desktop_parental_controls_web_filter_enabled
 
 - name: Install parental controls
-  when: desktop_install_parental_controls
+  when: desktop_install_parental_controls | bool
   become: true
   block:
     - name: Install malcontent
@@ -146,7 +146,7 @@
 - name: Find Chrome managed policies the role did not deploy
   ansible.builtin.find:
     paths: "{{ desktop_chrome_policies_dir }}"
-    excludes: "{{ ['family.json'] if desktop_install_parental_controls else [] }}"
+    excludes: "{{ ['family.json'] if desktop_install_parental_controls | bool else [] }}"
   register: desktop_chrome_policies_found
   become: true
 
@@ -208,7 +208,7 @@
         malcontent-client set-web-filter --no-interactive
         {{ (['--filter-type', desktop_parental_controls_web_filter_type]
             + (['--force-safe-search'] if desktop_parental_controls_web_filter_enabled
-               and desktop_parental_controls_web_force_safe_search else [])
+               and desktop_parental_controls_web_force_safe_search | bool else [])
             + [desktop_user]
             + ((desktop_parental_controls_web_block_lists.items() | map('join', '=') | list)
                + (desktop_parental_controls_web_allow_lists.items() | map('join', '=')

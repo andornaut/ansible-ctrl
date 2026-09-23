@@ -3,7 +3,7 @@
 # desktop.yml applies the matching WM role, and this role asserts it is set.
 
 desktop_eww_bar: bar
-# Extra kernel parameters for GRUB_CMDLINE_LINUX_DEFAULT. Empty leaves the line unset.
+# Replaces GRUB_CMDLINE_LINUX_DEFAULT's value. Empty leaves the existing line as it is.
 desktop_grub_cmdline_linux_default: ""
 # False removes any existing install and holds the apt pin at -1.
 # desktop_install_firefox_apt chooses apt or flatpak, and applies only when true.

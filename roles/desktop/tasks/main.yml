@@ -82,7 +82,7 @@
   ansible.builtin.assert:
     that:
       - desktop_default_browser in ["firefox", "google-chrome"]
-      - not (desktop_default_browser == "firefox" and not desktop_install_firefox)
+      - not (desktop_default_browser == "firefox" and not desktop_install_firefox | bool)
     fail_msg: >-
       desktop_default_browser must be "firefox" or "google-chrome", and cannot be
       "firefox" when desktop_install_firefox is false.
@@ -105,7 +105,7 @@
     - name: Validate display manager configuration
       ansible.builtin.assert:
         that:
-          - (desktop_install_ly | int) + (desktop_install_lemurs | int) <= 1
+          - (desktop_install_ly | bool | int) + (desktop_install_lemurs | bool | int) <= 1
         fail_msg: >-
           Only one display manager can be installed at a time.
           Please enable only one of: desktop_install_ly, desktop_install_lemurs
@@ -116,8 +116,8 @@
         desktop_display_managers_to_disable:
           - gdm3
           - lightdm
-          - "{{ 'lemurs' if not desktop_install_lemurs else '' }}"
-          - "{{ 'ly' if not desktop_install_ly else '' }}"
+          - "{{ 'lemurs' if not desktop_install_lemurs | bool else '' }}"
+          - "{{ 'ly@tty2' if not desktop_install_ly | bool else '' }}"
 
     - name: Disable other display manager services
       ansible.builtin.systemd_service:
@@ -143,7 +143,7 @@
         state: absent
       when: >-
         desktop_display_manager_link.stat.exists
-        and not (desktop_install_lemurs
+        and not (desktop_install_lemurs | bool
         and (desktop_display_manager_link.stat.lnk_source | default('') | basename) == 'lemurs.service')
       become: true
 
@@ -158,11 +158,11 @@
 
     - name: Install and configure lemurs display manager
       ansible.builtin.import_tasks: lemurs.yml
-      when: desktop_install_lemurs
+      when: desktop_install_lemurs | bool
 
     - name: Install and configure ly display manager
       ansible.builtin.import_tasks: ly.yml
-      when: desktop_install_ly
+      when: desktop_install_ly | bool
 
 - name: Configure common applications
   block:
@@ -249,7 +249,7 @@
     - name: Configure Insync
       ansible.builtin.import_tasks: insync.yml
       tags: insync
-      when: desktop_install_insync
+      when: desktop_install_insync | bool
 
     - name: Configure LACT
       ansible.builtin.import_tasks: lact.yml
@@ -258,7 +258,7 @@
     - name: Configure OpenRGB
       ansible.builtin.import_tasks: openrgb.yml
       tags: openrgb
-      when: desktop_install_openrgb
+      when: desktop_install_openrgb | bool
 
     # No `when`: the file branches on the flag itself, so that turning it off lifts
     # the filters an earlier run enforced.

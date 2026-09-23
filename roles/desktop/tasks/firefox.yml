@@ -19,14 +19,14 @@
   ansible.builtin.copy:
     content: |
       Package: firefox*
-      Pin: {{ 'origin packages.mozilla.org' if (desktop_install_firefox and desktop_install_firefox_apt) else 'release a=*' }}
-      Pin-Priority: {{ 1000 if (desktop_install_firefox and desktop_install_firefox_apt) else -1 }}
+      Pin: {{ 'origin packages.mozilla.org' if (desktop_install_firefox | bool and desktop_install_firefox_apt | bool) else 'release a=*' }}
+      Pin-Priority: {{ 1000 if (desktop_install_firefox | bool and desktop_install_firefox_apt | bool) else -1 }}
     dest: /etc/apt/preferences.d/firefox
     mode: "0644"
   become: true
 
 - name: Configure Firefox Apt installation method
-  when: desktop_install_firefox and desktop_install_firefox_apt
+  when: desktop_install_firefox | bool and desktop_install_firefox_apt | bool
   block:
     - name: Remove Firefox flatpak if using apt
       become: true
@@ -35,7 +35,9 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      when: desktop_firefox_flatpak_bin.rc == 0
+      when:
+        - desktop_firefox_flatpak_bin.rc == 0
+        - desktop_user_home_mounted | bool
 
     - name: Configure Firefox apt packages
       block:
@@ -86,7 +88,7 @@
           become: true
 
 - name: Configure Firefox flatpak installation method
-  when: desktop_install_firefox and not desktop_install_firefox_apt
+  when: desktop_install_firefox | bool and not desktop_install_firefox_apt | bool
   block:
     - name: Require flatpak
       # Probed as the account whose flatpak installation receives the app.
@@ -110,6 +112,7 @@
       become: true
 
     - name: Install and configure Firefox flatpak for the target user
+      when: desktop_user_home_mounted | bool
       become: true
       become_user: "{{ desktop_user }}"
       block:
@@ -120,19 +123,27 @@
 
         # Here rather than in flatpak.yml's loop: this install is conditional, so Firefox
         # is not in desktop_flatpak_apps. The grants themselves stay in the one map.
+        # `flatpak override` reports nothing, so diff `--show`.
         - name: Configure Firefox flatpak permissions
-          ansible.builtin.command:
-            argv: "{{ ['flatpak', 'override', '--user'] + desktop_flatpak_grants + ['org.mozilla.firefox'] }}"
+          ansible.builtin.shell:
+            cmd: |
+              set -e
+              before="$(flatpak override --user --show org.mozilla.firefox)"
+              flatpak override --user {{ desktop_flatpak_grants | map('quote') | join(' ') }} org.mozilla.firefox
+              after="$(flatpak override --user --show org.mozilla.firefox)"
+              [ "${before}" = "${after}" ] || echo CHANGED
+            executable: /bin/bash
           vars:
             desktop_flatpak_grants: >-
               {{ (desktop_flatpak_overrides['default'] | default([]))
                  + (desktop_flatpak_overrides['org.mozilla.firefox'] | default([])) }}
-          changed_when: true
+          register: desktop_flatpak_firefox_override
+          changed_when: "'CHANGED' in desktop_flatpak_firefox_override.stdout"
 
 # Purge any copy an earlier run installed; the pin above stays at -1. The flatpak
 # removal runs as desktop_user because the install was per-user.
 - name: Remove Firefox
-  when: not desktop_install_firefox
+  when: not desktop_install_firefox | bool
   block:
     - name: Remove Firefox flatpak
       become: true
@@ -141,7 +152,9 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      when: desktop_firefox_flatpak_bin.rc == 0
+      when:
+        - desktop_firefox_flatpak_bin.rc == 0
+        - desktop_user_home_mounted | bool
 
     - name: Remove Firefox apt package
       ansible.builtin.apt:

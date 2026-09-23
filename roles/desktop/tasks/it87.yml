@@ -4,7 +4,7 @@
 # needs this out-of-tree fork: https://github.com/frankcrawford/it87
 - name: Install it87 fan control driver
   become: true
-  when: desktop_install_it87
+  when: desktop_install_it87 | bool
   block:
     - name: Require the kernel headers DKMS builds against
       ansible.builtin.include_tasks: ../../base/tasks/require_kernel_headers.yml
@@ -110,7 +110,7 @@
 # DKMS module and it87.service stay; a full teardown is out of scope.
 - name: Remove the it87 module options when disabled
   become: true
-  when: not desktop_install_it87
+  when: not desktop_install_it87 | bool
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent

@@ -61,6 +61,7 @@
         - "4.0"
 
 - name: Configure the GTK theme for the target user
+  when: desktop_user_home_mounted | bool
   become: true
   become_user: "{{ desktop_user }}"
   block:
@@ -84,7 +85,6 @@
         path: "{{ desktop_gtk_themes_dir }}"
         state: directory
         mode: "0755"
-      when: desktop_user_home_mounted | bool
 
     # Copied, not symlinked: inside the sandbox the link would resolve against the
     # flatpak runtime, which has no such theme.
@@ -95,7 +95,6 @@
         remote_src: true
         mode: preserve
       loop: "{{ desktop_gtk_themes }}"
-      when: desktop_user_home_mounted | bool
 
     # Global, so it covers the games role's flatpaks too. GTK_THEME names the theme
     # mounted at ~/.themes; the settings portal would fall back to Adwaita on a name
@@ -103,6 +102,7 @@
     - name: Apply the flatpak theme override
       ansible.builtin.shell:
         cmd: |
+          set -e
           before="$(flatpak override --user --show)"
           flatpak override --user \
             --filesystem={{ desktop_gtk_themes_dir | quote }}:ro \
