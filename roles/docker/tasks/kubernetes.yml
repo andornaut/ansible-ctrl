@@ -15,6 +15,9 @@
       until: >-
         docker_helm_release.status == 200 or
         (docker_helm_release.status >= 400 and docker_helm_release.status < 500)
+      # uri supports no check mode, so a --check run would skip this and leave the
+      # register undefined for every task that templates it. The request only reads.
+      check_mode: false
 
     # unarchive has no version short circuit, so gate on the installed version.
     # `helm version --short` prints e.g. "v3.16.2+g13654a5".
@@ -64,7 +67,7 @@
 
     - name: Get latest kubectl version
       ansible.builtin.uri:
-        url: "https://storage.googleapis.com/kubernetes-release/release/stable.txt"
+        url: "https://dl.k8s.io/release/stable.txt"
         return_content: true
       register: docker_kubectl_version
       retries: 3
@@ -73,6 +76,9 @@
       until: >-
         docker_kubectl_version.status == 200 or
         (docker_kubectl_version.status >= 400 and docker_kubectl_version.status < 500)
+      # uri supports no check mode, so a --check run would skip this and leave the
+      # register undefined for every task that templates it. The request only reads.
+      check_mode: false
 
     # checksum: downloads only on a digest mismatch. Same for minikube below.
     - name: Install kubectl binary

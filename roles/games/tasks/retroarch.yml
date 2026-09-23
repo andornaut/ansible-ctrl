@@ -368,14 +368,14 @@
   environment:
     RETROARCH_GENERATOR_CONFIG: "{{ games_retroarch_generator_config | to_json }}"
   register: games_retroarch_playlists
-  changed_when: games_retroarch_playlists.stdout | length > 0
+  changed_when: games_retroarch_playlists.stdout | default('') | length > 0
 
 # Ansible does not print stderr for a successful task, and a skipped system (no
 # directory in the library, or nothing matching an extension) is worth surfacing.
 - name: Report the systems the playlist generator skipped
   ansible.builtin.debug:
     msg: "{{ games_retroarch_playlists.stderr_lines }}"
-  when: games_retroarch_playlists.stderr | length > 0
+  when: games_retroarch_playlists.stderr | default('') | length > 0
 
 # After the playlists it reads, so a game gets box art in the run that adds it.
 # RetroArch's own downloader queries by filename, and library and repository disagree on
@@ -391,7 +391,7 @@
       {{ {"playlist_dir": games_retroarch_playlists_dir,
           "thumbnails_dir": games_retroarch_thumbnails_dir} | to_json }}
   register: games_retroarch_thumbnails
-  changed_when: games_retroarch_thumbnails.stdout | length > 0
+  changed_when: games_retroarch_thumbnails.stdout | default('') | length > 0
   when: games_retroarch_thumbnails_writable | bool
 
 # ansible does not print stderr for a successful task, and the list asks a human to rename
@@ -402,4 +402,4 @@
     msg: "{{ games_retroarch_thumbnails.stderr_lines }}"
   when:
     - games_retroarch_thumbnails_writable | bool
-    - games_retroarch_thumbnails.stderr | length > 0
+    - games_retroarch_thumbnails.stderr | default('') | length > 0

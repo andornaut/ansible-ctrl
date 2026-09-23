@@ -27,6 +27,9 @@
   register: dev_go_installed
   changed_when: false
   failed_when: false
+  # Reads a version and writes nothing. Skipped under --check, it registers no stdout and
+  # every run reads as an upgrade.
+  check_mode: false
 
 - name: Remove Go packages from apt
   ansible.builtin.apt:
@@ -59,6 +62,9 @@
       retries: 3
       delay: 5
       until: dev_go_download is succeeded
+      # Into the temporary directory only, so a --check run downloads too: skipped, the
+      # extraction after it fails on an archive that was never written.
+      check_mode: false
 
     # unarchive merges into an existing tree rather than replacing it.
     - name: Remove old Go installation

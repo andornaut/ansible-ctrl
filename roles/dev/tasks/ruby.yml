@@ -54,6 +54,9 @@
           retries: 3
           delay: 5
           until: dev_chruby_download is succeeded
+          # Into the temporary directory only, so a --check run downloads too: skipped, the
+          # extraction after it fails on an archive that was never written.
+          check_mode: false
 
         - name: Extract chruby archive
           ansible.builtin.unarchive:
@@ -91,6 +94,9 @@
           retries: 3
           delay: 5
           until: dev_ruby_install_download is succeeded
+          # Into the temporary directory only, so a --check run downloads too: skipped, the
+          # extraction after it fails on an archive that was never written.
+          check_mode: false
 
         - name: Extract ruby-install archive
           ansible.builtin.unarchive:

@@ -216,6 +216,8 @@
   when:
     - inventory_hostname == faramir_controller_host
     - faramir_fleet_ping_hosts | length > 0
+    # The ping is a command, which --check skips, and every host would then read as silent.
+    - not ansible_check_mode
   vars:
     faramir_fleet_ping_hosts: "{{ ansible_play_hosts | difference([faramir_controller_host]) }}"
   block:
