@@ -74,7 +74,8 @@ managed host. The one password prompt comes before anything applies.
 Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, `SUDO_USER` on a typed
 sudo, and the invoking account on an unprivileged run. Each covers what the others get wrong: `SUDO_USER` is the
 operator wherever a human typed the sudo, and the executor account on a brokered run, which is the one
-`FARAMIR_OPERATOR` answers. A run that resolves the executor refuses, naming the home it looked in.
+`FARAMIR_OPERATOR` answers. A root run of a credential-bearing playbook that cannot read the store at the resolved
+path refuses, naming that path: the store is missing there, or its home is not mounted.
 
 The agent's route takes no password:
 

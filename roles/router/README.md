@@ -30,6 +30,7 @@ See [defaults/main.yml](./defaults/main.yml), which comments the non-obvious one
 | `router_install_pingtest`                                        | Install the connectivity check. Needs `router_pingtest_interface`                          |
 | `router_pingtest_interface`                                      | Interface to bounce, as the kernel names it (`mvneta2`), not as the GUI labels it          |
 | `router_pingtest_targets`                                        | Addresses to probe. Addresses, never names                                                 |
+| `router_pingtest_minute`, `router_dns_healthcheck_minute`        | Cron minute field of each check's entry, `*/5` by default                                  |
 | `router_pingtest_down_seconds`, `router_pingtest_settle_seconds` | Seconds the interface is held down, and the settle before the retry                        |
 | `router_install_dns_healthcheck`                                 | Install the resolver check                                                                 |
 | `router_dns_healthcheck_query`                                   | Name to query. Answered from unbound's local zone, so it needs no recursion                |

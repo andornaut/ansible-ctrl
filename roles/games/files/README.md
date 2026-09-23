@@ -98,8 +98,8 @@ LUTRIS_REGISTER_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'",
 ```
 
 `lutris-launch-game.py` runs on the **host**, not in the sandbox (`../README.md` says why). The role installs it
-to `/usr/local/bin/lutris-launch-game` and the desktop entry runs it in place of `flatpak run`. It prints a line
-per process it signals and nothing when the prefix is already clear.
+to `/usr/local/bin/lutris-launch-game` and the desktop entry runs it in place of `flatpak run`. It logs every
+decision to stderr and to `~/.local/state/lutris-launch-game/<slug>.log`.
 
 ```bash
 ./lutris-launch-game.py "$HOME/.local/games/Lutris/battlenet" net.lutris.Lutris world-of-warcraft

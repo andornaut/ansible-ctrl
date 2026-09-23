@@ -24,6 +24,10 @@ See [defaults/main.yml](./defaults/main.yml).
 - `nas-mount.service` is a systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts
   `media-nas.mount`. With `nas_key_file_mount_unit` set it runs after and binds to that unit; otherwise it runs
   after `local-fs.target` only if the LUKS key file exists.
+- `backupnas` unlocks and mounts the first backup device it finds, copies `nas_backup_source_directory` excluding
+  `rsnapshot/`, copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/`, deletes all but
+  the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero
+  if the device is left mounted or unlocked. `--help` lists its flags.
 
 ## Setup
 
@@ -77,6 +81,5 @@ umount /media/nas && cryptdisks_stop nas0 && cryptdisks_stop nas1
 mount -o degraded /dev/mapper/nas0 /media/nas
 
 # Back up to the backup array
-mount /media/nasbackup
 backupnas
 ```

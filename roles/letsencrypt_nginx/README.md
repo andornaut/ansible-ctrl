@@ -24,6 +24,18 @@ make webservers -- --tags nginx
 
 See [defaults/main.yml](./defaults/main.yml).
 
+## Certificate renewal
+
+`letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root job in
+`/etc/cron.d/ansible-role-letsencrypt_nginx` that runs it. Enable it on the controller only: the script runs
+`ansible-playbook webservers.yml --tags letsencrypt` from `letsencrypt_nginx_renewal_cron_directory` under
+`sops exec-env`, which reissues any certificate within `letsencrypt_nginx_remaining_days` of expiry. A completed
+challenge restarts nginx, whose configuration names the same certificate path before and after a renewal.
+
+The checkout, `faramir.env`, the sops store, the age key and the broker's SSH key all sit in the operator's home.
+If any is missing or unreadable, as it is while an encrypted home is unmounted, the script skips the run and
+prints the cause on stderr, which cron mails. The playbook's own output goes to `letsencrypt_nginx_renewal_cron_log`.
+
 ## Container ports
 
 The `nginx` container runs with `network_mode: host`, binding directly to the host's network interfaces.

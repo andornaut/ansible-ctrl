@@ -81,7 +81,8 @@ rsnapshot_retention:
 ## Notes
 
 - Cron runs one job per retention interval as root.
-- Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem.
+- Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem, and
+  the role fails if any of that entry's directories does not exist.
 - `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as `scripts`.
 - Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{name}/`,
   script output in `{name}_{script}/`.

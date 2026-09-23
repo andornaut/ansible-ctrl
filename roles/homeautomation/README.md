@@ -99,7 +99,7 @@ published host side of a bridge container's mapping, not the internal port liste
 | ------------------ | ------- | ----- | -------- | ------------------------------------------ |
 | homeassistant      | host    | 8123  | HTTP     | Web UI and API                             |
 | esphome            | host    | 6052  | HTTP     | Dashboard                                  |
-| govee2mqtt         | host    | none  | UDP      | LAN broadcast discovery                    |
+| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery          |
 | otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only |
 | otbr               | host    | 8081  | REST     | Thread Border Router REST API              |
 | matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only    |
