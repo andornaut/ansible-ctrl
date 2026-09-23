@@ -129,10 +129,22 @@
       loop: "{{ desktop_display_managers_to_disable | reject('equalto', '') | list }}"
       become: true
 
-    - name: Remove display-manager.service symlink
+    - name: Stat display-manager.service symlink
+      ansible.builtin.stat:
+        path: /etc/systemd/system/display-manager.service
+        follow: false
+      register: desktop_display_manager_link
+      become: false
+
+    # lemurs.service is enabled through this alias alone, so the chosen manager's link stays.
+    - name: Remove display-manager.service symlink to another display manager
       ansible.builtin.file:
         path: /etc/systemd/system/display-manager.service
         state: absent
+      when: >-
+        desktop_display_manager_link.stat.exists
+        and not (desktop_install_lemurs
+        and (desktop_display_manager_link.stat.lnk_source | default('') | basename) == 'lemurs.service')
       become: true
 
     # ly and lemurs both greet on tty2, so free it before either unit is enabled.

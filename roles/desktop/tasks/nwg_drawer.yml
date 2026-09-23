@@ -70,9 +70,11 @@
       delay: 5
       until: desktop_nwg_drawer_download is succeeded
 
+    # -trimpath keeps the random build directory out of the binary, so an unchanged
+    # release installs byte-identical and the restart handler does not fire.
     - name: Build nwg-drawer
       ansible.builtin.command:
-        cmd: /usr/local/go/bin/go build -o bin/nwg-drawer .
+        cmd: /usr/local/go/bin/go build -trimpath -o bin/nwg-drawer .
         chdir: "{{ desktop_nwg_drawer_tmp.path }}"
       changed_when: true
 

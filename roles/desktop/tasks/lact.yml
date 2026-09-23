@@ -22,3 +22,11 @@
         install_recommends: false
         update_cache: true
       become: true
+
+    - name: Enable and start lactd
+      ansible.builtin.systemd_service:
+        name: lactd.service
+        daemon_reload: true
+        enabled: true
+        state: started
+      become: true

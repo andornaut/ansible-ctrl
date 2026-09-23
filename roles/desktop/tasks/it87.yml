@@ -47,13 +47,31 @@
       register: desktop_it87_dkms
       changed_when: false
 
-    # The "dkms" target stages /usr/src/it87-<version>, then dkms add/build/install.
-    - name: Build and install it87 via DKMS
-      ansible.builtin.command:
-        cmd: make dkms
-        chdir: /usr/src/it87
+    # The "dkms" target stages /usr/src/it87-<version>, then dkms add/build/install. It
+    # removes no earlier version, and its `dkms add` fails on one already registered, so
+    # every registered version and its staged copy go first. `dkms remove` takes one
+    # version per call.
+    - name: Replace the it87 DKMS registration
       when: desktop_it87_source.changed or "installed" not in desktop_it87_dkms.stdout
-      changed_when: true
+      block:
+        - name: Remove every it87 version registered with DKMS
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              dkms status it87 | sed -E 's|^it87/([^,:]+)[,:].*|\1|' | sort -u |
+                while read -r version; do
+                  dkms remove "it87/${version}" --all || exit 1
+                  rm -rf "/usr/src/it87-${version}"
+                done
+            executable: /bin/bash
+          changed_when: desktop_it87_dkms_removed.stdout | length > 0
+          register: desktop_it87_dkms_removed
+
+        - name: Build and install it87 via DKMS
+          ansible.builtin.command:
+            cmd: make dkms
+            chdir: /usr/src/it87
+          changed_when: true
 
     - name: Configure it87 module options
       ansible.builtin.copy:
