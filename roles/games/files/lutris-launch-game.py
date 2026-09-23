@@ -617,7 +617,7 @@ def session_on_screen(prefix, exclude):
 
 
 def wait_for_window(child, prefix, app_id, notifier, exclude):
-    """Keep the banner current until a window is up; False when the wait ran out.
+    """Keep the banner current until a window is up; False when none appeared.
 
     A non-zero exit ends it, the child having failed. A clean exit ends nothing: Lutris exits 0
     whatever became of the launch, and a second instance exits 0 at once having handed its
@@ -636,7 +636,7 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
         returncode = child.poll()
         if returncode not in (None, 0):
             log.info("flatpak run exited %d before a window appeared", returncode)
-            return True
+            return False
         pids = prefix_pids(prefix, exclude)
         if can_probe and display is None:
             display = gamescope_display(pids)
