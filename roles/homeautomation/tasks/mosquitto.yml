@@ -33,3 +33,4 @@
     group: mosquitto
     mode: "0640"
   become: true
+  notify: Restart mosquitto
