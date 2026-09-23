@@ -17,5 +17,5 @@
 
 - name: Install Kubernetes tools
   ansible.builtin.import_tasks: kubernetes.yml
-  when: docker_install_kubernetes
+  when: docker_install_kubernetes | bool
   tags: kubernetes

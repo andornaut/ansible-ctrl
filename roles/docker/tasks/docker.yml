@@ -61,7 +61,7 @@
         name: docker-registry
         state: latest
         install_recommends: false
-      when: docker_install_registry
+      when: docker_install_registry | bool
 
 - name: Configure Docker services
   become: true
@@ -77,7 +77,7 @@
         name: docker-registry
         state: started
         enabled: true
-      when: docker_install_registry
+      when: docker_install_registry | bool
 
 # The docker group is created by the docker-ce package.
 - name: Grant docker group membership to {{ docker_user }}
