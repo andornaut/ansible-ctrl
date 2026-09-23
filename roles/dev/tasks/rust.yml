@@ -13,7 +13,7 @@
 - name: Install Rust toolchain
   ansible.builtin.command: rustup default stable
   args:
-    creates: "{{ dev_user_home }}/.cargo/bin/rustc"
+    creates: "{{ dev_user_home }}/.rustup/toolchains"
   become: true
   become_user: "{{ dev_user }}"
   environment:
