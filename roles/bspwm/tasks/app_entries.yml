@@ -6,6 +6,7 @@
 # with one field changed, so the id, Exec and actions stay whatever the package ships on each
 # run; only the copies this role marks are pruned, so entries the account wrote itself stay.
 - name: Configure the desktop entry overrides
+  when: bspwm_user_home_mounted | bool
   become: true
   become_user: "{{ bspwm_user }}"
   block:

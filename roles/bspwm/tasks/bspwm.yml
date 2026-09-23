@@ -112,22 +112,6 @@
     mode: "0755"
   become: true
 
-- name: Validate bspwm_user
-  ansible.builtin.assert:
-    that:
-      - bspwm_user != "root"
-    fail_msg: >-
-      bspwm_user resolved to "root", whose user manager is not the session's. Set
-      primary_user in the inventory (or bspwm_user in host_vars) to the session's account.
-    success_msg: 'bspwm_user "{{ bspwm_user }}" is valid'
-  become: false
-
-- name: Resolve the uid of {{ bspwm_user }}
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ bspwm_user }}"
-  become: false
-
 # systemctl --user reaches this socket, which exists only while the account's manager runs, so
 # only while it is logged in.
 - name: Check for a running user manager for {{ bspwm_user }}
