@@ -64,6 +64,13 @@
       changed_when: true
       become: true
       become_user: root
+
+    # The next component may link against a library this one just installed.
+    - name: Update dynamic linker cache after {{ build_component_name }}
+      ansible.builtin.command: ldconfig
+      changed_when: false
+      become: true
+      become_user: root
   always:
     # A root build leaves root-owned directories niri_user cannot unlink.
     - name: Remove the temporary directory for {{ build_component_name }}

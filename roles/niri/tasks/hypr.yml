@@ -58,7 +58,7 @@
 - name: Install hyprlock
   tags: [hyprlock]
   block:
-    # Needs the explicit `all` target: https://github.com/hyprwm/hyprlock/issues/710
+    # WORKAROUND: needs the explicit `all` target: https://github.com/hyprwm/hyprlock/issues/710
     - name: Build and install hyprlock
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:
