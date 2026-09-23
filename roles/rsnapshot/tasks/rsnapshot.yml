@@ -16,16 +16,40 @@
     group: root
     mode: "0755"
   become: true
-  notify: Validate rsnapshot configuration
   when: rsnapshot_required_mountpoints | length > 0
+
+# A point naming the play host is read off the local filesystem, as the template decides.
+- name: Stat the local backup sources
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: rsnapshot_local_sources
+  loop: >-
+    {%- set paths = [] -%}
+    {%- for host in rsnapshot_hosts if host.host == inventory_hostname -%}
+    {%- for directory in host.directories | default((), true) -%}
+    {%- set _ = paths.append(directory.path if directory is mapping else directory) -%}
+    {%- endfor -%}
+    {%- endfor -%}
+    {{ paths }}
+  become: true
+
+- name: Require every local backup source to exist
+  ansible.builtin.assert:
+    that: rsnapshot_local_sources_missing | length == 0
+    fail_msg: >-
+      These local backup sources do not exist: {{ rsnapshot_local_sources_missing | join(', ') }}
+    quiet: true
+  vars:
+    rsnapshot_local_sources_missing: >-
+      {{ rsnapshot_local_sources.results | rejectattr('stat.exists') | map(attribute='item') | list }}
 
 - name: Copy rsnapshot configuration file
   ansible.builtin.template:
     src: rsnapshot.conf.j2
     dest: /etc/rsnapshot.conf
     mode: "0644"
+    validate: rsnapshot -c %s configtest
   become: true
-  notify: Validate rsnapshot configuration
 
 # Below the template task: rsnapshot refuses to run at all when cmd_preexec names a script
 # that is not there, so the config stops naming it before the script goes.

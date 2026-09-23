@@ -105,7 +105,7 @@ rsnapshot_retention:
 ## Operations
 
 ```bash
-# Validate /etc/rsnapshot.conf, also run as a handler after a configuration change
+# Validate /etc/rsnapshot.conf, as the role does before installing a new one
 sudo rsnapshot configtest
 
 # Show the rsync commands an interval would run, without running them
