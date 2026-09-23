@@ -55,7 +55,7 @@ cat > "${payload}" <<JSON
 }
 JSON
 
-curl -sf -o /dev/null -K - <<CURLRC
+curl -sSf -o /dev/null -K - <<CURLRC
 url = "${haUrl}/api/states/${entityId}"
 request = "POST"
 header = "Authorization: Bearer ${token}"

@@ -56,6 +56,8 @@
   become: false
   register: homeautomation_system_timezone
   changed_when: false
+  # Skipped under --check, it registers no stdout and the containers template TZ as "".
+  check_mode: false
   tags:
     - frigate
     - homeassistant
@@ -65,23 +67,29 @@
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker_etc_hosts
     dest: /usr/local/bin/docker_etc_hosts
     mode: "0755"
+    # A file dest is otherwise never fetched again once it exists.
+    force: true
   register: homeautomation_docker_etc_hosts_download
   retries: 3
   delay: 5
   until: homeautomation_docker_etc_hosts_download is succeeded
   become: true
+  notify: Restart docker-etc-hosts
 
 - name: Install docker-etc-hosts systemd service
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/docker_etc_hosts/main/docker-etc-hosts.service
     dest: /etc/systemd/system/docker-etc-hosts.service
     mode: "0644"
+    force: true
   register: homeautomation_docker_etc_hosts_service_download
   retries: 3
   delay: 5
   until: homeautomation_docker_etc_hosts_service_download is succeeded
   become: true
-  notify: Reload systemd
+  notify:
+    - Reload systemd
+    - Restart docker-etc-hosts
 
 - name: Enable and start docker-etc-hosts service
   ansible.builtin.systemd_service:
