@@ -17,6 +17,42 @@
       {{ 'memx-drivers' not in ansible_facts['packages']
          or not ansible_facts['packages']['memx-drivers'][0]['version'].startswith(homeautomation_memryx_version ~ '.') }}
 
+# Outside the reinstall block, so a repository change reaches a host whose SDK is current.
+- name: Configure the MemryX repository
+  become: true
+  block:
+    # CLEANUP (added 2026-09-22): drop this once every Frigate host with a MemryX
+    # accelerator has converged. The key was trusted for every repository, and the
+    # unsigned line would conflict with the signed-by one.
+    - name: Remove the MemryX repository line without signed-by
+      ansible.builtin.apt_repository:
+        repo: "deb https://developer.memryx.com/deb stable main"
+        filename: memryx
+        state: absent
+        update_cache: false
+
+    - name: Remove the MemryX key trusted for every repository
+      ansible.builtin.file:
+        path: /etc/apt/trusted.gpg.d/memryx.asc
+        state: absent
+
+    - name: Add MemryX GPG key
+      ansible.builtin.get_url:
+        url: https://developer.memryx.com/deb/memryx.asc
+        dest: /etc/apt/keyrings/memryx.asc
+        mode: "0644"
+      register: homeautomation_memryx_key_download
+      retries: 3
+      delay: 5
+      until: homeautomation_memryx_key_download is succeeded
+
+    - name: Add MemryX repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/memryx.asc] https://developer.memryx.com/deb stable main"
+        mode: "0644"
+        filename: memryx
+        state: present
+
 - name: Install or reinstall the MemryX SDK
   when: homeautomation_memryx_reinstall
   become: true
@@ -40,31 +76,6 @@
           - mxa-manager
         state: absent
         purge: true
-
-    - name: Remove existing MemryX repository files
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/apt/sources.list.d/memryx.list
-        - /etc/apt/trusted.gpg.d/memryx.asc
-
-    - name: Add MemryX GPG key
-      ansible.builtin.get_url:
-        url: https://developer.memryx.com/deb/memryx.asc
-        dest: /etc/apt/trusted.gpg.d/memryx.asc
-        mode: "0644"
-      register: homeautomation_memryx_key_download
-      retries: 3
-      delay: 5
-      until: homeautomation_memryx_key_download is succeeded
-
-    - name: Add MemryX repository
-      ansible.builtin.apt_repository:
-        repo: "deb https://developer.memryx.com/deb stable main"
-        mode: "0644"
-        filename: memryx
-        state: present
 
     - name: Install MemryX SDK packages
       ansible.builtin.apt:

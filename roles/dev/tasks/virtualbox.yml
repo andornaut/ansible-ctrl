@@ -17,7 +17,7 @@
 - name: Add the Oracle VirtualBox GPG key
   ansible.builtin.get_url:
     url: https://www.virtualbox.org/download/oracle_vbox_2016.asc
-    dest: /etc/apt/trusted.gpg.d/oracle-virtualbox.asc
+    dest: /etc/apt/keyrings/oracle-virtualbox.asc
     mode: "0644"
   register: dev_virtualbox_key_download
   retries: 3
@@ -25,14 +25,34 @@
   until: dev_virtualbox_key_download is succeeded
   become: true
 
-- name: Add the Oracle VirtualBox repository
+# CLEANUP (added 2026-09-22): drop this and the key removal below once every host with the
+# virtualbox tag has converged. The unsigned line would conflict with the signed-by one.
+- name: Remove the Oracle VirtualBox repository line without signed-by
   ansible.builtin.apt_repository:
     repo: >-
       deb https://download.virtualbox.org/virtualbox/debian
       {{ ansible_facts['distribution_release'] }} contrib
+    filename: oracle-virtualbox
+    state: absent
+    update_cache: false
+  become: true
+
+- name: Add the Oracle VirtualBox repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/oracle-virtualbox.asc]
+      https://download.virtualbox.org/virtualbox/debian
+      {{ ansible_facts['distribution_release'] }} contrib
     mode: "0644"
     filename: oracle-virtualbox
     state: present
+  become: true
+
+# CLEANUP (added 2026-09-22): see the repository line removal above.
+- name: Remove the Oracle VirtualBox key trusted for every repository
+  ansible.builtin.file:
+    path: /etc/apt/trusted.gpg.d/oracle-virtualbox.asc
+    state: absent
   become: true
 
 # Oracle's postinst builds vboxdrv itself rather than via DKMS, so it declares no
