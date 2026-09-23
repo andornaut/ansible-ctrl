@@ -56,6 +56,9 @@ games_gamescope_wayland_version: "1.24.0"
 # Where that Wayland goes: a prefix of its own, found by the gamescope build alone through
 # PKG_CONFIG_PATH and an rpath, so the host's own Wayland processes keep the archive's.
 games_gamescope_deps_prefix: /usr/local/lib/gamescope-deps
+# Named in full: the environment facts describe the connecting account, not games_user.
+games_gamescope_build_path: >-
+  {{ games_gamescope_deps_prefix }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 games_gamescope_deps_libdir: "{{ games_gamescope_deps_prefix }}/lib/x86_64-linux-gnu"
 
 # The gamescope wrapper tasks/gamescope-wrapper.yml installs, which tasks/bedrock.yml and

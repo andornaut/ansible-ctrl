@@ -220,7 +220,7 @@
                 chdir: "{{ games_gamescope_tmp.path }}"
               environment:
                 PKG_CONFIG_PATH: "{{ games_gamescope_deps_libdir }}/pkgconfig"
-                PATH: "{{ games_gamescope_deps_prefix }}/bin:{{ ansible_env.PATH }}"
+                PATH: "{{ games_gamescope_build_path }}"
                 LDFLAGS: "-Wl,-rpath,{{ games_gamescope_deps_libdir }}"
               changed_when: true
 
@@ -229,7 +229,7 @@
                 argv: [ninja, -C, build]
                 chdir: "{{ games_gamescope_tmp.path }}"
               environment:
-                PATH: "{{ games_gamescope_deps_prefix }}/bin:{{ ansible_env.PATH }}"
+                PATH: "{{ games_gamescope_build_path }}"
               changed_when: true
 
             - name: Install gamescope
