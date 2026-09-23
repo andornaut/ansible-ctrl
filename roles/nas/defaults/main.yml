@@ -16,5 +16,8 @@ nas_raid_fs_defaults: defaults,noauto,nofail
 nas_raid_fs_type: btrfs
 nas_raid_group: root
 nas_raid_mount_directory: /media/nas
+nas_scrub_day: "15"
+nas_scrub_hour: "4"
+nas_scrub_minute: "0"
 # The account whose home holds the LUKS key file; see nas_key_file.
 nas_user: "{{ primary_user }}"

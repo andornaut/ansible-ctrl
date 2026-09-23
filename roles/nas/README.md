@@ -14,6 +14,7 @@ make nas -- --tags backupnas
 | Tag       | Description                                                      |
 | --------- | ---------------------------------------------------------------- |
 | backupnas | Configure backup LUKS devices and install the `backupnas` script |
+| scrub     | Install `nas-scrub` and its monthly cron job                     |
 
 ## Variables
 
@@ -28,6 +29,14 @@ See [defaults/main.yml](./defaults/main.yml).
   `rsnapshot/`, copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/`, deletes all but
   the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero
   if the device is left mounted or unlocked. `--help` lists its flags.
+- `nas-scrub` runs `btrfs scrub` on `nas_raid_mount_directory` once a month (`nas_scrub_day`, `nas_scrub_hour`,
+  `nas_scrub_minute`), on a btrfs array only. It prints nothing on success, so cron mails only a failure: the
+  array not mounted, uncorrectable errors, or nonzero device error counters. On raid1 a scrub repairs a corrupt
+  block from the other copy, so a corrected error still shows in the counters; they are cumulative and keep
+  reporting until reset with `btrfs device stats -z`.
+- `backupnas` does not scrub the backup device. That device is read only when a backup runs, so scrub it then,
+  before the next backup relies on the copies it keeps. With a single data copy, a scrub detects corruption but
+  cannot repair it.
 
 ## Setup
 
@@ -82,4 +91,10 @@ mount -o degraded /dev/mapper/nas0 /media/nas
 
 # Back up to the backup array
 backupnas
+
+# Back up, then scrub the backup device before locking it
+backupnas --no-unmount
+btrfs scrub start -Bd /media/nasbackup
+btrfs device stats --check /media/nasbackup
+backupnas --unmount-only /dev/mapper/nasbackup
 ```

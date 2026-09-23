@@ -1,0 +1,29 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# Cron mails whatever this prints, so a clean run prints nothing and every failure says why.
+
+set -uo pipefail
+
+mountDir={{ nas_raid_mount_directory | quote }}
+
+if ! mountpoint -q "${mountDir}"; then
+    echo "nas-scrub SKIPPED: ${mountDir} is not mounted, so the array was not scrubbed." >&2
+    exit 1
+fi
+
+# Exits 3 only for uncorrectable errors. On raid1 a corrected error still means a failing
+# device, which the device stats below report.
+if ! output="$(btrfs scrub start -Bd "${mountDir}" 2>&1)"; then
+    echo "nas-scrub FAILED on ${mountDir}:" >&2
+    echo "${output}" >&2
+    exit 1
+fi
+
+# The counters are cumulative, so this reports every month until they are reset with
+# `btrfs device stats -z`.
+if ! stats="$(btrfs device stats --check "${mountDir}" 2>&1)"; then
+    echo "nas-scrub: ${mountDir} has nonzero device error counters:" >&2
+    echo "${stats}" >&2
+    exit 1
+fi

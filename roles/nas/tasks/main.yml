@@ -120,6 +120,33 @@
         dest: /usr/local/bin/
         mode: "0755"
 
+# Monthly, and away from rsnapshot's runs on the 1st. On raid1 a scrub repairs a bad block
+# from the other copy, which only works while the other copy is still good.
+- name: Configure the monthly scrub of the RAID array
+  become: true
+  when:
+    - nas_raid_fs_type == 'btrfs'
+    - nas_raid_devices | length > 0
+  tags: scrub
+  block:
+    - name: Install nas-scrub script
+      ansible.builtin.template:
+        src: nas-scrub
+        dest: /usr/local/sbin/nas-scrub
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure the nas-scrub cron job
+      ansible.builtin.cron:
+        name: nas-scrub
+        cron_file: /etc/cron.d/ansible-role-nas
+        user: root
+        day: "{{ nas_scrub_day }}"
+        hour: "{{ nas_scrub_hour }}"
+        minute: "{{ nas_scrub_minute }}"
+        job: /usr/local/sbin/nas-scrub
+
 - name: Configure security and systemd
   become: true
   block:
