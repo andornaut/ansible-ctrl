@@ -16,6 +16,9 @@ NO_UNMOUNT=false
 UNMOUNT_ONLY=false
 POSITIONAL_COUNT=0
 UNMOUNT_RETRY_SECS=30
+# Set when the device is left mounted or unlocked, so the script exits non-zero after
+# printing the manual commands rather than reporting success.
+CLEANUP_FAILED=false
 
 # Output helper functions
 error() { echo -e " \033[1;31m✗\033[0m  $*" >&2; exit 1; }
@@ -224,20 +227,28 @@ unmountDevice() {
                 warn "Unmount failed. Retrying in ${UNMOUNT_RETRY_SECS} seconds..."
                 sleep ${UNMOUNT_RETRY_SECS}
                 if ! umount "${dir}"; then
-                    warn "Retry attempt to unmount failed"
-                    return
+                    warn "Retry attempt to unmount failed: ${dir}"
+                    CLEANUP_FAILED=true
                 fi
             fi
         done <<< "${mountDirs}"
     fi
-    if cryptdisks_stop "${DEVICE_NAME}"; then
+    # A device still mounted cannot be locked.
+    if [[ "${CLEANUP_FAILED}" == true ]]; then
+        warn "Device ${DEVICE_NAME} left unlocked because it is still mounted"
+    elif cryptdisks_stop "${DEVICE_NAME}"; then
         ok "Device unmounted and locked"
     else
         warn "Failed to lock encrypted device ${DEVICE_NAME}\n  Manual cleanup: cryptdisks_stop \"${DEVICE_NAME}\""
+        CLEANUP_FAILED=true
     fi
 }
 
-[[ "${UNMOUNT_ONLY}" == true ]] && { unmountDevice; exit 0; }
+if [[ "${UNMOUNT_ONLY}" == true ]]; then
+    unmountDevice
+    [[ "${CLEANUP_FAILED}" == true ]] && exit 1
+    exit 0
+fi
 
 # mountDevice() sets the global var: ${MOUNT_DIR}
 mountDevice
@@ -265,8 +276,9 @@ echo "Rsnapshot retention:             ${RETENTION_NUMBER} backups"
 mkdir -p "${rsnapshotDestDir}"
 
 backup
-deleteOldRsnapshotBackups
+# After the copy succeeds, so a failed run never leaves fewer backups than it found.
 backupRsnapshot
+deleteOldRsnapshotBackups
 
 header "Backed up:"
 if command -v tree &>/dev/null; then
@@ -285,3 +297,6 @@ header "Manual commands:"
 echo "Unlock:  cryptdisks_start \"${DEVICE_NAME}\""
 echo "Mount:   mount \"${DEVICE_PATH}\""
 echo "Unmount: umount \"${MOUNT_DIR}\" && cryptdisks_stop \"${DEVICE_NAME}\""
+
+[[ "${CLEANUP_FAILED}" == true ]] && exit 1
+exit 0
