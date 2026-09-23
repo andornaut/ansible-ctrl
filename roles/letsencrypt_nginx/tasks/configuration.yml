@@ -45,6 +45,7 @@
     - common_site_configuration
     - selfsigned_certificate
   become: true
+  notify: Restart nginx
 
 - name: Copy default site configuration
   ansible.builtin.copy:
@@ -55,6 +56,7 @@
     group: root
     force: true
   become: true
+  notify: Restart nginx
 
 - name: Check if SSL certificates exist
   ansible.builtin.stat:

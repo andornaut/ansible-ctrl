@@ -127,3 +127,6 @@
   become: true
   # `data` carries the challenge results, which embed the Cloudflare API token.
   no_log: true
+  # The site configuration names the same path before and after a renewal, so nothing
+  # else changes to load the new certificate.
+  notify: Restart nginx
