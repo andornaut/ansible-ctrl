@@ -1,4 +1,15 @@
 ---
+- name: Validate letsencrypt_nginx_operator
+  ansible.builtin.assert:
+    that:
+      - letsencrypt_nginx_operator != "root"
+    fail_msg: >-
+      letsencrypt_nginx_operator resolved to "root", whose home holds no sops store or age key.
+      Set primary_user in the inventory (or letsencrypt_nginx_operator in host_vars) to the
+      operator's account.
+    success_msg: 'letsencrypt_nginx_operator "{{ letsencrypt_nginx_operator }}" is valid'
+  become: false
+
 # The store and age key are in the operator's home and this job runs as root, so
 # resolve the paths: root's own ~ is /root.
 - name: Read the operator's passwd entry
