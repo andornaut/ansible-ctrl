@@ -8,34 +8,41 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 # Not packaged for the distro, so a local run keeps it in a venv under .ansible/.
-# CI pip-installs it instead, and this takes whichever is on PATH. Both install
+# CI pip-installs it instead, and under CI this takes whichever is on PATH. Both install
 # from requirements-dev.txt, so the version a local run rejects against is the
 # version the gate rejects against.
 readonly VENV=.ansible/lint-venv
+# The requirements-dev.txt the venv was last installed from. A venv keeps whatever it was
+# built with, so a pin bumped since reinstalls it; an unchanged file skips pip altogether.
+readonly VENV_STAMP=${VENV}/requirements-dev.txt
 
 # The directory every tool from requirements-dev.txt is run out of: ansible-lint, and the
 # ansible-config the config check runs, which comes from the pinned ansible-core beside it.
 # Never bare names off PATH: the distro ships its own ansible-core, whose version no commit
 # here names, so a check taking that one rejects against a version the gate does not.
 #
-# ansible-lint is the marker of a requirements-dev.txt install, being the one tool the distro
-# does not package: on PATH in CI, which pip-installs the file, and absent locally, where the
-# venv is built instead.
+# PATH is trusted only under CI, whose workflow pip-installs requirements-dev.txt into the
+# interpreter on PATH. Locally an ansible-lint on PATH is whatever an activated venv or pipx
+# last installed, not what requirements-dev.txt pins, so a local run always uses its own venv.
 #
 # Sets LINT_BIN_DIR rather than printing it, so the checks that need it resolve once.
 LINT_BIN_DIR=""
 require_lint_bin_dir() {
     local bin
     [[ -n ${LINT_BIN_DIR} ]] && return 0
-    if bin=$(command -v ansible-lint); then
+    if [[ -n ${CI:-} ]]; then
+        bin=$(command -v ansible-lint) || {
+            echo "CI is set but ansible-lint is not on PATH: pip install -r requirements-dev.txt" >&2
+            return 1
+        }
         LINT_BIN_DIR=$(dirname "${bin}")
         return 0
     fi
     [[ -x ${VENV}/bin/pip ]] || python3 -m venv "${VENV}" || return 1
-    # Installed on every run, not only when the venv is missing: an existing venv keeps
-    # whatever it was built with, so a pin bumped here would otherwise never reach it and
-    # the local run would keep checking against a version no commit names.
-    "${VENV}/bin/pip" install --quiet -r requirements-dev.txt || return 1
+    if ! cmp -s requirements-dev.txt "${VENV_STAMP}"; then
+        "${VENV}/bin/pip" install --quiet -r requirements-dev.txt || return 1
+        cp requirements-dev.txt "${VENV_STAMP}" || return 1
+    fi
     LINT_BIN_DIR=${VENV}/bin
 }
 
@@ -121,8 +128,8 @@ check_python() {
 #
 # identity.py needs PyYAML, which requirements-dev.txt installs beside ansible-core, so the
 # call below builds the venv a fresh checkout does not have yet and its python is the one to
-# run. An ansible-lint already on PATH short-circuits that venv and may sit beside no python
-# at all (pipx), so the distro's is the fallback, and it is checked rather than assumed.
+# run. Under CI the tools come off PATH and may sit beside no python at all, so the distro's
+# is the fallback, and it is checked rather than assumed.
 #
 # The unit tests run first and the scan runs whatever they say, on the same reasoning as
 # main(): one run should name everything that needs fixing. They cover the branches this
@@ -155,8 +162,12 @@ check_markdown() {
         return 1
     fi
     # npm ci, not install: the lockfile is the pin, and it rebuilds the tree
-    # from it rather than resolving a new one beside it.
-    [[ -x node_modules/.bin/markdownlint-cli2 ]] || npm ci --silent || return 1
+    # from it rather than resolving a new one beside it. npm writes
+    # node_modules/.package-lock.json on every install, so a lockfile newer than
+    # it names versions the installed tree does not have.
+    if [[ ! -x node_modules/.bin/markdownlint-cli2 || package-lock.json -nt node_modules/.package-lock.json ]]; then
+        npm ci --silent || return 1
+    fi
     node_modules/.bin/markdownlint-cli2
 }
 

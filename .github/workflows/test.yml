@@ -55,12 +55,20 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # requirements.yml pins nothing and the install does not --upgrade, so a
+      # cache hit freezes whatever versions it holds. The month in the key caps
+      # that at a month, and there is no restore-keys fallback, which would carry
+      # a stale tree forward indefinitely.
+      - name: Compute collections cache month
+        id: month
+        run: echo "month=$(date -u +%Y-%m)" >>"${GITHUB_OUTPUT}"
+
+      # ansible.cfg's collections_path, relative to the checkout.
       - name: Cache Ansible collections
         uses: actions/cache@v6.1.0
         with:
-          path: ~/.ansible/collections
-          key: collections-${{ hashFiles('requirements.yml') }}
-          restore-keys: collections-
+          path: .ansible/collections
+          key: collections-${{ steps.month.outputs.month }}-${{ hashFiles('requirements.yml') }}
 
       # ansible-lint depends on ansible-core, which the config check's
       # ansible-config comes from.
