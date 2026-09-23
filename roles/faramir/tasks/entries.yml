@@ -226,7 +226,7 @@
 - name: Show what the entries warned about
   ansible.builtin.debug:
     msg: "{{ item }}"
-  loop: "{{ faramir_entry_warnings | reject('search', 'is not there') | list }}"
+  loop: "{{ faramir_entry_warnings | reject('search', 'does not exist; the rule holds once it does') | list }}"
 
 # The rest of them, which is one per declared path this host does not have: most of the list
 # under every home, and the summary below is the reading that means anything. Kept behind -v
@@ -236,7 +236,7 @@
 # loop here would print the line it exists to avoid.
 - name: Name the declared paths this host does not have
   ansible.builtin.debug:
-    msg: "{{ faramir_entry_warnings | select('search', 'is not there') | list }}"
+    msg: "{{ faramir_entry_warnings | select('search', 'does not exist; the rule holds once it does') | list }}"
     verbosity: 1
 
 # The list is declared under every home and most of it is absent under each, so the warnings
@@ -258,4 +258,4 @@
     faramir_home_declared: "{{ faramir_blocked_home_paths | length }}"
     faramir_home_absent: >-
       {{ faramir_entry_warnings | select('match', item ~ '/')
-         | select('search', 'is not there') | list | length }}
+         | select('search', 'does not exist; the rule holds once it does') | list | length }}

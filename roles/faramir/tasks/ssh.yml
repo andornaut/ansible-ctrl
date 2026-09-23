@@ -169,6 +169,14 @@
           {{ (faramir_fleet_known_hosts_slurped.content | default('') | b64decode).splitlines()
              | map('trim') | reject('match', '^(#|$)') | list }}
 
+    # Name, type and key only, as collected: a pinned line's trailing comment is not part of
+    # the key it pins.
+    - name: Reduce the pinned entries to what was collected
+      ansible.builtin.set_fact:
+        faramir_fleet_known_hosts_pinned_keys: >-
+          {{ faramir_fleet_known_hosts_pinned
+             | map('regex_replace', '^(\S+)\s+(\S+)\s+(\S+).*$', '\1 \2 \3') | list }}
+
     - name: Require no pinned host key to have changed
       ansible.builtin.assert:
         that: faramir_fleet_known_hosts_changed | length == 0
@@ -183,11 +191,11 @@
         # a whole whose first two fields are pinned is that name and type under a new key.
         faramir_fleet_known_hosts_prefix_pattern: '^(\S+\s+\S+).*$'
         faramir_fleet_known_hosts_pinned_prefixes: >-
-          {{ faramir_fleet_known_hosts_pinned
+          {{ faramir_fleet_known_hosts_pinned_keys
              | map('regex_replace', faramir_fleet_known_hosts_prefix_pattern, '\1') | list }}
         faramir_fleet_known_hosts_changed: >-
           {{ faramir_fleet_known_hosts_collected
-             | reject('in', faramir_fleet_known_hosts_pinned)
+             | reject('in', faramir_fleet_known_hosts_pinned_keys)
              | map('regex_replace', faramir_fleet_known_hosts_prefix_pattern, '\1')
              | select('in', faramir_fleet_known_hosts_pinned_prefixes) | list }}
 
@@ -203,12 +211,14 @@
         mode: "0644"
       vars:
         faramir_fleet_known_hosts_final: >-
-          {{ (faramir_fleet_known_hosts_pinned + faramir_fleet_known_hosts_collected)
+          {{ (faramir_fleet_known_hosts_pinned + faramir_fleet_known_hosts_collected
+              | reject('in', faramir_fleet_known_hosts_pinned_keys) | list)
              | unique | sort }}
 
 # The hosts this play still holds, not the whole inventory: the rest were never targeted or
-# were lost earlier, so neither got a key. What is left was reached as the operator moments
-# ago, so a silent answer is a failure.
+# were lost earlier, so neither got a key, and one with faramir_fleet_authorize_key false had
+# it removed. What is left was reached as the operator moments ago, so a silent answer is a
+# failure.
 #
 # Read off ansible's play list rather than probed through the broker, where a host that
 # refuses its key looks exactly like one that is off.
@@ -219,7 +229,13 @@
     # The ping is a command, which --check skips, and every host would then read as silent.
     - not ansible_check_mode
   vars:
-    faramir_fleet_ping_hosts: "{{ ansible_play_hosts | difference([faramir_controller_host]) }}"
+    faramir_fleet_ping_candidates: "{{ ansible_play_hosts | difference([faramir_controller_host]) }}"
+    faramir_fleet_ping_hosts: >-
+      {{ faramir_fleet_ping_candidates
+         | zip(faramir_fleet_ping_candidates
+               | map('extract', hostvars, 'faramir_fleet_authorize_key')
+               | map('default', true) | map('bool'))
+         | selectattr('1') | map(attribute='0') | list }}
   block:
     # Nothing is piped in. What ansible leaves on a module's child is an anonymous pipe
     # every writer has closed, which faramir lets through; one that refuses it refuses the
