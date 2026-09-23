@@ -33,6 +33,10 @@
           cap_add:
             - NET_ADMIN
             - NET_RAW
+          # Replaces the image's CMD, whose two arguments are repeated here.
+          command: >-
+            {{ ['--storage-path', '/data', '--paa-root-cert-dir', '/data/credentials']
+            + (homeautomation_pythonmatterserver_bind | map('regex_replace', '^', '--listen-address=') | list) }}
           logging: "{{ homeautomation_default_logging }}"
           # The _matter._tcp mDNS OTBR advertises does not cross the bridge, and
           # without it no Thread node resolves.

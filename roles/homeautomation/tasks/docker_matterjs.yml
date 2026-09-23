@@ -28,6 +28,9 @@
           container_name: matterjs
           hostname: matterjs-{{ ansible_facts['hostname'] }}
           image: "{{ homeautomation_matterjs_docker_image }}"
+          # The image's CMD is empty, so this adds to the entrypoint's arguments.
+          command: >-
+            {{ homeautomation_matterjs_bind | map('regex_replace', '^', '--listen-address=') | list }}
           # No cap_add, and the default set dropped: cap_add fills the permitted
           # set but not the ambient set, so nothing becomes effective for a
           # non-root uid anyway. Host networking is what gets it the mDNS.

@@ -187,6 +187,12 @@ homeautomation_llamacpp_uid: "10004"
 homeautomation_llamacpp_gid: "10004"
 
 # Matter.js
+# Host-networked, and the WebSocket API authenticates nobody: on every interface it hands
+# the Matter fabric to the LAN. Home Assistant reaches it as localhost, which resolves to
+# either family, so both loopback addresses are bound.
+homeautomation_matterjs_bind:
+  - "127.0.0.1"
+  - "::1"
 homeautomation_matterjs_docker_image: ghcr.io/matter-js/matterjs-server:stable
 # The image's 1000:1000 is the operator's uid on the host. The data directory
 # holds the Matter fabric credentials.
@@ -196,6 +202,10 @@ homeautomation_matterjs_required_volumes:
   data: /var/docker-volumes/homeautomation/matterjs/data
 
 # Python Matter Server (legacy)
+# As homeautomation_matterjs_bind.
+homeautomation_pythonmatterserver_bind:
+  - "127.0.0.1"
+  - "::1"
 homeautomation_pythonmatterserver_docker_image: ghcr.io/home-assistant-libs/python-matter-server:stable
 homeautomation_pythonmatterserver_required_volumes:
   data: /var/docker-volumes/homeautomation/pythonmatterserver/data
@@ -232,6 +242,9 @@ homeautomation_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
 homeautomation_otbr_required_volumes:
   data: /var/docker-volumes/homeautomation/otbr/data
 homeautomation_otbr_rest_port: 8081
+# The web UI has no login and can form or leave the Thread network. The REST API stays on
+# every interface: the image hard-codes its listen address.
+homeautomation_otbr_web_bind: "127.0.0.1"
 homeautomation_otbr_web_port: 8080
 
 # openWakeWord
@@ -249,6 +262,8 @@ homeautomation_openwebui_uid: "10006"
 homeautomation_openwebui_gid: "10006"
 
 # Piper
+# Wyoming authenticates nobody. Home Assistant reaches it over the bridge or loopback.
+homeautomation_piper_bind: "127.0.0.1"
 homeautomation_piper_command: "--data-dir /data --voice en_US-amy-medium"
 homeautomation_piper_docker_image: rhasspy/wyoming-piper
 homeautomation_piper_required_volumes:
@@ -259,6 +274,8 @@ homeautomation_piper_uid: "10007"
 homeautomation_piper_gid: "10007"
 
 # Whisper
+# As homeautomation_piper_bind.
+homeautomation_whisper_bind: "127.0.0.1"
 homeautomation_whisper_command: "--data-dir /data --language en --model tiny-int8"
 homeautomation_whisper_docker_image: rhasspy/wyoming-whisper
 homeautomation_whisper_required_volumes:

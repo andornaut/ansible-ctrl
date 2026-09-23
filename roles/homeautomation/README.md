@@ -100,10 +100,10 @@ published host side of a bridge container's mapping, not the internal port liste
 | homeassistant      | host    | 8123  | HTTP     | Web UI and API                             |
 | esphome            | host    | 6052  | HTTP     | Dashboard                                  |
 | govee2mqtt         | host    | none  | UDP      | LAN broadcast discovery                    |
-| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI                |
+| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only |
 | otbr               | host    | 8081  | REST     | Thread Border Router REST API              |
-| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API                   |
-| pythonmatterserver | host    | 5580  | HTTP/WS  | Web UI and WebSocket API (legacy)          |
+| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only    |
+| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                       |
 | mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                |
 | frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated)                   |
 | frigate            | bridge  | 8971  | HTTP     | Web UI (authenticated)                     |
@@ -112,8 +112,8 @@ published host side of a bridge container's mapping, not the internal port liste
 | llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API           |
 | openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host port 3000        |
 | hamcp              | bridge  | 8086  | HTTP     | MCP server                                 |
-| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also published on the host |
-| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also published on the host |
+| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback      |
+| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback      |
 
 ### Container hardening
 
@@ -125,7 +125,7 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern 
 | `cap_drop: ALL` for every container running as a non-root uid                                                                | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                            |
 | `no-new-privileges` everywhere, root included                                                                                | It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                 |
 | Directories closed rather than files, wherever a service rewrites its own state with its own umask                           | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                                            |
-| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker allows anonymous access and Frigate serves a second copy of its UI with no login                                                                                                                                                                                                 |
+| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker, Wyoming, the Matter WebSocket API and the OTBR web UI authenticate nobody, and Frigate serves a second copy of its UI with no login. OTBR's REST API and govee2mqtt's HTTP API stay on every interface, both images hard-coding the listen address                              |
 
 ### llama.cpp models and context
 

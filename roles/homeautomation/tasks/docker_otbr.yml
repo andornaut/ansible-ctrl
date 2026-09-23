@@ -43,6 +43,7 @@
       # The image starts otbr-web only when OTBR_WEB is set; the port alone is
       # not enough.
       - OTBR_WEB=1
+      - OTBR_WEB_INTERFACE={{ homeautomation_otbr_web_bind }}
       - OTBR_WEB_PORT={{ homeautomation_otbr_web_port }}
     # NETWORK_DEVICE makes socat bridge the TCP socket to /tmp/ttyOTBR.
     otbr_network_env:
