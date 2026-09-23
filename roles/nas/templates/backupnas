@@ -196,12 +196,12 @@ mountDevice() {
     fi
 
     # Check if device is already mounted
-    MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+    MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1 || true)"
 
     # If not mounted, try to mount it
     if [[ -z "${MOUNT_DIR}" ]]; then
         mount "${DEVICE_PATH}" || error "Failed to mount ${DEVICE_PATH}"
-        MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1)"
+        MOUNT_DIR="$(findmnt -rno TARGET "${DEVICE_PATH}" | head -n1 || true)"
         [[ -z "${MOUNT_DIR}" ]] && { error "Mount succeeded, but device not found at expected mount point"; }
     fi
 
