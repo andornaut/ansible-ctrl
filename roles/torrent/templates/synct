@@ -76,10 +76,15 @@ fi
 sync_host() {
     local src_host="${1}"
     local src_dir="${2}"
-    local lock_file
-    # Per host+dir, so a second host still syncs while this one is busy. The uid
-    # keeps the path off another user's lock file.
-    lock_file="${TMPDIR:-/tmp}/synct-$(id -u)-${src_host}${src_dir//\//_}.lock"
+    local remote="${3}"
+    local port="${4}"
+    # Per host+dir, so a second host still syncs while this one is busy. In the user's
+    # home, not /tmp: fs.protected_regular refuses to open a lock file another user
+    # created there first. Not XDG_RUNTIME_DIR either, which cron does not set, so a
+    # manual run and the cron run would take different locks.
+    local lock_dir="${HOME}/.cache"
+    local lock_file="${lock_dir}/synct-${src_host}${src_dir//\//_}.lock"
+    mkdir -p "${lock_dir}"
     header "Synchronizing files from ${src_host}:${src_dir} to localhost:${dst_dir}"
     # flock releases however the guarded subshell ends, including a kill, which a pid
     # check cannot see. A held lock means a prior sync is wedged, so fail rather than
@@ -89,7 +94,7 @@ sync_host() {
         info "Starting sync on $(date)"
         # Tested rather than left to `set -e`, which bash suspends for the whole
         # body of a function called on the left of an ||, as this one is.
-        if ! rsync "${rsync_opts[@]}" -e "ssh ${SSH_OPTS[*]}" "${src_host}:${src_dir}" "${dst_dir}"; then
+        if ! rsync "${rsync_opts[@]}" -e "ssh -p ${port} ${SSH_OPTS[*]}" "${remote}:${src_dir}" "${dst_dir}"; then
             warn "Failed to synchronize ${src_host}:${src_dir}"
             exit 1
         fi
@@ -101,7 +106,7 @@ sync_host() {
 # because error() ignores the --quiet the cron job passes.
 failed_hosts=""
 {% for host in groups['torrent'] | default([]) %}
-sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/" || failed_hosts+=" {{ host }}"
+sync_host "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/" "{{ hostvars[host].ansible_user }}@{{ hostvars[host].ansible_host | default(host) }}" "{{ hostvars[host].ansible_port | default(22) }}" || failed_hosts+=" {{ host }}"
 {% endfor %}
 
 # Non-zero so cron reports the run, and the chained unrart does not run against a

@@ -65,13 +65,15 @@ warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
 upload_torrent_files() {
     local src="${1}"
     local dst="${2}"
+    local remote="${3}"
+    local port="${4}"
     # Under `set -e` a failing cd would abandon the remaining watch directories.
     [[ -d "${src}" ]] || { info "Skipping ${src}: not a directory"; return 0; }
     # Subshell: whatever happens below, the cd cannot leak back to the caller.
     (
         cd "${src}"
         local rc=0
-        local -a scp_opts=("${SSH_OPTS[@]}")
+        local -a scp_opts=("${SSH_OPTS[@]}" -P "${port}")
         "${QUIET}" && scp_opts+=(-q)
         for f in *.torrent; do
             [[ -f "${f}" ]] || continue
@@ -82,7 +84,7 @@ upload_torrent_files() {
             info "Copying ${f} to ${dst}"
             # ./ on both: a name beginning with a dash reads as an option, and
             # the glob does not produce one.
-            if scp "${scp_opts[@]}" "./${f}" "${dst}"; then
+            if scp "${scp_opts[@]}" "./${f}" "${remote}:${dst#*:}"; then
                 rm "./${f}" || rc=1
             else
                 # Kept, so the next run retries it. Not fatal on its own: the
@@ -101,7 +103,12 @@ failed=false
 # One lock for the whole run: cron fires every 2 minutes, tighter than a stalled scp, and
 # two runs would race to rm the same file. flock releases however the guarded subshell
 # ends, including a kill, which a pid check cannot see.
-lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
+# In the user's home, not /tmp: fs.protected_regular refuses to open a lock file another
+# user created there first. Not XDG_RUNTIME_DIR either, which cron does not set, so a
+# manual run and the cron run would take different locks.
+lock_dir="${HOME}/.cache"
+mkdir -p "${lock_dir}"
+lock_file="${lock_dir}/mvt.lock"
 (
     # A held lock means a prior run is wedged, an upload taking seconds.
     flock -n 9 || error "A previous upload is still running"
@@ -110,7 +117,7 @@ lock_file="${TMPDIR:-/tmp}/mvt-$(id -u).lock"
     # configures one rtorrent host, and would name that host's path for every host here.
 {% for host in groups['torrent'] | default([]) %}
 {% for watch_dir in torrent_local_watch_directories %}
-    upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ hostvars[host].torrent_root_directory }}/watch/" || upload_failed=true
+    upload_torrent_files "{{ watch_dir }}" "{{ host }}:{{ hostvars[host].torrent_root_directory }}/watch/" "{{ hostvars[host].ansible_user }}@{{ hostvars[host].ansible_host | default(host) }}" "{{ hostvars[host].ansible_port | default(22) }}" || upload_failed=true
 {% endfor %}
 {% endfor %}
     "${upload_failed}" && exit 1

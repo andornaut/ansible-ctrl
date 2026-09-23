@@ -2,6 +2,17 @@
 # The controller half of this role, applied by torrent.yml's second play. The scripts reach
 # every host in the torrent group, so they are generated from groups['torrent'] rather than
 # from the play's own hosts.
+- name: Validate torrent_local_user
+  ansible.builtin.assert:
+    that:
+      - torrent_local_user != "root"
+    fail_msg: >-
+      torrent_local_user resolved to "root", which would run the cron jobs as root with root's
+      ssh identity. Set primary_user in the inventory (or torrent_local_user in host_vars) to
+      the target account.
+    success_msg: 'torrent_local_user "{{ torrent_local_user }}" is valid'
+  become: false
+
 - name: Require every torrent host to name its root directory
   # No default(torrent_root_directory) fallback: the role defaults belong to the play that
   # applies this role to the torrent hosts, and this is not that play. An unset host would
