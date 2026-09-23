@@ -86,14 +86,16 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         remote_src: true
-        mode: "0644"
+        mode: "{{ item.mode | default('0644') }}"
       loop:
         - src: "{{ niri_tmp.path }}/target/release/niri"
           dest: /usr/local/bin/
+          mode: "0755"
         - src: "{{ niri_tmp.path }}/resources/niri.desktop"
           dest: /usr/local/share/wayland-sessions/
         - src: "{{ niri_tmp.path }}/resources/niri-session"
           dest: /usr/local/bin/
+          mode: "0755"
         - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
           dest: /usr/local/share/xdg-desktop-portal/
         - src: "{{ niri_tmp.path }}/resources/niri.service"
@@ -110,12 +112,6 @@
         create: true
         mode: "0644"
       when: niri_user_home_mounted | bool
-
-    - name: Enable and start niri.service
-      ansible.builtin.include_tasks: enable_user_unit.yml
-      vars:
-        niri_enable_unit: niri.service
-      when: ansible_service_mgr == 'systemd'
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:

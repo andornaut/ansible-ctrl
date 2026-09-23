@@ -32,7 +32,8 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- `niri.service`, `hypridle.service`, `hyprpaper.service` and `xwayland-satellite.service` are enabled by
+- `niri.service` has no `[Install]` section and is not enabled: `niri-session` starts it.
+- `hypridle.service`, `hyprpaper.service` and `xwayland-satellite.service` are enabled by
   [tasks/enable_user_unit.yml](./tasks/enable_user_unit.yml), which symlinks each into `niri_user`'s own
   `~/.config/systemd/user/<target>.wants/` and starts it only under a running user manager. The target is
   read from the unit's own `[Install]` section rather than assumed, these units coming from upstream

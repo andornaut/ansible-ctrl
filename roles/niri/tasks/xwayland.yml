@@ -81,12 +81,13 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         remote_src: true
-        mode: "0644"
+        mode: "{{ item.mode | default('0644') }}"
       loop:
         - src: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
           dest: /usr/local/lib/systemd/user/
         - src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
           dest: /usr/local/bin/
+          mode: "0755"
       become: true
       become_user: root
 
