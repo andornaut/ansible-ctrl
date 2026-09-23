@@ -12,14 +12,14 @@ make rsnapshot
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable                         | Purpose                                                                                 |
-| -------------------------------- | --------------------------------------------------------------------------------------- |
-| `rsnapshot_hosts`                | Hosts, directories, and backup scripts to snapshot. Required                            |
-| `rsnapshot_directory`            | Snapshot root                                                                           |
-| `rsnapshot_preexec_script`       | Where the mountpoint check is installed                                                 |
-| `rsnapshot_required_mountpoints` | Mountpoints checked before the lowest interval. Empty installs no check                 |
-| `rsnapshot_retention`            | Snapshots kept per interval. A null value omits both the `retain` line and the cron job |
-| `rsnapshot_schedule`             | Cron time per interval, keyed to match `rsnapshot_retention`                            |
+| Variable                         | Purpose                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `rsnapshot_hosts`                | Hosts, directories, and backup scripts to snapshot. Required                         |
+| `rsnapshot_directory`            | Snapshot root                                                                        |
+| `rsnapshot_preexec_script`       | Where the mountpoint check is installed                                              |
+| `rsnapshot_required_mountpoints` | Mountpoints checked before the lowest interval. Empty installs no check              |
+| `rsnapshot_retention`            | Snapshots kept per interval. Null or 0 omits both the `retain` line and the cron job |
+| `rsnapshot_schedule`             | Cron time per interval, keyed to match `rsnapshot_retention`                         |
 
 Each entry in `rsnapshot_hosts` takes `name`, `host`, and at least one of `directories` (trailing
 slash required by rsnapshot) or `scripts`, plus one optional key:

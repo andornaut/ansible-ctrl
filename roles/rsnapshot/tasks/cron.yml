@@ -1,6 +1,7 @@
 ---
-# state rather than when: a null retention value drops that interval's retain line from the
-# config, and a cron entry left in place would run an interval rsnapshot no longer defines.
+# state rather than when: a null or zero retention value drops that interval's retain line
+# from the config, and a cron entry left in place would run an interval rsnapshot no longer
+# defines. Truthiness, matching the template's test.
 - name: Configure the rsnapshot backup cron jobs
   ansible.builtin.cron:
     name: "rsnapshot {{ item.key }}"
@@ -11,6 +12,6 @@
     day: "{{ item.value.day | default(omit) }}"
     weekday: "{{ item.value.weekday | default(omit) }}"
     job: "/usr/bin/rsnapshot {{ item.key }}"
-    state: "{{ 'present' if rsnapshot_retention[item.key] | default(none) is not none else 'absent' }}"
+    state: "{{ 'present' if rsnapshot_retention[item.key] | default(none) else 'absent' }}"
   loop: "{{ rsnapshot_schedule | dict2items }}"
   become: true

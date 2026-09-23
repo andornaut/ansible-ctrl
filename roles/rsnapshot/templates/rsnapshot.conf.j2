@@ -17,7 +17,7 @@ cmd_logger	/usr/bin/logger
 cmd_preexec	{{ rsnapshot_preexec_script }}
 {% endif %}
 
-# Retention intervals, ascending order. A null value omits the line and its cron job.
+# Retention intervals, ascending order. A null or zero value omits the line and its cron job.
 {% if rsnapshot_retention.hourly %}
 retain	hourly	{{ rsnapshot_retention.hourly }}
 {% endif %}

@@ -14,7 +14,8 @@ RemainAfterExit=true
 {% for i in range(nas_raid_devices | length) %}
 ExecStart=/usr/sbin/cryptdisks_start nas{{ i }}
 {% endfor %}
-ExecStart=/usr/bin/systemctl start media-nas.mount
+# systemctl maps an absolute path to its mount unit, applying systemd-escape's rules.
+ExecStart=/usr/bin/systemctl start {{ nas_raid_mount_directory }}
 
 [Install]
 WantedBy={{ nas_key_file_mount_unit | default('multi-user.target', true) }}
