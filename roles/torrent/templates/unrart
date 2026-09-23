@@ -131,8 +131,8 @@ extract() {
         local rc=0
         case "${archive,,}" in
             *.rar)             ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >&3 || rc=$? ;;
-            *.tar.gz|*.tgz)    ${COMMAND_PREFIX} tar xzf "${archive}" >&3 || rc=$? ;;
-            *.tar.bz2|*.tbz2)  ${COMMAND_PREFIX} tar xjf "${archive}" >&3 || rc=$? ;;
+            *.tar.gz|*.tgz)    ${COMMAND_PREFIX} tar --skip-old-files -xzf "${archive}" >&3 || rc=$? ;;
+            *.tar.bz2|*.tbz2)  ${COMMAND_PREFIX} tar --skip-old-files -xjf "${archive}" >&3 || rc=$? ;;
             *.zip)             ${COMMAND_PREFIX} unzip -n "${archive}" >&3 || rc=$? ;;
         esac
 
