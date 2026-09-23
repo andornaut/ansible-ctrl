@@ -36,7 +36,7 @@
 
 - name: Configure Visual Studio Code for Wayland
   ansible.builtin.replace:
-    path: /usr/share/applications/code.desktop
+    path: /usr/share/applications/com.microsoft.VSCode.desktop
     # Consume any existing copies of the flag before writing one back, so repeated
     # runs do not accumulate. `\s` would match the newline and swallow the next line.
     regexp: '^Exec=(\S+)(?:[ \t]+--ozone-platform-hint=auto)*[ \t]*(.*)$'
