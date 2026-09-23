@@ -24,7 +24,7 @@
           ConnectTimeout {{ base_ssh_client_connect_timeout }}
           ServerAliveInterval {{ base_ssh_client_alive_interval }}
           ServerAliveCountMax {{ base_ssh_client_alive_count_max }}
-          GSSAPIAuthentication {{ base_ssh_client_gssapi | ternary('yes', 'no') }}
+          GSSAPIAuthentication {{ base_ssh_client_gssapi | bool | ternary('yes', 'no') }}
     owner: root
     group: root
     mode: "0644"

@@ -44,11 +44,11 @@ there is one copy: `ansible.builtin.include_tasks: ../../base/tasks/<file>.yml`.
 path inherits the caller's tags, become and when like any `include_tasks`, and the caller's
 `vars:` are the interface, so nothing here is prefixed with the calling role's name.
 
-| File                                                             | Interface                                                                                                                                      |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| [get_latest_release.yml](./tasks/get_latest_release.yml)         | `release_repo` (`owner/repo`), `release_fact` (the variable that receives the release object), optional `release_api_base` for a Forgejo forge |
-| [require_tools.yml](./tasks/require_tools.yml)                   | `require_tools`: a list of `{name, probe, hint}`; fails naming the tool and what installs it                                                   |
-| [require_kernel_headers.yml](./tasks/require_kernel_headers.yml) | none; installs the headers DKMS builds against for the running kernel and the metapackage that follows it                                      |
+| File                                                             | Interface                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [get_latest_release.yml](./tasks/get_latest_release.yml)         | `release_repo` (`owner/repo`), `release_fact` (the variable that receives the release object), optional `release_api_base` for a Forgejo forge, optional `release_stable: true` to take the newest non-draft, non-prerelease entry of `/releases` instead of `/releases/latest`, failing when none qualifies |
+| [require_tools.yml](./tasks/require_tools.yml)                   | `require_tools`: a list of `{name, probe, hint}`; fails naming the tool and what installs it                                                                                                                                                                                                                 |
+| [require_kernel_headers.yml](./tasks/require_kernel_headers.yml) | none; installs the headers DKMS builds against for the running kernel and the metapackage that follows it                                                                                                                                                                                                    |
 
 ## Variables
 

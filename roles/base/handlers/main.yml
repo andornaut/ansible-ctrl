@@ -4,11 +4,6 @@
     daemon_reload: true
   become: true
 
-- name: Update font cache
-  ansible.builtin.command: fc-cache
-  changed_when: false
-  become: true
-
 # In this order, which handlers run in: the reload is what makes udevd read the rules and
 # the hardware database afresh, so the database is rebuilt first, and the trigger comes
 # after both, its keyboard builtin reading what udevd then holds.
