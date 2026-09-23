@@ -50,7 +50,8 @@
     # The "dkms" target stages /usr/src/it87-<version>, then dkms add/build/install. It
     # removes no earlier version, and its `dkms add` fails on one already registered, so
     # every registered version and its staged copy go first. `dkms remove` takes one
-    # version per call.
+    # version per call, and --all leaves builds for kernels no longer installed, which
+    # break `dkms status` once their source is gone, so the tree entry goes too.
     - name: Replace the it87 DKMS registration
       when: desktop_it87_source.changed or "installed" not in desktop_it87_dkms.stdout
       block:
@@ -61,7 +62,7 @@
               dkms status it87 | sed -E 's|^it87/([^,:]+)[,:].*|\1|' | sort -u |
                 while read -r version; do
                   dkms remove "it87/${version}" --all || exit 1
-                  rm -rf "/usr/src/it87-${version}"
+                  rm -rf "/var/lib/dkms/it87/${version}" "/usr/src/it87-${version}"
                 done
             executable: /bin/bash
           changed_when: desktop_it87_dkms_removed.stdout | length > 0
