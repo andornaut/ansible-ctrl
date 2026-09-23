@@ -26,12 +26,13 @@
             name: com.orcaslicer.OrcaSlicer
             method: user
 
-        # Works around the Devices-tab crash:
+        # WORKAROUND: the Devices-tab crash:
         # https://github.com/OrcaSlicer/OrcaSlicer/issues/10756
         # `flatpak override` reports nothing, so diff `--show` either side of it.
         - name: Configure OrcaSlicer WebKit environment
           ansible.builtin.shell:
             cmd: |
+              set -e
               before="$(flatpak override --user --show com.orcaslicer.OrcaSlicer)"
               flatpak override --user \
                 --env=WEBKIT_DISABLE_COMPOSITING_MODE=0 \
