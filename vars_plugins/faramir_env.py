@@ -28,6 +28,7 @@
 #
 # The values arrive from `sops exec-env` or from the broker; nothing here reads the store.
 # See the README.
+import re
 from os import environ
 from pathlib import Path
 
@@ -43,7 +44,9 @@ DOCUMENTATION = """
         are omitted, so referencing one that was never injected raises an
         undefined-variable error rather than resolving to a blank value.
       - A missing or unreadable C(faramir.env) is an error naming the file. One
-        that is there and declares nothing is not.
+        that is there and declares nothing is not, and neither is a comment,
+        whole-line or after whitespace. A name that is not a usable environment
+        variable name is an error naming the file and line.
       - Reads only the names from that file. The right of each assignment is a
         C(faramir://) reference and no credential value is ever held there.
       - Also returns C(secrets_injected), how many were found, so a play can
@@ -53,6 +56,9 @@ DOCUMENTATION = """
 
 # Beside the playbook, which is where `faramir run --env-file faramir.env` names it from.
 ENV_FILE = "faramir.env"
+
+ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+TRAILING_COMMENT = re.compile(r"\s#.*$")
 
 # How many were injected, so a play can require that credentials arrived without naming each
 # one: the whole env file arrives or nothing does, so one count answers for all.
@@ -93,15 +99,19 @@ def declared_names(basedir):
         # naming nothing, and silence there would read as no credentials declared.
         raise AnsibleParserError(f"{path} could not be read: {err}") from None
     names = []
-    for raw in lines:
+    for number, raw in enumerate(lines, start=1):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
+        # A trailing comment starts at a "#" after whitespace, where faramir's reader cuts it.
+        line = TRAILING_COMMENT.sub("", line)
         # Both forms faramir's own --env-file takes: NAME=faramir://ref, and a line
         # that is only a name, which asks for the ref of that name.
         name = line.split("=", 1)[0].strip()
-        if name:
-            names.append(name)
+        if not ENV_NAME.fullmatch(name):
+            # faramir refuses the same line, so the brokered route would not run either.
+            raise AnsibleParserError(f"{path}:{number}: {name!r} is not a usable environment variable name")
+        names.append(name)
     _names_by_basedir[basedir] = names
     return names
 

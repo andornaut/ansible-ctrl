@@ -66,10 +66,10 @@ AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@echo "Available targets:"
-	@echo "  clean                 - Remove downloaded roles, collections and lint tooling"
+	@echo "  clean                 - Remove downloaded collections and lint tooling"
 	@echo "  help                  - Show this help message"
 	@echo "  lint                  - Run every check CI gates on"
-	@echo "  requirements          - Install required Ansible roles and collections"
+	@echo "  requirements          - Install required Ansible collections"
 	@echo ""
 	@echo "Playbook targets:"
 	@echo "  base                  - Configure base system"
@@ -101,7 +101,7 @@ help:
 	@echo "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
 
 clean:
-	rm -rf .ansible/roles .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules
+	rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules
 
 # The same six checks CI runs, from the same script. Depends on requirements:
 # ansible-lint's syntax-check reports every collection module unknown without them.
@@ -117,7 +117,6 @@ requirements: .ansible/.requirements
 .ansible/.requirements: requirements.yml
 	@$(AS_OPERATOR) mkdir -p $(@D)
 	@$(if $(IS_ROOT),chown -R $(OPERATOR) $(@D))
-	$(AS_OPERATOR) ansible-galaxy role install -r requirements.yml
 	$(AS_OPERATOR) ansible-galaxy collection install -r requirements.yml
 	@$(AS_OPERATOR) touch $@
 

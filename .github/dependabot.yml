@@ -8,7 +8,7 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
-  # package.json holds markdownlint-cli2, the markdown gate's only tool.
+  # package.json holds the markdown gate and the pre-commit hook's tooling.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:

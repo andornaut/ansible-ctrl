@@ -45,6 +45,8 @@ jobs:
         uses: actions/setup-python@v7.0.0
         with:
           python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
 
       # The markdown check calls markdownlint-cli2, and the commit hook calls
       # prettier. package.json pins both, and Dependabot bumps them through the
