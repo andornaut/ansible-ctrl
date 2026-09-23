@@ -38,6 +38,7 @@
       profile cursor /usr/local/bin/cursor flags=(unconfined) {
         userns,
       }
+    validate: apparmor_parser -Q -T -I /etc/apparmor.d %s
   become: true
   notify: Reload AppArmor
 

@@ -29,7 +29,7 @@ dev_oh_my_pi_repository: can1357/oh-my-pi
 
 # Stated once, both halves of cron.yml reading it, so a third scheduled component does not
 # have to be added to a condition and to its hand-written negation.
-dev_cron_scheduled: "{{ dev_install_ai_attributions or dev_install_ai_maintainer }}"
+dev_cron_scheduled: "{{ dev_install_ai_attributions | bool or dev_install_ai_maintainer | bool }}"
 
 dev_android_sdk_cmdline_tools_dir: "{{ dev_android_sdk_root }}/cmdline-tools"
 dev_android_sdk_sdkmanager: "{{ dev_android_sdk_cmdline_tools_dir }}/latest/bin/sdkmanager"

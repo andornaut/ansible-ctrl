@@ -68,13 +68,20 @@
 
     - name: Install the Android SDK packages
       ansible.builtin.command:
-        cmd: >-
-          {{ dev_android_sdk_sdkmanager }}
-          platform-tools
-          platforms;android-{{ dev_android_sdk_platform_version }}
-          build-tools;{{ dev_android_sdk_build_tools_version }}
-        creates: "{{ dev_android_sdk_root }}/build-tools/{{ dev_android_sdk_build_tools_version }}/aapt2"
+        argv:
+          - "{{ dev_android_sdk_sdkmanager }}"
+          - "{{ item.package }}"
+        creates: "{{ dev_android_sdk_root }}/{{ item.creates }}"
       environment: "{{ dev_android_sdk_environment }}"
+      loop:
+        - package: platform-tools
+          creates: platform-tools/adb
+        - package: "platforms;android-{{ dev_android_sdk_platform_version }}"
+          creates: "platforms/android-{{ dev_android_sdk_platform_version }}/android.jar"
+        - package: "build-tools;{{ dev_android_sdk_build_tools_version }}"
+          creates: "build-tools/{{ dev_android_sdk_build_tools_version }}/aapt2"
+      loop_control:
+        label: "{{ item.package }}"
   always:
     - name: Remove the temporary directory
       ansible.builtin.file:

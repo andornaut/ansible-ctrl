@@ -108,12 +108,12 @@
 - name: Import ai-attributions tasks
   ansible.builtin.import_tasks: ai_attributions.yml
   tags: ai_attributions
-  when: dev_install_ai_attributions
+  when: dev_install_ai_attributions | bool
 
 - name: Import ai-maintainer tasks
   ansible.builtin.import_tasks: ai_maintainer.yml
   tags: ai_maintainer
-  when: dev_install_ai_maintainer
+  when: dev_install_ai_maintainer | bool
 
 # Last, and gated on neither flag: the file it writes holds every scheduled
 # entry the role owns, so it is rendered from the flags rather than skipped.
