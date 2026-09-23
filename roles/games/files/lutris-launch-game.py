@@ -417,7 +417,7 @@ def rungame_pids(app_id, slug, exclude):
     already gone, and which is about to quit, is still waited for.
     """
     wanted = f"lutris:rungame/{slug}".encode()
-    return {pid for pid in sandbox_pids(app_id, exclude) if wanted in cmdline_of(pid)}
+    return {pid for pid in sandbox_pids(app_id, exclude) if wanted in cmdline_of(pid).split(b"\0")}
 
 
 def ancestors_of(pids, exclude):

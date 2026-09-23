@@ -118,6 +118,14 @@ def build_model(role_vars, profile):
     missing = [core for core in cores if core not in probe]
     if missing:
         sys.exit("core_probe is missing an entry for: {}".format(", ".join(missing)))
+    rom_dir_names = profile["rom_dir_names"]
+    missing = sorted(name for name in systems if name not in rom_dir_names)
+    if missing:
+        sys.exit("rom_dir_names is missing an entry for: {}".format(", ".join(missing)))
+    esde_cores = profile["esde_cores"]
+    missing = sorted(name for name in systems if rom_dir_names[name] not in esde_cores)
+    if missing:
+        sys.exit("esde_cores is missing an entry for: {}".format(", ".join(missing)))
 
     return {
         "systems": systems,
@@ -147,7 +155,8 @@ def resolve_dirs(profile, uuid):
 
 class Device:
     """Thin adb wrapper. In dry-run it prints writes instead of performing them; reads run either
-    way, returning empty when there is no device (or no adb) so the plan is still built."""
+    way. read_shell and list_dir return empty when there is no device (or no adb) so the plan is still
+    built; exists and pull_text need the device, and exit rather than report a failed read as absent."""
 
     def __init__(self, serial, dry_run):
         self.serial = serial
@@ -178,19 +187,43 @@ class Device:
         result = self._run(["shell", command], check=False)
         return result.stdout if result.returncode == 0 else ""
 
+    def _read(self, command, attempts=3):
+        """Run a shell command on the device and return stdout, exiting once the attempts are spent.
+
+        A dropped USB connection and an absent file both leave stdout empty, so a caller that must tell
+        them apart reads through here: a failed adb exit waits for the device to re-enumerate and
+        retries, as _write does, and never comes back as "".
+        """
+        for attempt in range(1, attempts + 1):
+            result = self._run(["shell", command], check=False)
+            if result.returncode == 0:
+                return result.stdout
+            if attempt < attempts:
+                print(f"  read `{command}` failed (attempt {attempt}/{attempts}), retrying", file=sys.stderr)
+                self.wait(force=True)
+        sys.exit(
+            f"adb could not read the device (`{command}` exited {result.returncode}: "
+            f"{(result.stderr or '').strip()}). Stopped rather than treat the read as an absent file; "
+            "reconnect and re-run."
+        )
+
     def exists(self, path):
-        return self.read_shell(f"ls -d {shq(path)} 2>/dev/null").strip() != ""
+        """Whether path is on the device. The device shell answers present or absent itself, so adb
+        failing, which prints neither, cannot read as absent."""
+        out = self._read(f"test -e {shq(path)} && echo present || echo absent").strip()
+        if out not in ("present", "absent"):
+            sys.exit(f"adb returned {out!r} testing for {path}, which is neither present nor absent; re-run.")
+        return out == "present"
 
     def list_dir(self, path):
         out = self.read_shell(f"ls -1 {shq(path)} 2>/dev/null")
         return [line for line in out.splitlines() if line]
 
     def pull_text(self, path):
-        """Return a device file's contents, or None if it is not there."""
+        """Return a device file's contents, or None if it is not there. Exits on a failed read."""
         if not self.exists(path):
             return None
-        result = self._run(["shell", f"cat {shq(path)}"], check=False)
-        return result.stdout if result.returncode == 0 else None
+        return self._read(f"cat {shq(path)}")
 
     def mkdirs(self, *paths):
         for path in paths:
@@ -199,13 +232,13 @@ class Device:
     def push(self, local, remote):
         self._write(["push", local, remote], f"push {local} -> {remote}")
 
-    def wait(self, timeout=60):
+    def wait(self, timeout=60, force=False):
         """Block until the device is back on adb, up to timeout seconds (best-effort).
 
         A USB blip mid-mirror drops the device for a few seconds and adb re-enumerates it under a new
         transport; waiting lets a retry land on the reconnected device instead of failing immediately.
         """
-        if self.dry_run:
+        if self.dry_run and not force:
             return
         with contextlib.suppress(subprocess.TimeoutExpired):
             subprocess.run(
@@ -839,12 +872,14 @@ def set_alt_emulator(existing, label):
     return block + existing
 
 
-def configure_esde_cores(device, gamelists_dir, esde_cores):
-    """Pin each system's ES-DE emulator to the games role's preferred core via its gamelist.xml."""
+def configure_esde_cores(device, online, gamelists_dir, esde_cores):
+    """Pin each system's ES-DE emulator to the games role's preferred core via its gamelist.xml.
+
+    Offline, which only a dry run reaches, every gamelist is planned as absent."""
     for system, label in sorted(esde_cores.items()):
         system_dir = f"{gamelists_dir}/{system}"
         path = f"{system_dir}/gamelist.xml"
-        updated = set_alt_emulator(device.pull_text(path), label)
+        updated = set_alt_emulator(device.pull_text(path) if online else None, label)
         device.mkdirs(system_dir)
         print(f"{system} -> {label}")
         device.push_text(updated, path)
@@ -1066,7 +1101,7 @@ def main():
     # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned
     # writes), or a preview of the destructive ROM-mirror deletes would be silently skipped.
     section("ES-DE emulators", "merge")
-    configure_esde_cores(device, profile["esde_gamelists_dir"], profile["esde_cores"])
+    configure_esde_cores(device, online, profile["esde_gamelists_dir"], profile["esde_cores"])
     if not args.skip_roms:
         section("ROM library", "merge with prune")
         mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])

@@ -14,10 +14,10 @@
     success_msg: syncretroid is installed from one host
   vars:
     installers: >-
-      {{ ansible_play_hosts | map('extract', hostvars)
-         | selectattr('games_install_retroid_sync', 'defined')
-         | selectattr('games_install_retroid_sync')
-         | map(attribute='inventory_hostname') | list }}
+      {{ ansible_play_hosts
+         | zip(ansible_play_hosts | map('extract', hostvars, 'games_install_retroid_sync')
+               | map('default', false) | map('bool'))
+         | selectattr(1) | map(attribute=0) | list }}
 
 - name: Validate the retroid sync inputs
   ansible.builtin.assert:

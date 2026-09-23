@@ -4,4 +4,4 @@
 # ~/.config/gamemode.ini, which overrides anything set here. Only the settings this role
 # owns appear; the rest stay at the shipped defaults.
 [general]
-inhibit_screensaver={{ games_gamemode_inhibit_screensaver | ternary(1, 0) }}
+inhibit_screensaver={{ games_gamemode_inhibit_screensaver | bool | ternary(1, 0) }}
