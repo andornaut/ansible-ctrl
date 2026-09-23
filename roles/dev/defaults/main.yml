@@ -11,7 +11,7 @@ dev_user: "{{ primary_user }}"
 #
 # Both are copies of a pin held elsewhere, so both have to be raised by hand
 # when those repositories raise theirs.
-dev_ruby_version: "3.2.2"
+dev_ruby_version: "3.4.10"
 dev_bundler_version: "4.0.13"
 
 # The Node the JavaScript repositories name in .nvmrc, installed under
@@ -23,7 +23,7 @@ dev_bundler_version: "4.0.13"
 # Go needs no equivalent. It has no per-project version manager here: one
 # toolchain in /usr/local serves every go.mod, and the language downloads a
 # newer one itself when a module asks for one it does not have.
-dev_node_version: "v24.13.1"
+dev_node_version: "v24.21.0"
 
 # The editor and the CLI are separate installs from separate sources: the deb comes
 # from Google's apt repository, which serves nothing else and auto-updates it, and agy
