@@ -2,5 +2,9 @@
 - name: Apply base role
   # Every Ubuntu host. The routers are pfSense and have none of what this installs.
   hosts: all:!routers
+  # The sshd reload that applies the lockdown drop-in is a handler, and a handler is dropped
+  # when the play fails. A run that writes the drop-in and then fails before the flush would
+  # leave sshd accepting passwords: the next run finds the file unchanged and notifies nothing.
+  force_handlers: true
   roles:
     - base

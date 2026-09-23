@@ -41,11 +41,14 @@ journalctl --vacuum-size=500M --vacuum-time=4weeks || true
 # time the disk pays for; the live files it is still writing are untouched.
 find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -delete || true
 
-# Unused images, containers, networks and build cache. Volumes are preserved.
+# Unused images, networks and build cache. Containers and volumes are preserved: a stopped
+# container may be one taken down on purpose and still be wanted.
 # The binary existing does not mean the daemon is up, and a prune against a stopped dockerd
 # fails: guarded so it cannot take the flatpak and thumbnail sweeps down with it.
 if command -v docker >/dev/null 2>&1; then
-    docker system prune --all --force || true
+    docker image prune --all --force || true
+    docker builder prune --force || true
+    docker network prune --force || true
 fi
 
 # Remove flatpak runtimes and extensions no longer referenced by any app.
@@ -77,8 +80,14 @@ fi
 
 # Thumbnail caches, which every file manager regenerates on demand. Per-user, for the same
 # reason the flatpak sweep above is: each account has its own under $HOME.
-while IFS=: read -r _ _ uid _ _ home _; do
+#
+# The path is owned by the account, so it can point anywhere. The deletion runs as the account
+# rather than as root, so a symlink leads it nowhere the account could not already delete, and
+# a symlinked cache directory is skipped outright. stdin is redirected as in the flatpak loop.
+while IFS=: read -r name _ uid _ _ home _; do
     [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
+    [[ -L ${home}/.cache/thumbnails ]] && continue
     [[ -d ${home}/.cache/thumbnails ]] || continue
-    rm -rf -- "${home:?}/.cache/thumbnails/."[!.]* "${home:?}/.cache/thumbnails/"* 2>/dev/null || true
+    runuser -u "${name}" -- \
+        find "${home:?}/.cache/thumbnails" -mindepth 1 -delete </dev/null 2>/dev/null || true
 done < <(getent passwd)
