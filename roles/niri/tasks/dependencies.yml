@@ -45,15 +45,24 @@
         update_cache: true
       become: true
 
-    - name: Configure GCC alternatives
+    # CLEANUP (added 2026-09-24): the host-wide gcc and g++ alternatives this role pointed
+    # at version 14. Removing the last alternative also removes /usr/bin/gcc, so the packages
+    # are reinstalled to restore their own link. Delete once every niri host has converged.
+    - name: Remove the gcc-14 alternatives
       community.general.alternatives:
         name: "{{ item }}"
         path: "/usr/bin/{{ item }}-14"
-        link: "/usr/bin/{{ item }}"
-        state: selected
+        state: absent
       loop:
         - gcc
         - g++
+      register: niri_gcc_alternatives
+      become: true
+
+    - name: Reinstall gcc and g++ to restore /usr/bin/gcc and /usr/bin/g++ # noqa: command-instead-of-module no-handler
+      ansible.builtin.command: apt-get install --reinstall --yes gcc g++
+      changed_when: true
+      when: niri_gcc_alternatives is changed
       become: true
 
 - name: Build and install libsdbus

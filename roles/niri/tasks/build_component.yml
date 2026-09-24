@@ -17,9 +17,15 @@
 # Staged as niri_user, not root and not the connecting account: the build below is
 # unprivileged unless a caller asks otherwise, and a root-owned 0700 staging directory is
 # one it cannot chdir into. The install and the cleanup name root for themselves.
+#
+# gcc-14 for the hypr stack's C++, named to the build rather than made the host's default,
+# which would also change the compiler DKMS builds kernel modules with.
 - name: Build and install {{ build_component_name }}
   become: true
   become_user: "{{ niri_user }}"
+  environment:
+    CC: gcc-14
+    CXX: g++-14
   block:
     - name: Create a temporary directory for {{ build_component_name }}
       ansible.builtin.tempfile:
