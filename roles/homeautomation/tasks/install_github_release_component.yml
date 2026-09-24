@@ -92,7 +92,9 @@
           register: homeautomation_github_component_src_stat
           become: true
 
-        # A directory is mirrored, so a module an upstream release dropped leaves too.
+        # A directory is mirrored, so a module an upstream release dropped leaves too. The
+        # __pycache__ Home Assistant writes is protected: deleting it would report a change and
+        # restart Home Assistant on every run that reinstalls a component.
         # --omit-dir-times: the staging tree is new each run and would otherwise report a
         # change every time.
         - name: Install files for {{ github_component_name }}
@@ -103,7 +105,7 @@
           ansible.builtin.command:
             argv: >-
               {{ ['rsync', '--recursive', '--links', '--times', '--omit-dir-times',
-                  '--chmod=D0755,F0644', '--itemize-changes']
+                  '--chmod=D0755,F0644', '--itemize-changes', '--filter=P __pycache__/']
                  + (['--delete',
                      homeautomation_github_component_tmp.path ~ '/' ~ github_component_src ~ '/',
                      github_component_dest_dir ~ '/' ~ (github_component_src | basename) ~ '/']

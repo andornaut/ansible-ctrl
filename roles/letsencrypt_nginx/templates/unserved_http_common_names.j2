@@ -1,14 +1,19 @@
 {#- The common names of HTTP-01 certificates that no site serves as its domain. The token for a
     common name is written to /var/www/<common name>, which only that site's port-80 server
-    answers from. -#}
+    answers from. Only the first site naming a common name places its order and so decides its
+    challenge type, as in tasks/letsencrypt.yml. -#}
 {% set served = letsencrypt_nginx_websites | map(attribute='domain') | list %}
+{% set seen = [] %}
 {% set names = [] %}
-{% for site in letsencrypt_nginx_websites
-   if not site.cloudflare_api_token | default(false)
-   and not site.use_selfsigned_certificate | default(false) %}
+{% for site in letsencrypt_nginx_websites %}
 {% set cn = site.csr_common_name | default(site.domain) %}
-{% if cn not in served and cn not in names %}
+{% if cn not in seen %}
+{% set _ = seen.append(cn) %}
+{% if not site.cloudflare_api_token | default(false)
+   and not site.use_selfsigned_certificate | default(false)
+   and cn not in served %}
 {% set _ = names.append(cn) %}
+{% endif %}
 {% endif %}
 {% endfor %}
 {{ names | to_json }}
