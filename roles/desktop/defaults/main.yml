@@ -7,7 +7,7 @@ desktop_eww_bar: bar
 desktop_grub_cmdline_linux_default: ""
 # False removes any existing install and holds the apt pin at -1.
 # desktop_install_firefox_apt chooses apt or flatpak, and applies only when true.
-desktop_install_firefox: false
+desktop_install_firefox: true
 desktop_install_firefox_apt: false
 desktop_install_insync: false
 # Out-of-tree DKMS Super I/O drivers exposing the pwm/fan hwmon CoolerControl manages.

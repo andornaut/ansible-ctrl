@@ -50,7 +50,7 @@ Installed to `/usr/local/bin/` on the routers.
 
 | Script                                                     | Purpose                                                                            |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`router-pingtest`](./files/router-pingtest)               | Bounces the interface when no target answers, twice, then gives up                 |
+| [`router-pingtest`](./files/router-pingtest)               | Bounces the interface on every run in which no target answers                      |
 | [`router-dns-healthcheck`](./files/router-dns-healthcheck) | Restarts the resolver when it stops answering, killing it if a restart cannot bind |
 
 ## Behaviour

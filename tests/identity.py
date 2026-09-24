@@ -153,9 +153,10 @@ def declares(node):
     """Whether this level says anything about the account, `become: false` included.
 
     An explicit false is a decision: run as the connecting account, on purpose. Only a
-    task that says nothing at all leaves the account to whoever started the run.
+    task that says nothing at all leaves the account to whoever started the run. A
+    `become_user` alone is not a declaration: ansible ignores it unless become is on.
     """
-    return "become" in node or "become_user" in node
+    return "become" in node
 
 
 def resolve_include(scan, path, target):

@@ -115,6 +115,7 @@
           'slug': games_lutris_wow_source_slug} | to_json }}
   register: games_lutris_wow_prefix_probe
   changed_when: false
+  check_mode: false
   when: games_lutris_active_dir | length > 0
 
 - name: Name Battle.net's wine prefix

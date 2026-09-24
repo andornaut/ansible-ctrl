@@ -8,7 +8,7 @@ set -euo pipefail
 
 mountpoints=(
 {% for mountpoint in rsnapshot_required_mountpoints %}
-    '{{ mountpoint }}'
+    {{ mountpoint | quote }}
 {% endfor %}
 )
 

@@ -29,6 +29,7 @@
         cmd: "{{ dev_oh_my_pi_binary_path }} --version"
       register: dev_oh_my_pi_installed
       changed_when: false
+      check_mode: false
       failed_when: false
 
     - name: Install the oh-my-pi binary

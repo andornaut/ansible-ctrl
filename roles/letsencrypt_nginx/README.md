@@ -24,6 +24,21 @@ make webservers -- --tags nginx
 
 See [defaults/main.yml](./defaults/main.yml).
 
+## Certificates
+
+Per entry in `letsencrypt_nginx_websites`:
+
+| Rule                                                                                 | Detail                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One certificate per `csr_common_name`, or per `domain` where a site names none       | Sites sharing a common name share one CSR and place one ACME order                                                                                                                                                                                                                               |
+| A certificate covers its common name plus `www.<domain>` for every site sharing it   | Each site renders a `www.` server that redirects to the bare name. A wildcard common name already covers the `www.` name one label below it, so none is added                                                                                                                                    |
+| A site with `cloudflare_api_token` is validated by DNS-01, anything else by HTTP-01  | DNS-01 writes one TXT record per name into `cloudflare_api_zone`, and a wildcard needs it. HTTP-01 writes each name's token under the site's web root, the `www.` name's included: the port-80 server answers both from `/var/www/<domain>`                                                      |
+| `use_selfsigned_certificate: true` places no order                                   | The site serves the self-signed certificate, as does any site whose certificate has not been issued yet                                                                                                                                                                                          |
+| `letsencrypt_nginx_account_email` is required                                        | Asserted as the role's first task; every order names it                                                                                                                                                                                                                                          |
+| `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory | Set the production directory in `host_vars` for a trusted certificate. An existing certificate is reissued only within `letsencrypt_nginx_remaining_days` of expiry, unless the `force: true` commented in [tasks/letsencrypt.yml](./tasks/letsencrypt.yml) is enabled for the run that switches |
+| A new or changed server block is loaded before the challenges                        | An HTTP-01 challenge is answered by the site's own server block                                                                                                                                                                                                                                  |
+| Every restart first runs `nginx -t` inside the running container                     | A configuration nginx rejects fails the run and leaves the container on the one it already loaded. `webservers.yml` sets `force_handlers`, so a later task failing does not drop a pending restart                                                                                               |
+
 ## Certificate renewal
 
 `letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root job in

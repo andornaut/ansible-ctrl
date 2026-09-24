@@ -28,6 +28,17 @@
     quiet: true
   become: false
 
+- name: Require the controller's torrent directories
+  ansible.builtin.assert:
+    that:
+      - torrent_local_incoming_directory is defined
+      - torrent_local_watch_directories is defined
+    fail_msg: >-
+      Set torrent_local_incoming_directory and torrent_local_watch_directories in the
+      controller's host_vars. Every script this play installs templates one of them.
+    quiet: true
+  become: false
+
 - name: Install templated scripts
   ansible.builtin.template:
     src: "{{ item }}"

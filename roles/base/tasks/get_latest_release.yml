@@ -18,16 +18,41 @@
 #     "https://codeberg.org/api/v1/repos"
 #   release_stable (bool): default false; true picks the newest non-draft, non-prerelease
 #     entry of /releases (its first page, newest first) rather than following /releases/latest
-- name: Get the latest release of {{ release_repo }}
-  ansible.builtin.uri:
-    url: >-
+#   github_token (str): not passed by the caller but read from the inventory, where the
+#     broker injects it; sent to api.github.com only, raising the limit from 60 requests an
+#     hour per address to 5000 per token
+- name: Resolve the release URL of {{ release_repo }}
+  ansible.builtin.set_fact:
+    base_release_url: >-
       {{ release_api_base | default('https://api.github.com/repos') }}/{{ release_repo
       }}/releases{{ '' if release_stable | default(false) | bool else '/latest' }}
+
+# Once per play from the controller rather than once per host: the fleet shares one address,
+# and with it GitHub's anonymous limit. Looped over every distinct URL the hosts running this
+# include resolved, since release_repo can template differently per host; each host then
+# reads its own result by URL. become: false overrides a caller's become, which would
+# otherwise ask for the controller's sudo.
+- name: Get the latest release of {{ release_repo }}
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    headers: >-
+      {{ {'Authorization': 'Bearer ' ~ github_token}
+         if item.startswith('https://api.github.com/') and github_token | default('') | length > 0
+         else {} }}
     return_content: true
+  loop: >-
+    {{ ansible_play_hosts | map('extract', hostvars) | selectattr('base_release_url', 'defined')
+       | map(attribute='base_release_url') | select('string') | unique | list }}
   register: base_release_response
+  run_once: true
+  delegate_to: localhost
+  become: false
+  no_log: "{{ github_token | default('') | length > 0 }}"
   # uri supports no check mode, so a --check run would skip this and leave release_fact
   # undefined for every task that templates it. The request only reads.
   check_mode: false
+  # Judged per host below, which reports a rate limit as one.
+  failed_when: false
   retries: 3
   delay: 5
   # Retry network errors and 5xx only; 4xx (rate limit, missing repo) is deterministic.
@@ -35,25 +60,66 @@
     base_release_response.status == 200 or
     (base_release_response.status >= 400 and base_release_response.status < 500)
 
-- name: Check for a stable release of {{ release_repo }}
-  ansible.builtin.assert:
-    that:
-      - >-
-        base_release_response.json
-        | selectattr('draft', 'equalto', false)
-        | selectattr('prerelease', 'equalto', false)
-        | list | length > 0
-    fail_msg: >-
-      {{ release_repo }} lists no release that is neither a draft nor a prerelease among
-      its newest {{ base_release_response.json | length }}, so there is nothing to install.
-    quiet: true
-  when: release_stable | default(false) | bool
+- name: Read the latest release of {{ release_repo }}
+  vars:
+    base_release_result: >-
+      {{ base_release_response.results | selectattr('item', 'equalto', base_release_url) | first }}
+  block:
+    # GitHub answers an exhausted primary limit with 403 and X-RateLimit-Remaining: 0, and a
+    # secondary limit with 403 or 429 and Retry-After.
+    - name: Check the GitHub API rate limit for {{ release_repo }}
+      vars:
+        base_release_reset: >-
+          {{ ('resets at ' ~ ('%Y-%m-%d %H:%M:%S UTC' | strftime(base_release_result.x_ratelimit_reset | int, utc=true)))
+          if base_release_result.x_ratelimit_reset is defined
+          else ('Retry-After: ' ~ base_release_result.retry_after | default('unset') ~ 's') }}
+        base_release_advice: >-
+          {{ 'The github_token credential is set, so that token is the one exhausted.'
+          if github_token | default('') | length > 0
+          else 'Unauthenticated requests share 60 an hour per address; add the github_token
+          credential to raise that to 5000 an hour.' }}
+      ansible.builtin.fail:
+        msg: >-
+          GitHub's API rate limit refused {{ base_release_url }} (HTTP {{ base_release_result.status }},
+          X-RateLimit-Remaining: {{ base_release_result.x_ratelimit_remaining | default('unset') }},
+          {{ base_release_reset }}). {{ base_release_advice }}
+      when:
+        - base_release_url.startswith('https://api.github.com/')
+        - >-
+          base_release_result.status == 429 or
+          (base_release_result.status == 403 and
+           (base_release_result.x_ratelimit_remaining | default('') == '0'
+            or base_release_result.retry_after is defined))
 
-- name: Set fact to the latest release for {{ release_fact }}
-  ansible.builtin.set_fact:
-    "{{ release_fact }}": >-
-      {{ base_release_response.json
-      | selectattr('draft', 'equalto', false)
-      | selectattr('prerelease', 'equalto', false)
-      | list | first
-      if release_stable | default(false) | bool else base_release_response.json }}
+    - name: Check the response for {{ release_repo }}
+      ansible.builtin.assert:
+        that: base_release_result.status == 200
+        fail_msg: >-
+          GET {{ base_release_url }} returned HTTP {{ base_release_result.status }}:
+          {{ base_release_result.msg | default('no message') }}
+        quiet: true
+
+    - name: Check for a stable release of {{ release_repo }}
+      ansible.builtin.assert:
+        that:
+          - >-
+            base_release_result.json
+            | selectattr('draft', 'equalto', false)
+            | selectattr('prerelease', 'equalto', false)
+            | list | length > 0
+        fail_msg: >-
+          {{ release_repo }} lists no release that is neither a draft nor a prerelease among
+          its newest {{ base_release_result.json | length }}, so there is nothing to install.
+        quiet: true
+      when: release_stable | default(false) | bool
+
+    # Clearing base_release_url keeps this host's URL out of the next include's loop.
+    - name: Set fact to the latest release for {{ release_fact }}
+      ansible.builtin.set_fact:
+        "{{ release_fact }}": >-
+          {{ base_release_result.json
+          | selectattr('draft', 'equalto', false)
+          | selectattr('prerelease', 'equalto', false)
+          | list | first
+          if release_stable | default(false) | bool else base_release_result.json }}
+        base_release_url: null

@@ -8,8 +8,7 @@
     fail_msg: >-
       desktop_user resolved to "root", which would write user-scoped state to /root.
       Set primary_user in the inventory (or desktop_user in host_vars) to the target
-      account. If ansible was run as root and a stale fact cache is to blame, clear
-      .ansible/fact_cache/.
+      account.
     success_msg: 'desktop_user "{{ desktop_user }}" is valid'
   tags: always
 

@@ -80,17 +80,19 @@ trap 'rm -f "${remote_entries}" "${eligible}"' EXIT INT TERM
 list_remote_entries() {
     local src_host="${1}"
     local src_dir="${2}"
+    local remote="${3}"
+    local port="${4}"
     info "Listing ${src_host}:${src_dir}"
     # src_dir is a rendered path, so expanding it client-side is intended.
     # shellcheck disable=SC2029
-    ssh "${src_host}" "ls -1 -- '${src_dir}'" >>"${remote_entries}" \
+    ssh -p "${port}" -o ConnectTimeout=10 "${remote}" "ls -1 -- '${src_dir}'" >>"${remote_entries}" \
         || error "Could not list ${src_host}:${src_dir}; refusing to organize"
 }
 
 header "Comparing ${incoming_dir} against remote completed directories"
 
 {% for host in groups['torrent'] | default([]) -%}
-list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/"
+list_remote_entries "{{ host }}" "{{ hostvars[host].torrent_root_directory }}/completed/" "{{ hostvars[host].ansible_user }}@{{ hostvars[host].ansible_host | default(host) }}" "{{ hostvars[host].ansible_port | default(22) }}"
 {% endfor -%}
 
 # Eligible: incoming entries on no remote and not a guide file. NUL-separated bare names,

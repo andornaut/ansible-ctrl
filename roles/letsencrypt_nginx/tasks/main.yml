@@ -1,4 +1,14 @@
 ---
+- name: Require an ACME account email
+  ansible.builtin.assert:
+    that: letsencrypt_nginx_account_email | default('') | length > 0
+    fail_msg: Set letsencrypt_nginx_account_email in host_vars. Every certificate order names it.
+    quiet: true
+  become: false
+  tags:
+    - letsencrypt
+    - nginx
+
 - name: Set up packages, web roots, and basic authentication
   tags:
     - letsencrypt
@@ -26,6 +36,11 @@
     - name: Start Nginx for Let's Encrypt validation
       ansible.builtin.import_tasks: docker.yml
       tags: docker
+
+    # An http-01 challenge is answered by the site's own server block, so a vhost written
+    # above has to be loaded before the challenge runs, not at the end of the play.
+    - name: Load the new Nginx configuration before the challenges
+      ansible.builtin.meta: flush_handlers
 
     - name: Obtain Let's Encrypt certificates
       ansible.builtin.import_tasks: letsencrypt.yml

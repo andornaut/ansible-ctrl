@@ -152,7 +152,7 @@
           cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
           logging: "{{ homeautomation_default_logging }}"
           ports:
-            - "3000:8080"
+            - "{{ homeautomation_openwebui_bind }}:3000:8080"
           restart: unless-stopped
           security_opt: "{{ homeautomation_no_new_privileges }}"
           user: "{{ homeautomation_openwebui_uid }}:{{ homeautomation_openwebui_gid }}"

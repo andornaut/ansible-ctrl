@@ -59,6 +59,9 @@
         dest: "{{ desktop_source_code_pro_tmp.path }}/"
         remote_src: true
       register: desktop_source_code_pro_download
+      # Into the temporary directory only, so --check extracts too and the find below has
+      # something to count.
+      check_mode: false
       retries: 3
       delay: 5
       until: desktop_source_code_pro_download is succeeded
@@ -70,6 +73,7 @@
         mode: "0755"
         owner: root
         group: root
+      register: desktop_source_code_pro_dir
 
     # find returns an empty list for a missing path, so a release that moves the
     # fonts out of TTF/ would install nothing and still report success.
@@ -93,6 +97,8 @@
       loop: "{{ desktop_source_code_pro_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+      # Under --check on a host without the directory above, it was only reported.
+      when: not (ansible_check_mode and desktop_source_code_pro_dir is changed)
       notify: Update font cache
   always:
     - name: Remove the temporary directory

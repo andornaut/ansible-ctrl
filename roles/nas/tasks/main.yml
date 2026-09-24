@@ -8,8 +8,7 @@
     fail_msg: >-
       nas_user resolved to "root", which would write user-scoped state to /root.
       Set primary_user in the inventory (or nas_user in host_vars) to the target
-      account. If ansible was run as root and a stale fact cache is to blame, clear
-      .ansible/fact_cache/.
+      account.
     success_msg: 'nas_user "{{ nas_user }}" is valid'
   tags: always
 

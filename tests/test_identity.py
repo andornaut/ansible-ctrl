@@ -31,7 +31,7 @@ COPY = """\
 DECLARATION_CASES = (
     ("nothing at all", f"- name: Subject\n{COPY}", True),
     ("become false", f"- name: Subject\n{COPY}  become: false\n", False),
-    ("become_user with no become", f"- name: Subject\n{COPY}  become_user: someone\n", False),
+    ("become_user with no become", f"- name: Subject\n{COPY}  become_user: someone\n", True),
     ("a module that only reads", "- name: Subject\n  ansible.builtin.debug:\n    msg: hi\n", False),
     (
         "uri naming dest among the module arguments",

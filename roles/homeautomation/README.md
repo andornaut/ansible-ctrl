@@ -31,7 +31,7 @@ A tag whose flag is off may still remove what an earlier run installed.
 | llm                                                               | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui)                                                                            |
 | matter                                                            | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://memryx.com/)                                     | MemryX MX3 AI accelerator drivers                                                                                                                                                        |
-| [mosquitto](https://mosquitto.org/)                               | The MQTT broker on its own. No flag; also applied by `homeassistant`                                                                                                                     |
+| [mosquitto](https://mosquitto.org/)                               | The MQTT broker's config and its restart. No flag; also applied by `homeassistant`, which defines the container                                                                          |
 | otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter`                         |
 | router-kva-sample                                                 | The site router's kernel address space sampler and its hourly cron entry on this host, gated on `homeautomation_install_router_kva_sample`                                               |
 | teardown                                                          | Remove the containers and host files of components this host does not install                                                                                                            |
@@ -95,37 +95,37 @@ Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) inst
 Internal ports. The `homeautomation_*_port` variables in [defaults/main.yml](./defaults/main.yml) set the
 published host side of a bridge container's mapping, not the internal port listed here.
 
-| Container          | Network | Port  | Protocol | Description                                |
-| ------------------ | ------- | ----- | -------- | ------------------------------------------ |
-| homeassistant      | host    | 8123  | HTTP     | Web UI and API                             |
-| esphome            | host    | 6052  | HTTP     | Dashboard                                  |
-| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery          |
-| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only |
-| otbr               | host    | 8081  | REST     | Thread Border Router REST API              |
-| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only    |
-| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                       |
-| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                |
-| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated)                   |
-| frigate            | bridge  | 8971  | HTTP     | Web UI (authenticated)                     |
-| frigate            | bridge  | 8554  | RTSP     | RTSP streams                               |
-| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                             |
-| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API           |
-| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host port 3000        |
-| hamcp              | bridge  | 8086  | HTTP     | MCP server                                 |
-| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback      |
-| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback      |
+| Container          | Network | Port  | Protocol | Description                                  |
+| ------------------ | ------- | ----- | -------- | -------------------------------------------- |
+| homeassistant      | host    | 8123  | HTTP     | Web UI and API                               |
+| esphome            | host    | 6052  | HTTP     | Dashboard                                    |
+| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery            |
+| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only   |
+| otbr               | host    | 8081  | REST     | Thread Border Router REST API                |
+| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only      |
+| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                         |
+| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                  |
+| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated), loopback only      |
+| frigate            | bridge  | 8971  | HTTP     | Web UI (authenticated), loopback only        |
+| frigate            | bridge  | 8554  | RTSP     | RTSP restream, loopback only                 |
+| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                               |
+| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API             |
+| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000 |
+| hamcp              | bridge  | 8086  | HTTP     | MCP server                                   |
+| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback        |
+| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback        |
 
 ### Container hardening
 
 Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern is:
 
-| Measure                                                                                                                      | Constraint                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), each with a fixed uid | A file on a bind mount then names the service that wrote it. The uids are in [defaults/main.yml](./defaults/main.yml) and `host_vars`, collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto follows the uid baked into its image instead |
-| `cap_drop: ALL` for every container running as a non-root uid                                                                | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                            |
-| `no-new-privileges` everywhere, root included                                                                                | It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                 |
-| Directories closed rather than files, wherever a service rewrites its own state with its own umask                           | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                                            |
-| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker, Wyoming, the Matter WebSocket API and the OTBR web UI authenticate nobody, and Frigate serves a second copy of its UI with no login. OTBR's REST API and govee2mqtt's HTTP API stay on every interface, both images hard-coding the listen address                              |
+| Measure                                                                                                                      | Constraint                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), each with a fixed uid | A file on a bind mount then names the service that wrote it. The uids are in [defaults/main.yml](./defaults/main.yml) and `host_vars`, collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto follows the uid baked into its image instead                                                                                                                                                                                                                                                                                                                                       |
+| `cap_drop: ALL` for every container running as a non-root uid                                                                | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `no-new-privileges` everywhere, root included                                                                                | It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Directories closed rather than files, wherever a service rewrites its own state with its own umask                           | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate serves a second copy of its UI with no login. Frigate's authenticated UI and OpenWebUI are reached through the proxy. OTBR's REST API and govee2mqtt's HTTP API stay on every interface, both images hard-coding the listen address. Frigate's and OpenWebUI's bind addresses are the `homeautomation_frigate_bind_*` and `homeautomation_openwebui_bind` variables: a Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"` |
 
 ### llama.cpp models and context
 

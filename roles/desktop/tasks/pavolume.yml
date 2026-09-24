@@ -37,6 +37,8 @@
     # which the running process does not block, and names the mode rather than carrying
     # the build umask across.
     - name: Install pavolume
+      # --check skips the build, so there is no output to install from.
+      when: not ansible_check_mode
       ansible.builtin.copy:
         src: "{{ desktop_pavolume_tmp.path }}/pavolume"
         dest: /usr/local/bin/pavolume

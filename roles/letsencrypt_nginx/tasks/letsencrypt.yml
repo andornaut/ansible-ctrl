@@ -36,27 +36,20 @@
   # Loop items hold Cloudflare API tokens; the challenge data holds the ACME account key.
   no_log: true
 
-- name: Create DNS challenge TXT record
+# One record per name the order covers, the www name included. solo: each name has a record
+# of its own, so replacing that record's earlier value touches no other name's. See
+# templates/dns_challenge_records.j2.
+- name: Create DNS challenge TXT records
   community.general.cloudflare_dns:
-    api_token: "{{ item.item.cloudflare_api_token }}"
-    record: >-
-      {{ item.challenge_data[item.item.csr_common_name
-      | default(item.item.domain)]['dns-01'].record }}
+    api_token: "{{ item.site.cloudflare_api_token }}"
+    record: "{{ item.record }}"
     solo: true
     ttl: 60
     type: TXT
-    value: >-
-      {{ item.challenge_data[item.item.csr_common_name
-      | default(item.item.domain)]['dns-01'].resource_value }}
-    zone: "{{ item.item.cloudflare_api_zone }}"
-  loop: "{{ letsencrypt_nginx_challenge.results }}"
+    value: "{{ item.value }}"
+    zone: "{{ item.site.cloudflare_api_zone }}"
+  loop: "{{ lookup('ansible.builtin.template', 'dns_challenge_records.j2') | from_json }}"
   register: letsencrypt_nginx_dns_record
-  when:
-    - item is not skipped
-    - item.changed
-    - item.challenge_data is truthy
-    - item.item.cloudflare_api_token is defined
-    - not item.item.use_selfsigned_certificate | default(false)
   become: true
   # api_token is the Cloudflare API token.
   no_log: true
@@ -69,47 +62,32 @@
     letsencrypt_nginx_dns_record.results | default([])
     | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
 
+# The resources carry the token and nothing of the site, whose Cloudflare API token a loop item
+# would print. See templates/http_challenge_resources.j2.
+- name: List the HTTP challenge resources
+  ansible.builtin.set_fact:
+    letsencrypt_nginx_http_resources: >-
+      {{ lookup('ansible.builtin.template', 'http_challenge_resources.j2') | from_json }}
+
 - name: Create HTTP challenge resource directories
   ansible.builtin.file:
-    path: >-
-      {{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
-      item.challenge_data[item.item.csr_common_name
-      | default(item.item.domain)]['http-01']['resource'] | dirname }}
+    path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource | dirname }}"
     state: directory
     mode: "0755"
-  loop: "{{ letsencrypt_nginx_challenge.results }}"
-  # A skipped item is printed whole unless labelled, and it holds the Cloudflare API token.
+  loop: "{{ letsencrypt_nginx_http_resources }}"
   loop_control:
-    label: "{{ item.item.domain }}"
-  when:
-    - item is not skipped
-    - item.changed
-    - item.challenge_data is truthy
-    - item.item.cloudflare_api_token is not defined
-    - not item.item.use_selfsigned_certificate | default(false)
+    label: "{{ item.name }}"
   become: true
 
 - name: Copy HTTP challenge resources
   ansible.builtin.copy:
-    dest: >-
-      {{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.item.domain }}/{{
-      item.challenge_data[item.item.csr_common_name
-      | default(item.item.domain)]['http-01']['resource'] }}
-    content: >-
-      {{ item.challenge_data[item.item.csr_common_name
-      | default(item.item.domain)]['http-01']['resource_value'] }}
+    dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
+    content: "{{ item.value }}"
     mode: "0644"
-  loop: "{{ letsencrypt_nginx_challenge.results }}"
-  # A skipped item is printed whole unless labelled, and it holds the Cloudflare API token.
+  loop: "{{ letsencrypt_nginx_http_resources }}"
   loop_control:
-    label: "{{ item.item.domain }}"
+    label: "{{ item.name }}"
   register: letsencrypt_nginx_challenge_http_resources
-  when:
-    - item is not skipped
-    - item.changed
-    - item.challenge_data is truthy
-    - item.item.cloudflare_api_token is not defined
-    - not item.item.use_selfsigned_certificate | default(false)
   become: true
 
 - name: Complete Let's Encrypt challenge

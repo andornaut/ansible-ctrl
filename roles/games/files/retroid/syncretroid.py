@@ -187,6 +187,11 @@ class Device:
         result = self._run(["shell", command], check=False)
         return result.stdout if result.returncode == 0 else ""
 
+    def read(self, command):
+        """Run a shell command on the device and return stdout, retrying a failed adb exit and
+        exiting once the attempts are spent. See _read."""
+        return self._read(command)
+
     def _read(self, command, attempts=3):
         """Run a shell command on the device and return stdout, exiting once the attempts are spent.
 
@@ -712,7 +717,9 @@ def device_file_sizes(device, root):
     which contain spaces, parseable.
     """
     prefix = root.rstrip("/") + "/"
-    out = device.read_shell(f"find {shq(root)} -type f -exec stat -c '%s\t%n' {{}} + 2>/dev/null")
+    # Through read, `|| true` making find's own non-zero exit (an absent root) a success: only adb
+    # failing is left to fail, and it retries rather than reading as an empty directory.
+    out = device.read(f"find {shq(root)} -type f -exec stat -c '%s\t%n' {{}} + 2>/dev/null || true")
     sizes = {}
     for line in out.splitlines():
         size, tab, path = line.partition("\t")
@@ -722,7 +729,7 @@ def device_file_sizes(device, root):
     # an empty directory rather than a stat that failed to stderr: the caller would keep stale
     # files, re-push everything and report success. Confirm emptiness with a plain find before
     # trusting an empty map, and fail loudly if not.
-    if not sizes and device.read_shell(f"find {shq(root)} -type f 2>/dev/null").strip():
+    if not sizes and device.read(f"find {shq(root)} -type f 2>/dev/null || true").strip():
         sys.exit(
             f"Could not read file sizes under {root}: `find -exec stat -c` returned nothing for a "
             "non-empty directory. The device's toybox `stat` likely lacks `-c`, which the "
@@ -1010,6 +1017,8 @@ def main():
     print(f"overrides:     {config_dir}")
 
     staging = tempfile.mkdtemp(prefix="retroid-sync-")
+    # Kept when the config push is refused, the warning naming it as what to copy in by hand.
+    keep_staging = False
     try:
         info_dir = Path(staging) / "info"
         playlist_dir = Path(staging) / "playlists"
@@ -1065,10 +1074,13 @@ def main():
                 # a Path does not concatenate with a string.
                 device.push(f"{config_stage}/.", config_dir)
         except subprocess.CalledProcessError:
+            keep_staging = True
+            (Path(staging) / "retroarch.cfg").write_text(merged, encoding="utf-8")
             print(
                 f"WARNING: could not write {cfg_path} (adb is denied the app files dir). Grant RetroArch "
                 "all-files access so its config moves to /storage/emulated/0/RetroArch/, or copy the "
-                "staged retroarch.cfg and config/ in with an on-device file manager. See README.md.",
+                f"staged retroarch.cfg and config/ from {staging} in with an on-device file manager. "
+                "See README.md.",
                 file=sys.stderr,
             )
 
@@ -1095,7 +1107,8 @@ def main():
             section("thumbnails", "merge with prune")
             sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        if not keep_staging:
+            shutil.rmtree(staging, ignore_errors=True)
 
     # ES-DE emulator choices and optionally the ROM library. No staging needed, so they run
     # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned

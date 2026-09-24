@@ -1,6 +1,9 @@
 ---
 - name: Configure torrent host
   hosts: torrent
+  # A failure after .rtorrent.rc changed would drop the rtorrent restart, and the next run,
+  # finding the file unchanged, would notify nothing.
+  force_handlers: true
   roles:
     - torrent
 

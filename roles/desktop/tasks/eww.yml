@@ -63,6 +63,8 @@
       changed_when: true
 
     - name: Install eww binary
+      # --check skips the build, so there is no output to install from.
+      when: not ansible_check_mode
       ansible.builtin.copy:
         src: "{{ desktop_eww_tmp.path }}/target/release/eww"
         dest: /usr/local/bin/
@@ -147,38 +149,8 @@
       notify: Restart eww
       become: true
 
-    # Symlinking works with the user manager down, so the unit activates at next login
-    # either way; the task below starts it now when a session is present.
-    - name: Create the wants directory for eww.service
-      ansible.builtin.file:
-        path: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants"
-        state: directory
-        mode: "0755"
-      when: desktop_user_home_mounted | bool
-      become: true
-      become_user: "{{ desktop_user }}"
-
-    - name: Enable eww service
-      ansible.builtin.file:
-        src: /usr/local/lib/systemd/user/eww.service
-        dest: "{{ desktop_user_home }}/.config/systemd/user/graphical-session.target.wants/eww.service"
-        state: link
-        # state=link rejects an absent src before check mode is considered, and the unit file
-        # above is a no-op under --check. force skips that test, so a dry run reports the missing
-        # symlink instead of failing; a real run always has the unit, written immediately above.
-        force: true
-      when: desktop_user_home_mounted | bool
-      become: true
-      become_user: "{{ desktop_user }}"
-
-    - name: Start eww service in the active session
-      ansible.builtin.systemd_service:
-        name: eww.service
-        daemon_reload: true
-        scope: user
-        state: started
-      become: true
-      become_user: "{{ desktop_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
-      when: desktop_user_systemd.stat.exists
+    - name: Enable and start eww.service
+      ansible.builtin.include_tasks: enable_user_unit.yml
+      vars:
+        desktop_enable_unit: eww.service
+        desktop_enable_unit_wanted_by: graphical-session.target

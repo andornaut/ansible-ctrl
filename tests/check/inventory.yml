@@ -1,0 +1,45 @@
+---
+# One host standing in for every Ubuntu group, reached over the local connection. See
+# tests/check.sh.
+all:
+  hosts:
+    check:
+      ansible_connection: local
+      # The system interpreter, which has the apt bindings. The one ansible-playbook runs
+      # under in CI is setup-python's, which has none.
+      ansible_python_interpreter: /usr/bin/python3
+      # The rest is only what a role has no default for. Anything more would hide the pairing
+      # failures this run exists to catch: a default that trips its own role's assert.
+      primary_user: runner
+      # gnome, the desktop role's own path. CI runs the other two with --extra-vars.
+      desktop_environment: gnome
+      # games: site data with no default. The workflow creates the library's two directories
+      # the role asserts, since it never creates them itself.
+      games_retroarch_library_dir: /tmp/ansible-check/library
+      games_retroarch_controller: xbox-series-x
+      games_retroarch_video_refresh_rate: 60.0
+      # letsencrypt_nginx and msmtp, under the reserved example.com domain.
+      letsencrypt_nginx_account_email: check@example.com
+      msmtp_domain: example.com
+      msmtp_user: check@example.com
+      # A credential, which a real run is injected. A placeholder: --diff prints it.
+      msmtp_password: placeholder
+  children:
+    desktop:
+      hosts:
+        check:
+    dev:
+      hosts:
+        check:
+    games:
+      hosts:
+        check:
+    hobbies:
+      hosts:
+        check:
+    homeautomation:
+      hosts:
+        check:
+    webservers:
+      hosts:
+        check:

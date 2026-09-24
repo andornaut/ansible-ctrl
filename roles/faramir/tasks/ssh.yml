@@ -78,9 +78,12 @@
         comment: "faramir broker on {{ faramir_controller_host }}"
         # Default everywhere but the routers, which name authorized_keys2: pfSense rewrites
         # authorized_keys from config.xml on boot and on every user save. sshd reads both.
-        path: "{{ faramir_fleet_authorized_keys_path | default(omit) }}"
+        path: >-
+          {{ faramir_fleet_authorized_keys_path
+             | default('/root/.ssh/authorized_keys2' if 'routers' in group_names else omit) }}
         # The module creates ~/.ssh when it owns the path; a named path is the host's own.
-        manage_dir: "{{ faramir_fleet_authorized_keys_path is not defined }}"
+        manage_dir: >-
+          {{ faramir_fleet_authorized_keys_path is not defined and 'routers' not in group_names }}
 
     # The broker's key plus this entry makes the agent root here; leave a host out of the
     # play to keep it agent-free. Passwordless because the store cannot hold a become
@@ -262,7 +265,7 @@
         # column 0 and names no host is a warning addressed to nobody.
         #
         # No -o: it selects the oneline callback, and flag and callback alike are removed in
-        # ansible-core 2.23. The same fold is pick_unreachable in the Makefile.
+        # ansible-core 2.23. pick_unreachable in bin/playbook.py matches the same `<host> |` line.
         faramir_fleet_ping_lines: >-
           {{ faramir_fleet_ping.stdout | default('') | regex_replace('\n[ \t]+', ' ')
              | regex_findall('^\S+\s*\|.*$', multiline=True) }}

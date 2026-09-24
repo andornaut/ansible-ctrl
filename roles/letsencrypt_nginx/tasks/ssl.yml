@@ -23,6 +23,7 @@
       loop:
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/private.pem"
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem"
+      register: letsencrypt_nginx_keys
 
 - name: Create CSRs
   community.crypto.openssl_csr:
@@ -36,8 +37,13 @@
     group: root
     country_name: "{{ letsencrypt_nginx_csr_country }}"
     common_name: "{{ item.csr_common_name | default(item.domain) }}"
+    subject_alt_name: >-
+      {{ lookup('ansible.builtin.template', 'certificate_names.j2') | from_json
+         | map('regex_replace', '^', 'DNS:') | list }}
   loop: "{{ letsencrypt_nginx_websites }}"
-  when: not item.use_selfsigned_certificate | default(false)
+  when:
+    - not item.use_selfsigned_certificate | default(false)
+    - not (ansible_check_mode and letsencrypt_nginx_keys is changed)
   become: true
   # Loop items hold a Cloudflare API token and basicauth credentials.
   no_log: true
@@ -53,3 +59,5 @@
     owner: root
     group: root
   become: true
+  # Under --check a key not yet on disk was only reported, so there is none to sign with.
+  when: not (ansible_check_mode and letsencrypt_nginx_keys is changed)

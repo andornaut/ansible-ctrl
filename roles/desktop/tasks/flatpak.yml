@@ -83,14 +83,6 @@
             state: absent
           loop: "{{ desktop_flatpak_removed_apps }}"
 
-        # A flag turned off leaves nothing behind, the application's own settings and state
-        # included. Nothing else writes here, flatpak giving each application its own tree.
-        - name: Remove the data directories of the uninstalled applications
-          ansible.builtin.file:
-            path: "{{ desktop_user_home }}/.var/app/{{ item }}"
-            state: absent
-          loop: "{{ desktop_flatpak_removed_apps }}"
-
         # Most of what an uninstalled application cost on disk is its runtime. --unused takes
         # only what nothing installed still needs. LC_ALL pins the locale, the report
         # below being matched as text.

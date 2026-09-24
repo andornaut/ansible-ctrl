@@ -16,27 +16,61 @@
     # The .deb suffix excludes the bare binaries and SBOMs published alongside.
     - name: Select the sops package for this architecture
       ansible.builtin.set_fact:
-        faramir_sops_deb_urls: >-
+        faramir_sops_debs: >-
           {{ faramir_sops_release.assets
-             | selectattr('name', 'match', 'sops_.*_' ~ faramir_deb_arch ~ '\.deb$')
-             | map(attribute='browser_download_url') | list }}
+             | selectattr('name', 'match', 'sops_.*_' ~ faramir_deb_arch ~ '\.deb$') | list }}
 
     # `first` on an empty match raises "No first item, sequence was empty", which names
-    # neither sops nor the architecture nor the pattern that missed.
-    - name: Require a sops package for this architecture
+    # neither sops nor the architecture nor the pattern that missed. The digest is GitHub's
+    # SHA-256 of the uploaded asset: sops' checksums file lists its binaries but not its .debs.
+    - name: Require a verifiable sops package for this architecture
       ansible.builtin.assert:
-        that: faramir_sops_deb_urls | length > 0
+        that:
+          - faramir_sops_debs | length > 0
+          - (faramir_sops_debs[0].digest | default('') or '') is match('sha256:')
         fail_msg: >-
-          {{ faramir_sops_release.tag_name | default('The latest sops release') }} publishes
-          no asset matching sops_*_{{ faramir_deb_arch }}.deb, so either sops renamed its
-          assets or it no longer builds for this architecture. The .debs it does publish:
-          {{ faramir_sops_release.assets | map(attribute='name')
-             | select('match', '.*\.deb$') | join(', ') or 'none' }}.
+          {{ faramir_sops_release.tag_name | default('The latest sops release') }}
+          {{ ('carries no SHA-256 digest for ' ~ faramir_sops_debs[0].name)
+          if faramir_sops_debs | length > 0
+          else ('publishes no asset matching sops_*_' ~ faramir_deb_arch ~ '.deb, so either sops
+          renamed its assets or it no longer builds for this architecture. The .debs it does
+          publish: ' ~ (faramir_sops_release.assets | map(attribute='name')
+          | select('match', '.*\.deb$') | join(', ') or 'none')) }}.
         quiet: true
 
     - name: Install the sops package
-      ansible.builtin.apt:
-        deb: "{{ faramir_sops_deb_urls | first }}"
-        install_recommends: false
-        update_cache: true
       become: true
+      block:
+        - name: Create a temporary directory for the sops package
+          ansible.builtin.tempfile:
+            state: directory
+          register: faramir_sops_tmp
+          check_mode: false
+
+        # Downloaded under --check too, into the temporary directory only, so apt has a
+        # package to compare against the installed one.
+        - name: Download the sops package
+          ansible.builtin.get_url:
+            url: "{{ faramir_sops_debs[0].browser_download_url }}"
+            dest: "{{ faramir_sops_tmp.path }}/{{ faramir_sops_debs[0].name }}"
+            checksum: "{{ faramir_sops_debs[0].digest }}"
+            mode: "0644"
+          register: faramir_sops_download
+          retries: 3
+          delay: 5
+          until: faramir_sops_download is succeeded
+          check_mode: false
+
+        - name: Install the sops package
+          ansible.builtin.apt:
+            deb: "{{ faramir_sops_tmp.path }}/{{ faramir_sops_debs[0].name }}"
+            install_recommends: false
+            update_cache: true
+      always:
+        - name: Remove the temporary directory for the sops package
+          ansible.builtin.file:
+            path: "{{ faramir_sops_tmp.path }}"
+            state: absent
+          when: faramir_sops_tmp.path is defined
+          become: true
+          check_mode: false

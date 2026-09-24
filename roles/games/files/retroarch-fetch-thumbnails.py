@@ -286,6 +286,17 @@ def missing_slots(playlist_dir, thumbnails_dir):
     return slots, overridden
 
 
+def report_unreachable():
+    """Name the requests that went unanswered, and fail."""
+    print(
+        f"{len(UNREACHABLE)} request(s) to {HOST} went unanswered, so nothing can be said about what is missing:",
+        file=sys.stderr,
+    )
+    for failure in UNREACHABLE[:5]:
+        print(f"  {failure}", file=sys.stderr)
+    return 1
+
+
 def main():
     config = json.loads(os.environ["RETROARCH_THUMBNAILS_CONFIG"])
 
@@ -324,6 +335,9 @@ def main():
         if any(pair[0] == system for pair in wanted)
         and not any(names_by for (s, _), (names_by, _) in indexes.items() if s == system)
     )
+    # An unanswered listing publishes nothing too, which is not a wrong thumbnail_db.
+    if UNREACHABLE:
+        return report_unreachable()
     if misnamed:
         print(
             f"{len(misnamed)} system(s) name a thumbnail_db the repository does not publish, "
@@ -361,13 +375,7 @@ def main():
     # An unreachable repository resolves every game to "no art published", which from here looks
     # exactly like a complete cache. Fail rather than report convergence.
     if UNREACHABLE:
-        print(
-            f"{len(UNREACHABLE)} request(s) to {HOST} went unanswered, so nothing can be said about what is missing:",
-            file=sys.stderr,
-        )
-        for failure in UNREACHABLE[:5]:
-            print(f"  {failure}", file=sys.stderr)
-        return 1
+        return report_unreachable()
 
     if unresolved:
         print(

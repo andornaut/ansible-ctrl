@@ -1,5 +1,6 @@
 ---
 - name: Create themes/ directory
+  register: homeautomation_themes_dir
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/themes/"
     state: directory
@@ -11,6 +12,8 @@
 # GitHub closes some connections without a response. See
 # tasks/install_github_release_component.yml, which retries the same way.
 - name: Install IBM1970 theme
+  # Under --check on a host without themes/, the directory above was only reported.
+  when: not (ansible_check_mode and homeautomation_themes_dir is changed)
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/andornaut/homeassistant-ibm1970-theme/main/themes/ibm1970.yaml
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/themes/"

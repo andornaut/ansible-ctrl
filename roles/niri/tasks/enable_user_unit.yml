@@ -6,62 +6,72 @@
 #
 # The wants target is read from the unit rather than assumed: these units come from upstream
 # tarballs and their [Install] section is upstream's to change.
-- name: Read the install target for {{ niri_enable_unit }}
-  ansible.builtin.slurp:
-    src: "/usr/local/lib/systemd/user/{{ niri_enable_unit }}"
-  register: niri_enable_unit_contents
-  become: true
+- name: Check for the unit file of {{ niri_enable_unit }}
+  ansible.builtin.stat:
+    path: "/usr/local/lib/systemd/user/{{ niri_enable_unit }}"
+  register: niri_enable_unit_file
+  become: false
 
-- name: Record the install target for {{ niri_enable_unit }}
-  ansible.builtin.set_fact:
-    niri_enable_unit_wanted_by: >-
-      {{ ((niri_enable_unit_contents.content | b64decode).splitlines()
-          | map('trim')
-          | select('match', '^WantedBy=')
-          | map('regex_replace', '^WantedBy=', '')
-          | join(' ')).split() | unique | list }}
+# Under --check the install that writes the unit was only reported, so there is nothing to read.
+- name: Enable from its install target {{ niri_enable_unit }}
+  when: niri_enable_unit_file.stat.exists or not ansible_check_mode
+  block:
+    - name: Read the install target for {{ niri_enable_unit }}
+      ansible.builtin.slurp:
+        src: "/usr/local/lib/systemd/user/{{ niri_enable_unit }}"
+      register: niri_enable_unit_contents
+      become: true
 
-- name: Require an install target for {{ niri_enable_unit }}
-  ansible.builtin.assert:
-    that: niri_enable_unit_wanted_by | length > 0
-    fail_msg: >-
-      {{ niri_enable_unit }} names no WantedBy in its [Install] section, so there is no wants
-      directory to enable it in. Upstream changed the unit: enable it by whatever its [Install]
-      section now names.
-    quiet: true
+    - name: Record the install target for {{ niri_enable_unit }}
+      ansible.builtin.set_fact:
+        niri_enable_unit_wanted_by: >-
+          {{ ((niri_enable_unit_contents.content | b64decode).splitlines()
+              | map('trim')
+              | select('match', '^WantedBy=')
+              | map('regex_replace', '^WantedBy=', '')
+              | join(' ')).split() | unique | list }}
 
-- name: Create the wants directories for {{ niri_enable_unit }}
-  ansible.builtin.file:
-    path: "{{ niri_user_home }}/.config/systemd/user/{{ item }}.wants"
-    state: directory
-    mode: "0755"
-  loop: "{{ niri_enable_unit_wanted_by }}"
-  when: niri_user_home_mounted | bool
-  become: true
-  become_user: "{{ niri_user }}"
+    - name: Require an install target for {{ niri_enable_unit }}
+      ansible.builtin.assert:
+        that: niri_enable_unit_wanted_by | length > 0
+        fail_msg: >-
+          {{ niri_enable_unit }} names no WantedBy in its [Install] section, so there is no wants
+          directory to enable it in. Upstream changed the unit: enable it by whatever its [Install]
+          section now names.
+        quiet: true
 
-- name: Enable {{ niri_enable_unit }}
-  ansible.builtin.file:
-    src: "/usr/local/lib/systemd/user/{{ niri_enable_unit }}"
-    dest: "{{ niri_user_home }}/.config/systemd/user/{{ item }}.wants/{{ niri_enable_unit }}"
-    state: link
-    # state=link rejects an absent src before check mode is considered, and the unit file is a
-    # no-op under --check. force skips that test, so a dry run reports the missing symlink
-    # instead of failing; a real run always has the unit, installed before this is called.
-    force: true
-  loop: "{{ niri_enable_unit_wanted_by }}"
-  when: niri_user_home_mounted | bool
-  become: true
-  become_user: "{{ niri_user }}"
+    - name: Create the wants directories for {{ niri_enable_unit }}
+      ansible.builtin.file:
+        path: "{{ niri_user_home }}/.config/systemd/user/{{ item }}.wants"
+        state: directory
+        mode: "0755"
+      loop: "{{ niri_enable_unit_wanted_by }}"
+      when: niri_user_home_mounted | bool
+      become: true
+      become_user: "{{ niri_user }}"
 
-- name: Start the unit under a live session for {{ niri_enable_unit }}
-  ansible.builtin.systemd_service:
-    name: "{{ niri_enable_unit }}"
-    daemon_reload: true
-    scope: user
-    state: started
-  when: niri_user_systemd.stat.exists
-  become: true
-  become_user: "{{ niri_user }}"
-  environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+    - name: Enable {{ niri_enable_unit }}
+      ansible.builtin.file:
+        src: "/usr/local/lib/systemd/user/{{ niri_enable_unit }}"
+        dest: "{{ niri_user_home }}/.config/systemd/user/{{ item }}.wants/{{ niri_enable_unit }}"
+        state: link
+        # state=link rejects an absent src before check mode is considered, and the unit file is a
+        # no-op under --check. force skips that test, so a dry run reports the missing symlink
+        # instead of failing; a real run always has the unit, installed before this is called.
+        force: true
+      loop: "{{ niri_enable_unit_wanted_by }}"
+      when: niri_user_home_mounted | bool
+      become: true
+      become_user: "{{ niri_user }}"
+
+    - name: Start the unit under a live session for {{ niri_enable_unit }}
+      ansible.builtin.systemd_service:
+        name: "{{ niri_enable_unit }}"
+        daemon_reload: true
+        scope: user
+        state: started
+      when: niri_user_systemd.stat.exists
+      become: true
+      become_user: "{{ niri_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"

@@ -23,6 +23,7 @@
             hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
 
 - name: Install {{ dev_npm_package }}
+  register: dev_npm_install
   community.general.npm:
     name: "{{ dev_npm_package }}"
     global: true
@@ -56,6 +57,8 @@
 # Additive, so nothing npm chose is taken away: the tree is root's, and what this adds
 # is the read and traverse every other account needs to execute it.
 - name: Open the directories above {{ dev_npm_package }}
+  # Under --check a package not yet installed has no tree to open.
+  when: not (ansible_check_mode and dev_npm_install is changed)
   ansible.builtin.file:
     path: "{{ item }}"
     mode: a+rX
@@ -67,6 +70,8 @@
   become: true
 
 - name: Let every account read and execute {{ dev_npm_package }}
+  # Under --check a package not yet installed has no tree to open.
+  when: not (ansible_check_mode and dev_npm_install is changed)
   ansible.builtin.file:
     path: "{{ dev_npm_prefix }}/lib/node_modules/{{ dev_npm_package }}"
     mode: a+rX

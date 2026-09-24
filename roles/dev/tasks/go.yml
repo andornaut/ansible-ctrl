@@ -58,6 +58,10 @@
         url: "https://go.dev/dl/{{ dev_go_version }}.linux-{{ dev_arch }}.tar.gz"
         dest: "{{ dev_go_tmp.path }}/go.tar.gz"
         mode: "0644"
+        checksum: >-
+          sha256:{{ (dev_go_releases.json[0].files
+            | selectattr('filename', 'equalto', dev_go_version ~ '.linux-' ~ dev_arch ~ '.tar.gz')
+            | first).sha256 }}
       register: dev_go_download
       retries: 3
       delay: 5

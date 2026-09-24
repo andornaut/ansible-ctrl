@@ -33,10 +33,8 @@ device_dirs:
 # to write app-private storage; only used to build each playlist's core_path.
 cores_ref: "/data/user/0/{package}/cores"
 
-# The Android buildbot, keyed by ABI rather than the kernel arch the desktop uses. Files
-# land as <core>_libretro_android.so, which is what each playlist's core_path must name.
-buildbot_url: "https://buildbot.libretro.com/nightly/android/latest/{abi}"
-core_abi: arm64-v8a
+# Android cores land as <core>_libretro_android.so, which is what each playlist's core_path
+# must name.
 core_suffix: _libretro_android.so
 info_zip_url: "https://buildbot.libretro.com/assets/frontend/info.zip"
 

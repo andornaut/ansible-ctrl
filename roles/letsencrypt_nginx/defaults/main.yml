@@ -32,8 +32,8 @@ letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
 letsencrypt_nginx_operator: "{{ primary_user }}"
 
 # Where the renewal run reads its credentials. Resolved from primary_user rather than
-# named, this job running as root, whose own ~ is /root. Paired with SOPS_FILE in the
-# Makefile. The job runs from playbook_dir in that same home anyway, so an unmounted home
+# named, this job running as root, whose own ~ is /root. Paired with SOPS_FILE in
+# bin/playbook.py. The job runs from playbook_dir in that same home anyway, so an unmounted home
 # stops it either way; see the role README.
 letsencrypt_nginx_renewal_cron_sops_file: >-
   {{ letsencrypt_nginx_operator_home }}/.config/faramir/secrets/ansible-ctrl.sops.yml
@@ -47,7 +47,7 @@ letsencrypt_nginx_renewal_cron_age_key_file: >-
 # it was given by hand, which is not the fleet, and a run that offers an identity the fleet
 # does not know fails host by host. The broker's key is the one that reaches every host:
 # roles/faramir authorizes it fleet-wide, it carries no passphrase, and root reads it
-# whatever its mode. Paired with BROKER_KEY in the Makefile, which names it for the same
+# whatever its mode. Paired with BROKER_KEY in bin/playbook.py, which names it for the same
 # reason. Host keys need no equivalent, roles/faramir pinning the fleet's in
 # /etc/ssh/ssh_known_hosts, which ssh reads for every uid.
 letsencrypt_nginx_renewal_cron_ssh_key_file: >-

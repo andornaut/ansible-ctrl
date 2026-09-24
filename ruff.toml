@@ -65,6 +65,9 @@ ignore = [
     # __init__.py to it would ship a file no role installs.
     "INP001",
 ]
+# Commands make invokes by path. Running ansible-playbook, sops and sudo off PATH, and
+# exec'ing one in place, is the job.
+"bin/*.py" = ["INP001", "S603", "S606", "S607"]
 # A gate the lint runner invokes by path. Nothing imports it, so it is not a package.
 "tests/*.py" = ["INP001"]
 # The test beside it is stdlib unittest. PT mandates pytest's idiom, which would mean

@@ -23,6 +23,7 @@ Prints one JSON object: what was removed, per file.
 """
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
@@ -107,8 +108,40 @@ def backup_path(path, stamp):
     return path.with_name(f"{path.name}.pruned-{stamp}.bak")
 
 
+@contextlib.contextmanager
+def as_owner(owner):
+    """Act as the account that owns a file, so every path under its directory resolves with that
+    account's permissions and not root's.
+
+    The directories these files sit in are writable by the account the agent runs as, which can
+    plant a symlink at any name this writes. Root following one writes wherever it points.
+    """
+    if os.geteuid() != 0:
+        yield
+        return
+    groups = os.getgroups()
+    os.setgroups([])
+    os.setegid(owner.st_gid)
+    os.seteuid(owner.st_uid)
+    try:
+        yield
+    finally:
+        os.seteuid(0)
+        os.setegid(0)
+        os.setgroups(groups)
+
+
 def prune_file(path, keep, stamp, check):
     """Prune one file, reporting what came out of it and where the original went."""
+    original = path.lstat()
+    if stat.S_ISLNK(original.st_mode):
+        return {"path": str(path), "skipped": "a symlink, which this does not follow"}
+    with as_owner(original):
+        return prune_owned_file(path, original, keep, stamp, check)
+
+
+def prune_owned_file(path, original, keep, stamp, check):
+    """prune_file's body, run as the file's owner."""
     document = load_json(path)
     if document is None:
         return {"path": str(path), "skipped": "unreadable or not JSON"}
@@ -125,23 +158,22 @@ def prune_file(path, keep, stamp, check):
     if not removed or check:
         return result
 
-    # copy2 carries the mode across and not the ownership, and this runs as root. Without the
-    # chown the operator's own backup arrives root-owned, unreadable to them wherever the
-    # directory is not setgid to a group they are in.
-    original = path.stat()
+    # Both files are created exclusively, so a name planted ahead of them fails the run
+    # rather than being written through.
+    mode = stat.S_IMODE(original.st_mode)
     backup = backup_path(path, stamp)
-    shutil.copy2(path, backup)
-    os.chown(backup, original.st_uid, original.st_gid)
+    with backup.open("xb") as destination, path.open("rb") as source:
+        shutil.copyfileobj(source, destination)
+    backup.chmod(mode)
 
     # Replaced rather than rewritten in place: this file carries the agent's PreToolUse hook,
     # and a truncating write interrupted partway leaves the agent running with no hook and no
-    # deny list. The owner and mode go onto the temporary file first, both because a file
-    # arriving owned by root stops the agent reading it and because os.replace keeps whatever
-    # the temporary file has.
+    # deny list. os.replace keeps the temporary file's mode, so it is set first.
     temporary = path.with_name(f".{path.name}.pruning")
-    temporary.write_text(serialise(document), encoding="utf-8")
-    os.chown(temporary, original.st_uid, original.st_gid)
-    temporary.chmod(stat.S_IMODE(original.st_mode))
+    temporary.unlink(missing_ok=True)
+    with temporary.open("x", encoding="utf-8") as handle:
+        handle.write(serialise(document))
+    temporary.chmod(mode)
     temporary.replace(path)
     result["backup"] = str(backup)
     return result

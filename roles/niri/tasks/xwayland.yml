@@ -77,6 +77,8 @@
       become_user: root
 
     - name: Copy xwayland-satellite files
+      # --check skips the build, so there is no output to install from.
+      when: not ansible_check_mode
       ansible.builtin.copy:
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"

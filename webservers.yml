@@ -1,25 +1,14 @@
 ---
 - name: Apply letsencrypt_nginx role
   hosts: webservers
-  # See homeautomation.yml. Also guards the renewal cron, which re-runs this
-  # playbook under sops exec-env.
+  # A failure after a vhost or certificate changed would drop the nginx restart, and the next
+  # run, finding both unchanged, would notify nothing.
+  force_handlers: true
+  # Also guards the renewal cron, which re-runs this playbook under sops exec-env.
   pre_tasks:
     - name: Require the credentials this play reads
-      ansible.builtin.assert:
-        that: secrets_injected | int > 0
-        fail_msg: >-
-          No credential was injected, so every one this play reads
-          is undefined. Run it through `make`, which re-enters under sops, or
-          through the broker with `faramir run --env-file faramir.env`, which
-          both read the same list of names. For a run that reaches no credential,
-          pass secrets_required=false.
-        quiet: true
-      when: secrets_required | default(true) | bool
-      tags: always
+      ansible.builtin.import_tasks: tasks/require_credentials.yml
   roles:
-    # Uncomment the `base` and `docker` on the first run
-    # - base
-    # - docker
     - letsencrypt_nginx
   tags:
     - nginx

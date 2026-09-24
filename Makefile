@@ -8,20 +8,16 @@ SHELL := /bin/bash
 GOAL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ARGS = $(GOAL_ARGS)
 
-# Listed once: both readers below are silent about a name they do not know, one forwarding
-# it to ansible-playbook and the other dropping it across the sudo re-entry.
-KNOBS := SECRETS ASK_PASS PREFLIGHT
-
 # An argument containing = never reaches ansible-playbook, make taking it as a variable
-# assignment before the goal list is built. ARGS='...' is the route for one.
-#
-# Neither route combines with the other: a command-line ARGS outranks the goal-derived list
-# and the %: rule below swallows the leftovers. Both cases land here and refuse the run.
+# assignment before the goal list is built. ARGS='...' is the route for one, and a
+# command-line ARGS outranks the goal-derived list, whose leftovers the %: rule below
+# swallows. bin/playbook.py refuses the run in both cases, and knows which assignments are
+# its own knobs.
 ifeq ($(origin ARGS),command line)
-STRAY_ARGS :=
+ASSIGNMENTS :=
 DROPPED_ARGS := $(GOAL_ARGS)
 else
-STRAY_ARGS := $(filter-out $(addsuffix =%,$(KNOBS)),$(MAKEOVERRIDES))
+ASSIGNMENTS := $(MAKEOVERRIDES)
 DROPPED_ARGS :=
 endif
 
@@ -34,38 +30,24 @@ PLAYBOOKS := base desktop dev docker faramir \
              games hobbies homeautomation msmtp nas router rsnapshot torrent upgrade \
              webservers
 
+PLAYBOOK := bin/playbook.py
+
 .DEFAULT_GOAL := help
 
-.PHONY: help clean lint requirements $(PLAYBOOKS)
+.PHONY: help clean lint requirements bootstrap $(PLAYBOOKS)
 
-# Root needs neither a become password nor the operator's age identity.
 IS_ROOT := $(filter 0,$(shell id -u))
-
-# A root run has HOME=/root, so the operator's home is resolved rather than named. Two
-# sources, each covering the case the other gets wrong:
-#
-# FARAMIR_OPERATOR is the broker's own answer, set in a brokered command's environment and
-# again in the one its sudo builds. The broker reserves the name, so a brokered caller
-# cannot choose it, and it is the only source that survives that sudo.
-#
-# SUDO_USER is the operator wherever a human typed the sudo, which is every other root run
-# here: `sudo make <playbook>`, and the re-entry below. It names the executor account
-# instead on a brokered run -- the case FARAMIR_OPERATOR is there to answer, and which it
-# answers first.
-#
-# Then whoever is running, which is already the answer for an unprivileged run, and for a
-# root login with neither (cron), where it is root and nothing drops. getent rather than ~,
-# which expands wrong for exactly the run that needs this.
-OPERATOR := $(or $(FARAMIR_OPERATOR),$(and $(IS_ROOT),$(SUDO_USER)),$(shell id -un))
-OPERATOR_HOME := $(shell getent passwd $(OPERATOR) | cut -d: -f6)
 
 # Recipes write into the work tree as the operator, so a root run leaves nothing an
 # unprivileged `make` cannot rebuild. A tree checked out by root resolves to root and
 # nothing drops.
+OPERATOR := $(shell $(PLAYBOOK) operator)
 AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@echo "Available targets:"
+	@echo "  bootstrap             - Apply base, docker, then every playbook with a group"
+	@echo "                          holding the host: make bootstrap -- --limit <host>"
 	@echo "  clean                 - Remove downloaded collections and lint tooling"
 	@echo "  help                  - Show this help message"
 	@echo "  lint                  - Run every check CI gates on"
@@ -103,13 +85,13 @@ help:
 clean:
 	rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules
 
-# The same six checks CI runs, from the same script. Depends on requirements:
+# The same checks CI runs, from the same script. Depends on requirements:
 # ansible-lint's syntax-check reports every collection module unknown without them.
 lint: requirements
 	@$(AS_OPERATOR) tests/lint.sh
 
-# A stamp, not a phony recipe: a wrapped target runs make twice, and a phony
-# prerequisite would install the galaxy content on both passes.
+# A stamp, not a phony recipe, so a run that goes through make more than once installs the
+# galaxy content once.
 requirements: .ansible/.requirements
 
 # Everything under .ansible/ belongs to the operator: runuser cannot write into a
@@ -120,224 +102,16 @@ requirements: .ansible/.requirements
 	$(AS_OPERATOR) ansible-galaxy collection install -r requirements.yml
 	@$(AS_OPERATOR) touch $@
 
-# Not $(MAKE): make runs any recipe line containing that string even under -n.
-SUBMAKE := $(MAKE)
+# Exported rather than quoted onto the command line, being whatever was typed.
+$(PLAYBOOKS) bootstrap: export PLAYBOOK_ASSIGNMENTS := $(ASSIGNMENTS)
+$(PLAYBOOKS) bootstrap: export PLAYBOOK_DROPPED_ARGS := $(DROPPED_ARGS)
 
-# In the operator's home, resolved above.
-SOPS_FILE := $(OPERATOR_HOME)/.config/faramir/secrets/ansible-ctrl.sops.yml
-BROKER_KEY := $(OPERATOR_HOME)/.config/faramir/id_ed25519
-
-# Both live under the operator's home and root's $HOME is /root, so each is named rather
-# than found. ?= leaves an operator-set value alone.
-#
-# The broker's key is the identity that reaches the fleet, faramir.yml having authorized it
-# there. Root's own ~/.ssh holds whatever it was given by hand, and offering an identity
-# the fleet does not know fails host by host with the plays before it already applied. The
-# operator's ssh config is still not read: it supplies aliases without an identity, and
-# every ~ in it expands to /root.
-#
-# Host keys need no equivalent, roles/faramir pinning the fleet's in
-# /etc/ssh/ssh_known_hosts, which ssh reads for every uid. The key is named only where it
-# exists, ssh warning per host about an identity file it cannot open.
-ifdef IS_ROOT
-export SOPS_AGE_KEY_FILE ?= $(OPERATOR_HOME)/.config/faramir/age.key
-ifneq ($(wildcard $(BROKER_KEY)),)
-export ANSIBLE_PRIVATE_KEY_FILE ?= $(BROKER_KEY)
-endif
-endif
-
-# The runs that read a credential, and so the only ones that re-enter under sops.
-# Giving a playbook its first credential means adding it here. Not derived: host_vars binds
-# plain variable names to secrets, so telling these apart needs variable resolution.
-SECRET_PLAYBOOKS := homeautomation msmtp webservers
-
-# SECRETS_LOADED marks the inner half of the re-entry; SECRETS=none skips it for a
-# run that reaches no credential, usually a --tags run.
-LOAD_SECRETS = $(if $(or $(SECRETS_LOADED),$(filter none,$(SECRETS))),,$(filter $*,$(SECRET_PLAYBOOKS)))
-
-# SECRETS=none has to reach the play too: its pre_tasks assert that credentials
-# arrived, and that assert must not outlive the decision to skip the injection.
-SECRETS_FLAG = $(if $(filter none,$(SECRETS)),--extra-vars secrets_required=false)
-
-# Which of this run's hosts the invoking account reaches, decided before any of it applies.
-# A host the probe cannot reach is dropped through --limit, whatever stopped it: off,
-# refusing the identity, a moved host key and a wedged sshd are all a host this run cannot
-# apply to. A run left with no hosts stops. PREFLIGHT=none skips the probe.
-#
-# The --limit goes last and outranks one in ARGS, correctly: the list it is built from came
-# from list_run, which already applied that one.
-#
-# raw, the question being whether ssh authenticates rather than whether python answers.
-#
-# Read from what failed, never from what succeeded: a success line carries the module's own
-# output, whose shape differs per module, and a host whose line did not parse would be
-# dropped without saying so.
-RUN_PREFLIGHT = $(if $(filter none,$(PREFLIGHT)),,1)
-
-# Every host that is up answers in well under a second, the site VPN included, so the
-# timeout is paid only by hosts the probe cannot reach. 1 is the floor, --timeout and the
-# ConnectTimeout it becomes taking whole seconds. It bounds the banner exchange too, so a
-# host loaded enough to be slow answering is dropped rather than waited for.
-PREFLIGHT_TIMEOUT := 1
-
-# What this run resolves to, asked of ansible rather than assumed so a --limit in ARGS
-# counts. One startup connecting to nothing, ~0.3s, and the recipe runs it once into $$run
-# for both readers: the preflight, which probes the host list, and become_flag below.
-list_run = ansible-playbook $(1).yml $(ARGS) --list-hosts --list-tasks 2>/dev/null
-
-# Host names sit under "hosts (N):" and stop where the task list starts. Deduplicated: a
-# host in two plays of one playbook is listed once per play.
-pick_hosts = awk '/hosts \([0-9]+\):/{f=1;next} /^[[:space:]]*tasks:/{f=0} /^[[:space:]]*$$/{f=0} f{gsub(/^[[:space:]]+|[[:space:]]+$$/,"");if(!seen[$$0]++)print}'
-
-# Task lines read "  <role> : <name>", so the role is everything before " : ".
-pick_roles = awk '/^[[:space:]]+[^ ]+ : /{sub(/ :.*/,"");gsub(/^[[:space:]]+/,"");print}' | sort -u
-
-# The name of each unreachable host, one per line. The callback renders a result as a
-# block, "<host> | UNREACHABLE!" on the first line and the message indented under it, so
-# only that line is read: why a host did not answer is the probe's business, not the
-# operator's.
-#
-# No -o: it selects the oneline callback, and flag and callback alike are removed in
-# ansible-core 2.23.
-pick_unreachable = grep -E '^[^[:space:]]+ \| .*UNREACHABLE!' | cut -d' ' -f1
-
-# What a run that has to prompt passes. The controller's sudo authenticates through
-# faramir's PAM helper, which puts the question to whoever is watching `faramir sudo watch`
-# rather than taking a password, so become waits on a person; the local connection plugin
-# bounds that wait at 10 seconds by default, which closes before anyone can answer. The
-# option belongs to that plugin, so it reaches the controller and is inert for the ssh
-# fleet. Named here as well as on the controller's inventory line, the inventory not being
-# in this repo. 120 rather than the 300 an escalation is offered for, so a run nobody is
-# watching fails rather than holding the full window.
-BECOME_PROMPT := --ask-become-pass -e ansible_local_become_success_timeout=120
-
-# IS_ROOT first: sudo asks root nothing, and ansible prompts at startup whether or not the
-# password is used. Then ASK_PASS=1, which forces the prompt for a run the check below
-# reads as needing none. `make faramir` is not one: the controller is in its first play, so
-# that prompt also serves the second, which establishes the NOPASSWD the rest rely on.
-#
-# The controller group, not the faramir group, which also holds the hosts running a broker
-# and no playbooks: those are NOPASSWD like the rest of the fleet, and prompting for a run
-# that reaches one would ask for a password nothing uses.
-#
-# An empty answer prompts rather than passing over it. No playbook targets that group, so
-# nothing else here fails when it is missing or misspelled, and the run that would otherwise
-# go without the flag fails on the controller's sudo with the rest of the fleet applied.
-#
-# Reads $$run, which the recipe sets from list_run before reaching here.
-define become_flag
-$(if $(IS_ROOT),,$(if $(ASK_PASS),$(BECOME_PROMPT),$$( \
-  controller=$$(ansible faramir_controller --list-hosts 2>/dev/null | $(pick_hosts)); \
-  [ -z "$$controller" ] && { echo $(BECOME_PROMPT); exit 0; }; \
-  echo "$$run" | $(pick_hosts) | grep -qxF "$$controller" && { echo $(BECOME_PROMPT); exit 0; }; \
-  for r in $$(echo "$$run" | $(pick_roles)); do \
-    grep -rqsE 'delegate_to:[[:space:]]*localhost' roles/$$r && { echo $(BECOME_PROMPT); exit 0; }; \
-  done)))
-endef
-
-# Reads $$hosts, a comma-separated list, and sets $$limit to what survived. The probe runs
-# as the account that will run the play, so it answers about the ~/.ssh that will connect.
-#
-# A root run of faramir.yml is told the other thing a drop can mean: it connects with the
-# key that playbook distributes, so a host that has yet to authorize it is unreachable for
-# that reason alone, and the run would otherwise skip the host it was meant to bootstrap
-# and report success.
-define preflight
-	       off=$$(ansible "$$hosts" -m raw -a true -T $(PREFLIGHT_TIMEOUT) 2>&1 | $(pick_unreachable)); \
-	       if [ -n "$$off" ]; then \
-	         for h in $$off; do echo "Preflight: dropped $$h (no connection)" >&2; done; \
-	         reachable=$$(echo "$$hosts" | tr ',' '\n' | grep -vxF "$$off" | paste -sd,); \
-	         if [ -z "$$reachable" ]; then \
-	           echo "Preflight: nothing left to apply $*.yml to. A run connects with the" >&2; \
-	           echo "invoking account's own ~/.ssh, or the broker's key under root." >&2; \
-	           echo "Skip this check with PREFLIGHT=none." >&2; \
-	           exit 1; \
-	         fi; \
-	         if [ -n "$(IS_ROOT)" ] && [ "$*" = faramir ]; then \
-	           echo "A root run connects with the broker's key, which this playbook is what" >&2; \
-	           echo "authorizes, so a host that has yet to authorize it reads the same as one" >&2; \
-	           echo "that is off. Bootstrap it as the operator: make faramir" >&2; \
-	         fi; \
-	         limit="--limit $$reachable"; \
-	       fi;
-endef
-
-# Close, escape, reopen. The forwarded arguments reach sops inside a command string,
-# where one carrying a quote of its own would end the string early.
-shquote = '$(subst ','\'',$(1))'
-
-# sudo resets the environment, and MAKEFLAGS goes with it, which is where make carries a
-# command-line assignment down to a child. So each is named again, or `make homeautomation
-# PREFLIGHT=none` probes anyway under root. The sops re-entry runs no sudo and needs none
-# of this. An empty value is left out, every reader treating empty and unset alike.
-REENTRY_VARS = $(foreach v,$(KNOBS),$(if $($(v)),$(v)=$(call shquote,$($(v)))))
-
-# A secret-bearing run whose store the operator cannot read re-enters as root rather than
-# being refused: every credential would otherwise be undefined, and the first task to read
-# one fails with the tasks before it already applied. Root reads the store and reaches
-# every host, the broker's key being the identity a root run connects with.
-#
-# Both re-entries hand the arguments over as ARGS rather than as goals: a command-line ARGS
-# passes down through MAKEFLAGS and outranks anything the child derives from its own goals.
-#
 # Only the first goal is applied: every inventory group is also a playbook here, so
-# `make base -- --limit desktop` would otherwise apply desktop as well.
-# Ansible has no umask setting of its own, so every file a task creates without naming a
-# mode arrives at whatever the invoking shell had. pam_umask gives a login shell the value
-# in /etc/login.defs, which roles/base sets, and a session opened before that setting keeps
-# the old one. Named here so a local run does not depend on which session started it; the
-# same value, so a file created in a setgid share stays group-writable.
-RUN_UMASK := 002
-
-# The two ways an invocation is refused before anything applies. Extracted for the
-# reason become_flag and preflight are: the recipe is a three-way dispatch, and it did not
-# read as one with fifty lines of refusal in front of it.
-#
-# Each ends the run rather than warning, both being an invocation that would
-# otherwise do something other than what was typed.
-define refuse_bad_invocation
-	 if [ -n "$(STRAY_ARGS)" ]; then \
-	   echo "make read these as variable assignments rather than forwarding them:" >&2; \
-	   echo "  $(STRAY_ARGS)" >&2; \
-	   echo "An argument containing = never reaches ansible-playbook. Pass them as one" >&2; \
-	   echo "variable instead:" >&2; \
-	   echo "  make $* ARGS='...'" >&2; \
-	   exit 1; \
-	 fi; \
-	 if [ -n "$(DROPPED_ARGS)" ]; then \
-	   echo "ARGS was set on the command line, so these were dropped rather than" >&2; \
-	   echo "forwarded:" >&2; \
-	   echo "  $(DROPPED_ARGS)" >&2; \
-	   echo "A command-line ARGS outranks the list after --. Pass the whole list as" >&2; \
-	   echo "that variable instead:" >&2; \
-	   echo "  make $* ARGS='$(DROPPED_ARGS) ...'" >&2; \
-	   exit 1; \
-	 fi;
-endef
-
+# `make base -- --limit desktop` would otherwise apply desktop as well. A command-line
+# SECRETS, ASK_PASS or PREFLIGHT reaches the script through the environment, where make
+# exports every command-line assignment.
 $(PLAYBOOKS): %: requirements
-	@umask $(RUN_UMASK); \
-	 if [ "$*" != "$(firstword $(MAKECMDGOALS))" ]; then exit 0; fi; \
-	 $(refuse_bad_invocation) \
-	 if [ -n "$(LOAD_SECRETS)" ] && [ ! -r "$(SOPS_FILE)" ]; then \
-	   if [ -n "$(IS_ROOT)" ]; then \
-	     echo "$(SOPS_FILE): not readable by root, so it is missing or its home is" >&2; \
-	     echo "not mounted. Refusing to run $*.yml: every credential would be undefined" >&2; \
-	     echo "and the first task to read one fails with the rest already applied." >&2; \
-	     exit 1; \
-	   fi; \
-	   echo "Re-entering as root: $(SOPS_FILE) is not readable by $(OPERATOR)." >&2; \
-	   sudo $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS)) $(REENTRY_VARS); \
-	 elif [ -n "$(LOAD_SECRETS)" ]; then \
-	   sops exec-env $(SOPS_FILE) $(call shquote,SECRETS_LOADED=1 $(SUBMAKE) --no-print-directory $* ARGS=$(call shquote,$(ARGS))); \
-	 else \
-	   limit=""; \
-	   run=$$($(call list_run,$*)); \
-	   if [ -n "$(RUN_PREFLIGHT)" ]; then \
-	     hosts=$$(echo "$$run" | $(pick_hosts) | paste -sd,); \
-	     if [ -n "$$hosts" ]; then \
-	       $(preflight) \
-	     fi; \
-	   fi; \
-	   ansible-playbook $(become_flag) $(SECRETS_FLAG) $*.yml $(ARGS) $$limit; \
-	 fi
+	@$(if $(filter $*,$(firstword $(MAKECMDGOALS))),$(PLAYBOOK) run $* $(ARGS),:)
+
+bootstrap: requirements
+	@$(if $(filter $@,$(firstword $(MAKECMDGOALS))),$(PLAYBOOK) bootstrap $(ARGS),:)

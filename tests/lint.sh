@@ -2,7 +2,7 @@
 # The checks CI gates on, defined once so a local run and a CI run cannot disagree.
 # CI and `make lint` both call them all; the argument runs one on its own.
 #
-# Usage: tests/lint.sh [ansible-lint|config|shell|python|identity|markdown]   (default: all)
+# Usage: tests/lint.sh [ansible-lint|config|shell|python|identity|dispatch|markdown]   (default: all)
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -144,10 +144,17 @@ check_identity() {
         return 1
     fi
     echo "== identity.py =="
-    "${python}" -m unittest discover -s tests || status=1
+    "${python}" -m unittest discover -s tests -p test_identity.py || status=1
     echo "== roles, handlers and playbooks =="
     "${python}" tests/identity.py || status=1
     return "${status}"
+}
+
+# bin/playbook.py, which every playbook target runs: argument forwarding, the re-entries,
+# the preflight and the --ask-become-pass decision, none of which a lint run exercises.
+# stdlib only, so any python3 runs it.
+check_dispatch() {
+    python3 -m unittest discover -s tests -p test_playbook.py
 }
 
 # markdownlint-cli2 is pinned in package.json and run out of node_modules/,
@@ -175,10 +182,10 @@ main() {
     local checks check result status=0
 
     case "${1:-all}" in
-    all) checks=(ansible-lint config shell python identity markdown) ;;
-    ansible-lint | config | shell | python | identity | markdown) checks=("$1") ;;
+    all) checks=(ansible-lint config shell python identity dispatch markdown) ;;
+    ansible-lint | config | shell | python | identity | dispatch | markdown) checks=("$1") ;;
     *)
-        echo "usage: ${0} [ansible-lint|config|shell|python|identity|markdown]" >&2
+        echo "usage: ${0} [ansible-lint|config|shell|python|identity|dispatch|markdown]" >&2
         return 2
         ;;
     esac

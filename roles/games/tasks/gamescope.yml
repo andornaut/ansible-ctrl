@@ -123,21 +123,34 @@
               register: games_gamescope_wayland_tmp
               check_mode: false
 
-            - name: Download and unarchive Wayland
-              ansible.builtin.unarchive:
-                src: >-
+            # The release publishes a .sha256sum beside the tarball. Downloaded under --check
+            # too, into the temporary directory only, so unarchive has an archive to read.
+            - name: Download Wayland
+              ansible.builtin.get_url:
+                url: >-
                   https://gitlab.freedesktop.org/wayland/wayland/-/releases/{{
                   games_gamescope_wayland_version }}/downloads/wayland-{{
                   games_gamescope_wayland_version }}.tar.xz
+                dest: "{{ games_gamescope_wayland_tmp.path }}/wayland.tar.xz"
+                checksum: >-
+                  sha256:https://gitlab.freedesktop.org/wayland/wayland/-/releases/{{
+                  games_gamescope_wayland_version }}/downloads/wayland-{{
+                  games_gamescope_wayland_version }}.tar.xz.sha256sum
+                mode: "0644"
+              register: games_gamescope_wayland_download
+              retries: 3
+              delay: 5
+              until: games_gamescope_wayland_download is succeeded
+              check_mode: false
+
+            - name: Unarchive Wayland
+              ansible.builtin.unarchive:
+                src: "{{ games_gamescope_wayland_tmp.path }}/wayland.tar.xz"
                 dest: "{{ games_gamescope_wayland_tmp.path }}"
                 remote_src: true
                 extra_opts:
                   - --strip-components
                   - 1
-              register: games_gamescope_wayland_download
-              retries: 3
-              delay: 5
-              until: games_gamescope_wayland_download is succeeded
 
             - name: Configure the Wayland build
               ansible.builtin.command:

@@ -57,6 +57,11 @@ homeautomation_esphome_gid: "10001"
 # proxy uses the authenticated port over loopback, Home Assistant the container's bridge
 # address. The WebRTC port stays open, carrying media straight from the browser.
 homeautomation_frigate_bind_http_unauthenticated: "127.0.0.1"
+# The proxy reaches the authenticated UI over loopback.
+homeautomation_frigate_bind_http_authenticated: "127.0.0.1"
+# The restream authenticates nobody. A Frigate integration whose rtsp_url_template names the
+# host's LAN address needs "0.0.0.0" here.
+homeautomation_frigate_bind_rtsp: "127.0.0.1"
 homeautomation_frigate_devices: []
 # https://github.com/blakeblackshear/frigate/pkgs/container/frigate
 homeautomation_frigate_docker_image: "ghcr.io/blakeblackshear/frigate:stable-rocm"
@@ -253,6 +258,8 @@ homeautomation_openwakeword_required_volumes:
   data: /var/docker-volumes/homeautomation/openwakeword/data
 
 # OpenWebUI
+# The proxy reaches it over loopback, in front of its trusted_networks and basic auth.
+homeautomation_openwebui_bind: "127.0.0.1"
 homeautomation_openwebui_docker_image: ghcr.io/open-webui/open-webui:main
 homeautomation_openwebui_env: {}
 homeautomation_openwebui_required_volumes:

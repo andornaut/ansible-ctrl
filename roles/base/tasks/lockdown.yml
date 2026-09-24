@@ -279,7 +279,8 @@
         # Each connection setting is passed only when the inventory sets it, as ansible
         # does; a -p defaulted to 22 would dial the wrong port on a host whose port comes
         # from ssh_config. ansible_ssh_common_args splits on whitespace, so a ProxyCommand
-        # containing spaces would need quoting.
+        # containing spaces would need quoting. A listener this run moved is no longer on
+        # ansible_port, so the proof dials the port it moved to.
         - name: Prove key-only authentication already works
           ansible.builtin.command:
             argv: >-
@@ -287,7 +288,9 @@
                 ['ssh', '-o', 'BatchMode=yes',
                  '-o', 'PreferredAuthentications=publickey',
                  '-o', 'ConnectTimeout=10']
-                + (['-p', ansible_port | string] if ansible_port is defined else [])
+                + (['-p', base_lockdown_ssh_port | string]
+                   if base_lockdown_port_proof is defined and base_lockdown_port_proof is not skipped
+                   else (['-p', ansible_port | string] if ansible_port is defined else []))
                 + (['-i', ansible_ssh_private_key_file]
                    if ansible_ssh_private_key_file is defined else [])
                 + (ansible_ssh_common_args | default('') | trim | split)

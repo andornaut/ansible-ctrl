@@ -41,6 +41,8 @@
         url: https://developer.memryx.com/deb/memryx.asc
         dest: /etc/apt/keyrings/memryx.asc
         mode: "0644"
+        # Re-fetched every run, so a rotated key is picked up; changed only when it differs.
+        force: true
       register: homeautomation_memryx_key_download
       retries: 3
       delay: 5

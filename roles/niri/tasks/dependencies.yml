@@ -40,8 +40,6 @@
           - xsltproc
 
           # hypr dependencies
-          - g++-14
-          - gcc-14
           - libmagic-dev
           - libpugixml-dev
           # Conflicts with the libsdbus built from source below; keep it out.

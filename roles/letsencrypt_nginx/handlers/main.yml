@@ -1,6 +1,15 @@
 ---
-- name: Restart nginx
+# Listed ahead of the restart, and handlers run in the order they are listed: a config nginx
+# rejects fails here, leaving the running container on the config it already loaded.
+- name: Validate nginx configuration
+  ansible.builtin.command: docker exec nginx nginx -t
+  changed_when: false
+  become: true
+  listen: Restart nginx
+
+- name: Restart nginx container
   community.docker.docker_container:
     name: nginx
     restart: true
   become: true
+  listen: Restart nginx

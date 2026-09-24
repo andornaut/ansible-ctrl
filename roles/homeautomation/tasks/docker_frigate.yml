@@ -54,12 +54,14 @@
           memswap_limit: >-
             {{ homeautomation_frigate_memory_swap | default(homeautomation_frigate_memory) }}
           ports:
-            - "{{ homeautomation_frigate_port_http_authenticated }}:8971"
+            - >-
+              {{ homeautomation_frigate_bind_http_authenticated }}:{{
+              homeautomation_frigate_port_http_authenticated }}:8971
             - >-
               {{ homeautomation_frigate_bind_http_unauthenticated }}:{{
               homeautomation_frigate_port_http_unauthenticated }}:5000
             # RTSP restream: https://docs.frigate.video/configuration/restream/
-            - "{{ homeautomation_frigate_port_rtsp }}:8554"
+            - "{{ homeautomation_frigate_bind_rtsp }}:{{ homeautomation_frigate_port_rtsp }}:8554"
             # WebRTC
             - "{{ homeautomation_frigate_port_webrtc }}:8555/tcp"
             - "{{ homeautomation_frigate_port_webrtc }}:8555/udp"

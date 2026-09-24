@@ -62,11 +62,11 @@ faramir's own defaults, so they are not knobs here.
 run straight through. Once the broker is installed the store stops being readable by the operator, and `make`
 routes around that:
 
-| Run                          | What `make <playbook>` does                   |
-| ---------------------------- | --------------------------------------------- |
-| no credential                | one `ansible-playbook`, as the operator       |
-| credential, store readable   | one `ansible-playbook`, under `sops exec-env` |
-| credential, store unreadable | `sudo make <playbook>`, then the row above    |
+| Run                          | What `make <playbook>` does                               |
+| ---------------------------- | --------------------------------------------------------- |
+| no credential                | one `ansible-playbook`, as the operator                   |
+| credential, store readable   | one `ansible-playbook`, under `sops exec-env`             |
+| credential, store unreadable | `sudo bin/playbook.py run <playbook>`, then the row above |
 
 Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every
 managed host. The one password prompt comes before anything applies.
@@ -130,13 +130,18 @@ caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator o
   (`/etc/ssh/ssh_known_hosts`), the executor having no `known_hosts` of its own. Each entry is keyed by the name
   ssh looks it up under, `faramir_fleet_known_hosts_name`: the bare address on port 22, `[host]:port` otherwise. A
   key that stops matching fails the play rather than being rewritten.
+- **The routers take the broker's key in `/root/.ssh/authorized_keys2`**, every other host in the ansible account's
+  `~/.ssh/authorized_keys`. pfSense regenerates `authorized_keys` from `config.xml` on boot and on every user save;
+  sshd reads both. `faramir_fleet_authorized_keys_path` in `host_vars` names the file for any other host that
+  regenerates its own. The routers log in as root, so they get no sudoers entry.
 
 ## What the role adds
 
 `faramir init` establishes the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. On top
 of that, the role:
 
-- Installs sops from its own release `.deb`, the keeper execing it rather than linking it. No age package: sops
+- Installs sops from its own release `.deb`, checked against the SHA-256 digest GitHub records for the asset
+  (sops' `checksums.txt` lists its binaries, not its `.deb`s), the keeper execing it rather than linking it. No age package: sops
   links the library, and `faramir init` mints the keypair
 - Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI
   re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. A version tag

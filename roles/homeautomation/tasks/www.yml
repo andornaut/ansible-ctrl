@@ -1,5 +1,6 @@
 ---
 - name: Create www/ directory
+  register: homeautomation_www_dir
   ansible.builtin.file:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
     state: directory
@@ -111,6 +112,8 @@
       check_mode: false
 
 - name: Install Button Card
+  # Under --check on a host without www/, the directory above was only reported.
+  when: not (ansible_check_mode and homeautomation_www_dir is changed)
   ansible.builtin.get_url:
     url: https://github.com/custom-cards/button-card/releases/latest/download/button-card.js
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
@@ -138,6 +141,8 @@
     github_component_dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"
 
 - name: Install Decluttering Card
+  # Under --check on a host without www/, the directory above was only reported.
+  when: not (ansible_check_mode and homeautomation_www_dir is changed)
   ansible.builtin.get_url:
     url: https://github.com/custom-cards/decluttering-card/releases/latest/download/decluttering-card.js
     dest: "{{ homeautomation_homeassistant_required_volumes.config }}/www/"

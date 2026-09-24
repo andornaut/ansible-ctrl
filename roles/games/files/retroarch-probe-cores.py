@@ -52,8 +52,12 @@ def main(cores_dir):
             library = ctypes.CDLL(str(path))
             info = CoreInfo()
             library.retro_get_system_info(ctypes.byref(info))
-        except OSError as error:
+        # AttributeError: a library without retro_get_system_info is not a core.
+        except (OSError, AttributeError) as error:
             broken.append(f"{path.name}: {error}")
+            continue
+        if not info.library_name:
+            broken.append(f"{path.name}: reports no library name")
             continue
 
         extensions = (info.valid_extensions or b"").decode().split("|")

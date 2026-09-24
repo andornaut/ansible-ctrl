@@ -565,6 +565,6 @@ faramir_fleet_known_hosts_name: >-
      if (ansible_port | default(22) | int) != 22
      else (ansible_host | default(inventory_hostname)) }}
 
-# Undefined, so the module picks ~/.ssh/authorized_keys; set in host_vars for a host that
-# regenerates that file, as the pfSense routers do.
+# Undefined, so the module picks ~/.ssh/authorized_keys, and a host in the routers group
+# /root/.ssh/authorized_keys2. Set in host_vars for any other host that regenerates that file.
 # faramir_fleet_authorized_keys_path: /root/.ssh/authorized_keys2

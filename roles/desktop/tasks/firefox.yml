@@ -41,12 +41,20 @@
 
     - name: Configure Firefox apt packages
       block:
+        # Ubuntu's firefox, the snap transitional package included, carries "ubuntu" in its
+        # version and Mozilla's does not.
         - name: Remove Firefox if installed from non-Mozilla source
-          ansible.builtin.shell: set -o pipefail && dpkg -l firefox 2>/dev/null | grep -q "^ii"
+          ansible.builtin.shell: >-
+            set -o pipefail &&
+            dpkg-query -W -f '${db:Status-Abbrev} ${Version}\n' firefox 2>/dev/null
+            | grep -q '^ii .*ubuntu'
+          args:
+            executable: /bin/bash
           register: desktop_firefox_installed
           failed_when: false
           changed_when: false
-          become: true
+          check_mode: false
+          become: false
 
         - name: Purge old Firefox package
           ansible.builtin.apt:

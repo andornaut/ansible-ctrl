@@ -1,0 +1,41 @@
+---
+# Shared by every user unit this role installs, called with desktop_enable_unit set to the
+# unit's file name under /usr/local/lib/systemd/user and desktop_enable_unit_wanted_by to the
+# unit its [Install] section names. `systemctl --user enable` needs the account's manager,
+# which runs only while it is logged in; the symlink that command writes does not, so the
+# unit converges without a session and activates at the next login.
+- name: Create the wants directory for {{ desktop_enable_unit }}
+  ansible.builtin.file:
+    path: "{{ desktop_user_home }}/.config/systemd/user/{{ desktop_enable_unit_wanted_by }}.wants"
+    state: directory
+    mode: "0755"
+  when: desktop_user_home_mounted | bool
+  become: true
+  become_user: "{{ desktop_user }}"
+
+- name: Enable {{ desktop_enable_unit }}
+  ansible.builtin.file:
+    src: "/usr/local/lib/systemd/user/{{ desktop_enable_unit }}"
+    dest: >-
+      {{ desktop_user_home }}/.config/systemd/user/{{ desktop_enable_unit_wanted_by }}.wants/{{
+      desktop_enable_unit }}
+    state: link
+    # state=link rejects an absent src before check mode is considered, and the unit file is a
+    # no-op under --check. force skips that test, so a dry run reports the missing symlink
+    # instead of failing; a real run always has the unit, installed before this is called.
+    force: true
+  when: desktop_user_home_mounted | bool
+  become: true
+  become_user: "{{ desktop_user }}"
+
+- name: Start in the active session {{ desktop_enable_unit }}
+  ansible.builtin.systemd_service:
+    name: "{{ desktop_enable_unit }}"
+    daemon_reload: true
+    scope: user
+    state: started
+  when: desktop_user_systemd.stat.exists
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"

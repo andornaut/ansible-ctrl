@@ -226,7 +226,7 @@ def is_generated_playlist(path, library_dir):
     # down a run that merely walked past a playlist carrying one.
     if not isinstance(scanned, str) or not Path(scanned).is_absolute():
         return False
-    return os.path.commonpath([scanned, library_dir]) == library_dir
+    return os.path.commonpath([scanned, library_dir]) == os.path.normpath(library_dir)
 
 
 def prune_playlists(playlist_dir, library_dir, systems):

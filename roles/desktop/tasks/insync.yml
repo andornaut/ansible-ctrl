@@ -1,9 +1,11 @@
 ---
 - name: Configure Insync repository
   block:
+    # By full fingerprint, the one https://www.insynchq.com/downloads/linux publishes: a
+    # short key ID is a search that any key colliding on its last 32 bits also answers.
     - name: Download Insync apt signing key
       ansible.builtin.get_url:
-        url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xACCAF35C
+        url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xAEEB94E9C5A3B54ECFA4A66AA684470CACCAF35C
         dest: /etc/apt/keyrings/insync.asc
         mode: "0644"
       register: desktop_insync_key_download

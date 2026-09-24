@@ -4,37 +4,76 @@
 #
 # Required vars:
 #   base_tool_name (str): repository and binary name under github.com/andornaut/
-- name: Get the latest version of {{ base_tool_name }}
-  ansible.builtin.uri:
-    url: "https://api.github.com/repos/andornaut/{{ base_tool_name }}/releases/latest"
-    return_content: true
-  register: base_tool_release
-  # uri supports no check mode, so a --check run would skip this and leave the
-  # register undefined for every task that templates it. The request only reads.
-  check_mode: false
-  retries: 3
-  delay: 5
-  # Retry network errors and 5xx only; 4xx (rate limit, missing repo) is deterministic.
-  until: >-
-    base_tool_release.status == 200 or
-    (base_tool_release.status >= 400 and base_tool_release.status < 500)
+#
+# Optional vars:
+#   base_tool_verify (bool): default true; verify the tarball against the SHA-256 digest
+#     GitHub records for the release asset, which the release API returns as its `digest`.
+#     false only for a release whose assets predate GitHub recording one.
+- name: Get the latest release of {{ base_tool_name }}
+  ansible.builtin.include_tasks: get_latest_release.yml
+  vars:
+    release_repo: "andornaut/{{ base_tool_name }}"
+    release_fact: base_tool_release
 
 - name: Install {{ base_tool_name }}
-  ansible.builtin.unarchive:
-    src: "https://github.com/andornaut/{{ base_tool_name }}/releases/download/\
-      {{ base_tool_release.json.tag_name }}/\
-      {{ base_tool_name }}_{{ ansible_facts['system'] | lower }}_{{ base_arch }}.tar.gz"
-    dest: /usr/local/bin
-    remote_src: true
-    include: ["{{ base_tool_name }}"]
-    mode: "0755"
-    # Named, not left to the archive: extraction preserves the uid and gid the
-    # archive records, which is the release builder's account and lands on
-    # whichever local account happens to hold that id.
-    owner: root
-    group: root
-  register: base_tool_download
-  retries: 3
-  delay: 5
-  until: base_tool_download is succeeded
   become: true
+  vars:
+    base_tool_asset_name: >-
+      {{ base_tool_name }}_{{ ansible_facts['system'] | lower }}_{{ base_arch }}.tar.gz
+    base_tool_assets: >-
+      {{ base_tool_release.assets | selectattr('name', 'equalto', base_tool_asset_name) | list }}
+  block:
+    - name: Require a verifiable release asset of {{ base_tool_name }}
+      ansible.builtin.assert:
+        that:
+          - base_tool_assets | length > 0
+          - >-
+            not base_tool_verify | default(true) | bool
+            or (base_tool_assets[0].digest | default('') or '') is match('sha256:')
+        fail_msg: >-
+          {{ base_tool_release.tag_name }} of andornaut/{{ base_tool_name }}
+          {{ ('carries no SHA-256 digest for ' ~ base_tool_asset_name)
+          if base_tool_assets | length > 0
+          else ('publishes no asset named ' ~ base_tool_asset_name) }}.
+        quiet: true
+
+    - name: Create a temporary directory for {{ base_tool_name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: base_tool_tmp
+      check_mode: false
+
+    # Downloaded under --check too, into the temporary directory only, so unarchive has an
+    # archive to compare against /usr/local/bin.
+    - name: Download {{ base_tool_name }}
+      ansible.builtin.get_url:
+        url: "{{ base_tool_assets[0].browser_download_url }}"
+        dest: "{{ base_tool_tmp.path }}/{{ base_tool_asset_name }}"
+        checksum: "{{ base_tool_assets[0].digest if base_tool_verify | default(true) | bool else omit }}"
+        mode: "0644"
+      register: base_tool_download
+      retries: 3
+      delay: 5
+      until: base_tool_download is succeeded
+      check_mode: false
+
+    - name: Install {{ base_tool_name }}
+      ansible.builtin.unarchive:
+        src: "{{ base_tool_tmp.path }}/{{ base_tool_asset_name }}"
+        dest: /usr/local/bin
+        remote_src: true
+        include: ["{{ base_tool_name }}"]
+        mode: "0755"
+        # Named, not left to the archive: extraction preserves the uid and gid the
+        # archive records, which is the release builder's account and lands on
+        # whichever local account happens to hold that id.
+        owner: root
+        group: root
+  always:
+    - name: Remove the temporary directory for {{ base_tool_name }}
+      ansible.builtin.file:
+        path: "{{ base_tool_tmp.path }}"
+        state: absent
+      when: base_tool_tmp.path is defined
+      become: true
+      check_mode: false
