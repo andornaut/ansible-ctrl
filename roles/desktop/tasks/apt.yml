@@ -39,6 +39,16 @@
     update_cache: true
   become: true
 
+# netplan writes a .network file for each interface it renders with networkd. Where one
+# exists, networkd is what configures that link, and stopping it leaves the host without
+# an address at the next boot or lease renewal.
+- name: Find the links systemd-networkd is configured for
+  ansible.builtin.find:
+    paths: [/run/systemd/network, /etc/systemd/network]
+    patterns: "*.network"
+  register: desktop_networkd_files
+  become: false
+
 # Conflicts with NetworkManager: systemd-networkd-wait-online times out on
 # NetworkManager's interfaces, costing 2 minutes at boot.
 - name: Disable systemd-networkd
@@ -50,3 +60,4 @@
     - systemd-networkd.service
     - systemd-networkd-wait-online.service
   become: true
+  when: desktop_networkd_files.matched == 0

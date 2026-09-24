@@ -125,14 +125,16 @@ jobs:
             playbook: desktop
           - name: desktop niri
             playbook: desktop
-            args: --extra-vars desktop_environment=niri
+            # A tiling host needs exactly one display manager; the two entries cover both.
+            args: --extra-vars desktop_environment=niri --extra-vars desktop_install_lemurs=true
             # The toolchains the tiling builds require, which a host has from the dev role.
             prepare: >-
               ansible-playbook --inventory tests/check/inventory.yml
               --extra-vars secrets_required=false dev.yml --tags go,rust
           - name: desktop bspwm
             playbook: desktop
-            args: --extra-vars desktop_environment=bspwm
+            # A tiling host needs exactly one display manager; the two entries cover both.
+            args: --extra-vars desktop_environment=bspwm --extra-vars desktop_install_ly=true
             # The toolchains the tiling builds require, which a host has from the dev role.
             prepare: >-
               ansible-playbook --inventory tests/check/inventory.yml

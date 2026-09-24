@@ -106,10 +106,11 @@
     - name: Validate display manager configuration
       ansible.builtin.assert:
         that:
-          - (desktop_install_ly | bool | int) + (desktop_install_lemurs | bool | int) <= 1
+          - (desktop_install_ly | bool | int) + (desktop_install_lemurs | bool | int) == 1
+        # Every other display manager is masked below, so none chosen boots to a console.
         fail_msg: >-
-          Only one display manager can be installed at a time.
-          Please enable only one of: desktop_install_ly, desktop_install_lemurs
+          A {{ desktop_environment }} host needs exactly one display manager: set one of
+          desktop_install_ly or desktop_install_lemurs to true in host_vars.
         success_msg: Display manager configuration is valid
 
     - name: Set display manager services to disable
