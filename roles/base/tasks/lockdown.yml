@@ -222,8 +222,9 @@
               ansible.builtin.systemd_service:
                 daemon_reload: true
 
-            # Drops the listener, not the established sessions: each is its own
-            # ssh@N.service, which is the way back in if the new port is wrong.
+            # Drops the listener, not the established sessions: ssh.service runs with
+            # KillMode=process, so its session children outlive it, and one of them is the way
+            # back in if the new port is wrong.
             - name: Restart the SSH socket
               ansible.builtin.systemd_service:
                 name: ssh.socket

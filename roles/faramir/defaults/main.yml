@@ -467,8 +467,8 @@ faramir_blocked_home_paths:
 # Left uncovered by that: `*.key` and `*.pem`, whose every instance here is a CA bundle or a
 # test fixture; `*.vault` and `vault.yml`, which nothing here writes; `.env*`,
 # which lives in working trees that come and go; and `state.vscdb*`, which an editor writes
-# once per workspace and again for each new one, so no list of paths keeps up. The
-# globalStorage directory holding the secret store is blocked by path instead.
+# once per workspace and again for each new one, so no list of paths keeps up. Each editor's
+# whole configuration directory, which holds them, is blocked instead.
 #
 # Nothing reaches a file an agent opens inside a container either, where the path is the
 # mount point's and not the host's.

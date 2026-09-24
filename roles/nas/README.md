@@ -51,8 +51,8 @@ crypttab and fstab entries are written by the role.
    device=/dev/disk/by-id/...
    cryptsetup luksFormat ${device}
 
-   # Add a key file
-   keyfile=/path/to/keyfile
+   # Add a key file, at nas_key_file's default: .nas-luks-key in nas_user's home
+   keyfile="$(getent passwd <nas_user> | cut -d: -f6)/.nas-luks-key"
    head -c 256 /dev/random > ${keyfile}
    cryptsetup luksAddKey ${device} ${keyfile}
 

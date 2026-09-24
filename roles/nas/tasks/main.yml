@@ -18,6 +18,27 @@
     key: "{{ nas_user }}"
   tags: always
 
+# Ahead of the crypttab and fstab lines, which name both: an empty device list writes a
+# mount of nothing, and a missing key file leaves every device locked at boot.
+- name: Require the RAID devices and the LUKS key file
+  tags: always
+  block:
+    - name: Look for the LUKS key file
+      ansible.builtin.stat:
+        path: "{{ nas_key_file }}"
+      register: nas_key_file_stat
+      become: true
+
+    - name: Require the RAID devices and the LUKS key file
+      ansible.builtin.assert:
+        that:
+          - nas_raid_devices | length > 0
+          - nas_key_file_stat.stat.exists
+        fail_msg: >-
+          Set nas_raid_devices to the LUKS devices of the array, and create the key file at
+          {{ nas_key_file }} (nas_key_file) as the role README's Setup describes.
+        quiet: true
+
 - name: Install system dependencies
   block:
     - name: Install system packages

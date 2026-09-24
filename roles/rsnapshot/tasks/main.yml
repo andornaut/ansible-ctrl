@@ -1,4 +1,12 @@
 ---
+- name: Require a host to back up
+  ansible.builtin.assert:
+    that: rsnapshot_hosts | length > 0
+    fail_msg: >-
+      rsnapshot_hosts is empty, so there is nothing to back up. Set it in this host's host_vars;
+      the role README shows an entry.
+    quiet: true
+
 # `host` decides the login, whether the point is read locally, and whether that login has to
 # escalate, so the template cannot render an entry without one. hostvars answers for a host
 # outside the inventory with an undefined marker rather than an error, and the template's

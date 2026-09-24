@@ -53,6 +53,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 | Path                                                                | Purpose                                                                                       |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `/etc/apt/apt.conf.d/99network-timeouts`                            | apt fetch timeouts and one retry                                                              |
 | `/etc/apt/preferences.d/no-<name>`                                  | Negative pins of the purged packages ([tasks/purge-and-pin.yml](./tasks/purge-and-pin.yml))   |
 | `/etc/cron.d/ansible-role-base`                                     | `storage-space-alert` hourly and `disk-cleanup` weekly                                        |
 | `/usr/local/sbin/disk-cleanup`                                      | The weekly sweep                                                                              |
@@ -60,10 +61,14 @@ See [defaults/main.yml](./defaults/main.yml).
 | `/usr/local/bin/filectrl`, `gog`, `mrs`                             | Tools from GitHub releases ([tasks/install_from_github.yml](./tasks/install_from_github.yml)) |
 | `/etc/ssh/ssh_config.d/00-ansible-role-base.conf`                   | ssh client defaults                                                                           |
 | `/etc/ssh/sshd_config.d/00-ansible-role-base.conf`                  | Key-only SSH                                                                                  |
+| `/etc/ssh/sshd_config.d/00-ansible-role-base-port.conf`             | `base_lockdown_ssh_port`                                                                      |
+| `/etc/fail2ban/jail.local`                                          | The sshd jail                                                                                 |
 | `/etc/sysctl.d/60-ansible-role-base.conf`                           | `fs.inotify.max_user_watches`                                                                 |
 | `/etc/tmpfiles.d/tmp.conf`                                          | `/tmp` age                                                                                    |
 | `/etc/udev/rules.d/61-ansible-role-base-keyboard-caps-escape.rules` | Caps Lock remap at the device                                                                 |
+| `/etc/dconf/profile/user`                                           | Adds the `local` system database to the default dconf profile                                 |
 | `/etc/dconf/db/local.d/00-keyboard`                                 | Caps Lock remap for GNOME                                                                     |
+| `/etc/systemd/user/update-notifier-crash.{path,service}`            | Masked, `/dev/null` links                                                                     |
 
 ## Shared task files
 
@@ -98,19 +103,19 @@ role's prefix.
 
 Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)).
 
-| Constraint         | Detail                                                                                                                                                                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home modes         | `HOME_MODE` and `adduser`'s `DIR_MODE` at `0710`, `o-rwx,g-r` on each login account's home. Nothing below the home is converged                                                                 |
-| Subtractive only   | Ownership is never set. `USERGROUPS_ENAB` gives each account a private group, so the group bits reach only the owner until a home's group is shared, which then keeps traversal without listing |
-| Owned homes only   | A passwd entry naming a shared directory is left alone. `base_account_exclude_homes` excludes the placeholder homes of service accounts created without `--system`                              |
-| Session umask      | `UMASK 002` in `/etc/login.defs`, read by `pam_umask` for login shells and SSH sessions. A default, not a boundary: a process may change it, and systemd units read `UMask=`                    |
-| Why 002            | A file created in a setgid share stays group-writable, as the NAS share needs                                                                                                                   |
-| Key-only SSH       | `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`                                                                                |
-| sshd config apply  | Validated with `sshd -t`, then reloaded, which established connections survive. Skipped where `ssh.service` is not running, as under socket activation                                          |
-| No opt-out         | The role proves key-only SSH works from the controller with Ansible's own connection settings, and **fails the play** where it does not, naming the `ssh-copy-id` to run                        |
-| SSH port           | Set in `sshd_config`, which `sshd-socket-generator` turns into `ssh.socket`'s `ListenStream` at `daemon-reload`                                                                                 |
-| Stray `Port` lines | Cleared: sshd listens on every `Port` it reads                                                                                                                                                  |
-| Host key pin       | Before the port moves, the host's keys are pinned on the controller under the name ssh looks them up by: the bare address on 22, `[host]:port` otherwise                                        |
+| Constraint         | Detail                                                                                                                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home modes         | `HOME_MODE` and `adduser`'s `DIR_MODE` at `0710`, `o-rwx,g-r` on each login account's home. Nothing below the home is converged                                                                            |
+| Subtractive only   | Ownership is never set. `USERGROUPS_ENAB` gives each account a private group, so the group bits reach only the owner until a home's group is shared, which then keeps traversal without listing            |
+| Owned homes only   | A passwd entry naming a shared directory is left alone. `base_account_exclude_homes` excludes the placeholder homes of service accounts created without `--system`                                         |
+| Session umask      | `UMASK 002` in `/etc/login.defs`, read by `pam_umask` for login shells and SSH sessions. A default, not a boundary: a process may change it, and systemd units read `UMask=`                               |
+| Why 002            | A file created in a setgid share stays group-writable, as the NAS share needs                                                                                                                              |
+| Key-only SSH       | `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PubkeyAuthentication yes`, `PermitRootLogin no`                                                                                           |
+| sshd config apply  | Validated with `sshd -t`, then reloaded, which established connections survive. Skipped where `ssh.service` is not running yet: `ssh.socket` starts it on the first connection, which reads the new config |
+| No opt-out         | The role proves key-only SSH works from the controller with Ansible's own connection settings, and **fails the play** where it does not, naming the `ssh-copy-id` to run                                   |
+| SSH port           | Set in `sshd_config`, which `sshd-socket-generator` turns into `ssh.socket`'s `ListenStream` at `daemon-reload`                                                                                            |
+| Stray `Port` lines | Cleared: sshd listens on every `Port` it reads                                                                                                                                                             |
+| Host key pin       | Before the port moves, the host's keys are pinned on the controller under the name ssh looks them up by: the bare address on 22, `[host]:port` otherwise                                                   |
 
 ## Notes
 

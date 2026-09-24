@@ -39,9 +39,9 @@
   become: true
 
 # Reload, not restart: established connections survive, leaving a way back in. Gated on
-# ssh.service running, because state=reloaded starts a unit that is not, and under socket
-# activation it is inactive by design. Nothing is lost skipping it there: a socket-
-# activated sshd re-reads the config per connection.
+# ssh.service running, because state=reloaded starts a unit that is not. Under socket
+# activation it is inactive until the first connection starts it, which reads the config then,
+# so nothing is lost skipping it there.
 - name: Reload sshd
   ansible.builtin.systemd_service:
     name: ssh
