@@ -19,9 +19,19 @@
     remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
     terms_agreed: true
   loop: "{{ letsencrypt_nginx_websites }}"
+  loop_control:
+    index_var: letsencrypt_nginx_website_index
   register: letsencrypt_nginx_challenge
+  # One order per certificate: sites sharing a CSR would each place an order for the same
+  # name, and `solo: true` leaves only the last order's value in the shared TXT record.
   when:
     - not item.use_selfsigned_certificate | default(false)
+    - >-
+      item.csr_common_name | default(item.domain) not in
+      (letsencrypt_nginx_websites[:letsencrypt_nginx_website_index]
+      | selectattr('csr_common_name', 'defined') | map(attribute='csr_common_name') | list)
+      + (letsencrypt_nginx_websites[:letsencrypt_nginx_website_index]
+      | selectattr('csr_common_name', 'undefined') | map(attribute='domain') | list)
   become: true
   # Loop items hold Cloudflare API tokens; the challenge data holds the ACME account key.
   no_log: true
@@ -68,6 +78,9 @@
     state: directory
     mode: "0755"
   loop: "{{ letsencrypt_nginx_challenge.results }}"
+  # A skipped item is printed whole unless labelled, and it holds the Cloudflare API token.
+  loop_control:
+    label: "{{ item.item.domain }}"
   when:
     - item is not skipped
     - item.changed
@@ -87,6 +100,9 @@
       | default(item.item.domain)]['http-01']['resource_value'] }}
     mode: "0644"
   loop: "{{ letsencrypt_nginx_challenge.results }}"
+  # A skipped item is printed whole unless labelled, and it holds the Cloudflare API token.
+  loop_control:
+    label: "{{ item.item.domain }}"
   register: letsencrypt_nginx_challenge_http_resources
   when:
     - item is not skipped
