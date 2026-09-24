@@ -2,12 +2,20 @@
 # CLEANUP (added 2026-09-24): the host gamescope this role installed, from the archive on
 # Ubuntu >= 26.04 and built from source into /usr/local below that, subproject libraries and
 # headers included. The launchers run the Vulkan layer extension's gamescope instead. Delete
-# once every host in the games group has converged; the build dependencies stay installed.
+# once every host in the games group has converged.
+#
+# The build dependencies stay installed, some being shared with other roles: meson-1.5 (on
+# Ubuntu < 25.04), git, glslang-tools, hwdata, ninja-build, pkg-config, wayland-protocols,
+# xwayland, libstb-dev, libluajit-5.1-dev, and the -dev packages of avif, cap, decor,
+# display-info, drm, eis, glm, input, pipewire, pixman, sdl2, seat, udev, vulkan, wayland,
+# X11 and its extensions, xcb and its extensions, and xkbcommon.
 - name: Remove the archive gamescope
   ansible.builtin.apt:
     name: gamescope
     state: absent
   become: true
+  # The only releases this role installed it on: the archive has it from 26.04.
+  when: ansible_facts['distribution_version'] is version('26.04', '>=')
 
 - name: Remove the gamescope built into /usr/local
   ansible.builtin.file:

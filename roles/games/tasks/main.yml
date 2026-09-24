@@ -58,12 +58,14 @@
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
 
+# The tags of the launchers that use gamescope, so a run converging either removes it.
 - name: Remove the host gamescope
   ansible.builtin.import_tasks: gamescope.yml
+  tags: [bedrock, lutris]
 
 # Before bedrock.yml and lutris.yml, which put what this installs on their sandbox PATHs.
-# Tagged with both and not with gamescope: a flag turned off removes the directory, and
-# the overrides naming it converge under these tags only.
+# Tagged with both: a flag turned off removes the directory, and the overrides naming it
+# converge under these tags only.
 - name: Install the gamescope wrapper
   ansible.builtin.import_tasks: gamescope-wrapper.yml
   become: true
