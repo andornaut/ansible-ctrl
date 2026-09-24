@@ -1,21 +1,8 @@
-# faramir
+# ansible-role-faramir
 
-Installs the [faramir](https://github.com/andornaut/faramir) secret broker, so a coding agent works on a host
-without being able to read the credentials kept there. What it protects against, and its accounts, units, config
-model and store, are in faramir's own [README](https://github.com/andornaut/faramir#readme); this covers what is
-specific to this repo.
-
-Two kinds of install, from one role:
-
-|                                          | Controller                               | Every other faramir host              |
-| ---------------------------------------- | ---------------------------------------- | ------------------------------------- |
-| Inventory                                | in `faramir_controller` and in `faramir` | in `faramir`                          |
-| Blocked paths, linked secrets, redaction | yes                                      | yes                                   |
-| Checkout enrolled with `enrol`           | yes                                      | no, it runs no playbook               |
-| SSH key authorized on the fleet          | yes                                      | no, one is minted and reaches nothing |
-| Reached by a brokered playbook run       | no, `--limit '!faramir_controller'`      | yes, like any managed host            |
-
-The second is the install for a machine that only wants its own credentials kept out of an agent's reach.
+Installs the [faramir](https://github.com/andornaut/faramir) secret broker, so a coding agent on a host cannot read
+the credentials kept there. faramir's own [README](https://github.com/andornaut/faramir#readme) covers its threat
+model, accounts, units, config model and store; this covers what is specific to this repo.
 
 ## Usage
 
@@ -26,41 +13,84 @@ make faramir    # install the broker on each faramir host, then authorize the co
 An operator action. Log out and back in after the first install: it adds you to `faramir_client_group`, and group
 membership is read at login.
 
-- **`sudo make faramir` connects with the broker's key** rather than your `~/.ssh`, so it reaches only a fleet
-  that already accepts that key: not the first install, not a rotated key, and not a host added or rebuilt since
-  the last run. Run those unprivileged. What root buys is the sudo: the controller's own authenticates through
-  faramir's PAM helper, so an unprivileged run waits on an approval per `become` task.
-- **The broker cannot run this playbook at all.** `faramir run -- sudo make faramir` holds an escalation on the
-  executor's uid, and `init`'s validate step asks the broker what the agent holds, which is a second brokered
-  command and is refused while the first is waiting.
-- Preflight drops an unreachable host here as it does everywhere else, and a dropped host keeps whatever it
-  already authorized. Under a root run it also names the identity, a host that has yet to authorize the key
-  reading the same as one that is off. Re-run `make faramir` once it is back up, and after generating a new key
-  run it with every host reachable.
+One role, two kinds of install:
+
+|                                          | Controller                               | Every other faramir host                       |
+| ---------------------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| Inventory                                | in `faramir_controller` and in `faramir` | in `faramir`                                   |
+| Blocked paths, linked secrets, redaction | yes                                      | yes                                            |
+| Checkout enrolled with `enrol`           | yes                                      | no, it runs no playbook                        |
+| SSH key authorized on the fleet          | yes                                      | no, one is generated and no host authorizes it |
+| Reached by a brokered playbook run       | no, `--limit '!faramir_controller'`      | yes, like any managed host                     |
+
+The second kind is for a host that runs no playbook and only keeps its own credentials from an agent.
 
 `faramir.yml` applies the role's two entry points in order:
 
-| Play   | Entry point                       | Hosts     | Effect                                                                                                                                                                         |
-| ------ | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| first  | `tasks/broker.yml` (`tasks_from`) | `faramir` | Installs the broker on each of them                                                                                                                                            |
-| second | `tasks/ssh.yml` (`tasks_from`)    | `all`     | Authorizes the controller's key and NOPASSWD sudo, pins the fleet's host keys in `faramir_fleet_known_hosts_path`, then pings the hosts it still holds back through the broker |
+| Play   | Entry point                       | Hosts     | Effect                                                                                                     |
+| ------ | --------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| first  | `tasks/broker.yml` (`tasks_from`) | `faramir` | Installs the broker                                                                                        |
+| second | `tasks/ssh.yml` (`tasks_from`)    | `all`     | Authorizes the controller's key and NOPASSWD sudo, pins host keys, then pings the fleet through the broker |
 
-`faramir_controller_host` is derived from the `faramir_controller` group rather than named here, this repo being public, and
-`faramir_is_controller` is what gates the controller-only tasks. `broker.yml` refuses to run on a host outside the
-`faramir` group, and `ssh.yml` requires the `faramir_controller` group to hold exactly one host and that host to be one
-the broker is installed on. An install left out of `faramir` is not removed by leaving it out; `faramir init`
-lays down accounts and units that only an operator takes back off.
+| Constraint                     | Detail                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sudo make faramir`            | Connects with the broker's key, not `~/.ssh`, so it reaches only hosts that already authorize that key. Run the first install, a key rotation, and a new or rebuilt host unprivileged. Root avoids one approval per `become` task on the controller, whose sudo authenticates through faramir's PAM helper |
+| No brokered run                | `faramir run -- sudo make faramir` holds an escalation on the executor's uid, and `init`'s validate step is a second brokered command, which is refused while the first waits                                                                                                                              |
+| Unreachable hosts              | Preflight drops them, and each keeps whatever key it already authorized. Under a root run the probe uses the broker's key, so a host that has not authorized it is dropped the same way. Re-run once it is up, and run with every host reachable after generating a new key                                |
+| One controller                 | `faramir_controller_host` is derived from the `faramir_controller` group, which must hold exactly one host running the broker; `ssh.yml` asserts both. `faramir_is_controller` gates the controller-only tasks                                                                                             |
+| `broker.yml` scope             | Refuses a host outside the `faramir` group                                                                                                                                                                                                                                                                 |
+| Removing a host from `faramir` | Does not uninstall it. `faramir init` creates accounts and units that only an operator removes                                                                                                                                                                                                             |
+
+## Tags
+
+| Tag      | Description                              |
+| -------- | ---------------------------------------- |
+| `broker` | `tasks/broker.yml`: install the broker   |
+| `ssh`    | `tasks/ssh.yml`: authorize the fleet key |
+
+The tags apply only when the role is applied whole. `faramir.yml` imports each half with `tasks_from`, which carries
+neither tag.
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml). The service accounts and the broker's SSH key path are left to
-faramir's own defaults, so they are not knobs here.
+See [defaults/main.yml](./defaults/main.yml). The service accounts and the broker's SSH key path follow faramir's
+defaults and are not variables here.
+
+| Variable                             | Purpose                                                                                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `faramir_release_tag`                | Release to install. `dev` (default) is the rolling release; a version tag pins one. See [Installed files](#installed-files)                          |
+| `faramir_client_group`               | Group that gives the agent and the service accounts the working tree. Default `dev`                                                                  |
+| `faramir_agents`                     | Agents passed to `init` and `enrol`. See [Agents](#agents)                                                                                           |
+| `faramir_allow_sudo`                 | Lets a brokered command ask to sudo on the controller. Also drops the executor unit's seccomp filter and `ProtectSystem=strict`                      |
+| `faramir_sudo_timeout_sec`           | Seconds an escalation waits for an answer, 1 to 600. Default `600`                                                                                   |
+| `faramir_notify_command`             | Command announcing a waiting escalation, one element per argument. Only with `faramir_allow_sudo`                                                    |
+| `faramir_ptrace_scope`               | `kernel.yama.ptrace_scope`. Default `1`; `~` leaves the host's value                                                                                 |
+| `faramir_blocked_home_paths`         | Paths blocked under every home. See [Blocked paths and linked secrets](#blocked-paths-and-linked-secrets)                                            |
+| `faramir_shared_user_homes`          | Other accounts' homes, absolute. Set in `group_vars/faramir.yml`                                                                                     |
+| `faramir_blocked_commands`           | Commands blocked to the agent's shell and to brokered commands                                                                                       |
+| `faramir_links`                      | Credentials read where their own tool keeps them. Set in `host_vars`                                                                                 |
+| `faramir_fleet_known_hosts_path`     | Where the fleet's host keys are pinned. Default `/etc/ssh/ssh_known_hosts`                                                                           |
+| `faramir_fleet_authorized_keys_path` | Unset: `~/.ssh/authorized_keys`, or `/root/.ssh/authorized_keys2` on routers. Set in `host_vars` for another host that regenerates `authorized_keys` |
+
+## Installed files
+
+`faramir init` creates the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. The role adds:
+
+| Path or step                           | Purpose                                                                                                                                                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| sops                                   | From its release `.deb`, checked against GitHub's SHA-256 digest for the asset: sops' `checksums.txt` lists its binaries, not its `.deb`s. No age package: sops links the library and `init` generates the keypair   |
+| `/usr/local/bin/faramir`               | From the release named by `faramir_release_tag`, checked against that release's `checksums.txt`. The tag is named, not resolved: `dev` is published with `make_latest=false`, so `/releases/latest` never returns it |
+| Block and link entries                 | `tasks/entries.yml`. See [Blocked paths and linked secrets](#blocked-paths-and-linked-secrets)                                                                                                                       |
+| Enrolment (controller)                 | `faramir enrol` against `playbook_dir`                                                                                                                                                                               |
+| `AGENTS.md` block (controller)         | How to run these playbooks through the broker                                                                                                                                                                        |
+| Agent deny lists                       | Pruned by `files/prune-agent-rules.py`. See [Agents](#agents)                                                                                                                                                        |
+| `/etc/sysctl.d/60-faramir-ptrace.conf` | Pins `kernel.yama.ptrace_scope`, so one brokered command cannot ptrace another and read the values injected into it                                                                                                  |
+| `faramir doctor`                       | Run and asserted on. The controller also prints the public key the second play distributes                                                                                                                           |
 
 ## Running playbooks
 
 `homeautomation`, `msmtp` and `webservers` read a credential and re-enter under `sops exec-env`. The other targets
-run straight through. Once the broker is installed the store stops being readable by the operator, and `make`
-routes around that:
+run directly. Once the broker is installed the operator cannot read the store, and `make` handles that:
 
 | Run                          | What `make <playbook>` does                               |
 | ---------------------------- | --------------------------------------------------------- |
@@ -68,14 +98,20 @@ routes around that:
 | credential, store readable   | one `ansible-playbook`, under `sops exec-env`             |
 | credential, store unreadable | `sudo bin/playbook.py run <playbook>`, then the row above |
 
-Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which reaches every
-managed host. The one password prompt comes before anything applies.
+Root reads the store itself, and `ANSIBLE_PRIVATE_KEY_FILE` gives it the broker's key, which every managed host
+authorizes. The one password prompt comes before anything applies.
 
-Which home those paths resolve under is `FARAMIR_OPERATOR` where the broker sets it, `SUDO_USER` on a typed
-sudo, and the invoking account on an unprivileged run. Each covers what the others get wrong: `SUDO_USER` is the
-operator wherever a human typed the sudo, and the executor account on a brokered run, which is the one
-`FARAMIR_OPERATOR` answers. A root run of a credential-bearing playbook that cannot read the store at the resolved
-path refuses, naming that path: the store is missing there, or its home is not mounted.
+The paths resolve under this home:
+
+| Context                      | Home resolved from   |
+| ---------------------------- | -------------------- |
+| Brokered run (`faramir run`) | `FARAMIR_OPERATOR`   |
+| Typed `sudo`                 | `SUDO_USER`          |
+| Unprivileged run             | the invoking account |
+
+On a brokered run `SUDO_USER` is the executor account, so `FARAMIR_OPERATOR` takes precedence there. A root run of a
+credential-reading playbook that cannot read the store at the resolved path refuses and names the path: the store
+is missing there, or the home is not mounted.
 
 The agent's route takes no password:
 
@@ -83,248 +119,117 @@ The agent's route takes no password:
 faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'
 ```
 
-`faramir.env` holds refs and never values.
+`faramir.env` holds refs, never values.
 
-Where `faramir_allow_sudo` is set, the same route reaches the controller at the cost of one approval:
+Where `faramir_allow_sudo` is set, the controller is reachable with one approval:
 
 ```bash
 faramir run -- sudo make <playbook>
 ```
 
-One question covers the run, so no per-task prompt and no `--ask-become-pass`. Root reads the store itself, so
-this route needs no `--env-file`. What the sudo is given comes from the file the grant names rather than from the
-caller: `[command] env` survives it, and `FARAMIR_OPERATOR` names the operator on both sides.
-
-## Constraints
-
-- **The config directory is `~/.config/faramir`**, holding the age key, the broker's SSH key and the store, so an
-  encrypted home carries all three. `init` grants the client group traversal from the home down: execute without
-  read. `doctor` fails if `~/.ssh`, `~/.config/sops` or `~/.gnupg` becomes readable by the executor.
-- **An encrypted home has to be mounted, and the run stops if it is not.** `getent` answers with the home's path
-  whether or not anything is mounted there, so a run against a locked home would write all three of those onto the
-  mountpoint, in the clear on the underlying filesystem, and would read every credential store in that home as
-  absent. The check is ecryptfs-specific: it looks for `/home/.ecryptfs/<user>`, which sits outside the home and so
-  answers the same either way, and then requires the home among `ansible_facts["mounts"]`. A laptop up but not
-  logged in is the case this catches.
-- **Every credential lives in the store**, `~/.config/faramir/secrets/ansible-ctrl.sops.yml` on the controller.
-  One held anywhere else is neither injectable through `--env` nor known to the redactor, unless a
-  `faramir_links` entry reads it where its own tool keeps it.
-- **A host can carry no store at all.** `faramir init` creates the secrets directory, `.sops.yaml` and the age
-  key, and nothing else: the first managed file comes from `sudo faramir vault add NAME`. A host whose values all
-  come from links never needs one.
-- **The store must not sit under `group_vars/` or `host_vars/`**, where Ansible auto-loads every `.yml`: a sops
-  file is valid YAML, so each var binds to its `ENC[...]` ciphertext and hosts get the ciphertext as the password.
-  Nor in the checkout, this repo being public. `faramir init` refuses both.
-- **A brokered run reaches the fleet, not the controller**, hence `--limit '!faramir_controller'`: commands run as
-  `faramir-exec`, whose only sudo is the one `faramir_allow_sudo` grants, and that one asks a person per command,
-  so a play would raise a question per task. Apply the controller's own playbooks as the operator, or under the
-  single approval that [Running playbooks](#running-playbooks) buys.
-- **`faramir_allow_sudo` works under either `sudo`.** Ubuntu ships two implementations from 25.10 on, and the
-  install probes the `sudo` alternatives group and writes the arrangement that one reads. The grant sets
-  `noninteractive_auth`, which needs sudo 1.9.11 or sudo-rs 0.2.9; the install names the floor and writes nothing
-  on an older host.
-- **An escalation expires after `faramir_sudo_timeout_sec`** (default `600`, the ceiling), and while a question is
-  waiting every other brokered command on the host is refused. Only the literal answer the prompt names approves;
-  silence is a refusal.
-- **The fleet's host keys are pinned system-wide**, in `faramir_fleet_known_hosts_path`
-  (`/etc/ssh/ssh_known_hosts`), the executor having no `known_hosts` of its own. Each entry is keyed by the name
-  ssh looks it up under, `faramir_fleet_known_hosts_name`: the bare address on port 22, `[host]:port` otherwise. A
-  key that stops matching fails the play rather than being rewritten.
-- **The routers take the broker's key in `/root/.ssh/authorized_keys2`**, every other host in the ansible account's
-  `~/.ssh/authorized_keys`. pfSense regenerates `authorized_keys` from `config.xml` on boot and on every user save;
-  sshd reads both. `faramir_fleet_authorized_keys_path` in `host_vars` names the file for any other host that
-  regenerates its own. The routers log in as root, so they get no sudoers entry.
-
-## What the role adds
-
-`faramir init` establishes the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. On top
-of that, the role:
-
-- Installs sops from its own release `.deb`, checked against the SHA-256 digest GitHub records for the asset
-  (sops' `checksums.txt` lists its binaries, not its `.deb`s), the keeper execing it rather than linking it. No age package: sops
-  links the library, and `faramir init` mints the keypair
-- Downloads the binary from the release named by `faramir_release_tag` (default `dev`, the rolling release CI
-  re-cuts on every push to faramir's main), verified against `checksums.txt` from the same release. A version tag
-  pins it, provided that tag carries the CLI the [entry commands](#blocked-paths-and-linked-secrets) need. The tag
-  is named rather than resolved through the API: `dev` is published with `make_latest=false`, so
-  `/releases/latest` never returns it
-- On the controller only: runs `faramir enrol` against `playbook_dir`, writes the block covering how to run
-  these playbooks through the broker, and prints the public key the next play distributes
-- Converges the two block lists and `faramir_links`, the [config entries](#blocked-paths-and-linked-secrets)
-  that name a file rather than hold a value
-- Pins `kernel.yama.ptrace_scope` to `faramir_ptrace_scope` (default `1`) in
-  `/etc/sysctl.d/60-faramir-ptrace.conf`, so one brokered command cannot ptrace another and read the values
-  injected into it. `~` leaves the host's value alone
-- Runs `faramir doctor` and asserts on its report
-
-Enrol another tree with `cd <dir> && sudo faramir enrol`.
+One approval covers the run: no per-task prompt and no `--ask-become-pass`. Root reads the store itself, so this
+route needs no `--env-file`. The sudo environment comes from the file the grant names, not from the caller:
+`[command] env` passes through, and `FARAMIR_OPERATOR` names the operator on both sides.
 
 ## Blocked paths and linked secrets
 
-**faramir compiles in no credential rules.** What an install refuses by default is its own directories at their
-real paths: the config dir, the store, `/var/log/faramir`, `/usr/local/libexec/faramir`, and the service accounts'
-state dirs. Everything else on a host is covered because the lists here declare it, and nothing reports what is
-missing, so a gap is found by sweeping a host rather than by asking one. `tasks/entries.yml` converges the two.
+faramir compiles in no credential rules. By default an install blocks only its own directories at their real paths:
+the config directory, the store, `/var/log/faramir`, `/usr/local/libexec/faramir` and the service accounts' state
+directories. Everything else is covered only if these lists declare it, and nothing reports what is missing: find a
+gap by checking a host's files against the lists. `tasks/entries.yml` converges them.
 
-| List                         | Entry     | Reaches                                                                             | Checked against the host                                          |
-| ---------------------------- | --------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `faramir_blocked_home_paths` | `path`    | the agent's file tools and its shell                                                | no, and a rule for a path that is not there holds when it appears |
-| `faramir_blocked_commands`   | `command` | the agent's shell and a brokered command, a command being neither a file nor a path | no                                                                |
+| List                         | Entry     | Reaches                                 | Checked against the host                            |
+| ---------------------------- | --------- | --------------------------------------- | --------------------------------------------------- |
+| `faramir_blocked_home_paths` | `path`    | the agent's file tools and its shell    | no; a rule for an absent path holds once it appears |
+| `faramir_blocked_commands`   | `command` | the agent's shell and brokered commands | no                                                  |
 
-- **One list of shapes, declared under every home on the host.** An entry is relative to a home, and
-  `vars/main.yml` joins it to the operator's and to each in `faramir_shared_user_homes`, so a store named once is
-  refused under every home. The whole list is declared once per home, so one other account doubles the paths a
-  host carries, most of them absent. Every home, not every depth: a path is literal, so the same store nested
-  somewhere else is a separate entry, and nothing reports the ones that are missing.
-- **Another account's stores are declared on every faramir host, not just the one holding the account.** An
-  entry is enforced on the host where the command is typed rather than the host holding the file, which
-  faramir's [configuration doc](https://github.com/andornaut/faramir/blob/main/docs/configuration.md#where-an-entry-is-enforced)
-  covers. What makes that reach real on this fleet is `base`, which grants the account ansible connects as
-  NOPASSWD sudo on every managed host, so `ssh <host> sudo cat <path>` reaches a second account's files over a
-  sudo no local file mode answers for. A faramir host outside the `dev` group runs no agent and so evaluates
-  nothing, which leaves its copy inert rather than wrong: the entry is declared there so that a host moving
-  into `dev` is covered before anyone remembers its inventory. `faramir_shared_user_homes` is empty in the
-  defaults and set in
-  `group_vars/faramir.yml`, an account name being inventory data, and the role asserts it is a list of absolute
-  homes before anything is written: a bare string would otherwise be joined one character at a time.
-- **The finer shape wins where a home holds a store and a readable file beside it.** `.ssh/id_*` rather than
-  `.ssh/`, because the operator's `config` and `known_hosts` are files an agent opens; the same for each editor's
-  `User/globalStorage` against its settings and MCP config, and for an agent's token against its instruction
-  file. Nothing can except a file from a directory rule, so the cost falls on the other accounts, where a key
-  named off the prefix entirely is not covered. Name it here rather than blocking the directory under one home
-  and the files under another.
-
-- **The agent is refused a declared path named at all**, whatever it meant to do with it, so `ls`, `stat`, `chmod`
-  and a sentence quoting the path in an `echo` are refused alike, across its file tools and its shell. The guard
-  holds no list of verbs: a verb list leaves any tool not on it unrefused. The entry's strictness does not enter
-  into this. Declaring a file also refuses a shell pattern in its directory that could reach it: with `~/.npmrc`
-  declared, a glob over the home directory is refused and `ls ~/*.md` is not. Nothing expands the pattern; the
-  literal parts are compared against the declared name.
-- **The path entries and `faramir_links` are written `--strict`; `faramir_blocked_commands` is not.** The
-  flag reaches the brokered route alone, and there only what a command does to the file where it stands. Reading a
-  declared file and moving it with `mv` or `ln` are refused either way, a mover leaving the contents readable
-  under a name no rule was written for. What `--strict` adds is refusing `chmod`, `chown`, `rm`, `truncate` and a
-  redirect over the file, and refusing a command that uses the credential in place (`cryptsetup --key-file`,
-  `ssh -i`, `restic --password-file`), which is otherwise the point of the brokered route. The cost is that
-  nothing converges such a file through a brokered command: rotating a key or fixing a mode is the operator's at a
-  terminal. A command entry cannot carry the flag at all, faramir refusing the pair, a command entry already being
-  about what a command does.
-
-- **A path is the only form that names a file, and it is absolute.** One wildcard is allowed and only one: a
-  trailing `*` on the last component, after at least one literal character, which declares a name by the part of
-  it that is fixed. `ssfn*` and `id_*` are the shapes here that use it. Nothing else matches a suffix or a
-  wildcard higher up the path, so a store with no fixed location cannot be declared, and neither can a file an
-  agent opens inside a container, where the path is the mount point's and not the host's. A rule also resolves no
-  symlink: a tree reachable by two names wants an entry per name. What that leaves uncovered on this fleet is
-  listed in `defaults/main.yml` beside the paths.
-- **A command is literal words, not a pattern.** The space between them matches any run of whitespace and nothing
-  else is special. An alternation is spelled out as separate entries.
-- **A command entry matches where a command starts**: the beginning of a line, after a separator, or behind a
-  prefix that runs something else (`sudo`, `env`, a `VAR=value` assignment). So a bare word covers every use of a
-  tool and not the same word inside a flag or a path argument, and a spelled-out subcommand narrows it to that one
-  use.
-
-|                                                | a block entry                | `faramir_links`                                            |
+|                                                | A block entry                | A `faramir_links` entry                                    |
 | ---------------------------------------------- | ---------------------------- | ---------------------------------------------------------- |
-| Entry                                          | `[[secret.block]]`           | `[[secret.link]]`                                          |
+| Config entry                                   | `[[secret.block]]`           | `[[secret.link]]`                                          |
 | Names                                          | a path or a command          | a ref, a path, a type, and a key for the types that select |
 | Blocked to the agent's file tools              | yes, except a command        | yes                                                        |
 | Regrouped, so a brokered command is refused it | no, the mode is left alone   | yes                                                        |
 | In the redactor, tokenised wherever it appears | no, the file is never opened | yes                                                        |
 | Injectable by ref                              | no                           | yes                                                        |
 
-- **A block reaches the agent's file tools and its shell**, so a path entry refuses both `Read` and `cat`. A
-  command entry reaches a brokered command as well, which `block ls` reports for each one: refused to the agent's
-  shell and to a brokered command alike. What a brokered command may do to a declared path is the `--strict`
-  question above.
-- **Reserve a link for a file its owning tool rewrites in place.** A linked file that is there and will not read
-  leaves the broker refusing `run` and `redact` for every ref until it is fixed, and a tool that rewrites its own
-  file by rename takes the broker's read with it: `make faramir` grants it again, and between runs the agent has no
-  broker at all. Block the file instead where nothing asks for the value by name.
-- **A linked path keeps its shape, and the host holding the link declares it once.** A link renders the same rule
-  and three things besides, so on that host the block entry adds nothing and gives a refusal two removals, neither
-  of which lifts it alone. The shape is not what comes out: `vars/main.yml` subtracts the paths a host's own links
-  name, so `~/.npmrc` stays blocked on a `dev` host that has npm and no link, and is a link where there is one.
-  The link is the entry that stays, having the ref the value is asked for by.
-- **`faramir_links` is set in `host_vars`, not here.** `link add` refuses a new entry whose file is not there, so a
-  link in the committed defaults fails the run on a controller without that file. An absent blocked path is
-  written and warned about, so those stay in defaults.
-- **A shape is relative to a home and in its shortest form**, joined to each home and then matched as written; no
-  leading slash and no `~`, which nothing expands. A directory blocks everything under it, whether or not it is
-  one on the day the rule is written. The run prints what each entry warned about.
-- **Every blocked path is configured, whether or not the host has the file.** faramir writes the rule for an
-  absent path and it holds when the file appears, so a tool signed in after a converge is covered before the next
-  one runs. The run warns for each path that is not there, and a path spelled wrong warns the same way, so read
-  the warnings against the list rather than as noise. What earns an entry is not presence but producibility: a
-  host here has the tool that writes the file, or a role installs it. A store nothing on this fleet can produce is
-  left out, and adding the tool adds its path.
-- **Both commands are idempotent**, so the role names every entry on every run rather than diffing the install: an
-  entry already carried is re-applied, which is what puts back a grant a tool took away and a rule an agent's
-  settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards.
-- **They need a current faramir**, which `faramir_release_tag: dev` tracks: the `block` subcommand, a flag per form
-  with no default, `--json` on each, `--declared` on `block ls`, `--strict` on `block add` and `link add` under
-  that name rather than `--any-mention`, and no `--config-dir` on any of them but `init`.
-  An older tag fails with cobra's unknown-flag error, except for two that fail quietly: an add that leaves its
-  entry to the next `init`, and a build that still takes `--config-dir`, which without one falls through to
-  `/etc/faramir` and configures an install this host does not have.
-- **They run before the enrolment**, which is what renders the entries into this tree's agent files. Only the
-  account-wide rule files are an add's own to write, and pi's rules live in its per-tree extension alone.
-- **The block entries converge both ways.** A run adds what the two lists name and removes every declared entry
-  they do not, reading the host's own with `block ls --declared` and comparing per form, the form being part of
-  what identifies an entry. So the listing and `defaults/main.yml` agree once a run finishes, and an entry added
-  on a host by hand does not survive one. The run asserts that every `kind` it reads back is one of the two, a
-  third being one it would compare against no list and leave standing.
-- **A removal takes its rendered rules with it.** `block rm` re-renders the agent rule files as `block add` does,
-  and faramir keeps a record of what it last wrote into each one (`written-rules.json`, beside the config), so a
-  rule it rendered and no longer renders comes out while one nobody recorded is left as the operator's. A rule
-  written before that record existed is in the second class until a later run re-records it. The run names what it
-  removed.
-- **`faramir_links` is adds only.** A link grants the broker read and regroups the file, so dropping one changes
-  what the host can serve rather than bringing a list back into agreement. Take an entry out of `faramir_links`
-  and run the `rm` yourself. `link rm` takes no `--strict`, an entry coming out whichever strictness it carried.
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Declared under every home         | `vars/main.yml` joins each entry to the operator's home and to each of `faramir_shared_user_homes`, so each extra account doubles the entries, most of them absent. A path is literal: the same store at another depth needs its own entry                                                                                                                                                                                                                                |
+| Declared on every faramir host    | An entry is enforced on the host where the command is typed, not where the file is ([faramir docs](https://github.com/andornaut/faramir/blob/main/docs/configuration.md#where-an-entry-is-enforced)). `base` gives the ansible account NOPASSWD sudo on every managed host, so `ssh <host> sudo cat <path>` reaches another account's files. A faramir host outside `dev` runs no agent; the entry is declared there so a host added to `dev` is covered on its first run |
+| `faramir_shared_user_homes`       | Empty in defaults and set in `group_vars/faramir.yml`, since an account name is inventory data. Asserted to be a list of absolute homes with no trailing slash: a bare string would be joined one character at a time                                                                                                                                                                                                                                                     |
+| Shape: relative, shortest form    | No leading slash and no `~`, which nothing expands. A directory blocks everything under it, whether or not it exists when the rule is written. The run prints each entry's warnings                                                                                                                                                                                                                                                                                       |
+| Finer shape beside readable files | `.ssh/id_*`, not `.ssh/`, because the agent opens `config` and `known_hosts`. The same for each editor's `User/globalStorage` against its settings and MCP config, and for an agent's token against its instruction file. No exception can be made inside a directory rule, so under other accounts a key not matching `id_*` is not covered: add its path here                                                                                                           |
+| Any mention is refused            | The agent is refused a declared path whatever the command does with it: `ls`, `stat`, `chmod` and an `echo` quoting the path alike, in its file tools and its shell. There is no verb list. A shell pattern that could reach a declared file is refused too: with `~/.npmrc` declared, a glob over the home is refused and `ls ~/*.md` is not. The pattern is not expanded; its literal parts are compared with the declared name                                         |
+| `--strict`                        | Path entries and links are written `--strict`; commands cannot be, faramir refusing the pair. The flag applies only to brokered commands. Reading, `mv` and `ln` on a declared file are refused either way. `--strict` also refuses `chmod`, `chown`, `rm`, `truncate`, a redirect over the file, and using it in place (`cryptsetup --key-file`, `ssh -i`, `restic --password-file`). So rotating such a key or fixing its mode is done by the operator at a terminal    |
+| Path syntax                       | Absolute. One wildcard: a trailing `*` on the last component after at least one literal character (`ssfn*`, `id_*`). A store with no fixed location cannot be declared, nor a file an agent opens inside a container, where the path is the mount point's. Symlinks are not resolved: declare each name. `defaults/main.yml` lists what stays uncovered                                                                                                                   |
+| Command syntax                    | Literal words; a space matches any run of whitespace. Spell out each alternative as its own entry                                                                                                                                                                                                                                                                                                                                                                         |
+| Command matching                  | Matches where a command starts: line start, after a separator, or after a prefix that runs something else (`sudo`, `env`, `VAR=value`). A bare word covers every use of the tool but not the word inside a flag or path; a subcommand narrows it to that use. `block ls` reports each command entry as refused to the agent's shell and to brokered commands                                                                                                              |
+| Absent paths                      | Every blocked path is written whether or not the host has it, so a tool signed in after a run is covered. The run warns per absent path, and a misspelled path warns the same way: check the warnings against the list. An entry is added where a host has, or a role installs, the tool that writes the file                                                                                                                                                             |
+| Links: use sparingly              | A linked file that exists but cannot be read makes the broker refuse `run` and `redact` for every ref. A tool that rewrites its file by rename removes the broker's read grant until `make faramir` restores it. Prefer a block where nothing asks for the value by ref                                                                                                                                                                                                   |
+| Links replace blocks              | A link renders the same rule as a block plus three more, so `vars/main.yml` drops the block entry for a path this host links: `~/.npmrc` stays blocked on a `dev` host with no link, and is a link where there is one. The link is kept because it carries the ref                                                                                                                                                                                                        |
+| `faramir_links` in `host_vars`    | `link add` refuses an entry whose file is absent, so a link in defaults would fail on a host without the file. Blocked paths are written and warned about, so they stay in defaults                                                                                                                                                                                                                                                                                       |
+| Idempotent adds                   | Every entry is re-applied on every run, which restores a grant a tool removed and a rule an agent's settings dropped. `faramir init` re-asserts them all from `config.toml` afterwards                                                                                                                                                                                                                                                                                    |
+| Release floor                     | Needs `block`, `--json`, `block ls --declared`, and `--strict` on `block add` and `link add`, which `faramir_release_tag: dev` has. An older tag fails, in some cases without an error                                                                                                                                                                                                                                                                                    |
+| Order                             | Entries converge before `enrol`, which renders them into this tree's agent files. An add writes only the account-wide rule files; pi's rules are only in its per-tree extension                                                                                                                                                                                                                                                                                           |
+| Blocks converge both ways         | A run adds what the lists name and removes every declared entry they do not, read with `block ls --declared` and compared per form. A hand-added block does not survive a run. The run asserts every `kind` read back is `path` or `command`                                                                                                                                                                                                                              |
+| Removal cleans rendered rules     | `block rm` re-renders the agent rule files. faramir records what it last wrote into each (`written-rules.json`, beside the config): a rule in that record and no longer rendered is removed, and one not in the record is left as the operator's. The run names what it removed                                                                                                                                                                                           |
+| `faramir_links` is add-only       | Dropping a link changes what the host can serve, so remove it from `faramir_links` and run `link rm` by hand. `link rm` takes no `--strict`                                                                                                                                                                                                                                                                                                                               |
 
 ## Agents
 
-`faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure, and the
-same list goes to `init` and to `enrol`. Named rather than left to faramir's `auto`, which reaches an agent only
-after it has run here once unguarded.
+`faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure, and the same
+list goes to `init` and `enrol`. They are named explicitly because faramir's `auto` covers an agent only after it
+has run once unguarded.
 
-| Agent       | In this tree                                                                                 | In the operator's home                                                                                  | Redaction |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------- |
-| claude      | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                     | full      |
-| codex       | `PreToolUse` hook in `.codex/hooks.json`, which routes; credentials section in `AGENTS.md`   | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`       | full      |
-| opencode    | plugin in `.opencode/plugins/`, MCP server in `opencode.json`                                | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md`   | full      |
-| kilocode    | plugin in `.kilo/plugin/`, MCP server in `kilo.json`                                         | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md`           | full      |
-| pi          | extension in `.pi/extensions/`, which carries the deny rules                                 | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: the extension is where pi reads them | full      |
-| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md`   | a credentials section in `.gemini/GEMINI.md`, and no deny rules                                         | none      |
+| Agent       | In this tree                                                                                 | In the operator's home                                                                                | Redaction |
+| ----------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
+| claude      | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                   | full      |
+| codex       | `PreToolUse` hook in `.codex/hooks.json`, which routes; credentials section in `AGENTS.md`   | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`     | full      |
+| opencode    | plugin in `.opencode/plugins/`, MCP server in `opencode.json`                                | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md` | full      |
+| kilocode    | plugin in `.kilo/plugin/`, MCP server in `kilo.json`                                         | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md`         | full      |
+| pi          | extension in `.pi/extensions/`, which carries the deny rules                                 | a credentials section in `.pi/agent/AGENTS.md`, and no deny rules: pi reads them from the extension   | full      |
+| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md`   | a credentials section in `.gemini/GEMINI.md`, and no deny rules                                       | none      |
 
-- **Antigravity is partial support.** Its hooks decide and cannot rewrite a tool call, so nothing routes what it
-  runs through the broker and nothing redacts what comes back. It gets the MCP tools and the instructions to use
-  them, and every enrolment warns as much.
-- **Codex has no rule file, so its hook is the whole of what refuses it a path.** Its own `.rules` files are an
-  exec policy, which decides commands and names none, so the hook matches every tool rather than Bash alone.
-  It also runs no hook it has not been told to trust and says nothing when it skips one, so an enrolment does
-  nothing until Codex has been started once and the hook trusted; and it must run without its own sandbox.
-- **Cursor is installed here and faramir does not configure it**, so a credential a command of its prints
-  reaches the model.
-- Enrolling claude or codex gives up this project's Bash prompts: the hook rewrites each command into a
-  sourced wrapper, which no permission rule can approve, so the hook approves it, and that approval covers
-  every command the deny list does not name. The other four have no approval to return.
-- **The deny lists are pruned to what faramir renders**, after every install and enrolment, by
-  `files/prune-agent-rules.py`. faramir's own merge removes only a rule its record names, so one written
-  before that record existed accumulates: an entry for a path nothing declares any more, or in a spelling
-  that stopped working. The pass deletes every deny entry the record does not name, including one added by
-  hand, and copies each file it rewrites to a `.pruned-<stamp>.bak` beside it. Claude's are the only
-  array-shaped deny lists among the six, so they are the only ones it changes: opencode's and Kilo Code's are an
-  object keyed by pattern, which the record does not describe, pi keeps its rules in an extension rather than in
-  JSON, and codex and Antigravity have no rule file. Each of those is reported as skipped and left alone.
-- Nothing an enrolment writes into a tree is committed: this repo's `.gitignore` covers `.claude/*` and the
-  agents' instruction filenames, and the operator's global ignore covers the rest.
+| Constraint                   | Detail                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Antigravity is partial       | Its hooks can refuse a tool call but not rewrite it, so nothing routes its commands through the broker or redacts their output. It gets the MCP tools and instructions, and every enrolment warns about this                                                                                                                                            |
+| Codex relies on its hook     | It has no rule file; its `.rules` files are an exec policy that names no paths, so the hook matches every tool, not only Bash. Codex skips a hook it has not been told to trust without saying so: start Codex once and trust the hook before the enrolment has any effect. It must run without its own sandbox                                         |
+| Cursor                       | Installed here and not configured by faramir, so a credential one of its commands prints reaches the model                                                                                                                                                                                                                                              |
+| Bash prompts (claude, codex) | The hook rewrites each command into a sourced wrapper, which no permission rule can approve, so the hook approves it. That approval covers every command the deny list does not name. The other four have no approval to return                                                                                                                         |
+| Deny-list pruning            | After every install and enrolment, `files/prune-agent-rules.py` deletes every deny entry faramir's record does not name, hand-added ones included, and copies each rewritten file to `.pruned-<stamp>.bak`. Only Claude's deny lists are string arrays, so only they change; the others are reported as skipped. The script's docstring has the details |
+| Nothing is committed         | This repo's `.gitignore` covers `.claude/*` and the agents' instruction filenames; the operator's global ignore covers the rest                                                                                                                                                                                                                         |
+
+## Notes
+
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Config directory                  | `~/.config/faramir` holds the age key, the broker's SSH key and the store, so an encrypted home encrypts all three. `init` grants the client group execute without read from the home down. `doctor` fails if the executor can read `~/.ssh`, `~/.config/sops` or `~/.gnupg`                                                                                                                                                               |
+| Encrypted home must be mounted    | `getent` returns the home's path whether or not it is mounted, so a run against a locked home would write the keys and store onto the mountpoint in plaintext and read every credential store in the home as absent. The check looks for `<home's parent>/.ecryptfs/<user>`, which is outside the home and present either way, then requires the home among `ansible_facts["mounts"]`. Typical case: a laptop that is up but not logged in |
+| One store                         | Every credential lives in the store, `~/.config/faramir/secrets/ansible-ctrl.sops.yml` on the controller. One held elsewhere is neither injectable through `--env` nor redacted, unless a `faramir_links` entry reads it where its tool keeps it                                                                                                                                                                                           |
+| Storeless hosts                   | `init` creates the secrets directory, `.sops.yaml` and the age key only; the first managed file comes from `sudo faramir vault add NAME`. A host whose values all come from links needs no store                                                                                                                                                                                                                                           |
+| Store location                    | Not under `group_vars/` or `host_vars/`: Ansible loads every `.yml` there, and a sops file is valid YAML, so each variable binds to its `ENC[...]` ciphertext. Not in the checkout, which is public. `faramir init` refuses both                                                                                                                                                                                                           |
+| Brokered runs skip the controller | Brokered commands run as `faramir-exec`, whose only sudo is the one `faramir_allow_sudo` grants, and that asks a person per command, so a play would ask once per task. Apply the controller's playbooks as the operator or with the single approval in [Running playbooks](#running-playbooks)                                                                                                                                            |
+| Either `sudo`                     | Ubuntu ships two implementations from 25.10. `init` probes the `sudo` alternatives group and writes the configuration that implementation reads. The grant sets `noninteractive_auth`, which needs sudo 1.9.11 or sudo-rs 0.2.9; on an older host `init` names the floor and writes nothing                                                                                                                                                |
+| Escalation timeout                | An escalation expires after `faramir_sudo_timeout_sec`, and while one waits every other brokered command on the host is refused. Only the literal answer the prompt names approves; no answer is a refusal                                                                                                                                                                                                                                 |
+| Pinned host keys                  | The executor has no `known_hosts`, so the fleet's keys go in `faramir_fleet_known_hosts_path`, keyed by the name ssh looks up (`faramir_fleet_known_hosts_name`): the bare address on port 22, `[host]:port` otherwise. A key that stops matching fails the play; it is not rewritten                                                                                                                                                      |
+| Router keys                       | The routers get the broker's key in `/root/.ssh/authorized_keys2`, other hosts in the ansible account's `~/.ssh/authorized_keys`. pfSense regenerates `authorized_keys` from `config.xml` on boot and on every user save; sshd reads both. Routers log in as root, so they get no sudoers entry                                                                                                                                            |
+
+## Setup
+
+- Set `faramir_shared_user_homes` in `group_vars/faramir.yml` for any other account whose files must be blocked.
+- Set `faramir_links` in the host's `host_vars` for credentials another tool keeps in place.
+
+## Operations
+
+```bash
+cd <dir> && sudo faramir enrol # Enrol another tree
+sudo faramir reload            # Re-read a linked file whose group or mode the run corrected, outside any faramir run
+```
 
 ## Verification
 
-From the repository root: an ad-hoc `ansible` command has no playbook, so the vars plugin looks for
-`faramir.env` in the working directory, and run from anywhere else it fails naming the missing file.
+Run from the repository root: an ad-hoc `ansible` command has no playbook, so the vars plugin looks for `faramir.env`
+in the working directory and fails naming the file when run elsewhere.
 
 ```bash
 faramir run --env-file faramir.env -- \
@@ -332,11 +237,11 @@ faramir run --env-file faramir.env -- \
 # -> "msmtp_password": "«SECRET:msmtp_password»"
 ```
 
-| Output                     | Meaning                                             |
-| -------------------------- | --------------------------------------------------- |
-| `«SECRET:...»`             | the chain works end to end                          |
-| `VARIABLE IS NOT DEFINED!` | the ref was not injected                            |
-| `ENC[AES256_GCM,...]`      | the encrypted file sits where Ansible auto-loads it |
+| Output                     | Meaning                                      |
+| -------------------------- | -------------------------------------------- |
+| `«SECRET:...»`             | the chain works end to end                   |
+| `VARIABLE IS NOT DEFINED!` | the ref was not injected                     |
+| `ENC[AES256_GCM,...]`      | the encrypted file is where Ansible loads it |
 
 `sudo faramir doctor` adds the boundary checks, which ask each account what it can reach and need a uid other than
 your own.

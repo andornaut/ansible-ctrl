@@ -17,7 +17,10 @@ libffi.so.8.1.4 with no SONAME symlink. The game stops launching until the host 
 This runs on the host rather than inside the sandbox, which is the only place it works: each
 `flatpak run` is its own bubblewrap instance with its own PID namespace, so a Lutris prelaunch hook
 sees neither the previous launch's processes nor its own container's. The host sees every one of
-them, and they carry WINEPREFIX in their environment whatever namespace they run in.
+them, and they carry WINEPREFIX in their environment whatever namespace they run in. A process
+matches when its WINEPREFIX or STEAM_COMPAT_DATA_PATH, read from /proc/<pid>/environ, equals the
+prefix exactly, so a sibling prefix sharing a path prefix is left alone. Matches get SIGTERM, then
+SIGKILL five seconds later.
 
 Lutris is single-instance: a second `flatpak run` hands its `lutris:rungame` to the instance already
 on the bus. The instance that ran the session just torn down is shutting itself down at that moment
@@ -28,11 +31,16 @@ the wait ends at its deadline. The launcher that started the previous session is
 its Lutris, and is terminated before that Lutris is, so it does not report the teardown as a failure.
 
 A desktop entry has no other channel, and a launch can run for minutes with nothing on screen,
-so one notification is kept current through it: re-sent every few seconds for as long as
-something is being waited for, its body naming what that is. It reports a launch that did not
-happen with a longer banner. A clean exit gets nothing, Lutris showing its own errors in dialogs.
-Every one is transient, so none reaches the message list. The icon is the one the games role
-installs for the slug.
+so one notification is kept current through it: re-sent every three seconds for as long as
+something is being waited for, ten minutes at most, its body naming what that is (the lock, the
+previous session's teardown, the previous Lutris instance's exit, Lutris starting, the Wine session
+starting, a Proton update, the game's window). It reports a launch that did not happen with a
+twenty-second banner. A clean exit gets nothing, Lutris showing its own errors in dialogs. Every
+one is transient, so none reaches the message list: an entry left there stays until dismissed by
+hand, and a later run cannot replace it because the id is known only to the process that posted
+it. The banner is closed through the notification daemon's CloseNotification bus method;
+`notify-send` can post and replace a notification but not close one. The icon is the one the games
+role installs for the slug.
 
 The long silence is umu fetching a Proton build: Lutris names `PROTONPATH=GE-Proton`, so a new
 GE-Proton release is downloaded and unpacked on the first launch after it ships, and the
@@ -43,7 +51,8 @@ fetch-and-unpack span, so one that appears after the launch began and stays is t
 The wait ends when the game has a window, which is what the banner stands in for. gamescope
 gives the game a nested X server of its own, whose display the role's `gamescope-child` wrapper
 exports into the game's environment, so the host reads it out of `/proc` and asks that server
-what it is showing. The nested server is an Xwayland either way, so this works on an X11 host
+what it is showing, taking a mapped child at least 64 pixels on both sides. The nested server is
+an Xwayland either way, so this works on an X11 host
 and a Wayland one alike, unlike a query against the host display. The banner is closed the
 moment a window is up, not left to expire. Where the entry goes through a client (Battle.net),
 that window is the client's, and the launch is done with it: what the client does next is its
@@ -58,14 +67,15 @@ cannot be told apart, so that one ends at the prefix's wineserver instead.
 One launch at a time per prefix, held under a lock in the runtime directory from the click until
 the game has a window or the wait for one has ended: a second activation would otherwise tear
 down what the first has just started, the teardown having no way to tell a stale session from a
-sibling run's. A click while the lock is held waits for it, then reports the launch that never
-happened. Once the lock is released the session belongs to whoever clicks next: one with a
+sibling run's. A click while the lock is held is reported as already running at once when the
+holder's session has a window on screen; otherwise it waits up to thirty seconds, then reports
+the launch that never happened. Once the lock is released the session belongs to whoever clicks next: one with a
 window on screen is left alone as already running, and one without is torn down and relaunched.
 
 Every decision is logged to `$XDG_STATE_HOME/lutris-launch-game/<slug>.log` (default
 `~/.local/state`), since a desktop entry's stderr goes nowhere: the lock's state, every
 process found and signalled, every change of the banner, what the nested display shows, and
-how Lutris exited. Rotated by size.
+how Lutris exited. Rotated at 1 MiB.
 
 Exits with whatever Lutris returns, or 1 for a launch that was not attempted.
 """

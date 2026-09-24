@@ -1,7 +1,7 @@
 # ansible-role-homeautomation
 
-Provisions [Home Assistant](https://www.home-assistant.io/) and the related services listed under
-[Tags](#tags) as Docker containers.
+Installs [Home Assistant](https://www.home-assistant.io/) and the services listed under [Tags](#tags) as Docker
+containers.
 
 [![homeassistant](https://raw.githubusercontent.com/andornaut/homeassistant-ibm1970-theme/main/screenshots/dark-colors-small.png)](https://github.com/andornaut/homeassistant-ibm1970-theme/blob/main/screenshots/dark-colors.png)
 
@@ -19,7 +19,7 @@ A tag whose flag is off may still remove what an earlier run installed.
 
 | Tag                                                               | Description                                                                                                                                                                              |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | The app that brings adb back on an Android TV, installed on each set from its newest release                                                                                             |
+| [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | Installs the newest adb-auto-enable release on each Android TV. See [Android TV adb](docs/troubleshooting.md#android-tv-adb)                                                             |
 | [avahi](https://avahi.org/)                                       | mDNS discovery service                                                                                                                                                                   |
 | bluetooth                                                         | `bluez`, `dbus-broker` and the AppArmor policy a container needs to reach BLE. No flag; always applied                                                                                   |
 | customizations                                                    | HA custom components, themes, and www assets                                                                                                                                             |
@@ -32,45 +32,33 @@ A tag whose flag is off may still remove what an earlier run installed.
 | matter                                                            | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://memryx.com/)                                     | MemryX MX3 AI accelerator drivers                                                                                                                                                        |
 | [mosquitto](https://mosquitto.org/)                               | The MQTT broker's config and its restart. No flag; also applied by `homeassistant`, which defines the container                                                                          |
-| otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container itself is under `matter`                         |
-| router-kva-sample                                                 | The site router's kernel address space sampler and its hourly cron entry on this host, gated on `homeautomation_install_router_kva_sample`                                               |
+| otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container is under `matter`                                |
+| router-kva-sample                                                 | The [router kernel address space sampler](#router-kernel-address-space-sampler), gated on `homeautomation_install_router_kva_sample`                                                     |
 | teardown                                                          | Remove the containers and host files of components this host does not install                                                                                                            |
 | voice                                                             | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT                                                                     |
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml).
+See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per host:
 
-### Router kernel address space sampler
+| Variable                                                   | Purpose                                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `homeautomation_install_*`                                 | One flag per optional service                                                                          |
+| `homeautomation_*_uid`                                     | Fixed uid of each container's service account; asserted distinct in [vars/main.yml](./vars/main.yml)   |
+| `homeautomation_*_port`                                    | Published host port of a bridge container. The internal port is in [Container ports](#container-ports) |
+| `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)      |
+| `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                               |
+| `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                           |
+| `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                       |
+| `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                              |
+| `homeautomation_router_kva_sample_*`                       | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                        |
 
-`homeautomation_install_router_kva_sample` installs `/usr/local/bin/router-kva-sample` and an hourly cron entry
-that reads `vm.kvm_free` off a pfSense router over ssh and writes it to
-`homeautomation_router_kva_sample_entity_id`, borrowing a token from the `homeautomation_router_kva_sample_container`
-container so none is written to disk.
+## Installed files
 
-Here rather than in the [router](../router/README.md) role because it runs on this host, needs the ha-mcp
-container this role installs, and writes a Home Assistant entity. The router is only the data source.
-
-| Behaviour                                                                | Constraint                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The cron entry runs as `homeautomation_router_kva_sample_user`, not root | The key that reaches the router and the docker group that reads the token are that account's, and root's ssh configuration on this host is hand-maintained rather than provisioned here                                                                                                                                                                                                                                |
-| Worth sampling only where the kernel map is small                        | A pfSense router's kernel map only ever advances, so the figure falls over an uptime and no freed memory returns any of it. At zero every `pfctl -f` blocks in the kernel arena wait channel and firewall rule changes stop loading while the running ruleset keeps filtering, so the failure is silent and only a reboot clears it. That is a 32-bit concern; an amd64 router has a 2 TiB map and never approaches it |
-| An unchanged reading moves no Home Assistant timestamp                   | Posting an identical state and attributes returns 200 and updates neither `last_changed` nor `last_reported`, so a correctly running sampler looks stale in the UI whenever the figure holds steady                                                                                                                                                                                                                    |
-| Home Assistant owns the threshold                                        | What counts as alert-worthy changes in an automation rather than here                                                                                                                                                                                                                                                                                                                                                  |
-
-### Removing a component
-
-Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers and
-host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
-as the `ping_group_range` sysctl drop-in ESPHome needs.
-
-| Not removed               | Why                                                                                                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Volumes                   | They hold the only copy of a service's data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
-| Home Assistant, Mosquitto | No flag; always configured                                                                                                                                  |
-| Avahi                     | A host daemon the run stops, not a container                                                                                                                |
-| MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
-| adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
+| Path                                      | Purpose                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `/usr/local/bin/router-kva-sample`        | [Router kernel address space sampler](#router-kernel-address-space-sampler) |
+| `/etc/cron.d/ansible-role-homeautomation` | Its hourly cron entry                                                       |
 
 ## Networking
 
@@ -79,21 +67,17 @@ as the `ping_group_range` sysctl drop-in ESPHome needs.
 | host                                      | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery                                                                                                                                   |
 | `homeautomation_default` (`br-ha`) bridge | everything else                                             | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]` |
 
-Every container is reachable from the Docker host as `{container_name}.internal`, maintained by
-[docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge-networked container that name
-resolves to its bridge IP, so use the container's **internal** port, not always the published one: openwebui
-listens on 8080 and publishes host port 3000. Several publish no host port at all; of those, only llamacpp's
-task file carries a commented-out mapping to enable when host-port access is needed.
-
-Task ordering: [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then
-[teardown.yml](./tasks/teardown.yml) releases the names, ports and devices of removed components, then
-[docker_homeassistant.yml](./tasks/docker_homeassistant.yml) creates the bridge network, then
-[docker_llm.yml](./tasks/docker_llm.yml) (Frigate may depend on llama.cpp). The rest run in any order.
+| Constraint            | Detail                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.internal` names     | Every container resolves from the Docker host as `{container_name}.internal`, maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge container the name resolves to its bridge IP, so use the internal port: openwebui listens on 8080 and publishes host port 3000                                                                                              |
+| Unpublished ports     | Several containers publish no host port. Only llamacpp's task file carries a commented-out mapping to enable for host-port access                                                                                                                                                                                                                                                                       |
+| Home Assistant's view | Home Assistant uses host networking, so [tasks/docker_homeassistant.yml](./tasks/docker_homeassistant.yml) bind-mounts the host's `/etc/hosts` read-only. `docker_etc_hosts` overwrites the file in place, so a recreated container's new bridge IP is visible without a restart                                                                                                                        |
+| Task order            | [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then [teardown.yml](./tasks/teardown.yml) releases the names, ports and devices of removed components, then [docker_homeassistant.yml](./tasks/docker_homeassistant.yml) creates the bridge network, then [docker_llm.yml](./tasks/docker_llm.yml) (Frigate may depend on llama.cpp). The rest run in any order |
 
 ### Container ports
 
-Internal ports. The `homeautomation_*_port` variables in [defaults/main.yml](./defaults/main.yml) set the
-published host side of a bridge container's mapping, not the internal port listed here.
+Internal ports. The `homeautomation_*_port` variables set the published host side of a bridge container's
+mapping, not the internal port listed here.
 
 | Container          | Network | Port  | Protocol | Description                                  |
 | ------------------ | ------- | ----- | -------- | -------------------------------------------- |
@@ -115,56 +99,48 @@ published host side of a bridge container's mapping, not the internal port liste
 | piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback        |
 | whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback        |
 
-### Container hardening
+## Container hardening
 
-Per-service values are in [defaults/main.yml](./defaults/main.yml); the pattern is:
+Per-service values are in [defaults/main.yml](./defaults/main.yml).
 
-| Measure                                                                                                                      | Constraint                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A dedicated host account per container, from [tasks/service_account.yml](./tasks/service_account.yml), each with a fixed uid | A file on a bind mount then names the service that wrote it. The uids are in [defaults/main.yml](./defaults/main.yml) and `host_vars`, collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto follows the uid baked into its image instead                                                                                                                                                                                                                                                                                                                                       |
-| `cap_drop: ALL` for every container running as a non-root uid                                                                | Such a process cannot use a capability anyway: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `no-new-privileges` everywhere, root included                                                                                | It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Directories closed rather than files, wherever a service rewrites its own state with its own umask                           | Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Listeners bound to loopback where nothing off-host consumes them                                                             | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate serves a second copy of its UI with no login. Frigate's authenticated UI and OpenWebUI are reached through the proxy. OTBR's REST API and govee2mqtt's HTTP API stay on every interface, both images hard-coding the listen address. Frigate's and OpenWebUI's bind addresses are the `homeautomation_frigate_bind_*` and `homeautomation_openwebui_bind` variables: a Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"` |
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One host account per container    | Created by [tasks/service_account.yml](./tasks/service_account.yml) with a fixed uid, so a file on a bind mount names the service that wrote it. The uids are collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto uses the uid built into its image |
+| `cap_drop: ALL` for non-root uids | A non-root process cannot use a capability: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                           |
+| `no-new-privileges` everywhere    | Root included. It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                              |
+| Closed directories                | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                     |
+| Loopback listeners                | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                          |
+| Listeners on every interface      | OTBR's REST API and govee2mqtt's HTTP API: both images hard-code the listen address                                                                                                                                                                                                                          |
+| Frigate RTSP from the LAN         | A Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"`                                                                                                                                                                             |
 
-### llama.cpp models and context
+## llama.cpp models and context
 
-Router mode (`--models-dir /models`) spawns a child `llama-server` per model with no `--ctx-size`, so each
-defaults to 4096 tokens. Two places set what a child runs with:
+Router mode (`--models-dir /models`) starts a child `llama-server` per model with no `--ctx-size`, so each
+defaults to 4096 tokens. Two variables set what a child runs with:
 
-| Where                                   | Scope                       | Holds                                                                                                                                                                                                    |
-| --------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `homeautomation_llamacpp_env`           | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot rather than split across slots, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident |
-| `homeautomation_llamacpp_model_presets` | one model                   | any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name                      |
+| Variable                                | Scope                       | Holds                                                                                                                                                                               |
+| --------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `homeautomation_llamacpp_env`           | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident           |
+| `homeautomation_llamacpp_model_presets` | one model                   | Any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name |
 
-- `LLAMA_ARG_CTX_SIZE` must stay at or below the smallest `homeautomation_llamacpp_models` entry's native
-  training context, or quality degrades without YaRN. A model that cannot afford it in VRAM sets a lower `c`
-  in its own preset instead.
-- KV cache grows with context, and only the full-attention layers hold one: a hybrid model such as
-  Qwen3.8-27B, at 16 of 64 layers, needs far less of it per token than its parameter count suggests. Size a
-  model as weights + KV against the GPU, and quantize the cache (`cache-type-k`, `cache-type-v`, which need
-  `flash-attn = on`) before giving up context. Keep `cache-type-k` the higher precision of the two.
-- `LLAMA_ARG_MODELS_MAX: "1"` because one 27B quant plus its cache fills a 16GB GPU. Raising it lets two
-  children share the GPU and spill to system RAM; leaving it at 1 costs an unload and reload whenever a
-  request names a different model.
-- The preset parser rejects some options the command line accepts, `reasoning-effort` and `n-parallel` among
-  them (`reasoning` and `reasoning-budget` are taken). A rejected key fails the router at startup, naming the
-  option and the section, so the container does not come up.
+| Constraint             | Detail                                                                                                                                                                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context ceiling        | `LLAMA_ARG_CTX_SIZE` must not exceed the smallest `homeautomation_llamacpp_models` entry's native training context, or quality degrades without YaRN. A model that cannot fit it in VRAM sets a lower `c` in its own preset                                                        |
+| KV cache sizing        | Only full-attention layers hold KV cache: a hybrid model such as Qwen3.8-27B, at 16 of 64 layers, needs far less per token than its parameter count suggests. Size a model as weights + KV against the GPU                                                                         |
+| Cache quantization     | Quantize the cache (`cache-type-k`, `cache-type-v`, which need `flash-attn = on`) before reducing context. Keep `cache-type-k` the higher precision of the two                                                                                                                     |
+| `LLAMA_ARG_MODELS_MAX` | `1` because one 27B quant plus its cache fills a 16GB GPU. Raising it lets two children share the GPU and spill to system RAM; at 1 a request naming a different model costs an unload and reload                                                                                  |
+| Preset keys            | The preset parser rejects some options the command line accepts, `reasoning-effort` and `n-parallel` among them (`reasoning` and `reasoning-budget` are accepted). A rejected key fails the router at startup, naming the option and the section, and the container does not start |
 
-### Home Assistant conversation agent
+### Conversation agent
 
 Assist talks to llama.cpp through the built-in
 [llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later):
 Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trailing `/v1` required. Router mode
-advertises every `homeautomation_llamacpp_models` entry on `/v1/models`, so several agents can run different
-models. An agent sees only entities exposed to Assist, and does not fire
+lists every `homeautomation_llamacpp_models` entry on `/v1/models`, so several agents can run different models. An
+agent sees only entities exposed to Assist, and does not fire
 [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
 
-Home Assistant uses host networking, so [tasks/docker_homeassistant.yml](./tasks/docker_homeassistant.yml)
-bind-mounts the host's `/etc/hosts` into it read-only, and `docker_etc_hosts` overwrites the file in place
-rather than renaming into it, so a recreated container's new bridge IP is visible without a restart.
-
-### Matter and Thread
+## Matter and Thread
 
 | Constraint                                 | Detail                                                                                                                                                                                                                              |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -172,86 +148,70 @@ rather than renaming into it, so a recreated container's new bridge IP is visibl
 | The Matter server must use host networking | It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable |
 | Avahi cannot run alongside Matter/Thread   | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts                                                                                                                            |
 
-## Operations
+## ha-mcp
 
-### Android TV adb
+[ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the
+[Model Context Protocol](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro). Clients connect to
+`http://<name>.internal:8086/mcp`, the container's internal port on the bridge network. Setup is under
+[Setup](#setup).
 
-Home Assistant reaches an Android TV over adb on port 5555, which only exists while the set has wireless
-debugging on. [adb-auto-enable](https://github.com/mouldybread/adb-auto-enable) turns it on at boot and moves adbd
-off its random ephemeral port onto 5555.
+| Constraint                                                                           | Detail                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so keeping every instance on the bridge network publishes no MCP port anywhere |
+| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be distinct across every service in this role                                                               |
 
-Some sets defeat that by putting the app's `BootReceiver` into the package's `disabledComponents` after every boot,
-which takes it out of the `BOOT_COMPLETED` resolution set, so the app never starts. Nothing outside the app can
-undo it: `pm enable`, `pm default-state` and `pm enable --user 0` all answer `Shell cannot change component state`
-for an app that is not test-only, and `install -r` preserves the disabled state. An app may set its own components,
-so the build to run is one that repairs the receiver when its service starts. That is upstream as of
-[PR 17](https://github.com/mouldybread/adb-auto-enable/pull/17), released in v0.3.4, so every release from that one
-on carries it.
+## Router kernel address space sampler
 
-The `adb_auto_enable` tag installs the newest stable release's APK on every set in
-`homeautomation_adb_auto_enable_hosts` that does not already carry it, staging the download in a temporary
-directory that goes with the run. No pin: a set has no other route to a fix, and an unarmed one costs a pairing
-code read off its screen.
+`homeautomation_install_router_kva_sample` installs `/usr/local/bin/router-kva-sample` and an hourly cron entry
+that reads `vm.kvm_free` from a pfSense router over ssh and writes it to
+`homeautomation_router_kva_sample_entity_id`. It takes a token from the
+`homeautomation_router_kva_sample_container` container, so none is written to disk.
 
-The APK's versionName is the release tag without its leading `v`, and a set reports that back through `dumpsys`, so
-a set is compared against the release by name.
+It is in this role, not the [router](../router/README.md) role, because it runs on this host, needs the ha-mcp
+container this role installs, and writes a Home Assistant entity.
 
-A set is skipped unless adbd answers a command. The open port is not enough: a set in standby accepts a connection
-on 5555 and services nothing behind it, which is why every adb call is wrapped in `timeout` rather than given the
-task keyword of that name, a task that times out failing whatever `failed_when` says.
+| Constraint                                      | Detail                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runs as `homeautomation_router_kva_sample_user` | The key that reaches the router and the docker group that reads the token belong to that account. Root's ssh configuration on this host is hand-maintained, not provisioned here                                                                                                                                                                                      |
+| 32-bit routers only                             | A pfSense router's kernel map only advances: the figure falls over an uptime and freed memory returns none of it. At zero every `pfctl -f` blocks in the kernel arena wait channel and rule changes stop loading while the running ruleset keeps filtering. No error is reported, and only a reboot clears it. An amd64 router has a 2 TiB map and never reaches zero |
+| Unchanged readings                              | Posting an identical state and attributes returns 200 and updates neither `last_changed` nor `last_reported`, so a working sampler shows as stale in the UI while the figure is steady                                                                                                                                                                                |
+| Threshold                                       | Set in a Home Assistant automation, not here                                                                                                                                                                                                                                                                                                                          |
 
-`install -r` keeps the app's data, and with it the app's own adb key, only while the signing key matches what is
-installed, and it is refused across a signature change. A set carrying a build signed with another key, a locally
-built one among them, needs `adb uninstall` first, and that costs the app's own adb key and the pairing made to it.
+## Removing a component
 
-| A run finds                          | What it does                                                                           |
-| ------------------------------------ | -------------------------------------------------------------------------------------- |
-| The newest release already installed | Nothing. The versionName matches, so nothing is downloaded or installed                |
-| A newer release published            | Downloads it and installs over the old one, which keeps the pairing                    |
-| The app absent                       | Installs, grants, and starts it, ready for the pairing code it now needs               |
-| A set off, or in standby             | Skips it. The copy it carries arms itself at its next boot, and a later run reaches it |
-| A build signed with another key      | Fails, naming the uninstall that clears it                                             |
+Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers and
+host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
+as the `ping_group_range` sysctl drop-in ESPHome needs.
 
-The app needs its own pairing to move adbd to 5555, and nothing here can do that: the code is shown on the set's
-own screen. Read a fresh one at Settings, System, Developer options, Wireless debugging, Pair device with pairing
-code, then hand it to the app rather than to `adb pair`:
+| Not removed               | Why                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Volumes                   | They hold the only copy of a service's data. Delete by hand, noting that some hold credentials: ESPHome's `secrets.yaml` carries the wifi and OTA passwords |
+| Home Assistant, Mosquitto | No flag; always configured                                                                                                                                  |
+| Avahi                     | A host daemon the run stops, not a container                                                                                                                |
+| MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
+| adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
 
-```bash
-curl -X POST --data "port=<port>&code=<code>" http://<tv>:9093/api/pair
-curl http://<tv>:9093/api/status     # isPaired true, and currentPort once it has looked
-adb shell pm query-receivers --components -a android.intent.action.BOOT_COMPLETED | grep adbautoenable
-```
+## Notes
 
-| Gotcha                              | Detail                                                                                                                                                                                                                                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Boot is slow                        | `BOOT_COMPLETED` reaches the app about five minutes after a reboot on these sets, and adb about a minute after that                                                                                                                                                                             |
-| Wireless debugging does not persist | It is off after every boot, so the app starting is the only thing that brings adb back                                                                                                                                                                                                          |
-| An unarmed boot needs a person      | With the receiver pruned and the app not started, there is no adb to fix it through, and recovery is a pairing code read off the screen                                                                                                                                                         |
-| Reproducing the prune               | Only against a debuggable build, which a release is not: `adb shell run-as com.tpn.adbautoenable pm disable com.tpn.adbautoenable/.BootReceiver` puts it back into the pruned state on demand. `pm disable-user` and `pm disable-until-used` do not apply to a component from the app's own uid |
+| Constraint           | Detail                                                                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configuration.yaml` | Hand-maintained per host, except the `frontend:` key: `!include frontend.yaml`, written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2)                                 |
+| Frontend modules     | A module in `www/` loads only if `homeautomation_homeassistant_extra_module_urls` names it. Without the entry, every card that depends on it renders as absent and no error is reported |
+| Config ownership     | Everything under `config/` is root-owned, so edit through the container: `docker exec homeassistant <cmd>` runs as root with the config at `/config`                                    |
+| `.storage/`          | Home Assistant caches these files and rewrites them on shutdown. Stop it before editing one and start it after, or the edit is overwritten                                              |
+| Dashboards           | `.storage/lovelace*`, cached the same way. Prefer [ha-mcp](#ha-mcp)'s `ha_config_set_dashboard`, which writes one without stopping anything and takes effect immediately                |
 
-### Home Assistant
+## Setup
 
-```bash
-docker exec homeassistant hass --config /config --script check_config
-docker exec homeassistant hass --config /config --script check_config --secrets
-```
+### ha-mcp
 
-`configuration.yaml` is hand-maintained per host, except for the `frontend:` key: `!include frontend.yaml`,
-written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2). A module in `www/` loads only if
-`homeautomation_homeassistant_extra_module_urls` names it, and a host carrying the file without the entry renders
-every card that depends on it as absent, reporting no error.
-
-Everything under `config/` is root-owned, so an edit goes through the container: `docker exec homeassistant <cmd>`
-runs as root with the config at `/config`. Home Assistant caches what it keeps in `.storage/` and rewrites those
-files on shutdown, so stop it before editing one and start it after, or the edit is overwritten.
-
-Dashboards are `.storage/lovelace*`, and so are cached the same way. Where an [ha-mcp](#ha-mcp)
-instance drives the host, `ha_config_set_dashboard` writes one without stopping anything and takes effect
-immediately; that is the route to prefer. Editing the file by hand means stopping Home Assistant first.
+1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
+1. Set `homeautomation_install_hamcp: true` and add an entry to `homeautomation_hamcp_instances` in host vars
+1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs <name>`
 
 ### Nginx
 
-Configure reverse proxies via the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables:
+Configure reverse proxies with the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables:
 
 ```yaml
 letsencrypt_nginx_websites:
@@ -273,26 +233,24 @@ letsencrypt_nginx_websites:
       - /api/websocket
 ```
 
-### ha-mcp
+### Android TV adb
 
-[ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the
-[Model Context Protocol](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro).
+Each TV needs a one-time pairing read off its screen. See
+[Android TV adb](docs/troubleshooting.md#android-tv-adb).
 
-1. Generate a long-lived access token in Home Assistant: Profile > Security > Long-lived access tokens > Create token
-1. Set `homeautomation_install_hamcp: true` and add an entry to `homeautomation_hamcp_instances` in host vars
-1. Run `make homeautomation -- --tags hamcp`, and verify with `docker logs <name>`
+## Operations
 
-Clients connect to `http://<name>.internal:8086/mcp`, the container's internal port on the bridge network.
+### Home Assistant
 
-| Rule                                                                                 | Why                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so keeping every instance on the bridge network publishes no MCP port anywhere |
-| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be distinct across every service in this role                                                               |
+```bash
+docker exec homeassistant hass --config /config --script check_config
+docker exec homeassistant hass --config /config --script check_config --secrets
+```
 
 ## Documentation
 
-| Document                                           | Contents                                                                                                              |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                                                                       |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Avahi and Google Cast, EnvisaLink credentials, Frigate, MemryX, Coral.ai, Reolink, entity cleanup, dependency pinning |
-| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                                                                       |
+| Document                                           | Contents                                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                                                                                       |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Android TV adb, Avahi and Google Cast, EnvisaLink credentials, Frigate, MemryX, Coral.ai, Reolink, entity cleanup, dependency pinning |
+| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                                                                                       |

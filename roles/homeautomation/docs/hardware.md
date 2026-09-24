@@ -28,7 +28,7 @@ above with:
 1. Plug the ethernet adapter into the phone
 1. Wait approximately 4 seconds, then tap "I'm ready"
 
-The timing is load-bearing: the pairing flow runs a WiFi connectivity check before the "I'm ready" prompt and
+Order matters: the pairing flow runs a WiFi connectivity check before the "I'm ready" prompt and
 starts mDNS discovery after it. Plug the adapter in before tapping "I'm ready", so the check passes over WiFi
 while discovery runs on the ethernet LAN.
 
