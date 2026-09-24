@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Runs a playbook under --check --diff against tests/check/inventory.yml: one host, the
-# machine running this, over the local connection, carrying role defaults and nothing more.
-# It catches a task that breaks under check mode and a default that fails its own role's
-# assert, before either reaches a real host.
+# Applies a playbook to tests/check/inventory.yml's one host, the machine running this, then
+# runs it again under --check --diff. The first run is what a fresh host gets from role
+# defaults; the second catches a task that breaks under check mode on a converged host.
 #
 # Usage: tests/check.sh <playbook> [ansible-playbook arguments...]
 #
-# CI only. A task marked check_mode: false still executes under --check, and with become
-# those run as root on the machine running this. Every such task in the covered roles
-# reads, or writes inside a directory ansible.builtin.tempfile made, but that is a property
-# of the roles today rather than something this script enforces.
+# CI only: it configures the machine it runs on, as root.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -23,10 +19,15 @@ shift
 
 # secrets_required=false: the stub host holds no credential and nothing is injected, so the
 # pre_tasks assert in the playbooks that read one would stop the run before any role.
-exec ansible-playbook \
-    --inventory tests/check/inventory.yml \
-    --check \
-    --diff \
-    --extra-vars secrets_required=false \
-    "${playbook}.yml" \
-    "$@"
+run() {
+    ansible-playbook \
+        --inventory tests/check/inventory.yml \
+        --extra-vars secrets_required=false \
+        "${playbook}.yml" \
+        "$@"
+}
+
+echo "::group::Apply ${playbook}.yml"
+run "$@"
+echo "::endgroup::"
+run --check --diff "$@"

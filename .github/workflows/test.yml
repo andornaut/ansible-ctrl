@@ -109,9 +109,9 @@ jobs:
     # Named rather than ubuntu-latest: the runner is the host under test, so its release is
     # the one the roles are checked against, and it moves only with a commit here.
     runs-on: ubuntu-24.04
-    # A full desktop run downloads what its check_mode: false tasks fetch into temporary
-    # directories and resolves every apt package, so it takes longer than lint.
-    timeout-minutes: 45
+    # Each entry applies its playbook for real, source builds and flatpaks included, before
+    # the check-mode pass.
+    timeout-minutes: 90
     strategy:
       # Every playbook reports, not just the first to fail.
       fail-fast: false
@@ -197,8 +197,7 @@ jobs:
       - name: Declare the GitHub token as the only credential
         run: echo github_token >faramir.env
 
-      # What a real host would already have from another playbook or a mount. The runner is
-      # discarded after the job, so this is the one step that changes it for real.
+      # What a real host would already have from another playbook or a mount.
       - name: Prepare the runner
         if: matrix.prepare
         env:
@@ -206,8 +205,8 @@ jobs:
         run: bash -euo pipefail -c "${PREPARE}"
 
       # The playbook runs as the runner account over the local connection, and become uses
-      # the runner's passwordless sudo.
-      - name: Run the playbook in check mode
+      # the runner's passwordless sudo. Applied, then run again under --check --diff.
+      - name: Apply the playbook, then check it
         env:
           PLAYBOOK: ${{ matrix.playbook }}
           ARGS: ${{ matrix.args }}
