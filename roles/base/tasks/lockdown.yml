@@ -6,6 +6,12 @@
     base_lockdown_over_ssh: "{{ ansible_connection | default('ssh') != 'local' }}"
     base_lockdown_ssh_target: "{{ ansible_host | default(inventory_hostname) }}"
     base_lockdown_ssh_user: "{{ ansible_user | default(primary_user) }}"
+    # The root route names the broker's key through ANSIBLE_PRIVATE_KEY_FILE, which reaches
+    # ansible's own connection but never ansible_ssh_private_key_file.
+    base_lockdown_ssh_identity: >-
+      {{ ansible_ssh_private_key_file
+         | default(lookup('ansible.builtin.config', 'DEFAULT_PRIVATE_KEY_FILE'), true)
+         | default('', true) }}
     # ssh files a host key under the bare name on 22 and under [name]:port otherwise.
     base_lockdown_known_hosts_name: >-
       {{ ('[' ~ (ansible_host | default(inventory_hostname)) ~ ']:' ~ (base_lockdown_ssh_port | int))
@@ -231,8 +237,7 @@
                      '-o', 'PreferredAuthentications=publickey',
                      '-o', 'ConnectTimeout=10',
                      '-p', base_lockdown_ssh_port | string]
-                    + (['-i', ansible_ssh_private_key_file]
-                       if ansible_ssh_private_key_file is defined else [])
+                    + (['-i', base_lockdown_ssh_identity] if base_lockdown_ssh_identity else [])
                     + (ansible_ssh_common_args | default('') | trim | split)
                     + ['-l', base_lockdown_ssh_user, base_lockdown_ssh_target, 'true']
                   }}
@@ -302,8 +307,7 @@
                 + (['-p', base_lockdown_ssh_port | string]
                    if base_lockdown_port_proof is defined and base_lockdown_port_proof is not skipped
                    else (['-p', ansible_port | string] if ansible_port is defined else []))
-                + (['-i', ansible_ssh_private_key_file]
-                   if ansible_ssh_private_key_file is defined else [])
+                + (['-i', base_lockdown_ssh_identity] if base_lockdown_ssh_identity else [])
                 + (ansible_ssh_common_args | default('') | trim | split)
                 + ['-l', base_lockdown_ssh_user, base_lockdown_ssh_target, 'true']
               }}

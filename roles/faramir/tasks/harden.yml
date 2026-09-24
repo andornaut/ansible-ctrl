@@ -162,7 +162,10 @@
       route needs no `--env-file`.
 
       `faramir refs` shows the available names.
+  # As the operator, whose tree this is: blockinfile follows a symlink, so as root one planted
+  # at this path would have root write, and chown to the operator, whatever it points at.
   become: true
+  become_user: "{{ faramir_user }}"
 
 # Yama, so that one brokered command cannot ptrace another and read the values injected into
 # it. Before the doctor check below, which reports on what this leaves.

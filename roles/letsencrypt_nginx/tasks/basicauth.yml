@@ -87,3 +87,52 @@
   when: item.path | basename | splitext | first not in letsencrypt_nginx_valid_htpasswd_files
   with_items: "{{ letsencrypt_nginx_existing_htpasswd_files.files }}"
   become: true
+
+# The htpasswd module only adds and updates, so a user dropped from the vars would otherwise
+# keep authenticating.
+- name: Read the users in each .htpasswd file
+  ansible.builtin.command:
+    argv: [cut, "-d:", -f1, "{{ item.path }}"]
+  loop: "{{ letsencrypt_nginx_existing_htpasswd_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: letsencrypt_nginx_htpasswd_users
+  changed_when: false
+  check_mode: false
+  when: item.path | basename | splitext | first in letsencrypt_nginx_valid_htpasswd_files
+  become: true
+
+- name: Remove .htpasswd users no longer configured
+  community.general.htpasswd:
+    path: "{{ item.0.item.path }}"
+    name: "{{ item.1 }}"
+    state: absent
+    mode: "0400"
+    owner: "{{ letsencrypt_nginx_docker_worker_uid }}"
+    group: root
+  loop: >-
+    {{ letsencrypt_nginx_htpasswd_users.results
+       | selectattr('stdout_lines', 'defined')
+       | subelements('stdout_lines') }}
+  loop_control:
+    label: "{{ item.0.item.path | basename }} {{ item.1 }}"
+  when: item.1 not in letsencrypt_nginx_htpasswd_wanted
+  vars:
+    letsencrypt_nginx_htpasswd_basename: "{{ item.0.item.path | basename | splitext | first }}"
+    letsencrypt_nginx_htpasswd_wanted: >-
+      {{ ((letsencrypt_nginx_websites
+           | selectattr('domain', 'equalto', letsencrypt_nginx_htpasswd_basename)
+           | map(attribute='credentials', default=[])
+           | flatten)
+          + (letsencrypt_nginx_websites
+           | selectattr('aliases', 'defined')
+           | map(attribute='aliases')
+           | flatten
+           | selectattr('file_basename', 'defined')
+           | selectattr('file_basename', 'equalto', letsencrypt_nginx_htpasswd_basename)
+           | map(attribute='credentials', default=[])
+           | flatten))
+         | selectattr('username', 'defined')
+         | map(attribute='username')
+         | list }}
+  become: true

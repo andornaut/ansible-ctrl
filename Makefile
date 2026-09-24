@@ -46,8 +46,8 @@ AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@echo "Available targets:"
-	@echo "  bootstrap             - Apply base, docker, then every playbook with a group"
-	@echo "                          holding the host: make bootstrap -- --limit <host>"
+	@echo "  bootstrap             - Apply base, docker, msmtp, dev, then every playbook whose group"
+	@echo "                          holds the host: make bootstrap -- --limit <host>"
 	@echo "  clean                 - Remove downloaded collections and lint tooling"
 	@echo "  help                  - Show this help message"
 	@echo "  lint                  - Run every check CI gates on"

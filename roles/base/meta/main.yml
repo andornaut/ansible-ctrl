@@ -4,5 +4,5 @@ galaxy_info:
   author: andornaut
   description: Base packages and configurations for Ubuntu
   license: MIT
-  min_ansible_version: "2.18"
+  min_ansible_version: "2.19"
   galaxy_tags: []

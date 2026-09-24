@@ -21,9 +21,9 @@
 - name: Configure the MemryX repository
   become: true
   block:
-    # CLEANUP (added 2026-09-22): drop this once every Frigate host with a MemryX
-    # accelerator has converged. The key was trusted for every repository, and the
-    # unsigned line would conflict with the signed-by one.
+    # CLEANUP (added 2026-09-22): drop this and the key removal below once every Frigate
+    # host with a MemryX accelerator has converged. The key was trusted for every
+    # repository, and the unsigned line would conflict with the signed-by one.
     - name: Remove the MemryX repository line without signed-by
       ansible.builtin.apt_repository:
         repo: "deb https://developer.memryx.com/deb stable main"

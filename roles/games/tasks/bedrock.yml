@@ -79,6 +79,7 @@
     cmd: flatpak list --user --app --columns=application,version
   register: games_bedrock_flatpaks
   changed_when: false
+  check_mode: false
 
 - name: Install the latest BedrockOnLinux from the release bundle
   when: games_bedrock_installed not in games_bedrock_flatpaks.stdout_lines

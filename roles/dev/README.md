@@ -53,22 +53,23 @@ See [defaults/main.yml](./defaults/main.yml).
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `/etc/cron.d/ansible-role-dev`                               | The ai-attributions and ai-maintainer entries, each present only where its flag is. Removed where neither is |
 | `/etc/apparmor.d/usr.local.bin.cursor`                       | Grants the Cursor AppImage unprivileged user namespaces                                                      |
+| `/usr/local/bin/cursor`                                      | The Cursor AppImage                                                                                          |
 | `/etc/modprobe.d/ansible-role-dev-blacklist-kvm.conf`        | KVM blacklist, present only where `dev_install_virtualbox` is set                                            |
 | `~/.local/bin/ai-attributions`, `~/.local/bin/ai-maintainer` | The cron jobs' binaries                                                                                      |
 
 ## ai-attributions
 
-| Constraint        | Detail                                                                                                                                                                     |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Release source    | The newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. The redirect skips the rolling `dev` release            |
-| Release URL       | `dev_ai_attributions_release_url` is a role var in [vars/main.yml](./vars/main.yml), not a host setting                                                                    |
-| Output            | The cron entry runs `apply --push --quiet`: nothing when every repository is clean, otherwise the rewrite it published for each one that was not                           |
-| One run spans all | No `--base` is passed, so each ref is re-emitted from its earliest finding onward. Re-emitted signed commits lose their signature                                          |
-| Backups           | `refs/ai-attributions-backup/<timestamp>/` holds the pre-rewrite refs of the last four runs                                                                                |
-| Dirty checkouts   | A checkout with uncommitted tracked changes is reported and skipped; the rest still run                                                                                    |
-| Atomic push       | One push per repository. A tag ruleset with `non_fast_forward` and no bypass actor, or a rolling tag the remote has moved, rejects the branch too, and nothing is reported |
-| Forks             | Skipped by the tool                                                                                                                                                        |
-| `git-filter-repo` | Required. Installed by the `apt` tag, not this one                                                                                                                         |
+| Constraint        | Detail                                                                                                                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release source    | The newest version tag, through GitHub's latest-release redirect, verified against that release's `checksums.txt`. The redirect skips the rolling `dev` release                                                       |
+| Release URL       | `dev_ai_attributions_release_url` is a role var in [vars/main.yml](./vars/main.yml), not a host setting                                                                                                               |
+| Output            | The cron entry runs `apply --push` with `dev_ai_attributions_apply_flags` (`--quiet --agents-files --emdashes`): nothing when every repository is clean, otherwise the rewrite it published for each one that was not |
+| One run spans all | No `--base` is passed, so each ref is re-emitted from its earliest finding onward. Re-emitted signed commits lose their signature                                                                                     |
+| Backups           | `refs/ai-attributions-backup/<timestamp>/` holds the pre-rewrite refs of the last four runs                                                                                                                           |
+| Dirty checkouts   | A checkout with uncommitted tracked changes is reported and skipped; the rest still run                                                                                                                               |
+| Atomic push       | One push per repository. A tag ruleset with `non_fast_forward` and no bypass actor, or a rolling tag the remote has moved, rejects the branch too, and nothing is reported                                            |
+| Forks             | Skipped by the tool                                                                                                                                                                                                   |
+| `git-filter-repo` | Required. Installed by the `apt` tag, not this one                                                                                                                                                                    |
 
 ## Notes
 

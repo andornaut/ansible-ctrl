@@ -40,6 +40,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `/usr/local/bin/betaflight-configurator`                              | betaflight launcher on PATH                                                                                             |
 | `/opt/freerouting/<version>`                                          | freerouting release; `/opt/freerouting/current` links to it                                                             |
 | `/usr/local/bin/freerouting`                                          | Wrapper that passes `-da` to disable analytics                                                                          |
+| `/etc/apt/sources.list.d/`                                            | The `kicad/kicad-<version>-releases` and `freecad-maintainers/freecad-stable` PPAs                                      |
 | `/opt/kikit`                                                          | [KiKit](https://github.com/yaqwsx/KiKit) venv for panelization                                                          |
 | `~/.local/share/kicad/<version>/scripting/plugins/kicad-jlcpcb-tools` | [kicad-jlcpcb-tools](https://github.com/Bouni/kicad-jlcpcb-tools) plugin for LCSC part lookup, in `hobbies_user`'s home |
 

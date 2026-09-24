@@ -26,7 +26,7 @@
     - name: Get latest niri release
       ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
-        release_repo: YaLTeR/niri
+        release_repo: niri-wm/niri
         release_fact: niri_release
 
     - name: Set niri version fact
@@ -35,7 +35,7 @@
 
     - name: Download and unarchive niri
       ansible.builtin.unarchive:
-        src: https://github.com/YaLTeR/niri/archive/refs/tags/{{ niri_version }}.tar.gz
+        src: https://github.com/niri-wm/niri/archive/refs/tags/{{ niri_version }}.tar.gz
         dest: "{{ niri_tmp.path }}"
         remote_src: true
         extra_opts:

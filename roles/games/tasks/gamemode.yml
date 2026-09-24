@@ -20,6 +20,14 @@
     system: true
   become: true
 
+# The user module would create a misspelt name as a new account rather than fail on it.
+- name: Require the GameMode accounts to exist
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  loop: "{{ games_gamemode_users }}"
+  become: false
+
 - name: Add the GameMode accounts to the gamemode group
   ansible.builtin.user:
     name: "{{ item }}"

@@ -14,7 +14,7 @@ Provision Ubuntu workstations and servers with [Ansible](https://www.redhat.com/
 
 ## Requirements
 
-Ubuntu >= 24.04 and Ansible >= 2.18 from the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
+Ubuntu >= 24.04 and Ansible >= 2.19 from the [Ansible PPA](https://launchpad.net/~ansible/+archive/ubuntu/ansible):
 
 ```bash
 sudo add-apt-repository --yes --update ppa:ansible/ansible

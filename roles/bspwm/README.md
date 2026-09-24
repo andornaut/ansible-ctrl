@@ -21,7 +21,8 @@ make desktop -- --tags bspwm
 
 ## Variables
 
-See [defaults/main.yml](./defaults/main.yml).
+See [defaults/main.yml](./defaults/main.yml). Each `bspwm_projects` entry takes an optional `version`
+(a tag, branch or commit), defaulting to `HEAD`.
 
 ## Installed files
 

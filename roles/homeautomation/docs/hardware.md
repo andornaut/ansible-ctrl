@@ -111,7 +111,9 @@ Setup:
 1. Flash the [MQTT firmware](https://github.com/ratgdo/mqtt-ratgdo) using the
    [web installer](https://paulwieland.github.io/ratgdo/flash.html), or the
    [ESPHome firmware](https://ratgdo.github.io/esphome-ratgdo/)
-1. Set the MQTT IP and port (1883) in the admin web interface. Use an IP, not a hostname
+1. Set the MQTT IP and port (1883) in the admin web interface. Use an IP, not a hostname. Mosquitto listens on
+   `127.0.0.1` and allows anonymous clients, so set `homeautomation_mosquitto_bind` to an address the device can
+   reach
 1. Wire the ratgdo according to [this diagram](https://user-images.githubusercontent.com/4663918/276749741-fe82ea10-e8f4-41d6-872f-55eec88d2aab.png)
 1. Add the device in Home Assistant > Settings > Devices & services
 

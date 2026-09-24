@@ -1,6 +1,5 @@
 ---
-# Reflects mDNS to a bridged Home Assistant, so Google Cast discovery works without
-# host networking.
+# Reflects mDNS between the interfaces named in homeautomation_avahi_interfaces.
 - name: Install Avahi system packages
   ansible.builtin.apt:
     name:

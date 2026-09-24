@@ -39,16 +39,15 @@
       until: hobbies_betaflight_unarchive is succeeded
 
     # The zip ships files 0600/0700, unreadable by the launching user. Capital X
-    # grants execute only where already set. Not a handler: the symlink below needs
-    # this done now, and handlers flush at play end.
-    - name: Set Betaflight Configurator permissions # noqa: no-handler
+    # grants execute only where already set. Every run, not on the extraction's change:
+    # a run interrupted between the two is never extracted again, creates skipping it.
+    - name: Set Betaflight Configurator permissions
       ansible.builtin.file:
         path: "{{ hobbies_betaflight_app_dir }}"
         state: directory
         mode: u=rwX,go=rX
         recurse: true
       become: true
-      when: hobbies_betaflight_unarchive is changed
 
     - name: Symlink stable Betaflight path to the installed version
       ansible.builtin.file:

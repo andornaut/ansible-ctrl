@@ -74,6 +74,8 @@
       desktop_environment must be set (no default) to "gnome", "niri", or "bspwm".
       Set it in host_vars for this host.
     success_msg: Desktop environment "{{ desktop_environment }}" is valid
+  # always: desktop.yml's --tags bspwm/niri select the WM role by this variable.
+  tags: always
 
 # Here rather than in default_browser.yml, which would raise an opaque templating
 # error, and only after the browser installs have purged and pinned packages.

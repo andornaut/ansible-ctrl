@@ -1,5 +1,12 @@
 ---
 - name: Install LACT
+  vars:
+    desktop_lact_ubuntu: "{{ ansible_facts['distribution_version'] | replace('.', '') }}"
+    desktop_lact_urls: >-
+      {{ desktop_lact_release.assets
+      | selectattr('name', 'match', 'lact-.*\.amd64\.ubuntu-' ~ desktop_lact_ubuntu ~ '\.deb')
+      | rejectattr('name', 'match', 'lact-headless-.*')
+      | map(attribute='browser_download_url') | list }}
   block:
     - name: Get latest LACT release
       ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
@@ -7,14 +14,17 @@
         release_repo: ilya-zlobintsev/LACT
         release_fact: desktop_lact_release
 
+    - name: Require a LACT package for this Ubuntu release
+      ansible.builtin.assert:
+        that: desktop_lact_urls | length > 0
+        fail_msg: >-
+          LACT {{ desktop_lact_release.tag_name }} publishes no lact-*.amd64.ubuntu-{{
+          desktop_lact_ubuntu }}.deb for Ubuntu {{ ansible_facts["distribution_version"] }}.
+        quiet: true
+
     - name: Set LACT download URL fact
       ansible.builtin.set_fact:
-        desktop_lact_download_url: >-
-          {{ desktop_lact_release.assets
-          | selectattr('name', 'match', 'lact-.*\.amd64\.ubuntu-' ~
-          (ansible_facts["distribution_version"] | replace('.', '')) ~ '\.deb')
-          | rejectattr('name', 'match', 'lact-headless-.*')
-          | map(attribute='browser_download_url') | first }}
+        desktop_lact_download_url: "{{ desktop_lact_urls | first }}"
 
     - name: Install LACT package
       ansible.builtin.apt:

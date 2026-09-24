@@ -17,7 +17,7 @@ make desktop -- --tags niri
 | Tag                                                    | Description                                                                                               |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | [hypr](https://hypr.land/)                             | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper)                                                  |
-| [niri](https://github.com/niri-wm/niri)                | Wayland compositor                                                                                        |
+| [niri](https://github.com/niri-wm/niri)                | Everything in this role: `desktop.yml` tags the role `niri`                                               |
 | [wayland](https://wayland.freedesktop.org/)            | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
 | packages                                               | The apt build dependencies                                                                                |
 | libsdbus                                               | sdbus-c++ build                                                                                           |
