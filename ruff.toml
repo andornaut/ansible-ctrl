@@ -70,6 +70,8 @@ ignore = [
 "bin/*.py" = ["INP001", "S603", "S606", "S607"]
 # A gate the lint runner invokes by path. Nothing imports it, so it is not a package.
 "tests/*.py" = ["INP001"]
+# The workflow's matrix selector, whose job is running git off PATH.
+"tests/check_matrix.py" = ["INP001", "S603", "S607"]
 # The test beside it is stdlib unittest. PT mandates pytest's idiom, which would mean
 # pinning pytest to satisfy a rule about which assert to write, and assertEqual reports the
 # difference between two sets where a bare assert reports only that they differ.

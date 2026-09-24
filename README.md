@@ -154,5 +154,7 @@ CI ([.github/workflows](.github/workflows)) also runs:
 
 - **`check`**: applies each Ubuntu playbook to the runner from role defaults
   ([tests/check/inventory.yml](tests/check/inventory.yml)), then runs it again under `--check --diff`. `faramir`,
-  `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered.
+  `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered. Only the playbooks whose paths the change
+  touches run ([tests/check_matrix.py](tests/check_matrix.py)); a shared path, such as base's shared task files or
+  `ansible.cfg`, runs them all.
 - **`ai-attributions`**: rejects commits carrying AI attribution or long dashes, and agent instruction files.

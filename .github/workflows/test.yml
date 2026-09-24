@@ -100,12 +100,38 @@ jobs:
       - name: Run every check
         run: tests/lint.sh
 
+  # Which check entries this change reaches: tests/check_matrix.py holds the matrix and the
+  # paths each entry reads, and diffs the push or pull request against its base.
+  select:
+    name: Select checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      any: ${{ steps.select.outputs.any }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          # The whole history, so the base commit is there to diff against.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select the entries whose paths changed
+        id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: tests/check_matrix.py "${BASE}" "${GITHUB_SHA}" >>"${GITHUB_OUTPUT}"
+
   # A job of its own rather than a step of lint's, so a red run names which gate failed, and
   # one matrix entry per playbook so it names which playbook. The runner stands in for the
   # host: tests/check/inventory.yml puts it in every Ubuntu group, carrying role defaults and
   # the few values no role defaults.
   check:
     name: Check (${{ matrix.name }})
+    needs: select
+    # An empty matrix is an error, so a change no entry reads skips the job instead.
+    if: needs.select.outputs.any == 'true'
     # Named rather than ubuntu-latest: the runner is the host under test, so its release is
     # the one the roles are checked against, and it moves only with a commit here.
     runs-on: ubuntu-24.04
@@ -115,62 +141,8 @@ jobs:
     strategy:
       # Every playbook reports, not just the first to fail.
       fail-fast: false
-      matrix:
-        include:
-          - name: base
-            playbook: base
-          # One entry per desktop_environment: each selects different tasks in desktop and
-          # a different window manager role.
-          - name: desktop gnome
-            playbook: desktop
-          - name: desktop niri
-            playbook: desktop
-            # A tiling host needs exactly one display manager; the two entries cover both.
-            args: --extra-vars desktop_environment=niri --extra-vars desktop_install_lemurs=true
-            # The toolchains the tiling builds require, which a host has from the dev role.
-            prepare: >-
-              ansible-playbook --inventory tests/check/inventory.yml
-              --extra-vars secrets_required=false dev.yml --tags go,rust
-          - name: desktop bspwm
-            playbook: desktop
-            # A tiling host needs exactly one display manager; the two entries cover both.
-            args: --extra-vars desktop_environment=bspwm --extra-vars desktop_install_ly=true
-            # The toolchains the tiling builds require, which a host has from the dev role.
-            prepare: >-
-              ansible-playbook --inventory tests/check/inventory.yml
-              --extra-vars secrets_required=false dev.yml --tags go,rust
-          - name: dev
-            playbook: dev
-          - name: docker
-            playbook: docker
-          - name: games
-            playbook: games
-            # The ROM library the role asserts is mounted, at the path the stub host_vars
-            # name. The role reads it and never creates it.
-            prepare: >-
-              mkdir -p /tmp/ansible-check/library/_BIOS/retroarch-system-folder
-              /tmp/ansible-check/library/_Thumbnails
-          - name: hobbies
-            playbook: hobbies
-          - name: homeautomation
-            playbook: homeautomation
-            # The Docker SDK the role requires: the runner ships Docker without it, and a
-            # host's first run applies the docker role ahead of this playbook. Then the
-            # configuration.yaml an operator writes after Home Assistant's first start,
-            # carrying the frontend include the role asserts.
-            prepare: >-
-              sudo apt-get update && sudo apt-get install --yes --no-install-recommends python3-docker &&
-              sudo mkdir -p /var/docker-volumes/homeautomation/homeassistant/config &&
-              printf 'default_config:\nfrontend: !include frontend.yaml\n' |
-              sudo tee /var/docker-volumes/homeautomation/homeassistant/config/configuration.yaml >/dev/null
-          - name: msmtp
-            playbook: msmtp
-          - name: webservers
-            playbook: webservers
-            # The Docker SDK the role requires. The runner ships Docker without it, and a
-            # host's first run applies the docker role ahead of this playbook.
-            prepare: sudo apt-get update && sudo apt-get install --yes --no-install-recommends python3-docker
-
+      # The entries whose paths the push changed, from the select job.
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1

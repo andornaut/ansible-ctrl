@@ -154,7 +154,8 @@ check_identity() {
 # the preflight and the --ask-become-pass decision, none of which a lint run exercises.
 # stdlib only, so any python3 runs it.
 check_dispatch() {
-    python3 -m unittest discover -s tests -p test_playbook.py
+    python3 -m unittest discover -s tests -p test_playbook.py &&
+        python3 -m unittest discover -s tests -p test_check_matrix.py
 }
 
 # markdownlint-cli2 is pinned in package.json and run out of node_modules/,
