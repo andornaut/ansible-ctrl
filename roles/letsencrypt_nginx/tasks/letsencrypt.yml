@@ -36,91 +36,122 @@
   # Loop items hold Cloudflare API tokens; the challenge data holds the ACME account key.
   no_log: true
 
-# One record per name the order covers, the www name included. solo: each name has a record
-# of its own, so replacing that record's earlier value touches no other name's. See
-# templates/dns_challenge_records.j2.
-- name: Create DNS challenge TXT records
-  community.general.cloudflare_dns:
-    api_token: "{{ item.site.cloudflare_api_token }}"
-    record: "{{ item.record }}"
-    solo: true
-    ttl: 60
-    type: TXT
-    value: "{{ item.value }}"
-    zone: "{{ item.site.cloudflare_api_zone }}"
-  loop: "{{ lookup('ansible.builtin.template', 'dns_challenge_records.j2') | from_json }}"
-  register: letsencrypt_nginx_dns_record
+# The challenge material is removed whether or not the orders complete. Nothing is rescued, so
+# a failure above still fails the host after the cleanup runs.
+- name: Answer and complete the pending challenges
   become: true
-  # api_token is the Cloudflare API token.
-  no_log: true
+  block:
+    # One record per name the order covers, the www name included. solo: each name has a record
+    # of its own, so replacing that record's earlier value touches no other name's. See
+    # templates/dns_challenge_records.j2.
+    - name: Create DNS challenge TXT records
+      community.general.cloudflare_dns:
+        api_token: "{{ item.site.cloudflare_api_token }}"
+        record: "{{ item.record }}"
+        solo: true
+        ttl: 60
+        type: TXT
+        value: "{{ item.value }}"
+        zone: "{{ item.site.cloudflare_api_zone }}"
+      loop: "{{ lookup('ansible.builtin.template', 'dns_challenge_records.j2') | from_json }}"
+      register: letsencrypt_nginx_dns_record
+      become: true
+      # api_token is the Cloudflare API token.
+      no_log: true
 
-- name: Pause to allow DNS to update
-  ansible.builtin.pause:
-    # Longer than the 60s DNS TTL so the record propagates to intermediaries.
-    seconds: 300
-  when: >-
-    letsencrypt_nginx_dns_record.results | default([])
-    | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
+    - name: Pause to allow DNS to update
+      ansible.builtin.pause:
+        # Longer than the 60s DNS TTL so the record propagates to intermediaries.
+        seconds: 300
+      when: >-
+        letsencrypt_nginx_dns_record.results | default([])
+        | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
 
-# The resources carry the token and nothing of the site, whose Cloudflare API token a loop item
-# would print. See templates/http_challenge_resources.j2.
-- name: List the HTTP challenge resources
-  ansible.builtin.set_fact:
-    letsencrypt_nginx_http_resources: >-
-      {{ lookup('ansible.builtin.template', 'http_challenge_resources.j2') | from_json }}
+    # The resources carry the token and nothing of the site, whose Cloudflare API token a loop item
+    # would print. See templates/http_challenge_resources.j2.
+    - name: List the HTTP challenge resources
+      ansible.builtin.set_fact:
+        letsencrypt_nginx_http_resources: >-
+          {{ lookup('ansible.builtin.template', 'http_challenge_resources.j2') | from_json }}
 
-- name: Create HTTP challenge resource directories
-  ansible.builtin.file:
-    path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource | dirname }}"
-    state: directory
-    mode: "0755"
-  loop: "{{ letsencrypt_nginx_http_resources }}"
-  loop_control:
-    label: "{{ item.name }}"
-  become: true
+    - name: Create HTTP challenge resource directories
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource | dirname }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ letsencrypt_nginx_http_resources }}"
+      loop_control:
+        label: "{{ item.name }}"
+      become: true
 
-- name: Copy HTTP challenge resources
-  ansible.builtin.copy:
-    dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
-    content: "{{ item.value }}"
-    mode: "0644"
-  loop: "{{ letsencrypt_nginx_http_resources }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: letsencrypt_nginx_challenge_http_resources
-  become: true
+    - name: Copy HTTP challenge resources
+      ansible.builtin.copy:
+        dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
+        content: "{{ item.value }}"
+        mode: "0644"
+      loop: "{{ letsencrypt_nginx_http_resources }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: letsencrypt_nginx_challenge_http_resources
+      become: true
 
-- name: Complete Let's Encrypt challenge
-  community.crypto.acme_certificate:
-    account_email: "{{ letsencrypt_nginx_account_email }}"
-    account_key_src: >-
-      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem
-    acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
-    acme_version: "{{ letsencrypt_nginx_acme_version }}"
-    challenge: >-
-      {% if item.item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
-    csr: >-
-      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr/{{
-      item.item.csr_common_name | default(item.item.domain)
-      | replace('*', '_') }}.csr
-    data: "{{ item }}"
-    # Set to `force: true` when switching between staging and production
-    # force: true
-    fullchain_dest: >-
-      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
-      item.item.csr_common_name | default(item.item.domain)
-      | replace('*', '_') }}.crt
-    remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
-    terms_agreed: true
-  loop: "{{ letsencrypt_nginx_challenge.results }}"
-  register: letsencrypt_nginx_complete_challenge
-  when:
-    - item is not skipped
-    - item.changed
-    - not item.item.use_selfsigned_certificate | default(false)
-  become: true
-  # `data` carries the challenge results, which embed the Cloudflare API token.
-  no_log: true
-  # The site configuration names the same path before and after a renewal, so nothing
-  # else changes to load the new certificate.
-  notify: Restart nginx
+    - name: Complete Let's Encrypt challenge
+      community.crypto.acme_certificate:
+        account_email: "{{ letsencrypt_nginx_account_email }}"
+        account_key_src: >-
+          {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem
+        acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
+        acme_version: "{{ letsencrypt_nginx_acme_version }}"
+        challenge: >-
+          {% if item.item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
+        csr: >-
+          {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr/{{
+          item.item.csr_common_name | default(item.item.domain)
+          | replace('*', '_') }}.csr
+        data: "{{ item }}"
+        # Set to `force: true` when switching between staging and production
+        # force: true
+        fullchain_dest: >-
+          {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
+          item.item.csr_common_name | default(item.item.domain)
+          | replace('*', '_') }}.crt
+        remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
+        terms_agreed: true
+      loop: "{{ letsencrypt_nginx_challenge.results }}"
+      register: letsencrypt_nginx_complete_challenge
+      when:
+        - item is not skipped
+        - item.changed
+        - not item.item.use_selfsigned_certificate | default(false)
+      become: true
+      # `data` carries the challenge results, which embed the Cloudflare API token.
+      no_log: true
+      # The site configuration names the same path before and after a renewal, so nothing
+      # else changes to load the new certificate.
+      notify: Restart nginx
+  always:
+    # Ahead of the Cloudflare calls, whose failure would skip it. A failure here is reported
+    # after the one that ended the block, which has already failed the host.
+    - name: Delete HTTP challenge resources
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
+        state: absent
+      loop: "{{ letsencrypt_nginx_http_resources | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      become: true
+
+    # The same list the records were created from: only orders placed this run. Deleted by
+    # name and value, so no other TXT record at the name is touched.
+    - name: Delete DNS challenge TXT records
+      community.general.cloudflare_dns:
+        api_token: "{{ item.site.cloudflare_api_token }}"
+        record: "{{ item.record }}"
+        state: absent
+        type: TXT
+        value: "{{ item.value }}"
+        zone: "{{ item.site.cloudflare_api_zone }}"
+      loop: "{{ lookup('ansible.builtin.template', 'dns_challenge_records.j2') | from_json }}"
+      become: true
+      # api_token is the Cloudflare API token.
+      no_log: true

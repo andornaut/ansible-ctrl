@@ -9,6 +9,28 @@
     - letsencrypt
     - nginx
 
+# Computed without looping over the sites, whose Cloudflare API tokens a loop item would print.
+- name: Require every HTTP-01 common name to be a site's domain
+  ansible.builtin.assert:
+    that: letsencrypt_nginx_unserved_http_common_names | length == 0
+    fail_msg: >-
+      An HTTP-01 token is served only from the web root of the site whose domain is the name.
+      {% for name in letsencrypt_nginx_unserved_http_common_names %}Certificate {{ name }} is
+      validated by HTTP-01, but no site in letsencrypt_nginx_websites has domain {{ name }}, so its
+      token would be written to a web root no server block serves.
+      {% if name.startswith('*.') %}A wildcard cannot be validated by HTTP-01 at all: set
+      cloudflare_api_token and cloudflare_api_zone for DNS-01.
+      {% else %}Add a site with that domain, change csr_common_name, or set cloudflare_api_token
+      for DNS-01. {% endif %}{% endfor %}
+    quiet: true
+  vars:
+    letsencrypt_nginx_unserved_http_common_names: >-
+      {{ lookup('ansible.builtin.template', 'unserved_http_common_names.j2') | from_json }}
+  become: false
+  tags:
+    - letsencrypt
+    - nginx
+
 - name: Set up packages, web roots, and basic authentication
   tags:
     - letsencrypt

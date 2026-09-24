@@ -150,6 +150,7 @@
   when: games_lutris_wow_prefix | length > 0 and games_lutris_wow.stat.exists
   vars:
     games_lutris_wow_icon_dir: "{{ games_user_home }}/.local/share/icons/hicolor/128x128/apps"
+    games_lutris_wow_launch_script: "{{ games_user_home }}/.local/bin/{{ games_lutris_wow_slug }}-launch.sh"
   block:
     # Inside the sandbox, which carries the PyYAML Lutris itself reads its configuration with.
     - name: Derive the World of Warcraft entry from Battle.net's
@@ -173,6 +174,20 @@
               'game': {'args': '--exec="launch WoW"'}} | to_json }}
       register: games_lutris_wow_register
       changed_when: games_lutris_wow_register.stdout | length > 0
+
+    - name: Create the user bin directory
+      ansible.builtin.file:
+        path: "{{ games_user_home }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    # The prefix is baked in here rather than passed from the entry's Exec: README.md says why.
+    - name: Install the World of Warcraft launch script
+      ansible.builtin.template:
+        src: world-of-warcraft-launch.sh.j2
+        dest: "{{ games_lutris_wow_launch_script }}"
+        mode: "0755"
+        validate: sh -n %s
 
     - name: Create the user applications directory
       ansible.builtin.file:

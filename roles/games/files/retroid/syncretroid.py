@@ -902,6 +902,26 @@ def section(title, approach=None):
     print("\n{}{}".format(title, f" ({approach})" if approach else ""))
 
 
+@contextlib.contextmanager
+def isolated(failed, name):
+    """Run one device section, recording a failure in failed rather than aborting the run.
+
+    Catches what a section raises once Device has spent its retries: CalledProcessError from a
+    write, and SystemExit from a read that cannot tell a dropped connection from an absent file (or
+    from mirror_roms naming the systems it could not finish). Either stops that section only; the
+    sections after it do not depend on it and still run, and main exits non-zero at the end.
+    """
+    try:
+        yield
+    except subprocess.CalledProcessError as error:
+        failed.append(name)
+        command = " ".join(str(arg) for arg in error.cmd)
+        print(f"ERROR: {name}: `{command}` exited {error.returncode}; continuing.", file=sys.stderr)
+    except SystemExit as error:
+        failed.append(name)
+        print(f"ERROR: {name}: {error.code}; continuing.", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     # The library mount and the adb serial are site data with no sensible default, so they are inputs:
@@ -1019,6 +1039,8 @@ def main():
     staging = tempfile.mkdtemp(prefix="retroid-sync-")
     # Kept when the config push is refused, the warning naming it as what to copy in by hand.
     keep_staging = False
+    # Names of the device sections that failed; each is reported where it fails and the run goes on.
+    failed = []
     try:
         info_dir = Path(staging) / "info"
         playlist_dir = Path(staging) / "playlists"
@@ -1056,7 +1078,8 @@ def main():
                 print("  no shader (driver cannot load slang): {}".format(", ".join(skipped)))
 
         # The sdcard dirs are public storage; adb can always create them.
-        device.mkdirs(*dirs.values())
+        with isolated(failed, "sdcard directories"):
+            device.mkdirs(*dirs.values())
 
         # retroarch.cfg and the per-core overrides live in the app files dir, which adb may not
         # be allowed to write on Android 11+. Attempt it, treat a denial as the documented
@@ -1088,24 +1111,28 @@ def main():
         # remove the stale managed .lpl of a system that left the table. Cores are never touched
         # -- app-private, the Core Updater's to manage.
         section("playlists", "push always + prune")
-        device.push(f"{playlist_dir}/.", dirs["playlists"])
-        if online:
-            for name in stale_playlists(device, dirs, model["systems"]):
-                print(f"Removing stale playlist {name}")
-                device.rm("{}/{}".format(dirs["playlists"], name))
+        with isolated(failed, "playlists"):
+            device.push(f"{playlist_dir}/.", dirs["playlists"])
+            if online:
+                for name in stale_playlists(device, dirs, model["systems"]):
+                    print(f"Removing stale playlist {name}")
+                    device.rm("{}/{}".format(dirs["playlists"], name))
 
         if shader_stage.is_dir():
             section("shaders", "push additive")
-            sync_tree(device, shader_stage, dirs["shaders"], prune=False)
+            with isolated(failed, "shaders"):
+                sync_tree(device, shader_stage, dirs["shaders"], prune=False)
 
         bios_src = Path(args.library_dir) / "_BIOS" / "retroarch-system-folder"
         if not args.skip_bios and bios_src.is_dir():
             section("BIOS", "push additive")
-            sync_tree(device, bios_src, dirs["system"], prune=False)
+            with isolated(failed, "BIOS"):
+                sync_tree(device, bios_src, dirs["system"], prune=False)
         thumbs_src = Path(args.library_dir) / "_Thumbnails"
         if not args.skip_thumbnails and thumbs_src.is_dir():
             section("thumbnails", "merge with prune")
-            sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
+            with isolated(failed, "thumbnails"):
+                sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
     finally:
         if not keep_staging:
             shutil.rmtree(staging, ignore_errors=True)
@@ -1114,11 +1141,19 @@ def main():
     # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned
     # writes), or a preview of the destructive ROM-mirror deletes would be silently skipped.
     section("ES-DE emulators", "merge")
-    configure_esde_cores(device, online, profile["esde_gamelists_dir"], profile["esde_cores"])
+    with isolated(failed, "ES-DE emulators"):
+        configure_esde_cores(device, online, profile["esde_gamelists_dir"], profile["esde_cores"])
     if not args.skip_roms:
         section("ROM library", "merge with prune")
-        mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
+        with isolated(failed, "ROM library"):
+            mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
 
+    if failed:
+        sys.exit(
+            f"\n{len(failed)} section(s) failed and the rest synced: {', '.join(failed)}. RetroArch and "
+            "ES-DE were stopped for the sync. Re-run to retry (every section converges, so a re-run "
+            "pushes only what is still missing or different)."
+        )
     print("\nDone. RetroArch and ES-DE were stopped for the sync; reopen whichever you use.")
 
 

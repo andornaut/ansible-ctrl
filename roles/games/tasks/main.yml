@@ -21,7 +21,7 @@
       games_retroarch_library_dir is not set: it is where this host mounts the ROM library,
       which is site data with no default. Set it in host_vars/.
     success_msg: 'games_retroarch_library_dir "{{ games_retroarch_library_dir | default("") }}" is set'
-  tags: always
+  tags: [flatpak, retroarch]
 
 # Site data the role cannot see, asserted rather than probed: README.md's Gamescope section.
 # Here rather than in lutris.yml because bedrock.yml reads it too, and either tag can run

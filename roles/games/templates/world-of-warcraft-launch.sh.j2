@@ -1,0 +1,5 @@
+#!/bin/sh
+# The desktop entry's Exec names this script alone: the prefix may hold spaces, and not every
+# launcher honours a quoted Exec argument. The prefix is this host's Battle.net prefix as Lutris
+# records it, rendered by the games role.
+exec {{ games_lutris_launcher_path | quote }} {{ games_lutris_wow_prefix | quote }} {{ games_lutris_app_id | quote }} {{ games_lutris_wow_slug | quote }}

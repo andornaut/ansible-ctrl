@@ -150,33 +150,29 @@ server {
     location {{ location.src }} {
         alias {{ location.dest }};
         autoindex on;
+{# A location that declares no allow, deny, auth_basic or satisfy inherits the server's. Any
+    allow or deny here replaces the server's whole list, so each branch states a complete one. #}
+{% if location.permit_untrusted_networks | default(False) and not location.credentials | default(False) %}
 
-        # Access control
-{% if item.item.permit_untrusted_networks | default(False) %}
+        # Access control: open to every network, overriding the site's
+        allow all;
+        auth_basic off;
+{% elif location.credentials | default(False) %}
+
+        # Access control: this location's credentials in place of the site's
+{% if location.permit_untrusted_networks | default(item.item.permit_untrusted_networks | default(False)) %}
         satisfy any;
 {% else %}
         satisfy all;
 {% endif %}
-
         allow 127.0.0.1/32;
         allow ::1/128;
 {% for network in item.item.trusted_networks | default([]) %}
         allow {{ network }};
 {% endfor %}
-
-{% if not location.permit_untrusted_networks | default(False)
-        or location.credentials | default(False)
-        or item.item.credentials | default(False)
-        or item.item.trusted_networks | default(False) %}
         deny all;
-{% endif %}
-
-{% if location.credentials | default(False) %}
         auth_basic "Restricted Content";
         auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ location.credentials.file_basename }}.htpasswd;
-{% elif item.item.credentials | default(False) %}
-        auth_basic "Restricted Content";
-        auth_basic_user_file /etc/nginx/conf.d/basicauth/{{ item.item.domain }}.htpasswd;
 {% endif %}
     }
 {% endfor %}

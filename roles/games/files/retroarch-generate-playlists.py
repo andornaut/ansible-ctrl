@@ -297,7 +297,9 @@ def main():
     if problems:
         sys.exit("games_retroarch_systems declares content its cores cannot launch:\n  " + "\n  ".join(problems))
 
-    changed = []
+    # Every playlist is built and checked before any is written, so a stale game_cores label
+    # in one system leaves every playlist as it was.
+    pending, stale_labels = [], []
     for system, spec in systems:
         # str(): system_dir and emit_system_dir are sliced and concatenated as
         # strings when an item's path is rewritten, and core_path is written into
@@ -347,7 +349,8 @@ def main():
         # drift. A game_cores label matching nothing is inert while still reading as a fix.
         stale = sorted(set(game_cores) - {item["label"] for item in items})
         if stale:
-            sys.exit("{}: game_cores name labels the directory does not contain: {}".format(system, ", ".join(stale)))
+            stale_labels.append("{}: {}".format(system, ", ".join(stale)))
+            continue
 
         playlist = {
             "version": PLAYLIST_VERSION,
@@ -371,10 +374,15 @@ def main():
             "items": items,
         }
         content = (json.dumps(playlist, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        pending.append((system, Path(playlist_dir) / playlist_name, content, len(items)))
 
+    if stale_labels:
+        sys.exit("game_cores name labels the directory does not contain:\n  " + "\n  ".join(stale_labels))
+
+    changed = []
+    for system, path, content, count in pending:
         # Bytes, not text: a playlist RetroArch scanned is not necessarily valid UTF-8, and
         # decoding one to test whether it is current would fail before it could be replaced.
-        path = Path(playlist_dir) / playlist_name
         try:
             if path.read_bytes() == content:
                 continue
@@ -382,7 +390,7 @@ def main():
             pass
 
         path.write_bytes(content)
-        changed.append(f"{system} ({len(items)})")
+        changed.append(f"{system} ({count})")
 
     changed.extend(prune_playlists(playlist_dir, emit_library_dir, config["systems"]))
 

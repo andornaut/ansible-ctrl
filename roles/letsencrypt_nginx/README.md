@@ -33,11 +33,33 @@ Per entry in `letsencrypt_nginx_websites`:
 | One certificate per `csr_common_name`, or per `domain` where a site names none       | Sites sharing a common name share one CSR and place one ACME order                                                                                                                                                                                                                               |
 | A certificate covers its common name plus `www.<domain>` for every site sharing it   | Each site renders a `www.` server that redirects to the bare name. A wildcard common name already covers the `www.` name one label below it, so none is added                                                                                                                                    |
 | A site with `cloudflare_api_token` is validated by DNS-01, anything else by HTTP-01  | DNS-01 writes one TXT record per name into `cloudflare_api_zone`, and a wildcard needs it. HTTP-01 writes each name's token under the site's web root, the `www.` name's included: the port-80 server answers both from `/var/www/<domain>`                                                      |
+| An HTTP-01 certificate's common name must be some site's `domain`                    | Asserted before any order: its token is written to `/var/www/<common name>`, which only that site's port-80 server answers from. A wildcard needs DNS-01                                                                                                                                         |
+| Challenge material is removed once the orders are completed                          | The TXT records (by name and value) and HTTP-01 token files written for this run's orders, also when completing fails. That failure still fails the run                                                                                                                                          |
 | `use_selfsigned_certificate: true` places no order                                   | The site serves the self-signed certificate, as does any site whose certificate has not been issued yet                                                                                                                                                                                          |
 | `letsencrypt_nginx_account_email` is required                                        | Asserted as the role's first task; every order names it                                                                                                                                                                                                                                          |
 | `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory | Set the production directory in `host_vars` for a trusted certificate. An existing certificate is reissued only within `letsencrypt_nginx_remaining_days` of expiry, unless the `force: true` commented in [tasks/letsencrypt.yml](./tasks/letsencrypt.yml) is enabled for the run that switches |
 | A new or changed server block is loaded before the challenges                        | An HTTP-01 challenge is answered by the site's own server block                                                                                                                                                                                                                                  |
 | Every restart first runs `nginx -t` inside the running container                     | A configuration nginx rejects fails the run and leaves the container on the one it already loaded. `webservers.yml` sets `force_handlers`, so a later task failing does not drop a pending restart                                                                                               |
+
+## Access control
+
+Per site, on its main HTTPS server:
+
+| Setting                                       | Effect                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| neither `trusted_networks` nor `credentials`  | Localhost only, unless `permit_untrusted_networks: true` opens the site |
+| `trusted_networks`                            | Only localhost and those networks                                       |
+| `credentials`                                 | HTTP basic authentication as well as the network restriction            |
+| `permit_untrusted_networks: true` with either | Either one suffices: a trusted network, or valid credentials            |
+
+Per entry in a site's `locations`:
+
+| Setting                                             | Effect                                                                                     |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| none                                                | Inherits the site's access control                                                         |
+| `permit_untrusted_networks: true`                   | Open to every network, without the site's network restriction or credentials               |
+| `credentials`                                       | The location's credentials replace the site's; network rules and `satisfy` follow the site |
+| `credentials` and `permit_untrusted_networks: true` | Either a trusted network or the location's credentials suffices                            |
 
 ## Certificate renewal
 

@@ -239,7 +239,8 @@ class Bootstrap(unittest.TestCase):
         listings = {
             "base": listing(("all:!routers", ["h"])),
             "docker": listing(("dev:homeautomation", ["h"])),
-            "desktop": listing(("desktop", [])),
+            "desktop": listing(("desktop", ["h"])),
+            "dev": listing(("dev", ["h"])),
             "faramir": listing(("faramir", ["h"]), ("all", ["h"])),
             "msmtp": listing(("all:!routers", ["h"])),
             "torrent": listing(("torrent", []), ("faramir_controller", [])),
@@ -247,7 +248,8 @@ class Bootstrap(unittest.TestCase):
             "homeautomation": listing(("homeautomation", ["h"])),
         }
         self.assertEqual(
-            playbook.select_bootstrap(listings), ["base", "docker", "msmtp", "homeautomation", "webservers"]
+            playbook.select_bootstrap(listings),
+            ["base", "docker", "msmtp", "dev", "desktop", "homeautomation", "webservers"],
         )
 
     def test_leading_playbooks_skipped_where_they_miss_the_host(self):

@@ -101,12 +101,20 @@
               line: 'system_shell = "/bin/bash"'
           become: true
 
+        # /usr/local, the admin's unit directory: /usr/lib belongs to dpkg.
+        - name: Create the local systemd unit directory
+          ansible.builtin.file:
+            path: /usr/local/lib/systemd/system
+            state: directory
+            mode: "0755"
+          become: true
+
         - name: Download lemurs systemd service
           ansible.builtin.get_url:
             url: >-
               https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version
               }}/extra/lemurs.service
-            dest: /usr/lib/systemd/system/lemurs.service
+            dest: /usr/local/lib/systemd/system/lemurs.service
             mode: "0644"
           register: desktop_lemurs_service_download
           retries: 3
@@ -116,7 +124,7 @@
 
         - name: Update ExecStart path in service file
           ansible.builtin.lineinfile:
-            path: /usr/lib/systemd/system/lemurs.service
+            path: /usr/local/lib/systemd/system/lemurs.service
             regexp: '^ExecStart\s*=.*'
             line: "ExecStart=/usr/local/bin/lemurs"
           become: true
@@ -140,6 +148,32 @@
             dest: /etc/pam.d/lemurs
             mode: "0644"
           become: true
+
+    # CLEANUP (added 2026-09-24): drop once every lemurs desktop has converged. The unit
+    # used to be installed under /usr/lib, and its enablement symlinks, the
+    # display-manager.service alias among them, point there: removing that copy without
+    # re-enabling leaves the display manager dangling at the next boot.
+    - name: Move the lemurs unit out of the vendor directory
+      become: true
+      block:
+        - name: Check for the lemurs unit in the vendor directory
+          ansible.builtin.stat:
+            path: /usr/lib/systemd/system/lemurs.service
+          register: desktop_lemurs_vendor_unit
+
+        - name: Remove the lemurs unit from the vendor directory
+          ansible.builtin.file:
+            path: /usr/lib/systemd/system/lemurs.service
+            state: absent
+          when: desktop_lemurs_vendor_unit.stat.exists
+
+        # reenable, which the systemd module lacks: it rewrites every symlink enable made,
+        # against the unit's new path.
+        - name: Re-enable lemurs against its new unit path
+          ansible.builtin.command: # noqa: command-instead-of-module
+            argv: [systemctl, reenable, lemurs.service]
+          changed_when: true
+          when: desktop_lemurs_vendor_unit.stat.exists
 
     - name: Enable lemurs display manager
       ansible.builtin.systemd_service:

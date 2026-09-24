@@ -42,8 +42,9 @@ make bootstrap -- --limit example                # First run of a new host
 | Credentials         | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`, or as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
 | umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                               |
 
-`make bootstrap` needs a `--limit`. It applies `base`, `docker` and `msmtp`, then every playbook whose groups
-hold the host, and stops at the first failure. Apply `faramir` separately with `make faramir`.
+`make bootstrap` needs a `--limit`. It applies `base`, `docker`, `msmtp` and `dev` (whose toolchains desktop
+builds need), then every playbook whose groups hold the host, and stops at the first failure. Apply `faramir`
+separately with `make faramir`.
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer`.
 

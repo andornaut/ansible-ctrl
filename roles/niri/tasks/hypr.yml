@@ -32,7 +32,7 @@
         hypr_component_build_target: all
 
 - name: Install hyprwayland-scanner
-  tags: [hyprscanner]
+  tags: [hyprwayland-scanner]
   block:
     # Builds as root, and takes cmake's default target.
     - name: Build and install hyprwayland-scanner

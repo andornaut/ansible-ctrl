@@ -53,8 +53,9 @@ RUN_UMASK = 0o002
 
 # Applied ahead of every other playbook a bootstrap selects, in this order, each where it
 # reaches the host. msmtp is named because its play targets every Ubuntu host rather than a
-# group, which the selection below would otherwise pass over.
-BOOTSTRAP_FIRST = ("base", "docker", "msmtp")
+# group, which the selection below would otherwise pass over; dev because desktop's builds
+# require the Go and Rust toolchains it installs.
+BOOTSTRAP_FIRST = ("base", "docker", "msmtp", "dev")
 
 # Never selected by a bootstrap. faramir.yml's second play reads the key its first play
 # publishes on the controller, so a run limited to another host stops at its assert.

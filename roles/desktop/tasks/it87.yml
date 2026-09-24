@@ -107,9 +107,10 @@
         enabled: true
         state: started
 
-# Remove the managed drop-ins so the module options do not outlive the flag. The
-# DKMS module and it87.service stay; a full teardown is out of scope.
-- name: Remove the it87 module options when disabled
+# Remove the module options and the unit that loads the module with them: without the
+# force_id the options carry, it87.service fails its modprobe and retries at every boot,
+# holding back coolercontrold, which it orders before. The DKMS module stays.
+- name: Remove the it87 module options and loader when disabled
   become: true
   when: not desktop_install_it87 | bool
   ansible.builtin.file:
@@ -117,3 +118,5 @@
     state: absent
   loop:
     - /etc/modprobe.d/ansible-role-desktop-it87.conf
+    - /etc/systemd/system/multi-user.target.wants/it87.service
+    - /etc/systemd/system/it87.service

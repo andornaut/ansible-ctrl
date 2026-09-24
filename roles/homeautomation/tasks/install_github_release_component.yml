@@ -81,17 +81,38 @@
           until: homeautomation_github_component_unarchive is succeeded
 
         # Skipped under --check, where the unarchive above honours check mode and writes
-        # nothing, so the tree this copies from is not there and the task fails rather
+        # nothing, so the tree these copy from is not there and the task fails rather
         # than reporting. Without this a --check run of the role stops at the first
         # component whose version does not match, which is every component whose project
         # ships a placeholder version.
+        - name: Check whether the source is a directory for {{ github_component_name }}
+          when: not ansible_check_mode
+          ansible.builtin.stat:
+            path: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
+          register: homeautomation_github_component_src_stat
+          become: true
+
+        # A directory is mirrored, so a module an upstream release dropped leaves too.
+        # --omit-dir-times: the staging tree is new each run and would otherwise report a
+        # change every time.
         - name: Install files for {{ github_component_name }}
           when: not ansible_check_mode
-          ansible.builtin.copy:
-            src: "{{ homeautomation_github_component_tmp.path }}/{{ github_component_src }}"
-            dest: "{{ github_component_dest_dir }}"
-            remote_src: true
-            mode: "0644"
+          vars:
+            homeautomation_github_component_is_dir: >-
+              {{ homeautomation_github_component_src_stat.stat.isdir | default(false) }}
+          ansible.builtin.command:
+            argv: >-
+              {{ ['rsync', '--recursive', '--links', '--times', '--omit-dir-times',
+                  '--chmod=D0755,F0644', '--itemize-changes']
+                 + (['--delete',
+                     homeautomation_github_component_tmp.path ~ '/' ~ github_component_src ~ '/',
+                     github_component_dest_dir ~ '/' ~ (github_component_src | basename) ~ '/']
+                    if homeautomation_github_component_is_dir | bool else
+                    [homeautomation_github_component_tmp.path ~ '/' ~ github_component_src,
+                     github_component_dest_dir ~ '/'])
+              }}
+          register: homeautomation_github_component_sync
+          changed_when: homeautomation_github_component_sync.stdout != ""
           become: true
           # Home Assistant loads an integration only at startup. A card under www/ is fetched by
           # the browser on the next page load, and needs no restart.

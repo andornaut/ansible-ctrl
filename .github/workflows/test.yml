@@ -126,9 +126,17 @@ jobs:
           - name: desktop niri
             playbook: desktop
             args: --extra-vars desktop_environment=niri
+            # The toolchains the tiling builds require, which a host has from the dev role.
+            prepare: >-
+              ansible-playbook --inventory tests/check/inventory.yml
+              --extra-vars secrets_required=false dev.yml --tags go,rust
           - name: desktop bspwm
             playbook: desktop
             args: --extra-vars desktop_environment=bspwm
+            # The toolchains the tiling builds require, which a host has from the dev role.
+            prepare: >-
+              ansible-playbook --inventory tests/check/inventory.yml
+              --extra-vars secrets_required=false dev.yml --tags go,rust
           - name: dev
             playbook: dev
           - name: docker

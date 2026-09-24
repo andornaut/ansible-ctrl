@@ -22,7 +22,7 @@
     build_component_name: "{{ hypr_component_name }}"
     build_component_src_url:
       "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
-      {{ niri_hypr_component_release.name }}.tar.gz"
+      {{ niri_hypr_component_release.tag_name }}.tar.gz"
     build_component_configure_cmd: >-
       cmake
       --no-warn-unused-cli

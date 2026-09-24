@@ -31,7 +31,7 @@
 
     - name: Set niri version fact
       ansible.builtin.set_fact:
-        niri_version: "{{ niri_release.name }}"
+        niri_version: "{{ niri_release.tag_name }}"
 
     - name: Download and unarchive niri
       ansible.builtin.unarchive:
