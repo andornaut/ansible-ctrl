@@ -8,6 +8,11 @@
         repo: "ppa:kicad/kicad-{{ hobbies_kicad_version }}-releases"
         mode: "0644"
         update_cache: true
+      # Launchpad's API times out often enough to fail a run on its own.
+      register: hobbies_kicad_ppa
+      retries: 3
+      delay: 10
+      until: hobbies_kicad_ppa is succeeded
 
     - name: Install KiCad package
       ansible.builtin.apt:

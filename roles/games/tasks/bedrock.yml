@@ -24,6 +24,8 @@
       register: games_bedrock_ntsync
       changed_when: false
       failed_when: false
+      # Reads only. Skipped under --check, it leaves no rc and the load below runs regardless.
+      check_mode: false
 
     - name: Load ntsync, now and at every boot
       when: games_bedrock_ntsync.rc == 0

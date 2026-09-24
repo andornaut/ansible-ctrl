@@ -5,11 +5,11 @@
 # play and the probe is from its start: a logout in between leaves the gate stale.
 # Deferred so it runs after eww.service is installed in a later block.
 - name: Restart eww
-  ansible.builtin.systemd_service:
-    name: eww.service
-    daemon_reload: true
-    scope: user
-    state: restarted
+  # try-restart, which the systemd module lacks: a unit its session has not started stays
+  # stopped.
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart eww.service # noqa: command-instead-of-module
+  changed_when: true
   become: true
   become_user: "{{ desktop_user }}"
   environment:
@@ -17,15 +17,15 @@
   register: desktop_eww_restart
   failed_when:
     - desktop_eww_restart is failed
-    - "'Failed to connect to bus' not in desktop_eww_restart.msg | default('')"
+    - "'Failed to connect to bus' not in (desktop_eww_restart.stderr | default('')) ~ (desktop_eww_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
 - name: Restart flameshot
-  ansible.builtin.systemd_service:
-    name: flameshot.service
-    daemon_reload: true
-    scope: user
-    state: restarted
+  # try-restart, which the systemd module lacks: a unit its session has not started stays
+  # stopped.
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart flameshot.service # noqa: command-instead-of-module
+  changed_when: true
   become: true
   become_user: "{{ desktop_user }}"
   environment:
@@ -33,15 +33,15 @@
   register: desktop_flameshot_restart
   failed_when:
     - desktop_flameshot_restart is failed
-    - "'Failed to connect to bus' not in desktop_flameshot_restart.msg | default('')"
+    - "'Failed to connect to bus' not in (desktop_flameshot_restart.stderr | default('')) ~ (desktop_flameshot_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
 - name: Restart nwg-drawer
-  ansible.builtin.systemd_service:
-    name: nwg-drawer.service
-    daemon_reload: true
-    scope: user
-    state: restarted
+  # try-restart, which the systemd module lacks: a unit its session has not started stays
+  # stopped.
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart nwg-drawer.service # noqa: command-instead-of-module
+  changed_when: true
   become: true
   become_user: "{{ desktop_user }}"
   environment:
@@ -49,17 +49,17 @@
   register: desktop_nwg_drawer_restart
   failed_when:
     - desktop_nwg_drawer_restart is failed
-    - "'Failed to connect to bus' not in desktop_nwg_drawer_restart.msg | default('')"
+    - "'Failed to connect to bus' not in (desktop_nwg_drawer_restart.stderr | default('')) ~ (desktop_nwg_drawer_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
 # Built by the niri role, applied after this one, so the unit may not exist yet
 # on a --tags idle run; failed_when below tolerates that.
 - name: Restart hypridle
-  ansible.builtin.systemd_service:
-    name: hypridle.service
-    daemon_reload: true
-    scope: user
-    state: restarted
+  # try-restart, which the systemd module lacks: a unit its session has not started stays
+  # stopped.
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart hypridle.service # noqa: command-instead-of-module
+  changed_when: true
   become: true
   become_user: "{{ desktop_user }}"
   environment:
@@ -67,8 +67,8 @@
   register: desktop_hypridle_restart
   failed_when:
     - desktop_hypridle_restart is failed
-    - "'Could not find the requested service' not in desktop_hypridle_restart.msg | default('')"
-    - "'Failed to connect to bus' not in desktop_hypridle_restart.msg | default('')"
+    - "'Could not find the requested service' not in (desktop_hypridle_restart.stderr | default('')) ~ (desktop_hypridle_restart.msg | default(''))"
+    - "'Failed to connect to bus' not in (desktop_hypridle_restart.stderr | default('')) ~ (desktop_hypridle_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
 # Above the backstop, handlers running in definition order: the backstop reads the stamp
@@ -104,11 +104,11 @@
   become: true
 
 - name: Restart the idle backstop
-  ansible.builtin.systemd_service:
-    name: desktop-idle-backstop.service
-    daemon_reload: true
-    scope: user
-    state: restarted
+  # try-restart, which the systemd module lacks: a unit its session has not started stays
+  # stopped.
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart desktop-idle-backstop.service # noqa: command-instead-of-module
+  changed_when: true
   become: true
   become_user: "{{ desktop_user }}"
   environment:
@@ -116,7 +116,7 @@
   register: desktop_idle_backstop_restart
   failed_when:
     - desktop_idle_backstop_restart is failed
-    - "'Failed to connect to bus' not in desktop_idle_backstop_restart.msg | default('')"
+    - "'Failed to connect to bus' not in (desktop_idle_backstop_restart.stderr | default('')) ~ (desktop_idle_backstop_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
 # CanReload=yes, so the drop-in takes effect without restarting logind under a

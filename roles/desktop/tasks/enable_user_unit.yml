@@ -28,13 +28,30 @@
   become: true
   become_user: "{{ desktop_user }}"
 
+# Started only inside the session that wants it: a manager running without one, over SSH or
+# lingering, has no display for the unit to start against.
+- name: Check the session that wants {{ desktop_enable_unit }}
+  ansible.builtin.command:
+    argv: [systemctl, --user, is-active, "{{ desktop_enable_unit_wanted_by }}"]
+  register: desktop_enable_unit_session
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: desktop_user_systemd.stat.exists
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+
 - name: Start in the active session {{ desktop_enable_unit }}
   ansible.builtin.systemd_service:
     name: "{{ desktop_enable_unit }}"
     daemon_reload: true
     scope: user
     state: started
-  when: desktop_user_systemd.stat.exists
+  when:
+    - desktop_user_systemd.stat.exists
+    - desktop_enable_unit_session.rc | default(1) == 0
   become: true
   become_user: "{{ desktop_user }}"
   environment:

@@ -144,9 +144,15 @@ jobs:
             playbook: hobbies
           - name: homeautomation
             playbook: homeautomation
-            # The Docker SDK the role requires. The runner ships Docker without it, and a
-            # host's first run applies the docker role ahead of this playbook.
-            prepare: sudo apt-get update && sudo apt-get install --yes --no-install-recommends python3-docker
+            # The Docker SDK the role requires: the runner ships Docker without it, and a
+            # host's first run applies the docker role ahead of this playbook. Then the
+            # configuration.yaml an operator writes after Home Assistant's first start,
+            # carrying the frontend include the role asserts.
+            prepare: >-
+              sudo apt-get update && sudo apt-get install --yes --no-install-recommends python3-docker &&
+              sudo mkdir -p /var/docker-volumes/homeautomation/homeassistant/config &&
+              printf 'default_config:\nfrontend: !include frontend.yaml\n' |
+              sudo tee /var/docker-volumes/homeautomation/homeassistant/config/configuration.yaml >/dev/null
           - name: msmtp
             playbook: msmtp
           - name: webservers

@@ -10,6 +10,11 @@
         repo: ppa:freecad-maintainers/freecad-stable
         mode: "0644"
         update_cache: true
+      # Launchpad's API times out often enough to fail a run on its own.
+      register: hobbies_freecad_ppa
+      retries: 3
+      delay: 10
+      until: hobbies_freecad_ppa is succeeded
 
     # freecad-python3 carries the bindings the GUI package does not require.
     - name: Install FreeCAD packages

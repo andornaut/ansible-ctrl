@@ -103,6 +103,17 @@
     - name: Take the password away
       when: base_lockdown_sshd_binary.stat.exists
       block:
+        # `sshd -t`, which every edit below validates with, refuses to run without it, and
+        # ssh.service creates it only when a connection first starts the daemon: a host
+        # reached over a local connection since boot has none.
+        - name: Create sshd's privilege separation directory
+          ansible.builtin.file:
+            path: /run/sshd
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+
         # sshd is socket-activated, so the port is ssh.socket's ListenStream and the daemon
         # never reads Port. Setting it here still works: sshd-socket-generator parses Port
         # at daemon-reload and writes the socket drop-in. A replacement unit shadows the
