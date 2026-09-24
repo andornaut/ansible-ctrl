@@ -12,6 +12,32 @@
   loop_control:
     label: "{{ item.1 }}"
 
+# homeautomation_teardown names only the instances still listed. One dropped from
+# homeautomation_hamcp_instances is found by its command instead: each holds an admin token
+# and serves MCP unauthenticated to the bridge.
+- name: List the compose-managed containers
+  community.docker.docker_host_info:
+    containers: true
+    containers_all: true
+    containers_filters:
+      label: com.docker.compose.project
+  register: homeautomation_teardown_host_info
+  become: true
+
+- name: Remove the ha-mcp containers of instances no longer listed
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop: >-
+    {{ homeautomation_teardown_host_info.containers
+       | selectattr('Command', 'search', 'ha-mcp-web')
+       | map(attribute='Names') | flatten
+       | map('regex_replace', '^/', '')
+       | reject('in', homeautomation_hamcp_instances | map(attribute='name') | list
+                      if homeautomation_install_hamcp | bool else [])
+       | list }}
+  become: true
+
 - name: Remove the host files of components that are not installed
   ansible.builtin.file:
     path: "{{ item.1 }}"

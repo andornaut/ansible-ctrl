@@ -48,6 +48,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | `homeautomation_*_port`                                    | Published host port of a bridge container. The internal port is in [Container ports](#container-ports) |
 | `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)      |
 | `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                               |
+| `homeautomation_otbr_device`, `_backbone_if`               | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted          |
 | `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                           |
 | `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                       |
 | `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                              |
@@ -181,7 +182,8 @@ container this role installs, and writes a Home Assistant entity.
 
 Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers and
 host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
-as the `ping_group_range` sysctl drop-in ESPHome needs.
+as the `ping_group_range` sysctl drop-in ESPHome needs. An ha-mcp instance dropped from
+`homeautomation_hamcp_instances` has its container removed the same way.
 
 | Not removed               | Why                                                                                                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |

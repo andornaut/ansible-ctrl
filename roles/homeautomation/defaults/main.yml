@@ -241,7 +241,9 @@ homeautomation_mosquitto_required_volumes:
   log: /var/docker-volumes/homeautomation/mosquitto/log
 
 # OpenThread Border Router (OTBR)
-homeautomation_otbr_backbone_if: eth0
+# The interface that carries the default route unless set. Its accept_ra is set by name.
+homeautomation_otbr_backbone_if: "{{ ansible_facts['default_ipv4']['interface'] | default('') }}"
+# The radio: a /dev path (by-id preferred) for a USB adapter, or the address of a network one.
 homeautomation_otbr_device: ""
 homeautomation_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
 homeautomation_otbr_required_volumes:

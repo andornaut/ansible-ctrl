@@ -1,4 +1,18 @@
 ---
+# Tagged matter as well, so the docker_otbr.yml half, which reads both, never runs unchecked.
+- name: Require the OTBR radio and backbone interface
+  ansible.builtin.assert:
+    that:
+      - homeautomation_otbr_device | length > 0
+      - homeautomation_otbr_backbone_if in ansible_facts['interfaces']
+    fail_msg: >-
+      Matter needs OTBR: set homeautomation_otbr_device to the radio (a /dev path, or a
+      network adapter's address), and homeautomation_otbr_backbone_if to an interface on
+      this host ("{{ homeautomation_otbr_backbone_if }}" is not one).
+    quiet: true
+  become: false
+  tags: matter
+
 # accept_ra=2 because forwarding is on, under which 1 ignores router advertisements. Setting
 # `all` does not reach an interface that already exists, so the backbone is named itself, and
 # `default` covers an interface created later.
