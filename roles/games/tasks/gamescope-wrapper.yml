@@ -112,6 +112,9 @@
               - "{{ games_gamescope_preload_tmp.path }}/{{ item.dir }}.so"
               - "{{ games_gamescope_helper_dir }}/gamescope-display.c"
           changed_when: false
+          # Into the temporary directory only, so a --check run builds too: skipped, the copy
+          # after it fails on a library that was never written.
+          check_mode: false
           loop: "{{ games_gamescope_preload_classes }}"
           loop_control:
             label: "{{ item.dir }}"

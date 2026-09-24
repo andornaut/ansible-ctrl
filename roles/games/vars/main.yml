@@ -165,12 +165,12 @@ games_retroarch_generator_config:
 # generator skips and the .m3u beside it is the entry. 3DO and GameCube excepted, where the
 # generator points at disc 1 under the directory's name.
 #
-# Optional "game_cores" maps a playlist label to the core one title needs -- a core, not the
+# Optional "game_cores" maps a playlist label to the core one title needs: a core, not the
 # settings in games_retroarch_core_overrides below.
 games_retroarch_systems:
   # FinalBurn Neo's non-Neo-Geo romsets, in one directory: an arcade set spans
   # manufacturers, so there is no "Manufacturer - System Name" to name it after. The one
-  # case where displayed and art names differ -- the repository publishes only "FBNeo -
+  # case where displayed and art names differ: the repository publishes only "FBNeo -
   # Arcade Games", so dropping thumbnail_db 404s the art.
   Arcade:
     core: fbneo

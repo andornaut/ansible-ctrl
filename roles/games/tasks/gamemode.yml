@@ -21,11 +21,20 @@
   become: true
 
 # The user module would create a misspelt name as a new account rather than fail on it.
-- name: Require the GameMode accounts to exist
+# Keyless: a keyed lookup replaces getent_passwd with that one entry, and games_user_home
+# reads its entry from the same fact.
+- name: Read the account database
   ansible.builtin.getent:
     database: passwd
-    key: "{{ item }}"
-  loop: "{{ games_gamemode_users }}"
+  become: false
+
+- name: Require the GameMode accounts to exist
+  ansible.builtin.assert:
+    that: games_gamemode_missing | length == 0
+    fail_msg: "games_gamemode_users names accounts that do not exist: {{ games_gamemode_missing | join(', ') }}"
+    quiet: true
+  vars:
+    games_gamemode_missing: "{{ games_gamemode_users | reject('in', ansible_facts['getent_passwd']) | list }}"
   become: false
 
 - name: Add the GameMode accounts to the gamemode group

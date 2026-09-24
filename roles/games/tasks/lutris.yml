@@ -210,25 +210,22 @@
         mode: "0755"
 
     # The icon Lutris would fetch for the slug, at the size and name it uses, placed where
-    # the host's launcher looks rather than in the sandbox's own data directory. Fetched
-    # once: get_url leaves an existing destination alone.
+    # the host's launcher looks rather than in the sandbox's own data directory. A present
+    # copy is revalidated with If-Modified-Since, so a run costs one request.
     #
-    # Not fatal. lutris.net is the only thing the tag needs off this host, and the entry it
-    # decorates is already installed; a failure leaves the launcher's generic icon.
+    # Not fatal: the entry it decorates is already installed, and a failure leaves the
+    # launcher's generic icon.
     - name: Install the World of Warcraft icon
-      ansible.builtin.get_url:
-        url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
-        dest: "{{ games_lutris_wow_icon_dir }}/lutris_{{ games_lutris_wow_slug }}.png"
-        mode: "0644"
-      register: games_lutris_wow_icon
-      failed_when: false
-      notify: Mark the user hicolor icon cache stale
-
-    # get_url reports the destination on every outcome that wrote or kept one, so its absence
-    # is the download having failed.
-    - name: Warn when the World of Warcraft icon could not be fetched
-      ansible.builtin.debug:
-        msg: >-
-          WARNING: {{ games_lutris_wow_icon.msg | default('the icon could not be fetched') }}.
-          The desktop entry is installed and shows a generic icon until a re-run fetches it.
-      when: games_lutris_wow_icon.dest is not defined
+      block:
+        - name: Download the World of Warcraft icon
+          ansible.builtin.get_url:
+            url: "https://lutris.net/games/icon/{{ games_lutris_wow_slug }}.png"
+            dest: "{{ games_lutris_wow_icon_dir }}/lutris_{{ games_lutris_wow_slug }}.png"
+            mode: "0644"
+          notify: Mark the user hicolor icon cache stale
+      rescue:
+        - name: Warn when the World of Warcraft icon could not be fetched
+          ansible.builtin.debug:
+            msg: >-
+              WARNING: {{ ansible_failed_result.msg | default('the icon could not be fetched') }}.
+              The desktop entry is installed and shows a generic icon until a re-run fetches it.
