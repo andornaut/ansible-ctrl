@@ -188,6 +188,12 @@ server {
     }
 {% endfor %}
 
+{% if item.item.proxy_port is not defined %}
+    # At server level, so the exact-match locations common_site_configuration adds
+    # (robots.txt, favicon.ico) are served from the site as well.
+    root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
+
+{% endif %}
     location / {
 {% if item.item.proxy_port is defined %}
         include /etc/nginx/conf.d/partial/common_proxy_configuration;
@@ -204,7 +210,6 @@ server {
         proxy_pass http://127.0.0.1:{{ item.item.proxy_port }};
 {% endif %}
 {% else %}
-        root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
 {% if item.item.default_path | default(False) %}
         try_files $uri $uri/ {{ item.item.default_path }};
 {% endif %}
