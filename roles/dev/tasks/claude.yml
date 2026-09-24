@@ -29,35 +29,27 @@
   environment:
     HOME: "{{ dev_user_home }}"
 
-- name: Install Claude Desktop (Cowork)
+# CLEANUP (added 2026-09-24): Claude Desktop came from an unofficial apt repository whose
+# key was trusted for root installs. Delete once every host in the dev group has converged.
+- name: Remove Claude Desktop and its repository
   become: true
   block:
-    - name: Download Claude Desktop GPG key
-      ansible.builtin.get_url:
-        url: https://pkg.claude-desktop-debian.dev/KEY.gpg
-        dest: /etc/apt/keyrings/claude-desktop.asc
-        mode: "0644"
-      register: dev_claude_key_download
-      retries: 3
-      delay: 5
-      until: dev_claude_key_download is succeeded
+    - name: Remove Claude Desktop
+      ansible.builtin.apt:
+        name: claude-desktop
+        state: absent
+        purge: true
 
-    - name: Add Claude Desktop repository
+    - name: Remove the Claude Desktop repository
       ansible.builtin.apt_repository:
         repo: >-
           deb [arch={{ dev_arch }}
           signed-by=/etc/apt/keyrings/claude-desktop.asc]
           https://pkg.claude-desktop-debian.dev stable main
-        mode: "0644"
-        state: present
+        state: absent
         update_cache: true
 
-    # bubblewrap is Cowork's sandbox backend; without it there is no isolation.
-    - name: Install Claude Desktop (Cowork) and sandbox backend
-      ansible.builtin.apt:
-        name:
-          - bubblewrap
-          - claude-desktop
-        state: latest
-        install_recommends: false
-        update_cache: true
+    - name: Remove the Claude Desktop signing key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/claude-desktop.asc
+        state: absent

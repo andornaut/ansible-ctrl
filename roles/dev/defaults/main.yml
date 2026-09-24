@@ -125,4 +125,3 @@ dev_ai_maintainer_project_script_path: "{{ dev_ai_maintainer_src_base_dir }}/ai-
 dev_app_entry_overrides:
   # Programming only; the packagers list them under Utility and Office as well.
   cursor.desktop: { categories: [Development] }
-  claude-desktop-unofficial.desktop: { categories: [Development] }
