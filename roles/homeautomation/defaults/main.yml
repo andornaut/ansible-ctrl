@@ -46,8 +46,8 @@ homeautomation_esphome_password: ""
 # credentials. Set this to run the dashboard open deliberately.
 homeautomation_esphome_allow_unauthenticated: false
 # The image runs as root, but the dashboard only reads and writes its two directories. The
-# config directory is a git repository the dashboard owns outright -- it initialises it,
-# authors the commits and has no remote -- so there is no second writer.
+# config directory is a git repository the dashboard owns outright (it initialises it,
+# authors the commits and has no remote), so there is no second writer.
 homeautomation_esphome_uid: "10001"
 homeautomation_esphome_gid: "10001"
 

@@ -16,8 +16,8 @@
   ansible.builtin.debug:
     msg: >-
       configuration.yaml does not exist yet, so the frontend integration is not configured.
-      Once Home Assistant has started and written it, add `frontend: !include frontend.yaml`
-      to it; the next run then installs frontend.yaml.
+      Once Home Assistant has started and written it, replace its frontend: block with
+      "frontend: !include frontend.yaml"; the next run then installs frontend.yaml.
   when: not homeautomation_configuration_yaml_stat.stat.exists
 
 - name: Configure the frontend integration

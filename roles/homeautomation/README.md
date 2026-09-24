@@ -41,18 +41,18 @@ A tag whose flag is off may still remove what an earlier run installed.
 
 See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per host:
 
-| Variable                                                   | Purpose                                                                                                |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `homeautomation_install_*`                                 | One flag per optional service                                                                          |
-| `homeautomation_*_uid`                                     | Fixed uid of each container's service account; asserted distinct in [vars/main.yml](./vars/main.yml)   |
-| `homeautomation_*_port`                                    | Published host port of a bridge container. The internal port is in [Container ports](#container-ports) |
-| `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)      |
-| `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                               |
-| `homeautomation_otbr_device`, `_backbone_if`               | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted          |
-| `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                           |
-| `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                       |
-| `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                              |
-| `homeautomation_router_kva_sample_*`                       | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                        |
+| Variable                                                   | Purpose                                                                                                                                |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `homeautomation_install_*`                                 | One flag per optional service                                                                                                          |
+| `homeautomation_*_uid`                                     | Fixed uid of each container's service account; asserted distinct in [tasks/docker_prerequisites.yml](./tasks/docker_prerequisites.yml) |
+| `homeautomation_*_port`                                    | Host port: the published port of a bridge container, or the listen port of a host-network one. See [Container ports](#container-ports) |
+| `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)                                      |
+| `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                                                               |
+| `homeautomation_otbr_device`, `_backbone_if`               | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted                                          |
+| `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                                                           |
+| `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                       |
+| `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                                                              |
+| `homeautomation_router_kva_sample_*`                       | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                                                        |
 
 ## Installed files
 
@@ -104,15 +104,15 @@ mapping, not the internal port listed here.
 
 Per-service values are in [defaults/main.yml](./defaults/main.yml).
 
-| Constraint                        | Detail                                                                                                                                                                                                                                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| One host account per container    | Created by [tasks/service_account.yml](./tasks/service_account.yml) with a fixed uid, so a file on a bind mount names the service that wrote it. The uids are collected and asserted distinct in [vars/main.yml](./vars/main.yml) before any account is created. mosquitto uses the uid built into its image |
-| `cap_drop: ALL` for non-root uids | A non-root process cannot use a capability: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                           |
-| `no-new-privileges` everywhere    | Root included. It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                              |
-| Closed directories                | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                     |
-| Loopback listeners                | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                          |
-| Listeners on every interface      | OTBR's REST API and govee2mqtt's HTTP API: both images hard-code the listen address                                                                                                                                                                                                                          |
-| Frigate RTSP from the LAN         | A Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"`                                                                                                                                                                             |
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One host account per container    | Created by [tasks/service_account.yml](./tasks/service_account.yml) with a fixed uid, so a file on a bind mount names the service that wrote it. The uids are collected in [vars/main.yml](./vars/main.yml) and asserted distinct in [tasks/docker_prerequisites.yml](./tasks/docker_prerequisites.yml) before any account is created. mosquitto uses the uid built into its image |
+| `cap_drop: ALL` for non-root uids | A non-root process cannot use a capability: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                                                                                                 |
+| `no-new-privileges` everywhere    | Root included. It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                                                                                    |
+| Closed directories                | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                           |
+| Loopback listeners                | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                                                                                                |
+| Listeners on every interface      | OTBR's REST API and govee2mqtt's HTTP API: both images hard-code the listen address                                                                                                                                                                                                                                                                                                |
+| Frigate RTSP from the LAN         | A Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"`                                                                                                                                                                                                                                                   |
 
 ## llama.cpp models and context
 
@@ -183,7 +183,8 @@ container this role installs, and writes a Home Assistant entity.
 Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers and
 host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
 as the `ping_group_range` sysctl drop-in ESPHome needs. An ha-mcp instance dropped from
-`homeautomation_hamcp_instances` has its container removed the same way.
+`homeautomation_hamcp_instances` has its container removed the same way; its host account is kept, so
+a new instance cannot reuse that uid until the account is deleted with `userdel`.
 
 | Not removed               | Why                                                                                                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -192,6 +193,7 @@ as the `ping_group_range` sysctl drop-in ESPHome needs. An ha-mcp instance dropp
 | Avahi                     | A host daemon the run stops, not a container                                                                                                                |
 | MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
 | adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
+| OTBR sysctls              | Forwarding and router-advertisement acceptance stay in `/etc/sysctl.conf` when both Matter flags are cleared                                                |
 
 ## Notes
 

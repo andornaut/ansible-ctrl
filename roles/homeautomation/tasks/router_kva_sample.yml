@@ -15,11 +15,16 @@
           - homeautomation_router_kva_sample_host | length > 0
           - homeautomation_router_kva_sample_entity_id | length > 0
           - homeautomation_router_kva_sample_user != "root"
+          - homeautomation_install_hamcp | bool
+          - homeautomation_router_kva_sample_container
+            in homeautomation_hamcp_instances | map(attribute='name') | list
         fail_msg: >-
           homeautomation_install_router_kva_sample needs
           homeautomation_router_kva_sample_host and
-          homeautomation_router_kva_sample_entity_id set in host_vars, and a
-          homeautomation_router_kva_sample_user that is not root.
+          homeautomation_router_kva_sample_entity_id set in host_vars, a
+          homeautomation_router_kva_sample_user that is not root, and
+          homeautomation_router_kva_sample_container naming one of
+          homeautomation_hamcp_instances, whose token it borrows.
         quiet: true
       become: false
 

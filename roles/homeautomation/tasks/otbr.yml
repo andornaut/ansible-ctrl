@@ -1,5 +1,6 @@
 ---
-# Tagged matter as well, so the docker_otbr.yml half, which reads both, never runs unchecked.
+# Tagged with docker and matter as well, the tags docker_otbr.yml runs under, so the container
+# that reads both is never configured unchecked.
 - name: Require the OTBR radio and backbone interface
   ansible.builtin.assert:
     that:
@@ -11,11 +12,12 @@
       this host ("{{ homeautomation_otbr_backbone_if }}" is not one).
     quiet: true
   become: false
-  tags: matter
+  tags: [docker, matter]
 
 # accept_ra=2 because forwarding is on, under which 1 ignores router advertisements. Setting
 # `all` does not reach an interface that already exists, so the backbone is named itself, and
-# `default` covers an interface created later.
+# `default` covers an interface created later. A dot in the interface name (a VLAN) is written
+# as a slash, which sysctl swaps back, or the key would split there.
 - name: Set sysctl values for OTBR
   ansible.posix.sysctl:
     name: "{{ item.name }}"
@@ -28,9 +30,9 @@
     - { name: "net.ipv6.conf.all.accept_ra_rt_info_max_plen", value: "64" }
     - { name: "net.ipv6.conf.default.accept_ra", value: "2" }
     - { name: "net.ipv6.conf.default.accept_ra_rt_info_max_plen", value: "64" }
-    - name: "net.ipv6.conf.{{ homeautomation_otbr_backbone_if }}.accept_ra"
+    - name: "net.ipv6.conf.{{ homeautomation_otbr_backbone_if | replace('.', '/') }}.accept_ra"
       value: "2"
-    - name: "net.ipv6.conf.{{ homeautomation_otbr_backbone_if }}.accept_ra_rt_info_max_plen"
+    - name: "net.ipv6.conf.{{ homeautomation_otbr_backbone_if | replace('.', '/') }}.accept_ra_rt_info_max_plen"
       value: "64"
     - { name: "net.ipv6.conf.all.disable_ipv6", value: "0" }
     - { name: "net.ipv6.conf.all.forwarding", value: "1" }

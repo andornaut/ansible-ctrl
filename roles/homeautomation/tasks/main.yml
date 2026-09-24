@@ -73,9 +73,11 @@
         - not homeautomation_install_avahi | bool
         - item.stat.exists | default(false)
 
+# Tagged with docker and homeassistant as well: the Home Assistant container starts under the
+# AppArmor profile this loads, and docker refuses one the kernel does not have.
 - name: Import Bluetooth tasks
   ansible.builtin.import_tasks: bluetooth.yml
-  tags: bluetooth
+  tags: [bluetooth, docker, homeassistant]
 
 - name: Import MemryX tasks
   ansible.builtin.import_tasks: memryx.yml
