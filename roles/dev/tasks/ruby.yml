@@ -5,13 +5,16 @@
       # What building an interpreter from source needs, for the ruby-install
       # below. ruby-dev covers native extensions built against the system Ruby,
       # which is a different job. libffi-dev is named here as well as in
-      # python.yml, so `--tags ruby` on its own still has it.
+      # python.yml, so `--tags ruby` on its own still has it. make installs chruby
+      # and ruby-install as well.
+      - gcc
       - libffi-dev
       - libgdbm-dev
       - libncurses-dev
       - libreadline-dev
       - libssl-dev
       - libyaml-dev
+      - make
       - ruby
       - ruby-dev
       - zlib1g-dev
@@ -80,6 +83,9 @@
                 src: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
                 remote_src: true
                 dest: "{{ dev_tmp_ruby.path }}"
+              # Into the temporary directory only, so a --check run extracts too: skipped, make
+              # fails on a chdir that does not exist.
+              check_mode: false
 
             - name: Install chruby
               community.general.make:
@@ -135,6 +141,9 @@
                 src: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
                 remote_src: true
                 dest: "{{ dev_tmp_ruby.path }}"
+              # Into the temporary directory only, so a --check run extracts too: skipped, make
+              # fails on a chdir that does not exist.
+              check_mode: false
 
             - name: Install ruby-install
               community.general.make:

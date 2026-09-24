@@ -195,6 +195,9 @@
           retries: 3
           delay: 5
           until: dev_virtualbox_extension_pack_download is succeeded
+          # Into the temporary directory only, as is the extraction, so a --check run reaches
+          # the assert with the licence there to read.
+          check_mode: false
 
         # --accept-license takes the SHA-256 of the pack's own licence text, so read it
         # out of the pack. The bad header after its first entry needs --ignore-zeros,
@@ -206,8 +209,9 @@
               tar -xz --ignore-zeros -f {{ dev_virtualbox_extpack_file }}
               -C {{ dev_virtualbox_extpack_tmp.path }} ./ExtPack-license.txt
             chdir: "{{ dev_virtualbox_extpack_tmp.path }}"
-          changed_when: true
+          changed_when: false
           failed_when: false
+          check_mode: false
 
         - name: Resolve the extension pack license hash
           ansible.builtin.stat:
