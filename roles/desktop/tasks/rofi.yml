@@ -1,13 +1,29 @@
 ---
 - name: Install system packages
   ansible.builtin.apt:
+    # Every dependency() in rofi's meson.build, the ones other tasks happen to install
+    # included.
     name:
       - bison
       - flex
-      - libxcb-cursor-dev
+      - libcairo2-dev
+      - libgdk-pixbuf-2.0-dev
+      - libglib2.0-dev
+      - libpango1.0-dev
       - libstartup-notification0-dev
+      - libwayland-dev
+      - libxcb-cursor-dev
+      - libxcb-ewmh-dev
+      - libxcb-icccm4-dev
+      - libxcb-imdkit-dev
+      - libxcb-keysyms1-dev
+      - libxcb-randr0-dev
+      - libxcb-util-dev
+      - libxcb-xinerama0-dev
+      - libxcb-xkb-dev
       - libxkbcommon-x11-dev
       - ninja-build
+      - wayland-protocols
     state: latest
     install_recommends: false
     update_cache: true
