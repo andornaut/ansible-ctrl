@@ -10,6 +10,8 @@
   pre_tasks:
     - name: Require the credentials this play reads
       ansible.builtin.import_tasks: tasks/require_credentials.yml
+      vars:
+        secrets_required_vars: [msmtp_password]
   roles:
     - role: msmtp
       tags: msmtp

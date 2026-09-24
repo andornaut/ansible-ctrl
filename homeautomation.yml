@@ -7,5 +7,14 @@
   pre_tasks:
     - name: Require the credentials this play reads
       ansible.builtin.import_tasks: tasks/require_credentials.yml
+      vars:
+        secrets_required_vars:
+          - homeautomation_esphome_password
+          - homeautomation_frigate_env
+          - homeautomation_govee2mqtt_env
+          - homeautomation_hamcp_env
+          - homeautomation_hamcp_instances
+          - homeautomation_llamacpp_env
+          - homeautomation_openwebui_env
   roles:
     - homeautomation
