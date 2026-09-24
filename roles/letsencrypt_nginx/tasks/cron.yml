@@ -61,3 +61,23 @@
     access_time: preserve
   become: true
   when: letsencrypt_nginx_install_renewal_cron | bool
+
+# The script appends every run's output and reopens the log each time, so a plain rotation
+# suffices and no process needs signalling.
+- name: Rotate the certificate renewal log
+  ansible.builtin.copy:
+    content: |
+      {{ letsencrypt_nginx_renewal_cron_log }} {
+          weekly
+          rotate 4
+          compress
+          missingok
+          notifempty
+          create 0640 root adm
+      }
+    dest: /etc/logrotate.d/ansible-role-letsencrypt_nginx
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: letsencrypt_nginx_install_renewal_cron | bool

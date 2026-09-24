@@ -26,10 +26,11 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Installed files
 
-| Path                                         | Purpose                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------- |
-| `/usr/local/sbin/letsencrypt-nginx-renew`    | Renewal script, with `letsencrypt_nginx_install_renewal_cron: true` |
-| `/etc/cron.d/ansible-role-letsencrypt_nginx` | Root job that runs the renewal script                               |
+| Path                                              | Purpose                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| `/usr/local/sbin/letsencrypt-nginx-renew`         | Renewal script, with `letsencrypt_nginx_install_renewal_cron: true` |
+| `/etc/cron.d/ansible-role-letsencrypt_nginx`      | Root job that runs the renewal script                               |
+| `/etc/logrotate.d/ansible-role-letsencrypt_nginx` | Weekly rotation of the renewal log, with the renewal cron           |
 
 ## Certificates
 

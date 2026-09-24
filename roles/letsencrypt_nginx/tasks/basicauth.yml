@@ -77,6 +77,7 @@
          | selectattr('aliases', 'defined')
          | map(attribute='aliases')
          | flatten
+         | selectattr('file_basename', 'defined')
          | map(attribute='file_basename')
          | list) }}
 
