@@ -7,3 +7,16 @@ niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
 
 # Names the user bus for a `scope: user` unit, which become_user alone does not reach.
 niri_user_uid: "{{ ansible_facts['getent_passwd'][niri_user][1] }}"
+
+# The hypr stack at the newest releases gcc-14, Ubuntu 24.04's newest, builds. From v0.11.1
+# hyprutils calls std::ofstream::native_handle, which only gcc-15's libstdc++ has, and from
+# v0.8.0 hyprpaper needs hyprtoolkit and hyprwire, which this role does not build. The rest
+# are the releases of the same period. A component not named here builds its latest release.
+niri_hypr_versions:
+  hyprutils: v0.11.0
+  hyprlang: v0.6.8
+  hyprgraphics: v0.5.0
+  hyprwayland-scanner: v0.4.5
+  hypridle: v0.1.7
+  hyprlock: v0.9.2
+  hyprpaper: v0.7.6

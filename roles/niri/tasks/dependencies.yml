@@ -37,8 +37,16 @@
           - xsltproc
 
           # hypr dependencies
+          - libcairo2-dev
+          - libdrm-dev
+          - libjpeg-dev
           - libmagic-dev
+          - libpam0g-dev
+          - libpixman-1-dev
+          - libpng-dev
           - libpugixml-dev
+          - librsvg2-dev
+          - libwebp-dev
           # Conflicts with the libsdbus built from source below; keep it out.
           # - libsdbus-c++-dev
           - libspng-dev
