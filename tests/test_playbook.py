@@ -226,6 +226,19 @@ class Preflight(unittest.TestCase):
                 self.assertEqual("make faramir" in message, expected)
 
 
+class Listing(unittest.TestCase):
+    def test_a_failed_listing_stops_the_run_naming_why(self):
+        message = playbook.listing_refusal("base", 4, "ERROR! faramir.env is not there\n", [])
+        self.assertIn("ERROR! faramir.env is not there", message)
+        self.assertIn("base.yml failed", message)
+
+    def test_no_host_stops_the_run(self):
+        self.assertIn("No host matched base.yml", playbook.listing_refusal("base", 0, "", []))
+
+    def test_hosts_listed_runs(self):
+        self.assertIsNone(playbook.listing_refusal("base", 0, "[WARNING]: something\n", ["a"]))
+
+
 class Bootstrap(unittest.TestCase):
     def test_named_groups_only(self):
         self.assertTrue(playbook.names_a_group(["homeautomation"]))

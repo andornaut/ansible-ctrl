@@ -64,11 +64,12 @@ check_config() {
 }
 
 # Found by shebang rather than an enumerated list, so a new script needs no edit here. Line
-# 1 only, so a #! deeper in another file is not mistaken for one. Every tracked file rather
-# than roles/ alone, on the same reasoning as check_python: a script added elsewhere, this
-# one included, is covered without anyone remembering to add it. Tracked, because
-# ansible-galaxy installs collections into .ansible/, and third-party shell is not this
-# repository's to lint.
+# 1 only, so a #! deeper in another file is not mistaken for one. Every file git would
+# commit rather than roles/ alone, on the same reasoning as check_python: a script added
+# elsewhere, this one included, is covered without anyone remembering to add it. Untracked
+# ones as well, so a new script fails here before it is added rather than only under CI.
+# Not ignored ones, because ansible-galaxy installs collections into .ansible/, and
+# third-party shell is not this repository's to lint.
 #
 # ShellCheck cannot parse Jinja2, so templates are rendered to a temporary copy first, named
 # by flattened repo-relative path so a shared basename cannot overwrite. Everything else is
@@ -96,7 +97,7 @@ check_shell() {
         else
             targets+=("${src}")
         fi
-    done < <(git ls-files -z)
+    done < <(git ls-files -z --cached --others --exclude-standard)
 
     "${LINT_BIN_DIR}/shellcheck" "${targets[@]}"
     status=$?

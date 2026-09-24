@@ -17,8 +17,8 @@ import sys
 # harness itself. A path ending in / is a directory prefix.
 SHARED = (
     ".github/workflows/test.yml",
+    ".python-version",
     "ansible.cfg",
-    "group_vars/",
     "requirements.yml",
     "requirements-dev.txt",
     "roles/base/tasks/get_latest_release.yml",
@@ -104,6 +104,11 @@ MATRIX = (
 )
 
 
+# The playbooks no entry applies: they need a second host, hardware, a router or the
+# broker's own store, none of which the runner has.
+NOT_COVERED = ("faramir", "nas", "router", "rsnapshot", "torrent", "upgrade")
+
+
 def touches(paths: tuple[str, ...], changed: list[str]) -> bool:
     return any(f == p or (p.endswith("/") and f.startswith(p)) for f in changed for p in paths)
 
@@ -120,7 +125,9 @@ def changed_files(base: str, head: str) -> list[str] | None:
     """Files changed from base to head, or None when base names no commit here."""
     if not base.strip("0"):
         return None
-    diff = subprocess.run(["git", "diff", "--name-only", base, head], capture_output=True, text=True, check=False)
+    diff = subprocess.run(
+        ["git", "diff", "--no-renames", "--name-only", base, head], capture_output=True, text=True, check=False
+    )
     return diff.stdout.splitlines() if diff.returncode == 0 else None
 
 

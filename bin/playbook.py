@@ -37,7 +37,7 @@ SECRET_PLAYBOOKS = frozenset({"homeautomation", "msmtp", "webservers"})
 SECRETS_OFF = ("--extra-vars", "secrets_required=false")
 
 # The controller's sudo is answered by a person through faramir's PAM helper, and the local
-# connection plugin's 10s default closes before anyone can. 120 rather than the 300 an
+# connection plugin's 10s default closes before anyone can. 120 rather than the 600 an
 # escalation is offered for, so a run nobody is watching fails rather than holding the full
 # window. Named here as well as on the controller's inventory line, which is not in this repo.
 BECOME_PROMPT = ("--ask-become-pass", "-e", "ansible_local_become_success_timeout=120")
@@ -285,6 +285,19 @@ def preflight_outcome(playbook: str, hosts: list[str], off: list[str], is_root: 
     return ["--limit", ",".join(reachable)], "\n".join(lines)
 
 
+def listing_refusal(playbook: str, returncode: int, stderr: str, hosts: list[str]) -> str | None:
+    """Why the listing stops the run, or None.
+
+    Decided before the become prompt, so an inventory or vars plugin error, or a --limit that
+    matches nothing, is named before the operator is asked for a password nothing would use.
+    """
+    if returncode != 0:
+        return f"{stderr.rstrip()}\nListing the hosts of {playbook}.yml failed, so nothing was run."
+    if not hosts:
+        return f"No host matched {playbook}.yml's plays. Check hosts and any --limit; nothing was run."
+    return None
+
+
 def sops_command(sops_file: str, playbook: str, args: list[str]) -> list[str]:
     # sops runs the command through a shell, so every argument is quoted into one string.
     inner = shlex.join(["SECRETS_LOADED=1", str(SCRIPT), "run", playbook, *args])
@@ -300,6 +313,10 @@ def sudo_command(env: Mapping[str, str], playbook: str, args: list[str]) -> list
 
 def capture(argv: list[str], *, stderr: int = subprocess.DEVNULL) -> str:
     return subprocess.run(argv, stdout=subprocess.PIPE, stderr=stderr, text=True, check=False).stdout
+
+
+def capture_all(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, capture_output=True, text=True, check=False)
 
 
 def say(message: str) -> None:
@@ -349,8 +366,13 @@ def run(playbook: str, args: list[str]) -> int:
             argv = sops_command(sops_file, playbook, args)
         os.execvp(argv[0], argv)
 
-    listing = capture(["ansible-playbook", f"{playbook}.yml", *args, "--list-hosts", "--list-tasks"])
+    listed = capture_all(["ansible-playbook", f"{playbook}.yml", *args, "--list-hosts", "--list-tasks"])
+    listing = listed.stdout
     run_hosts = pick_hosts(listing)
+    stop = listing_refusal(playbook, listed.returncode, listed.stderr, run_hosts)
+    if stop:
+        say(stop)
+        return 1
     limit: list[str] = []
     if not is_none(os.environ.get("PREFLIGHT")) and run_hosts:
         # raw: the question is whether ssh authenticates, not whether python answers.

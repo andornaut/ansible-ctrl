@@ -21,6 +21,8 @@ sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
+`make lint` also needs `python3-venv` and Node.js >= 24.21 with npm.
+
 ## Usage
 
 Every root `.yml` except `requirements.yml` is a playbook with a [make](Makefile) target of the same name.
@@ -37,6 +39,7 @@ make bootstrap -- --limit example                # First run of a new host
 | Behaviour           | Detail                                                                                                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                        |
+| Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt                                                                                           |
 | Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named. `PREFLIGHT=none` skips it                                                                                   |
 | `--ask-become-pass` | Added when the run may reach the controller, and to every run `make bootstrap` makes, a new host's sudo asking until `make faramir`. `ASK_PASS=1` forces it; a root run never gets it       |
 | Credentials         | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`, or as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
@@ -75,7 +78,14 @@ them in `host_vars/`. Every host names its address, port and login, because root
 `~/.ssh/config`:
 
 ```ini
+controller ansible_host=controller.example.com ansible_port=22 ansible_user=andornaut ansible_connection=local
 example ansible_host=example.com ansible_port=22 ansible_user=andornaut
+
+[faramir]
+controller
+
+[faramir_controller]
+controller
 
 [desktop]
 example
@@ -140,15 +150,15 @@ ansible-galaxy collection install --upgrade -r requirements.yml # Upgrade collec
 make clean                                                       # Remove collections and lint tooling
 ```
 
-| Check          | Covers                                                                              |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `ansible-lint` | Ansible content                                                                     |
-| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                |
-| `shell`        | shellcheck on every shell script, templates rendered first                          |
-| `python`       | `ruff check` and `ruff format --check`                                              |
-| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py)) |
-| `dispatch`     | [bin/playbook.py](bin/playbook.py)'s unit tests                                     |
-| `markdown`     | markdownlint on tracked `.md` files                                                 |
+| Check          | Covers                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------- |
+| `ansible-lint` | Ansible content                                                                                      |
+| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                 |
+| `shell`        | shellcheck on every shell script, templates rendered first                                           |
+| `python`       | `ruff check` and `ruff format --check`                                                               |
+| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py))                  |
+| `dispatch`     | [bin/playbook.py](bin/playbook.py)'s and [tests/check_matrix.py](tests/check_matrix.py)'s unit tests |
+| `markdown`     | markdownlint on tracked `.md` files                                                                  |
 
 CI ([.github/workflows](.github/workflows)) also runs:
 
