@@ -64,13 +64,31 @@
       become: true
       become_user: "{{ niri_user }}"
 
-    - name: Start the unit under a live session for {{ niri_enable_unit }}
+    # Started only inside the session that wants it: a manager running without one, over SSH or
+    # lingering, has no display for the unit to start against. is-active exits 0 when any of the
+    # named targets is active.
+    - name: Check the session that wants {{ niri_enable_unit }}
+      ansible.builtin.command:
+        argv: "{{ ['systemctl', '--user', 'is-active'] + niri_enable_unit_wanted_by }}"
+      register: niri_enable_unit_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: niri_user_systemd.stat.exists
+      become: true
+      become_user: "{{ niri_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ niri_user_uid }}"
+
+    - name: Start in the active session {{ niri_enable_unit }}
       ansible.builtin.systemd_service:
         name: "{{ niri_enable_unit }}"
         daemon_reload: true
         scope: user
         state: started
-      when: niri_user_systemd.stat.exists
+      when:
+        - niri_user_systemd.stat.exists
+        - niri_enable_unit_session.rc | default(1) == 0
       become: true
       become_user: "{{ niri_user }}"
       environment:
