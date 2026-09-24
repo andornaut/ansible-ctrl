@@ -132,11 +132,14 @@
           until: desktop_ly_download is succeeded
 
         # unzip has no --strip-components, so the build below chdirs into the wrapping ly/ dir.
+        # Under --check too: the compile below is skipped there, but only after its chdir,
+        # which fails on a directory this never extracted.
         - name: Unarchive ly
           ansible.builtin.unarchive:
             src: "{{ desktop_ly_tmp.path }}/ly.zip"
             dest: "{{ desktop_ly_tmp.path }}"
             remote_src: true
+          check_mode: false
 
         # The build step names no modes, so what it writes to /usr/bin, /etc/ly and the
         # unit directory arrives at the run's umask. 022 rather than the login default
