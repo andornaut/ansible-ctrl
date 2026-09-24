@@ -31,6 +31,8 @@
           # wayland dependencies
           - doxygen
           - graphviz
+          # wayland-scanner validates protocols against their DTD.
+          - libxml2-dev
           - xmlto
           - xsltproc
 
@@ -101,6 +103,9 @@
       vars:
         meson_component_name: Wayland
         meson_component_src_url: "{{ niri_wayland_scanner_src_url }}"
+        # Only the libraries and the scanner are wanted. The docs need mdbook from 1.26 on,
+        # which no archive this role supports packages.
+        meson_component_options: -Ddocumentation=false
 
 - name: Build and install wayland-protocols
   tags: [wayland]
@@ -117,17 +122,11 @@
         meson_component_name: wayland-protocols
         meson_component_src_url: "{{ niri_wayland_protocols_src_url }}"
 
+# CMake since 0.7, like the rest of hyprwm.
 - name: Build and install hyprland-protocols
   tags: [hypr]
   block:
-    - name: Get latest hyprland-protocols release
-      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-      vars:
-        release_repo: hyprwm/hyprland-protocols
-        release_fact: niri_hyprland_protocols_release
-
     - name: Build and install hyprland-protocols
-      ansible.builtin.include_tasks: build_meson_component.yml
+      ansible.builtin.include_tasks: build_hypr_component.yml
       vars:
-        meson_component_name: hyprland-protocols
-        meson_component_src_url: "{{ niri_hyprland_protocols_release.tarball_url }}"
+        hypr_component_name: hyprland-protocols
