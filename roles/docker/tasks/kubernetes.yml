@@ -31,21 +31,52 @@
       # rc 0, which reads as an installed helm on a host that has none.
       check_mode: false
 
+    # Fetched into a temporary directory first: unarchive takes no checksum, and helm
+    # publishes a .sha256sum beside each tarball.
     - name: Install helm binary
-      ansible.builtin.unarchive:
-        src: "https://get.helm.sh/helm-{{ docker_helm_release.json.tag_name }}-linux-{{ docker_arch }}.tar.gz"
-        dest: /usr/local/bin/
-        extra_opts:
-          - "--strip-components=1"
-        exclude:
-          - LICENSE
-          - README.md
-        remote_src: true
-      register: docker_helm_download
-      retries: 3
-      delay: 5
-      until: docker_helm_download is succeeded
       when: docker_helm_release.json.tag_name not in docker_helm_installed.stdout
+      vars:
+        docker_helm_url: >-
+          https://get.helm.sh/helm-{{ docker_helm_release.json.tag_name }}-linux-{{ docker_arch }}.tar.gz
+      block:
+        - name: Create a temporary directory for helm
+          ansible.builtin.tempfile:
+            state: directory
+          register: docker_helm_tmp
+          check_mode: false
+
+        - name: Download helm
+          ansible.builtin.get_url:
+            url: "{{ docker_helm_url }}"
+            checksum: "sha256:{{ docker_helm_url }}.sha256sum"
+            dest: "{{ docker_helm_tmp.path }}/helm.tar.gz"
+            mode: "0644"
+          register: docker_helm_download
+          retries: 3
+          delay: 5
+          until: docker_helm_download is succeeded
+          # Into the temporary directory only, so a --check run downloads too: skipped, the
+          # extraction after it fails on an archive that was never written.
+          check_mode: false
+
+        - name: Extract helm
+          ansible.builtin.unarchive:
+            src: "{{ docker_helm_tmp.path }}/helm.tar.gz"
+            dest: /usr/local/bin/
+            extra_opts:
+              - "--strip-components=1"
+            exclude:
+              - LICENSE
+              - README.md
+            remote_src: true
+      always:
+        - name: Remove the temporary helm directory
+          ansible.builtin.file:
+            path: "{{ docker_helm_tmp.path }}"
+            state: absent
+          when: docker_helm_tmp.path is defined
+          # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+          check_mode: false
 
     # Named here rather than on the unarchive above, as the kubectl and minikube tasks
     # below can name it inline: --strip-components leaves the stripped top-level member
