@@ -67,7 +67,8 @@
   register: desktop_hypridle_restart
   failed_when:
     - desktop_hypridle_restart is failed
-    - "'Could not find the requested service' not in (desktop_hypridle_restart.stderr | default('')) ~ (desktop_hypridle_restart.msg | default(''))"
+    # systemctl exits 5 for a unit that does not exist.
+    - desktop_hypridle_restart.rc | default(0) != 5
     - "'Failed to connect to bus' not in (desktop_hypridle_restart.stderr | default('')) ~ (desktop_hypridle_restart.msg | default(''))"
   when: desktop_user_systemd.stat.exists
 
