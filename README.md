@@ -38,7 +38,7 @@ make bootstrap -- --limit example                # First run of a new host
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                        |
 | Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named. `PREFLIGHT=none` skips it                                                                                   |
-| `--ask-become-pass` | Added when the run may reach the controller. `ASK_PASS=1` forces it; a root run never gets it                                                                                               |
+| `--ask-become-pass` | Added when the run may reach the controller, and to every run `make bootstrap` makes, a new host's sudo asking until `make faramir`. `ASK_PASS=1` forces it; a root run never gets it       |
 | Credentials         | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`, or as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
 | umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                               |
 

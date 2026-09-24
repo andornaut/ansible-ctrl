@@ -260,6 +260,11 @@ class Bootstrap(unittest.TestCase):
         }
         self.assertEqual(playbook.select_bootstrap(listings), ["router"])
 
+    def test_every_run_prompts_unless_the_operator_set_ask_pass(self):
+        self.assertEqual(playbook.bootstrap_env({"PATH": "/bin"}), {"PATH": "/bin", "ASK_PASS": "1"})
+        self.assertEqual(playbook.bootstrap_env({"ASK_PASS": " "}), {"ASK_PASS": "1"})
+        self.assertEqual(playbook.bootstrap_env({"ASK_PASS": "yes"}), {"ASK_PASS": "yes"})
+
     def test_a_limit_is_required(self):
         for args, expected in (
             (["--limit", "h"], True),

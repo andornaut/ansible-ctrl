@@ -378,6 +378,12 @@ def run(playbook: str, args: list[str]) -> int:
     return 1
 
 
+def bootstrap_env(env: Mapping[str, str]) -> dict[str, str]:
+    """env with ASK_PASS forced: a fresh host's sudo asks until faramir.yml, which bootstrap
+    never selects, writes the NOPASSWD rule. become_flag still asks root nothing."""
+    return dict(env) if is_set(env.get("ASK_PASS")) else {**env, "ASK_PASS": "1"}
+
+
 def bootstrap(args: list[str]) -> int:
     if refuse_invocation("bootstrap"):
         return 1
@@ -393,7 +399,9 @@ def bootstrap(args: list[str]) -> int:
         return 1
     say(f"bootstrap: {', '.join(selected)}")
     for index, playbook in enumerate(selected):
-        status = subprocess.run([sys.executable, str(SCRIPT), "run", playbook, *args], check=False).returncode
+        status = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", playbook, *args], check=False, env=bootstrap_env(os.environ)
+        ).returncode
         if status != 0:
             say(f"bootstrap: stopped at {playbook}.yml; not run: {', '.join(selected[index + 1 :]) or 'none'}")
             return status
