@@ -58,10 +58,8 @@
   ansible.builtin.import_tasks: flatpak.yml
   tags: flatpak
 
-# No become: gamescope.yml builds as games_user and installs as root, naming each.
-- name: Install gamescope
+- name: Remove the host gamescope
   ansible.builtin.import_tasks: gamescope.yml
-  tags: gamescope
 
 # Before bedrock.yml and lutris.yml, which put what this installs on their sandbox PATHs.
 # Tagged with both and not with gamescope: a flag turned off removes the directory, and

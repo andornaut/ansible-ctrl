@@ -19,7 +19,6 @@ make games -- --tags retroarch
 | bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                                                                                                                          |
 | flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                                                                                                                              |
 | gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                                                                                                                           |
-| gamescope   | gamescope on the host: the archive package on Ubuntu >= 26.04, built from a pinned tag into `/usr/local` below that. The launchers' wrapper belongs to the bedrock and lutris tags                                                   |
 | heroic      | Heroic install path and the store token-refresh timer                                                                                                                                                                                |
 | lutris      | Lutris default install path, gamescope settings, the sandbox PATH grant for the gamescope wrapper, the prefix-teardown launcher and the World of Warcraft entry: [Lutris](#lutris)                                                   |
 | retroarch   | Libretro cores, BIOS, settings, per-core overrides, playlists and thumbnails                                                                                                                                                         |
@@ -49,7 +48,6 @@ produces no error:
 | `/etc/udev/rules.d/70-ansible-role-games-retroarch-input.rules` | Mouse and keyboard read access for RetroArch                                                     |
 | `/usr/local/bin/lutris-launch-game`                             | Prefix-teardown launcher, [files/lutris-launch-game.py](files/lutris-launch-game.py)             |
 | `/etc/modules-load.d/ntsync.conf`                               | Loads `ntsync` at boot where the kernel ships it                                                 |
-| `/usr/local/bin/gamescope`, `/usr/local/lib/gamescope-deps`     | gamescope built from source, and the Wayland library it links, on Ubuntu < 26.04                 |
 | `/usr/local/bin/syncretroid`                                    | Handheld sync wrapper, on the controller                                                         |
 | `~/.local/bin/world-of-warcraft-launch.sh`                      | Runs the launcher for the World of Warcraft prefix                                               |
 | `~/.local/bin/minecraft-bedrock-launch.sh`                      | Launches Minecraft (Bedrock), or focuses its window if already running                           |
@@ -66,12 +64,6 @@ a display-mode change. `games_gamescope_enabled` runs Lutris games and Minecraft
 sets the fullscreen state itself and gives the game its own nested compositor, at a cost of about one frame of
 latency. It is off by default; a host enables it together with `games_gamescope_resolution`. It works on X11 and
 Wayland, gamescope selecting its own backend. With the flag off, Lutris's own gamescope settings are not changed.
-
-On Ubuntu >= 26.04 the host gamescope comes from the archive. Below that, `gamescope.yml` builds
-`games_gamescope_version` into `/usr/local`. When the archive's Wayland is below 1.23, the minimum for that tag's
-wlroots, it first builds Wayland `games_gamescope_wayland_version` into `games_gamescope_deps_prefix`, which only
-the gamescope build finds, through `PKG_CONFIG_PATH` and an rpath. The build and its dependency install are
-skipped while `/usr/local/bin/gamescope --version` reports the tag.
 
 ### Sandbox wrapper
 
@@ -98,7 +90,7 @@ launcher's game:
 | Constraint                     | Detail                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Two preload builds             | `x86_64-linux-gnu` and `i386-linux-gnu`, both named by one `LD_PRELOAD` entry through ld.so's `$LIB`, because a prefix runs both. `gamescope-wrapper.yml` builds them on the host and installs `gcc` and its multilib                                                                                                                          |
-| Sandbox binary                 | The sandboxes use gamescope from the `org.freedesktop.Platform.VulkanLayer.gamescope` extension, not the host's. The wrapper runs it by path: the extension's `bin` is behind the wrapper on Lutris's PATH and absent from BedrockOnLinux's. Neither launcher uses the host gamescope                                                          |
+| Sandbox binary                 | The sandboxes use gamescope from the `org.freedesktop.Platform.VulkanLayer.gamescope` extension, and the host has none. The wrapper runs it by path: the extension's `bin` is behind the wrapper on Lutris's PATH and absent from BedrockOnLinux's                                                                                             |
 | Extension branch               | `flatpak_vulkan.yml` installs the extension, binary and WSI layer together, on each branch an installed launcher's runtime mounts. It reads the branch from the runtime's extension point after every launcher install, because an update can change it                                                                                        |
 | Keyboard map                   | The nested server takes its keymap only from the `XKB_DEFAULT_*` variables, so the session's Caps Lock remap does not apply in gamescope's window. Both launchers' overrides set `XKB_DEFAULT_OPTIONS` from `games_gamescope_xkb_options`. A running game keeps the map it started with                                                        |
 | 1280x720 default               | gamescope's nested output defaults to 1280x720. Lutris passes no size when `gamescope_output_res` and `gamescope_game_res` are unset, and BedrockOnLinux sizes from its own xrandr probe when `BOL_GAMESCOPE` is `1`, so the role gives both `games_gamescope_resolution`. Symptom: the game runs but is not visible                           |
