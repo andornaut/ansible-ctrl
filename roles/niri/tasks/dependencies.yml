@@ -21,6 +21,7 @@
           - libwayland-dev
           - libxcb-cursor-dev
           - libxkbcommon-dev
+          - ninja-build
           - wayland-scanner++
           - xdg-desktop-portal
           - xdg-desktop-portal-gnome
@@ -55,9 +56,19 @@
         update_cache: true
       become: true
 
+    # noble's "meson" is 1.3; it ships meson-1.5 as well, which later releases do not. The
+    # two conflict, so this matches the desktop role's choice.
+    - name: Install meson
+      ansible.builtin.apt:
+        name: "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
+        state: latest
+        install_recommends: false
+      become: true
+
     # CLEANUP (added 2026-09-24): the host-wide gcc and g++ alternatives this role pointed
     # at version 14. Removing the last alternative also removes /usr/bin/gcc, so the packages
-    # are reinstalled to restore their own link. Delete once every niri host has converged.
+    # are reinstalled whenever either link is missing, which retries a failed reinstall.
+    # Delete once every niri host has converged.
     - name: Remove the gcc-14 alternatives
       community.general.alternatives:
         name: "{{ item }}"
@@ -66,13 +77,22 @@
       loop:
         - gcc
         - g++
-      register: niri_gcc_alternatives
       become: true
 
-    - name: Reinstall gcc and g++ to restore /usr/bin/gcc and /usr/bin/g++ # noqa: command-instead-of-module no-handler
-      ansible.builtin.command: apt-get install --reinstall --yes gcc g++
+    - name: Check for /usr/bin/gcc and /usr/bin/g++
+      ansible.builtin.stat:
+        path: "/usr/bin/{{ item }}"
+        follow: false
+      loop:
+        - gcc
+        - g++
+      register: niri_gcc_links
+      become: false
+
+    - name: Reinstall gcc and g++ to restore /usr/bin/gcc and /usr/bin/g++ # noqa: command-instead-of-module
+      ansible.builtin.command: apt-get -o DPkg::Lock::Timeout=300 install --reinstall --yes gcc g++
       changed_when: true
-      when: niri_gcc_alternatives is changed
+      when: niri_gcc_links.results | rejectattr('stat.exists') | list | length > 0
       become: true
 
 - name: Build and install libsdbus

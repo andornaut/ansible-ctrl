@@ -26,12 +26,28 @@
       ansible.builtin.set_fact:
         desktop_lact_download_url: "{{ desktop_lact_urls | first }}"
 
+    # Run under --check too: apt's deb: downloads the package before it compares versions,
+    # so without this every run fetches it again.
+    - name: Check the installed LACT version
+      ansible.builtin.command: dpkg-query -W -f='${Status} ${Version}' lact
+      register: desktop_lact_installed
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      become: false
+
+    # The asset is named lact-<version>.amd64.ubuntu-<release>.deb, <version> being the
+    # package's own. A name that does not parse falls through to the install.
     - name: Install LACT package
       ansible.builtin.apt:
         deb: "{{ desktop_lact_download_url }}"
         install_recommends: false
         update_cache: true
       become: true
+      when: >-
+        desktop_lact_installed.stdout !=
+        'install ok installed ' ~ (desktop_lact_download_url | basename
+        | regex_replace('^lact-(.*)\\.amd64\\.ubuntu-.*\\.deb$', '\\1'))
 
     - name: Enable and start lactd
       ansible.builtin.systemd_service:

@@ -1,6 +1,6 @@
 ---
-# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
-# a host cannot desync one from its source.
+# Not operator knobs: values derived from defaults/main.yml, and the hypr version pins. Role
+# vars outrank host_vars, so a host cannot desync one from its source.
 
 # From the getent in tasks/main.yml.
 niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"

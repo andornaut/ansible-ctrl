@@ -38,8 +38,8 @@
       register: desktop_eww_tmp
       check_mode: false
 
-    # Build from main: the latest stable release is stale.
-    - name: Clone eww repository (main branch)
+    # Build from master: the latest stable release is stale.
+    - name: Clone eww repository (master branch)
       ansible.builtin.git:
         repo: https://github.com/elkowar/eww.git
         dest: "{{ desktop_eww_tmp.path }}"
