@@ -60,6 +60,9 @@
                 mode: "0644"
                 timeout: 30
               register: desktop_zig_download
+              # Into the temporary directory only. Under --check get_url fetches nothing,
+              # which would leave the unarchive below no archive to read.
+              check_mode: false
               retries: 3
               delay: 5
               until: desktop_zig_download is succeeded
@@ -122,6 +125,8 @@
             mode: "0644"
             timeout: 120
           register: desktop_ly_download
+          # Into the temporary directory only, for the unarchive below (see zig's).
+          check_mode: false
           retries: 3
           delay: 5
           until: desktop_ly_download is succeeded

@@ -42,6 +42,9 @@
             dest: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
             mode: "0644"
           register: desktop_lemurs_download
+          # This and the extraction write only to the temporary directory. Under --check
+          # neither would, and the copy below would have no binary to compare.
+          check_mode: false
           retries: 3
           delay: 5
           until: desktop_lemurs_download is succeeded
@@ -51,6 +54,7 @@
             src: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
             dest: "{{ desktop_lemurs_tmp.path }}"
             remote_src: true
+          check_mode: false
 
         - name: Install lemurs binary
           ansible.builtin.copy:
