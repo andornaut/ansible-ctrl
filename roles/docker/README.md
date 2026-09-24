@@ -26,7 +26,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- Docker Registry binds host port 5000, which Frigate also publishes by default. Enable `docker_install_registry`
-  per host, not globally.
-- Clearing `docker_install_registry` stops installing and starting the registry but does not remove an existing
-  one, whose purge would delete `/var/lib/docker-registry` and its image layers. Remove by hand.
+| Constraint                 | Detail                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Registry port 5000         | Docker Registry binds host port 5000, which Frigate also publishes by default. Enable `docker_install_registry` per host, not globally                                   |
+| Clearing the registry flag | Stops installing and starting the registry but does not remove an existing one, whose purge would delete `/var/lib/docker-registry` and its image layers. Remove by hand |

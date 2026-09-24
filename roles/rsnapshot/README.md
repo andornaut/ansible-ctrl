@@ -1,12 +1,16 @@
 # ansible-role-rsnapshot
 
-Provisions [rsnapshot](https://rsnapshot.org/) for automated incremental backups.
+Installs [rsnapshot](https://rsnapshot.org/) and its cron jobs for automated incremental backups.
 
 ## Usage
 
 ```bash
 make rsnapshot
 ```
+
+## Tags
+
+No tags.
 
 ## Variables
 
@@ -42,9 +46,9 @@ A path naming an account belongs to the host being backed up, not the one runnin
 resolves through `hostvars`, which templates in the owning host's scope. A bare `{{ primary_user }}`
 resolves in the scope of the host rsnapshot runs on and is only correct where the two agree. Role
 defaults are not inventory data and so are absent from `hostvars`: a host taking `{role}_user`'s
-default rather than declaring it has only `primary_user` to name.
+default without declaring it has only `primary_user` to name.
 
-A directory may be a mapping of `path` and `exclude` rather than a plain path, which adds one
+A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds one
 `exclude=` per pattern to that backup point. `--delete-excluded` is in force, so a pattern added
 later also drops what earlier runs stored.
 
@@ -78,30 +82,26 @@ rsnapshot_retention:
   monthly: 12
 ```
 
+## Installed files
+
+| Path                                                                  | Purpose                                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `/etc/rsnapshot.conf`                                                 | Rendered from `rsnapshot_hosts` and validated with `rsnapshot configtest` |
+| `rsnapshot_preexec_script` (`/usr/local/bin/rsnapshot-preexec`)       | The mountpoint check. Only with `rsnapshot_required_mountpoints`          |
+| `/usr/local/bin/backupmysql`, `/usr/local/bin/backupdockerpostgresql` | Backup scripts for use as `scripts`                                       |
+| `/etc/cron.d/ansible-role-rsnapshot`                                  | One job per retention interval, run as root                               |
+
 ## Notes
 
-- Cron runs one job per retention interval as root.
-- Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem, and
-  the role fails if any of that entry's directories does not exist.
-- `backupmysql` and `backupdockerpostgresql` are installed to `/usr/local/bin` for use as `scripts`.
-- Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{name}/`,
-  script output in `{name}_{script}/`.
-- Unchanged files are hard-linked between snapshots, so `du` over the whole root overstates disk usage.
-  A file rewritten between runs is stored in full each time, so a large database costs its own size per
-  retained snapshot.
-- `rsnapshot_required_mountpoints` installs a `cmd_preexec` check, which rsnapshot runs for the lowest
-  configured interval only. That is also the only interval reading sources, the higher ones rotating what
-  is already stored, so a missing filesystem cannot replace the newest snapshot with nothing.
-- An `exclude` pattern is emitted quoted, so one containing a space works. Patterns containing a double
-  quote do not: rsnapshot permits no nested quoting.
-- The cron runs as root, so a remote point authenticates with root's key on the host running the role,
-  not the operator's. That key has to be authorized for the account `user` names on the target, which for
-  a point taking `user: root` is the target's root login. Nothing in this role distributes it, and an
-  unauthorized key fails only at the next cron run, as `rsync returned 255` with `Permission denied
-(publickey)` in `/var/log/rsnapshot.log`.
-- On a pfSense target the key belongs in `authorized_keys2`. `authorized_keys` is regenerated from
-  `config.xml` on boot and on every user save, which drops anything written to it directly; `sshd -T`
-  reports both files under `authorizedkeysfile`.
+| Constraint                         | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local entry directories must exist | Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem, and the role fails if any of that entry's directories does not exist                                                                                                                                                                                                                                                                               |
+| Snapshot layout                    | Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{name}/`, script output in `{name}_{script}/`                                                                                                                                                                                                                                                                                                             |
+| Disk usage                         | Unchanged files are hard-linked between snapshots, so `du` over the whole root overstates disk usage. A file rewritten between runs is stored in full each time, so a large database costs its own size per retained snapshot                                                                                                                                                                                                                               |
+| Mountpoint check                   | `rsnapshot_required_mountpoints` installs a `cmd_preexec` check, which rsnapshot runs for the lowest configured interval only. That is also the only interval reading sources, the higher ones rotating what is already stored, so a missing filesystem cannot replace the newest snapshot with nothing                                                                                                                                                     |
+| Quoted `exclude` patterns          | An `exclude` pattern is emitted quoted, so one containing a space works. Patterns containing a double quote do not: rsnapshot permits no nested quoting                                                                                                                                                                                                                                                                                                     |
+| Root's key                         | The cron runs as root, so a remote point authenticates with root's key on the host running the role, not the operator's. That key has to be authorized for the account `user` names on the target, which for a point taking `user: root` is the target's root login. Nothing in this role distributes it, and an unauthorized key fails only at the next cron run, as `rsync returned 255` with `Permission denied (publickey)` in `/var/log/rsnapshot.log` |
+| pfSense `authorized_keys2`         | On a pfSense target the key belongs in `authorized_keys2`. `authorized_keys` is regenerated from `config.xml` on boot and on every user save, which drops anything written to it directly; `sshd -T` reports both files under `authorizedkeysfile`                                                                                                                                                                                                          |
 
 ## Operations
 

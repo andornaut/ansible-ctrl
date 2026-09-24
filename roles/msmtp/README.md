@@ -8,6 +8,12 @@ Installs and configures [MSMTP](https://marlam.de/msmtp/) for email forwarding o
 make msmtp
 ```
 
+## Tags
+
+| Tag   | Description                                                |
+| ----- | ---------------------------------------------------------- |
+| msmtp | Everything in this role; `msmtp.yml` applies it as a whole |
+
 ## Variables
 
 See [defaults/main.yml](./defaults/main.yml).
@@ -21,31 +27,30 @@ See [defaults/main.yml](./defaults/main.yml).
 | `msmtp_relay_interface`    | Interface `msmtpd` listens on. Must be `127.0.0.1` or `::1`               |
 | `msmtp_relay_port`         | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535)            |
 
-Set the required vars per host in `host_vars/`. `msmtp_password` is not among them: it is injected under that name
-rather than holding a value. The role asserts them, and the relay constraints, before its first
-task, which uninstalls the host's existing MTA.
+Set `msmtp_domain` and `msmtp_user` per host in `host_vars/`. `msmtp_password` comes from the broker, not
+`host_vars`. The role asserts the required variables and the relay constraints before its first task, which
+uninstalls the host's existing MTA.
+
+## Installed files
+
+| Path                                                 | Purpose                                                                                         |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/etc/msmtprc`                                       | World-readable client config for `/usr/sbin/sendmail`; points at `msmtpd`, holds no credentials |
+| `/etc/msmtprc-relay`                                 | `msmtpd`'s config, mode `0600`, holds the upstream credentials                                  |
+| `/etc/systemd/system/msmtpd.service.d/override.conf` | Runs `msmtpd` as `User=msmtp`                                                                   |
+| `/etc/apparmor.d/local/usr.bin.msmtp`                | Grants the msmtp profile read of `/etc/msmtprc-relay`                                           |
+| `/etc/aliases`, `/etc/mailname`                      | Local delivery aliases and mail name                                                            |
 
 ## Notes
 
-- **Two config files.** Local mail is submitted via `/usr/sbin/sendmail` (from `msmtp-mta`), which
-  reads world-readable `/etc/msmtprc`. That file must stay world-readable (cron drops to the crontab
-  owner before invoking the MTA, and Ubuntu's `msmtp` is not setgid), so it holds no credentials: it
-  points at `msmtpd` on the relay interface, which relays via `/etc/msmtprc-relay` (mode `0600`),
-  where the credentials live.
-- **The relay is unauthenticated**, so `msmtp_relay_interface` must stay on loopback. Its port is
-  unprivileged so the daemon needs no `CAP_NET_BIND_SERVICE`.
-- **A systemd drop-in sets `User=msmtp` instead of `DynamicUser=true`.** `msmtp` refuses a `-C` config
-  containing secrets unless the file is owned by the calling euid with no group or other permission
-  bits, and a `DynamicUser` UID can never own a file on disk. The drop-in restores the sandboxing
-  `DynamicUser` implied.
-- **AppArmor.** `msmtp`'s profile grants read of `/etc/msmtprc` but not `/etc/msmtprc-relay`. It is
-  disabled by default; the role writes the local rule regardless, so enforcing it later cannot bounce
-  every message.
-- **msmtpd is restarted when its packages, relay config or unit override change**, before
-  `/etc/msmtprc` is written to point clients at it. The handler is flushed at that point rather than
-  at end of play, which is what keeps that ordering. It holds no queue, so the restart is safe.
-- **msmtp does not queue.** An unreachable upstream means the message is rejected, not retried.
-  Anything that must survive an outage needs a queuing MTA.
+| Constraint                           | Detail                                                                                                                                                                                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Two config files                     | `/usr/sbin/sendmail` (from `msmtp-mta`) reads `/etc/msmtprc`, which must stay world-readable: cron drops to the crontab owner before invoking the MTA, and Ubuntu's `msmtp` is not setgid. It holds no credentials and points at `msmtpd`, which relays with `/etc/msmtprc-relay` |
+| The relay is unauthenticated         | `msmtp_relay_interface` must stay on loopback. The port is unprivileged so the daemon needs no `CAP_NET_BIND_SERVICE`                                                                                                                                                             |
+| `User=msmtp`, not `DynamicUser=true` | `msmtp` refuses a `-C` config containing secrets unless the calling euid owns it with no group or other permission bits, and a `DynamicUser` UID cannot own a file on disk. The drop-in restores the sandboxing `DynamicUser` implied                                             |
+| AppArmor                             | The `msmtp` profile grants read of `/etc/msmtprc` but not `/etc/msmtprc-relay`. It is disabled by default; the role writes the local rule regardless, so enforcing the profile later does not reject every message                                                                |
+| Restart order                        | `msmtpd` restarts when its packages, relay config or unit override change, before `/etc/msmtprc` is written to point clients at it. The handler is flushed at that point to keep that order. It holds no queue, so the restart loses no mail                                      |
+| No queue                             | An unreachable upstream means the message is rejected, not retried. Anything that must survive an outage needs a queuing MTA                                                                                                                                                      |
 
 ## Operations
 

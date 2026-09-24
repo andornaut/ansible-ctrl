@@ -1,6 +1,6 @@
 # ansible-role-nas
 
-Manages encrypted BTRFS RAID arrays on Ubuntu.
+Installs the mount service, backup script and monthly scrub for encrypted BTRFS RAID arrays on Ubuntu.
 
 ## Usage
 
@@ -20,23 +20,25 @@ make nas -- --tags backupnas
 
 See [defaults/main.yml](./defaults/main.yml).
 
+## Installed files
+
+| Path                                    | Purpose                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `/etc/crypttab`, `/etc/fstab`           | Entries for the RAID and backup devices                        |
+| `/etc/systemd/system/nas-mount.service` | Unlocks the RAID devices and mounts `nas_raid_mount_directory` |
+| `/usr/local/bin/backupnas`              | Copies the array to a backup device (`backupnas` tag)          |
+| `/usr/local/sbin/nas-scrub`             | Scrubs the array (`scrub` tag)                                 |
+| `/etc/cron.d/ansible-role-nas`          | Monthly `nas-scrub` entry                                      |
+
 ## Notes
 
-- `nas-mount.service` is a systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts
-  the mount unit of `nas_raid_mount_directory` (`media-nas.mount` by default). With `nas_key_file_mount_unit` set it
-  runs after and binds to that unit; otherwise it runs after `local-fs.target` only if the LUKS key file exists.
-- `backupnas` unlocks and mounts the first backup device it finds, copies `nas_backup_source_directory` excluding
-  `rsnapshot/`, copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/`, deletes all but
-  the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero
-  if the device is left mounted or unlocked. `--help` lists its flags.
-- `nas-scrub` runs `btrfs scrub` on `nas_raid_mount_directory` once a month (`nas_scrub_day`, `nas_scrub_hour`,
-  `nas_scrub_minute`), on a btrfs array only. It prints nothing on success, so cron mails only a failure: the
-  array not mounted, uncorrectable errors, or nonzero device error counters. On raid1 a scrub repairs a corrupt
-  block from the other copy, so a corrected error still shows in the counters; they are cumulative and keep
-  reporting until reset with `btrfs device stats -z`.
-- `backupnas` does not scrub the backup device. That device is read only when a backup runs, so scrub it then,
-  before the next backup relies on the copies it keeps. With a single data copy, a scrub detects corruption but
-  cannot repair it.
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nas-mount.service`               | A systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts the mount unit of `nas_raid_mount_directory` (`media-nas.mount` by default). With `nas_key_file_mount_unit` set it runs after and binds to that unit; otherwise it runs after `local-fs.target` only if the LUKS key file exists                                                                                     |
+| `backupnas`                       | Unlocks and mounts the first backup device it finds, copies `nas_backup_source_directory` excluding `rsnapshot/`, copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/`, deletes all but the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero if the device is left mounted or unlocked. `--help` lists its flags |
+| `nas-scrub`                       | Runs `btrfs scrub` on `nas_raid_mount_directory` once a month (`nas_scrub_day`, `nas_scrub_hour`, `nas_scrub_minute`), on a btrfs array only. It prints nothing on success, so cron mails only a failure: the array not mounted, uncorrectable errors, or nonzero device error counters                                                                                                                      |
+| Error counters are cumulative     | On raid1 a scrub repairs a corrupt block from the other copy, so a corrected error still shows in the counters. They keep reporting until reset with `btrfs device stats -z`                                                                                                                                                                                                                                 |
+| The backup device is not scrubbed | `backupnas` reads that device only when a backup runs, so scrub it then, before the next backup relies on the copies it keeps. With a single data copy, a scrub detects corruption but cannot repair it. See [Operations](#operations)                                                                                                                                                                       |
 
 ## Setup
 

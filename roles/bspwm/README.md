@@ -23,21 +23,21 @@ make desktop -- --tags bspwm
 
 See [defaults/main.yml](./defaults/main.yml).
 
+## Installed files
+
+| Path                                               | Purpose                                                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/usr/local` (binaries, man pages, completions)    | BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects`, built from source |
+| `/usr/local/bin/bspwm-session`                     | The X session command that `bspwm.desktop` names                                                         |
+| `/usr/local/share/xsessions/bspwm.desktop`         | Session entry for the display manager                                                                    |
+| `/usr/local/lib/systemd/user/bspwm-session.target` | Held by `bspwm-session` while bspwm runs                                                                 |
+
 ## Notes
 
-- The user manager reload gates on a probe of `bspwm_user`'s manager socket, which exists only while that
-  account is logged in, so a run against a host sitting at the display manager reports it skipped instead of
-  failing. A manager started after the role runs reads the unit directory fresh, so nothing is lost.
-- BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects` are built from source and staged
-  over `/usr/local` (binaries, man pages, completions).
-- Owns the X11 tools that [niri](../niri/) replaces with Wayland equivalents (`scrot`, `xsecurelock`, `xss-lock`,
-  `xbacklight`), plus `dex`, `dbus-x11` and `xorg`. Tools both sessions share live in [desktop](../desktop/).
-- Locking uses three programs: the X server blanks and powers off the monitor on `xset` timers, and `xss-lock`
-  watches the X screensaver extension and `logind` to start `xsecurelock`. All three timeouts are written into the
-  session script by [desktop](../desktop/README.md#idle-locking-and-suspend).
-- The X session is `/usr/local/bin/bspwm-session`, which `bspwm.desktop` names. It imports `DISPLAY` and
-  `XAUTHORITY` into the user manager, holds `bspwm-session.target` while bspwm runs and stops it after.
-  `graphical-session.target` ships `StopWhenUnneeded=yes`, so it stays up only while an active unit requires it, and
-  that target (`BindsTo=graphical-session.target`) is the one unit that does, which is why no unit wanted by the
-  session may take its place ([desktop](../desktop/README.md#desktop-environments)). A session already logged in when
-  the role runs has the target held for it, as a fresh login would.
+| Constraint                | Detail                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| User manager reload       | Conditional on `bspwm_user`'s manager socket, which exists only while that account is logged in. On a host where `bspwm_user` is not logged in the reload is skipped; a manager started later reads the unit directory at startup                                                                |
+| X11-only                  | This role owns the X11 tools that [niri](../niri/) replaces with Wayland equivalents (`scrot`, `xsecurelock`, `xss-lock`, `xbacklight`), plus `dex`, `dbus-x11` and `xorg`. Tools both sessions share are in [desktop](../desktop/)                                                              |
+| Locking                   | The X server blanks and powers off the monitor on `xset` timers, and `xss-lock` watches the X screensaver extension and `logind` to start `xsecurelock`. [desktop](../desktop/README.md#idle-locking-and-suspend) writes all three timeouts into the session script                              |
+| Session wrapper           | `bspwm-session` imports `DISPLAY` and `XAUTHORITY` into the user manager and holds `bspwm-session.target` (`BindsTo=graphical-session.target`) while bspwm runs, then stops it. This is the unit that holds `graphical-session.target`; see [desktop](../desktop/README.md#desktop-environments) |
+| Session already logged in | The role holds the target for a session that was already running when it applied, as a fresh login would                                                                                                                                                                                         |

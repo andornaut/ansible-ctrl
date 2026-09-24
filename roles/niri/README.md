@@ -14,17 +14,19 @@ make desktop -- --tags niri
 
 ## Tags
 
-| Tag                                         | Description                                                                                               |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| [hypr](https://hypr.land/)                  | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper)                                                  |
-| [niri](https://github.com/niri-wm/niri)     | Wayland compositor                                                                                        |
-| [wayland](https://wayland.freedesktop.org/) | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
+| Tag                                                    | Description                                                                                               |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| [hypr](https://hypr.land/)                             | Hyprland ecosystem tools (hyprlock, hypridle, hyprpaper)                                                  |
+| [niri](https://github.com/niri-wm/niri)                | Wayland compositor                                                                                        |
+| [wayland](https://wayland.freedesktop.org/)            | Wayland packages and protocols, and [xwayland-satellite](https://github.com/Supreeeme/xwayland-satellite) |
+| packages                                               | The apt build dependencies                                                                                |
+| libsdbus                                               | sdbus-c++ build                                                                                           |
+| xwayland                                               | xwayland-satellite build                                                                                  |
+| hyprutils, hyprlang, hyprgraphics, hyprwayland-scanner | One Hyprland build dependency each, needed by hypridle, hyprlock and hyprpaper                            |
+| hypridle, hyprlock, hyprpaper                          | One Hyprland component each                                                                               |
 
-Most of the work also carries a narrower tag, for rebuilding one component without the rest: `packages` (the
-apt build dependencies), `libsdbus`, `xwayland`, and one per Hyprland component (`hyprutils`, `hyprlang`,
-`hyprgraphics`, `hyprwayland-scanner`, `hypridle`, `hyprlock`, `hyprpaper`). The first four Hyprland ones are build
-dependencies of the last three. The wayland-scanner, wayland-protocols and hyprland-protocols builds have no
-tag of their own and are reached through `wayland` and `hypr`.
+The wayland-scanner, wayland-protocols and hyprland-protocols builds have no tag of their own; `wayland` and `hypr`
+reach them.
 
 ## Variables
 
@@ -32,22 +34,21 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Notes
 
-- `niri.service` has no `[Install]` section and is not enabled: `niri-session` starts it.
-- `hypridle.service`, `hyprpaper.service` and `xwayland-satellite.service` are enabled by
-  [tasks/enable_user_unit.yml](./tasks/enable_user_unit.yml), which symlinks each into `niri_user`'s own
-  `~/.config/systemd/user/<target>.wants/` and starts it only under a running user manager. The target is
-  read from the unit's own `[Install]` section rather than assumed, these units coming from upstream
-  tarballs, and a unit naming none fails the run. A host sitting at the display manager converges the
-  symlink and activates the unit at the next login.
-- Writes into `niri_user`'s home are gated on it being mounted, since an encrypted home is a mount point
-  that `getent` reports either way. A run against a locked home skips them rather than writing onto the
-  mountpoint. See [desktop](../desktop/README.md) for the same guard.
-- Owns only the Wayland-only utilities. X11 counterparts live in [bspwm](../bspwm/); tools both sessions share
-  live in [desktop](../desktop/).
-- X11 applications such as Steam need `xwayland-run` in their desktop entry:
+| Constraint                           | Detail                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `niri.service` is not enabled        | It has no `[Install]` section; `niri-session` starts it                                                                                                                                                                                                                                                                                                            |
+| User units are enabled by symlink    | `hypridle.service`, `hyprpaper.service` and `xwayland-satellite.service` are linked into `niri_user`'s `~/.config/systemd/user/<target>.wants/` by [tasks/enable_user_unit.yml](./tasks/enable_user_unit.yml), and started only when the target that wants them is active. On a host where `niri_user` has no graphical session, the unit starts at the next login |
+| Install target is read from the unit | These units come from upstream tarballs, so the target comes from the unit's own `[Install]` section. A unit that names none fails the run                                                                                                                                                                                                                         |
+| Locked encrypted home                | Writes into `niri_user`'s home are skipped while it is not mounted: an encrypted home is a mount point that `getent` reports either way. See [desktop](../desktop/README.md) for the same check                                                                                                                                                                    |
+| Wayland-only                         | This role owns only the Wayland-only utilities. X11 counterparts are in [bspwm](../bspwm/); tools both sessions share are in [desktop](../desktop/)                                                                                                                                                                                                                |
+| X11 applications                     | Applications such as Steam need `xwayland-run` in their desktop entry. See [Setup](#setup)                                                                                                                                                                                                                                                                         |
 
-  ```ini
-  [Desktop Entry]
-  Name=Steam
-  Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.valvesoftware.Steam
-  ```
+## Setup
+
+Desktop entry for an X11 application:
+
+```ini
+[Desktop Entry]
+Name=Steam
+Exec=xwayland-run -- /usr/bin/flatpak run --branch=stable --arch=x86_64 --command=/app/bin/steam --file-forwarding com.valvesoftware.Steam
+```

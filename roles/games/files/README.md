@@ -4,8 +4,8 @@ Seven scripts: four converge RetroArch, three back the Lutris entries. The role 
 the host (`../tasks/retroarch.yml`, `../tasks/lutris.yml`); `gen-fbneo-arcade-names.py` is run by hand only, its
 output committed. Each can be run by hand to debug a single stage.
 
-**Each script's module docstring is the authoritative reference** for its full input schema, defaults,
-and edge cases. This file is the operator's quick start.
+Each script's module docstring is the reference for its input schema, defaults and edge cases. This file
+covers running them by hand.
 
 | Script                            | Role                                                                                                                       | Input                                                                                   |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -17,18 +17,13 @@ and edge cases. This file is the operator's quick start.
 | `lutris-register-game.py`         | Registers a Lutris game whose configuration is derived from another game's, in `pga.db` and `games/<slug>.yml`             | `LUTRIS_REGISTER_CONFIG`, a JSON document                                               |
 | `lutris-launch-game.py`           | Tears down a wine prefix an earlier session left running, then execs Lutris on the slug                                    | Wine prefix, flatpak application ID and Lutris slug, plus an optional display name      |
 
-- Runtime pipeline: probe -> generate -> fetch. `gen-fbneo-arcade-names.py` is a maintenance script, run by hand
-  only when fbneo adds games; commit the regenerated JSON afterward.
-- The generator removes the playlists of systems that have left the table, but only ones it can prove it wrote.
-- Only the thumbnail fetcher writes into the ROM library tree (the shared `_Thumbnails` cache). Run it on the host
-  whose mount is writable; the rest read the cache.
-- `retroarch-probe-cores.py` must run **inside the flatpak sandbox**, where RetroArch loads the cores: it
-  `dlopen`s each one, and a core needing a library only the runtime carries (LRPS2 wants `libaio`) will not load
-  on the host. A core that will not load in the sandbox either is a broken build, so the script exits non-zero
-  and names it.
-- Playlist generation is also driven, against a different mount layout, by
-  [`retroid/syncretroid.py`](retroid/syncretroid.py), which then mirrors the desktop's filled thumbnail cache
-  over `adb` rather than fetching. The examples below are the desktop invocation.
+| Constraint                | Detail                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime order             | probe, then generate, then fetch. `gen-fbneo-arcade-names.py` is a maintenance script: run it by hand when fbneo adds games and commit the regenerated JSON                                                                                                                                                                               |
+| Playlist pruning          | The generator removes the playlists of systems no longer in the table, but only ones it can prove it wrote                                                                                                                                                                                                                                |
+| Writes to the ROM library | Only the thumbnail fetcher, into the shared `_Thumbnails` cache. Run it on the host whose mount is writable; the other hosts read the cache                                                                                                                                                                                               |
+| Probe inside the sandbox  | `retroarch-probe-cores.py` must run inside the flatpak sandbox, where RetroArch loads the cores. It `dlopen`s each one, and a core needing a library only the runtime carries (LRPS2 needs `libaio`) does not load on the host. A core that does not load in the sandbox either is a broken build: the script exits non-zero and names it |
+| Handheld playlists        | [`retroid/syncretroid.py`](retroid/syncretroid.py) also drives playlist generation, against a different mount layout, then copies the desktop's thumbnail cache over `adb` instead of fetching. The examples below are the desktop invocation                                                                                             |
 
 ## Paths
 
@@ -54,7 +49,7 @@ info="$HOME/.local/share/flatpak/app/org.libretro.RetroArch/current/active/files
 cores=$(flatpak run --command=python3 org.libretro.RetroArch - "$config/cores" < retroarch-probe-cores.py)
 
 # Regenerate the playlists. Exits non-zero if a system declares content its core cannot launch;
-# prints one line per rewritten playlist, which is what the role's changed_when keys off.
+# prints one line per rewritten playlist, which the role's changed_when reads.
 RETROARCH_GENERATOR_CONFIG=$(cat <<JSON
 {
   "library_dir": "/media/nas/games",

@@ -1,6 +1,6 @@
 # ansible-role-letsencrypt_nginx
 
-Provisions NGINX as a Docker container with Let's Encrypt HTTPS certificates.
+Installs NGINX as a Docker container with Let's Encrypt HTTPS certificates.
 
 ## Usage
 
@@ -24,11 +24,18 @@ make webservers -- --tags nginx
 
 See [defaults/main.yml](./defaults/main.yml).
 
+## Installed files
+
+| Path                                         | Purpose                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| `/usr/local/sbin/letsencrypt-nginx-renew`    | Renewal script, with `letsencrypt_nginx_install_renewal_cron: true` |
+| `/etc/cron.d/ansible-role-letsencrypt_nginx` | Root job that runs the renewal script                               |
+
 ## Certificates
 
 Per entry in `letsencrypt_nginx_websites`:
 
-| Rule                                                                                 | Detail                                                                                                                                                                                                                                                                                           |
+| Constraint                                                                           | Detail                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | One certificate per `csr_common_name`, or per `domain` where a site names none       | Sites sharing a common name share one CSR and place one ACME order                                                                                                                                                                                                                               |
 | A certificate covers its common name plus `www.<domain>` for every site sharing it   | Each site renders a `www.` server that redirects to the bare name. A wildcard common name already covers the `www.` name one label below it, so none is added                                                                                                                                    |
@@ -63,15 +70,15 @@ Per entry in a site's `locations`:
 
 ## Certificate renewal
 
-`letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root job in
-`/etc/cron.d/ansible-role-letsencrypt_nginx` that runs it. Enable it on the controller only: the script runs
-`ansible-playbook webservers.yml --tags letsencrypt` from `letsencrypt_nginx_renewal_cron_directory` under
-`sops exec-env`, which reissues any certificate within `letsencrypt_nginx_remaining_days` of expiry. A completed
-challenge restarts nginx, whose configuration names the same certificate path before and after a renewal.
+`letsencrypt_nginx_install_renewal_cron: true` installs the renewal script and its root cron job. Enable it on the
+controller only.
 
-The checkout, `faramir.env`, the sops store, the age key and the broker's SSH key all sit in the operator's home.
-If any is missing or unreadable, as it is while an encrypted home is unmounted, the script skips the run and
-prints the cause on stderr, which cron mails. The playbook's own output goes to `letsencrypt_nginx_renewal_cron_log`.
+| Constraint                    | Detail                                                                                                                                                                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a renewal runs           | `ansible-playbook webservers.yml --tags letsencrypt` from `letsencrypt_nginx_renewal_cron_directory` under `sops exec-env`, which reissues any certificate within `letsencrypt_nginx_remaining_days` of expiry                         |
+| nginx restart                 | A completed challenge restarts nginx, whose configuration names the same certificate path before and after a renewal                                                                                                                   |
+| Inputs in the operator's home | The checkout, `faramir.env`, the sops store, the age key and the broker's SSH key. If any is missing or unreadable, as while an encrypted home is unmounted, the script skips the run and prints the cause on stderr, which cron mails |
+| Log                           | The playbook's output goes to `letsencrypt_nginx_renewal_cron_log`                                                                                                                                                                     |
 
 ## Container ports
 
@@ -82,38 +89,30 @@ The `nginx` container runs with `network_mode: host`, binding directly to the ho
 | 80   | HTTP     | Redirect to HTTPS; ACME certificate validation    |
 | 443  | HTTPS    | TLS-terminated reverse proxy with HTTP/2 and QUIC |
 
-## Notes
+## Setup
 
-- Cloning private GitHub repos requires a git credential helper on the target host, configured as root because the
-  git tasks use `become: true`. Generate a token at
-  [github.com/settings/tokens](https://github.com/settings/tokens) with the `repo` scope only.
+### Web root on a mount
 
-  ```bash
-  git config --global credential.helper store
-  echo "https://<username>:<token>@github.com" > ~/.git-credentials
-  chmod 600 ~/.git-credentials
-  ```
+When the web root lives on a mount, restart NGINX after the mount comes up. Create
+`/etc/systemd/system/restart-nginx-after-nas.service`:
 
-- When the web root lives on a mount, restart NGINX after the mount comes up. Create
-  `/etc/systemd/system/restart-nginx-after-nas.service`:
+```ini
+[Unit]
+Description=Restart Nginx after mount
+Requires=media-nas.mount
+After=media-nas.mount
 
-  ```ini
-  [Unit]
-  Description=Restart Nginx after mount
-  Requires=media-nas.mount
-  After=media-nas.mount
+[Service]
+Type=oneshot
+ExecStartPre=sleep 30
+ExecStart=docker restart nginx
+RemainAfterExit=true
 
-  [Service]
-  Type=oneshot
-  ExecStartPre=sleep 30
-  ExecStart=docker restart nginx
-  RemainAfterExit=true
+[Install]
+WantedBy=media-nas.mount
+```
 
-  [Install]
-  WantedBy=media-nas.mount
-  ```
-
-  ```bash
-  sudo systemctl daemon-reload
-  sudo systemctl enable restart-nginx-after-nas.service
-  ```
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable restart-nginx-after-nas.service
+```
