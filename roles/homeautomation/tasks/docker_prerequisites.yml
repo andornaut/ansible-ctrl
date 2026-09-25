@@ -11,9 +11,7 @@
         require_tools:
           - name: Docker
             probe: docker version
-            hint: >-
-              It comes from the docker role: make docker, or
-              make bootstrap -- --limit <host> on a host's first run.
+            hint: "It comes from the docker role: make docker -- --limit <host>."
           # Three separate packages, any of which can be absent alone.
           - name: The Docker Compose plugin
             probe: docker compose version

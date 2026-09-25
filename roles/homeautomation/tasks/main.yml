@@ -1,17 +1,4 @@
 ---
-# CLEANUP (added 2026-09-24): the flag's former name, which host_vars may still set and
-# which would otherwise be ignored. Delete once the host_vars of every host in the
-# homeautomation group use the new name.
-- name: Require the renamed Python Matter Server flag
-  ansible.builtin.assert:
-    that: homeautomation_install_legacy_pythonmatterserver is not defined
-    fail_msg: >-
-      homeautomation_install_legacy_pythonmatterserver is now
-      homeautomation_install_pythonmatterserver. Rename it in host_vars.
-    quiet: true
-  become: false
-  tags: always
-
 - name: Validate mDNS configuration
   tags:
     - avahi
@@ -68,10 +55,11 @@
       ansible.builtin.import_tasks: avahi.yml
       when: homeautomation_install_avahi | bool
 
+    # Only under a Matter server, whose host mDNS responder conflicts with Avahi's.
     # Masked, not just disabled: cups-browsed declares Wants=avahi-daemon.service and
     # the units carry a D-Bus activation file, either of which starts a disabled unit.
     # Only a mask refuses both.
-    - name: Disable and mask host Avahi daemon when not needed
+    - name: Disable and mask host Avahi daemon under a Matter server
       ansible.builtin.systemd_service:
         name: "{{ item.item }}"
         state: stopped
@@ -83,7 +71,7 @@
       loop_control:
         label: "{{ item.item }}"
       when:
-        - not homeautomation_install_avahi | bool
+        - homeautomation_install_matterjs | bool or homeautomation_install_pythonmatterserver | bool
         - item.stat.exists | default(false)
 
 # Tagged with docker and homeassistant as well: the Home Assistant container starts under the

@@ -32,6 +32,7 @@ Links for the [homeautomation](../README.md) role.
 - [Custom features tile card](https://github.com/Nerwyn/custom-card-features)
 - [Decluttering card](https://github.com/custom-cards/decluttering-card)
 - [Slider entity row](https://github.com/thomasloven/lovelace-slider-entity-row/)
+- [Super text input](https://github.com/skavan/super-text-input)
 
 ## Integrations
 

@@ -49,4 +49,12 @@
           {{ homeautomation_router_kva_sample_host | quote }}
           {{ homeautomation_router_kva_sample_entity_id | quote }}
           {{ homeautomation_router_kva_sample_container | quote }}
+          {{ homeautomation_router_kva_sample_url | quote }}
       become: true
+      # The Home Assistant whose token the container holds, as this host reaches it: the
+      # container's host.docker.internal is this host's localhost.
+      vars:
+        homeautomation_router_kva_sample_url: >-
+          {{ (homeautomation_hamcp_instances
+              | selectattr('name', 'equalto', homeautomation_router_kva_sample_container)
+              | first).url | replace('host.docker.internal', 'localhost') }}

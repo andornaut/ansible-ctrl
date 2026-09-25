@@ -21,12 +21,6 @@
 - name: Start Voice Docker containers
   become: true
   vars:
-    # microwakeword_volumes: "{{ homeautomation_common_volumes }}"
-    #
-    # openwakeword_base_volumes:
-    #   - "{{ homeautomation_openwakeword_required_volumes.data }}:/custom"
-    # openwakeword_volumes: "{{ homeautomation_common_volumes + openwakeword_base_volumes }}"
-
     piper_base_volumes:
       - "{{ homeautomation_piper_required_volumes.data }}:/data"
     piper_volumes: "{{ homeautomation_common_volumes + piper_base_volumes }}"
@@ -42,25 +36,6 @@
     definition:
       networks: "{{ homeautomation_external_network }}"
       services:
-        # Voice Preview (hardware) uses microWakeWord, not openWakeWord
-        # openwakeword:
-        #   http://openwakeword.internal:11434
-        #   container_name: openwakeword
-        #   image: "{{ homeautomation_openwakeword_docker_image }}"
-        #   command: --custom-model-dir /custom --preload-model 'ok_nabu'
-        #   logging: "{{ homeautomation_default_logging }}"
-        #   restart: unless-stopped
-        #   volumes: "{{ openwakeword_volumes }}"
-
-        # Used by Voice Preview (hardware)
-        # microwakeword:
-        #   http://microwakeword.internal:11434
-        #   container_name: microwakeword
-        #   image: "{{ homeautomation_microwakeword_docker_image }}"
-        #   logging: "{{ homeautomation_default_logging }}"
-        #   restart: unless-stopped
-        #   volumes: "{{ microwakeword_volumes }}"
-
         piper:
           # http://piper.internal:10200
           container_name: piper

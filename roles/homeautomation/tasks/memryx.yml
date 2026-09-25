@@ -21,21 +21,6 @@
 - name: Configure the MemryX repository
   become: true
   block:
-    # CLEANUP (added 2026-09-22): drop this and the key removal below once every Frigate
-    # host with a MemryX accelerator has converged. The key was trusted for every
-    # repository, and the unsigned line would conflict with the signed-by one.
-    - name: Remove the MemryX repository line without signed-by
-      ansible.builtin.apt_repository:
-        repo: "deb https://developer.memryx.com/deb stable main"
-        filename: memryx
-        state: absent
-        update_cache: false
-
-    - name: Remove the MemryX key trusted for every repository
-      ansible.builtin.file:
-        path: /etc/apt/trusted.gpg.d/memryx.asc
-        state: absent
-
     - name: Add MemryX GPG key
       ansible.builtin.get_url:
         url: https://developer.memryx.com/deb/memryx.asc

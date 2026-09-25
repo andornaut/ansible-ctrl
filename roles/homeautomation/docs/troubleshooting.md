@@ -13,7 +13,7 @@ adbd from its random ephemeral port to 5555. The `adb_auto_enable` tag installs 
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pruned `BootReceiver`                 | Some TVs add the app's `BootReceiver` to the package's `disabledComponents` after every boot, which removes it from the `BOOT_COMPLETED` resolution set, so the app never starts                                                                                                              |
 | Only the app can re-enable it         | `pm enable`, `pm default-state` and `pm enable --user 0` all answer `Shell cannot change component state` for an app that is not test-only, and `install -r` preserves the disabled state. v0.3.4 and later repair the receiver when the service starts                                       |
-| No version pin                        | The tag installs the newest stable release's APK on every TV that does not already have it, staging the download in a temporary directory removed at the end of the run. A TV has no other way to receive a fix, and one that does not start the app needs a pairing code read off its screen |
+| No version pin                        | The tag installs the newest stable release, not a pinned one: a TV has no other way to receive a fix                                                                                                                                                                                          |
 | Version comparison                    | The APK's versionName is the release tag without its leading `v`, and the TV reports it through `dumpsys`, so a TV is compared against the release by name                                                                                                                                    |
 | Standby TVs are skipped               | A TV is skipped unless adbd answers a command. A TV in standby accepts a connection on 5555 and does not respond behind it. Every adb call is wrapped in `timeout`, not the task keyword of that name: a task that times out fails whatever `failed_when` says                                |
 | Signing key changes                   | `install -r` keeps the app's data, including the app's own adb key, only while the signing key matches, and is refused across a signature change. A TV with a build signed by another key, a local build included, needs `adb uninstall` first, which loses the app's adb key and its pairing |
@@ -99,7 +99,7 @@ lsmod | grep memx      # Should show memx_cascade_plus_pcie
 lspci | grep -i memryx # Should show the MX3 PCI device
 ```
 
-Fix by re-running the memryx tasks, which load the module and restart the manager:
+Fix by re-running the memryx tasks, which build the module for the running kernel, load it and restart the manager:
 
 ```bash
 make homeautomation -- --tags memryx
@@ -109,6 +109,7 @@ docker restart frigate
 Or by hand:
 
 ```bash
+sudo dkms autoinstall -k "$(uname -r)"
 sudo modprobe memx_cascade_plus_pcie
 sudo systemctl restart mxa-manager
 docker restart frigate
