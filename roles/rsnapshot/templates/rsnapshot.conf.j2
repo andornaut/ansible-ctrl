@@ -4,6 +4,9 @@
 config_version	1.2
 
 snapshot_root	{{ rsnapshot_directory }}
+# The role creates snapshot_root. rsnapshot must not: a root missing because its filesystem is
+# not mounted would otherwise be created on the filesystem beneath the mountpoint.
+no_create_root	1
 
 # System binaries for cp/rm (extra features, faster than the built-in perl routines).
 cmd_cp		/bin/cp
@@ -84,6 +87,6 @@ rsync_long_args	{{ rsync_long_args_sudo }}
 backup	{% if not is_local %}{{ host_login }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
 {% endfor %}
 {% for script in host.scripts | default((), true) %}
-backup_script	{{ script.command }} {{ script.args }}	{{ host.name }}_{{ script.command|basename }}/
+backup_script	{{ script.command }} {{ script.args | default('') }}	{{ host.name }}_{{ script.command|basename }}/
 {% endfor %}
 {% endfor %}

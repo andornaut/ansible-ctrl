@@ -26,7 +26,8 @@ See [defaults/main.yml](./defaults/main.yml).
 | `rsnapshot_schedule`             | Cron time per interval, keyed to match `rsnapshot_retention`                         |
 
 Each entry in `rsnapshot_hosts` takes `name`, `host`, and at least one of `directories` (trailing
-slash required by rsnapshot) or `scripts`, plus one optional key:
+slash required by rsnapshot) or `scripts` (each a `command` path and optional `args`), plus one
+optional key:
 
 | Key    | Purpose                                                                                                                                                                                           |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +66,7 @@ rsnapshot_hosts:
           - cache/
     scripts:
       - command: /usr/local/bin/backupdockerpostgresql
-        args: --host root@example.com --container postgresql postgresql.gz
+        args: --host {{ hostvars['example'].primary_user }}@example.com --container postgresql postgresql.gz
 
   - name: router.example.com
     host: router-example
@@ -96,6 +97,7 @@ rsnapshot_retention:
 | Constraint                         | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local entry directories must exist | Hosts are pulled over SSH; the entry naming the host the role runs on is read from the local filesystem, and the role fails if any of that entry's directories does not exist                                                                                                                                                                                                                                                                               |
+| Snapshot root                      | The role creates `rsnapshot_directory`. rsnapshot runs with `no_create_root`, so a run whose root is missing, as under an unmounted filesystem, fails instead of creating it on the filesystem beneath the mountpoint                                                                                                                                                                                                                                       |
 | Snapshot layout                    | Snapshots land under `rsnapshot_directory` as `{interval}.{n}/` (`.0` is newest): directories in `{name}/`, script output in `{name}_{script}/`                                                                                                                                                                                                                                                                                                             |
 | Disk usage                         | Unchanged files are hard-linked between snapshots, so `du` over the whole root overstates disk usage. A file rewritten between runs is stored in full each time, so a large database costs its own size per retained snapshot                                                                                                                                                                                                                               |
 | Mountpoint check                   | `rsnapshot_required_mountpoints` installs a `cmd_preexec` check, which rsnapshot runs for the lowest configured interval only. That is also the only interval reading sources, the higher ones rotating what is already stored, so a missing filesystem cannot replace the newest snapshot with nothing                                                                                                                                                     |
