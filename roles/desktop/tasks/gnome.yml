@@ -24,7 +24,10 @@
     update_cache: true
   become: true
 
+# Also under display-manager, which masks every other manager and would otherwise leave a
+# gnome host with none enabled.
 - name: Enable gdm3 display manager
+  tags: display-manager
   ansible.builtin.systemd_service:
     name: gdm3
     daemon_reload: true

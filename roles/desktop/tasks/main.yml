@@ -118,14 +118,25 @@
              else ['lemurs.service'] if desktop_install_lemurs | bool
              else [] }}
 
+    # The kept manager's aliases are excluded with it, so a gnome host keeps gdm.service.
+    # A unit that is not installed is masked all the same, then fails enabled: false as
+    # missing; any other failure is real, such as a unit file in /etc/systemd/system that
+    # mask will not replace with its /dev/null link.
     - name: Disable other display manager services
       ansible.builtin.systemd_service:
         name: "{{ item }}"
         daemon_reload: true
         enabled: false
         masked: true
-      failed_when: false
-      loop: "{{ ['gdm3', 'lightdm', 'lemurs', 'ly@tty2'] | reject('equalto', desktop_display_manager) | list }}"
+      register: desktop_display_manager_masked
+      failed_when: >-
+        desktop_display_manager_masked is failed
+        and 'Could not find the requested service' not in desktop_display_manager_masked.msg | default('')
+      loop: >-
+        {{ ['gdm', 'gdm3', 'lightdm', 'lemurs', 'ly@tty2']
+           | reject('in', [desktop_display_manager]
+                          + desktop_display_manager_aliases | map('regex_replace', '[.]service$', '') | list)
+           | list }}
       become: true
 
     - name: Stat display-manager.service symlink

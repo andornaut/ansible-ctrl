@@ -7,34 +7,21 @@
 # undecorated maximized window, which bspwm tiles unless a rule makes it fullscreen. That
 # rule lives in the bspwmrc dotfile beside the sxhkd binding that sends the signal.
 
-# Before the build dependencies, so a host without a toolchain fails early. The dev role
-# installs Go under /usr/local/go, which is on no service account's PATH, so the probe and
-# the build name the binary.
-- name: Require the Go toolchain
-  become: true
-  become_user: "{{ desktop_user }}"
-  block:
-    - name: Probe for the Go toolchain
-      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
-      vars:
-        require_tools:
-          - name: go
-            probe: /usr/local/go/bin/go version
-            hint: "It comes from the dev role: make dev -- --tags go"
-
-# gotk4 is cgo over the GTK 3 headers; the layer-shell binding is a build dependency even
-# where the session is X11.
-- name: Install nwg-drawer build dependencies
+# The libraries nwg-drawer links against. The build dependencies below depend on them, but
+# are installed only for a build.
+- name: Install nwg-drawer runtime libraries
   ansible.builtin.apt:
     name:
-      - gcc
-      - libgirepository1.0-dev
-      - libgtk-3-dev
-      - libgtk-layer-shell-dev
-      - pkg-config
+      - libatk1.0-0t64
+      - libcairo-gobject2
+      - libcairo2
+      - libgdk-pixbuf-2.0-0
+      - libglib2.0-0t64
+      - libgtk-3-0t64
+      - libgtk-layer-shell0
+      - libpango-1.0-0
     state: latest
     install_recommends: false
-    update_cache: true
   become: true
 
 - name: Get latest nwg-drawer release
@@ -59,6 +46,33 @@
   become: true
   become_user: "{{ desktop_user }}"
   block:
+    # Before the build dependencies, so a host without a toolchain fails early. The dev
+    # role installs Go under /usr/local/go, which is on no service account's PATH, so the
+    # probe and the build name the binary.
+    - name: Require the Go toolchain
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
+      vars:
+        require_tools:
+          - name: go
+            probe: /usr/local/go/bin/go version
+            hint: "It comes from the dev role: make dev -- --tags go"
+
+    # gotk4 is cgo over the GTK 3 headers; the layer-shell binding is a build dependency
+    # even where the session is X11.
+    - name: Install nwg-drawer build dependencies
+      ansible.builtin.apt:
+        name:
+          - gcc
+          - libgirepository1.0-dev
+          - libgtk-3-dev
+          - libgtk-layer-shell-dev
+          - pkg-config
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+      become_user: root
+
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory
@@ -79,8 +93,8 @@
       delay: 5
       until: desktop_nwg_drawer_download is succeeded
 
-    # -trimpath keeps the random build directory out of the binary, so an unchanged
-    # release installs byte-identical and the restart handler does not fire.
+    # -trimpath keeps the random build directory and the account's module cache paths
+    # out of the binary.
     - name: Build nwg-drawer
       ansible.builtin.command:
         cmd: /usr/local/go/bin/go build -trimpath -o bin/nwg-drawer .

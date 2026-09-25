@@ -1,39 +1,29 @@
 ---
-- name: Install system packages
+# The libraries rofi links against. The build dependencies below depend on them, but are
+# installed only for a build.
+- name: Install rofi runtime libraries
   ansible.builtin.apt:
-    # Every dependency() in rofi's meson.build, the ones other tasks happen to install
-    # included.
     name:
-      - bison
-      - flex
-      - libcairo2-dev
-      - libgdk-pixbuf-2.0-dev
-      - libglib2.0-dev
-      - libpango1.0-dev
-      - libstartup-notification0-dev
-      - libwayland-dev
-      - libxcb-cursor-dev
-      - libxcb-ewmh-dev
-      - libxcb-icccm4-dev
-      - libxcb-imdkit-dev
-      - libxcb-keysyms1-dev
-      - libxcb-randr0-dev
-      - libxcb-util-dev
-      - libxcb-xinerama0-dev
-      - libxcb-xkb-dev
-      - libxkbcommon-x11-dev
-      - ninja-build
-      - wayland-protocols
-    state: latest
-    install_recommends: false
-    update_cache: true
-  become: true
-
-# noble's "meson" is 1.3, too old to build rofi; it ships meson-1.5 as well,
-# which later releases do not.
-- name: Install meson
-  ansible.builtin.apt:
-    name: "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
+      - libcairo2
+      - libgdk-pixbuf-2.0-0
+      - libglib2.0-0t64
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libstartup-notification0
+      - libwayland-client0
+      - libwayland-cursor0
+      - libxcb-cursor0
+      - libxcb-ewmh2
+      - libxcb-icccm4
+      - libxcb-imdkit1
+      - libxcb-keysyms1
+      - libxcb-randr0
+      - libxcb-util1
+      - libxcb-xinerama0
+      - libxcb-xkb1
+      - libxcb1
+      - libxkbcommon-x11-0
+      - libxkbcommon0
     state: latest
     install_recommends: false
   become: true
@@ -57,14 +47,55 @@
     desktop_version_check_tag: "{{ desktop_rofi_version }}"
     desktop_version_check_fact: desktop_rofi_outdated
 
-# The download, configure and build run as desktop_user; only `ninja install` needs root.
-# become_user propagates into the block, so the tasks that need root name it back: a bare
-# become: true would inherit this user and fail.
+# The download, configure and build run as desktop_user; only the package installs and
+# `ninja install` need root. become_user propagates into the block, so the tasks that need
+# root name it back: a bare become: true would inherit this user and fail.
 - name: Build and install rofi
   when: desktop_rofi_outdated | bool
   become: true
   become_user: "{{ desktop_user }}"
   block:
+    - name: Install rofi build dependencies
+      ansible.builtin.apt:
+        # Every dependency() in rofi's meson.build, the ones other tasks happen to install
+        # included.
+        name:
+          - bison
+          - flex
+          - libcairo2-dev
+          - libgdk-pixbuf-2.0-dev
+          - libglib2.0-dev
+          - libpango1.0-dev
+          - libstartup-notification0-dev
+          - libwayland-dev
+          - libxcb-cursor-dev
+          - libxcb-ewmh-dev
+          - libxcb-icccm4-dev
+          - libxcb-imdkit-dev
+          - libxcb-keysyms1-dev
+          - libxcb-randr0-dev
+          - libxcb-util-dev
+          - libxcb-xinerama0-dev
+          - libxcb-xkb-dev
+          - libxkbcommon-x11-dev
+          - ninja-build
+          - wayland-protocols
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+      become_user: root
+
+    # noble's "meson" is 1.3, too old to build rofi; it ships meson-1.5 as well,
+    # which later releases do not.
+    - name: Install meson
+      ansible.builtin.apt:
+        name: "{{ 'meson' if ansible_facts['distribution_version'] is version('25.04', '>=') else 'meson-1.5' }}"
+        state: latest
+        install_recommends: false
+      become: true
+      become_user: root
+
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory

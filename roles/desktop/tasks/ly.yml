@@ -39,6 +39,22 @@
             - name: Set up zig compiler
               become: true
               block:
+                # Zig breaks compatibility every minor release, and a ly release targets
+                # one series: the major.minor of its minimum_zig_version.
+                - name: Get ly's build.zig.zon
+                  ansible.builtin.uri:
+                    url: "https://codeberg.org/fairyglade/ly/raw/tag/{{ desktop_ly_release.tag_name }}/build.zig.zon"
+                    return_content: true
+                  register: desktop_ly_zon
+                  # uri supports no check mode, and the facts below template this register.
+                  # The request only reads.
+                  check_mode: false
+                  retries: 3
+                  delay: 5
+                  until: >-
+                    desktop_ly_zon.status == 200 or
+                    (desktop_ly_zon.status >= 400 and desktop_ly_zon.status < 500)
+
                 - name: Get zig versions
                   ansible.builtin.uri:
                     url: https://ziglang.org/download/index.json
@@ -54,15 +70,36 @@
                     desktop_zig_versions.status == 200 or
                     (desktop_zig_versions.status >= 400 and desktop_zig_versions.status < 500)
 
-                # ly requires zig v0.16.0+.
+                - name: Set ly's minimum zig version fact
+                  ansible.builtin.set_fact:
+                    desktop_ly_zig_minimum: >-
+                      {{ desktop_ly_zon.content
+                         | regex_findall('[.]minimum_zig_version\s*=\s*"([^"]+)"')
+                         | first | default('') }}
+
+                # The newest release in the minimum's series, never one below the minimum.
                 - name: Set zig version fact
                   ansible.builtin.set_fact:
                     desktop_zig_version: >-
                       {{ desktop_zig_versions.json | dict2items
                          | selectattr('key', 'match', '^\d+\.\d+\.\d+$')
                          | map(attribute='key')
+                         | select('match', (desktop_ly_zig_minimum.split('.')[:2] | join('.') | regex_escape) ~ '[.]')
+                         | select('version', desktop_ly_zig_minimum, '>=', version_type='semver')
                          | community.general.version_sort
-                         | last }}
+                         | last | default('') }}
+                  when: desktop_ly_zig_minimum | length > 0
+
+                - name: Require a zig release for ly
+                  ansible.builtin.assert:
+                    that: desktop_zig_version | default('') | length > 0
+                    fail_msg: >-
+                      {{ ('ly ' ~ desktop_ly_release.tag_name ~ ' requires zig ' ~ desktop_ly_zig_minimum
+                          ~ ', and https://ziglang.org/download/index.json lists no release in the '
+                          ~ desktop_ly_zig_minimum.split('.')[:2] | join('.') ~ ' series at or above it.')
+                         if desktop_ly_zig_minimum | length > 0 else
+                         ('ly ' ~ desktop_ly_release.tag_name ~ "'s build.zig.zon names no minimum_zig_version.") }}
+                    quiet: true
 
                 - name: Create a temporary directory for zig
                   ansible.builtin.tempfile:
@@ -92,6 +129,7 @@
                     path: /opt/zig
                     state: directory
                     mode: "0755"
+                  register: desktop_zig_dir
 
                 # Named, not left to the archive: extraction puts the recorded mode through
                 # the run's umask, and one that closes `other` leaves a toolchain only root
@@ -110,6 +148,8 @@
                       - --strip-components
                       - 1
                       - --overwrite
+                  # Under --check on a host without /opt/zig, it was only reported.
+                  when: not (ansible_check_mode and desktop_zig_dir is changed)
               always:
                 - name: Remove the temporary directory for zig
                   ansible.builtin.file:
@@ -194,7 +234,15 @@
               # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
               check_mode: false
 
+    - name: Check for the ly configuration example
+      ansible.builtin.stat:
+        path: /etc/ly/config.ini.example
+      register: desktop_ly_config_example
+      become: false
+
+    # Under --check on a host without ly, the install that writes these was only reported.
     - name: Configure ly
+      when: desktop_ly_config_example.stat.exists or not ansible_check_mode
       block:
         # installnoconf writes only config.ini.example, so seed the file the
         # lineinfile tasks below edit.
@@ -236,6 +284,7 @@
           become: true
 
     - name: Enable ly display manager
+      when: desktop_ly_config_example.stat.exists or not ansible_check_mode
       ansible.builtin.systemd_service:
         name: ly@tty2.service
         daemon_reload: true

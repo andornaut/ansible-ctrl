@@ -1,18 +1,13 @@
 ---
 - name: Install and configure lemurs display manager
   block:
-    - name: Install lemurs dependencies
+    # The release binary links against libpam and nothing else outside libc and libgcc.
+    - name: Install lemurs runtime libraries
       ansible.builtin.apt:
         name:
-          - build-essential
-          - curl
-          - libpam0g-dev
-          - libxcb-xkb-dev
-          - libxcb1-dev
-          - pkg-config
+          - libpam0g
         state: latest
         install_recommends: false
-        update_cache: true
       become: true
 
     - name: Get latest lemurs release

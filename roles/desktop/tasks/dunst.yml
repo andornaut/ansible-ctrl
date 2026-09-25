@@ -1,20 +1,24 @@
 ---
-- name: Install dunst build dependencies
+# The libraries dunst and dunstify link against. The -dev packages below depend on them, but
+# are installed only for a build.
+- name: Install dunst runtime libraries
   ansible.builtin.apt:
     name:
-      - libdbus-1-dev
-      - libglib2.0-dev
-      - libgtk-3-dev
-      - libnotify-dev
-      - libpango1.0-dev
-      - libx11-dev
-      - libxdg-basedir-dev
-      - libxinerama-dev
-      - libxrandr-dev
-      - libxss-dev
+      - libcairo2
+      - libgdk-pixbuf-2.0-0
+      - libglib2.0-0t64
+      - libnotify4
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libwayland-client0
+      - libwayland-cursor0
+      - libx11-6
+      - libxext6
+      - libxinerama1
+      - libxrandr2
+      - libxss1
     state: latest
     install_recommends: false
-    update_cache: true
   become: true
 
 - name: Get latest dunst release
@@ -43,6 +47,27 @@
   become: true
   become_user: "{{ desktop_user }}"
   block:
+    - name: Install dunst build dependencies
+      ansible.builtin.apt:
+        name:
+          - libdbus-1-dev
+          - libglib2.0-dev
+          - libgtk-3-dev
+          - libnotify-dev
+          - libpango1.0-dev
+          - libwayland-dev
+          - libx11-dev
+          - libxdg-basedir-dev
+          - libxinerama-dev
+          - libxrandr-dev
+          - libxss-dev
+          - wayland-protocols
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+      become_user: root
+
     - name: Create a temporary directory
       ansible.builtin.tempfile:
         state: directory
