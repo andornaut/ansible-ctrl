@@ -30,6 +30,24 @@ warn() { echo -e " \033[1;33m!\033[0m  $*" >&2; }
 # Report any command failure
 trap 'error "Command failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
 
+# On a failed exit, print the commands that unmount and lock a device left unlocked. Reports only: a device
+# whose unmount failed is busy, and unmounting it here could interrupt whatever holds it.
+reportUnlockedDevice() {
+    local status=$?
+    trap - ERR
+    [[ ${status} -eq 0 || ! "${DEVICE_PATH}" =~ ^/dev/mapper/.+ || ! -e "${DEVICE_PATH}" ]] && return 0
+    local mountDirs
+    mountDirs="$(findmnt -rno TARGET "${DEVICE_PATH}" 2>/dev/null || true)"
+    warn "Device ${DEVICE_PATH} is still unlocked. To unmount and lock it:"
+    if [[ -n "${mountDirs}" ]]; then
+        while IFS= read -r dir; do
+            echo "  umount \"${dir}\"" >&2
+        done <<< "${mountDirs}"
+    fi
+    echo "  cryptdisks_stop \"$(basename "${DEVICE_PATH}")\"" >&2
+}
+trap reportUnlockedDevice EXIT
+
 # Parse flags and positional arguments
 while [[ $# -gt 0 ]]; do
     case "${1}" in
@@ -115,6 +133,9 @@ done
 [[ ${EUID} -eq 0 ]] || { error 'Must be run as root'; }
 [[ ${RETENTION_NUMBER} -lt 1 || ${RETENTION_NUMBER} -gt 100 ]] && { error "RETENTION_NUMBER must be between 1 and 100: ${RETENTION_NUMBER}"; }
 [[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && ! -d "${SOURCE_DIR}" ]] && { error "\$SOURCE_DIR does not exist: ${SOURCE_DIR}"; }
+# The copy runs with --delete, so an empty source (an unmounted array's bare mountpoint) would
+# empty the backup device.
+[[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && -z "$(ls -A "${SOURCE_DIR}")" ]] && { error "\$SOURCE_DIR is empty, refusing to mirror it: ${SOURCE_DIR}"; }
 
 if [[ ${POSITIONAL_COUNT} -eq 0 ]]; then
     header "Auto-discovering backup device..."
@@ -149,7 +170,8 @@ backup() {
     header "Starting backup..."
     local startTime
     startTime=$(date +%s)
-    if rsync --archive --exclude='rsnapshot/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
+    # --delete would otherwise remove the rsnapshot.<date> copies, which exist only on the destination.
+    if rsync --archive --delete --exclude='rsnapshot/' --filter='protect /rsnapshot.????-??-??/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
         local endTime
         endTime=$(date +%s)
         local duration=$((endTime - startTime))
@@ -161,9 +183,17 @@ backup() {
 
 backupRsnapshot() {
     header "Starting rsnapshot backup..."
+    local previousDir linkDestArgs=()
+    previousDir=$(find "${MOUNT_DIR}" -maxdepth 1 -type d -name 'rsnapshot.????-??-??' ! -path "${rsnapshotDestDir}" -printf '%f\n' | sort | tail -n1)
+    if [[ -n "${previousDir}" ]]; then
+        info "Hard-linking unchanged files to: ${MOUNT_DIR}/${previousDir}"
+        linkDestArgs=(--link-dest="${MOUNT_DIR}/${previousDir}")
+    else
+        info "No previous rsnapshot backup: copying every file"
+    fi
     local startTime
     startTime=$(date +%s)
-    if rsync --archive --delete --human-readable --info=progress2 --stats "${sourceRsnapshotDir}/" "${rsnapshotDestDir}/"; then
+    if rsync --archive --delete "${linkDestArgs[@]}" --human-readable --info=progress2 --stats "${sourceRsnapshotDir}/" "${rsnapshotDestDir}/"; then
         local endTime
         endTime=$(date +%s)
         local duration=$((endTime - startTime))
@@ -239,7 +269,7 @@ unmountDevice() {
     elif cryptdisks_stop "${DEVICE_NAME}"; then
         ok "Device unmounted and locked"
     else
-        warn "Failed to lock encrypted device ${DEVICE_NAME}\n  Manual cleanup: cryptdisks_stop \"${DEVICE_NAME}\""
+        warn "Failed to lock encrypted device ${DEVICE_NAME}"
         CLEANUP_FAILED=true
     fi
 }
@@ -298,5 +328,6 @@ echo "Unlock:  cryptdisks_start \"${DEVICE_NAME}\""
 echo "Mount:   mount \"${DEVICE_PATH}\""
 echo "Unmount: umount \"${MOUNT_DIR}\" && cryptdisks_stop \"${DEVICE_NAME}\""
 
-[[ "${CLEANUP_FAILED}" == true ]] && exit 1
-exit 0
+if [[ "${CLEANUP_FAILED}" == true ]]; then
+    exit 1
+fi

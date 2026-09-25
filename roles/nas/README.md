@@ -22,23 +22,23 @@ See [defaults/main.yml](./defaults/main.yml).
 
 ## Installed files
 
-| Path                                    | Purpose                                                        |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `/etc/crypttab`, `/etc/fstab`           | Entries for the RAID and backup devices                        |
-| `/etc/systemd/system/nas-mount.service` | Unlocks the RAID devices and mounts `nas_raid_mount_directory` |
-| `/usr/local/bin/backupnas`              | Copies the array to a backup device (`backupnas` tag)          |
-| `/usr/local/sbin/nas-scrub`             | Scrubs the array (`scrub` tag)                                 |
-| `/etc/cron.d/ansible-role-nas`          | Monthly `nas-scrub` entry                                      |
+| Path                                    | Purpose                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `/etc/crypttab`, `/etc/fstab`           | Entries for the RAID and backup devices                                   |
+| `/etc/systemd/system/nas-mount.service` | Unlocks the RAID devices and mounts `nas_raid_mount_directory`            |
+| `/usr/local/bin/backupnas`              | Copies `nas_backup_source_directory` to a backup device (`backupnas` tag) |
+| `/usr/local/sbin/nas-scrub`             | Scrubs the array (`scrub` tag)                                            |
+| `/etc/cron.d/ansible-role-nas`          | Monthly `nas-scrub` entry                                                 |
 
 ## Notes
 
-| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `nas-mount.service`               | A systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts the mount unit of `nas_raid_mount_directory` (`media-nas.mount` by default). With `nas_key_file_mount_unit` set it runs after and binds to that unit; otherwise it runs after `local-fs.target` only if the LUKS key file exists                                                                                     |
-| `backupnas`                       | Unlocks and mounts the first backup device it finds, copies `nas_backup_source_directory` excluding `rsnapshot/`, copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/`, deletes all but the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero if the device is left mounted or unlocked. `--help` lists its flags |
-| `nas-scrub`                       | Runs `btrfs scrub` on `nas_raid_mount_directory` once a month (`nas_scrub_day`, `nas_scrub_hour`, `nas_scrub_minute`), on a btrfs array only. It prints nothing on success, so cron mails only a failure: the array not mounted, uncorrectable errors, or nonzero device error counters                                                                                                                      |
-| Error counters are cumulative     | On raid1 a scrub repairs a corrupt block from the other copy, so a corrected error still shows in the counters. They keep reporting until reset with `btrfs device stats -z`                                                                                                                                                                                                                                 |
-| The backup device is not scrubbed | `backupnas` reads that device only when a backup runs, so scrub it then, before the next backup relies on the copies it keeps. With a single data copy, a scrub detects corruption but cannot repair it. See [Operations](#operations)                                                                                                                                                                       |
+| Constraint                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nas-mount.service`               | A systemd oneshot that unlocks each RAID device with `cryptdisks_start` and then starts the mount unit of `nas_raid_mount_directory` (`media-nas.mount` by default). With `nas_key_file_mount_unit` set it runs after and binds to that unit; otherwise it runs after `local-fs.target` only if the LUKS key file exists                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `backupnas`                       | Refuses an empty source, since the mirror deletes. Unlocks and mounts the first backup device it finds, mirrors `nas_backup_source_directory` excluding `rsnapshot/` (deleting files no longer in the source, never the `rsnapshot.<date>/` copies), copies `nas_backup_rsnapshot_source_relative_path` under it to `rsnapshot.<date>/` with unchanged files hard-linked to the newest previous copy, deletes all but the newest `nas_backup_rsnapshot_retention` of those copies, then unmounts and locks the device. It exits non-zero if the device is left mounted or unlocked, and on any failed exit prints the `umount` and `cryptdisks_stop` commands for a device still unlocked, without running them. `--help` lists its flags |
+| `nas-scrub`                       | Runs `btrfs scrub` on `nas_raid_mount_directory` once a month (`nas_scrub_day`, `nas_scrub_hour`, `nas_scrub_minute`), on a btrfs array only. It prints nothing on success, so cron mails only a failure: the array not mounted, uncorrectable errors, or nonzero device error counters                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Error counters are cumulative     | On raid1 a scrub repairs a corrupt block from the other copy, so a corrected error still shows in the counters. They keep reporting until reset with `btrfs device stats -z`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| The backup device is not scrubbed | `backupnas` reads that device only when a backup runs, so scrub it then, before the next backup relies on the copies it keeps. With a single data copy, a scrub detects corruption but cannot repair it. See [Operations](#operations)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Setup
 
@@ -82,7 +82,7 @@ systemctl status nas-mount.service
 # Mount and unmount
 systemctl start media-nas.mount
 systemctl stop media-nas.mount
-systemctl stop systemd-cryptsetup@nas*.service
+systemctl stop 'systemd-cryptsetup@nas[0-9]*.service'
 
 # Mount and unmount without systemd
 cryptdisks_start nas0 && cryptdisks_start nas1 && mount /media/nas
@@ -91,7 +91,7 @@ umount /media/nas && cryptdisks_stop nas0 && cryptdisks_stop nas1
 # Mount a degraded array, for recovery or maintenance when a device is missing
 mount -o degraded /dev/mapper/nas0 /media/nas
 
-# Back up to the backup array
+# Back up to a backup device
 backupnas
 
 # Back up, then scrub the backup device before locking it
