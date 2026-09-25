@@ -58,8 +58,9 @@ homeautomation_esphome_gid: "10001"
 homeautomation_frigate_bind_http_unauthenticated: "127.0.0.1"
 # The proxy reaches the authenticated UI over loopback.
 homeautomation_frigate_bind_http_authenticated: "127.0.0.1"
-# The restream authenticates nobody. A Frigate integration whose rtsp_url_template names the
-# host's LAN address needs "0.0.0.0" here.
+# The restream authenticates nobody. Home Assistant reaches it at
+# rtsp://frigate.internal:8554/{{ name }} (the integration's rtsp_url_template) over the bridge,
+# so it stays on loopback. Set "0.0.0.0" only for an RTSP client off the host.
 homeautomation_frigate_bind_rtsp: "127.0.0.1"
 homeautomation_frigate_devices: []
 # https://github.com/blakeblackshear/frigate/pkgs/container/frigate

@@ -1,10 +1,4 @@
 ---
-- name: Resolve Home Assistant device paths
-  ansible.builtin.import_tasks: resolve_device.yml
-  vars:
-    device_paths: "{{ homeautomation_homeassistant_devices }}"
-    resolved_var_name: homeautomation_homeassistant_devices_resolved
-
 - name: Create the Govee2MQTT service account
   ansible.builtin.include_tasks: service_account.yml
   vars:
@@ -81,7 +75,7 @@
         depends_on:
           mosquitto:
             condition: service_healthy
-        devices: "{{ homeautomation_homeassistant_devices_resolved }}"
+        devices: "{{ homeautomation_homeassistant_devices }}"
         # Gates govee2mqtt via depends_on. Reports only: nothing here restarts an
         # unhealthy container.
         healthcheck:

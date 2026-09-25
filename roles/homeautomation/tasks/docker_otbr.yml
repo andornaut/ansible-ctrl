@@ -1,11 +1,4 @@
 ---
-- name: Resolve OTBR device path
-  ansible.builtin.import_tasks: resolve_device.yml
-  vars:
-    device_paths: >-
-      {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}
-    resolved_var_name: homeautomation_otbr_devices_resolved
-
 # Root-owned, the agent needing root for the wpan interface, and closed because
 # thread/ holds the Thread network key. Docker would otherwise create it
 # world-readable on first start.
@@ -25,17 +18,19 @@
       - "{{ homeautomation_otbr_required_volumes.data }}:/data"
     otbr_volumes: "{{ homeautomation_common_volumes + otbr_base_volumes }}"
 
-    otbr_devices: "{{ ['/dev/net/tun'] + homeautomation_otbr_devices_resolved }}"
+    # A /dev path is the USB radio; anything else is a network radio's address.
+    otbr_radio_devices: >-
+      {{ [homeautomation_otbr_device] if homeautomation_otbr_device.startswith('/') else [] }}
+    otbr_devices: "{{ ['/dev/net/tun'] + otbr_radio_devices }}"
 
     otbr_base_env:
       - AUTOFLASH_FIRMWARE=0
       - BACKBONE_IF={{ homeautomation_otbr_backbone_if }}
       - BAUDRATE=460800
-      # Physical device: resolved path (e.g. /dev/ttyUSB0).
-      # Network socket: /tmp/ttyOTBR, the pseudo-TTY socat creates.
+      # Physical device: the configured path, which Docker maps to the same path
+      # in the container. Network socket: /tmp/ttyOTBR, the pseudo-TTY socat creates.
       - >-
-        DEVICE={{ homeautomation_otbr_devices_resolved[0]
-        if homeautomation_otbr_devices_resolved else '/tmp/ttyOTBR' }}
+        DEVICE={{ otbr_radio_devices[0] if otbr_radio_devices else '/tmp/ttyOTBR' }}
       - FIREWALL=1
       - FLOW_CONTROL=1
       - NAT64=1
@@ -49,7 +44,7 @@
     otbr_network_env:
       - NETWORK_DEVICE={{ homeautomation_otbr_device }}
     otbr_env: >-
-      {{ otbr_base_env + (otbr_network_env if not homeautomation_otbr_devices_resolved else []) }}
+      {{ otbr_base_env + (otbr_network_env if not otbr_radio_devices else []) }}
 
   community.docker.docker_compose_v2:
     project_name: homeautomation-otbr

@@ -50,6 +50,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)                                                                                                |
 | `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                                                                                                                         |
 | `homeautomation_otbr_device`, `_backbone_if`               | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted                                                                                                    |
+| `homeautomation_homeassistant_devices`                     | Devices passed to the Home Assistant container. See [Notes](#notes)                                                                                                                              |
 | `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                                                                                                                     |
 | `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                                                                                 |
 | `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                                                                                                                        |
@@ -121,7 +122,7 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml).
 | Closed directories                           | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                           |
 | Loopback listeners                           | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                                                                                                |
 | Unauthenticated listeners on every interface | OTBR's REST API and govee2mqtt's HTTP API: both images hard-code the listen address                                                                                                                                                                                                                                                                                                |
-| Frigate RTSP from the LAN                    | A Frigate integration whose `rtsp_url_template` names the host's LAN address needs `homeautomation_frigate_bind_rtsp: "0.0.0.0"`                                                                                                                                                                                                                                                   |
+| Frigate RTSP from the LAN                    | Home Assistant reaches the restream at `rtsp://frigate.internal:8554/{{ name }}` (the integration's `rtsp_url_template`) over the bridge, so it stays on loopback. Set `homeautomation_frigate_bind_rtsp: "0.0.0.0"` only for an RTSP client off the host                                                                                                                          |
 
 ## llama.cpp models and context
 
@@ -146,8 +147,9 @@ defaults to 4096 tokens. Two variables set what a child runs with:
 Assist talks to llama.cpp through the built-in
 [llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later):
 Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trailing `/v1` required. Router mode
-lists every `homeautomation_llamacpp_models` entry on `/v1/models`, so several agents can run different models. An
-agent sees only entities exposed to Assist, and does not fire
+lists every GGUF file in the models directory on `/v1/models`, so several agents can run different models. The role
+downloads `homeautomation_llamacpp_models` there and deletes nothing: a model dropped from the list stays listed until
+its file is removed by hand. An agent sees only entities exposed to Assist, and does not fire
 [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
 
 ## Matter and Thread
@@ -207,13 +209,14 @@ a new instance cannot reuse that uid until the account is deleted with `userdel`
 
 ## Notes
 
-| Constraint           | Detail                                                                                                                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `configuration.yaml` | Hand-maintained per host, except the `frontend:` key: `!include frontend.yaml`, written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2)                                 |
-| Frontend modules     | A module in `www/` loads only if `homeautomation_homeassistant_extra_module_urls` names it. Without the entry, every card that depends on it renders as absent and no error is reported |
-| Config ownership     | Everything under `config/` is root-owned, so edit through the container: `docker exec homeassistant <cmd>` runs as root with the config at `/config`                                    |
-| `.storage/`          | Home Assistant caches these files and rewrites them on shutdown. Stop it before editing one and start it after, or the edit is overwritten                                              |
-| Dashboards           | `.storage/lovelace*`, cached the same way. Prefer [ha-mcp](#ha-mcp)'s `ha_config_set_dashboard`, which writes one without stopping anything and takes effect immediately                |
+| Constraint           | Detail                                                                                                                                                                                                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configuration.yaml` | Hand-maintained per host, except the `frontend:` key: `!include frontend.yaml`, written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2)                                                                                                                           |
+| Frontend modules     | A module in `www/` loads only if `homeautomation_homeassistant_extra_module_urls` names it. Without the entry, every card that depends on it renders as absent and no error is reported                                                                                           |
+| Config ownership     | Everything under `config/` is root-owned, so edit through the container: `docker exec homeassistant <cmd>` runs as root with the config at `/config`                                                                                                                              |
+| Device paths         | `homeautomation_homeassistant_devices` and a `/dev` `homeautomation_otbr_device` go to Docker unchanged, so name a `/dev/serial/by-id/` link. Docker resolves it at each container start and exposes it at the same path inside, which is the path to configure in Home Assistant |
+| `.storage/`          | Home Assistant caches these files and rewrites them on shutdown. Stop it before editing one and start it after, or the edit is overwritten                                                                                                                                        |
+| Dashboards           | `.storage/lovelace*`, cached the same way. Prefer [ha-mcp](#ha-mcp)'s `ha_config_set_dashboard`, which writes one without stopping anything and takes effect immediately                                                                                                          |
 
 ## Setup
 
@@ -225,7 +228,9 @@ a new instance cannot reuse that uid until the account is deleted with `userdel`
 
 ### Nginx
 
-Configure reverse proxies with the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables:
+Configure reverse proxies with the [letsencrypt_nginx](../letsencrypt_nginx/defaults/main.yml) variables. A site
+without `trusted_networks` or `permit_untrusted_networks` answers only localhost (see
+[Access control](../letsencrypt_nginx/README.md#access-control)); replace the placeholder CIDR with the LAN's:
 
 ```yaml
 letsencrypt_nginx_websites:
@@ -233,6 +238,7 @@ letsencrypt_nginx_websites:
   # is bound to loopback for that reason; proxying it publishes the camera UI.
   # 8971 serves TLS, with a self-signed certificate by default.
   - domain: frigate.example.com
+    trusted_networks: [192.168.1.0/24]
     proxy_port: 8971
     proxy_https: true
     websocket_paths:
@@ -240,14 +246,19 @@ letsencrypt_nginx_websites:
       - /live/mse/api/ws
       - /live/webrtc/api/ws
   - domain: ai.example.com
+    trusted_networks: [192.168.1.0/24]
     proxy_port: 3000
     websocket_paths:
       - /ws/socket.io
   - domain: ha.example.com
+    trusted_networks: [192.168.1.0/24]
     proxy_port: 8123
     websocket_paths:
       - /api/websocket
 ```
+
+Home Assistant answers a proxied request with 400 unless `configuration.yaml` sets `http:` `use_x_forwarded_for: true`
+and `trusted_proxies: [127.0.0.1, ::1]`: nginx runs on the host network and connects from localhost.
 
 ### Android TV adb
 

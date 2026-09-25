@@ -108,6 +108,8 @@ homeautomation_teardown:
     containers: [matterjs]
   - install: "{{ homeautomation_install_pythonmatterserver | bool }}"
     containers: [pythonmatterserver]
+  # CLEANUP (added 2026-08-08): openwakeword and microwakeword, which no task creates. Drop
+  # the two names once no homeautomation host has either container.
   - install: "{{ homeautomation_install_voice | bool }}"
     containers: [openwakeword, microwakeword, piper, whisper]
   # Serves either matter stack, so it goes only when both do.

@@ -35,26 +35,30 @@
         mode: "0755"
       become: true
 
-    # As the primary user rather than root: the key that reaches the router and the docker
-    # group that reads the token are that account's, and root's ssh configuration on this
-    # host is hand-maintained rather than provisioned here.
-    - name: Periodically run router-kva-sample
-      ansible.builtin.cron:
-        name: router-kva-sample
-        cron_file: /etc/cron.d/ansible-role-homeautomation
-        user: "{{ homeautomation_router_kva_sample_user }}"
-        minute: "{{ homeautomation_router_kva_sample_minute }}"
-        job: >-
-          /usr/local/bin/router-kva-sample
-          {{ homeautomation_router_kva_sample_host | quote }}
-          {{ homeautomation_router_kva_sample_entity_id | quote }}
-          {{ homeautomation_router_kva_sample_container | quote }}
-          {{ homeautomation_router_kva_sample_url | quote }}
-      become: true
-      # The Home Assistant whose token the container holds, as this host reaches it: the
-      # container's host.docker.internal is this host's localhost.
-      vars:
-        homeautomation_router_kva_sample_url: >-
-          {{ (homeautomation_hamcp_instances
-              | selectattr('name', 'equalto', homeautomation_router_kva_sample_container)
-              | first).url | replace('host.docker.internal', 'localhost') }}
+# Derived from the flag rather than gated on it, so clearing the flag removes the entry.
+# As the primary user rather than root: the key that reaches the router and the docker
+# group that reads the token are that account's, and root's ssh configuration on this
+# host is hand-maintained rather than provisioned here.
+- name: Periodically run router-kva-sample
+  ansible.builtin.cron:
+    name: router-kva-sample
+    cron_file: /etc/cron.d/ansible-role-homeautomation
+    user: "{{ homeautomation_router_kva_sample_user }}"
+    minute: "{{ homeautomation_router_kva_sample_minute }}"
+    job: >-
+      /usr/local/bin/router-kva-sample
+      {{ homeautomation_router_kva_sample_host | quote }}
+      {{ homeautomation_router_kva_sample_entity_id | quote }}
+      {{ homeautomation_router_kva_sample_container | quote }}
+      {{ homeautomation_router_kva_sample_url | quote }}
+    state: "{{ homeautomation_install_router_kva_sample | bool | ternary('present', 'absent') }}"
+  become: true
+  # The Home Assistant whose token the container holds, as this host reaches it: the
+  # container's host.docker.internal is this host's localhost. Empty where no instance has
+  # that name, which the assert refuses while the flag is on.
+  vars:
+    homeautomation_router_kva_sample_url: >-
+      {{ homeautomation_hamcp_instances
+         | selectattr('name', 'equalto', homeautomation_router_kva_sample_container)
+         | map(attribute='url') | first | default('')
+         | replace('host.docker.internal', 'localhost') }}
