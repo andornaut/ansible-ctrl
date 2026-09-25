@@ -22,6 +22,11 @@ dev_ai_attributions_release_archive: >-
   ai-attributions_linux_{{
   {'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}.tar.gz
 
+# Cursor's download API names rather than Debian's, so dev_arch does not serve here: x86_64
+# to x64, aarch64 to arm64.
+dev_cursor_platform: >-
+  linux-{{ {'x86_64': 'x64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
 # Where ruby-install writes for a user, and what chruby's auto.sh switches to.
 dev_ruby_root: "{{ dev_user_home }}/.rubies/ruby-{{ dev_ruby_version }}"
 

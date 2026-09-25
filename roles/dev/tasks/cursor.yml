@@ -1,7 +1,7 @@
 ---
 - name: Get latest Cursor AppImage download URL
   ansible.builtin.uri:
-    url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
+    url: "https://www.cursor.com/api/download?platform={{ dev_cursor_platform }}&releaseTrack=stable"
     return_content: true
   register: dev_cursor_api_response
   # uri supports no check mode, so a --check run would skip this and leave the
@@ -69,8 +69,16 @@
       MimeType=x-scheme-handler/cursor;
       Categories=Utility;Development
     create: true
-    path: /usr/share/applications/cursor.desktop
+    path: /usr/local/share/applications/cursor.desktop
     mode: "0644"
+  become: true
+
+# CLEANUP (added 2026-09-25): the entry this role wrote under /usr/share, which no package
+# owns. Remove once every dev host has converged.
+- name: Remove the Cursor desktop file from /usr/share
+  ansible.builtin.file:
+    path: /usr/share/applications/cursor.desktop
+    state: absent
   become: true
 
 # The editor and the CLI are separate installs from separate sources: the AppImage
