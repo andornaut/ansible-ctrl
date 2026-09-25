@@ -255,7 +255,9 @@
          if faramir_home_absent | int == faramir_home_declared | int else '' }}
   loop: "{{ [faramir_user_home] + faramir_shared_user_homes }}"
   vars:
-    faramir_home_declared: "{{ faramir_blocked_home_paths | length }}"
+    # From the set the entries were built from, so a path faramir_links names is not counted.
+    faramir_home_declared: >-
+      {{ faramir_blocked_paths | select('match', (item ~ '/') | regex_escape) | list | length }}
     faramir_home_absent: >-
-      {{ faramir_entry_warnings | select('match', item ~ '/')
+      {{ faramir_entry_warnings | select('match', (item ~ '/') | regex_escape)
          | select('search', 'does not exist; the rule holds once it does') | list | length }}

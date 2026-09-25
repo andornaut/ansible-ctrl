@@ -151,7 +151,10 @@
       `--env-file faramir.env` names every credential this repo uses, by
       reference. `--limit '!faramir_controller'` excludes the controller because `become`
       there raises an escalation per task, which would leave the run failing after
-      the rest of it has already applied.
+      the rest of it has already applied. It removes the controller as a play host
+      only: a task delegated to `localhost` with `become` still takes the
+      controller's sudo (`games`'s `retroid` tag, `base`'s lockdown on an SSH port
+      move), so a run reaching one of those takes the approved route.
 
       Approved once, then root for the whole run:
 
