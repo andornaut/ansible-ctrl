@@ -14,6 +14,11 @@ What it owns, mirroring the role's ownership semantics:
 
   * retroarch.cfg: the enumerated keys set, the dropped keys removed, every other line
     preserved.
+  * per-core overrides: config/<library_name>/<library_name>.{cfg,opt,slangp} written
+    whole, and a .cfg, .opt or .slangp one level under config/ that is no longer staged
+    removed when its first line is the `# Ansible managed` header they are written with.
+    Anything without the header, such as the per-game and per-content-directory
+    overrides RetroArch saves, is left alone.
   * playlists: regenerated with device paths, and stale managed .lpl removed.
     Hand-built playlists are left alone.
   * BIOS: additive push from the library, no deletes.
@@ -71,6 +76,11 @@ ARCADE_NAMES = ROLE_DIR / "files" / "fbneo-arcade-names.json"
 DRY_RUN_UUID = "SDCARD"
 
 CFG_LINE = re.compile(r"^\s*([\w.]+)\s*=\s*(.*)$")
+# The first line of every per-core file this writes. Only a device file that starts with it is
+# this sync's to prune.
+MANAGED_HEADER = "# Ansible managed"
+# The per-core file types staged under config/<library_name>/.
+OVERRIDE_EXTENSIONS = (".cfg", ".opt", ".slangp")
 
 
 # --------------------------------------------------------------------------- model
@@ -159,7 +169,8 @@ def resolve_dirs(profile, uuid):
 class Device:
     """Thin adb wrapper. In dry-run it prints writes instead of performing them; reads run either
     way. read_shell and list_dir return empty when there is no device (or no adb) so the plan is still
-    built; exists and pull_text need the device, and exit rather than report a failed read as absent."""
+    built; read, exists and pull_text need the device, and exit rather than report a failed read as
+    absent."""
 
     def __init__(self, serial, dry_run):
         self.serial = serial
@@ -283,6 +294,10 @@ class Device:
 
     def rm(self, path):
         self._write(["shell", f"rm -rf {shq(path)}"], f"rm -rf {path}")
+
+    def rmdir_if_empty(self, path):
+        """Remove path if it is an empty directory; one that still holds anything is left."""
+        self._write(["shell", f"rmdir {shq(path)} 2>/dev/null || true"], f"rmdir {path} if empty")
 
     def rmdir_empty(self, root):
         """Remove the directories a prune emptied under root, keeping root itself.
@@ -466,7 +481,7 @@ def merge_cfg(existing, managed, drop):
 
 def override_text(pairs):
     """Render a per-core .cfg/.opt: the role's Ansible-managed header, then sorted key = "value"."""
-    header = "# Ansible managed\n"
+    header = f"{MANAGED_HEADER}\n"
     body = "".join(f'{key} = "{pairs[key]}"\n' for key in sorted(pairs))
     return header + body
 
@@ -619,7 +634,7 @@ def write_shader_presets(model, staging_config, shaders, device_shader_dir):
     reference = "{}/{}".format(device_shader_dir, shaders["preset"])
     params = shaders.get("params") or {}
     body = "".join(f'{key} = "{params[key]}"\n' for key in sorted(params))
-    text = f'# Ansible managed\n#reference "{reference}"\n{body}'
+    text = f'{MANAGED_HEADER}\n#reference "{reference}"\n{body}'
     written = []
     for core in slang_capable_cores(model):
         library_name = model["library_names"].get(core, core)
@@ -709,6 +724,76 @@ def stale_playlists(device, dirs, systems):
     return stale
 
 
+# Upper bound on the quoted paths in one device_first_lines command, well under the device
+# shell's argument limit.
+FIRST_LINES_BATCH_BYTES = 32768
+
+
+def device_first_lines(device, paths):
+    """Map each device path to its first line, "" for an empty or unreadable file.
+
+    One adb shell per batch rather than one per file: a loop prints each path, a tab, then that
+    file's first line, which the command substitution holds to one line without its newline. Lines
+    are matched to paths by position and checked against the expected path, so a tab in a name
+    cannot misparse and a short or garbled read exits rather than reading as "no header".
+    """
+    batches, size = [], 0
+    for path in paths:
+        if not batches or size + len(shq(path)) + 1 > FIRST_LINES_BATCH_BYTES:
+            batches.append([])
+            size = 0
+        batches[-1].append(path)
+        size += len(shq(path)) + 1
+    lines = {}
+    for batch in batches:
+        quoted = " ".join(shq(path) for path in batch)
+        out = device.read(
+            f'for f in {quoted}; do l=$(head -n 1 "$f" 2>/dev/null); printf \'%s\\t%s\\n\' "$f" "$l"; done'
+        )
+        rows = out.split("\n")
+        if rows and rows[-1] == "":
+            rows.pop()
+        if len(rows) != len(batch):
+            sys.exit(f"adb returned {len(rows)} first lines for {len(batch)} override files; re-run.")
+        for path, row in zip(batch, rows, strict=True):
+            if not row.startswith(path + "\t"):
+                sys.exit(f"adb returned {row!r} where the first line of {path} was expected; re-run.")
+            lines[path] = row[len(path) + 1 :]
+    return lines
+
+
+def prune_overrides(device, online, config_dir, config_stage):
+    """Remove the per-core files this sync wrote that it no longer stages, as the role prunes its own.
+
+    A dropped core, a core now pinned to a driver that cannot load slang, or a corrected
+    library_name would otherwise keep its last override, options or preset forever. Only
+    config/<library_name>/ files of the staged types are candidates, and of those only one whose
+    first line is MANAGED_HEADER is removed: RetroArch saves per-game and per-content-directory
+    overrides beside these without it. A core directory the prune empties is removed with it.
+
+    Offline, which only a dry run reaches, there is no device listing and nothing is planned.
+    """
+    if not online:
+        print("  no device online; nothing to prune")
+        return
+    staged = set(local_file_sizes(config_stage)) if Path(config_stage).is_dir() else set()
+    names = " -o ".join(f"-name '*{extension}'" for extension in OVERRIDE_EXTENSIONS)
+    # Through read with `|| true`, as device_file_sizes: an absent config_dir lists nothing, and
+    # only adb failing is left to fail rather than read as a directory with nothing to prune.
+    out = device.read(f"find {shq(config_dir)} -mindepth 2 -maxdepth 2 -type f \\( {names} \\) 2>/dev/null || true")
+    prefix = config_dir.rstrip("/") + "/"
+    candidates = [
+        path for path in sorted(out.splitlines()) if path.startswith(prefix) and path[len(prefix) :] not in staged
+    ]
+    first_lines = device_first_lines(device, candidates)
+    for path in candidates:
+        if first_lines[path].rstrip("\r") != MANAGED_HEADER:
+            continue
+        print(f"Removing stale override {path[len(prefix) :]}")
+        device.rm(path)
+        device.rmdir_if_empty(posixpath.dirname(path))
+
+
 # --------------------------------------------------------------------------- ROM library
 
 
@@ -718,7 +803,7 @@ def stale_playlists(device, dirs, systems):
 PRESERVE_IN_ROMS = {"systeminfo.txt"}
 
 
-def device_file_sizes(device, root):
+def device_file_sizes(device, online, root):
     """Map every file under root on the device to its size in bytes, recursive and including hidden.
 
     Uses find rather than list_dir's `ls -1`: `ls -1` omits dotfiles, so hidden directories (a ROM
@@ -726,7 +811,11 @@ def device_file_sizes(device, root):
     in the mirror callers and stale files would accumulate. find sees them. Each file's size comes from
     stat so a mirror can decide what to push by size (see mirror_roms); the tab separator keeps names,
     which contain spaces, parseable.
+
+    Offline, which only a dry run reaches, the device is planned as empty.
     """
+    if not online:
+        return {}
     prefix = root.rstrip("/") + "/"
     # Through read, `|| true` making find's own non-zero exit (an absent root) a success: only adb
     # failing is left to fail, and it retries rather than reading as an empty directory.
@@ -786,7 +875,7 @@ def empty_source_refusal(src, wanted, doomed):
     return f"  not pruning: {src} lists no files but the device holds {len(doomed)}. Delete them by hand if intended."
 
 
-def mirror_roms(device, library_dir, roms_root, rom_dir_names):
+def mirror_roms(device, online, library_dir, roms_root, rom_dir_names):
     """Mirror each library system directory onto ROMS/<short name>, replacing what the device has.
 
     Per system: delete the device files the library no longer carries (renamed or removed games), then
@@ -814,7 +903,7 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
         try:
             device.mkdirs(dst)
             wanted = local_file_sizes(src)
-            have = device_file_sizes(device, dst)
+            have = device_file_sizes(device, online, dst)
             doomed = [rel for rel in have if posixpath.basename(rel) not in PRESERVE_IN_ROMS and rel not in wanted]
             refusal = empty_source_refusal(src, wanted, doomed)
             if refusal:
@@ -855,7 +944,7 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
         )
 
 
-def sync_tree(device, src, root, prune):
+def sync_tree(device, online, src, root, prune):
     """Size-diff push a local tree onto device root: send only files missing or a different size there.
 
     The push set is decided by size, not delegated to `adb push --sync` (which also compares mtime, and
@@ -869,7 +958,7 @@ def sync_tree(device, src, root, prune):
     """
     device.mkdirs(root)
     wanted = local_file_sizes(src)
-    have = device_file_sizes(device, root)
+    have = device_file_sizes(device, online, root)
     if prune:
         doomed = [rel for rel in have if rel not in wanted]
         refusal = empty_source_refusal(src, wanted, doomed)
@@ -1137,13 +1226,14 @@ def main():
         try:
             device.mkdirs(posixpath.dirname(cfg_path), config_dir)
             device.push_text(merged, cfg_path)
+            section("overrides/options", "push always + prune")
             if config_stage.is_dir():
-                section("overrides/options", "push always")
                 # f-string, not +: the trailing "/." is adb's "contents of", and
                 # a Path does not concatenate with a string.
                 device.push(f"{config_stage}/.", config_dir)
         except subprocess.CalledProcessError:
             keep_staging = True
+            failed.append("retroarch.cfg")
             (Path(staging) / "retroarch.cfg").write_text(merged, encoding="utf-8")
             print(
                 f"WARNING: could not write {cfg_path} (adb is denied the app files dir). Grant RetroArch "
@@ -1152,6 +1242,10 @@ def main():
                 "See README.md.",
                 file=sys.stderr,
             )
+        else:
+            # Only once the push landed: a denied app files dir would deny the removals too.
+            with isolated(failed, "overrides/options"):
+                prune_overrides(device, online, config_dir, config_stage)
 
         # Push the staged playlists (trailing "/." copies contents into the existing dir), then
         # remove the stale managed .lpl of a system that left the table. Cores are never touched
@@ -1167,18 +1261,18 @@ def main():
         if shader_stage.is_dir():
             section("shaders", "push additive")
             with isolated(failed, "shaders"):
-                sync_tree(device, shader_stage, dirs["shaders"], prune=False)
+                sync_tree(device, online, shader_stage, dirs["shaders"], prune=False)
 
         bios_src = Path(args.library_dir) / "_BIOS" / "retroarch-system-folder"
         if not args.skip_bios and bios_src.is_dir():
             section("BIOS", "push additive")
             with isolated(failed, "BIOS"):
-                sync_tree(device, bios_src, dirs["system"], prune=False)
+                sync_tree(device, online, bios_src, dirs["system"], prune=False)
         thumbs_src = Path(args.library_dir) / "_Thumbnails"
         if not args.skip_thumbnails and thumbs_src.is_dir():
             section("thumbnails", "merge with prune")
             with isolated(failed, "thumbnails"):
-                sync_tree(device, thumbs_src, dirs["thumbnails"], prune=True)
+                sync_tree(device, online, thumbs_src, dirs["thumbnails"], prune=True)
     finally:
         if not keep_staging:
             shutil.rmtree(staging, ignore_errors=True)
@@ -1192,7 +1286,7 @@ def main():
     if not args.skip_roms:
         section("ROM library", "merge with prune")
         with isolated(failed, "ROM library"):
-            mirror_roms(device, args.library_dir, dirs["roms"], profile["rom_dir_names"])
+            mirror_roms(device, online, args.library_dir, dirs["roms"], profile["rom_dir_names"])
 
     if failed:
         sys.exit(

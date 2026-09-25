@@ -19,6 +19,16 @@
 - name: Install the gamescope wrapper
   when: games_gamescope_enabled | bool
   block:
+    # The preload library is built for the x86_64 and i386 classes, with -m64 and -m32.
+    - name: Validate architecture for the display preload library
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["architecture"] == "x86_64"
+        fail_msg: >-
+          The display preload library is built for x86_64 and i386 only, and this host
+          reports {{ ansible_facts["architecture"] }}.
+        quiet: true
+
     # The gamescope extension the wrapper execs by path is flatpak_vulkan.yml, after
     # bedrock.yml under these same tags, so a launcher whose runtime moved gets it in the
     # same run.

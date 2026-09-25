@@ -68,16 +68,38 @@ One launch at a time per prefix, held under a lock in the runtime directory from
 the game has a window or the wait for one has ended: a second activation would otherwise tear
 down what the first has just started, the teardown having no way to tell a stale session from a
 sibling run's. A click while the lock is held is reported as already running at once when the
-holder's session has a window on screen; otherwise it waits up to thirty seconds, then reports
-the launch that never happened. Once the lock is released the session belongs to whoever clicks next: one with a
-window on screen is left alone as already running, and one without is torn down and relaunched.
+holder's session is running; otherwise it waits up to thirty seconds, then reports the launch that
+never happened. Once the lock is released the session belongs to whoever clicks next: a running one
+is left alone as already running, an idle one is handed the launch, and any other is torn down and
+relaunched.
+
+Under gamescope a session is running while its nested display shows a window, so one whose window
+has closed, the stale Battle.net session above among them, is torn down. Without gamescope no
+process of the prefix carries a nested display, and the game's window cannot be told from the
+desktop's, so the prefix's processes decide instead. Wine names each Windows process on its command
+line by its Windows path, and a process whose path is outside `C:\\windows`, `C:\\ProgramData` and
+the directory of the entry's executable is a game: the session is running while one is up, and
+idle while the wineserver has only the client and Wine's own services. A game installed inside the
+client's directory is not seen, and a click on it hands the launch to the client, which already
+has it; a helper the client runs from anywhere else counts as a game, and the click is left alone.
+
+A click on an idle session hands the launch to it rather than tearing it down, the client being
+what keeps the wineserver up after the game quits. The entry's own command, its `exe` and `args`
+from its Lutris configuration split the way Lutris splits them, runs through `flatpak enter` in the
+sandbox of the prefix's wineserver, with that process's environment: the Proton build's `wine`
+first on PATH, WINEPREFIX, and whatever else Proton and Lutris set. That is Proton's `runinprefix`
+verb without the script around it, and it needs no second container, which the lock on `.ref`
+would break. Battle.net's `--exec="launch <product>"` reaches the running client that way. An
+entry with no `--exec=` argument, a host without PyYAML to read the configuration, or an
+executable given by a relative path keeps the idle session as already running.
 
 Every decision is logged to `$XDG_STATE_HOME/lutris-launch-game/<slug>.log` (default
 `~/.local/state`), since a desktop entry's stderr goes nowhere: the lock's state, every
 process found and signalled, every change of the banner, what the nested display shows, and
 how Lutris exited. Rotated at 1 MiB.
 
-Exits with whatever Lutris returns, or 1 for a launch that was not attempted.
+Exits with whatever Lutris returns, 0 for a launch the running session took, or 1 for a launch
+that was not attempted or a hand-off that failed.
 """
 
 import contextlib
@@ -87,13 +109,22 @@ import logging
 import logging.handlers
 import os
 import re
+import shlex
 import shutil
 import signal
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
+from typing import NamedTuple
+
+try:
+    import yaml
+except ImportError:
+    # Only the hand-off reads a Lutris configuration file; without it an idle session is left alone.
+    yaml = None
 
 log = logging.getLogger("lutris-launch-game")
 
@@ -157,6 +188,24 @@ LOG_BACKUPS = 3
 
 # How an earlier run of this launcher is recognised on a command line, installed or not.
 LAUNCHER_NAME = b"lutris-launch-game"
+
+# The argument that makes an entry a launch request to a client, Battle.net's
+# `--exec="launch <product>"`. Only an entry carrying one is handed to an idle session.
+HANDOFF_OPTION = "--exec="
+
+# How long the hand-off command gets to exit. One still running after this is left to run.
+HANDOFF_SECONDS = 30.0
+
+# How much of the hand-off command's stderr reaches the log.
+HANDOFF_STDERR_BYTES = 4096
+
+# Where a Windows process that is not a game runs from, as Wine names it on a command line,
+# lowercased: Wine's own services, and a client's update agent. The directory of the entry's
+# executable is added to these per entry.
+NON_GAME_DIRS = ("c:\\windows\\", "c:\\programdata\\")
+
+# A Windows path on a command line: Wine rewrites a process's argv to the image it runs.
+WINDOWS_IMAGE = re.compile(r"^[a-z]:\\.*?\.exe", re.IGNORECASE)
 
 
 def setup_logging(slug):
@@ -288,11 +337,11 @@ class PrefixLock:
         self.handle = None
 
     def acquire(self, on_wait, in_use):
-        """ "acquired", or "in-use" when the holder's session has a window, or "busy" after LOCK_WAIT_SECONDS.
+        """ "acquired", or "in-use" when the holder's session is running, or "busy" after LOCK_WAIT_SECONDS.
 
         `in_use` is asked once, when the lock first turns out to be taken: a holder whose session
-        is on screen is a launch that has reached the client or the game, and waiting on it is
-        pointless; one with nothing on screen yet is still launching, and the wait is for that.
+        is running is a launch that has reached the client or the game, and waiting on it is
+        pointless; one that is not yet is still launching, and the wait is for that.
         """
         if self.path is None:
             log.warning("no XDG_RUNTIME_DIR; launching without the concurrency guard")
@@ -612,18 +661,115 @@ def window_shown(windows):
     return any(state == "viewable" for *_, state in windows)
 
 
-def session_on_screen(prefix, exclude):
-    """Whether this prefix has a window up, which tells a live session from one that is ending."""
-    if not shutil.which("xwininfo"):
-        log.debug("no xwininfo; cannot tell whether a session is on screen")
-        return False
-    display = gamescope_display(prefix_pids(prefix, exclude))
+def windows_image(pid):
+    """The lowercased Windows path of the image a Wine process runs, or None for any other process."""
+    argv0 = cmdline_of(pid).split(b"\0", 1)[0].decode(errors="replace")
+    match = WINDOWS_IMAGE.match(argv0)
+    return match.group(0).lower() if match else None
+
+
+def game_pids(pids, client_dir):
+    """The processes among the given ones that run a Windows image from outside NON_GAME_DIRS and the client's."""
+    skip = (*NON_GAME_DIRS, client_dir) if client_dir else NON_GAME_DIRS
+    games = {}
+    for pid in pids:
+        image = windows_image(pid)
+        if image and not image.startswith(skip):
+            games[pid] = image
+    return games
+
+
+def session_state(prefix, exclude, client_dir):
+    """The session's state, "running", "idle" or "stopped": a live session from one that is ending.
+
+    Under gamescope, running is a window on the nested display: the wineserver outlives the
+    window, so it cannot tell a live session from a stale one, and anything else is stopped.
+    Every process of a gamescope session carries the display, the wineserver included, so a
+    prefix whose processes carry none is one without gamescope. There a live wineserver is
+    running while a game process is up and idle while none is, and no wineserver is stopped.
+    """
+    pids = prefix_pids(prefix, exclude)
+    display = gamescope_display(pids)
     if not display:
-        log.debug("no gamescope display in the prefix's processes")
-        return False
+        wineservers = [pid for pid in pids if comm_of(pid) == "wineserver"]
+        log.debug("no gamescope display in the prefix's processes; wineserver: %s", describe(wineservers))
+        if not wineservers:
+            return "stopped"
+        games = game_pids(pids, client_dir)
+        log.debug(
+            "game processes outside %s: %s",
+            ", ".join((*NON_GAME_DIRS, client_dir) if client_dir else NON_GAME_DIRS),
+            ", ".join(f"{pid} {image}" for pid, image in sorted(games.items())) or "none",
+        )
+        return "running" if games else "idle"
+    if not shutil.which("xwininfo"):
+        log.debug("no xwininfo; cannot tell whether display %s shows a window", display)
+        return "stopped"
     windows = candidate_windows(display)
     log.debug("display %s shows %s", display, windows or "no window of usable size")
-    return window_shown(windows)
+    return "running" if window_shown(windows) else "stopped"
+
+
+def handoff(prefix, launch, notifier):
+    """Run the entry's command in the idle session, returning the launcher's exit status.
+
+    `flatpak enter` joins the namespaces of the prefix's wineserver and takes its environment,
+    so `wine` is the session's own Proton build talking to that wineserver. It is found through
+    env(1) inside the sandbox, whose PATH is the session's; flatpak enter itself searches the
+    host's.
+    """
+    wineservers = [pid for pid in prefix_pids(prefix, own_pids()) if comm_of(pid) == "wineserver"]
+    if not wineservers:
+        log.warning("the prefix's wineserver exited before the hand-off")
+        notifier.show(
+            f"{notifier.name} did not start", "The running session ended before it took the launch.", urgency="normal"
+        )
+        return 1
+    argv = [
+        "flatpak",
+        "enter",
+        str(wineservers[0]),
+        "/usr/bin/env",
+        "-C",
+        launch.workdir,
+        "wine",
+        launch.exe,
+        *launch.args,
+    ]
+    log.info("handing the launch to the running session: %s", shlex.join(argv))
+    body = "Handing the launch to the running client."
+    notifier.show(f"Launching {notifier.name}", body)
+    # A file rather than a pipe: a process the command starts keeps the descriptor after this one
+    # exits, and its writes to a pipe with no reader would fail.
+    with tempfile.TemporaryFile() as stderr:
+        try:
+            child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=stderr)
+        except OSError as error:
+            log.warning("flatpak enter failed: %s", error)
+            returncode = 1
+        else:
+            deadline = time.monotonic() + HANDOFF_SECONDS
+            while child.poll() is None and time.monotonic() < deadline:
+                notifier.keep(f"Launching {notifier.name}", body)
+                time.sleep(POLL_SECONDS)
+            returncode = child.poll()
+        stderr.seek(max(0, stderr.seek(0, os.SEEK_END) - HANDOFF_STDERR_BYTES))
+        output = stderr.read().decode(errors="replace").strip()
+    if output:
+        log.info("hand-off stderr: %s", output)
+    if returncode is None:
+        log.info("the hand-off command is still running after %.0fs; leaving it", HANDOFF_SECONDS)
+        return 0
+    log.info("the hand-off command exited %d", returncode)
+    if returncode != 0:
+        notifier.show(
+            f"{notifier.name} did not start",
+            f"The running client did not take the launch. See {notifier.log_file or 'the log'}.",
+            urgency="normal",
+        )
+        return 1
+    notifier.show(f"Launching {notifier.name}", "The running client is starting it.")
+    return 0
 
 
 def wait_for_window(child, prefix, app_id, notifier, exclude):
@@ -712,6 +858,77 @@ def game_name(app_id, slug):
     return row[0] if row and row[0] else slug
 
 
+class Launch(NamedTuple):
+    """The entry's command as Lutris's wine runner builds it, and where its client lives."""
+
+    exe: str
+    args: list
+    workdir: str
+    # Lowercased with a trailing backslash, the form windows_image() compares against.
+    client_dir: str
+
+
+def split_arguments(args):
+    """Lutris's split_arguments: shlex, retried with each quote closed when one is left open."""
+    for closing in ("", "'", '"'):
+        try:
+            return shlex.split(args + closing)
+        except ValueError:
+            continue
+    return []
+
+
+def dos_path(prefix, path):
+    """Wine's name for a host path: under the prefix's drive_c it is on C:, anywhere else on Z:."""
+    for root in prefix:
+        with contextlib.suppress(ValueError):
+            return "c:\\" + "\\".join(path.relative_to(Path(root) / "drive_c").parts)
+    return "z:" + str(path).replace("/", "\\")
+
+
+def entry_launch(app_id, slug, prefix):
+    """The entry's command, or None when it has none to hand to an idle session.
+
+    Read from the game's own Lutris configuration: `games/<configpath>.yml` in `config/lutris`
+    where that exists and `data/lutris` otherwise, pga.db naming the file. The executable must be
+    absolute, as Lutris resolves a relative one against a game directory this does not know.
+    """
+    if yaml is None:
+        log.info("no PyYAML; an idle session is left alone rather than handed the launch")
+        return None
+    base = Path.home() / ".var/app" / app_id
+    config_dir = base / "config/lutris"
+    if not config_dir.is_dir():
+        config_dir = base / "data/lutris"
+    db = base / "data/lutris/pga.db"
+    try:
+        with contextlib.closing(sqlite3.connect(f"file:{db}?mode=ro", uri=True)) as conn:
+            row = conn.execute("select configpath from games where slug = ?", (slug,)).fetchone()
+    except sqlite3.Error as error:
+        log.info("no configuration path for %s from %s: %s", slug, db, error)
+        return None
+    if not row or not row[0]:
+        log.info("%s has no configuration path in %s", slug, db)
+        return None
+    path = config_dir / "games" / f"{row[0]}.yml"
+    try:
+        game = (yaml.safe_load(path.read_text()) or {}).get("game") or {}
+    except (OSError, yaml.YAMLError) as error:
+        log.info("cannot read %s: %s", path, error)
+        return None
+    exe = Path(str(game.get("exe") or "").strip()).expanduser()
+    args = split_arguments(str(game.get("args") or ""))
+    if not exe.is_absolute():
+        log.info("%s names no absolute exe; an idle session is left alone", path)
+        return None
+    if not any(arg.startswith(HANDOFF_OPTION) for arg in args):
+        log.info("%s has no %s argument; an idle session is left alone", path, HANDOFF_OPTION)
+        return None
+    launch = Launch(str(exe), args, str(exe.parent), dos_path(prefix, exe.parent).lower().rstrip("\\") + "\\")
+    log.info("hand-off command for an idle session: %s %s", shlex.quote(launch.exe), shlex.join(launch.args))
+    return launch
+
+
 def main():
     if len(sys.argv) not in (4, 5):
         sys.exit(f"usage: {Path(sys.argv[0]).name} <wine-prefix> <flatpak-app-id> <lutris-slug> [<display-name>]")
@@ -724,17 +941,20 @@ def main():
     # Lutris's own.
     prefix = (str(Path(given).expanduser().resolve()), given)
     log.info("launching %s: prefix %s, %s, lutris:rungame/%s", name, prefix[0], app_id, slug)
+    launch = entry_launch(app_id, slug, prefix)
+    client_dir = launch.client_dir if launch else None
 
     def on_wait():
         notifier.keep(f"Launching {name}", "Another launch is in progress; waiting for it to finish.")
 
     def in_use():
-        return session_on_screen(prefix, own_pids())
+        # An idle session counts: the holder is launching into it, and its launch is its own.
+        return session_state(prefix, own_pids(), client_dir) != "stopped"
 
     lock = PrefixLock(prefix[0])
     state = lock.acquire(on_wait, in_use)
     if state == "in-use":
-        log.info("%s has a session on screen; leaving it alone", prefix[0])
+        log.info("%s has a running session; leaving it alone", prefix[0])
         notifier.show(f"{name} is already running")
         return 0
     if state == "busy":
@@ -746,9 +966,13 @@ def main():
         return 1
 
     try:
-        # Under the lock, so a window the other launch put up while this click waited is seen.
-        if session_on_screen(prefix, own_pids()):
-            log.info("%s has a session on screen; leaving it alone", prefix[0])
+        # Under the lock, so a session the other launch started while this click waited is seen.
+        session = session_state(prefix, own_pids(), client_dir)
+        if session == "idle" and launch:
+            log.info("%s has an idle session; handing the launch to it", prefix[0])
+            return handoff(prefix, launch, notifier)
+        if session != "stopped":
+            log.info("%s has a %s session; leaving it alone", prefix[0], session)
             notifier.show(f"{name} is already running")
             return 0
 

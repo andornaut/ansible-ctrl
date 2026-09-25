@@ -98,17 +98,25 @@ notify_close() {
 # runs the game in-process), `play`, or the bare command. The game's own sub-sandbox and any
 # helper instance carry the app ID too, and a leftover of those alone is not a running copy:
 # it would send this to the focus branch with no window to focus. The child pid is the
-# sandbox's bwrap, whose command line names what the instance runs.
+# sandbox's bwrap, whose command line names what the instance runs. Sets RUNNING_GAME for a
+# `play` or bare instance and RUNNING_GUI for a launcher. Only the first is known to be a
+# game: a launcher with no game window may be idle or may be starting one from PLAY, and
+# nothing on the host tells those apart before the game's window is up.
+RUNNING_GAME=0
+RUNNING_GUI=0
 running_instance() {
     local app pid cmd
+    RUNNING_GAME=0
+    RUNNING_GUI=0
     while read -r app pid; do
         [ "$app" = "$APP_ID" ] || continue
         cmd=$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null) || continue
         case "$cmd" in
-            *" -- bedrock-on-linux play "* | *" -- bedrock-on-linux gui "* | *" -- bedrock-on-linux ") return 0 ;;
+            *" -- bedrock-on-linux play "* | *" -- bedrock-on-linux ") RUNNING_GAME=1 ;;
+            *" -- bedrock-on-linux gui "*) RUNNING_GUI=1 ;;
         esac
     done < <(flatpak ps --columns=application,child-pid)
-    return 1
+    [ "$RUNNING_GAME" = 1 ] || [ "$RUNNING_GUI" = 1 ]
 }
 
 # The nested X display gamescope gave the game, named in the environment of the game's
@@ -260,8 +268,13 @@ if running_instance; then
         exit 0
     fi
     if running_instance; then
-        log "no window yet; the game may still be starting"
-        notify normal "Minecraft is still starting" "Wait for its window."
+        if [ "$RUNNING_GAME" = 1 ]; then
+            log "no window yet; the game may still be starting"
+            notify normal "Minecraft is still starting" "Wait for its window."
+        else
+            log "the BedrockOnLinux launcher is open with no game window; it may be idle or starting the game"
+            notify normal "Minecraft or its launcher is already open" "Switch to it, or close the BedrockOnLinux launcher to launch from here."
+        fi
         exit 0
     fi
     log "the instance ended while waiting"

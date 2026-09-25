@@ -1,4 +1,14 @@
 ---
+# BedrockOnLinux publishes its bundle for x86_64 only, and the launch script runs that arch.
+- name: Validate architecture for BedrockOnLinux
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["architecture"] == "x86_64"
+    fail_msg: >-
+      BedrockOnLinux publishes its flatpak bundle for x86_64 only, and this host reports
+      {{ ansible_facts["architecture"] }}.
+    quiet: true
+
 # The bedrock tag does not select the flatpak tag, and every step here shells out
 # to the binary.
 - name: Require flatpak
@@ -267,8 +277,10 @@
   vars:
     games_flatpak_override_app: "{{ games_bedrock_app_id }}"
     games_flatpak_override_args: >-
-      {{ ['--filesystem=' ~ games_bedrock_helper_dir ~ ':ro',
-          '--env=PATH=' ~ games_bedrock_path]
+      {{ (games_flatpak_overrides['default'] | default([]))
+         + (games_flatpak_overrides[games_bedrock_app_id] | default([]))
+         + ['--filesystem=' ~ games_bedrock_helper_dir ~ ':ro',
+            '--env=PATH=' ~ games_bedrock_path]
          + games_bedrock_gamescope_grants }}
     games_bedrock_wh: "{{ games_gamescope_resolution.split('x') }}"
     # /app/bin:/usr/bin is the runtime's default, for a manifest that sets none.

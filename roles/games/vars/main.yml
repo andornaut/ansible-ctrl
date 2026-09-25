@@ -565,7 +565,7 @@ games_retroarch_controllers:
     input_hold_fast_forward_btn: "10"
 
 # `flatpak override --user` arguments per application ID. "default" applies to every
-# app in games_flatpak_apps, with the per-application key merged on top.
+# app in games_flatpak_apps and to BedrockOnLinux, with the per-application key merged on top.
 games_flatpak_overrides:
   default:
     - --env=XCURSOR_THEME={{ games_cursor_theme }}

@@ -20,6 +20,9 @@
       # gdbus, which the same launcher closes its notification with once a window is up:
       # notify-send can post and replace one but not take one down.
       - libglib2.0-bin
+      # PyYAML, which the same launcher reads a Lutris entry's exe and args with, to hand a
+      # click to a live Battle.net client.
+      - python3-yaml
     state: latest
     install_recommends: false
     update_cache: true
