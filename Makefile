@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 
-# Arguments after `--` are forwarded verbatim to ansible-playbook; the separator is
-# required, make rejecting bare --flags. See README.
+# Arguments after `--` are forwarded to ansible-playbook word by word, so one containing
+# whitespace arrives split; the separator is required, make rejecting bare --flags. See
+# README.
 #
 # Every goal but the first, rather than every goal that is not the target: `make desktop
 # -- --limit desktop` would otherwise drop the token from its own argument list.
@@ -15,8 +16,12 @@ ARGS = $(foreach word,$(GOAL_ARGS),'$(subst ','\'',$(word))')
 # command-line ARGS outranks the goal-derived list, whose leftovers the %: rule below
 # swallows. bin/playbook.py refuses the run in both cases, and knows which assignments are
 # its own knobs.
+#
+# MAKEOVERRIDES escapes a space inside a value as "\ ", so ARGS is one word to filter out
+# only while those are held aside.
+SPACE_MARK := <space>
 ifeq ($(origin ARGS),command line)
-ASSIGNMENTS :=
+ASSIGNMENTS := $(subst $(SPACE_MARK),\ ,$(filter-out ARGS=%,$(subst \ ,$(SPACE_MARK),$(MAKEOVERRIDES))))
 DROPPED_ARGS := $(GOAL_ARGS)
 else
 ASSIGNMENTS := $(MAKEOVERRIDES)
@@ -54,7 +59,7 @@ AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
 	@$(HELP_ECHO) "Available targets:"
-	@$(HELP_ECHO) "  clean                 - Remove downloaded collections and lint tooling"
+	@$(HELP_ECHO) "  clean                 - Remove downloaded collections, lint tooling and the git hooks"
 	@$(HELP_ECHO) "  help                  - Show this help message"
 	@$(HELP_ECHO) "  lint                  - Run every check CI gates on"
 	@$(HELP_ECHO) "  requirements          - Install required Ansible collections"
@@ -80,7 +85,7 @@ help:
 	@$(HELP_ECHO) "Forward extra ansible-playbook arguments after --, e.g.:"
 	@$(HELP_ECHO) "  make desktop -- --limit example --tags alacritty"
 	@$(HELP_ECHO) ""
-	@$(HELP_ECHO) "An argument containing = has to be passed as ARGS instead, e.g.:"
+	@$(HELP_ECHO) "An argument containing = or whitespace has to be passed as ARGS instead, e.g.:"
 	@$(HELP_ECHO) "  make desktop ARGS='--extra-vars foo=bar'"
 	@$(HELP_ECHO) ""
 	@$(HELP_ECHO) "Variables:"
@@ -88,8 +93,12 @@ help:
 	@$(HELP_ECHO) "  ASK_PASS=1            - Force --ask-become-pass"
 	@$(HELP_ECHO) "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
 
+# node_modules holds the lint-staged the pre-commit hook runs, so the hooks path husky's
+# `prepare` set goes with it: npx would otherwise fetch an unpinned lint-staged at the next
+# commit. `make lint` runs `npm ci`, whose `prepare` sets it again.
 clean:
 	$(if $(filter $@,$(FIRST_GOAL)),rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules,@:)
+	$(if $(filter $@,$(FIRST_GOAL)),[ "$$(git config --local --get core.hooksPath)" != .husky/_ ] || git config --local --unset core.hooksPath,@:)
 
 # The same checks CI runs, from the same script. Depends on requirements:
 # ansible-lint's syntax-check reports every collection module unknown without them.

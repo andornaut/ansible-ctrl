@@ -54,6 +54,9 @@ charlie | UNREACHABLE! => {
 """
 
 
+CURRENT = "ansible-playbook [core 2.19.0]"
+
+
 class Parsing(unittest.TestCase):
     def test_hosts_in_order_each_once_stopping_at_tasks_and_blank_lines(self):
         self.assertEqual(playbook.pick_hosts(LISTING), ["alpha", "bravo"])
@@ -122,18 +125,60 @@ class Operator(unittest.TestCase):
         )
 
 
-class Secrets(unittest.TestCase):
-    def test_only_secret_playbooks_read_the_store(self):
-        self.assertEqual(playbook.secrets_route("msmtp", {}, False, True), "sops")
-        self.assertEqual(playbook.secrets_route("desktop", {}, False, False), "none")
+def completed(returncode=0, stdout="", stderr=""):
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
-    def test_skipped_by_the_knob(self):
-        self.assertEqual(playbook.secrets_route("msmtp", {"SECRETS": "none"}, False, False), "none")
+
+def route(name, env=None, *, root=False, readable=True, decrypts=True):
+    """secrets_route's answer, and how many times it probed the store."""
+    probe = mock.Mock(return_value=decrypts)
+    return (*playbook.secrets_route(name, env or {}, root, readable, probe), probe.call_count)
+
+
+class Secrets(unittest.TestCase):
+    def test_a_readable_store_is_read_by_every_playbook(self):
+        for root in (False, True):
+            self.assertEqual(route("msmtp", root=root), ("sops", "", 0))
+            self.assertEqual(route("desktop", root=root), ("sops", "", 1))
+
+    def test_a_store_sops_cannot_decrypt_is_skipped_with_a_warning(self):
+        name, warning, probes = route("desktop", decrypts=False)
+        self.assertEqual((name, probes), ("none", 1))
+        self.assertIn("github_token is absent", warning)
+        self.assertIn("SECRETS=none", warning)
+        self.assertNotIn("\n", warning)
+
+    def test_a_credential_playbook_never_probes_or_falls_back(self):
+        for readable in (False, True):
+            for root in (False, True):
+                self.assertEqual(route("msmtp", root=root, readable=readable, decrypts=False)[1:], ("", 0))
+        self.assertEqual(route("msmtp", decrypts=False), ("sops", "", 0))
+
+    def test_other_playbooks_never_re_enter_or_refuse_for_the_store(self):
+        for root in (False, True):
+            self.assertEqual(route("desktop", root=root, readable=False), ("none", "", 0))
+
+    def test_skipped_by_the_knob_without_probing(self):
+        self.assertEqual(route("msmtp", {"SECRETS": "none"}, readable=False), ("none", "", 0))
+        self.assertEqual(route("desktop", {"SECRETS": "none"}, decrypts=False), ("none", "", 0))
 
     def test_an_unreadable_store_re_enters_as_root_and_root_is_refused(self):
-        self.assertEqual(playbook.secrets_route("msmtp", {}, False, False), "sudo")
-        self.assertEqual(playbook.secrets_route("msmtp", {}, True, False), "refuse")
-        self.assertEqual(playbook.secrets_route("msmtp", {}, True, True), "sops")
+        self.assertEqual(route("msmtp", readable=False)[0], "sudo")
+        self.assertEqual(route("msmtp", root=True, readable=False)[0], "refuse")
+        self.assertEqual(route("msmtp", root=True)[0], "sops")
+
+    def test_the_decrypt_probe_discards_all_output(self):
+        with mock.patch.object(playbook.subprocess, "run", return_value=completed(0)) as run:
+            self.assertTrue(playbook.sops_decrypts("/home/op/store.sops.yml"))
+        self.assertEqual(run.call_args.args[0], ["sops", "exec-env", "/home/op/store.sops.yml", "true"])
+        for stream in ("stdin", "stdout", "stderr"):
+            self.assertEqual(run.call_args.kwargs[stream], subprocess.DEVNULL)
+
+    def test_a_failed_or_missing_sops_does_not_decrypt(self):
+        with mock.patch.object(playbook.subprocess, "run", return_value=completed(1)):
+            self.assertFalse(playbook.sops_decrypts("/s"))
+        with mock.patch.object(playbook.subprocess, "run", side_effect=FileNotFoundError("sops")):
+            self.assertFalse(playbook.sops_decrypts("/s"))
 
     ARGS = ("-e", "a=it's b", "--limit", "x,y", "$HOME", "`id`")
 
@@ -242,14 +287,12 @@ class ExitStatus(unittest.TestCase):
         self.assertEqual(playbook.exit_status(-2, False), 130)
 
 
-def completed(returncode=0, stdout="", stderr=""):
-    return subprocess.CompletedProcess([], returncode, stdout, stderr)
-
-
 class RunOrder(unittest.TestCase):
     """The listing comes before the sudo re-entry, and root does not list again."""
 
-    def run_playbook(self, name, *, root, env=(), readable=False, listing=None, probe=""):
+    def run_playbook(
+        self, name, *, root, env=(), readable=False, listing=None, probe="", decrypts=True, version=CURRENT
+    ):
         self.said = []
         with (
             mock.patch.object(playbook, "say", side_effect=self.said.append),
@@ -262,6 +305,8 @@ class RunOrder(unittest.TestCase):
             mock.patch.object(playbook, "capture", return_value=probe),
             mock.patch.object(playbook.os, "execvp", side_effect=SystemExit("re-entered")) as execvp,
             mock.patch.object(playbook, "run_child", return_value=0) as child,
+            mock.patch.object(playbook, "sops_decrypts", return_value=decrypts) as self.decrypts,
+            mock.patch.object(playbook, "ansible_version", return_value=version) as self.version,
         ):
             try:
                 status = playbook.run(name, [])
@@ -273,6 +318,20 @@ class RunOrder(unittest.TestCase):
         status, _, execvp, _ = self.run_playbook("msmtp", root=False, listing=completed(4, stderr="ERROR!"))
         self.assertEqual(status, 1)
         execvp.assert_not_called()
+
+    def test_an_old_ansible_is_refused_before_the_listing(self):
+        status, listed, execvp, child = self.run_playbook(
+            "desktop", root=False, version="ansible-playbook [core 2.18.9]"
+        )
+        self.assertEqual(status, 1)
+        listed.assert_not_called()
+        execvp.assert_not_called()
+        child.assert_not_called()
+
+    def test_root_behind_the_re_entry_does_not_check_the_version_again(self):
+        env = {"PLAYBOOK_LISTED_HOSTS": "alpha", "PREFLIGHT": "none"}
+        self.run_playbook("msmtp", root=True, env=env, readable=True)
+        self.version.assert_not_called()
 
     def test_the_re_entry_carries_the_listed_hosts(self):
         status, listed, execvp, _ = self.run_playbook("msmtp", root=False)
@@ -293,6 +352,22 @@ class RunOrder(unittest.TestCase):
         self.assertEqual(child.call_args.args[0][-2:], ["--limit", "alpha"])
         self.assertEqual(sum("dropped bravo" in line for line in self.said), 2)
 
+    def test_a_store_sops_cannot_decrypt_runs_without_it_and_says_so(self):
+        env = {"PREFLIGHT": "none"}
+        status, _, execvp, child = self.run_playbook("desktop", root=False, env=env, readable=True, decrypts=False)
+        self.assertEqual(status, 0)
+        execvp.assert_not_called()
+        self.decrypts.assert_called_once_with("/nonexistent/" + playbook.SOPS_FILE)
+        self.assertEqual(child.call_args.args[0][0], "ansible-playbook")
+        self.assertEqual(sum("github_token is absent" in line for line in self.said), 1)
+
+    def test_a_store_sops_can_decrypt_is_used(self):
+        env = {"PREFLIGHT": "none"}
+        status, _, _, child = self.run_playbook("desktop", root=False, env=env, readable=True)
+        self.assertEqual(status, 0)
+        self.decrypts.assert_called_once()
+        self.assertEqual(child.call_args.args[0][:2], ["sops", "exec-env"])
+
 
 class RunChild(unittest.TestCase):
     def test_a_sigterm_while_the_child_starts_is_passed_on(self):
@@ -306,6 +381,53 @@ class RunChild(unittest.TestCase):
         with mock.patch.object(playbook.subprocess, "Popen", side_effect=start):
             self.assertEqual(playbook.run_child(["true"]), 0)
         child.send_signal.assert_called_once_with(signal.SIGTERM)
+
+
+class Interrupt(unittest.TestCase):
+    def test_a_ctrl_c_before_the_playbook_exits_as_a_shell_reports_it(self):
+        with (
+            mock.patch.object(playbook.os, "umask"),
+            mock.patch.object(playbook.os, "chdir"),
+            mock.patch.object(playbook, "ansible_version", return_value=CURRENT),
+            mock.patch.object(playbook, "capture_all", side_effect=KeyboardInterrupt),
+            mock.patch.dict(playbook.os.environ, {}, clear=True),
+        ):
+            self.assertEqual(playbook.main(["run", "desktop"]), 128 + signal.SIGINT)
+
+    def test_a_ctrl_c_during_the_decrypt_probe_exits_as_a_shell_reports_it(self):
+        with (
+            mock.patch.object(playbook.os, "umask"),
+            mock.patch.object(playbook.os, "chdir"),
+            mock.patch.object(playbook, "say"),
+            mock.patch.object(playbook, "ansible_version", return_value=CURRENT),
+            mock.patch.object(playbook, "capture_all", return_value=completed(stdout=LISTING)),
+            mock.patch.object(playbook.os, "access", return_value=True),
+            mock.patch.object(playbook.subprocess, "run", side_effect=KeyboardInterrupt) as probe,
+            mock.patch.object(playbook, "run_child") as child,
+            mock.patch.dict(playbook.os.environ, {}, clear=True),
+        ):
+            self.assertEqual(playbook.main(["run", "desktop"]), 128 + signal.SIGINT)
+        self.assertEqual(probe.call_args.args[0][:2], ["sops", "exec-env"])
+        child.assert_not_called()
+
+
+class Version(unittest.TestCase):
+    def test_the_floor_runs(self):
+        self.assertIsNone(playbook.version_refusal("ansible-playbook [core 2.19.0]\n  config file = x\n"))
+
+    def test_a_later_minor_compares_numerically(self):
+        self.assertIsNone(playbook.version_refusal("ansible-playbook [core 2.100.1]"))
+
+    def test_a_later_major_runs(self):
+        self.assertIsNone(playbook.version_refusal("ansible-playbook [core 3.0.0]"))
+
+    def test_an_older_core_is_refused_naming_both_versions(self):
+        message = playbook.version_refusal("ansible-playbook [core 2.18.12rc1]\n")
+        self.assertIn("2.18.12rc1 is installed", message)
+        self.assertIn("2.19 or later is required", message)
+
+    def test_unreadable_output_is_refused(self):
+        self.assertIn("named no ansible-core version", playbook.version_refusal(""))
 
 
 class Listing(unittest.TestCase):

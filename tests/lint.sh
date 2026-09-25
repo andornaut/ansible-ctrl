@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# The checks CI gates on, defined once so a local run and a CI run cannot disagree.
+# The checks CI gates on, defined once so a local run and CI check the same things at the
+# same tool versions. The galaxy collections are the exception: requirements.yml pins none,
+# so a local .ansible/collections and CI's cached install can differ.
 # CI and `make lint` both call them all; the argument runs one on its own.
 #
 # Usage: tests/lint.sh [ansible-lint|config|shell|python|identity|dispatch|markdown]   (default: all)
@@ -153,11 +155,13 @@ check_identity() {
 
 # bin/playbook.py, which every playbook target runs: argument forwarding, the re-entries,
 # the preflight and the --ask-become-pass decision, none of which a lint run exercises.
-# stdlib only, so any python3 runs it.
+# stdlib only, so any python3 runs it, apart from the faramir_env plugin's test, which
+# imports ansible as the plugin does.
 check_dispatch() {
     python3 -m unittest discover -s tests -p test_playbook.py &&
         python3 -m unittest discover -s tests -p test_makefile.py &&
-        python3 -m unittest discover -s tests -p test_check_matrix.py
+        python3 -m unittest discover -s tests -p test_check_matrix.py &&
+        python3 -m unittest discover -s tests -p test_faramir_env.py
 }
 
 # markdownlint-cli2 is pinned in package.json and run out of node_modules/,

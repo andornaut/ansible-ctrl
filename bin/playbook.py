@@ -25,9 +25,9 @@ REPO = SCRIPT.parent.parent
 # Every name a command-line assignment may take without being refused as a stray argument.
 KNOBS = ("SECRETS", "ASK_PASS", "PREFLIGHT")
 
-# The runs that read a credential, and so the only ones run under sops. Not derived:
-# host_vars binds plain variable names to secrets, so telling these apart needs variable
-# resolution.
+# The runs that require a credential, and so the only ones that re-enter as root or are
+# refused to reach the store. Not derived: host_vars binds plain variable names to secrets,
+# so telling these apart needs variable resolution.
 SECRET_PLAYBOOKS = frozenset({"homeautomation", "msmtp", "webservers"})
 
 # The hosts the unprivileged half listed, carried across the sudo re-entry so root does not
@@ -64,6 +64,10 @@ PREFLIGHT_TIMEOUT = "1"
 # group-writable whichever session started the run.
 RUN_UMASK = 0o002
 
+# The ansible-core floor README.md documents: the local connection gained
+# ansible_local_become_success_timeout (BECOME_PROMPT) in 2.19.
+MIN_ANSIBLE_CORE = (2, 19)
+
 SOPS_FILE = ".config/faramir/secrets/ansible-ctrl.sops.yml"
 AGE_KEY_FILE = ".config/faramir/age.key"
 BROKER_KEY = ".config/faramir/id_ed25519"
@@ -71,6 +75,7 @@ BROKER_KEY = ".config/faramir/id_ed25519"
 HOSTS_HEADER = re.compile(r"hosts \([0-9]+\):")
 TASKS_HEADER = re.compile(r"^\s*tasks:")
 TASK_LINE = re.compile(r"^\s+[^ ]+ : ")
+CORE_VERSION = re.compile(r"\[core ([0-9]+)\.([0-9]+)[^\]]*\]")
 UNREACHABLE_LINE = re.compile(r"^\S+ \| .*UNREACHABLE!")
 DELEGATES_LOCALLY = re.compile(rb"delegate_to:[ \t\v\f\r]*localhost")
 
@@ -151,18 +156,33 @@ def root_defaults(home: str, exists: Callable[[str], bool]) -> dict[str, str]:
     return defaults
 
 
-def secrets_route(playbook: str, env: Mapping[str, str], is_root: bool, readable: bool) -> str:
-    """How the run reaches its credentials: "none", "sops", "sudo" or "refuse".
+def secrets_route(
+    playbook: str, env: Mapping[str, str], is_root: bool, readable: bool, decrypts: Callable[[], bool]
+) -> tuple[str, str]:
+    """How the run reaches its credentials, "none", "sops", "sudo" or "refuse", and what to
+    tell the operator.
 
     readable is whether this account can read the store. Root that cannot is refused rather
     than run without: every credential would be undefined, and the first task to read one
-    fails with the tasks before it already applied.
+    fails with the tasks before it already applied. Any other playbook reads only optional
+    ones, github_token among them, so it never re-enters or escalates for the store, and
+    takes it only where decrypts, called at most once, says sops can open it: a readable
+    store without the age key, or without sops, would otherwise fail the run outright.
     """
-    if is_none(env.get("SECRETS")) or playbook not in SECRET_PLAYBOOKS:
-        return "none"
-    if readable:
-        return "sops"
-    return "refuse" if is_root else "sudo"
+    if is_none(env.get("SECRETS")):
+        return "none", ""
+    if playbook in SECRET_PLAYBOOKS:
+        if readable:
+            return "sops", ""
+        return ("refuse" if is_root else "sudo"), ""
+    if not readable:
+        return "none", ""
+    if decrypts():
+        return "sops", ""
+    return "none", (
+        f"sops cannot decrypt the store, so {playbook}.yml runs without it and github_token is absent."
+        " SECRETS=none silences this."
+    )
 
 
 def carried_hosts(env: Mapping[str, str], is_root: bool) -> list[str] | None:
@@ -287,6 +307,19 @@ def listing_refusal(playbook: str, returncode: int, stderr: str, hosts: list[str
     return None
 
 
+def version_refusal(version_output: str) -> str | None:
+    """Why the installed ansible-core stops the run, or None. Takes the output of
+    `ansible-playbook --version`, whose first line reads "ansible-playbook [core X.Y.Z]"."""
+    required = ".".join(map(str, MIN_ANSIBLE_CORE))
+    match = CORE_VERSION.search(version_output.partition("\n")[0])
+    if not match:
+        return f"`ansible-playbook --version` named no ansible-core version. {required} or later is required."
+    if (int(match.group(1)), int(match.group(2))) < MIN_ANSIBLE_CORE:
+        installed = match.group(0)[len("[core ") : -1]
+        return f"ansible-core {installed} is installed, and {required} or later is required. Nothing was run."
+    return None
+
+
 def exit_status(status: int, dropped: bool) -> int:
     """The run's exit status: the playbook's own where it failed, DROPPED_EXIT where it
     succeeded on what the probe left it. A playbook ended by a signal is 128 plus the
@@ -310,12 +343,38 @@ def sudo_command(env: Mapping[str, str], playbook: str, args: list[str]) -> list
     return ["sudo", *(["env", *carried] if carried else []), str(SCRIPT), "run", playbook, *args]
 
 
+def sops_decrypts(sops_file: str) -> bool:
+    """Whether sops can decrypt the store, with sops itself missing reading as no.
+
+    true runs with the values in its environment and prints nothing, and sops's own output is
+    discarded, so no value reaches this process.
+    """
+    try:
+        probe = subprocess.run(
+            ["sops", "exec-env", sops_file, "true"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        return False
+    return probe.returncode == 0
+
+
 def capture(argv: list[str], *, stderr: int = subprocess.DEVNULL) -> str:
     return subprocess.run(argv, stdout=subprocess.PIPE, stderr=stderr, text=True, check=False).stdout
 
 
 def capture_all(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, text=True, check=False)
+
+
+def ansible_version() -> str:
+    try:
+        return capture(["ansible-playbook", "--version"])
+    except OSError:
+        return ""
 
 
 def say(message: str) -> None:
@@ -386,6 +445,10 @@ def run(playbook: str, args: list[str]) -> int:
     run_hosts = carried_hosts(os.environ, root)
     roles: list[str] = []
     if run_hosts is None:
+        stop = version_refusal(ansible_version())
+        if stop:
+            say(stop)
+            return 1
         listed = capture_all(["ansible-playbook", f"{playbook}.yml", *args, "--list-hosts", "--list-tasks"])
         run_hosts = pick_hosts(listed.stdout)
         stop = listing_refusal(playbook, listed.returncode, listed.stderr, run_hosts)
@@ -394,7 +457,10 @@ def run(playbook: str, args: list[str]) -> int:
             return 1
         roles = pick_roles(listed.stdout)
 
-    route = secrets_route(playbook, os.environ, root, os.access(sops_file, os.R_OK))
+    route, warning = secrets_route(
+        playbook, os.environ, root, os.access(sops_file, os.R_OK), lambda: sops_decrypts(sops_file)
+    )
+    say(warning)
     if route == "refuse":
         say(
             f"{sops_file}: not readable by root, so it is missing or its home is\n"
@@ -447,7 +513,13 @@ def main(argv: list[str]) -> int:
             print(operator())
             return 0
         case ["run", playbook, *args]:
-            return run(playbook, args)
+            # A Ctrl-C before the playbook starts, during the listing or a probe, exits the
+            # way a signalled playbook does rather than with a traceback. run_child holds one
+            # that arrives later.
+            try:
+                return run(playbook, args)
+            except KeyboardInterrupt:
+                return exit_status(-signal.SIGINT, False)
     print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
     return 2
 

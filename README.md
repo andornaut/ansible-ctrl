@@ -32,18 +32,19 @@ Every root `.yml` except `requirements.yml` is a playbook with a [make](Makefile
 make help                                        # List the targets
 make desktop                                     # Run a playbook
 make desktop -- --tags alacritty --limit example # Forward arguments to ansible-playbook
-make faramir ARGS="--extra-vars k=v"             # An argument containing "=" goes in ARGS
+make faramir ARGS="--extra-vars k=v"             # An argument containing "=" or whitespace goes in ARGS
 ```
 
-| Behaviour           | Detail                                                                                                                                                                                          |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                            |
-| Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt, re-entry or escalation                                                                       |
-| Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named, before the playbook and again after it. `PREFLIGHT=none` skips it                                               |
-| Exit status         | The playbook's own, or `75` when it succeeded but the probe dropped a host. A playbook ended by a signal exits 128 plus its number                                                              |
-| `--ask-become-pass` | Added when the run may reach the controller. `ASK_PASS=1` forces it; a root run never gets it                                                                                                   |
-| Credentials         | `homeautomation`, `msmtp` and `webservers` run under `sops exec-env`, re-entering as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
-| umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                                   |
+| Behaviour           | Detail                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                                                                                                                                                                                                                           |
+| ansible-core floor  | An `ansible-playbook` older than 2.19 stops the run before the host listing, naming both versions                                                                                                                                                                                                                                                                                              |
+| Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt, re-entry or escalation                                                                                                                                                                                                                                                                      |
+| Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named, before the playbook and again after it. `PREFLIGHT=none` skips it                                                                                                                                                                                                                                              |
+| Exit status         | The playbook's own, or `75` when it succeeded but the probe dropped a host. A playbook ended by a signal exits 128 plus its number, and a Ctrl-C before it starts exits 130. Only `bin/playbook.py run <playbook>` returns these: through make every failure exits 2                                                                                                                           |
+| `--ask-become-pass` | Added when the run may reach the controller. `ASK_PASS=1` forces it; a root run never gets it                                                                                                                                                                                                                                                                                                  |
+| Credentials         | Every playbook runs under `sops exec-env` when the invoking account can read the store. `homeautomation`, `msmtp` and `webservers` require it and re-enter as root when the operator cannot. The rest run without it where it is unreadable, or where a probe (`sops exec-env <store> true`) finds sops cannot decrypt it, then warning that `github_token` is absent. `SECRETS=none` skips it |
+| umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                                                                                                                                                                                                                                  |
 
 A new host needs, before its first run:
 
@@ -95,7 +96,7 @@ them in `host_vars/`. Every host names its address, port and login, because root
 `~/.ssh/config`:
 
 ```ini
-controller ansible_host=controller.example.com ansible_port=22 ansible_user=andornaut ansible_connection=local
+controller ansible_host=controller.example.com ansible_port=22 ansible_user=andornaut ansible_connection=local ansible_local_become_success_timeout=120
 example ansible_host=example.com ansible_port=22 ansible_user=andornaut
 
 [faramir]
@@ -138,6 +139,11 @@ Credentials reach a play three ways: `make` (under sops), the broker
 (`faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`), and the
 certificate renewal cron, which runs `make webservers` as root.
 
+That `--limit` removes the controller as a play host only. A task delegated to `localhost` with `become` still runs
+on the controller and takes its sudo: `games`'s `retroid` tag, which installs `syncretroid`, and `base`'s lockdown,
+which pins host keys on the controller when it moves a host's SSH port. A run reaching either goes through
+`faramir run -- sudo make <playbook>` instead.
+
 ### GitHub API token
 
 Optional. Without it, GitHub allows 60 API requests an hour per address, shared across the NAT; with it, 5000.
@@ -146,7 +152,10 @@ Optional. Without it, GitHub allows 60 API requests an hour per address, shared 
 1. `sudo faramir vault edit ansible-ctrl` and add it as `github_token`.
 1. Add `github_token` to `faramir.env`.
 
-Only brokered runs and the credential-reading `make` targets receive it. An expired token fails with HTTP 401.
+Brokered runs receive it, and so does every `make` target whose invoking account can read the store. A target
+other than `homeautomation`, `msmtp` and `webservers` runs without it rather than re-entering as root, and likewise
+when sops cannot decrypt the store (no age key, or no `sops` on `PATH`), warning once on stderr; `SECRETS=none`
+silences that warning. An expired token fails with HTTP 401.
 Don't reuse the `gh` CLI's token: it carries your full scopes and lives in the keyring, where `faramir link` can't
 read it.
 
@@ -167,18 +176,18 @@ coding agent. See the [faramir role](roles/faramir/README.md).
 make lint                                                        # Every check CI runs
 tests/lint.sh identity                                           # One check
 ansible-galaxy collection install --upgrade -r requirements.yml # Upgrade collections
-make clean                                                       # Remove collections and lint tooling
+make clean                                                       # Remove collections, lint tooling and git hooks
 ```
 
-| Check          | Covers                                                                                                                                              |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ansible-lint` | Ansible content                                                                                                                                     |
-| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                                                                |
-| `shell`        | shellcheck on every shell script, templates rendered first                                                                                          |
-| `python`       | `ruff check` and `ruff format --check`                                                                                                              |
-| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py))                                                                 |
-| `dispatch`     | Unit tests of [bin/playbook.py](bin/playbook.py), the [Makefile](Makefile)'s argument forwarding and [tests/check_matrix.py](tests/check_matrix.py) |
-| `markdown`     | markdownlint on every `.md` file git does not ignore                                                                                                |
+| Check          | Covers                                                                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible-lint` | Ansible content                                                                                                                                                                                                 |
+| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                                                                                                                            |
+| `shell`        | shellcheck on every shell script, templates rendered first                                                                                                                                                      |
+| `python`       | `ruff check` and `ruff format --check`                                                                                                                                                                          |
+| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py))                                                                                                                             |
+| `dispatch`     | Unit tests of [bin/playbook.py](bin/playbook.py), the [Makefile](Makefile)'s argument forwarding, [tests/check_matrix.py](tests/check_matrix.py) and [vars_plugins/faramir_env.py](vars_plugins/faramir_env.py) |
+| `markdown`     | markdownlint on every `.md` file git does not ignore                                                                                                                                                            |
 
 CI ([.github/workflows](.github/workflows)) also runs:
 
