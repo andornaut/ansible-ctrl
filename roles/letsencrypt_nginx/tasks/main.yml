@@ -31,6 +31,20 @@
     - letsencrypt
     - nginx
 
+# Computed without looping over the sites, whose Cloudflare API tokens a loop item would print.
+- name: Require every site location to be well formed
+  ansible.builtin.assert:
+    that: letsencrypt_nginx_invalid_locations | length == 0
+    fail_msg: "{{ letsencrypt_nginx_invalid_locations | join('; ') }}"
+    quiet: true
+  vars:
+    letsencrypt_nginx_invalid_locations: >-
+      {{ lookup('ansible.builtin.template', 'invalid_locations.j2') | from_json }}
+  become: false
+  tags:
+    - letsencrypt
+    - nginx
+
 - name: Set up packages, web roots, and basic authentication
   tags:
     - letsencrypt
