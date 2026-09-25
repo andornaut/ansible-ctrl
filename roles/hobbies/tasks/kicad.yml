@@ -158,6 +158,24 @@
         force: true
       become: true
 
+    - name: Find superseded Freerouting releases
+      ansible.builtin.find:
+        paths: /opt/freerouting
+        patterns: "freerouting-*"
+        excludes: "{{ hobbies_freerouting_dir }}"
+        file_type: directory
+      register: hobbies_freerouting_superseded
+      become: false
+
+    - name: Remove superseded Freerouting releases
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ hobbies_freerouting_superseded.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      become: true
+
     # A wrapper, not a symlink, to default -da, opting out of upstream's analytics.
     # Routing arguments still pass through.
     - name: Install freerouting launcher wrapper onto PATH

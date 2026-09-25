@@ -4,6 +4,16 @@
 - name: Install Betaflight Configurator
   tags: betaflight
   block:
+    # The linux64 portable build is the only Linux one.
+    - name: Validate architecture for Betaflight Configurator
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["architecture"] == "x86_64"
+        fail_msg: >-
+          Betaflight Configurator publishes its Linux portable build for x86_64 only, and
+          this host reports {{ ansible_facts["architecture"] }}.
+        quiet: true
+
     # The zip's top-level directory has a space in it, so each release goes in a
     # version-stamped directory exposed as /opt/betaflight/current.
     - name: Set Betaflight Configurator install path facts
@@ -110,12 +120,24 @@
         release_repo: ExpressLRS/ExpressLRS-Configurator
         release_fact: hobbies_expresslrs_release
 
-    - name: Set ExpressLRS Configurator download URL fact
+    - name: Set ExpressLRS Configurator download URLs fact
       ansible.builtin.set_fact:
-        hobbies_expresslrs_download_url: >-
+        hobbies_expresslrs_download_urls: >-
           {{ hobbies_expresslrs_release.assets
           | selectattr('name', 'search', '_' ~ hobbies_arch ~ '[.]deb$')
-          | map(attribute='browser_download_url') | first }}
+          | map(attribute='browser_download_url') | list }}
+
+    - name: Require an ExpressLRS Configurator package for this architecture
+      ansible.builtin.assert:
+        that: hobbies_expresslrs_download_urls | length > 0
+        fail_msg: >-
+          ExpressLRS Configurator {{ hobbies_expresslrs_release.tag_name }} publishes no
+          _{{ hobbies_arch }}.deb asset.
+        quiet: true
+
+    - name: Set ExpressLRS Configurator download URL fact
+      ansible.builtin.set_fact:
+        hobbies_expresslrs_download_url: "{{ hobbies_expresslrs_download_urls | first }}"
 
     - name: Install ExpressLRS Configurator
       ansible.builtin.apt:
