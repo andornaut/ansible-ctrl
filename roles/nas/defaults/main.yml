@@ -6,7 +6,12 @@ nas_backup_fs_defaults: defaults,noauto,nofail
 nas_backup_fs_type: btrfs
 nas_backup_mount_directory: /media/nasbackup
 nas_backup_rsnapshot_retention: 10
-nas_backup_rsnapshot_source_relative_path: rsnapshot/weekly.1
+# rsnapshot's snapshot_root under nas_backup_source_directory. backupnas copies the
+# lowest-numbered <interval>.N in it, the newest completed snapshot of that interval, and
+# refuses to run while rsnapshot's lockfile exists, a run renaming or writing snapshots.
+nas_backup_rsnapshot_interval: weekly
+nas_backup_rsnapshot_lockfile: /var/run/rsnapshot.pid
+nas_backup_rsnapshot_source_relative_path: rsnapshot
 nas_backup_source_directory: "{{ nas_raid_mount_directory }}/.backups"
 nas_key_file: "{{ nas_user_home }}/.nas-luks-key"
 nas_key_file_mount_unit: ""

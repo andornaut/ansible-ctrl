@@ -5,6 +5,8 @@ set -Eeuo pipefail
 DEFAULT_DEVICE_PATHS=({% for i in range(nas_backup_devices|length) %}/dev/mapper/{{ nas_backup_device_name }}{{ '' if i == 0 else i + 1 }}{% if not loop.last %} {% endif %}{% endfor %})
 RETENTION_NUMBER="{{ nas_backup_rsnapshot_retention }}"
 RSNAPSHOT_SOURCE_RELATIVE_PATH="{{ nas_backup_rsnapshot_source_relative_path }}"
+RSNAPSHOT_INTERVAL="{{ nas_backup_rsnapshot_interval }}"
+RSNAPSHOT_LOCKFILE="{{ nas_backup_rsnapshot_lockfile }}"
 
 DEVICE_PATH=""
 SOURCE_DIR="{{ nas_backup_source_directory }}"
@@ -136,6 +138,21 @@ done
 # The copy runs with --delete, so an empty source (an unmounted array's bare mountpoint) would
 # empty the backup device.
 [[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false && -z "$(ls -A "${SOURCE_DIR}")" ]] && { error "\$SOURCE_DIR is empty, refusing to mirror it: ${SOURCE_DIR}"; }
+# Before the device is unlocked, so a missing source does not leave it unlocked and mounted.
+sourceRsnapshotDir=""
+if [[ "${MOUNT_ONLY}" == false && "${UNMOUNT_ONLY}" == false ]]; then
+    # A running rsnapshot renames snapshots at every interval, and writes into <interval>.0
+    # when that interval is the lowest one configured.
+    [[ -e "${RSNAPSHOT_LOCKFILE}" ]] && { error "rsnapshot's lockfile exists, so a run is rotating or writing snapshots: ${RSNAPSHOT_LOCKFILE}\nRun again once it finishes, or remove the file if no rsnapshot process is running"; }
+    sourceRsnapshotRoot="${SOURCE_DIR}/${RSNAPSHOT_SOURCE_RELATIVE_PATH}"
+    [[ ! -d "${sourceRsnapshotRoot}" ]] && { error "Rsnapshot source directory does not exist: ${sourceRsnapshotRoot}"; }
+    # The lowest-numbered one is the newest: a higher interval's rotation takes the highest
+    # numbered, so a fixed <interval>.N is missing for part of every cycle.
+    newestSnapshot=$(find "${sourceRsnapshotRoot}" -mindepth 1 -maxdepth 1 -type d -name "${RSNAPSHOT_INTERVAL}.*" -printf '%f\n' \
+        | { grep -E "^${RSNAPSHOT_INTERVAL}\.[0-9]+\$" || true; } | sort -t. -k2,2n | head -n1)
+    [[ -z "${newestSnapshot}" ]] && { error "No ${RSNAPSHOT_INTERVAL}.N snapshot in: ${sourceRsnapshotRoot}"; }
+    sourceRsnapshotDir="${sourceRsnapshotRoot}/${newestSnapshot}"
+fi
 
 if [[ ${POSITIONAL_COUNT} -eq 0 ]]; then
     header "Auto-discovering backup device..."
@@ -285,16 +302,15 @@ mountDevice
 
 [[ "${MOUNT_ONLY}" == true ]] && exit 0
 
-# Ensure source and mount directories are not nested
-if [[ "${SOURCE_DIR}" == "${MOUNT_DIR}"* ]]; then
+# Ensure source and mount directories are not nested. Compared with a trailing / on both
+# sides, so a sibling that shares a prefix (/media/nasbackup beside /media/nas) is not nested.
+if [[ "${SOURCE_DIR%/}/" == "${MOUNT_DIR%/}/"* ]]; then
     error "SOURCE_DIR cannot be inside the mount directory\n  Source: ${SOURCE_DIR}\n  Mount:  ${MOUNT_DIR}"
 fi
-if [[ "${MOUNT_DIR}" == "${SOURCE_DIR}"* ]]; then
+if [[ "${MOUNT_DIR%/}/" == "${SOURCE_DIR%/}/"* ]]; then
     error "Mount directory cannot be inside SOURCE_DIR\n  Mount:  ${MOUNT_DIR}\n  Source: ${SOURCE_DIR}"
 fi
 
-sourceRsnapshotDir="${SOURCE_DIR}/${RSNAPSHOT_SOURCE_RELATIVE_PATH}"
-[[ ! -d "${sourceRsnapshotDir}" ]] && { error "Rsnapshot source directory does not exist: ${sourceRsnapshotDir}"; }
 rsnapshotDestDir="${MOUNT_DIR}/rsnapshot.$(date -d "@$(stat --format=%Y "${sourceRsnapshotDir}")" +%Y-%m-%d)"
 header "Backup configuration:"
 echo "Source base directory:           ${SOURCE_DIR}"

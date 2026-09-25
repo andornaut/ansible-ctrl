@@ -182,7 +182,18 @@
         src: nas-mount.service
         dest: /etc/systemd/system/
         mode: "0644"
+      register: nas_mount_unit
       notify:
         - Reload systemd
         - Disable nas-mount.service
         - Enable nas-mount.service
+
+    # Every run, not only on a template change: a run interrupted before the handlers, or a
+    # unit disabled by hand, is otherwise never enabled again. The handlers still re-enable
+    # it when [Install] changes, to move the WantedBy symlink.
+    - name: Enable nas-mount.service
+      ansible.builtin.systemd_service:
+        name: nas-mount.service
+        enabled: true
+      # Under --check on a host without the unit, the template above was only reported.
+      when: not (ansible_check_mode and nas_mount_unit is changed)
