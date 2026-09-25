@@ -63,10 +63,11 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 
 ## Networking
 
-| Mode                                      | Containers                                                  | Detail                                                                                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| host                                      | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery                                                                                                                                   |
-| `homeautomation_default` (`br-ha`) bridge | everything else                                             | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]` |
+| Mode                                      | Containers                                                  | Detail                                                                                                                                                                    |
+| ----------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| host                                      | homeassistant, govee2mqtt, esphome, otbr, the Matter server | Need mDNS or LAN broadcast discovery                                                                                                                                      |
+| `homeautomation_default` (`br-ha`) bridge | everything else but ha-mcp                                  | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]`    |
+| `homeautomation-<name>_default` bridge    | the ha-mcp instances                                        | One per instance, created by its compose project, so no other container reaches a server that authenticates nobody. `<name>.internal` still resolves from the Docker host |
 
 | Constraint            | Detail                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,7 +146,7 @@ agent sees only entities exposed to Assist, and does not fire
 
 | Constraint                                 | Detail                                                                                                                                                                                                                              |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exactly one Matter server                  | `homeautomation_install_matterjs` or the superseded `homeautomation_install_legacy_pythonmatterserver`, asserted not both                                                                                                           |
+| Exactly one Matter server                  | `homeautomation_install_matterjs` or the superseded `homeautomation_install_pythonmatterserver`, asserted not both                                                                                                                  |
 | The Matter server must use host networking | It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable |
 | Avahi cannot run alongside Matter/Thread   | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts                                                                                                                            |
 
@@ -153,13 +154,13 @@ agent sees only entities exposed to Assist, and does not fire
 
 [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the
 [Model Context Protocol](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro). Clients connect to
-`http://<name>.internal:8086/mcp`, the container's internal port on the bridge network. Setup is under
+`http://<name>.internal:8086/mcp`, the container's internal port on its own bridge network. Setup is under
 [Setup](#setup).
 
-| Constraint                                                                           | Detail                                                                                                                                                                                     |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so keeping every instance on the bridge network publishes no MCP port anywhere |
-| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be distinct across every service in this role                                                               |
+| Constraint                                                                           | Detail                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. The server authenticates nobody, so each instance publishes no MCP port and sits on its own bridge network, which no other container joins |
+| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be distinct across every service in this role                                                                                          |
 
 ## Router kernel address space sampler
 

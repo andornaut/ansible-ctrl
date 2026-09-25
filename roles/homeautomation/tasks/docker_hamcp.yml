@@ -23,8 +23,8 @@
       HOMEASSISTANT_URL: "{{ item.url }}"
       # ha-mcp-web serves an unauthenticated settings UI at /mcp/settings that can
       # re-enable disabled tools and rewrite overrides for the instance holding the
-      # admin token, and every container on the shared bridge can reach it. The switch
-      # fails closed on an unrecognised value.
+      # admin token, to anything that reaches the container. The switch fails closed on
+      # an unrecognised value.
       HA_MCP_DISABLE_SETTINGS_UI: "true"
       TZ: "{{ homeautomation_tz }}"
     hamcp_environment: >-
@@ -48,8 +48,10 @@
     project_name: "homeautomation-{{ item.name }}"
     pull: always
     remove_orphans: true
+    # No networks key: each instance gets its project's own default network rather than the
+    # shared bridge, so no other container reaches an unauthenticated server holding an admin
+    # token. Each reaches Home Assistant through its url, not the bridge.
     definition:
-      networks: "{{ homeautomation_external_network }}"
       # Built, not written literally: a templated mapping key is not reliably
       # rendered, and the service key is the instance name.
       services: "{{ {item.name: hamcp_service} }}"

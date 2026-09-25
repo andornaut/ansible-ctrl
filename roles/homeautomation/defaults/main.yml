@@ -1,7 +1,6 @@
 ---
 homeautomation_docker_log_max_file: "10"
 homeautomation_docker_log_max_size: "10m"
-homeautomation_docker_network_name: homeautomation_default
 homeautomation_install_adb_auto_enable: false
 homeautomation_install_avahi: false
 homeautomation_install_esphome: false
@@ -9,8 +8,8 @@ homeautomation_install_frigate: false
 homeautomation_install_govee2mqtt: false
 homeautomation_install_llm: false
 homeautomation_install_matterjs: false
-homeautomation_install_legacy_pythonmatterserver: false
 homeautomation_install_memryx: false
+homeautomation_install_pythonmatterserver: false
 homeautomation_install_router_kva_sample: false
 homeautomation_install_voice: false
 homeautomation_ipv6_enabled: true
@@ -90,8 +89,8 @@ homeautomation_hamcp_env: {}
 # ha-mcp authenticates nobody who reaches it.
 #
 # Each entry takes:
-#   name  (str): container name, its <name>.internal host on the bridge, and the
-#                service account name, so it must be a valid user name
+#   name  (str): container name, its <name>.internal host on its own bridge network,
+#                and the service account name, so it must be a valid user name
 #   url   (str): the Home Assistant to drive. host.docker.internal reaches this
 #                host's own, which is host-networked
 #   token (str): that instance's long-lived access token (Profile > Security)

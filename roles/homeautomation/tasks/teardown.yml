@@ -15,8 +15,7 @@
 # homeautomation_teardown names only the instances still listed. One dropped from
 # homeautomation_hamcp_instances is found by its command and by the compose project
 # docker_hamcp.yml gives each instance, homeautomation-<name>, so an ha-mcp container another
-# project runs is left alone. Each holds an admin token and serves MCP unauthenticated to
-# the bridge.
+# project runs is left alone. Each holds an admin token and serves MCP unauthenticated.
 - name: List the compose-managed containers
   community.docker.docker_host_info:
     containers: true

@@ -32,10 +32,12 @@ homeautomation_default_logging:
     max-size: "{{ homeautomation_docker_log_max_size }}"
     max-file: "{{ homeautomation_docker_log_max_file }}"
 
+# The default network of docker_homeassistant.yml's "homeautomation" compose project, which
+# creates it.
 homeautomation_external_network:
   default:
     external: true
-    name: "{{ homeautomation_docker_network_name }}"
+    name: homeautomation_default
 
 # For the non-root containers, whose processes cannot use Docker's default capability set
 # anyway: cap_add fills the permitted set but not the ambient one. Free now, and matters
@@ -104,10 +106,10 @@ homeautomation_teardown:
     containers: [llamacpp, openwebui]
   - install: "{{ homeautomation_install_matterjs | bool }}"
     containers: [matterjs]
-  - install: "{{ homeautomation_install_legacy_pythonmatterserver | bool }}"
+  - install: "{{ homeautomation_install_pythonmatterserver | bool }}"
     containers: [pythonmatterserver]
   - install: "{{ homeautomation_install_voice | bool }}"
     containers: [openwakeword, microwakeword, piper, whisper]
   # Serves either matter stack, so it goes only when both do.
-  - install: "{{ homeautomation_install_matterjs | bool or homeautomation_install_legacy_pythonmatterserver | bool }}"
+  - install: "{{ homeautomation_install_matterjs | bool or homeautomation_install_pythonmatterserver | bool }}"
     containers: [otbr]
