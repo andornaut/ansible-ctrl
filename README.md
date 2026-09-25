@@ -42,12 +42,15 @@ make bootstrap -- --limit example                # First run of a new host
 | Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt                                                                                           |
 | Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named. `PREFLIGHT=none` skips it                                                                                   |
 | `--ask-become-pass` | Added when the run may reach the controller, and to every run `make bootstrap` makes, a new host's sudo asking until `make faramir`. `ASK_PASS=1` forces it; a root run never gets it       |
+| Bootstrap password  | `make bootstrap` asks once and hands each playbook the answer in an owner-only file under `$XDG_RUNTIME_DIR`, removed when it ends                                                          |
 | Credentials         | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`, or as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
 | umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                               |
 
 `make bootstrap` needs a `--limit`. It applies `base`, `docker`, `msmtp` and `dev` (whose toolchains desktop
 builds need), then every playbook whose groups hold the host, and stops at the first failure. Apply `faramir`
-separately with `make faramir`.
+separately with `make faramir`. A play that targets `faramir_controller` alone selects nothing, so bootstrapping
+the controller skips `torrent`; after bootstrapping a torrent host, run `make torrent -- --limit faramir_controller`
+to regenerate the controller's scripts for it.
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer`.
 
@@ -164,7 +167,8 @@ CI ([.github/workflows](.github/workflows)) also runs:
 
 - **`check`**: applies each Ubuntu playbook to the runner from role defaults
   ([tests/check/inventory.yml](tests/check/inventory.yml)), then runs it again under `--check --diff`. `faramir`,
-  `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered. Only the playbooks whose paths the change
-  touches run ([tests/check_matrix.py](tests/check_matrix.py)); a shared path, such as base's shared task files or
-  `ansible.cfg`, runs them all.
+  `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered. Only the playbooks whose paths changed
+  run ([tests/check_matrix.py](tests/check_matrix.py)): since a pull request's base, or for a push since the last
+  commit a run passed on, so a cancelled or failed run's changes are checked again. A shared path, such as base's
+  shared task files or `ansible.cfg`, runs them all.
 - **`ai-attributions`**: rejects commits carrying AI attribution or long dashes, and agent instruction files.

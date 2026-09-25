@@ -1,7 +1,10 @@
 import shlex
+import stat
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bin"))
 
@@ -200,6 +203,19 @@ class BecomeFlag(unittest.TestCase):
     def test_a_run_that_avoids_the_controller(self):
         self.assertEqual(self.flag(roles=("x",)), ())
 
+    def test_a_password_file_replaces_the_prompt(self):
+        self.assertEqual(
+            playbook.become_args(playbook.BECOME_PROMPT, "/run/p"),
+            ("--become-password-file", "/run/p", "-e", "ansible_local_become_success_timeout=120"),
+        )
+
+    def test_no_password_file_keeps_the_flag(self):
+        self.assertEqual(playbook.become_args(playbook.BECOME_PROMPT, None), playbook.BECOME_PROMPT)
+        self.assertEqual(playbook.become_args(playbook.BECOME_PROMPT, ""), playbook.BECOME_PROMPT)
+
+    def test_a_password_file_adds_nothing_where_nothing_is_asked(self):
+        self.assertEqual(playbook.become_args((), "/run/p"), ())
+
     def test_the_grep_matches_what_a_task_file_says(self):
         self.assertTrue(playbook.DELEGATES_LOCALLY.search(b"  delegate_to:   localhost\n"))
         self.assertFalse(playbook.DELEGATES_LOCALLY.search(b"  delegate_to:\n    localhost\n"))
@@ -265,6 +281,12 @@ class Bootstrap(unittest.TestCase):
             ["base", "docker", "msmtp", "dev", "desktop", "homeautomation", "webservers"],
         )
 
+    def test_a_controller_play_selects_nothing(self):
+        for torrent_hosts, expected in (([], []), (["h"], ["torrent"])):
+            with self.subTest(torrent_hosts=torrent_hosts):
+                listings = {"torrent": listing(("torrent", torrent_hosts), ("faramir_controller", ["h"]))}
+                self.assertEqual(playbook.select_bootstrap(listings), expected)
+
     def test_leading_playbooks_skipped_where_they_miss_the_host(self):
         listings = {
             "base": listing(("all:!routers", [])),
@@ -277,6 +299,32 @@ class Bootstrap(unittest.TestCase):
         self.assertEqual(playbook.bootstrap_env({"PATH": "/bin"}), {"PATH": "/bin", "ASK_PASS": "1"})
         self.assertEqual(playbook.bootstrap_env({"ASK_PASS": " "}), {"ASK_PASS": "1"})
         self.assertEqual(playbook.bootstrap_env({"ASK_PASS": "yes"}), {"ASK_PASS": "yes"})
+
+    def test_the_password_is_asked_once_into_an_owner_only_file_removed_after(self):
+        with (
+            tempfile.TemporaryDirectory() as runtime,
+            mock.patch.object(playbook.getpass, "getpass", return_value="pw") as ask,
+        ):
+            with playbook.become_password_file(True, runtime) as path:
+                self.assertTrue(path.startswith(runtime))
+                self.assertEqual(Path(path).read_text(), "pw")
+                self.assertEqual(stat.S_IMODE(Path(path).stat().st_mode), 0o600)
+                self.assertEqual(stat.S_IMODE(Path(path).parent.stat().st_mode), 0o700)
+            ask.assert_called_once()
+            self.assertFalse(Path(path).parent.exists())
+
+    def test_removed_when_a_run_raises(self):
+        with tempfile.TemporaryDirectory() as runtime, mock.patch.object(playbook.getpass, "getpass", return_value=""):
+            with self.assertRaises(RuntimeError), playbook.become_password_file(True, runtime) as path:
+                raise RuntimeError
+            self.assertFalse(Path(path).parent.exists())
+
+    def test_root_is_asked_nothing(self):
+        with (
+            mock.patch.object(playbook.getpass, "getpass", side_effect=AssertionError),
+            playbook.become_password_file(False, None) as path,
+        ):
+            self.assertIsNone(path)
 
     def test_a_limit_is_required(self):
         for args, expected in (

@@ -44,10 +44,10 @@ See [defaults/main.yml](./defaults/main.yml), which comments the non-obvious one
 
 On the `torrent` hosts:
 
-| Path                                   | Purpose                                                                        |
-| -------------------------------------- | ------------------------------------------------------------------------------ |
-| `~/.rtorrent.rc`                       | rtorrent configuration, in `torrent_user`'s home                               |
-| `/etc/systemd/system/rtorrent.service` | rtorrent as a `Type=forking` service inside a tmux session on a private socket |
+| Path                                   | Purpose                                                                                                                                                                                         |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.rtorrent.rc`                       | rtorrent configuration, in `torrent_user`'s home                                                                                                                                                |
+| `/etc/systemd/system/rtorrent.service` | rtorrent as a `Type=forking` service inside a tmux session on a private socket. Sandboxed: `NoNewPrivileges` (no sudo), and the filesystem read-only but for the torrent directories and `/tmp` |
 
 On the controller:
 
@@ -110,7 +110,7 @@ one line per tool call. `jq` is a hard dependency, checked up front.
 | Constraint                        | Detail                                                                                                                                                                                                   |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A second play, not `delegate_to`  | The controller is the host being configured: the `torrent_local_*` vars describe it, so they live in the controller's `host_vars/`                                                                       |
-| Scripts cover the whole group     | The scripts name every host in `groups['torrent']`, not the play's own hosts, so a `--limit` run still generates scripts covering the whole group                                                        |
+| Scripts cover the whole group     | They name every host in `groups['torrent']` whatever the `--limit`, but only a run reaching the controller rewrites them: after adding a torrent host, run `make torrent -- --limit faramir_controller`  |
 | `torrent_root_directory` per host | The controller play reads it through `hostvars`, where the role defaults are not available, so a torrent host that does not set it is refused by name                                                    |
 | No `localhost` in the inventory   | It would be included in every `hosts: all` play                                                                                                                                                          |
 | Templates are ShellChecked        | The `shell` check in [tests/lint.sh](../../tests/lint.sh) renders Jinja2 expressions to placeholders, then runs ShellCheck. Suppress a finding with a `# shellcheck disable=...` comment in the template |

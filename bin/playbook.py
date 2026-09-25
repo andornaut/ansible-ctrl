@@ -11,13 +11,17 @@ SECRETS=none, ASK_PASS=1 and PREFLIGHT=none. See README.md, Usage.
 """
 
 import ast
+import contextlib
+import getpass
 import os
 import pwd
 import re
 import shlex
+import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Iterable, Mapping
+import tempfile
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve()
@@ -42,6 +46,13 @@ SECRETS_OFF = ("--extra-vars", "secrets_required=false")
 # window. Named here as well as on the controller's inventory line, which is not in this repo.
 BECOME_PROMPT = ("--ask-become-pass", "-e", "ansible_local_become_success_timeout=120")
 
+# The file bootstrap writes the become password to, so each playbook it runs reads the one
+# answer rather than asking again. The environment carries the path, never the password.
+BECOME_FILE_ENV = "PLAYBOOK_BECOME_FILE"
+
+# The group whose one member is the controller.
+CONTROLLER_GROUP = "faramir_controller"
+
 # Whole seconds. Paid only by hosts that do not answer, and it bounds the banner exchange,
 # so a host too loaded to answer promptly is dropped rather than waited for.
 PREFLIGHT_TIMEOUT = "1"
@@ -60,6 +71,11 @@ BOOTSTRAP_FIRST = ("base", "docker", "msmtp", "dev")
 # Never selected by a bootstrap. faramir.yml's second play reads the key its first play
 # publishes on the controller, so a run limited to another host stops at its assert.
 BOOTSTRAP_EXCLUDED = frozenset({"faramir"})
+
+# A play targeting the controller group alone configures the controller on behalf of its
+# playbook's own group (torrent.yml's second play), so it selects nothing: a controller
+# bootstrap would otherwise apply a playbook whose group the controller is not in.
+BOOTSTRAP_IGNORED_PATTERNS = ([CONTROLLER_GROUP],)
 
 SOPS_FILE = ".config/faramir/secrets/ansible-ctrl.sops.yml"
 AGE_KEY_FILE = ".config/faramir/age.key"
@@ -210,7 +226,9 @@ def select_bootstrap(listings: Mapping[str, str]) -> list[str]:
         for pb in sorted(listings)
         if pb not in BOOTSTRAP_FIRST
         and pb not in BOOTSTRAP_EXCLUDED
-        and any(hosts and names_a_group(p) for p, hosts in parse_plays(listings[pb]))
+        and any(
+            hosts and names_a_group(p) and p not in BOOTSTRAP_IGNORED_PATTERNS for p, hosts in parse_plays(listings[pb])
+        )
     ]
     return first + rest
 
@@ -244,6 +262,13 @@ def become_flag(
     if any(delegates_locally(r) for r in roles):
         return BECOME_PROMPT
     return ()
+
+
+def become_args(flag: tuple[str, ...], password_file: str | None) -> tuple[str, ...]:
+    """flag, reading the password from password_file where flag would prompt for it."""
+    if flag == BECOME_PROMPT and password_file:
+        return ("--become-password-file", password_file, *BECOME_PROMPT[1:])
+    return flag
 
 
 def role_delegates_locally(role: str) -> bool:
@@ -386,13 +411,16 @@ def run(playbook: str, args: list[str]) -> int:
             return 1
         limit = outcome
 
-    flag = become_flag(
-        root,
-        os.environ.get("ASK_PASS"),
-        lambda: pick_hosts(capture(["ansible", "faramir_controller", "--list-hosts"])),
-        run_hosts,
-        pick_roles(listing),
-        role_delegates_locally,
+    flag = become_args(
+        become_flag(
+            root,
+            os.environ.get("ASK_PASS"),
+            lambda: pick_hosts(capture(["ansible", CONTROLLER_GROUP, "--list-hosts"])),
+            run_hosts,
+            pick_roles(listing),
+            role_delegates_locally,
+        ),
+        os.environ.get(BECOME_FILE_ENV),
     )
     secrets_off = SECRETS_OFF if is_none(os.environ.get("SECRETS")) else ()
     argv = ["ansible-playbook", *flag, *secrets_off, f"{playbook}.yml", *args, *limit]
@@ -404,6 +432,28 @@ def bootstrap_env(env: Mapping[str, str]) -> dict[str, str]:
     """env with ASK_PASS forced: a fresh host's sudo asks until faramir.yml, which bootstrap
     never selects, writes the NOPASSWD rule. become_flag still asks root nothing."""
     return dict(env) if is_set(env.get("ASK_PASS")) else {**env, "ASK_PASS": "1"}
+
+
+@contextlib.contextmanager
+def become_password_file(ask: bool, runtime_dir: str | None) -> Iterator[str | None]:
+    """The become password, asked once and held in a file only the operator can read.
+
+    In runtime_dir where it exists, a per-user tmpfs, so the password never reaches a disk.
+    Removed on the way out, whatever the outcome.
+    """
+    if not ask:
+        yield None
+        return
+    password = getpass.getpass("BECOME password: ")
+    parent = runtime_dir if runtime_dir and Path(runtime_dir).is_dir() else None
+    directory = Path(tempfile.mkdtemp(prefix="playbook-", dir=parent))
+    try:
+        path = directory / "become"
+        with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as file:
+            file.write(password)
+        yield str(path)
+    finally:
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 def bootstrap(args: list[str]) -> int:
@@ -420,13 +470,17 @@ def bootstrap(args: list[str]) -> int:
         say(f"bootstrap: no playbook reaches {shlex.join(args)}")
         return 1
     say(f"bootstrap: {', '.join(selected)}")
-    for index, playbook in enumerate(selected):
-        status = subprocess.run(
-            [sys.executable, str(SCRIPT), "run", playbook, *args], check=False, env=bootstrap_env(os.environ)
-        ).returncode
-        if status != 0:
-            say(f"bootstrap: stopped at {playbook}.yml; not run: {', '.join(selected[index + 1 :]) or 'none'}")
-            return status
+    env = bootstrap_env(os.environ)
+    # Every run bootstrap makes prompts unless it runs as root, so the one answer serves them all.
+    with become_password_file(not is_root(), os.environ.get("XDG_RUNTIME_DIR")) as password_file:
+        if password_file:
+            env[BECOME_FILE_ENV] = password_file
+        for index, playbook in enumerate(selected):
+            argv = [sys.executable, str(SCRIPT), "run", playbook, *args]
+            status = subprocess.run(argv, check=False, env=env).returncode
+            if status != 0:
+                say(f"bootstrap: stopped at {playbook}.yml; not run: {', '.join(selected[index + 1 :]) or 'none'}")
+                return status
     return 0
 
 
