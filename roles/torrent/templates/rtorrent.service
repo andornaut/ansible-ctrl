@@ -18,6 +18,21 @@ User={{ torrent_user }}
 Group={{ torrent_group }}
 WorkingDirectory={{ torrent_root_directory }}
 
+# rtorrent parses untrusted peer and tracker data, and torrent_user may hold sudo:
+# NoNewPrivileges makes setuid sudo inert. strict and read-only make the filesystem
+# read-only but for the paths below. rtorrent.rc executes only mkdir and mv, inside them.
+# /tmp holds tmux's socket directory, which tmux creates on first use, and
+# `tmux -L {{ torrent_tmux_socket }} attach` must find it there. A path outside these
+# fails EROFS: add it here.
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ torrent_root_directory }} {{ torrent_completed_directory }} {{ torrent_incoming_directory }}
+# Absent at start is not an error: under torrent_root_directory, rtorrent.rc creates them.
+ReadWritePaths=-{{ torrent_session_directory }} -{{ torrent_watch_directory }}
+ReadWritePaths=/tmp
+
 # RequiresMountsFor above catches an unmounted array; this also catches one mounted
 # read-only, as btrfs drops to on an I/O error, so rtorrent never starts only to fail every
 # write. Restart=on-failure retries until the array is writable again.
