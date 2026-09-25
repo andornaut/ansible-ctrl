@@ -38,12 +38,12 @@ See [defaults/main.yml](./defaults/main.yml), which comments the non-obvious one
 
 ## Installed files
 
-| Path                                                                      | Purpose                                                                            |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`/usr/local/bin/router-pingtest`](./files/router-pingtest)               | Bounces the interface on every run in which no target answers                      |
-| [`/usr/local/bin/router-dns-healthcheck`](./files/router-dns-healthcheck) | Restarts the resolver when it stops answering, killing it if a restart cannot bind |
-| `/etc/cron.d/ansible-role-router`                                         | One entry per enabled check                                                        |
-| `/var/run/router-pingtest.lock`, `/var/run/router-dns-healthcheck.lock`   | Lock files; each mtime is that script's last run                                   |
+| Path                                                                      | Purpose                                                                                      |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`/usr/local/bin/router-pingtest`](./files/router-pingtest)               | Bounces the interface on every run in which no target answers                                |
+| [`/usr/local/bin/router-dns-healthcheck`](./files/router-dns-healthcheck) | Restarts the resolver when it stops answering, killing it if a restart cannot bind           |
+| `/etc/cron.d/ansible-role-router`                                         | One entry per enabled check. Clearing a check's flag removes its entry and leaves its script |
+| `/var/run/router-pingtest.lock`, `/var/run/router-dns-healthcheck.lock`   | Lock files; each mtime is that script's last run                                             |
 
 ## Notes
 

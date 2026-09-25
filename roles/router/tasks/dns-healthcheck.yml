@@ -25,15 +25,17 @@
         mode: "0755"
       become: false
 
-    - name: Periodically run router-dns-healthcheck
-      ansible.builtin.cron:
-        name: router-dns-healthcheck
-        cron_file: /etc/cron.d/ansible-role-router
-        user: root
-        minute: "{{ router_dns_healthcheck_minute }}"
-        job: >-
-          /usr/local/bin/router-dns-healthcheck
-          {{ router_dns_healthcheck_query | quote }}
-          {{ router_dns_healthcheck_confirm_seconds | quote }}
-          {{ router_dns_healthcheck_restart_timeout | quote }}
-      become: false
+# Derived from the flag rather than gated on it, so clearing the flag removes the entry.
+- name: Periodically run router-dns-healthcheck
+  ansible.builtin.cron:
+    name: router-dns-healthcheck
+    cron_file: /etc/cron.d/ansible-role-router
+    user: root
+    minute: "{{ router_dns_healthcheck_minute }}"
+    job: >-
+      /usr/local/bin/router-dns-healthcheck
+      {{ router_dns_healthcheck_query | quote }}
+      {{ router_dns_healthcheck_confirm_seconds | quote }}
+      {{ router_dns_healthcheck_restart_timeout | quote }}
+    state: "{{ router_install_dns_healthcheck | bool | ternary('present', 'absent') }}"
+  become: false

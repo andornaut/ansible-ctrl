@@ -23,15 +23,17 @@
         mode: "0755"
       become: false
 
-    - name: Periodically run router-pingtest
-      ansible.builtin.cron:
-        name: router-pingtest
-        cron_file: /etc/cron.d/ansible-role-router
-        user: root
-        minute: "{{ router_pingtest_minute }}"
-        job: >-
-          /usr/local/bin/router-pingtest {{ router_pingtest_interface | quote }}
-          {{ router_pingtest_down_seconds | quote }}
-          {{ router_pingtest_settle_seconds | quote }}
-          {{ router_pingtest_targets | map('quote') | join(' ') }}
-      become: false
+# Derived from the flag rather than gated on it, so clearing the flag removes the entry.
+- name: Periodically run router-pingtest
+  ansible.builtin.cron:
+    name: router-pingtest
+    cron_file: /etc/cron.d/ansible-role-router
+    user: root
+    minute: "{{ router_pingtest_minute }}"
+    job: >-
+      /usr/local/bin/router-pingtest {{ router_pingtest_interface | quote }}
+      {{ router_pingtest_down_seconds | quote }}
+      {{ router_pingtest_settle_seconds | quote }}
+      {{ router_pingtest_targets | map('quote') | join(' ') }}
+    state: "{{ router_install_pingtest | bool | ternary('present', 'absent') }}"
+  become: false
