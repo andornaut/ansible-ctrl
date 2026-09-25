@@ -7,6 +7,7 @@
 # In this order, which handlers run in: the reload is what makes udevd read the rules and
 # the hardware database afresh, so the database is rebuilt first, and the trigger comes
 # after both, its keyboard builtin reading what udevd then holds.
+# CLEANUP (added 2026-09-05): goes with the hardware database removal in tasks/main.yml.
 - name: Rebuild the hardware database
   ansible.builtin.command: systemd-hwdb update
   changed_when: false

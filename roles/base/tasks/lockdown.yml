@@ -71,6 +71,9 @@
     - name: Check which login accounts have a home
       ansible.builtin.stat:
         path: "{{ item.value[4] }}"
+        # A home is sometimes a symlink into another filesystem. stat reports isdir false
+        # for one unless it follows, and the mode below then never reaches its target.
+        follow: true
       register: base_lockdown_home_stat
       loop: "{{ ansible_facts['getent_passwd'] | dict2items }}"
       loop_control:
@@ -86,7 +89,7 @@
       ansible.builtin.file:
         path: "{{ item.stat.path }}"
         mode: o-rwx,g-r
-        follow: false
+        follow: true
       loop: "{{ base_lockdown_home_stat.results | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir') | list }}"
       loop_control:
         label: "{{ item.stat.path }}"

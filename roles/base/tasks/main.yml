@@ -218,7 +218,7 @@
     - Apply keyboard changes
 
 # CLEANUP (added 2026-09-05): the rule's predecessor, a hardware database entry that reached
-# every device on the bus. Delete once every host has converged, with its handler.
+# every device on the bus. Delete once every host has converged, with its handlers.
 - name: Remove the hardware database entry the udev rule replaced
   ansible.builtin.file:
     path: /etc/udev/hwdb.d/60-keyboard-caps-escape.hwdb
@@ -242,7 +242,7 @@
 - name: Make Vim the default editor
   community.general.alternatives:
     name: editor
-    path: /etc/alternatives/vim
+    path: /usr/bin/vim.basic
   become: true
 
 - name: Install filectrl
