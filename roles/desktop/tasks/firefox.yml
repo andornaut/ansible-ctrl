@@ -148,6 +148,24 @@
           register: desktop_flatpak_firefox_override
           changed_when: "'CHANGED' in desktop_flatpak_firefox_override.stdout"
 
+# Firefox's own print dialog sends no ColorModel for a colour job, so a queue whose PPD
+# defaults to Gray prints it grayscale. The system dialog sends one.
+- name: Configure Firefox policies
+  when: desktop_install_firefox | bool
+  become: true
+  block:
+    - name: Create Firefox policies directory
+      ansible.builtin.file:
+        path: "{{ desktop_firefox_policies_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Firefox policies
+      ansible.builtin.copy:
+        content: "{{ {'policies': {'UseSystemPrintDialog': true}} | to_nice_json }}\n"
+        dest: "{{ desktop_firefox_policies_dir }}/policies.json"
+        mode: "0644"
+
 # Purge any copy an earlier run installed; the pin above stays at -1. The flatpak
 # removal runs as desktop_user because the install was per-user.
 - name: Remove Firefox

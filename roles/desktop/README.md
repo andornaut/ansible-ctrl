@@ -72,19 +72,20 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 
 ## Installed files
 
-| Path                                                                                                | Purpose                                                              |
-| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `/usr/local/bin/desktop-idle-input`, `/etc/systemd/system/desktop-idle-input.service`               | Input idle-time reader for the [idle backstop](#idle-backstop)       |
-| `/usr/local/bin/desktop-idle-backstop`, `/usr/local/lib/systemd/user/desktop-idle-backstop.service` | [Idle backstop](#idle-backstop)                                      |
-| `/usr/local/bin/xsecurelock-session`, `~/.config/autostart/xss-lock.desktop`                        | bspwm: sets the idle timeouts once per session and starts the locker |
-| `/etc/systemd/logind.conf.d/50-desktop-idle-action.conf`                                            | bspwm idle suspend                                                   |
-| `/etc/dconf/db/local.d/00-idle`, `01-keyboard` and their `locks/` files                             | gnome idle and keyboard policy                                       |
-| `/etc/polkit-1/rules.d/50-ansible-role-desktop-lock-screen-power.rules`                             | gnome: Power Off and Restart on the lock screen                      |
-| `/etc/udev/rules.d/50-ansible-role-desktop-usb-no-autosuspend.rules`                                | `usb-autosuspend` tag                                                |
-| `/etc/udev/rules.d/70-ansible-role-desktop-keyboard-configurator.rules`                             | `keyboard-configurator` tag                                          |
-| `/etc/wireplumber/wireplumber.conf.d/51-ansible-role-desktop-wireplumber-node-properties.conf`      | `wireplumber` tag                                                    |
-| `/usr/local/bin/nwg-drawer`, `/usr/local/lib/systemd/user/nwg-drawer.service`                       | `nwg-drawer` tag                                                     |
-| `/etc/systemd/system/malcontent-webd-update.service.d/override.conf`                                | Network ordering for the web filter update                           |
+| Path                                                                                                               | Purpose                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `/usr/local/bin/desktop-idle-input`, `/etc/systemd/system/desktop-idle-input.service`                              | Input idle-time reader for the [idle backstop](#idle-backstop)                                                                   |
+| `/usr/local/bin/desktop-idle-backstop`, `/usr/local/lib/systemd/user/desktop-idle-backstop.service`                | [Idle backstop](#idle-backstop)                                                                                                  |
+| `/usr/local/bin/xsecurelock-session`, `~/.config/autostart/xss-lock.desktop`                                       | bspwm: sets the idle timeouts once per session and starts the locker                                                             |
+| `/etc/systemd/logind.conf.d/50-desktop-idle-action.conf`                                                           | bspwm idle suspend                                                                                                               |
+| `/etc/dconf/db/local.d/00-idle`, `01-keyboard` and their `locks/` files                                            | gnome idle and keyboard policy                                                                                                   |
+| `/etc/polkit-1/rules.d/50-ansible-role-desktop-lock-screen-power.rules`                                            | gnome: Power Off and Restart on the lock screen                                                                                  |
+| `policies/policies.json` under `/etc/firefox/` (apt) or the flatpak's `org.mozilla.firefox.systemconfig` extension | `browser` tag: `UseSystemPrintDialog`, because Firefox's own dialog sends no `ColorModel` for colour and a Gray PPD default wins |
+| `/etc/udev/rules.d/50-ansible-role-desktop-usb-no-autosuspend.rules`                                               | `usb-autosuspend` tag                                                                                                            |
+| `/etc/udev/rules.d/70-ansible-role-desktop-keyboard-configurator.rules`                                            | `keyboard-configurator` tag                                                                                                      |
+| `/etc/wireplumber/wireplumber.conf.d/51-ansible-role-desktop-wireplumber-node-properties.conf`                     | `wireplumber` tag                                                                                                                |
+| `/usr/local/bin/nwg-drawer`, `/usr/local/lib/systemd/user/nwg-drawer.service`                                      | `nwg-drawer` tag                                                                                                                 |
+| `/etc/systemd/system/malcontent-webd-update.service.d/override.conf`                                               | Network ordering for the web filter update                                                                                       |
 
 ## Desktop environments
 

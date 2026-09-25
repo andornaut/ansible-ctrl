@@ -115,6 +115,13 @@ desktop_flatpak_overrides:
     # gnome-keyring.portal's UseIn=gnome.
     - --talk-name=org.freedesktop.secrets
 
+# Where Firefox reads policies.json. The flatpak mounts its unmaintained systemconfig
+# extension at /app/etc/firefox; flatpak names architectures after the kernel.
+desktop_firefox_policies_dir: >-
+  {{ '/etc/firefox/policies' if desktop_install_firefox_apt | bool else
+     '/var/lib/flatpak/extension/org.mozilla.firefox.systemconfig/'
+     ~ ansible_facts['architecture'] ~ '/stable/policies' }}
+
 # The .desktop id xdg-settings takes. Firefox's differs by install method.
 desktop_default_browser_desktop_id: >-
   {{ {'google-chrome': 'google-chrome.desktop',
