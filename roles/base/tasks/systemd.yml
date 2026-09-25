@@ -31,10 +31,11 @@
   become: true
   notify: Reload systemd
 
+# Longer than DefaultStartLimitBurst restarts DefaultRestartSec apart, or no unit ever reaches the limit.
 - name: Configure Systemd DefaultStartLimitIntervalSec
   ansible.builtin.lineinfile:
     path: /etc/systemd/system.conf
-    line: DefaultStartLimitIntervalSec=15
+    line: DefaultStartLimitIntervalSec=120
     regexp: DefaultStartLimitIntervalSec
   become: true
   notify: Reload systemd

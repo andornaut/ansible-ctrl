@@ -135,17 +135,6 @@
     purge: true
   become: true
 
-- name: Enable universe and multiverse repositories
-  ansible.builtin.apt_repository:
-    repo: "{{ item }}"
-    mode: "0644"
-  loop:
-    - universe
-    - multiverse
-  # Pre-24.04 only: the deb822 format enables these by default and rejects the shorthand.
-  when: ansible_facts["distribution_version"] is version('24.04', '<')
-  become: true
-
 # https://askubuntu.com/a/1254303
 - name: Disable ssh motd news/advertisement
   ansible.builtin.lineinfile:

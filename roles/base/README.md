@@ -9,8 +9,8 @@ make base
 make base -- --tags filectrl
 ```
 
-`base.yml` applies this role to every host but the routers (`all:!routers`). A new host's first run is
-`make bootstrap -- --limit <host>`, which applies `base` before every other playbook that reaches the host.
+`base.yml` applies this role to every host but the routers (`all:!routers`). On a new host it runs after
+`make faramir` and before every other playbook, as [Usage](../../README.md#usage) orders them.
 
 ## Tags
 
@@ -33,7 +33,7 @@ make base -- --tags filectrl
 | ubuntu-pro                                        | Turns off the apt-news fetch, leaving the client installed                                                                    |
 | unwanted                                          | Purges and pins `base_unwanted_packages` ([vars/main.yml](./vars/main.yml))                                                   |
 
-No tag: the apt configuration and package set, the universe and multiverse repositories, the motd-news opt-out,
+No tag: the apt configuration and package set, the motd-news opt-out,
 the timezone, the Caps Lock remap, `cache-command` and the editor alternative. A `--tags` run skips them.
 
 ## Variables
@@ -135,13 +135,14 @@ Tag `lockdown` ([tasks/lockdown.yml](./tasks/lockdown.yml)).
 | Skipped homes            | A home the account does not own is a shared area and is left alone. A home passwd names that does not exist is dropped before `find` runs                                                                                 |
 | Unwanted set             | Ubuntu defaults no host here has hardware or a role for. In [vars/main.yml](./vars/main.yml), so a host cannot opt out                                                                                                    |
 | Unwanted members         | `kdump-tools` (reserves memory at boot through GRUB's `crashkernel=`, returned at the next reboot), `modemmanager`, `power-profiles-daemon`, `switcheroo-control`, `open-vm-tools`, `pollinate`, `sssd` and `sssd-common` |
-| Desktop dependencies     | Nothing a desktop metapackage depends on belongs in the set: pinning `language-selector-gnome` removes gdm3, gnome-shell and ubuntu-session, and `speech-dispatcher` returns through the same tree                        |
+| Desktop dependencies     | Nothing a desktop metapackage depends on belongs in the set: pinning `language-selector-gnome` removes gdm3, gnome-shell and ubuntu-session. `speech-dispatcher` stays out: the desktop role installs it for Firefox      |
 | GitHub release tools     | filectrl, gog and mrs need a `{name}_{system}_{base_arch}.tar.gz` asset, checked against the SHA-256 digest GitHub records for it. An asset without one fails the run                                                     |
 | Default-branch scripts   | cache-command and storage-space-alert come from each repository's default branch. No version is pinned, so every run takes the current file                                                                               |
 | inotify watches          | Ubuntu derives a default from RAM that is below what an editor or file sync needs for a large source tree. A ceiling, not an allocation                                                                                   |
 | `fs.file-max`            | Not set: the kernel leaves it effectively unbounded, so setting it could only lower it                                                                                                                                    |
 | `/tmp` age               | Overrides the shipped 30d, at which a desktop's `/tmp` reaches several GB. `systemd-tmpfiles-clean.timer` applies it daily and removes a directory once its contents age out                                              |
 | `/tmp` floor             | Not shorter: a tmux server's socket and a forwarded ssh-agent socket live in `/tmp` with no protecting entry of their own                                                                                                 |
+| Unit start limit         | `DefaultStartLimitIntervalSec=120` spans more than `DefaultStartLimitBurst=3` restarts at `DefaultRestartSec=30`, so a unit that fails on every start stops after its third restart instead of restarting forever         |
 | Ubuntu Pro               | Purging the pro client removes `update-notifier`, which writes `/var/run/reboot-required`. Disabling apt-news stops the per-apt-run fetch and the `ubuntu_pro_apt_news` AppArmor denials                                  |
 | ssh client timeout       | It applies to ssh started outside Ansible (cron); Ansible passes its own timeout. Without it, a host that is off costs the full TCP retry, about 135 seconds per connection                                               |
 | ssh client config order  | Validated with `ssh -G` first. `ssh_config` keeps the first value it finds and the `Include` precedes the shipped `Host *`, so this overrides the defaults and `~/.ssh/config` overrides this                             |
