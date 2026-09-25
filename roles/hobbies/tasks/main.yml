@@ -15,6 +15,33 @@
     key: "{{ hobbies_user }}"
   tags: always
 
+# ecryptfs keeps its configuration beside the home rather than inside it, so this answers whether
+# the home is encrypted whether or not it is mounted now. Derived from the resolved home, never a
+# fixed /home: ecryptfs-setup-private writes to $(dirname $HOME)/.ecryptfs/$USER.
+- name: Check for an encrypted home for {{ hobbies_user }}
+  ansible.builtin.stat:
+    path: "{{ hobbies_user_home | dirname }}/.ecryptfs/{{ hobbies_user }}"
+  register: hobbies_user_home_ecryptfs
+  changed_when: false
+  become: true
+  tags: always
+
+# getent answers with the home's path whether or not anything is mounted there, so a run against
+# a locked home writes the user-scoped installs onto the mountpoint, where the next login hides
+# them. `| default([])` fails closed: without the mounts fact an encrypted home counts as unmounted.
+- name: Require an encrypted home to be mounted for {{ hobbies_user }}
+  ansible.builtin.assert:
+    that: hobbies_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ hobbies_user }}'s home is encrypted and {{ hobbies_user_home }} is not mounted, so
+      this host is at its login screen or the home was never unlocked. Log in as
+      {{ hobbies_user }}, or run ecryptfs-mount-private there, and re-run. If that account
+      has no encrypted home any more, remove the stale
+      {{ hobbies_user_home | dirname }}/.ecryptfs/{{ hobbies_user }}, which is what this reads.
+    quiet: true
+  when: hobbies_user_home_ecryptfs.stat.exists
+  tags: always
+
 - name: Import FPV tasks
   ansible.builtin.import_tasks: fpv.yml
   tags: fpv

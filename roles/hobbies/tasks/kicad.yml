@@ -100,12 +100,24 @@
         release_fact: hobbies_freerouting_release
 
     # A substring match, to avoid regex-escape differences across Jinja.
+    - name: Set Freerouting download URLs fact
+      ansible.builtin.set_fact:
+        hobbies_freerouting_download_urls: >-
+          {{ hobbies_freerouting_release.assets
+          | selectattr('name', 'search', hobbies_freerouting_platform)
+          | map(attribute='browser_download_url') | list }}
+
+    - name: Require a Freerouting build for this architecture
+      ansible.builtin.assert:
+        that: hobbies_freerouting_download_urls | length > 0
+        fail_msg: >-
+          Freerouting {{ hobbies_freerouting_release.tag_name }} publishes no
+          {{ hobbies_freerouting_platform }} build for {{ ansible_facts['architecture'] }}.
+        quiet: true
+
     - name: Set Freerouting download URL fact
       ansible.builtin.set_fact:
-        hobbies_freerouting_download_url: >-
-          {{ hobbies_freerouting_release.assets
-          | selectattr('name', 'search', 'linux-x64')
-          | map(attribute='browser_download_url') | first }}
+        hobbies_freerouting_download_url: "{{ hobbies_freerouting_download_urls | first }}"
 
     - name: Set Freerouting install directory fact
       ansible.builtin.set_fact:
@@ -158,9 +170,17 @@
           exec /opt/freerouting/current/bin/freerouting -da "$@"
       become: true
 
+    - name: Create the local applications directory
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: "0755"
+      become: true
+
+    # /usr/local/share, not /usr/share: the latter is dpkg's, and XDG_DATA_DIRS reads both.
     - name: Install Freerouting desktop file
       ansible.builtin.copy:
-        dest: /usr/share/applications/freerouting.desktop
+        dest: /usr/local/share/applications/freerouting.desktop
         mode: "0644"
         content: |
           [Desktop Entry]
@@ -171,4 +191,12 @@
           Terminal=false
           Type=Application
           Categories=Electronics
+      become: true
+
+    # CLEANUP (added 2026-09-25): the entry this role wrote under /usr/share, which no package
+    # owns. Remove once every hobbies host has converged.
+    - name: Remove the Freerouting desktop file from /usr/share
+      ansible.builtin.file:
+        path: /usr/share/applications/freerouting.desktop
+        state: absent
       become: true

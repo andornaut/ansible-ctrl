@@ -70,9 +70,17 @@
           LD_LIBRARY_PATH=/opt/betaflight/current/lib exec ./betaflight-configurator "$@"
       become: true
 
+    - name: Create the local applications directory
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: "0755"
+      become: true
+
+    # /usr/local/share, not /usr/share: the latter is dpkg's, and XDG_DATA_DIRS reads both.
     - name: Install Betaflight Configurator desktop file
       ansible.builtin.copy:
-        dest: /usr/share/applications/betaflight-configurator.desktop
+        dest: /usr/local/share/applications/betaflight-configurator.desktop
         mode: "0644"
         content: |
           [Desktop Entry]
@@ -83,6 +91,14 @@
           Terminal=false
           Type=Application
           Categories=Electronics
+      become: true
+
+    # CLEANUP (added 2026-09-25): the entry this role wrote under /usr/share, which no package
+    # owns. Remove once every hobbies host has converged.
+    - name: Remove the Betaflight Configurator desktop file from /usr/share
+      ansible.builtin.file:
+        path: /usr/share/applications/betaflight-configurator.desktop
+        state: absent
       become: true
 
 - name: Download and install ExpressLRS Configurator
