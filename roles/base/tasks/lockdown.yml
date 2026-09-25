@@ -109,6 +109,25 @@
     - name: Take the password away
       when: base_lockdown_sshd_binary.stat.exists
       block:
+        # The drop-in below moves sshd to base_lockdown_ssh_port and removes every other
+        # Port, and the proof dials the new port, so a mismatch passes this run and locks the
+        # next one out. A local connection reads no port, so only a declared one is compared.
+        - name: Require the SSH port to match the inventory
+          ansible.builtin.assert:
+            that: >-
+              base_lockdown_ssh_port_move | bool
+              or base_lockdown_ssh_port | int == base_lockdown_inventory_port | int
+            fail_msg: >-
+              The inventory reaches this host on port {{ base_lockdown_inventory_port }},
+              and base_lockdown_ssh_port is {{ base_lockdown_ssh_port }}. Set
+              base_lockdown_ssh_port in host_vars to the inventory's port. To move sshd, run
+              once with base_lockdown_ssh_port_move=true, then set ansible_port to the new port.
+            quiet: true
+          vars:
+            base_lockdown_inventory_port: >-
+              {{ ansible_port | default(22 if base_lockdown_over_ssh | bool else base_lockdown_ssh_port) }}
+          become: false
+
         # `sshd -t`, which every edit below validates with, refuses to run without it, and
         # ssh.service creates it only when a connection first starts the daemon: a host
         # reached over a local connection since boot has none.

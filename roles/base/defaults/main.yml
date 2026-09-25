@@ -20,6 +20,9 @@ base_account_min_uid: 1000
 
 # Read by both the socket unit and the fail2ban jail, so the two cannot disagree.
 base_lockdown_ssh_port: 22
+# Set for the one run that moves sshd off the port the inventory names; set ansible_port
+# to the new port after it.
+base_lockdown_ssh_port_move: false
 
 # Where a moved port's host key is recorded. System-wide, so it covers every uid on the
 # controller. Another role pins the same path; roles here read no other role's variables.
