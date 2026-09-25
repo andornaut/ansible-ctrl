@@ -6,9 +6,20 @@
 # it was.
 set -u
 
+release() {
+    systemctl --user stop bspwm-session.target
+}
+
+# A signal ending the session reaches this shell too, whose default action would exit without
+# releasing the target, leaving the session units up under a user manager that outlives the
+# login. A trapped signal runs once bspwm has returned.
+trap 'release; exit 129' HUP
+trap 'release; exit 130' INT
+trap 'release; exit 143' TERM
+
 systemctl --user import-environment DISPLAY XAUTHORITY
 systemctl --user start bspwm-session.target
 /usr/local/bin/bspwm
 status=$?
-systemctl --user stop bspwm-session.target
+release
 exit "$status"

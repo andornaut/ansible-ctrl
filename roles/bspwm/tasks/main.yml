@@ -30,23 +30,20 @@
   become: true
   tags: always
 
-# getent answers with the home's path whether or not anything is mounted there, so without this a
-# run against a locked home writes onto the mountpoint and the next login mounts over it. Fails
-# closed without the mounts fact, an encrypted home then counting as unmounted.
-- name: Record whether the home is mounted for {{ bspwm_user }}
-  ansible.builtin.set_fact:
-    bspwm_user_home_mounted: >-
-      {{ (not bspwm_user_home_ecryptfs.stat.exists)
-         or (bspwm_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount') | list)) }}
-  tags: always
-
-- name: Report a locked home for {{ bspwm_user }}
-  ansible.builtin.debug:
-    msg: >-
-      {{ bspwm_user }}'s home is encrypted and {{ bspwm_user_home }} is not mounted, so the
-      desktop entry overrides this role writes into the home will be skipped. Log in as
-      {{ bspwm_user }}, or run ecryptfs-mount-private there, and re-run.
-  when: not bspwm_user_home_mounted | bool
+# getent answers with the home's path whether or not anything is mounted there, so a run
+# against a locked home would write the desktop entry overrides onto the mountpoint, and the
+# next login would mount over them. Fails before anything changes. `| default([])` fails
+# closed: without the mounts fact this cannot answer.
+- name: Require an encrypted home to be mounted
+  ansible.builtin.assert:
+    that: bspwm_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ bspwm_user }}'s home is encrypted and {{ bspwm_user_home }} is not mounted, so this
+      host is at its login screen or the home was never unlocked. Installing now would write
+      the desktop entry overrides onto the mountpoint, where the next login hides them. Log in
+      as {{ bspwm_user }}, or run ecryptfs-mount-private there, and re-run.
+    quiet: true
+  when: bspwm_user_home_ecryptfs.stat.exists
   tags: always
 
 - name: Install X11 system packages and build dependencies
