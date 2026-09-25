@@ -77,7 +77,7 @@
         content: "{{ games_lutris_config | combine({'system': games_lutris_merged}) | to_nice_yaml }}"
         mode: "0644"
 
-# Why the teardown is a host binary rather than a Lutris hook: README.md.
+# Why the teardown is a host binary rather than a Lutris hook: the launcher's module docstring.
 - name: Install the Lutris game launcher
   ansible.builtin.copy:
     src: lutris-launch-game.py

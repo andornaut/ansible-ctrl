@@ -62,7 +62,10 @@ def converge_config(games_dir, source, cfg):
     desired["game"] = {**desired.get("game", {}), **cfg["game"]}
     path = games_dir / f"{cfg['slug']}.yml"
     if read_config(path) != desired:
-        path.write_text(yaml.safe_dump(desired, default_flow_style=False))
+        # Through a temporary name, so an interrupted run leaves the old file rather than half of one.
+        partial = path.with_name(path.name + ".part")
+        partial.write_text(yaml.safe_dump(desired, default_flow_style=False))
+        partial.replace(path)
         print(f"wrote {path}")
 
 

@@ -389,7 +389,10 @@ def main():
         except OSError:
             pass
 
-        path.write_bytes(content)
+        # Through a temporary name, so an interrupted run leaves the old playlist rather than half of one.
+        partial = path.with_name(path.name + ".part")
+        partial.write_bytes(content)
+        partial.replace(path)
         changed.append(f"{system} ({count})")
 
     changed.extend(prune_playlists(playlist_dir, emit_library_dir, config["systems"]))

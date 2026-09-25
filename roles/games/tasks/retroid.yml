@@ -4,6 +4,7 @@
 
 # One file on the controller, so two hosts with the flag set would overwrite each
 # other every run. run_once would not catch it: it tests the play's first host only.
+# The whole group rather than the play's hosts, which a --limit narrows.
 - name: Assert only one host installs syncretroid
   ansible.builtin.assert:
     that:
@@ -14,8 +15,8 @@
     success_msg: syncretroid is installed from one host
   vars:
     games_retroid_installers: >-
-      {{ ansible_play_hosts
-         | zip(ansible_play_hosts | map('extract', hostvars, 'games_install_retroid_sync')
+      {{ groups['games']
+         | zip(groups['games'] | map('extract', hostvars, 'games_install_retroid_sync')
                | map('default', false) | map('bool'))
          | selectattr(1) | map(attribute=0) | list }}
 

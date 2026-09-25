@@ -45,6 +45,33 @@
     key: "{{ games_user }}"
   tags: always
 
+# ecryptfs keeps its configuration beside the home rather than inside it, so this answers whether
+# the home is encrypted whether or not it is mounted now. Derived from the resolved home, never a
+# fixed /home: ecryptfs-setup-private writes to $(dirname $HOME)/.ecryptfs/$USER, so a home
+# elsewhere would miss the marker and this would answer "not encrypted".
+- name: Check whether games_user's home is encrypted
+  ansible.builtin.stat:
+    path: "{{ games_user_home | dirname }}/.ecryptfs/{{ games_user }}"
+  register: games_user_home_ecryptfs
+  become: true
+  tags: always
+
+# getent answers with the home's path whether or not anything is mounted there, so every write
+# below into the home would land on the mountpoint and be hidden by the next login. Fails closed:
+# without the mounts fact an encrypted home counts as unmounted.
+- name: Require an encrypted home to be mounted
+  ansible.builtin.assert:
+    that: games_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ games_user }}'s home is encrypted and {{ games_user_home }} is not mounted, so this
+      host is at its login screen or the home was never unlocked. The flatpaks, RetroArch,
+      Heroic, Lutris and Bedrock configuration and the desktop entries would be written onto
+      the mountpoint and hidden at the next login. Log in as {{ games_user }}, or run
+      ecryptfs-mount-private there, and re-run.
+    quiet: true
+  when: games_user_home_ecryptfs.stat.exists
+  tags: always
+
 - name: Import apt tasks
   ansible.builtin.import_tasks: apt.yml
   tags: apt

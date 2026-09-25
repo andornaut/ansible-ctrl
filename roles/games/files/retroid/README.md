@@ -17,11 +17,11 @@ Already installed on the device: RetroArch, ES-DE, the standalone emulators (Dol
 as the PS2 fallback), the sdcard folder layout, and the ES-DE custom systems. The ROM library must be mounted on
 this host.
 
-| Check                                      | Done by `syncretroid`                                                  |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| Library mount, sdcard root, both apps      | Yes, before any change. This also confirms `adb` selected the handheld |
-| `--serial`                                 | Needed only when more than one device is attached                      |
-| Standalone emulators, ES-DE custom systems | No                                                                     |
+| Check                                      | Done by `syncretroid`                                                                          |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Library mount, sdcard root, both apps      | Yes, before any change. This also confirms `adb` selected the handheld                         |
+| One device on adb                          | Yes: with several attached and no `--serial`, it refuses. The wrapper always passes `--serial` |
+| Standalone emulators, ES-DE custom systems | No                                                                                             |
 
 ## Verify on the device (once)
 

@@ -100,7 +100,8 @@
       games_retroarch_controller is "{{ games_retroarch_controller | default('') }}", which is not
       one of {{ games_retroarch_controllers.keys() | list }}. It names this host's gamepad, whose
       button and axis indices the rewind bindings are built from. Set it in host_vars/, adding the
-      pad to games_retroarch_controllers if it is not there.
+      pad to games_retroarch_controllers in roles/games/vars/main.yml if it is not there (vars/
+      outranks host_vars/, so an entry there is ignored).
     success_msg: 'games_retroarch_controller "{{ games_retroarch_controller }}" is known'
 
 # RetroArch derives the audio resampling ratio from this, so a wrong value is heard as audio

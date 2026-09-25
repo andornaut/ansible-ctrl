@@ -34,7 +34,9 @@ Not cores: the sdcard and emulated storage are noexec, so RetroArch can only dlo
 the app-private dir the in-app Core Updater fills, which adb cannot write. Install the
 cores the table needs there; the playlists and ES-DE both point at them.
 
-RetroArch and ES-DE are force-stopped for the run, both rewriting what they own on exit.
+RetroArch and ES-DE are force-stopped for the run, both rewriting what they own on exit. The
+network downloads (the core .info set and the shader pack) run first, so a download failure
+exits with the apps still running and nothing on the device changed.
 
 The device library_names and the pad indices are the two things this cannot derive.
 """
@@ -49,6 +51,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -478,16 +481,28 @@ def fetch_info(profile, info_dir):
     the files at its root or under a subdirectory.
     """
     Path(info_dir).mkdir(parents=True, exist_ok=True)
-    url = profile["info_zip_url"]
-    print(f"  fetch {url}")
-    # The url comes from the operator's own profile.yml.
-    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
-        data = response.read()
+    data = download(profile["info_zip_url"], timeout=120)
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for member in archive.namelist():
             if member.endswith(".info"):
                 with (Path(info_dir) / Path(member).name).open("wb") as handle:
                     handle.write(archive.read(member))
+
+
+def download(url, timeout):
+    """Return the body at url, or exit naming it: the downloads run before the device is touched."""
+    print(f"  fetch {url}")
+    try:
+        # The url comes from the operator's own profile.yml.
+        with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310
+            return response.read()
+    except urllib.error.HTTPError as error:
+        reason = f"HTTP {error.code} {error.reason}"
+    except urllib.error.URLError as error:
+        reason = str(error.reason)
+    except TimeoutError:
+        reason = f"timed out after {timeout}s"
+    sys.exit(f"{url}: download failed ({reason}). Nothing on the device was changed; re-run to retry.")
 
 
 def io_bytes(data):
@@ -568,11 +583,7 @@ def fetch_shaders(shaders, shader_dir):
     pack is a several-minute transfer of shaders nothing here selects. Installing the rest in-app later is
     additive, and the push (like BIOS) never prunes, so it survives the next sync.
     """
-    url = shaders["zip_url"]
-    print(f"  fetch {url}")
-    # The url comes from the operator's own profile.yml.
-    with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310
-        data = response.read()
+    data = download(shaders["zip_url"], timeout=300)
     with zipfile.ZipFile(io_bytes(data)) as archive:
         for path in sorted(resolve_preset(archive, shaders["preset"])):
             target = Path(shader_dir).joinpath(*path.split("/"))
@@ -738,10 +749,18 @@ def device_file_sizes(device, root):
     return sizes
 
 
+def raise_error(error):
+    raise error
+
+
 def local_file_sizes(src):
-    """Map every file under a local directory to its size in bytes, matching device_file_sizes."""
+    """Map every file under a local directory to its size in bytes, matching device_file_sizes.
+
+    A directory that cannot be listed raises rather than reading as empty: the map decides what
+    the prune deletes, so a silently missing subtree would be deleted from the device.
+    """
     files = {}
-    for dirpath, _, names in os.walk(src):
+    for dirpath, _, names in os.walk(src, onerror=raise_error):
         rel = os.path.relpath(dirpath, src)
         for name in names:
             # posixpath: the key is compared with a device-relative one.
@@ -754,6 +773,17 @@ def local_file_sizes(src):
                 # errors). Leaving it out of the map also keeps the prune off a phantom.
                 print(f"  skip unreadable {key}: {error}", file=sys.stderr)
     return files
+
+
+def empty_source_refusal(src, wanted, doomed):
+    """Why a prune must not run, or None: a source listing nothing while the device holds files.
+
+    An unmounted or emptied library reads as a directory with no files, and pruning against it
+    would delete the whole device tree.
+    """
+    if wanted or not doomed:
+        return None
+    return f"  not pruning: {src} lists no files but the device holds {len(doomed)}. Delete them by hand if intended."
 
 
 def mirror_roms(device, library_dir, roms_root, rom_dir_names):
@@ -785,9 +815,13 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             device.mkdirs(dst)
             wanted = local_file_sizes(src)
             have = device_file_sizes(device, dst)
-            for rel in have:
-                if posixpath.basename(rel) in PRESERVE_IN_ROMS or rel in wanted:
-                    continue
+            doomed = [rel for rel in have if posixpath.basename(rel) not in PRESERVE_IN_ROMS and rel not in wanted]
+            refusal = empty_source_refusal(src, wanted, doomed)
+            if refusal:
+                print(refusal, file=sys.stderr)
+                failed.append(dev_name)
+                continue
+            for rel in doomed:
                 device.rm(f"{dst}/{rel}")
             need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
             if need:
@@ -808,11 +842,14 @@ def mirror_roms(device, library_dir, roms_root, rom_dir_names):
             ok = True
         except subprocess.CalledProcessError:
             ok = False
+        except OSError as error:
+            print(f"  cannot read {src}: {error}", file=sys.stderr)
+            ok = False
         if not ok:
             failed.append(dev_name)
     if failed:
         sys.exit(
-            f"{len(failed)} system(s) did not fully mirror (transfer errors). Re-run to resume "
+            f"{len(failed)} system(s) did not fully mirror (transfer or read errors). Re-run to resume "
             f"(it pushes only the files missing or a different size on the device): "
             f"{', '.join(failed)}"
         )
@@ -834,9 +871,12 @@ def sync_tree(device, src, root, prune):
     wanted = local_file_sizes(src)
     have = device_file_sizes(device, root)
     if prune:
-        for rel in have:
-            if rel not in wanted:
-                device.rm(f"{root}/{rel}")
+        doomed = [rel for rel in have if rel not in wanted]
+        refusal = empty_source_refusal(src, wanted, doomed)
+        if refusal:
+            raise SystemExit(refusal)
+        for rel in doomed:
+            device.rm(f"{root}/{rel}")
     need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
     if need:
         print(f"  {len(need)} file(s) to push")
@@ -907,9 +947,10 @@ def isolated(failed, name):
     """Run one device section, recording a failure in failed rather than aborting the run.
 
     Catches what a section raises once Device has spent its retries: CalledProcessError from a
-    write, and SystemExit from a read that cannot tell a dropped connection from an absent file (or
-    from mirror_roms naming the systems it could not finish). Either stops that section only; the
-    sections after it do not depend on it and still run, and main exits non-zero at the end.
+    write, SystemExit from a read that cannot tell a dropped connection from an absent file (or
+    from mirror_roms naming the systems it could not finish, or from a refused prune), and OSError
+    from a local directory that cannot be listed. Each stops that section only; the sections after it
+    do not depend on it and still run, and main exits non-zero at the end.
     """
     try:
         yield
@@ -920,6 +961,9 @@ def isolated(failed, name):
     except SystemExit as error:
         failed.append(name)
         print(f"ERROR: {name}: {error.code}; continuing.", file=sys.stderr)
+    except OSError as error:
+        failed.append(name)
+        print(f"ERROR: {name}: {error}; continuing.", file=sys.stderr)
 
 
 def main():
@@ -1016,26 +1060,6 @@ def main():
             "in it? clear it to discover the card at run time).".format(ctx["sdcard_root"], args.profile)
         )
 
-    # Stop the apps that persist state on exit before writing anything they own, so neither RetroArch
-    # (retroarch.cfg) nor ES-DE (gamelist.xml) overwrites the pushed result.
-    if online:
-        device.stop_app(profile["package"])
-        device.stop_app(profile["esde_package"])
-
-    # The directory keys can only be resolved once the sdcard uuid is known, so they are folded into
-    # the managed settings here rather than in build_model.
-    for key, name in profile["directory_settings"].items():
-        model["settings"][key] = dirs[name]
-
-    cfg_path = discover_cfg(device, ctx) if online else "{}/retroarch.cfg".format(ctx["app_files"])
-    existing_cfg = device.pull_text(cfg_path) if online else None
-    config_dir = override_config_dir(existing_cfg, cfg_path)
-    cores_ref = profile["cores_ref"].format(package=profile["package"])
-
-    print("Device sdcard: {}".format(ctx["sdcard_root"]))
-    print(f"retroarch.cfg: {cfg_path}")
-    print(f"overrides:     {config_dir}")
-
     staging = tempfile.mkdtemp(prefix="retroid-sync-")
     # Kept when the config push is refused, the warning naming it as what to copy in by hand.
     keep_staging = False
@@ -1048,22 +1072,44 @@ def main():
         shader_stage = Path(staging) / "shaders"
         shaders = profile.get("shaders") or {}
 
-        # .info drives the generator's extension validation. Best-effort in a dry run (no
-        # network): fall back to the host's flatpak info set. Cores are neither fetched nor
-        # pushed; cores_ref points playlists at the app-private dir the Core Updater fills.
+        # The network downloads run before the apps are stopped, so a failed one exits with the
+        # operator's game still running. Neither is fetched in a dry run (no network).
+        #
+        # .info drives the generator's extension validation; a dry run falls back to the host's
+        # flatpak info set. Cores are neither fetched nor pushed; cores_ref points playlists at the
+        # app-private dir the Core Updater fills.
         if not args.dry_run:
             section("Fetching core info")
             fetch_info(profile, info_dir)
         if not info_dir.is_dir():
             info_dir = host_info_dir()
 
-        # Fetched here for the same reason as the .info set (network, so not in a dry run),
-        # pushed with the other sdcard trees below. The per-core presets are staged either way,
-        # so --dry-run still shows which cores get a shader and which are pinned to a driver
-        # that cannot.
+        # Pushed with the other sdcard trees below. The per-core presets are staged either way, so
+        # --dry-run still shows which cores get a shader and which are pinned to a driver that
+        # cannot.
         if shaders and not args.skip_shaders and not args.dry_run:
             section("Fetching shaders")
             fetch_shaders(shaders, shader_stage)
+
+        # Stop the apps that persist state on exit before reading or writing anything they own, so
+        # neither RetroArch (retroarch.cfg) nor ES-DE (gamelist.xml) overwrites the pushed result.
+        if online:
+            device.stop_app(profile["package"])
+            device.stop_app(profile["esde_package"])
+
+        # The directory keys can only be resolved once the sdcard uuid is known, so they are folded
+        # into the managed settings here rather than in build_model.
+        for key, name in profile["directory_settings"].items():
+            model["settings"][key] = dirs[name]
+
+        cfg_path = discover_cfg(device, ctx) if online else "{}/retroarch.cfg".format(ctx["app_files"])
+        existing_cfg = device.pull_text(cfg_path) if online else None
+        config_dir = override_config_dir(existing_cfg, cfg_path)
+        cores_ref = profile["cores_ref"].format(package=profile["package"])
+
+        print("\nDevice sdcard: {}".format(ctx["sdcard_root"]))
+        print(f"retroarch.cfg: {cfg_path}")
+        print(f"overrides:     {config_dir}")
 
         section("Generating playlists")
         generate_playlists(model, args.library_dir, dirs, profile, cores_ref, info_dir, playlist_dir)

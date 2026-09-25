@@ -84,6 +84,10 @@ REGIONS = frozenset(
 # Sized for the largest directory listing, the slowest request this makes.
 TIMEOUT = 60
 
+# A 200 whose body is not an image (a CDN or proxy error page) would otherwise be cached as a
+# thumbnail and, existing, never fetched again.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 WORKERS = 8
 
 # One reused connection per worker thread, plus the requests that went unanswered. Process-wide
@@ -184,6 +188,8 @@ def fetch(path):
                     raise http.client.HTTPException(f"HTTP {response.status}")
                 if response.getheader("Content-Encoding") == "gzip":
                     body = gzip.decompress(body)
+                if path.endswith(".png") and not body.startswith(PNG_SIGNATURE):
+                    raise http.client.HTTPException("HTTP 200, but not a PNG")
                 return body
         except (http.client.HTTPException, OSError) as error:
             connection.close()

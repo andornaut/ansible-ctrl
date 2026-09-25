@@ -19,8 +19,7 @@ covers running them by hand.
 
 | Constraint                | Detail                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime order             | probe, then generate, then fetch. `gen-fbneo-arcade-names.py` is a maintenance script: run it by hand when fbneo adds games and commit the regenerated JSON                                                                                                                                                                               |
-| Playlist pruning          | The generator removes the playlists of systems no longer in the table, but only ones it can prove it wrote                                                                                                                                                                                                                                |
+| Runtime order             | probe, then generate, then fetch. Rerun `gen-fbneo-arcade-names.py` when fbneo adds games                                                                                                                                                                                                                                                 |
 | Writes to the ROM library | Only the thumbnail fetcher, into the shared `_Thumbnails` cache. Run it on the host whose mount is writable; the other hosts read the cache                                                                                                                                                                                               |
 | Probe inside the sandbox  | `retroarch-probe-cores.py` must run inside the flatpak sandbox, where RetroArch loads the cores. It `dlopen`s each one, and a core needing a library only the runtime carries (LRPS2 needs `libaio`) does not load on the host. A core that does not load in the sandbox either is a broken build: the script exits non-zero and names it |
 | Handheld playlists        | [`retroid/syncretroid.py`](retroid/syncretroid.py) also drives playlist generation, against a different mount layout, then copies the desktop's thumbnail cache over `adb` instead of fetching. The examples below are the desktop invocation                                                                                             |
@@ -92,7 +91,7 @@ LUTRIS_REGISTER_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'",
   flatpak run --command=python3 net.lutris.Lutris - < lutris-register-game.py
 ```
 
-`lutris-launch-game.py` runs on the **host**, not in the sandbox (`../README.md` says why). The role installs it
+`lutris-launch-game.py` runs on the **host**, not in the sandbox (its module docstring says why). The role installs it
 to `/usr/local/bin/lutris-launch-game` and the desktop entry runs it in place of `flatpak run`. It logs every
 decision to stderr and to `~/.local/state/lutris-launch-game/<slug>.log`.
 
