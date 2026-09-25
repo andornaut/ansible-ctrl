@@ -34,12 +34,11 @@
 - name: Install hyprwayland-scanner
   tags: [hyprwayland-scanner]
   block:
-    # Builds as root, and takes cmake's default target.
+    # Takes cmake's default target.
     - name: Build and install hyprwayland-scanner
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:
         hypr_component_name: hyprwayland-scanner
-        hypr_component_build_become: true
 
 - name: Install hypridle
   tags: [hypridle]

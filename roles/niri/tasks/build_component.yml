@@ -10,13 +10,10 @@
 #   build_component_build_cmd (str): may interpolate $(...), so it runs in a shell
 #   build_component_install_cmd (str): runs as root
 #
-# Optional vars:
-#   build_component_build_become (bool): build as root, default false.
-#
 # Callers must wrap the include in a tagged block (see hypr.yml).
-# Staged as niri_user, not root and not the connecting account: the build below is
-# unprivileged unless a caller asks otherwise, and a root-owned 0700 staging directory is
-# one it cannot chdir into. The install and the cleanup name root for themselves.
+# Staged and built as niri_user, not root and not the connecting account: only the install
+# needs root, and a root-owned 0700 staging directory is one the build cannot chdir into.
+# The install and the cleanup name root for themselves.
 #
 # gcc-14 for the hypr stack's C++, named to the build rather than made the host's default,
 # which would also change the compiler DKMS builds kernel modules with.
@@ -52,16 +49,11 @@
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
 
-    # Escalates either way, naming the account rather than leaving it to the connection:
-    # a bare `become: false` here would outrank the block and hand the build to whoever
-    # ansible connected as, which cannot chdir into a 0700 directory niri_user owns.
     - name: Build {{ build_component_name }} # noqa: command-instead-of-shell
       ansible.builtin.shell:
         cmd: "{{ build_component_build_cmd }}"
         chdir: "{{ niri_build_component_tmp.path }}"
       changed_when: true
-      become: true
-      become_user: "{{ 'root' if build_component_build_become | default(false) | bool else niri_user }}"
 
     - name: Install {{ build_component_name }}
       ansible.builtin.command:
@@ -78,7 +70,8 @@
       become: true
       become_user: root
   always:
-    # A root build leaves root-owned directories niri_user cannot unlink.
+    # The install writes into the build tree as root (install_manifest.txt), leaving files
+    # niri_user cannot unlink.
     - name: Remove the temporary directory for {{ build_component_name }}
       ansible.builtin.file:
         path: "{{ niri_build_component_tmp.path }}"

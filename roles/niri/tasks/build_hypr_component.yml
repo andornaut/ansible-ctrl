@@ -8,7 +8,6 @@
 #
 # Optional vars:
 #   hypr_component_build_target (str): passed to `cmake --build --target`. Omit for default.
-#   hypr_component_build_become (bool): build as root, default false.
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
 - name: Get latest release of {{ hypr_component_name }}
@@ -43,4 +42,3 @@
       {{ '--target ' ~ hypr_component_build_target
          if hypr_component_build_target | default('') else '' }}
     build_component_install_cmd: cmake --install build
-    build_component_build_become: "{{ hypr_component_build_become | default(false) }}"

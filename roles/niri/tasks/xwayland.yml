@@ -49,54 +49,22 @@
 
     - name: Build xwayland-satellite
       ansible.builtin.command:
-        cmd: cargo build --release -F systemd
+        cmd: cargo build --release
         chdir: "{{ niri_xwayland_tmp.path }}"
       changed_when: true
 
-    - name: Configure xwayland-satellite.service
-      community.general.ini_file:
-        no_extra_spaces: true
-        path: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
-        section: Service
-        option: "{{ item.option }}"
-        value: "{{ item.value }}"
-        mode: "0644"
-      loop:
-        - option: ExecStart
-          value: /usr/local/bin/xwayland-satellite
-        - option: Environment
-          value: DISPLAY=:0
-
-    # The binary is under /usr/local, so its unit belongs here.
-    - name: Create the local systemd user unit directory
-      ansible.builtin.file:
-        path: /usr/local/lib/systemd/user
-        state: directory
-        mode: "0755"
-      become: true
-      become_user: root
-
-    - name: Copy xwayland-satellite files
+    # niri starts it from $PATH when an X11 client first connects, and sets DISPLAY for the
+    # session, so it has no unit of its own.
+    - name: Copy xwayland-satellite
       # --check skips the build, so there is no output to install from.
       when: not ansible_check_mode
       ansible.builtin.copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
+        src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
+        dest: /usr/local/bin/
         remote_src: true
-        mode: "{{ item.mode | default('0644') }}"
-      loop:
-        - src: "{{ niri_xwayland_tmp.path }}/resources/xwayland-satellite.service"
-          dest: /usr/local/lib/systemd/user/
-        - src: "{{ niri_xwayland_tmp.path }}/target/release/xwayland-satellite"
-          dest: /usr/local/bin/
-          mode: "0755"
+        mode: "0755"
       become: true
       become_user: root
-
-    - name: Enable and start xwayland-satellite.service
-      ansible.builtin.include_tasks: enable_user_unit.yml
-      vars:
-        niri_enable_unit: xwayland-satellite.service
   always:
     - name: Remove the temporary directory for xwayland-satellite
       ansible.builtin.file:
@@ -107,3 +75,37 @@
       become_user: root
       # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
       check_mode: false
+
+# CLEANUP (added 2026-09-24): the xwayland-satellite user unit this role installed and
+# enabled, which binds the display niri already holds for its own xwayland-satellite. Files
+# only: a running instance keeps its session until logout. Delete once every niri host has
+# converged.
+- name: Remove the xwayland-satellite user unit
+  tags: [xwayland]
+  block:
+    - name: Find the xwayland-satellite.service enable links
+      ansible.builtin.find:
+        paths: "{{ niri_user_home }}/.config/systemd/user"
+        patterns: xwayland-satellite.service
+        file_type: link
+        recurse: true
+      register: niri_xwayland_unit_links
+      when: niri_user_home_mounted | bool
+      become: true
+      become_user: "{{ niri_user }}"
+
+    - name: Remove the xwayland-satellite.service enable links
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ niri_xwayland_unit_links.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path }}"
+      become: true
+      become_user: "{{ niri_user }}"
+
+    - name: Remove xwayland-satellite.service
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/user/xwayland-satellite.service
+        state: absent
+      become: true

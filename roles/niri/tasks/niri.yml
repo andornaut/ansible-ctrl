@@ -109,12 +109,12 @@
       become: true
       become_user: root
 
-    - name: Configure electron flags for Wayland
-      ansible.builtin.lineinfile:
+    # CLEANUP (added 2026-09-24): a flags file only Arch's electron wrappers read, which
+    # Ubuntu's packages and the flatpaks never do. Delete once every niri host has converged.
+    - name: Remove electron-flags.conf
+      ansible.builtin.file:
         path: "{{ niri_user_home }}/.config/electron-flags.conf"
-        line: "--ozone-platform-hint=auto"
-        create: true
-        mode: "0644"
+        state: absent
       when: niri_user_home_mounted | bool
   always:
     - name: Remove the temporary directory
