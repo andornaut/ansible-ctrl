@@ -47,10 +47,16 @@
       delay: 5
       until: niri_xwayland_download is succeeded
 
+    # The remaps keep the random build directory out of the binary, so an unchanged
+    # release installs byte-identical and the copy below reports no change.
     - name: Build xwayland-satellite
       ansible.builtin.command:
         cmd: cargo build --release
         chdir: "{{ niri_xwayland_tmp.path }}"
+      environment:
+        RUSTFLAGS: >-
+          --remap-path-prefix={{ niri_xwayland_tmp.path }}=/build
+          --remap-path-prefix={{ niri_user_home }}/.cargo=/cargo
       changed_when: true
 
     # niri starts it from $PATH when an X11 client first connects, and sets DISPLAY for the
