@@ -6,6 +6,14 @@
     dev_cli_bin: claude
     dev_cli_url: https://claude.ai/install.sh
 
+- name: Install dependencies for Claude Code sandbox mode
+  ansible.builtin.apt:
+    name:
+      - bubblewrap
+      - socat
+    state: latest
+  become: true
+
 # shell, not command: `command -v` is a builtin with no binary to exec.
 - name: Check for VS Code
   # Reads system state and needs no privilege, so it runs as the connecting account.
