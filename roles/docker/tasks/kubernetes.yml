@@ -2,22 +2,13 @@
 - name: Install Kubernetes tools
   become: true
   block:
-    # /releases/latest: /releases is date-ordered, so its first entry can be a
-    # patch of an older branch.
+    # /releases/latest, not release_stable: /releases is date-ordered, so its first
+    # entry can be a patch of an older branch.
     - name: Get latest helm release
-      ansible.builtin.uri:
-        url: https://api.github.com/repos/helm/helm/releases/latest
-        return_content: true
-      register: docker_helm_release
-      retries: 3
-      delay: 5
-      # Retry network errors and 5xx only; 4xx is deterministic.
-      until: >-
-        docker_helm_release.status == 200 or
-        (docker_helm_release.status >= 400 and docker_helm_release.status < 500)
-      # uri supports no check mode, so a --check run would skip this and leave the
-      # register undefined for every task that templates it. The request only reads.
-      check_mode: false
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+      vars:
+        release_repo: helm/helm
+        release_fact: docker_helm_release
 
     # unarchive has no version short circuit, so gate on the installed version.
     # `helm version --short` prints e.g. "v3.16.2+g13654a5".
@@ -34,10 +25,10 @@
     # Fetched into a temporary directory first: unarchive takes no checksum, and helm
     # publishes a .sha256sum beside each tarball.
     - name: Install helm binary
-      when: docker_helm_release.json.tag_name not in docker_helm_installed.stdout
+      when: docker_helm_release.tag_name not in docker_helm_installed.stdout
       vars:
         docker_helm_url: >-
-          https://get.helm.sh/helm-{{ docker_helm_release.json.tag_name }}-linux-{{ docker_arch }}.tar.gz
+          https://get.helm.sh/helm-{{ docker_helm_release.tag_name }}-linux-{{ docker_arch }}.tar.gz
       block:
         - name: Create a temporary directory for helm
           ansible.builtin.tempfile:
