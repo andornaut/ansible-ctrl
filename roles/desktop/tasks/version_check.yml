@@ -1,0 +1,21 @@
+---
+# Whether an installed program is older than a release: sets desktop_version_check_fact to
+# true when desktop_version_check_tag, its leading v stripped, is not among the versions
+# desktop_version_check_command prints. Both streams are read, some programs printing their
+# version to stderr, and a missing program reads as outdated. Runs under --check too, the
+# install that follows branching on it.
+- name: Run {{ desktop_version_check_command | join(' ') }}
+  ansible.builtin.command:
+    argv: "{{ desktop_version_check_command }}"
+  register: desktop_version_check_output
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: false
+
+- name: Record the outdated state of {{ desktop_version_check_command | first }}
+  ansible.builtin.set_fact:
+    "{{ desktop_version_check_fact }}": >-
+      {{ desktop_version_check_tag | regex_replace('^v', '')
+         not in (desktop_version_check_output.stdout | default('') ~ desktop_version_check_output.stderr | default(''))
+         | regex_findall('[0-9]+(?:[.][0-9A-Za-z+~-]+)+') }}

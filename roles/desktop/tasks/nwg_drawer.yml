@@ -37,10 +37,25 @@
     update_cache: true
   become: true
 
+- name: Get latest nwg-drawer release
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+  vars:
+    release_repo: nwg-piotr/nwg-drawer
+    release_fact: desktop_nwg_drawer_release
+
+# Prints "nwg-drawer version 0.7.5", the tag without its v.
+- name: Check the installed nwg-drawer version
+  ansible.builtin.include_tasks: version_check.yml
+  vars:
+    desktop_version_check_command: [/usr/local/bin/nwg-drawer, -v]
+    desktop_version_check_tag: "{{ desktop_nwg_drawer_release.tag_name }}"
+    desktop_version_check_fact: desktop_nwg_drawer_outdated
+
 # The download and the build run as the account whose Go module cache holds the
 # dependencies. become_user propagates into the block, so the tasks that need root name
 # it back: a bare become: true would inherit this user and fail.
 - name: Build and install nwg-drawer
+  when: desktop_nwg_drawer_outdated | bool
   become: true
   become_user: "{{ desktop_user }}"
   block:
@@ -49,12 +64,6 @@
         state: directory
       register: desktop_nwg_drawer_tmp
       check_mode: false
-
-    - name: Get latest nwg-drawer release
-      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-      vars:
-        release_repo: nwg-piotr/nwg-drawer
-        release_fact: desktop_nwg_drawer_release
 
     # The release publishes no assets, so the tag's source archive is the download.
     - name: Download and unarchive nwg-drawer

@@ -40,7 +40,15 @@
         path: /usr/lib/insync/libwayland-client.so.0
         state: absent
 
-    - name: Write insync.desktop with Wayland compatibility fix
+    - name: Create the local applications directory
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: "0755"
+
+    # Same desktop id, resolved through XDG_DATA_DIRS, which ranks /usr/local/share first, so
+    # it shadows the packaged entry without editing a file dpkg restores on every upgrade.
+    - name: Shadow insync.desktop with the Wayland compatibility fix
       ansible.builtin.copy:
         content: |
           [Desktop Entry]
@@ -55,5 +63,7 @@
           Exec=insync start --qt-qpa-platform=xcb
           TryExec=insync
           Terminal=false
-        dest: /usr/share/applications/insync.desktop
+        dest: /usr/local/share/applications/insync.desktop
         mode: "0644"
+        owner: root
+        group: root

@@ -9,7 +9,6 @@
     path: "{{ desktop_user_home }}/.config/systemd/user/{{ desktop_enable_unit_wanted_by }}.wants"
     state: directory
     mode: "0755"
-  when: desktop_user_home_mounted | bool
   become: true
   become_user: "{{ desktop_user }}"
 
@@ -24,7 +23,6 @@
     # no-op under --check. force skips that test, so a dry run reports the missing symlink
     # instead of failing; a real run always has the unit, installed before this is called.
     force: true
-  when: desktop_user_home_mounted | bool
   become: true
   become_user: "{{ desktop_user }}"
 

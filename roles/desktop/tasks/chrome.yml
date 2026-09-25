@@ -17,7 +17,7 @@
 
 - name: Install Google Chrome
   ansible.builtin.package:
-    deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    deb: "https://dl.google.com/linux/direct/google-chrome-stable_current_{{ desktop_arch }}.deb"
   become: true
   when: "'ok installed' not in desktop_chrome_check.stdout"
 

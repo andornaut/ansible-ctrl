@@ -42,9 +42,10 @@
         install_recommends: false
 
     # CLEANUP (added 2026-07-09): drop this, the three below and the filter compilation once
-    # malcontent's postinst creates its own users. It ships sysusers.d declarations but never
-    # runs systemd-sysusers, so its daemons die 217/USER. check_mode: false, the tasks below
-    # branching on this rc.
+    # every host with parental controls has malcontent >= 0.14.0-0ubuntu1.2, whose postinst
+    # creates its own users: https://bugs.launchpad.net/ubuntu/+source/malcontent/+bug/2162116
+    # Before it, the package ships sysusers.d declarations but never runs systemd-sysusers, so
+    # its daemons die 217/USER. check_mode: false, the tasks below branching on this rc.
     # The account names come from /usr/lib/sysusers.d and are not all derivable from the
     # unit names: malcontent-timer-extension-agent runs as malcontent-timer-ext-agent.
     - name: Check whether the malcontent service users exist

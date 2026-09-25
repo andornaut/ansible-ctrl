@@ -1,7 +1,6 @@
 ---
 # After chrome.yml, flatpak.yml and firefox.yml, so every candidate .desktop exists.
 - name: Configure the default browser for {{ desktop_user }}
-  when: desktop_user_home_mounted | bool
   become: true
   become_user: "{{ desktop_user }}"
   environment:

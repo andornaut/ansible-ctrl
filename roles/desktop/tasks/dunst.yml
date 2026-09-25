@@ -17,10 +17,29 @@
     update_cache: true
   become: true
 
+- name: Get latest dunst release
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+  vars:
+    release_repo: dunst-project/dunst
+    release_fact: desktop_dunst_release
+
+- name: Set dunst version fact
+  ansible.builtin.set_fact:
+    desktop_dunst_version: "{{ desktop_dunst_release.tag_name }}"
+
+# Prints "... notification-daemon 1.13.2 (<date>)", the tag without its v.
+- name: Check the installed dunst version
+  ansible.builtin.include_tasks: version_check.yml
+  vars:
+    desktop_version_check_command: [/usr/local/bin/dunst, --version]
+    desktop_version_check_tag: "{{ desktop_dunst_version }}"
+    desktop_version_check_fact: desktop_dunst_outdated
+
 # The download and the build run as desktop_user, so the release's Makefile never runs as
 # root before its install step. become_user propagates into the block, so the tasks that need
 # root name it back: a bare become: true would inherit this user and fail.
 - name: Build and install dunst
+  when: desktop_dunst_outdated | bool
   become: true
   become_user: "{{ desktop_user }}"
   block:
@@ -29,16 +48,6 @@
         state: directory
       register: desktop_dunst_tmp
       check_mode: false
-
-    - name: Get latest dunst release
-      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-      vars:
-        release_repo: dunst-project/dunst
-        release_fact: desktop_dunst_release
-
-    - name: Set dunst version fact
-      ansible.builtin.set_fact:
-        desktop_dunst_version: "{{ desktop_dunst_release.tag_name }}"
 
     - name: Download and unarchive dunst
       ansible.builtin.unarchive:

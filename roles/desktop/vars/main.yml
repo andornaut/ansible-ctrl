@@ -72,8 +72,17 @@ desktop_xss_lock_autostart: "{{ desktop_user_home }}/.config/autostart/xss-lock.
 desktop_xsecurelock_session: /usr/local/bin/xsecurelock-session
 desktop_logind_idle_action_conf: /etc/systemd/logind.conf.d/50-desktop-idle-action.conf
 
+# The Debian name, from the kernel's; selects the Google Chrome and LACT packages.
+desktop_arch: >-
+  {{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}
+
 # Zig uses the kernel architecture names, so no mapping to Debian's is needed.
 desktop_zig_platform: "{{ ansible_facts['architecture'] }}-linux"
+
+# lemurs names its release asset by Rust target triple, which leads with the kernel's name
+# rather than Debian's, so desktop_arch does not serve here. lemurs.yml asserts the release
+# has one for this host.
+desktop_lemurs_target: "{{ ansible_facts['architecture'] }}-unknown-linux-gnu"
 
 # The optional applications, each keyed to the flag it answers to. The IDs sit here rather than
 # in host_vars, so a host names a decision and the role keeps the list.

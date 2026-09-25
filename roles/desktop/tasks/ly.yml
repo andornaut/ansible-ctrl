@@ -1,185 +1,198 @@
 ---
 - name: Install and configure ly display manager
   block:
-    - name: Prepare build environment
+    - name: Get latest ly release
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+      vars:
+        release_repo: fairyglade/ly
+        release_fact: desktop_ly_release
+        release_api_base: https://codeberg.org/api/v1/repos
+
+    # Prints "Ly version 1.4.1", the tag without its v, to stderr. installnoconf installs to
+    # /usr/bin.
+    - name: Check the installed ly version
+      ansible.builtin.include_tasks: version_check.yml
+      vars:
+        desktop_version_check_command: [/usr/bin/ly, --version]
+        desktop_version_check_tag: "{{ desktop_ly_release.tag_name }}"
+        desktop_version_check_fact: desktop_ly_outdated
+
+    # The zig toolchain is fetched only for a build, so a converged host downloads neither.
+    - name: Build and install ly
+      when: desktop_ly_outdated | bool
       block:
-        - name: Install ly's build dependencies
-          ansible.builtin.apt:
-            name:
-              - build-essential
-              - libpam0g-dev
-              - libxcb-xkb-dev
-              # Extracts the .zip source archive (see "Download and unarchive ly").
-              - unzip
-            state: latest
-            install_recommends: false
-            update_cache: true
-          become: true
-
-        - name: Set up zig compiler
-          become: true
+        - name: Prepare build environment
           block:
-            - name: Get zig versions
-              ansible.builtin.uri:
-                url: https://ziglang.org/download/index.json
-                return_content: true
-              register: desktop_zig_versions
-              # uri supports no check mode, so a --check run would skip this and leave the
-              # register undefined for every task that templates it. The request only reads.
-              check_mode: false
-              retries: 3
-              delay: 5
-              # Retry network errors and 5xx only; 4xx is deterministic.
-              until: >-
-                desktop_zig_versions.status == 200 or
-                (desktop_zig_versions.status >= 400 and desktop_zig_versions.status < 500)
+            - name: Install ly's build dependencies
+              ansible.builtin.apt:
+                name:
+                  - build-essential
+                  - libpam0g-dev
+                  - libxcb-xkb-dev
+                  # Extracts the .zip source archive (see "Download and unarchive ly").
+                  - unzip
+                state: latest
+                install_recommends: false
+                update_cache: true
+              become: true
 
-            # ly requires zig v0.16.0+.
-            - name: Set zig version fact
-              ansible.builtin.set_fact:
-                desktop_zig_version: >-
-                  {{ desktop_zig_versions.json | dict2items
-                     | selectattr('key', 'match', '^\d+\.\d+\.\d+$')
-                     | map(attribute='key')
-                     | community.general.version_sort
-                     | last }}
+            - name: Set up zig compiler
+              become: true
+              block:
+                - name: Get zig versions
+                  ansible.builtin.uri:
+                    url: https://ziglang.org/download/index.json
+                    return_content: true
+                  register: desktop_zig_versions
+                  # uri supports no check mode, so a --check run would skip this and leave the
+                  # register undefined for every task that templates it. The request only reads.
+                  check_mode: false
+                  retries: 3
+                  delay: 5
+                  # Retry network errors and 5xx only; 4xx is deterministic.
+                  until: >-
+                    desktop_zig_versions.status == 200 or
+                    (desktop_zig_versions.status >= 400 and desktop_zig_versions.status < 500)
 
-            - name: Create a temporary directory for zig
+                # ly requires zig v0.16.0+.
+                - name: Set zig version fact
+                  ansible.builtin.set_fact:
+                    desktop_zig_version: >-
+                      {{ desktop_zig_versions.json | dict2items
+                         | selectattr('key', 'match', '^\d+\.\d+\.\d+$')
+                         | map(attribute='key')
+                         | community.general.version_sort
+                         | last }}
+
+                - name: Create a temporary directory for zig
+                  ansible.builtin.tempfile:
+                    state: directory
+                  register: desktop_zig_tmp
+                  check_mode: false
+
+                # ziglang.org asks tooling to use a community mirror. Mirrors host the
+                # tarball under its basename; verify against the origin's shasum.
+                - name: Download zig compiler archive
+                  ansible.builtin.get_url:
+                    url: "{{ desktop_zig_mirror }}/{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].tarball | basename }}"
+                    checksum: "sha256:{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].shasum }}"
+                    dest: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
+                    mode: "0644"
+                    timeout: 30
+                  register: desktop_zig_download
+                  # Into the temporary directory only. Under --check get_url fetches nothing,
+                  # which would leave the unarchive below no archive to read.
+                  check_mode: false
+                  retries: 3
+                  delay: 5
+                  until: desktop_zig_download is succeeded
+
+                - name: Create zig installation directory
+                  ansible.builtin.file:
+                    path: /opt/zig
+                    state: directory
+                    mode: "0755"
+
+                # Named, not left to the archive: extraction puts the recorded mode through
+                # the run's umask, and one that closes `other` leaves a toolchain only root
+                # can read. Capital X grants execute only where the archive already had it.
+                # Ownership is named for the same reason: extraction keeps the uid and gid
+                # the archive records.
+                - name: Install zig compiler
+                  ansible.builtin.unarchive:
+                    src: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
+                    dest: /opt/zig
+                    remote_src: true
+                    mode: u=rwX,go=rX
+                    owner: root
+                    group: root
+                    extra_opts:
+                      - --strip-components
+                      - 1
+                      - --overwrite
+              always:
+                - name: Remove the temporary directory for zig
+                  ansible.builtin.file:
+                    path: "{{ desktop_zig_tmp.path }}"
+                    state: absent
+                  when: desktop_zig_tmp.path is defined
+                  # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+                  check_mode: false
+
+        # The download and the compile run as desktop_user, zig fetching ly's dependencies in
+        # that step; only the install runs as root, reusing the compiled cache. Both caches sit in
+        # the temporary directory, so nothing lands in either account's home. become_user
+        # propagates into the block, so the tasks that need root name it back: a bare
+        # become: true would inherit this user and fail.
+        - name: Install ly display manager
+          become: true
+          become_user: "{{ desktop_user }}"
+          vars:
+            desktop_ly_zig_env:
+              ZIG_GLOBAL_CACHE_DIR: "{{ desktop_ly_tmp.path }}/zig-global-cache"
+              ZIG_LOCAL_CACHE_DIR: "{{ desktop_ly_tmp.path }}/zig-local-cache"
+          block:
+            - name: Create a temporary directory
               ansible.builtin.tempfile:
                 state: directory
-              register: desktop_zig_tmp
+              register: desktop_ly_tmp
               check_mode: false
 
-            # ziglang.org asks tooling to use a community mirror. Mirrors host the
-            # tarball under its basename; verify against the origin's shasum.
-            - name: Download zig compiler archive
+            # Codeberg's tarball_url returns HTTP 500, so fetch the .zip. Codeberg builds
+            # the archive on demand and can take ~30s; unarchive's remote_src fetch takes
+            # no timeout and gives up at 10s, so download separately with one that does.
+            - name: Download ly
               ansible.builtin.get_url:
-                url: "{{ desktop_zig_mirror }}/{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].tarball | basename }}"
-                checksum: "sha256:{{ desktop_zig_versions.json[desktop_zig_version][desktop_zig_platform].shasum }}"
-                dest: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
+                url: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
+                dest: "{{ desktop_ly_tmp.path }}/ly.zip"
                 mode: "0644"
-                timeout: 30
-              register: desktop_zig_download
-              # Into the temporary directory only. Under --check get_url fetches nothing,
-              # which would leave the unarchive below no archive to read.
+                timeout: 120
+              register: desktop_ly_download
+              # Into the temporary directory only, for the unarchive below (see zig's).
               check_mode: false
               retries: 3
               delay: 5
-              until: desktop_zig_download is succeeded
+              until: desktop_ly_download is succeeded
 
-            - name: Create zig installation directory
-              ansible.builtin.file:
-                path: /opt/zig
-                state: directory
-                mode: "0755"
-
-            # Named, not left to the archive: extraction puts the recorded mode through
-            # the run's umask, and one that closes `other` leaves a toolchain only root
-            # can read. Capital X grants execute only where the archive already had it.
-            # Ownership is named for the same reason: extraction keeps the uid and gid
-            # the archive records.
-            - name: Install zig compiler
+            # unzip has no --strip-components, so the build below chdirs into the wrapping ly/ dir.
+            # Under --check too: the compile below is skipped there, but only after its chdir,
+            # which fails on a directory this never extracted.
+            - name: Unarchive ly
               ansible.builtin.unarchive:
-                src: "{{ desktop_zig_tmp.path }}/zig.tar.xz"
-                dest: /opt/zig
+                src: "{{ desktop_ly_tmp.path }}/ly.zip"
+                dest: "{{ desktop_ly_tmp.path }}"
                 remote_src: true
-                mode: u=rwX,go=rX
-                owner: root
-                group: root
-                extra_opts:
-                  - --strip-components
-                  - 1
-                  - --overwrite
-          always:
-            - name: Remove the temporary directory for zig
-              ansible.builtin.file:
-                path: "{{ desktop_zig_tmp.path }}"
-                state: absent
-              when: desktop_zig_tmp.path is defined
-              # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
               check_mode: false
 
-    # The download and the compile run as desktop_user, zig fetching ly's dependencies in
-    # that step; only the install runs as root, reusing the compiled cache. Both caches sit in
-    # the temporary directory, so nothing lands in either account's home. become_user
-    # propagates into the block, so the tasks that need root name it back: a bare
-    # become: true would inherit this user and fail.
-    - name: Install ly display manager
-      become: true
-      become_user: "{{ desktop_user }}"
-      vars:
-        desktop_ly_zig_env:
-          ZIG_GLOBAL_CACHE_DIR: "{{ desktop_ly_tmp.path }}/zig-global-cache"
-          ZIG_LOCAL_CACHE_DIR: "{{ desktop_ly_tmp.path }}/zig-local-cache"
-      block:
-        - name: Create a temporary directory
-          ansible.builtin.tempfile:
-            state: directory
-          register: desktop_ly_tmp
-          check_mode: false
+            - name: Compile ly
+              ansible.builtin.command:
+                cmd: /opt/zig/zig build
+                chdir: "{{ desktop_ly_tmp.path }}/ly"
+              environment: "{{ desktop_ly_zig_env }}"
+              changed_when: true
 
-        - name: Get latest ly release
-          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-          vars:
-            release_repo: fairyglade/ly
-            release_fact: desktop_ly_release
-            release_api_base: https://codeberg.org/api/v1/repos
-
-        # Codeberg's tarball_url returns HTTP 500, so fetch the .zip. Codeberg builds
-        # the archive on demand and can take ~30s; unarchive's remote_src fetch takes
-        # no timeout and gives up at 10s, so download separately with one that does.
-        - name: Download ly
-          ansible.builtin.get_url:
-            url: "{{ desktop_ly_release.tarball_url | regex_replace('\\.tar\\.gz$', '.zip') }}"
-            dest: "{{ desktop_ly_tmp.path }}/ly.zip"
-            mode: "0644"
-            timeout: 120
-          register: desktop_ly_download
-          # Into the temporary directory only, for the unarchive below (see zig's).
-          check_mode: false
-          retries: 3
-          delay: 5
-          until: desktop_ly_download is succeeded
-
-        # unzip has no --strip-components, so the build below chdirs into the wrapping ly/ dir.
-        # Under --check too: the compile below is skipped there, but only after its chdir,
-        # which fails on a directory this never extracted.
-        - name: Unarchive ly
-          ansible.builtin.unarchive:
-            src: "{{ desktop_ly_tmp.path }}/ly.zip"
-            dest: "{{ desktop_ly_tmp.path }}"
-            remote_src: true
-          check_mode: false
-
-        - name: Compile ly
-          ansible.builtin.command:
-            cmd: /opt/zig/zig build
-            chdir: "{{ desktop_ly_tmp.path }}/ly"
-          environment: "{{ desktop_ly_zig_env }}"
-          changed_when: true
-
-        # The install step names no modes, so what it writes to /usr/bin, /etc/ly and the
-        # unit directory arrives at the run's umask. 022 rather than the login default
-        # of 002, root-owned system files having no reason to be group-writable.
-        - name: Install ly
-          ansible.builtin.shell:
-            cmd: umask 022 && /opt/zig/zig build installnoconf
-            chdir: "{{ desktop_ly_tmp.path }}/ly"
-          environment: "{{ desktop_ly_zig_env }}"
-          changed_when: true
-          become: true
-          become_user: root
-      always:
-        # Root: the install step leaves root-owned files in the caches.
-        - name: Remove the temporary directory
-          ansible.builtin.file:
-            path: "{{ desktop_ly_tmp.path }}"
-            state: absent
-          when: desktop_ly_tmp.path is defined
-          become: true
-          become_user: root
-          # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
-          check_mode: false
+            # The install step names no modes, so what it writes to /usr/bin, /etc/ly and the
+            # unit directory arrives at the run's umask. 022 rather than the login default
+            # of 002, root-owned system files having no reason to be group-writable.
+            - name: Install ly
+              ansible.builtin.shell:
+                cmd: umask 022 && /opt/zig/zig build installnoconf
+                chdir: "{{ desktop_ly_tmp.path }}/ly"
+              environment: "{{ desktop_ly_zig_env }}"
+              changed_when: true
+              become: true
+              become_user: root
+          always:
+            # Root: the install step leaves root-owned files in the caches.
+            - name: Remove the temporary directory
+              ansible.builtin.file:
+                path: "{{ desktop_ly_tmp.path }}"
+                state: absent
+              when: desktop_ly_tmp.path is defined
+              become: true
+              become_user: root
+              # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+              check_mode: false
 
     - name: Configure ly
       block:

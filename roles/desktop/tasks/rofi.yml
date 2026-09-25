@@ -38,10 +38,30 @@
     install_recommends: false
   become: true
 
+# Wayland fork: https://github.com/lbonn/rofi#wayland-support
+- name: Get latest rofi release
+  ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+  vars:
+    release_repo: lbonn/rofi
+    release_fact: desktop_rofi_release
+
+- name: Set rofi version fact
+  ansible.builtin.set_fact:
+    desktop_rofi_version: "{{ desktop_rofi_release.tag_name }}"
+
+# Prints "Version: 1.7.9+wayland1", the tag as it stands.
+- name: Check the installed rofi version
+  ansible.builtin.include_tasks: version_check.yml
+  vars:
+    desktop_version_check_command: [/usr/local/bin/rofi, -v]
+    desktop_version_check_tag: "{{ desktop_rofi_version }}"
+    desktop_version_check_fact: desktop_rofi_outdated
+
 # The download, configure and build run as desktop_user; only `ninja install` needs root.
 # become_user propagates into the block, so the tasks that need root name it back: a bare
 # become: true would inherit this user and fail.
 - name: Build and install rofi
+  when: desktop_rofi_outdated | bool
   become: true
   become_user: "{{ desktop_user }}"
   block:
@@ -50,17 +70,6 @@
         state: directory
       register: desktop_rofi_tmp
       check_mode: false
-
-    # Wayland fork: https://github.com/lbonn/rofi#wayland-support
-    - name: Get latest rofi release
-      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-      vars:
-        release_repo: lbonn/rofi
-        release_fact: desktop_rofi_release
-
-    - name: Set rofi version fact
-      ansible.builtin.set_fact:
-        desktop_rofi_version: "{{ desktop_rofi_release.tag_name }}"
 
     - name: Download and unarchive rofi
       ansible.builtin.unarchive:

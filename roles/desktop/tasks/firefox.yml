@@ -35,9 +35,7 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      when:
-        - desktop_firefox_flatpak_bin.rc == 0
-        - desktop_user_home_mounted | bool
+      when: desktop_firefox_flatpak_bin.rc == 0
 
     - name: Configure Firefox apt packages
       block:
@@ -120,7 +118,6 @@
       become: true
 
     - name: Install and configure Firefox flatpak for the target user
-      when: desktop_user_home_mounted | bool
       become: true
       become_user: "{{ desktop_user }}"
       block:
@@ -149,10 +146,20 @@
           changed_when: "'CHANGED' in desktop_flatpak_firefox_override.stdout"
 
 # Firefox's own print dialog sends no ColorModel for a colour job, so a queue whose PPD
-# defaults to Gray prints it grayscale. The system dialog sends one.
+# defaults to Gray prints it grayscale. The system dialog sends one. The parental controls
+# policies apply to every account on the host: policies.json has no per-user scope.
 - name: Configure Firefox policies
   when: desktop_install_firefox | bool
   become: true
+  vars:
+    desktop_firefox_policies:
+      UseSystemPrintDialog: true
+    # DoH resolves past nss-malcontent and the router's DNS filter alike.
+    desktop_firefox_family_policies:
+      DisablePrivateBrowsing: true
+      DNSOverHTTPS:
+        Enabled: false
+        Locked: true
   block:
     - name: Create Firefox policies directory
       ansible.builtin.file:
@@ -162,7 +169,10 @@
 
     - name: Deploy Firefox policies
       ansible.builtin.copy:
-        content: "{{ {'policies': {'UseSystemPrintDialog': true}} | to_nice_json }}\n"
+        content: |
+          {{ {'policies': desktop_firefox_policies
+               | combine(desktop_firefox_family_policies if desktop_install_parental_controls | bool else {})}
+             | to_nice_json }}
         dest: "{{ desktop_firefox_policies_dir }}/policies.json"
         mode: "0644"
 
@@ -178,9 +188,7 @@
         name: org.mozilla.firefox
         method: user
         state: absent
-      when:
-        - desktop_firefox_flatpak_bin.rc == 0
-        - desktop_user_home_mounted | bool
+      when: desktop_firefox_flatpak_bin.rc == 0
 
     - name: Remove Firefox apt package
       ansible.builtin.apt:

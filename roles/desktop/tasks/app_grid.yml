@@ -5,7 +5,6 @@
   when:
     - desktop_environment == "gnome"
     - desktop_app_grid_folders | length > 0
-    - desktop_user_home_mounted | bool
   become: true
   become_user: "{{ desktop_user }}"
   environment:

@@ -6,7 +6,6 @@
 # with one field changed, so the id, Exec and actions stay whatever the package ships on each
 # run; only the copies this role marks are pruned, so entries the account wrote itself stay.
 - name: Configure the desktop entry overrides
-  when: desktop_user_home_mounted | bool
   vars:
     desktop_app_entry_map: "{{ desktop_app_entry_overrides | combine(desktop_app_entry_overrides_extra) }}"
   become: true

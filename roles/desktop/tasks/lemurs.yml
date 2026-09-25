@@ -15,7 +15,37 @@
         update_cache: true
       become: true
 
+    - name: Get latest lemurs release
+      ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
+      vars:
+        release_repo: coastalwhite/lemurs
+        release_fact: desktop_lemurs_release
+
+    - name: Set lemurs version facts
+      ansible.builtin.set_fact:
+        desktop_lemurs_version: "{{ desktop_lemurs_release.tag_name }}"
+        desktop_lemurs_asset: "lemurs-{{ desktop_lemurs_target }}.tar.xz"
+
+    - name: Require a lemurs build for this architecture
+      ansible.builtin.assert:
+        that: desktop_lemurs_asset in (desktop_lemurs_release.assets | map(attribute='name'))
+        fail_msg: >-
+          lemurs {{ desktop_lemurs_version }} publishes no {{ desktop_lemurs_asset }} for
+          {{ ansible_facts['architecture'] }}. Set desktop_install_ly instead.
+        quiet: true
+
+    # Prints "0.4.0", the tag without its v. The configuration, unit and xsetup.sh are fetched
+    # from the same tag, so a new binary refetches them below rather than running against the
+    # previous release's.
+    - name: Check the installed lemurs version
+      ansible.builtin.include_tasks: version_check.yml
+      vars:
+        desktop_version_check_command: [/usr/local/bin/lemurs, --version]
+        desktop_version_check_tag: "{{ desktop_lemurs_version }}"
+        desktop_version_check_fact: desktop_lemurs_outdated
+
     - name: Install lemurs
+      when: desktop_lemurs_outdated | bool
       become: true
       block:
         - name: Create a temporary directory
@@ -24,21 +54,11 @@
           register: desktop_lemurs_tmp
           check_mode: false
 
-        - name: Get latest lemurs release
-          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-          vars:
-            release_repo: coastalwhite/lemurs
-            release_fact: desktop_lemurs_release
-
-        - name: Set lemurs version fact
-          ansible.builtin.set_fact:
-            desktop_lemurs_version: "{{ desktop_lemurs_release.tag_name }}"
-
         - name: Download lemurs binary
           ansible.builtin.get_url:
             url: >-
               https://github.com/coastalwhite/lemurs/releases/download/{{ desktop_lemurs_version
-              }}/lemurs-x86_64-unknown-linux-gnu.tar.xz
+              }}/{{ desktop_lemurs_asset }}
             dest: "{{ desktop_lemurs_tmp.path }}/lemurs.tar.xz"
             mode: "0644"
           register: desktop_lemurs_download
@@ -58,7 +78,7 @@
 
         - name: Install lemurs binary
           ansible.builtin.copy:
-            src: "{{ desktop_lemurs_tmp.path }}/lemurs-x86_64-unknown-linux-gnu/lemurs"
+            src: "{{ desktop_lemurs_tmp.path }}/lemurs-{{ desktop_lemurs_target }}/lemurs"
             dest: /usr/local/bin/lemurs
             mode: "0755"
             remote_src: true
@@ -71,6 +91,8 @@
           # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
           check_mode: false
 
+    # Fetched once and then left alone, force refetching each on a new binary only: the
+    # lineinfile edits below would otherwise be undone on every run.
     - name: Configure lemurs
       block:
         - name: Create lemurs configuration directory
@@ -85,6 +107,7 @@
             url: "https://raw.githubusercontent.com/coastalwhite/lemurs/{{ desktop_lemurs_version }}/extra/config.toml"
             dest: "/etc/lemurs/config.toml"
             mode: "0644"
+            force: "{{ desktop_lemurs_outdated | bool }}"
           register: desktop_lemurs_config_download
           retries: 3
           delay: 5
@@ -120,6 +143,7 @@
               }}/extra/lemurs.service
             dest: /usr/local/lib/systemd/system/lemurs.service
             mode: "0644"
+            force: "{{ desktop_lemurs_outdated | bool }}"
           register: desktop_lemurs_service_download
           retries: 3
           delay: 5
@@ -140,6 +164,7 @@
               }}/extra/xsetup.sh
             dest: /etc/lemurs/xsetup.sh
             mode: "0755"
+            force: "{{ desktop_lemurs_outdated | bool }}"
           register: desktop_lemurs_xsetup_download
           retries: 3
           delay: 5

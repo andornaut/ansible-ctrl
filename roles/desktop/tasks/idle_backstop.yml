@@ -166,17 +166,13 @@
       ansible.builtin.file:
         path: "{{ desktop_idle_backstop_wants }}"
         state: absent
-      when: desktop_user_home_mounted | bool
       become: true
       become_user: "{{ desktop_user }}"
 
-    # Gated with the symlink above, not separately: removing the unit while the symlink survives
-    # inside a locked home leaves the dangling link that comment warns about.
     - name: Remove the idle backstop service
       ansible.builtin.file:
         path: "{{ desktop_idle_backstop_unit }}"
         state: absent
-      when: desktop_user_home_mounted | bool
 
     - name: Remove the idle backstop command
       ansible.builtin.file:

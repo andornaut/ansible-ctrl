@@ -79,14 +79,12 @@
           ansible.builtin.file: # noqa: risky-file-permissions
             path: "{{ desktop_xss_lock_autostart | dirname }}"
             state: directory
-          when: desktop_user_home_mounted | bool
 
         - name: Install the xss-lock autostart entry
           ansible.builtin.template:
             src: xss-lock.desktop.j2
             dest: "{{ desktop_xss_lock_autostart }}"
             mode: "0644"
-          when: desktop_user_home_mounted | bool
 
 - name: Configure niri idle timeouts
   when: desktop_environment == "niri"
@@ -102,7 +100,6 @@
       ansible.builtin.file: # noqa: risky-file-permissions
         path: "{{ desktop_hypridle_conf | dirname }}"
         state: directory
-      when: desktop_user_home_mounted | bool
 
     # eww closes its windows when the monitor powers off, so the template reopens
     # the bar on resume: https://github.com/elkowar/eww/issues/477
@@ -113,7 +110,6 @@
         create: true
         mode: "0644"
       notify: Restart hypridle
-      when: desktop_user_home_mounted | bool
 
 # xss-lock sets the session idle hint at blank time; this drop-in tells logind what
 # to do about it. Unset writes nothing; 0 writes IdleAction=ignore.

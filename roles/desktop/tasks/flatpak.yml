@@ -32,7 +32,6 @@
       become: true
 
     - name: Install and configure flatpak applications for the target user
-      when: desktop_user_home_mounted | bool
       become: true
       become_user: "{{ desktop_user }}"
       block:

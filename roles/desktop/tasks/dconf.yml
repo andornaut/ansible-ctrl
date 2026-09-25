@@ -51,9 +51,7 @@
 
 # The Ubuntu Dock is an extension of the GNOME session, so this runs nowhere else.
 - name: Configure the Ubuntu Dock
-  when:
-    - desktop_environment == "gnome"
-    - desktop_user_home_mounted | bool
+  when: desktop_environment == "gnome"
   become: true
   become_user: "{{ desktop_user }}"
   environment:

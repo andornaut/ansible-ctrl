@@ -43,27 +43,21 @@
   become: true
   tags: always
 
-# getent answers with the home's path whether or not anything is mounted there, so without this a
-# run against a locked home writes the enable symlinks onto the mountpoint and reports changed;
-# the next login mounts over them and the unit is not enabled. Fails closed: with no mounts fact
-# an encrypted home counts as unmounted, so those tasks skip rather than write where the mount
-# will hide them.
-- name: Record whether the home is mounted for {{ desktop_user }}
-  ansible.builtin.set_fact:
-    desktop_user_home_mounted: >-
-      {{ (not desktop_user_home_ecryptfs.stat.exists)
-         or (desktop_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount') | list)) }}
-  tags: always
-
-- name: Report a locked home for {{ desktop_user }}
-  ansible.builtin.debug:
-    msg: >-
-      {{ desktop_user }}'s home is encrypted and {{ desktop_user_home }} is not mounted, so the
-      user units this role writes will not be enabled and the settings it writes into the home
-      will be skipped. Log in as {{ desktop_user }}, or run ecryptfs-mount-private there, and
-      re-run. If that account has no encrypted home any more, remove the stale
+# getent answers with the home's path whether or not anything is mounted there, so nothing
+# below would notice: a run against a locked home writes the enable symlinks, dconf databases
+# and dotfiles onto the mountpoint and reports changed, and the next login mounts over them.
+# `| default([])` fails closed: without the mounts fact an encrypted home counts as unmounted.
+- name: Require an encrypted home to be mounted for {{ desktop_user }}
+  ansible.builtin.assert:
+    that: desktop_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ desktop_user }}'s home is encrypted and {{ desktop_user_home }} is not mounted, so
+      this host is at its login screen or the home was never unlocked. Log in as
+      {{ desktop_user }}, or run ecryptfs-mount-private there, and re-run. If that account
+      has no encrypted home any more, remove the stale
       {{ desktop_user_home | dirname }}/.ecryptfs/{{ desktop_user }}, which is what this reads.
-  when: not desktop_user_home_mounted | bool
+    quiet: true
+  when: desktop_user_home_ecryptfs.stat.exists
   tags: always
 
 - name: Validate desktop environment
@@ -94,14 +88,10 @@
 - name: Install common system packages
   ansible.builtin.import_tasks: apt.yml
 
-- name: Install GNOME desktop
-  ansible.builtin.import_tasks: gnome.yml
-  tags: gnome
-  when: desktop_environment == "gnome"
-
+# Ahead of gnome.yml: enabling gdm3 fails while display-manager.service is an alias for
+# another manager, so the tiling managers are masked and their alias removed first.
 - name: Configure display manager
   tags: display-manager
-  when: desktop_environment != "gnome"
   block:
     - name: Validate display manager configuration
       ansible.builtin.assert:
@@ -112,14 +102,21 @@
           A {{ desktop_environment }} host needs exactly one display manager: set one of
           desktop_install_ly or desktop_install_lemurs to true in host_vars.
         success_msg: Display manager configuration is valid
+      when: desktop_environment != "gnome"
 
-    - name: Set display manager services to disable
+    # desktop_display_manager_aliases names the unit files display-manager.service may
+    # point at: lemurs.service is enabled through that alias alone, and gdm3's resolves to
+    # gdm.service or gdm3.service depending on the packaging.
+    - name: Set the display manager to keep
       ansible.builtin.set_fact:
-        desktop_display_managers_to_disable:
-          - gdm3
-          - lightdm
-          - "{{ 'lemurs' if not desktop_install_lemurs | bool else '' }}"
-          - "{{ 'ly@tty2' if not desktop_install_ly | bool else '' }}"
+        desktop_display_manager: >-
+          {{ 'gdm3' if desktop_environment == 'gnome'
+             else 'lemurs' if desktop_install_lemurs | bool
+             else 'ly@tty2' }}
+        desktop_display_manager_aliases: >-
+          {{ ['gdm.service', 'gdm3.service'] if desktop_environment == 'gnome'
+             else ['lemurs.service'] if desktop_install_lemurs | bool
+             else [] }}
 
     - name: Disable other display manager services
       ansible.builtin.systemd_service:
@@ -128,7 +125,7 @@
         enabled: false
         masked: true
       failed_when: false
-      loop: "{{ desktop_display_managers_to_disable | reject('equalto', '') | list }}"
+      loop: "{{ ['gdm3', 'lightdm', 'lemurs', 'ly@tty2'] | reject('equalto', desktop_display_manager) | list }}"
       become: true
 
     - name: Stat display-manager.service symlink
@@ -138,33 +135,40 @@
       register: desktop_display_manager_link
       become: false
 
-    # lemurs.service is enabled through this alias alone, so the chosen manager's link stays.
     - name: Remove display-manager.service symlink to another display manager
       ansible.builtin.file:
         path: /etc/systemd/system/display-manager.service
         state: absent
       when: >-
         desktop_display_manager_link.stat.exists
-        and not (desktop_install_lemurs | bool
-        and (desktop_display_manager_link.stat.lnk_source | default('') | basename) == 'lemurs.service')
+        and (desktop_display_manager_link.stat.lnk_source | default('') | basename)
+        not in desktop_display_manager_aliases
       become: true
 
-    # ly and lemurs both greet on tty2, so free it before either unit is enabled.
-    - name: Prevent TTY conflicts
-      ansible.builtin.systemd_service:
-        name: getty@tty2.service
-        daemon_reload: true
-        state: stopped
-        enabled: false
-      become: true
+    - name: Configure the tiling display manager
+      when: desktop_environment != "gnome"
+      block:
+        # ly and lemurs both greet on tty2, so free it before either unit is enabled.
+        - name: Prevent TTY conflicts
+          ansible.builtin.systemd_service:
+            name: getty@tty2.service
+            daemon_reload: true
+            state: stopped
+            enabled: false
+          become: true
 
-    - name: Install and configure lemurs display manager
-      ansible.builtin.import_tasks: lemurs.yml
-      when: desktop_install_lemurs | bool
+        - name: Install and configure lemurs display manager
+          ansible.builtin.import_tasks: lemurs.yml
+          when: desktop_install_lemurs | bool
 
-    - name: Install and configure ly display manager
-      ansible.builtin.import_tasks: ly.yml
-      when: desktop_install_ly | bool
+        - name: Install and configure ly display manager
+          ansible.builtin.import_tasks: ly.yml
+          when: desktop_install_ly | bool
+
+- name: Install GNOME desktop
+  ansible.builtin.import_tasks: gnome.yml
+  tags: gnome
+  when: desktop_environment == "gnome"
 
 - name: Configure common applications
   block:
