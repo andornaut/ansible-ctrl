@@ -28,7 +28,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `msmtp_relay_port`         | Port `msmtpd` listens on. Must be unprivileged (1024 to 65535)            |
 
 Set `msmtp_domain` and `msmtp_user` per host in `host_vars/`. `msmtp_password` comes from the broker, not
-`host_vars`. The role asserts the required variables and the relay constraints before its first task, which
+`host_vars`. The role's first task asserts the required variables and the relay constraints, before the next one
 uninstalls the host's existing MTA.
 
 ## Installed files
