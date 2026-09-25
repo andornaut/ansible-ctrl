@@ -28,12 +28,25 @@
 - name: Add the Oracle VirtualBox repository
   ansible.builtin.apt_repository:
     repo: >-
-      deb [signed-by=/etc/apt/keyrings/oracle-virtualbox.asc]
+      deb [arch={{ dev_arch }}
+      signed-by=/etc/apt/keyrings/oracle-virtualbox.asc]
       https://download.virtualbox.org/virtualbox/debian
       {{ ansible_facts['distribution_release'] }} contrib
     mode: "0644"
     filename: oracle-virtualbox
     state: present
+  become: true
+
+# CLEANUP (added 2026-09-25): the same source without arch=, which apt_repository leaves
+# beside the line above. Delete once every host with the virtualbox tag has converged.
+- name: Remove the Oracle VirtualBox repository line without an architecture
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/oracle-virtualbox.asc]
+      https://download.virtualbox.org/virtualbox/debian
+      {{ ansible_facts['distribution_release'] }} contrib
+    filename: oracle-virtualbox
+    state: absent
   become: true
 
 # Oracle's postinst builds vboxdrv itself rather than via DKMS, so it declares no
