@@ -1,27 +1,6 @@
 ---
-# community.docker reports a missing daemon as a socket connection error, which
-# reads as a broken install rather than an absent one. become: true to match the
-# container task, so the probe answers for the account that runs it.
-- name: Require Docker
-  become: true
-  block:
-    - name: Probe for Docker
-      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
-      vars:
-        require_tools:
-          - name: Docker
-            probe: docker version
-            hint: "It comes from the docker role: make docker -- --limit <host>."
-          # Three separate packages, any of which can be absent alone:
-          # docker_compose_v2 needs the plugin, the restart handler needs the SDK.
-          - name: The Docker Compose plugin
-            probe: docker compose version
-            hint: "It is the docker-compose-plugin package, which the docker role installs."
-          - name: The Docker SDK for Python
-            probe: >-
-              {{ ansible_facts['discovered_interpreter_python'] | default('python3') }}
-              -c 'import docker'
-            hint: "It is the python3-docker package, which the docker role installs."
+- name: Require the Docker tooling
+  ansible.builtin.import_tasks: require_docker.yml
 
 - name: Create Docker volume directories
   ansible.builtin.file:

@@ -2,19 +2,6 @@
 - name: Set up website directories
   become: true
   block:
-    - name: Ensure .config/git directory exists
-      ansible.builtin.file:
-        path: "~/.config/git"
-        state: directory
-        mode: "0755"
-
-    - name: Add .well-known to global gitignore
-      ansible.builtin.lineinfile:
-        path: "~/.config/git/ignore"
-        line: ".well-known/"
-        create: true
-        mode: "0644"
-
     - name: Create www directories
       ansible.builtin.file:
         path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}"

@@ -1,14 +1,18 @@
 {#- One token file per name each pending HTTP-01 order covers. Each site's port-80 server
-    answers for <domain> and www.<domain> out of /var/www/<domain>, so a www name's token is
-    served from its site's root. -#}
+    answers for <domain> and www.<domain> out of /var/www/<domain>, so a name's token goes in
+    the root of the site that names it, which a domain itself starting with www. rules out
+    deriving from the name. -#}
 {% set resources = [] %}
 {% for result in letsencrypt_nginx_challenge.results
    if result is not skipped and result.changed and result.challenge_data
    and result.item.cloudflare_api_token is not defined
    and not result.item.use_selfsigned_certificate | default(false) %}
 {% for name, challenges in result.challenge_data.items() %}
+{% set owners = letsencrypt_nginx_websites
+   | selectattr('domain', 'in', [name, name | regex_replace('^www\\.', '')]) | list %}
+{% set owner = (owners | selectattr('domain', 'equalto', name) | list + owners) | first %}
 {% set _ = resources.append({'name': name,
-                             'root': name | regex_replace('^www\\.', ''),
+                             'root': owner.domain,
                              'resource': challenges['http-01']['resource'],
                              'value': challenges['http-01']['resource_value']}) %}
 {% endfor %}

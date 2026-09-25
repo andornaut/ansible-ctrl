@@ -1,11 +1,15 @@
-{#- One TXT record per name each pending DNS-01 order covers, with the site it belongs to. -#}
+{#- One TXT record per value each pending DNS-01 order publishes, with the site it belongs to. A
+    wildcard and its base name validate at the same record name, so that name carries two
+    values. -#}
 {% set records = [] %}
 {% for result in letsencrypt_nginx_challenge.results
    if result is not skipped and result.changed and result.challenge_data
    and result.item.cloudflare_api_token is defined
    and not result.item.use_selfsigned_certificate | default(false) %}
 {% for record, values in result.challenge_data_dns.items() %}
-{% set _ = records.append({'record': record, 'value': values | first, 'site': result.item}) %}
+{% for value in values %}
+{% set _ = records.append({'record': record, 'value': value, 'site': result.item}) %}
+{% endfor %}
 {% endfor %}
 {% endfor %}
 {{ records | to_json }}

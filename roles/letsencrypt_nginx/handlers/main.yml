@@ -1,8 +1,12 @@
 ---
 # Listed ahead of the restart, and handlers run in the order they are listed: a config nginx
-# rejects fails here, leaving the running container on the config it already loaded.
+# rejects fails here, leaving the running container on the config it already loaded. A
+# throwaway container, so the live tree is tested whether or not the nginx container is running.
 - name: Validate nginx configuration
-  ansible.builtin.command: docker exec nginx nginx -t
+  ansible.builtin.command:
+    argv: "{{ letsencrypt_nginx_config_test_argv }}"
+  vars:
+    letsencrypt_nginx_config_test_dir: "{{ letsencrypt_nginx_docker_required_volumes.config }}"
   changed_when: false
   become: true
   listen: Restart nginx

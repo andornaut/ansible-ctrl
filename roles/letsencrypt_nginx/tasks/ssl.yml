@@ -14,6 +14,19 @@
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr"
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key"
 
+    # CLEANUP (added 2026-09-25): the ACME account key's previous name. Remove once every
+    # webservers host has converged. Runs before key creation, which would otherwise make a new
+    # key and so register a new ACME account.
+    - name: Rename the ACME account key
+      ansible.builtin.command:
+        argv:
+          - mv
+          - --no-clobber
+          - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem"
+          - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/acme-account.pem"
+        creates: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/acme-account.pem"
+        removes: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem"
+
     - name: Create keys
       community.crypto.openssl_privatekey:
         path: "{{ item }}"
@@ -22,7 +35,7 @@
         group: root
       loop:
         - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/private.pem"
-        - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/public.pem"
+        - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/acme-account.pem"
       register: letsencrypt_nginx_keys
 
 - name: Create CSRs

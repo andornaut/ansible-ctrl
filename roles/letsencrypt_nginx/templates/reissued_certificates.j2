@@ -1,0 +1,16 @@
+{#- The file stem (the common name, `*` as `_`) of every issued certificate whose subject
+    alternative names differ from its CSR's. A certificate with no CSR on disk is left out. -#}
+{% set csr_names = {} %}
+{% for result in letsencrypt_nginx_csr_info.results | default([]) if result is not skipped %}
+{% set _ = csr_names.update({(result.item | basename | splitext | first):
+     result.subject_alt_name | default([], true) | map('lower') | unique | sort}) %}
+{% endfor %}
+{% set stems = [] %}
+{% for result in letsencrypt_nginx_crt_info.results | default([]) if result is not skipped %}
+{% set stem = result.item | basename | splitext | first %}
+{% if stem in csr_names
+   and (result.subject_alt_name | default([], true) | map('lower') | unique | sort) != csr_names[stem] %}
+{% set _ = stems.append(stem) %}
+{% endif %}
+{% endfor %}
+{{ stems | to_json }}

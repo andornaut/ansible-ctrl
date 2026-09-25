@@ -1,1 +1,30 @@
 ---
+letsencrypt_nginx_config_partials:
+  - common_proxy_configuration
+  - common_site_configuration
+  - selfsigned_certificate
+
+# Every file configuration.yml installs, relative to the config volume.
+letsencrypt_nginx_config_files: >-
+  {{ ['00-default.conf']
+     + (letsencrypt_nginx_config_partials | map('regex_replace', '^', 'partial/') | list)
+     + (letsencrypt_nginx_websites | map(attribute='domain') | map('regex_replace', '$', '.conf') | list) }}
+
+# `nginx -t` in a throwaway container with the live one's image, network, privileges and volumes,
+# letsencrypt_nginx_config_test_dir mounted where the live config is. ssl/ and basicauth/ are always
+# the live ones, which nothing stages. The host network resolves a hostname in the config as the
+# live container does. `--pull always` matches the container's `pull: always`, so the test runs
+# the image version the container is recreated with, not a stale local one.
+letsencrypt_nginx_config_test_argv: >-
+  {{ ['docker', 'run', '--rm', '--pull', 'always', '--network', 'host',
+      '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'NET_BIND_SERVICE',
+      '--cap-add', 'SETGID', '--cap-add', 'SETUID',
+      '--security-opt', 'no-new-privileges:true',
+      '--volume', letsencrypt_nginx_config_test_dir ~ ':/etc/nginx/conf.d:ro',
+      '--volume', letsencrypt_nginx_docker_required_volumes.config ~ '/ssl:/etc/nginx/conf.d/ssl:ro',
+      '--volume', letsencrypt_nginx_docker_required_volumes.config
+                  ~ '/basicauth:/etc/nginx/conf.d/basicauth:ro',
+      '--volume', letsencrypt_nginx_docker_required_volumes.localtime ~ ':/etc/localtime:ro',
+      '--volume', letsencrypt_nginx_docker_required_volumes.www ~ ':/var/www:ro']
+     + (letsencrypt_nginx_docker_extra_volumes | map('regex_replace', '^', '--volume=') | list)
+     + [letsencrypt_nginx_docker_image, 'nginx', '-t'] }}

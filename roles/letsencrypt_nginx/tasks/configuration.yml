@@ -1,87 +1,149 @@
 ---
-- name: Create the partial directory
-  ansible.builtin.file:
-    path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/partial"
-    state: directory
-    mode: "0750"
-    owner: root
-    group: root
-  become: true
+# Rendered into a staging tree and tested there, so a configuration nginx rejects never reaches
+# the live directory, which the next container recreate or reboot loads. The tree is tested
+# whole: sites include partial/ and use the map 00-default.conf defines, so no one file passes
+# `nginx -t` alone, which rules out a per-file `validate:`.
+- name: Stage, test and install the Nginx configuration
+  block:
+    - name: Create the staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: .nginx
+      register: letsencrypt_nginx_staging
+      check_mode: false
+      become: true
 
-- name: Find existing .conf files
-  ansible.builtin.find:
-    paths: "{{ letsencrypt_nginx_docker_required_volumes.config }}"
-    patterns: "*.conf"
-    file_type: file
-    use_regex: false
-    recurse: false
-  register: letsencrypt_nginx_find_conf_files
-  become: true
+    # ssl/ and basicauth/ are mount points for the live directories: the staging tree is
+    # mounted read-only, so the runtime cannot create them.
+    - name: Create the staging subdirectories
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_staging.path }}/{{ item }}"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+      loop:
+        - basicauth
+        - partial
+        - ssl
+      check_mode: false
+      become: true
 
-# Only the stale ones: deleting a current one makes its template report changed, which
-# restarts nginx on every run.
-- name: Delete .conf files for removed websites
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ letsencrypt_nginx_find_conf_files.files }}"
-  loop_control:
-    label: "{{ item.path }}"
-  become: true
-  when: >-
-    item.path | basename not in
-    ['00-default.conf'] + letsencrypt_nginx_websites | map(attribute='domain') | map('regex_replace', '$', '.conf') | list
-  notify: Restart nginx
+    - name: Stage partial configurations
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ letsencrypt_nginx_staging.path }}/partial/{{ item }}"
+        mode: "0640"
+        owner: root
+        group: root
+      loop: "{{ letsencrypt_nginx_config_partials }}"
+      check_mode: false
+      become: true
 
-- name: Copy partial configurations
-  ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "{{ letsencrypt_nginx_docker_required_volumes.config }}/partial/"
-    mode: "0640"
-    owner: root
-    group: root
-  loop:
-    - common_proxy_configuration
-    - common_site_configuration
-    - selfsigned_certificate
-  become: true
-  notify: Restart nginx
+    - name: Stage default site configuration
+      ansible.builtin.copy:
+        src: 00-default.conf
+        dest: "{{ letsencrypt_nginx_staging.path }}/00-default.conf"
+        mode: "0640"
+        owner: root
+        group: root
+      check_mode: false
+      become: true
 
-- name: Copy default site configuration
-  ansible.builtin.copy:
-    src: 00-default.conf
-    dest: "{{ letsencrypt_nginx_docker_required_volumes.config }}/00-default.conf"
-    mode: "0640"
-    owner: root
-    group: root
-    force: true
-  become: true
-  notify: Restart nginx
+    - name: Check if SSL certificates exist
+      ansible.builtin.stat:
+        path: >-
+          {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
+          item.csr_common_name | default(item.domain) | replace('*', '_')
+          }}.crt
+      loop: "{{ letsencrypt_nginx_websites }}"
+      register: letsencrypt_nginx_check_crts
+      become: true
+      # Loop items hold a Cloudflare API token and basicauth credentials.
+      no_log: true
 
-- name: Check if SSL certificates exist
-  ansible.builtin.stat:
-    path: >-
-      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/{{
-      item.csr_common_name | default(item.domain) | replace('*', '_')
-      }}.crt
-  loop: "{{ letsencrypt_nginx_websites }}"
-  register: letsencrypt_nginx_check_crts
-  become: true
-  # Loop items hold a Cloudflare API token and basicauth credentials.
-  no_log: true
+    - name: Stage site configurations
+      ansible.builtin.template:
+        src: configuration.j2
+        dest: "{{ letsencrypt_nginx_staging.path }}/{{ item.item.domain }}.conf"
+        mode: "0640"
+        owner: root
+        group: root
+      loop: "{{ letsencrypt_nginx_check_crts.results }}"
+      check_mode: false
+      become: true
+      # item.item is the originating website entry: a Cloudflare API token and basicauth credentials.
+      no_log: true
 
-- name: Generate site configurations
-  ansible.builtin.template:
-    src: configuration.j2
-    dest: >-
-      {{ letsencrypt_nginx_docker_required_volumes.config }}/{{
-      item.item.domain }}.conf
-    mode: "0640"
-    owner: root
-    group: root
-    force: true
-  loop: "{{ letsencrypt_nginx_check_crts.results }}"
-  become: true
-  # item.item is the originating website entry: a Cloudflare API token and basicauth credentials.
-  no_log: true
-  notify: Restart nginx
+    - name: Require the Docker tooling
+      ansible.builtin.import_tasks: require_docker.yml
+
+    - name: Check if the self-signed certificate exists
+      ansible.builtin.stat:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt/selfsigned.pem"
+      register: letsencrypt_nginx_selfsigned_crt
+      become: true
+
+    # Every configuration names the self-signed certificate, which --check does not create on
+    # a fresh host, so the test is skipped under --check until it exists.
+    - name: Test the staged configuration
+      ansible.builtin.command:
+        argv: "{{ letsencrypt_nginx_config_test_argv }}"
+      vars:
+        letsencrypt_nginx_config_test_dir: "{{ letsencrypt_nginx_staging.path }}"
+      changed_when: false
+      check_mode: false
+      when: not (ansible_check_mode and not letsencrypt_nginx_selfsigned_crt.stat.exists)
+      become: true
+
+    - name: Create the partial directory
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/partial"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+      become: true
+
+    - name: Find existing .conf files
+      ansible.builtin.find:
+        paths: "{{ letsencrypt_nginx_docker_required_volumes.config }}"
+        patterns: "*.conf"
+        file_type: file
+        use_regex: false
+        recurse: false
+      register: letsencrypt_nginx_find_conf_files
+      become: true
+
+    # Only the stale ones: deleting a current one makes its install report changed, which
+    # restarts nginx on every run.
+    - name: Delete .conf files for removed websites
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ letsencrypt_nginx_find_conf_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when: item.path | basename not in letsencrypt_nginx_config_files
+      become: true
+      notify: Restart nginx
+
+    - name: Install the tested configuration
+      ansible.builtin.copy:
+        src: "{{ letsencrypt_nginx_staging.path }}/{{ item }}"
+        dest: "{{ letsencrypt_nginx_docker_required_volumes.config }}/{{ item }}"
+        remote_src: true
+        mode: "0640"
+        owner: root
+        group: root
+      loop: "{{ letsencrypt_nginx_config_files }}"
+      become: true
+      notify: Restart nginx
+  always:
+    - name: Remove the staging directory
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_staging.path }}"
+        state: absent
+      when: letsencrypt_nginx_staging.path is defined
+      check_mode: false
+      become: true

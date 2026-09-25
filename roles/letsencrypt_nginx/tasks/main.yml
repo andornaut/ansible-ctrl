@@ -83,7 +83,6 @@
 
 - name: Update Nginx configuration with new certificates
   ansible.builtin.import_tasks: configuration.yml
-  notify: Restart nginx
   tags:
     - configuration
     - letsencrypt

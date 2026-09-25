@@ -1,14 +1,17 @@
-{#- The names one certificate covers: its common name, plus www.<domain> for every site that
-    shares it, since each site renders a www server. A wildcard common name already covers a
-    www name one label below it. -#}
+{#- The names one certificate covers: its common name, plus <domain> and www.<domain> for every
+    site that shares it, since each site renders a server for both. A name the common name
+    already covers is left out: a wildcard covers exactly one label below its base, so
+    example.com under *.example.com still needs a name of its own. -#}
 {% set cn = item.csr_common_name | default(item.domain) %}
 {% set names = [cn] %}
 {% for site in letsencrypt_nginx_websites
    if (site.csr_common_name | default(site.domain)) == cn
    and not site.use_selfsigned_certificate | default(false) %}
-{% set www = 'www.' ~ site.domain %}
-{% if www not in names and not (cn.startswith('*.') and site.domain == cn[2:]) %}
-{% set _ = names.append(www) %}
+{% for name in [site.domain, 'www.' ~ site.domain] %}
+{% if name not in names
+   and not (cn.startswith('*.') and name.partition('.')[2] == cn[2:]) %}
+{% set _ = names.append(name) %}
 {% endif %}
+{% endfor %}
 {% endfor %}
 {{ names | to_json }}
