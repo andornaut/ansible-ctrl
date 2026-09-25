@@ -11,7 +11,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS] [DIRECTORY]
 
-Extract archive files (rar, zip, tar.gz, tar.bz2) found in DIRECTORY
+Extract archive files (rar, zip) found in DIRECTORY
 (default: {{ torrent_local_incoming_directory }}) up to ${MAX_DEPTH} levels deep.
 Dot-directories are skipped: they hold quarantined content that must stay packed.
 
@@ -130,10 +130,8 @@ extract() {
         cd "${archive_dir}" || exit 1
         local rc=0
         case "${archive,,}" in
-            *.rar)             ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >&3 || rc=$? ;;
-            *.tar.gz|*.tgz)    ${COMMAND_PREFIX} tar --skip-old-files -xzf "${archive}" >&3 || rc=$? ;;
-            *.tar.bz2|*.tbz2)  ${COMMAND_PREFIX} tar --skip-old-files -xjf "${archive}" >&3 || rc=$? ;;
-            *.zip)             ${COMMAND_PREFIX} unzip -n "${archive}" >&3 || rc=$? ;;
+            *.rar) ${COMMAND_PREFIX} unrar e -o- -y "${archive}" >&3 || rc=$? ;;
+            *.zip) ${COMMAND_PREFIX} unzip -n "${archive}" >&3 || rc=$? ;;
         esac
 
         # unrar returns 10 for minor warnings (e.g. file already exists with -o-)
@@ -160,6 +158,9 @@ header "Extracting archives in ${directory} (max depth: ${MAX_DEPTH})"
 # containing a newline whole, and -type f keeps a directory named like an archive away
 # from the extractors and from --delete-archives.
 #
+# rar and zip only: each has an index, so an already-extracted file is skipped without
+# decompressing it. A compressed tarball has none and would be decompressed again every pass.
+#
 # Dot-directories are pruned: the media libraries use them for content that must stay
 # packed, and unpacking a quarantined arcade romset would scatter chip dumps out of the
 # TorrentZip they are checksummed in. The prune comes before -type f, a directory not
@@ -168,7 +169,7 @@ archives=()
 mapfile -d '' -t archives < <(
     find "${directory}" -mindepth 1 -maxdepth "${MAX_DEPTH}" \
         -name '.*' -type d -prune -o \
-        -type f -iregex '.*\.\(rar\|zip\|tar\.gz\|tgz\|tar\.bz2\|tbz2\)' -print0
+        -type f -iregex '.*\.\(rar\|zip\)' -print0
 )
 
 count=0
