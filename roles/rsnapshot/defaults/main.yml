@@ -12,20 +12,23 @@ rsnapshot_retention:
   daily: 7
   weekly: 4
   monthly: 12
-# One cron job per retention interval, keyed to match rsnapshot_retention. Staggered so a
-# longer interval never starts while a shorter one still holds the lockfile. weekday 1 is
-# Monday and day 1 is the first of the month.
+# One cron job per retention interval, keyed to match rsnapshot_retention. Each longer
+# interval runs a few minutes before the next shorter one, rsnapshot's recommended order: only
+# the lowest configured interval syncs, and the rotations above it take seconds, so they finish
+# before that sync takes the lockfile instead of finding it held and exiting unrotated. They sit
+# just before the hour, farthest from the previous hourly sync's start. weekday 1 is Monday and
+# day 1 is the first of the month.
 rsnapshot_schedule:
   hourly:
-    minute: "1"
+    minute: "0"
   daily:
-    minute: "10"
-    hour: "1"
+    minute: "55"
+    hour: "0"
   weekly:
-    minute: "30"
-    hour: "3"
+    minute: "50"
+    hour: "0"
     weekday: "1"
   monthly:
-    minute: "50"
-    hour: "5"
+    minute: "45"
+    hour: "0"
     day: "1"

@@ -1,4 +1,18 @@
 ---
+# Ahead of creating the root: under an unmounted filesystem that task would create it on the
+# filesystem beneath the mountpoint, and the next cron run would find it and write there
+# despite no_create_root. `| default([])` fails closed.
+- name: Require every required mountpoint to be mounted
+  ansible.builtin.assert:
+    that: rsnapshot_mountpoints_missing | length == 0
+    fail_msg: >-
+      These rsnapshot_required_mountpoints are not mounted: {{ rsnapshot_mountpoints_missing | join(', ') }}
+    quiet: true
+  vars:
+    rsnapshot_mountpoints_missing: >-
+      {{ rsnapshot_required_mountpoints | map('regex_replace', '(.)/+$', '\1')
+         | reject('in', ansible_facts['mounts'] | default([]) | map(attribute='mount') | list) | list }}
+
 - name: Create the rsnapshot backup directory
   ansible.builtin.file:
     path: "{{ rsnapshot_directory }}"
