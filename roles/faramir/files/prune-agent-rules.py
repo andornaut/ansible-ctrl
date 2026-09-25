@@ -17,7 +17,10 @@ it names no key of that shape and there is nothing to compare one against. pi ke
 rules in an extension rather than in JSON, and codex and Antigravity have no rule file at
 all. Each of those is reported as skipped and left alone.
 
-    prune-agent-rules.py [--check] <config-dir>
+    prune-agent-rules.py [--check] --agent-user <account> <config-dir>
+
+Every file is read and rewritten as the agent account, whose settings these are, so a path
+that account could not write itself is skipped rather than written by root.
 
 Prints one JSON object: what was removed, per file.
 """
@@ -26,6 +29,7 @@ import argparse
 import contextlib
 import json
 import os
+import pwd
 import shutil
 import stat
 import sys
@@ -109,20 +113,21 @@ def backup_path(path, stamp):
 
 
 @contextlib.contextmanager
-def as_owner(owner):
-    """Act as the account that owns a file, so every path under its directory resolves with that
-    account's permissions and not root's.
+def as_account(account):
+    """Act as the agent account, so the kernel resolves every path, symlinked directories
+    included, with that account's permissions and not root's.
 
-    The directories these files sit in are writable by the account the agent runs as, which can
-    plant a symlink at any name this writes. Root following one writes wherever it points.
+    The directories these files sit in are writable by that account, which can put a symlink
+    at any name on the way to one, the final component or a parent. Taking the identity of
+    whatever the path resolves to would hand root's write to a link into a root-owned tree.
     """
     if os.geteuid() != 0:
         yield
         return
     groups = os.getgroups()
-    os.setgroups([])
-    os.setegid(owner.st_gid)
-    os.seteuid(owner.st_uid)
+    os.setgroups(os.getgrouplist(account.pw_name, account.pw_gid))
+    os.setegid(account.pw_gid)
+    os.seteuid(account.pw_uid)
     try:
         yield
     finally:
@@ -131,17 +136,35 @@ def as_owner(owner):
         os.setgroups(groups)
 
 
-def prune_file(path, keep, stamp, check):
-    """Prune one file, reporting what came out of it and where the original went."""
+def unwritable(name, path):
+    """Why the current account cannot rewrite path, or None.
+
+    The backup and the replacement are created beside the file, so its directory is asked
+    about as well.
+    """
+    if not os.access(path, os.W_OK, effective_ids=True):
+        return f"not writable by {name}"
+    if not os.access(path.parent, os.W_OK | os.X_OK, effective_ids=True):
+        return f"its directory is not writable by {name}"
+    return None
+
+
+def prune_file(path, keep, stamp, check, name):
+    """Prune one file as the agent account, reporting what came out and where the original went."""
     original = path.lstat()
     if stat.S_ISLNK(original.st_mode):
         return {"path": str(path), "skipped": "a symlink, which this does not follow"}
-    with as_owner(original):
-        return prune_owned_file(path, original, keep, stamp, check)
+    reason = unwritable(name, path)
+    if reason:
+        return {"path": str(path), "skipped": reason}
+    try:
+        return prune_writable_file(path, original, keep, stamp, check)
+    except PermissionError as error:
+        return {"path": str(path), "skipped": f"{name} could not rewrite it: {error.strerror}"}
 
 
-def prune_owned_file(path, original, keep, stamp, check):
-    """prune_file's body, run as the file's owner."""
+def prune_writable_file(path, original, keep, stamp, check):
+    """prune_file's body, for a file the agent account can write."""
     document = load_json(path)
     if document is None:
         return {"path": str(path), "skipped": "unreadable or not JSON"}
@@ -173,6 +196,9 @@ def prune_owned_file(path, original, keep, stamp, check):
     temporary.unlink(missing_ok=True)
     with temporary.open("x", encoding="utf-8") as handle:
         handle.write(serialise(document))
+    # The group where the agent account is a member of it; ownership is the account's own.
+    with contextlib.suppress(PermissionError):
+        os.chown(temporary, -1, original.st_gid)
     temporary.chmod(mode)
     temporary.replace(path)
     result["backup"] = str(backup)
@@ -183,7 +209,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config_dir", help="faramir's configuration directory")
     parser.add_argument("--check", action="store_true", help="report what would come out, change nothing")
+    parser.add_argument("--agent-user", required=True, help="the account whose agent files these are")
     args = parser.parse_args()
+    try:
+        account = pwd.getpwnam(args.agent_user)
+    except KeyError:
+        parser.error(f"no account named {args.agent_user}")
 
     record = load_json(Path(args.config_dir) / RECORD)
     if not isinstance(record, dict):
@@ -202,18 +233,26 @@ def main():
     stamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
     results = []
     named = 0
-    for name, rules in sorted(record.items()):
-        path = Path(name)
-        if not path.is_file():
-            continue
-        named += 1
-        # An entry of another shape is not an empty one. Read as "faramir wrote nothing here"
-        # it would take out every rule in the file, faramir's own included, so a record entry
-        # this cannot read leaves the file alone instead.
-        if not isinstance(rules, list):
-            results.append({"path": str(path), "skipped": f"record entry is {type(rules).__name__}, not a list"})
-            continue
-        results.append(prune_file(path, set(rules), stamp, args.check))
+    # After the record is read, which is faramir's and may be closed to the agent account.
+    with as_account(account):
+        for name, rules in sorted(record.items()):
+            path = Path(name)
+            try:
+                path.lstat()
+            except FileNotFoundError:
+                continue
+            except OSError as error:
+                named += 1
+                results.append({"path": str(path), "skipped": f"{account.pw_name} cannot reach it: {error.strerror}"})
+                continue
+            named += 1
+            # An entry of another shape is not an empty one. Read as "faramir wrote nothing
+            # here" it would take out every rule in the file, faramir's own included, so a
+            # record entry this cannot read leaves the file alone instead.
+            if not isinstance(rules, list):
+                results.append({"path": str(path), "skipped": f"record entry is {type(rules).__name__}, not a list"})
+                continue
+            results.append(prune_file(path, set(rules), stamp, args.check, account.pw_name))
 
     removed_total = sum(len(result.get("removed", [])) for result in results)
     payload = {

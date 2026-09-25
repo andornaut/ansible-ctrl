@@ -21,10 +21,11 @@
     cmd: >-
       prune-agent-rules.py
       {{ '--check' if ansible_check_mode else '' }}
+      --agent-user {{ faramir_user | quote }}
       {{ faramir_config_dir | quote }}
     executable: /usr/bin/python3
+  # Root to read the record; the script drops to faramir_user for the agent files.
   become: true
-  # Reads the record and the agent files, both of which are the operator's or root's.
   check_mode: false
   register: faramir_prune
   # changed_when runs even on failure, where an empty report would add a parse error to the

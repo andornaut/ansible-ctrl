@@ -57,7 +57,7 @@ faramir_agents:
 # approved.
 faramir_allow_sudo: false
 
-# kernel.yama.ptrace_scope on the controller. Pinned rather than assumed: at 0 any process
+# kernel.yama.ptrace_scope on every faramir host. Pinned rather than assumed: at 0 any process
 # may ptrace any other of the same uid, and every brokered command shares the executor's, so
 # one could read another's environment and with it the injected values and the escalation
 # token. 1 restricts ptrace to a process's own descendants.
