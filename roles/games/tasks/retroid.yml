@@ -7,13 +7,13 @@
 - name: Assert only one host installs syncretroid
   ansible.builtin.assert:
     that:
-      - installers | length == 1
+      - games_retroid_installers | length == 1
     fail_msg: >-
-      games_install_retroid_sync is on for {{ installers | join(", ") }}. It installs a single
-      command on the controller, so exactly one host may enable it.
+      games_install_retroid_sync is on for {{ games_retroid_installers | join(", ") }}. It
+      installs a single command on the controller, so exactly one host may enable it.
     success_msg: syncretroid is installed from one host
   vars:
-    installers: >-
+    games_retroid_installers: >-
       {{ ansible_play_hosts
          | zip(ansible_play_hosts | map('extract', hostvars, 'games_install_retroid_sync')
                | map('default', false) | map('bool'))

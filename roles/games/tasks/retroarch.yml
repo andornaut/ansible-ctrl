@@ -289,13 +289,13 @@
 - name: Write the per-core overrides
   ansible.builtin.template:
     src: retroarch-core-override.cfg.j2
-    dest: "{{ games_retroarch_core_config_dir }}/{{ library_name }}/{{ library_name }}.cfg"
+    dest: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_library_name }}/{{ games_retroarch_library_name }}.cfg"
     mode: "0644"
   loop: "{{ games_retroarch_core_overrides | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
   vars:
-    library_name: "{{ games_retroarch_core_library_names[item.key] }}"
+    games_retroarch_library_name: "{{ games_retroarch_core_library_names[item.key] }}"
     games_retroarch_core_override: "{{ item.value }}"
 
 # A dropped core, or one whose build renamed itself, would otherwise keep its last
