@@ -33,24 +33,38 @@ make help                                        # List the targets
 make desktop                                     # Run a playbook
 make desktop -- --tags alacritty --limit example # Forward arguments to ansible-playbook
 make faramir ARGS="--extra-vars k=v"             # An argument containing "=" goes in ARGS
-make bootstrap -- --limit example                # First run of a new host
 ```
 
-| Behaviour           | Detail                                                                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                        |
-| Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt                                                                                           |
-| Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named. `PREFLIGHT=none` skips it                                                                                   |
-| `--ask-become-pass` | Added when the run may reach the controller, and to every run `make bootstrap` makes, a new host's sudo asking until `make faramir`. `ASK_PASS=1` forces it; a root run never gets it       |
-| Bootstrap password  | `make bootstrap` asks once and hands each playbook the answer in an owner-only file under `$XDG_RUNTIME_DIR`, removed when it ends                                                          |
-| Credentials         | `homeautomation`, `msmtp` and `webservers` re-enter under `sops exec-env`, or as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
-| umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                               |
+| Behaviour           | Detail                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First goal only     | Every group is also a target, so `make base -- --limit desktop` applies `base` alone                                                                                                            |
+| Host listing        | An inventory or variables error, or a `--limit` matching no host, stops the run before any prompt, re-entry or escalation                                                                       |
+| Reachability probe  | Hosts that do not answer SSH within 1s are dropped through `--limit` and named, before the playbook and again after it. `PREFLIGHT=none` skips it                                               |
+| Exit status         | The playbook's own, or `75` when it succeeded but the probe dropped a host. A playbook ended by a signal exits 128 plus its number                                                              |
+| `--ask-become-pass` | Added when the run may reach the controller. `ASK_PASS=1` forces it; a root run never gets it                                                                                                   |
+| Credentials         | `homeautomation`, `msmtp` and `webservers` run under `sops exec-env`, re-entering as root when the operator cannot read the store. `SECRETS=none` skips that for a `--tags` run that reads none |
+| umask               | `002`, so files created in a setgid share stay group-writable                                                                                                                                   |
 
-`make bootstrap` needs a `--limit`. It applies `base`, `docker`, `msmtp` and `dev` (whose toolchains desktop
-builds need), then every playbook whose groups hold the host, and stops at the first failure. Apply `faramir`
-separately with `make faramir`. A play that targets `faramir_controller` alone selects nothing, so bootstrapping
-the controller skips `torrent`; after bootstrapping a torrent host, run `make torrent -- --limit faramir_controller`
-to regenerate the controller's scripts for it.
+A new host needs, before its first run:
+
+- An inventory line naming its `ansible_host`, `ansible_port` and `ansible_user`, and its groups.
+- The operator's public key in that account's `~/.ssh/authorized_keys`: [ansible.cfg](ansible.cfg) allows public-key
+  authentication only.
+- sudo for that account.
+
+Its first run is these targets, in order:
+
+1. `make faramir -- --limit <host>,faramir_controller`: authorizes the broker's key on the host and writes its
+   NOPASSWD sudoers entry. The controller has to be in the run: the play that authorizes the key reads it from the
+   controller in the same run. The run reaches the controller, so it gets `--ask-become-pass`, and the one password
+   it asks for is used for sudo on both, so they must match. No later run needs the host's.
+1. `make base`, `make docker`, `make msmtp` and `make dev`, each with `-- --limit <host>`, where the host is in the
+   playbook's groups. `dev` comes before `desktop`, whose builds need its toolchains.
+1. Every other playbook whose groups hold the host, with `-- --limit <host>`.
+
+A play that targets `faramir_controller` alone does not count: `torrent.yml`'s second play configures the controller
+on behalf of the torrent hosts, so the controller's first run skips `torrent`. After adding a torrent host, run
+`make torrent -- --limit faramir_controller` to regenerate the controller's scripts for it.
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer`.
 
@@ -97,6 +111,9 @@ example
 primary_user=andornaut
 ```
 
+Define no `localhost` host: some tasks delegate to the implicit one, and a defined one joins every
+`hosts: all` play.
+
 ## Secrets
 
 Credential values live in `~/.config/faramir/secrets/ansible-ctrl.sops.yml` ([sops](https://github.com/getsops/sops)
@@ -117,9 +134,9 @@ To add one: put the value in the store, its name in `faramir.env`, and a mapping
 | `vars_plugins_enabled`              | [ansible.cfg](ansible.cfg) must keep `host_group_vars` in the list, or `host_vars/` stops loading                                                          |
 | Credentials arrive as a set         | Plays that read one assert up front ([tasks/require_credentials.yml](tasks/require_credentials.yml)), so a run without them fails before changing anything |
 
-Credentials reach a play three ways: `make` (sops re-entry), the broker
+Credentials reach a play three ways: `make` (under sops), the broker
 (`faramir run --env-file faramir.env -- ansible-playbook <playbook>.yml --limit '!faramir_controller'`), and the
-certificate renewal cron, which runs `ansible-playbook` under `sops exec-env` as root.
+certificate renewal cron, which runs `make webservers` as root.
 
 ### GitHub API token
 
@@ -153,15 +170,15 @@ ansible-galaxy collection install --upgrade -r requirements.yml # Upgrade collec
 make clean                                                       # Remove collections and lint tooling
 ```
 
-| Check          | Covers                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------- |
-| `ansible-lint` | Ansible content                                                                                      |
-| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                 |
-| `shell`        | shellcheck on every shell script, templates rendered first                                           |
-| `python`       | `ruff check` and `ruff format --check`                                                               |
-| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py))                  |
-| `dispatch`     | [bin/playbook.py](bin/playbook.py)'s and [tests/check_matrix.py](tests/check_matrix.py)'s unit tests |
-| `markdown`     | markdownlint on tracked `.md` files                                                                  |
+| Check          | Covers                                                                                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible-lint` | Ansible content                                                                                                                                     |
+| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                                                                |
+| `shell`        | shellcheck on every shell script, templates rendered first                                                                                          |
+| `python`       | `ruff check` and `ruff format --check`                                                                                                              |
+| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py))                                                                 |
+| `dispatch`     | Unit tests of [bin/playbook.py](bin/playbook.py), the [Makefile](Makefile)'s argument forwarding and [tests/check_matrix.py](tests/check_matrix.py) |
+| `markdown`     | markdownlint on every `.md` file git does not ignore                                                                                                |
 
 CI ([.github/workflows](.github/workflows)) also runs:
 

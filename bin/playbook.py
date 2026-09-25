@@ -3,38 +3,44 @@
 
 Usage:
   bin/playbook.py run <playbook> [ansible-playbook arguments...]
-  bin/playbook.py bootstrap --limit <host> [ansible-playbook arguments...]
   bin/playbook.py operator
 
 Knobs are read from the environment, where make puts a command-line assignment:
 SECRETS=none, ASK_PASS=1 and PREFLIGHT=none. See README.md, Usage.
 """
 
-import ast
-import contextlib
-import getpass
 import os
 import pwd
 import re
 import shlex
-import shutil
+import signal
 import subprocess
 import sys
-import tempfile
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve()
 REPO = SCRIPT.parent.parent
 
-# Every name a command-line assignment may take without being refused as a stray argument,
-# and every name the sudo re-entry carries across, sudo resetting the environment.
+# Every name a command-line assignment may take without being refused as a stray argument.
 KNOBS = ("SECRETS", "ASK_PASS", "PREFLIGHT")
 
-# The runs that read a credential, and so the only ones that re-enter under sops. Not
-# derived: host_vars binds plain variable names to secrets, so telling these apart needs
-# variable resolution.
+# The runs that read a credential, and so the only ones run under sops. Not derived:
+# host_vars binds plain variable names to secrets, so telling these apart needs variable
+# resolution.
 SECRET_PLAYBOOKS = frozenset({"homeautomation", "msmtp", "webservers"})
+
+# The hosts the unprivileged half listed, carried across the sudo re-entry so root does not
+# list them again.
+LISTED_HOSTS_ENV = "PLAYBOOK_LISTED_HOSTS"
+
+# What the sudo re-entry names again, sudo resetting the environment.
+CARRIED = (*KNOBS, LISTED_HOSTS_ENV)
+
+# The exit status of a run whose probe dropped a host, whether or not the playbook applied
+# to the rest: EX_TEMPFAIL, the host being expected back. Clear of ansible-playbook's own
+# statuses, and outranked by them, a failed play being the more urgent news.
+DROPPED_EXIT = 75
 
 # Also passed with SECRETS=none: the play's pre_tasks assert that credentials arrived, and
 # that assert must not outlive the decision to skip the injection.
@@ -45,10 +51,6 @@ SECRETS_OFF = ("--extra-vars", "secrets_required=false")
 # escalation is offered for, so a run nobody is watching fails rather than holding the full
 # window. Named here as well as on the controller's inventory line, which is not in this repo.
 BECOME_PROMPT = ("--ask-become-pass", "-e", "ansible_local_become_success_timeout=120")
-
-# The file bootstrap writes the become password to, so each playbook it runs reads the one
-# answer rather than asking again. The environment carries the path, never the password.
-BECOME_FILE_ENV = "PLAYBOOK_BECOME_FILE"
 
 # The group whose one member is the controller.
 CONTROLLER_GROUP = "faramir_controller"
@@ -62,21 +64,6 @@ PREFLIGHT_TIMEOUT = "1"
 # group-writable whichever session started the run.
 RUN_UMASK = 0o002
 
-# Applied ahead of every other playbook a bootstrap selects, in this order, each where it
-# reaches the host. msmtp is named because its play targets every Ubuntu host rather than a
-# group, which the selection below would otherwise pass over; dev because desktop's builds
-# require the Go and Rust toolchains it installs.
-BOOTSTRAP_FIRST = ("base", "docker", "msmtp", "dev")
-
-# Never selected by a bootstrap. faramir.yml's second play reads the key its first play
-# publishes on the controller, so a run limited to another host stops at its assert.
-BOOTSTRAP_EXCLUDED = frozenset({"faramir"})
-
-# A play targeting the controller group alone configures the controller on behalf of its
-# playbook's own group (torrent.yml's second play), so it selects nothing: a controller
-# bootstrap would otherwise apply a playbook whose group the controller is not in.
-BOOTSTRAP_IGNORED_PATTERNS = ([CONTROLLER_GROUP],)
-
 SOPS_FILE = ".config/faramir/secrets/ansible-ctrl.sops.yml"
 AGE_KEY_FILE = ".config/faramir/age.key"
 BROKER_KEY = ".config/faramir/id_ed25519"
@@ -85,7 +72,6 @@ HOSTS_HEADER = re.compile(r"hosts \([0-9]+\):")
 TASKS_HEADER = re.compile(r"^\s*tasks:")
 TASK_LINE = re.compile(r"^\s+[^ ]+ : ")
 UNREACHABLE_LINE = re.compile(r"^\S+ \| .*UNREACHABLE!")
-PLAY_PATTERN = re.compile(r"^\s*pattern: (\[.*\])\s*$")
 DELEGATES_LOCALLY = re.compile(rb"delegate_to:[ \t\v\f\r]*localhost")
 
 
@@ -130,10 +116,10 @@ def resolve_operator(env: Mapping[str, str], is_root: bool, whoami: str) -> str:
     """The account whose home holds the sops store and the broker's key.
 
     FARAMIR_OPERATOR is the broker's answer, reserved so a brokered caller cannot choose it,
-    and the only source that survives a brokered sudo. SUDO_USER is the operator wherever a
-    human typed the sudo, and names the executor account on a brokered run, which is why it
-    comes second. Otherwise whoever is running: an unprivileged run, or a root login with
-    neither (cron).
+    and the only source that survives a brokered sudo. The certificate renewal cron sets it
+    too, having no sudo to take the operator from. SUDO_USER is the operator wherever a human
+    typed the sudo, and names the executor account on a brokered run, which is why it comes
+    second. Otherwise whoever is running: an unprivileged run, or a root login with neither.
     """
     if is_set(env.get("FARAMIR_OPERATOR")):
         return env["FARAMIR_OPERATOR"].strip()
@@ -165,10 +151,30 @@ def root_defaults(home: str, exists: Callable[[str], bool]) -> dict[str, str]:
     return defaults
 
 
-def load_secrets(playbook: str, env: Mapping[str, str]) -> bool:
-    if is_set(env.get("SECRETS_LOADED")) or is_none(env.get("SECRETS")):
-        return False
-    return playbook in SECRET_PLAYBOOKS
+def secrets_route(playbook: str, env: Mapping[str, str], is_root: bool, readable: bool) -> str:
+    """How the run reaches its credentials: "none", "sops", "sudo" or "refuse".
+
+    readable is whether this account can read the store. Root that cannot is refused rather
+    than run without: every credential would be undefined, and the first task to read one
+    fails with the tasks before it already applied.
+    """
+    if is_none(env.get("SECRETS")) or playbook not in SECRET_PLAYBOOKS:
+        return "none"
+    if readable:
+        return "sops"
+    return "refuse" if is_root else "sudo"
+
+
+def carried_hosts(env: Mapping[str, str], is_root: bool) -> list[str] | None:
+    """The hosts the sudo re-entry carried, or None where this run lists its own.
+
+    Root only, the re-entry being a sudo, so a value left in an operator's shell lists nothing
+    away.
+    """
+    value = env.get(LISTED_HOSTS_ENV)
+    if not is_root or not is_set(value):
+        return None
+    return value.strip().split(",")
 
 
 def pick_hosts(listing: str) -> list[str]:
@@ -200,43 +206,6 @@ def pick_unreachable(output: str) -> list[str]:
     return [line.split(" ", 1)[0] for line in output.splitlines() if UNREACHABLE_LINE.match(line)]
 
 
-def parse_plays(listing: str) -> list[tuple[list[str], list[str]]]:
-    """Each play's host patterns and the hosts they resolved to, from --list-hosts."""
-    plays: list[tuple[list[str], list[str]]] = []
-    for block in re.split(r"\n\s*\n", listing):
-        for line in block.splitlines():
-            match = PLAY_PATTERN.match(line)
-            if match:
-                plays.append((list(ast.literal_eval(match.group(1))), pick_hosts(block)))
-                break
-    return plays
-
-
-def names_a_group(patterns: Iterable[str]) -> bool:
-    """Whether a play reaches its hosts through a named group rather than all of them."""
-    terms = [t for p in patterns for t in re.split(r"[:,]", p) if t and t[0] not in "!&"]
-    return bool(terms) and not any(t in {"all", "*"} for t in terms)
-
-
-def select_bootstrap(listings: Mapping[str, str]) -> list[str]:
-    """BOOTSTRAP_FIRST where it reaches the host, then each playbook with a group that does."""
-    first = [pb for pb in BOOTSTRAP_FIRST if any(hosts for _, hosts in parse_plays(listings.get(pb, "")))]
-    rest = [
-        pb
-        for pb in sorted(listings)
-        if pb not in BOOTSTRAP_FIRST
-        and pb not in BOOTSTRAP_EXCLUDED
-        and any(
-            hosts and names_a_group(p) and p not in BOOTSTRAP_IGNORED_PATTERNS for p, hosts in parse_plays(listings[pb])
-        )
-    ]
-    return first + rest
-
-
-def has_limit(args: Iterable[str]) -> bool:
-    return any(a == "--limit" or a.startswith(("--limit=", "-l")) for a in args)
-
-
 def become_flag(
     is_root: bool,
     ask_pass: str | None,
@@ -264,13 +233,6 @@ def become_flag(
     return ()
 
 
-def become_args(flag: tuple[str, ...], password_file: str | None) -> tuple[str, ...]:
-    """flag, reading the password from password_file where flag would prompt for it."""
-    if flag == BECOME_PROMPT and password_file:
-        return ("--become-password-file", password_file, *BECOME_PROMPT[1:])
-    return flag
-
-
 def role_delegates_locally(role: str) -> bool:
     for root, _, files in os.walk(REPO / "roles" / role):
         for name in files:
@@ -294,18 +256,18 @@ def preflight_outcome(playbook: str, hosts: list[str], off: list[str], is_root: 
     reachable = [h for h in hosts if h not in off]
     if not reachable:
         lines += [
-            f"Preflight: nothing left to apply {playbook}.yml to. A run connects with the",
-            "invoking account's own ~/.ssh, or the broker's key under root.",
-            "Skip this check with PREFLIGHT=none.",
+            f"Preflight: nothing left to apply {playbook}.yml to.",
+            "A run connects with the invoking account's own ~/.ssh, or the broker's key",
+            "under root. Skip this check with PREFLIGHT=none.",
         ]
         return None, "\n".join(lines)
     # A root run connects with the key this playbook distributes, so a host that has yet to
-    # authorize it reads as off, and the run would skip the host it was meant to bootstrap.
+    # authorize it reads as off, and the run would skip the host it was meant to configure.
     if is_root and playbook == "faramir":
         lines += [
             "A root run connects with the broker's key, which this playbook is what",
             "authorizes, so a host that has yet to authorize it reads the same as one",
-            "that is off. Bootstrap it as the operator: make faramir",
+            "that is off. Apply it as the operator: make faramir",
         ]
     return ["--limit", ",".join(reachable)], "\n".join(lines)
 
@@ -313,8 +275,10 @@ def preflight_outcome(playbook: str, hosts: list[str], off: list[str], is_root: 
 def listing_refusal(playbook: str, returncode: int, stderr: str, hosts: list[str]) -> str | None:
     """Why the listing stops the run, or None.
 
-    Decided before the become prompt, so an inventory or vars plugin error, or a --limit that
-    matches nothing, is named before the operator is asked for a password nothing would use.
+    Decided before the sudo re-entry and the become prompt, so an inventory or vars plugin
+    error, or a --limit that matches nothing, is named before the operator is asked for a
+    password or an escalation nothing would use. A listing reads no credential, the vars
+    plugin leaving an uninjected one undefined and the play's assert not running.
     """
     if returncode != 0:
         return f"{stderr.rstrip()}\nListing the hosts of {playbook}.yml failed, so nothing was run."
@@ -323,17 +287,27 @@ def listing_refusal(playbook: str, returncode: int, stderr: str, hosts: list[str
     return None
 
 
-def sops_command(sops_file: str, playbook: str, args: list[str]) -> list[str]:
-    # sops runs the command through a shell, so every argument is quoted into one string.
-    inner = shlex.join(["SECRETS_LOADED=1", str(SCRIPT), "run", playbook, *args])
-    return ["sops", "exec-env", sops_file, inner]
+def exit_status(status: int, dropped: bool) -> int:
+    """The run's exit status: the playbook's own where it failed, DROPPED_EXIT where it
+    succeeded on what the probe left it. A playbook ended by a signal is 128 plus the
+    signal's number, as a shell reports one."""
+    if status < 0:
+        return 128 - status
+    return status or (DROPPED_EXIT if dropped else 0)
+
+
+def sops_command(sops_file: str, argv: list[str]) -> list[str]:
+    """argv under sops exec-env, which runs it through a shell, so every argument is quoted
+    into one string. --same-process and the shell's exec leave ansible-playbook the process
+    this one started, so a signal forwarded to it reaches the playbook."""
+    return ["sops", "exec-env", "--same-process", sops_file, shlex.join(["exec", *argv])]
 
 
 def sudo_command(env: Mapping[str, str], playbook: str, args: list[str]) -> list[str]:
-    # sudo resets the environment, so each knob is named again. Empty is left out, every
-    # reader treating empty and unset alike.
-    knobs = [f"{k}={env[k]}" for k in KNOBS if is_set(env.get(k))]
-    return ["sudo", *(["env", *knobs] if knobs else []), str(SCRIPT), "run", playbook, *args]
+    # sudo resets the environment, so each carried name is given again. Empty is left out,
+    # every reader treating empty and unset alike.
+    carried = [f"{k}={env[k]}" for k in CARRIED if is_set(env.get(k))]
+    return ["sudo", *(["env", *carried] if carried else []), str(SCRIPT), "run", playbook, *args]
 
 
 def capture(argv: list[str], *, stderr: int = subprocess.DEVNULL) -> str:
@@ -347,6 +321,39 @@ def capture_all(argv: list[str]) -> subprocess.CompletedProcess[str]:
 def say(message: str) -> None:
     if message:
         print(message, file=sys.stderr, flush=True)
+
+
+def run_child(argv: list[str]) -> int:
+    """argv's exit status, waited for the way system(3) waits.
+
+    SIGINT and SIGQUIT from the terminal reach the child through the foreground process
+    group, so this process outlives them rather than leaving the child behind. SIGTERM and
+    SIGHUP, sent to this process alone, are passed on. Installed before the child starts, as
+    handlers rather than SIG_IGN, which exec would keep; one arriving before Popen returns is
+    held and sent once it does.
+    """
+    child: subprocess.Popen[bytes] | None = None
+    pending: list[int] = []
+
+    def forward(signum: int, _frame: object) -> None:
+        if child is None:
+            pending.append(signum)
+        else:
+            child.send_signal(signum)
+
+    def hold(_signum: int, _frame: object) -> None:
+        pass
+
+    handlers = {signal.SIGINT: hold, signal.SIGQUIT: hold, signal.SIGTERM: forward, signal.SIGHUP: forward}
+    previous = {signum: signal.signal(signum, handler) for signum, handler in handlers.items()}
+    try:
+        child = subprocess.Popen(argv)
+        for signum in pending:
+            child.send_signal(signum)
+        return child.wait()
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
 
 
 def is_root() -> bool:
@@ -374,114 +381,62 @@ def run(playbook: str, args: list[str]) -> int:
             os.environ.setdefault(key, value)
     sops_file = f"{home}/{SOPS_FILE}"
 
-    if load_secrets(playbook, os.environ):
-        # Refused rather than run without: every credential would be undefined, and the
-        # first task to read one fails with the tasks before it already applied.
-        if not os.access(sops_file, os.R_OK):
-            if root:
-                say(
-                    f"{sops_file}: not readable by root, so it is missing or its home is\n"
-                    f"not mounted. Refusing to run {playbook}.yml: every credential would be undefined\n"
-                    "and the first task to read one fails with the rest already applied."
-                )
-                return 1
-            say(f"Re-entering as root: {sops_file} is not readable by {account}.")
-            argv = sudo_command(os.environ, playbook, args)
-        else:
-            argv = sops_command(sops_file, playbook, args)
+    # Listed ahead of the sudo re-entry, so a run the listing refuses asks for no password or
+    # escalation first.
+    run_hosts = carried_hosts(os.environ, root)
+    roles: list[str] = []
+    if run_hosts is None:
+        listed = capture_all(["ansible-playbook", f"{playbook}.yml", *args, "--list-hosts", "--list-tasks"])
+        run_hosts = pick_hosts(listed.stdout)
+        stop = listing_refusal(playbook, listed.returncode, listed.stderr, run_hosts)
+        if stop:
+            say(stop)
+            return 1
+        roles = pick_roles(listed.stdout)
+
+    route = secrets_route(playbook, os.environ, root, os.access(sops_file, os.R_OK))
+    if route == "refuse":
+        say(
+            f"{sops_file}: not readable by root, so it is missing or its home is\n"
+            f"not mounted. Refusing to run {playbook}.yml: every credential would be undefined\n"
+            "and the first task to read one fails with the rest already applied."
+        )
+        return 1
+    if route == "sudo":
+        say(f"Re-entering as root: {sops_file} is not readable by {account}.")
+        argv = sudo_command({**os.environ, LISTED_HOSTS_ENV: ",".join(run_hosts)}, playbook, args)
         os.execvp(argv[0], argv)
 
-    listed = capture_all(["ansible-playbook", f"{playbook}.yml", *args, "--list-hosts", "--list-tasks"])
-    listing = listed.stdout
-    run_hosts = pick_hosts(listing)
-    stop = listing_refusal(playbook, listed.returncode, listed.stderr, run_hosts)
-    if stop:
-        say(stop)
-        return 1
-    limit: list[str] = []
-    if not is_none(os.environ.get("PREFLIGHT")) and run_hosts:
+    off: list[str] = []
+    if not is_none(os.environ.get("PREFLIGHT")):
         # raw: the question is whether ssh authenticates, not whether python answers.
         probe = capture(
             ["ansible", ",".join(run_hosts), "-m", "raw", "-a", "true", "-T", PREFLIGHT_TIMEOUT],
             stderr=subprocess.STDOUT,
         )
-        outcome, message = preflight_outcome(playbook, run_hosts, pick_unreachable(probe), root)
-        say(message)
-        if outcome is None:
-            return 1
-        limit = outcome
+        off = pick_unreachable(probe)
+    limit, message = preflight_outcome(playbook, run_hosts, off, root)
+    say(message)
+    if limit is None:
+        return DROPPED_EXIT
 
-    flag = become_args(
-        become_flag(
-            root,
-            os.environ.get("ASK_PASS"),
-            lambda: pick_hosts(capture(["ansible", CONTROLLER_GROUP, "--list-hosts"])),
-            run_hosts,
-            pick_roles(listing),
-            role_delegates_locally,
-        ),
-        os.environ.get(BECOME_FILE_ENV),
+    flag = become_flag(
+        root,
+        os.environ.get("ASK_PASS"),
+        lambda: pick_hosts(capture(["ansible", CONTROLLER_GROUP, "--list-hosts"])),
+        run_hosts,
+        roles,
+        role_delegates_locally,
     )
     secrets_off = SECRETS_OFF if is_none(os.environ.get("SECRETS")) else ()
     argv = ["ansible-playbook", *flag, *secrets_off, f"{playbook}.yml", *args, *limit]
-    os.execvp(argv[0], argv)
-    return 1
-
-
-def bootstrap_env(env: Mapping[str, str]) -> dict[str, str]:
-    """env with ASK_PASS forced: a fresh host's sudo asks until faramir.yml, which bootstrap
-    never selects, writes the NOPASSWD rule. become_flag still asks root nothing."""
-    return dict(env) if is_set(env.get("ASK_PASS")) else {**env, "ASK_PASS": "1"}
-
-
-@contextlib.contextmanager
-def become_password_file(ask: bool, runtime_dir: str | None) -> Iterator[str | None]:
-    """The become password, asked once and held in a file only the operator can read.
-
-    In runtime_dir where it exists, a per-user tmpfs, so the password never reaches a disk.
-    Removed on the way out, whatever the outcome.
-    """
-    if not ask:
-        yield None
-        return
-    password = getpass.getpass("BECOME password: ")
-    parent = runtime_dir if runtime_dir and Path(runtime_dir).is_dir() else None
-    directory = Path(tempfile.mkdtemp(prefix="playbook-", dir=parent))
-    try:
-        path = directory / "become"
-        with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as file:
-            file.write(password)
-        yield str(path)
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
-
-
-def bootstrap(args: list[str]) -> int:
-    if refuse_invocation("bootstrap"):
-        return 1
-    if not has_limit(args):
-        say("bootstrap applies every playbook that reaches a host, so it needs one named:")
-        say("  make bootstrap -- --limit <host>")
-        return 1
-    playbooks = sorted(p.stem for p in REPO.glob("*.yml") if p.name != "requirements.yml")
-    listings = {pb: capture(["ansible-playbook", f"{pb}.yml", *args, "--list-hosts"]) for pb in playbooks}
-    selected = select_bootstrap(listings)
-    if not selected:
-        say(f"bootstrap: no playbook reaches {shlex.join(args)}")
-        return 1
-    say(f"bootstrap: {', '.join(selected)}")
-    env = bootstrap_env(os.environ)
-    # Every run bootstrap makes prompts unless it runs as root, so the one answer serves them all.
-    with become_password_file(not is_root(), os.environ.get("XDG_RUNTIME_DIR")) as password_file:
-        if password_file:
-            env[BECOME_FILE_ENV] = password_file
-        for index, playbook in enumerate(selected):
-            argv = [sys.executable, str(SCRIPT), "run", playbook, *args]
-            status = subprocess.run(argv, check=False, env=env).returncode
-            if status != 0:
-                say(f"bootstrap: stopped at {playbook}.yml; not run: {', '.join(selected[index + 1 :]) or 'none'}")
-                return status
-    return 0
+    if route == "sops":
+        argv = sops_command(sops_file, argv)
+    status = run_child(argv)
+    # Said again, the first telling having scrolled away above the playbook's output.
+    if message:
+        say(f"{message}\n{playbook}.yml was not applied to the hosts named above.")
+    return exit_status(status, bool(message))
 
 
 def main(argv: list[str]) -> int:
@@ -493,8 +448,6 @@ def main(argv: list[str]) -> int:
             return 0
         case ["run", playbook, *args]:
             return run(playbook, args)
-        case ["bootstrap", *args]:
-            return bootstrap(args)
     print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
     return 2
 

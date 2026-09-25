@@ -5,7 +5,8 @@
 #
 # Usage: tests/check.sh <playbook> [ansible-playbook arguments...]
 #
-# CI only: it configures the machine it runs on, as root.
+# CI only: it configures the machine it runs on, becoming root through the runner's passwordless
+# sudo.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1

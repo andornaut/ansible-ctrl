@@ -1,7 +1,8 @@
+import os
 import shlex
-import stat
+import signal
+import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -53,16 +54,6 @@ charlie | UNREACHABLE! => {
 """
 
 
-def listing(*plays):
-    """A --list-hosts listing of plays given as (pattern, hosts)."""
-    blocks = [
-        f"  play #{i} ({pattern}): Name\tTAGS: []\n    pattern: {[pattern]!r}\n    hosts ({len(hosts)}):\n"
-        + "".join(f"      {h}\n" for h in hosts)
-        for i, (pattern, hosts) in enumerate(plays, 1)
-    ]
-    return "playbook: x.yml\n\n" + "\n".join(blocks)
-
-
 class Parsing(unittest.TestCase):
     def test_hosts_in_order_each_once_stopping_at_tasks_and_blank_lines(self):
         self.assertEqual(playbook.pick_hosts(LISTING), ["alpha", "bravo"])
@@ -75,17 +66,6 @@ class Parsing(unittest.TestCase):
 
     def test_unreachable_reads_only_the_first_line_of_each_result(self):
         self.assertEqual(playbook.pick_unreachable(PROBE), ["bravo", "charlie"])
-
-    def test_plays_carry_their_pattern_and_hosts(self):
-        self.assertEqual(
-            playbook.parse_plays(LISTING),
-            [
-                (["torrent"], ["alpha", "bravo"]),
-                (["faramir_controller"], ["bravo"]),
-                (["nas"], []),
-                (["all:!routers"], ["alpha"]),
-            ],
-        )
 
 
 class MakeSemantics(unittest.TestCase):
@@ -143,31 +123,52 @@ class Operator(unittest.TestCase):
 
 
 class Secrets(unittest.TestCase):
-    def test_only_secret_playbooks_load(self):
-        self.assertTrue(playbook.load_secrets("msmtp", {}))
-        self.assertFalse(playbook.load_secrets("desktop", {}))
+    def test_only_secret_playbooks_read_the_store(self):
+        self.assertEqual(playbook.secrets_route("msmtp", {}, False, True), "sops")
+        self.assertEqual(playbook.secrets_route("desktop", {}, False, False), "none")
 
-    def test_skipped_by_the_knob_and_inside_the_re_entry(self):
-        self.assertFalse(playbook.load_secrets("msmtp", {"SECRETS": "none"}))
-        self.assertFalse(playbook.load_secrets("msmtp", {"SECRETS_LOADED": "1"}))
+    def test_skipped_by_the_knob(self):
+        self.assertEqual(playbook.secrets_route("msmtp", {"SECRETS": "none"}, False, False), "none")
+
+    def test_an_unreadable_store_re_enters_as_root_and_root_is_refused(self):
+        self.assertEqual(playbook.secrets_route("msmtp", {}, False, False), "sudo")
+        self.assertEqual(playbook.secrets_route("msmtp", {}, True, False), "refuse")
+        self.assertEqual(playbook.secrets_route("msmtp", {}, True, True), "sops")
 
     ARGS = ("-e", "a=it's b", "--limit", "x,y", "$HOME", "`id`")
 
-    def test_sops_re_entry_quotes_every_argument_into_one_string(self):
-        argv = playbook.sops_command("/home/op/store.sops.yml", "msmtp", list(self.ARGS))
-        self.assertEqual(argv[:3], ["sops", "exec-env", "/home/op/store.sops.yml"])
-        self.assertEqual(len(argv), 4)
-        self.assertEqual(shlex.split(argv[3]), ["SECRETS_LOADED=1", str(playbook.SCRIPT), "run", "msmtp", *self.ARGS])
+    def test_sops_runs_the_playbook_itself_in_its_own_process(self):
+        argv = ["ansible-playbook", "msmtp.yml", *self.ARGS]
+        command = playbook.sops_command("/home/op/store.sops.yml", argv)
+        self.assertEqual(command[:4], ["sops", "exec-env", "--same-process", "/home/op/store.sops.yml"])
+        self.assertEqual(len(command), 5)
+        self.assertEqual(shlex.split(command[4]), ["exec", *argv])
 
-    def test_sudo_re_entry_names_each_set_knob_again(self):
-        env = {"SECRETS": "", "ASK_PASS": "1", "PREFLIGHT": "none", "OTHER": "x"}
+    def test_sudo_re_entry_names_each_set_knob_and_carried_name_again(self):
+        env = {"SECRETS": "", "ASK_PASS": "1", "PREFLIGHT": "none", "OTHER": "x", "PLAYBOOK_LISTED_HOSTS": "a,b"}
         self.assertEqual(
             playbook.sudo_command(env, "msmtp", list(self.ARGS)),
-            ["sudo", "env", "ASK_PASS=1", "PREFLIGHT=none", str(playbook.SCRIPT), "run", "msmtp", *self.ARGS],
+            [
+                "sudo",
+                "env",
+                "ASK_PASS=1",
+                "PREFLIGHT=none",
+                "PLAYBOOK_LISTED_HOSTS=a,b",
+                str(playbook.SCRIPT),
+                "run",
+                "msmtp",
+                *self.ARGS,
+            ],
         )
 
     def test_sudo_re_entry_without_knobs(self):
         self.assertEqual(playbook.sudo_command({}, "msmtp", []), ["sudo", str(playbook.SCRIPT), "run", "msmtp"])
+
+    def test_carried_hosts_are_read_under_root_only(self):
+        env = {"PLAYBOOK_LISTED_HOSTS": "a,b"}
+        self.assertEqual(playbook.carried_hosts(env, True), ["a", "b"])
+        self.assertIsNone(playbook.carried_hosts(env, False))
+        self.assertIsNone(playbook.carried_hosts({"PLAYBOOK_LISTED_HOSTS": " "}, True))
 
 
 class BecomeFlag(unittest.TestCase):
@@ -203,19 +204,6 @@ class BecomeFlag(unittest.TestCase):
     def test_a_run_that_avoids_the_controller(self):
         self.assertEqual(self.flag(roles=("x",)), ())
 
-    def test_a_password_file_replaces_the_prompt(self):
-        self.assertEqual(
-            playbook.become_args(playbook.BECOME_PROMPT, "/run/p"),
-            ("--become-password-file", "/run/p", "-e", "ansible_local_become_success_timeout=120"),
-        )
-
-    def test_no_password_file_keeps_the_flag(self):
-        self.assertEqual(playbook.become_args(playbook.BECOME_PROMPT, None), playbook.BECOME_PROMPT)
-        self.assertEqual(playbook.become_args(playbook.BECOME_PROMPT, ""), playbook.BECOME_PROMPT)
-
-    def test_a_password_file_adds_nothing_where_nothing_is_asked(self):
-        self.assertEqual(playbook.become_args((), "/run/p"), ())
-
     def test_the_grep_matches_what_a_task_file_says(self):
         self.assertTrue(playbook.DELEGATES_LOCALLY.search(b"  delegate_to:   localhost\n"))
         self.assertFalse(playbook.DELEGATES_LOCALLY.search(b"  delegate_to:\n    localhost\n"))
@@ -242,6 +230,84 @@ class Preflight(unittest.TestCase):
                 self.assertEqual("make faramir" in message, expected)
 
 
+class ExitStatus(unittest.TestCase):
+    def test_a_drop_turns_success_into_its_own_status(self):
+        self.assertEqual(playbook.exit_status(0, True), playbook.DROPPED_EXIT)
+        self.assertEqual(playbook.exit_status(0, False), 0)
+
+    def test_the_playbook_failure_outranks_a_drop(self):
+        self.assertEqual(playbook.exit_status(2, True), 2)
+
+    def test_a_signal_reads_as_a_shell_reports_it(self):
+        self.assertEqual(playbook.exit_status(-2, False), 130)
+
+
+def completed(returncode=0, stdout="", stderr=""):
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+
+class RunOrder(unittest.TestCase):
+    """The listing comes before the sudo re-entry, and root does not list again."""
+
+    def run_playbook(self, name, *, root, env=(), readable=False, listing=None, probe=""):
+        self.said = []
+        with (
+            mock.patch.object(playbook, "say", side_effect=self.said.append),
+            mock.patch.dict(playbook.os.environ, dict(env), clear=True),
+            mock.patch.object(playbook, "is_root", return_value=root),
+            mock.patch.object(playbook, "operator", return_value="op"),
+            mock.patch.object(playbook, "home_of", return_value="/nonexistent"),
+            mock.patch.object(playbook.os, "access", return_value=readable),
+            mock.patch.object(playbook, "capture_all", return_value=listing or completed(stdout=LISTING)) as listed,
+            mock.patch.object(playbook, "capture", return_value=probe),
+            mock.patch.object(playbook.os, "execvp", side_effect=SystemExit("re-entered")) as execvp,
+            mock.patch.object(playbook, "run_child", return_value=0) as child,
+        ):
+            try:
+                status = playbook.run(name, [])
+            except SystemExit:
+                status = None
+        return status, listed, execvp, child
+
+    def test_a_failed_listing_is_refused_before_the_re_entry(self):
+        status, _, execvp, _ = self.run_playbook("msmtp", root=False, listing=completed(4, stderr="ERROR!"))
+        self.assertEqual(status, 1)
+        execvp.assert_not_called()
+
+    def test_the_re_entry_carries_the_listed_hosts(self):
+        status, listed, execvp, _ = self.run_playbook("msmtp", root=False)
+        self.assertIsNone(status)
+        listed.assert_called_once()
+        self.assertIn("PLAYBOOK_LISTED_HOSTS=alpha,bravo", execvp.call_args.args[1])
+
+    def test_root_behind_the_re_entry_lists_nothing(self):
+        env = {"PLAYBOOK_LISTED_HOSTS": "alpha", "PREFLIGHT": "none"}
+        status, listed, _, child = self.run_playbook("msmtp", root=True, env=env, readable=True)
+        self.assertEqual(status, 0)
+        listed.assert_not_called()
+        self.assertEqual(child.call_args.args[0][:3], ["sops", "exec-env", "--same-process"])
+
+    def test_a_drop_exits_non_zero_after_a_successful_playbook(self):
+        status, _, _, child = self.run_playbook("desktop", root=False, probe="bravo | UNREACHABLE! => {}\n")
+        self.assertEqual(status, playbook.DROPPED_EXIT)
+        self.assertEqual(child.call_args.args[0][-2:], ["--limit", "alpha"])
+        self.assertEqual(sum("dropped bravo" in line for line in self.said), 2)
+
+
+class RunChild(unittest.TestCase):
+    def test_a_sigterm_while_the_child_starts_is_passed_on(self):
+        child = mock.Mock()
+        child.wait.return_value = 0
+
+        def start(*_args, **_kwargs):
+            os.kill(os.getpid(), signal.SIGTERM)
+            return child
+
+        with mock.patch.object(playbook.subprocess, "Popen", side_effect=start):
+            self.assertEqual(playbook.run_child(["true"]), 0)
+        child.send_signal.assert_called_once_with(signal.SIGTERM)
+
+
 class Listing(unittest.TestCase):
     def test_a_failed_listing_stops_the_run_naming_why(self):
         message = playbook.listing_refusal("base", 4, "ERROR! faramir.env is not there\n", [])
@@ -255,88 +321,23 @@ class Listing(unittest.TestCase):
         self.assertIsNone(playbook.listing_refusal("base", 0, "[WARNING]: something\n", ["a"]))
 
 
-class Bootstrap(unittest.TestCase):
-    def test_named_groups_only(self):
-        self.assertTrue(playbook.names_a_group(["homeautomation"]))
-        self.assertTrue(playbook.names_a_group(["dev:homeautomation:webservers"]))
-        self.assertFalse(playbook.names_a_group(["all"]))
-        self.assertFalse(playbook.names_a_group(["all:!routers"]))
-        self.assertFalse(playbook.names_a_group(["*"]))
-        self.assertFalse(playbook.names_a_group(["!routers"]))
+class Consistency(unittest.TestCase):
+    def test_secret_playbooks_are_the_ones_that_require_credentials(self):
+        requiring = {p.stem for p in playbook.REPO.glob("*.yml") if "tasks/require_credentials.yml" in p.read_text()}
+        self.assertEqual(playbook.SECRET_PLAYBOOKS, requiring)
 
-    def test_selection_and_order(self):
-        listings = {
-            "base": listing(("all:!routers", ["h"])),
-            "docker": listing(("dev:homeautomation", ["h"])),
-            "desktop": listing(("desktop", ["h"])),
-            "dev": listing(("dev", ["h"])),
-            "faramir": listing(("faramir", ["h"]), ("all", ["h"])),
-            "msmtp": listing(("all:!routers", ["h"])),
-            "torrent": listing(("torrent", []), ("faramir_controller", [])),
-            "webservers": listing(("webservers", ["h"])),
-            "homeautomation": listing(("homeautomation", ["h"])),
-        }
-        self.assertEqual(
-            playbook.select_bootstrap(listings),
-            ["base", "docker", "msmtp", "dev", "desktop", "homeautomation", "webservers"],
-        )
+    def test_every_delegation_is_one_the_grep_sees(self):
+        for path in playbook.REPO.glob("roles/**/*.yml"):
+            for line in path.read_bytes().splitlines():
+                if line.lstrip().startswith((b"delegate_to:", b"local_action:")):
+                    with self.subTest(path=str(path), line=line):
+                        self.assertTrue(playbook.DELEGATES_LOCALLY.search(line))
 
-    def test_a_controller_play_selects_nothing(self):
-        for torrent_hosts, expected in (([], []), (["h"], ["torrent"])):
-            with self.subTest(torrent_hosts=torrent_hosts):
-                listings = {"torrent": listing(("torrent", torrent_hosts), ("faramir_controller", ["h"]))}
-                self.assertEqual(playbook.select_bootstrap(listings), expected)
-
-    def test_leading_playbooks_skipped_where_they_miss_the_host(self):
-        listings = {
-            "base": listing(("all:!routers", [])),
-            "docker": listing(("dev", [])),
-            "router": listing(("routers", ["r"])),
-        }
-        self.assertEqual(playbook.select_bootstrap(listings), ["router"])
-
-    def test_every_run_prompts_unless_the_operator_set_ask_pass(self):
-        self.assertEqual(playbook.bootstrap_env({"PATH": "/bin"}), {"PATH": "/bin", "ASK_PASS": "1"})
-        self.assertEqual(playbook.bootstrap_env({"ASK_PASS": " "}), {"ASK_PASS": "1"})
-        self.assertEqual(playbook.bootstrap_env({"ASK_PASS": "yes"}), {"ASK_PASS": "yes"})
-
-    def test_the_password_is_asked_once_into_an_owner_only_file_removed_after(self):
-        with (
-            tempfile.TemporaryDirectory() as runtime,
-            mock.patch.object(playbook.getpass, "getpass", return_value="pw") as ask,
-        ):
-            with playbook.become_password_file(True, runtime) as path:
-                self.assertTrue(path.startswith(runtime))
-                self.assertEqual(Path(path).read_text(), "pw")
-                self.assertEqual(stat.S_IMODE(Path(path).stat().st_mode), 0o600)
-                self.assertEqual(stat.S_IMODE(Path(path).parent.stat().st_mode), 0o700)
-            ask.assert_called_once()
-            self.assertFalse(Path(path).parent.exists())
-
-    def test_removed_when_a_run_raises(self):
-        with tempfile.TemporaryDirectory() as runtime, mock.patch.object(playbook.getpass, "getpass", return_value=""):
-            with self.assertRaises(RuntimeError), playbook.become_password_file(True, runtime) as path:
-                raise RuntimeError
-            self.assertFalse(Path(path).parent.exists())
-
-    def test_root_is_asked_nothing(self):
-        with (
-            mock.patch.object(playbook.getpass, "getpass", side_effect=AssertionError),
-            playbook.become_password_file(False, None) as path,
-        ):
-            self.assertIsNone(path)
-
-    def test_a_limit_is_required(self):
-        for args, expected in (
-            (["--limit", "h"], True),
-            (["--limit=h"], True),
-            (["-l", "h"], True),
-            (["-lh"], True),
-            (["--tags", "x", "--list-hosts"], False),
-            ([], False),
-        ):
-            with self.subTest(args=args):
-                self.assertEqual(playbook.has_limit(args), expected)
+    def test_the_makefile_has_a_target_for_every_playbook(self):
+        makefile = (playbook.REPO / "Makefile").read_text().replace("\\\n", " ")
+        declared = next(line for line in makefile.splitlines() if line.startswith("PLAYBOOKS :="))
+        playbooks = {p.stem for p in playbook.REPO.glob("*.yml") if p.name != "requirements.yml"}
+        self.assertEqual(set(declared.split(":=", 1)[1].split()), playbooks)
 
 
 if __name__ == "__main__":
