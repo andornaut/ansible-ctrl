@@ -1,11 +1,12 @@
 ---
-# Store the .tar.gz source URL of a gitlab.freedesktop.org project's latest release as a
-# fact. GitLab returns releases newest first and has no draft or prerelease flags, so the
-# first entry is it.
+# Store the tag and the .tar.gz source URL of a gitlab.freedesktop.org project's latest
+# release as facts. GitLab returns releases newest first and has no draft or prerelease
+# flags, so the first entry is it.
 #
 # Required vars:
 #   gitlab_release_project (int): numeric project ID, e.g. 121 for wayland
 #   gitlab_release_src_url_fact (str): variable name to set with the source tarball URL
+#   gitlab_release_tag_fact (str): variable name to set with the release tag
 - name: Get releases of GitLab project {{ gitlab_release_project }}
   ansible.builtin.uri:
     url: "https://gitlab.freedesktop.org/api/v4/projects/{{ gitlab_release_project }}/releases"
@@ -21,9 +22,10 @@
     niri_gitlab_release_response.status == 200 or
     (niri_gitlab_release_response.status >= 400 and niri_gitlab_release_response.status < 500)
 
-- name: Set fact to source tarball URL for {{ gitlab_release_src_url_fact }}
+- name: Set facts to the tag and source tarball URL for {{ gitlab_release_src_url_fact }}
   ansible.builtin.set_fact:
     "{{ gitlab_release_src_url_fact }}": >-
       {{ niri_gitlab_release_response.json[0].assets.sources
       | selectattr('format', 'equalto', 'tar.gz')
       | map(attribute='url') | first }}
+    "{{ gitlab_release_tag_fact }}": "{{ niri_gitlab_release_response.json[0].tag_name }}"

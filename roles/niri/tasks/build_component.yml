@@ -10,7 +10,29 @@
 #   build_component_build_cmd (str): may interpolate $(...), so it runs in a shell
 #   build_component_install_cmd (str): runs as root
 #
+# Optional vars:
+#   build_component_tag (str): the release tag the tarball is, e.g. "v0.11.0"
+#   build_component_probe (list): argv printing the installed version, e.g.
+#     [pkg-config, --modversion, hyprutils] for a library or [/usr/local/bin/hypridle, --version]
+#     for a program. The build is skipped when its output holds build_component_tag, a leading
+#     v stripped, as a whole word. Without a probe the component builds on every run.
+#
 # Callers must wrap the include in a tagged block (see hypr.yml).
+
+# The installed artifact is asked rather than a stamp file, so a build removed or replaced by
+# hand is rebuilt. A missing program or .pc file prints nothing, which matches no version.
+- name: Probe the installed version of {{ build_component_name }}
+  ansible.builtin.command:
+    argv: "{{ build_component_probe }}"
+  environment:
+    PKG_CONFIG_PATH: "{{ niri_pkg_config_path }}"
+  register: niri_build_component_installed
+  when: build_component_probe | default([]) | length > 0
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: false
+
 # Staged and built as niri_user, not root and not the connecting account: only the install
 # needs root, and a root-owned 0700 staging directory is one the build cannot chdir into.
 # The install and the cleanup name root for themselves.
@@ -18,6 +40,11 @@
 # gcc-14 for the hypr stack's C++, named to the build rather than made the host's default,
 # which would also change the compiler DKMS builds kernel modules with.
 - name: Build and install {{ build_component_name }}
+  when: >-
+    build_component_probe | default([]) | length == 0
+    or build_component_tag | default('') | length == 0
+    or niri_build_component_installed.stdout | default('') is not search(
+         '(^|[^\\w.])v?' ~ (build_component_tag | regex_replace('^v', '') | regex_escape) ~ '([^\\w.]|$)')
   become: true
   become_user: "{{ niri_user }}"
   environment:

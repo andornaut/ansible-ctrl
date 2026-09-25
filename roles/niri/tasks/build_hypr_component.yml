@@ -8,6 +8,7 @@
 #
 # Optional vars:
 #   hypr_component_build_target (str): passed to `cmake --build --target`. Omit for default.
+#   hypr_component_probe (list): build_component_probe, the argv printing the installed version
 #
 # Callers must wrap the include in a tagged block (see hypr.yml).
 - name: Get latest release of {{ hypr_component_name }}
@@ -24,6 +25,8 @@
       {{ niri_hypr_versions[hypr_component_name] if hypr_component_name in niri_hypr_versions
          else niri_hypr_component_release.tag_name }}
     build_component_name: "{{ hypr_component_name }}"
+    build_component_tag: "{{ hypr_component_tag }}"
+    build_component_probe: "{{ hypr_component_probe | default([]) }}"
     build_component_src_url:
       "https://github.com/hyprwm/{{ hypr_component_name }}/archive/refs/tags/\
       {{ hypr_component_tag }}.tar.gz"
@@ -33,7 +36,7 @@
       -DCMAKE_BUILD_TYPE:STRING=Release
       -DCMAKE_PREFIX_PATH:PATH=/usr/local
       -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
-      -DCMAKE_INSTALL_LIBDIR:PATH=lib/x86_64-linux-gnu
+      -DCMAKE_INSTALL_LIBDIR:PATH=lib/{{ niri_multiarch }}
       -S .
       -B build
     build_component_build_cmd: >-

@@ -26,15 +26,20 @@
   become: true
   tags: always
 
-# getent answers with the home's path whether or not anything is mounted there, so without this a
-# run against a locked home writes the enable symlinks onto the mountpoint and reports changed;
-# the next login mounts over them and the unit is not enabled. Fails closed without the mounts
-# fact, an encrypted home then counting as unmounted.
-- name: Record whether the home is mounted for {{ niri_user }}
-  ansible.builtin.set_fact:
-    niri_user_home_mounted: >-
-      {{ (not niri_user_home_ecryptfs.stat.exists)
-         or (niri_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount') | list)) }}
+# getent answers with the home's path whether or not anything is mounted there, so a run
+# against a locked home would write the unit enable links onto the mountpoint and report
+# changed, and the next login would mount over them. Fails before anything changes.
+# `| default([])` fails closed: without the mounts fact this cannot answer.
+- name: Require an encrypted home to be mounted
+  ansible.builtin.assert:
+    that: niri_user_home in (ansible_facts['mounts'] | default([]) | map(attribute='mount'))
+    fail_msg: >-
+      {{ niri_user }}'s home is encrypted and {{ niri_user_home }} is not mounted, so this
+      host is at its login screen or the home was never unlocked. Installing now would write
+      the user unit enable links onto the mountpoint, where the next login hides them. Log in
+      as {{ niri_user }}, or run ecryptfs-mount-private there, and re-run.
+    quiet: true
+  when: niri_user_home_ecryptfs.stat.exists
   tags: always
 
 # systemctl --user reaches this socket, which exists only while the account's manager runs, so

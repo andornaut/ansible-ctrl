@@ -90,7 +90,6 @@
         file_type: link
         recurse: true
       register: niri_xwayland_unit_links
-      when: niri_user_home_mounted | bool
       become: true
       become_user: "{{ niri_user }}"
 
@@ -98,7 +97,7 @@
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
-      loop: "{{ niri_xwayland_unit_links.files | default([]) }}"
+      loop: "{{ niri_xwayland_unit_links.files }}"
       loop_control:
         label: "{{ item.path }}"
       become: true

@@ -9,6 +9,8 @@
 #
 # Optional vars:
 #   meson_component_options (str): further `meson` options, e.g. "-Ddocumentation=false"
+#   meson_component_tag (str): build_component_tag, the release tag the tarball is
+#   meson_component_probe (list): build_component_probe, the argv printing the installed version
 #
 # Callers must wrap the include in a tagged block (see dependencies.yml).
 - name: Build and install {{ meson_component_name }}
@@ -16,6 +18,8 @@
   vars:
     build_component_name: "{{ meson_component_name }}"
     build_component_src_url: "{{ meson_component_src_url }}"
+    build_component_tag: "{{ meson_component_tag | default('') }}"
+    build_component_probe: "{{ meson_component_probe | default([]) }}"
     build_component_configure_cmd: >-
       meson build/ --prefix=/usr/local --buildtype=release
       {{ meson_component_options | default('') }}

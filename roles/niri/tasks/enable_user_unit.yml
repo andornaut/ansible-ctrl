@@ -46,7 +46,6 @@
         state: directory
         mode: "0755"
       loop: "{{ niri_enable_unit_wanted_by }}"
-      when: niri_user_home_mounted | bool
       become: true
       become_user: "{{ niri_user }}"
 
@@ -60,7 +59,6 @@
         # instead of failing; a real run always has the unit, installed before this is called.
         force: true
       loop: "{{ niri_enable_unit_wanted_by }}"
-      when: niri_user_home_mounted | bool
       become: true
       become_user: "{{ niri_user }}"
 

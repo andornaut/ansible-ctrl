@@ -113,11 +113,15 @@
         build_component_src_url:
           "https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/\
           {{ niri_libsdbus_release.tag_name }}.tar.gz"
+        build_component_tag: "{{ niri_libsdbus_release.tag_name }}"
+        build_component_probe: [pkg-config, --modversion, sdbus-c++]
         build_component_configure_cmd: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
         build_component_build_cmd: cmake --build build
         build_component_install_cmd: cmake --build build --target install
 
-- name: Build and install Wayland (for wayland-scanner)
+# The scanner alone: wayland-protocols needs a newer one than the archive's. Everything here
+# links against the archive's libwayland.
+- name: Build and install wayland-scanner
   tags: [wayland]
   block:
     - name: Get latest Wayland release
@@ -125,15 +129,67 @@
       vars:
         gitlab_release_project: 121
         gitlab_release_src_url_fact: niri_wayland_scanner_src_url
+        gitlab_release_tag_fact: niri_wayland_scanner_tag
 
-    - name: Build and install Wayland
+    - name: Build and install wayland-scanner
       ansible.builtin.include_tasks: build_meson_component.yml
       vars:
-        meson_component_name: Wayland
+        meson_component_name: wayland-scanner
         meson_component_src_url: "{{ niri_wayland_scanner_src_url }}"
-        # Only the libraries and the scanner are wanted. The docs need mdbook from 1.26 on,
-        # which no archive this role supports packages.
-        meson_component_options: -Ddocumentation=false
+        meson_component_tag: "{{ niri_wayland_scanner_tag }}"
+        meson_component_probe: [pkg-config, --modversion, wayland-scanner]
+        # A /usr/local libwayland would shadow the archive's for every program on the host.
+        # The tests require the libraries, and the docs need mdbook from 1.26 on, which no
+        # archive this role supports packages.
+        meson_component_options: -Dlibraries=false -Dtests=false -Ddocumentation=false
+
+    # CLEANUP (added 2026-09-25): the libwayland libraries, headers and .pc files a full
+    # Wayland build left in /usr/local, where they shadow the archive's for every program on
+    # the host. The scanner's own files stay. Delete once every niri host has converged.
+    - name: Find the /usr/local libwayland libraries
+      ansible.builtin.find:
+        paths: "/usr/local/lib/{{ niri_multiarch }}"
+        patterns:
+          - libwayland-client.so*
+          - libwayland-cursor.so*
+          - libwayland-egl.so*
+          - libwayland-server.so*
+        file_type: any
+      register: niri_wayland_libraries
+      become: true
+
+    - name: Remove the /usr/local libwayland libraries, headers and .pc files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ niri_wayland_libraries.files | map(attribute='path') | list + niri_wayland_library_files }}"
+      vars:
+        niri_wayland_library_files:
+          - /usr/local/include/wayland-client-core.h
+          - /usr/local/include/wayland-client-protocol.h
+          - /usr/local/include/wayland-client.h
+          - /usr/local/include/wayland-cursor.h
+          - /usr/local/include/wayland-egl-backend.h
+          - /usr/local/include/wayland-egl-core.h
+          - /usr/local/include/wayland-egl.h
+          - /usr/local/include/wayland-server-core.h
+          - /usr/local/include/wayland-server-protocol.h
+          - /usr/local/include/wayland-server.h
+          - /usr/local/include/wayland-util.h
+          - /usr/local/include/wayland-version.h
+          - /usr/local/lib/{{ niri_multiarch }}/pkgconfig/wayland-client.pc
+          - /usr/local/lib/{{ niri_multiarch }}/pkgconfig/wayland-cursor.pc
+          - /usr/local/lib/{{ niri_multiarch }}/pkgconfig/wayland-egl-backend.pc
+          - /usr/local/lib/{{ niri_multiarch }}/pkgconfig/wayland-egl.pc
+          - /usr/local/lib/{{ niri_multiarch }}/pkgconfig/wayland-server.pc
+      become: true
+
+    # Unconditional: a run interrupted between the removal and this would otherwise leave the
+    # cache naming the removed libraries, with nothing left to remove to trigger it again.
+    - name: Update dynamic linker cache after removing the /usr/local libwayland
+      ansible.builtin.command: ldconfig
+      changed_when: false
+      become: true
 
 - name: Build and install wayland-protocols
   tags: [wayland]
@@ -143,12 +199,15 @@
       vars:
         gitlab_release_project: 2891
         gitlab_release_src_url_fact: niri_wayland_protocols_src_url
+        gitlab_release_tag_fact: niri_wayland_protocols_tag
 
     - name: Build and install wayland-protocols
       ansible.builtin.include_tasks: build_meson_component.yml
       vars:
         meson_component_name: wayland-protocols
         meson_component_src_url: "{{ niri_wayland_protocols_src_url }}"
+        meson_component_tag: "{{ niri_wayland_protocols_tag }}"
+        meson_component_probe: [pkg-config, --modversion, wayland-protocols]
 
 # CMake since 0.7, like the rest of hyprwm.
 - name: Build and install hyprland-protocols
@@ -158,3 +217,4 @@
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:
         hypr_component_name: hyprland-protocols
+        hypr_component_probe: [pkg-config, --modversion, hyprland-protocols]

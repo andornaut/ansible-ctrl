@@ -12,6 +12,7 @@
       vars:
         hypr_component_name: hyprutils
         hypr_component_build_target: all
+        hypr_component_probe: [pkg-config, --modversion, hyprutils]
 
 - name: Install hyprlang
   tags: [hyprlang]
@@ -21,6 +22,7 @@
       vars:
         hypr_component_name: hyprlang
         hypr_component_build_target: hyprlang
+        hypr_component_probe: [pkg-config, --modversion, hyprlang]
 
 - name: Install hyprgraphics
   tags: [hyprgraphics]
@@ -30,6 +32,7 @@
       vars:
         hypr_component_name: hyprgraphics
         hypr_component_build_target: all
+        hypr_component_probe: [pkg-config, --modversion, hyprgraphics]
 
 - name: Install hyprwayland-scanner
   tags: [hyprwayland-scanner]
@@ -39,6 +42,7 @@
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:
         hypr_component_name: hyprwayland-scanner
+        hypr_component_probe: [pkg-config, --modversion, hyprwayland-scanner]
 
 - name: Install hypridle
   tags: [hypridle]
@@ -48,6 +52,7 @@
       vars:
         hypr_component_name: hypridle
         hypr_component_build_target: hypridle
+        hypr_component_probe: [/usr/local/bin/hypridle, --version]
 
     - name: Enable and start hypridle.service
       ansible.builtin.include_tasks: enable_user_unit.yml
@@ -62,10 +67,13 @@
       vars:
         hypr_component_name: hyprlock
         hypr_component_build_target: hyprlock
+        hypr_component_probe: [/usr/local/bin/hyprlock, --version]
 
 - name: Install hyprpaper
   tags: [hyprpaper]
   block:
+    # No probe: this release has no version flag and installs no .pc file, so it builds on
+    # every run.
     - name: Build and install hyprpaper
       ansible.builtin.include_tasks: build_hypr_component.yml
       vars:

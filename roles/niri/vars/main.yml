@@ -8,6 +8,17 @@ niri_user_home: "{{ ansible_facts['getent_passwd'][niri_user][4] }}"
 # Names the user bus for a `scope: user` unit, which become_user alone does not reach.
 niri_user_uid: "{{ ansible_facts['getent_passwd'][niri_user][1] }}"
 
+# The Debian multiarch triplet of the library directory the source builds install into, mapped
+# from the kernel name: /usr/local/lib/<triplet> is on the loader path, and meson installs there
+# by default. x86_64 and aarch64 are <kernel name>-linux-gnu; 32-bit ARM is not.
+niri_multiarch: >-
+  {{ {'armv7l': 'arm-linux-gnueabihf'}.get(ansible_facts['architecture'],
+     ansible_facts['architecture'] ~ '-linux-gnu') }}
+
+# What a source build's version probe searches for its .pc file, ahead of the archive's: the
+# /usr/local directories the builds install into, in the order pkg-config's default path has them.
+niri_pkg_config_path: "/usr/local/lib/{{ niri_multiarch }}/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig"
+
 # The hypr stack at the newest releases gcc-14, Ubuntu 24.04's newest, builds. From v0.11.1
 # hyprutils calls std::ofstream::native_handle, which only gcc-15's libstdc++ has, and from
 # v0.8.0 hyprpaper needs hyprtoolkit and hyprwire, which this role does not build. The rest

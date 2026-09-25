@@ -7,22 +7,6 @@
   become: true
   become_user: "{{ niri_user }}"
   block:
-    # Before the download, so a host without a toolchain fails early. Probed as the
-    # account that will build, cargo being per-user.
-    - name: Require the Rust toolchain
-      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
-      vars:
-        require_tools:
-          - name: cargo
-            probe: cargo --version
-            hint: "It comes from the dev role: make dev -- --tags rust"
-
-    - name: Create a temporary directory
-      ansible.builtin.tempfile:
-        state: directory
-      register: niri_tmp
-      check_mode: false
-
     - name: Get latest niri release
       ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
       vars:
@@ -33,81 +17,122 @@
       ansible.builtin.set_fact:
         niri_version: "{{ niri_release.tag_name }}"
 
-    - name: Download and unarchive niri
-      ansible.builtin.unarchive:
-        src: https://github.com/niri-wm/niri/archive/refs/tags/{{ niri_version }}.tar.gz
-        dest: "{{ niri_tmp.path }}"
-        remote_src: true
-        extra_opts:
-          - --strip-components
-          - 1
-      register: niri_download
-      retries: 3
-      delay: 5
-      until: niri_download is succeeded
-
-    - name: Build niri
+    # The installed binary is asked rather than a stamp file, so a build removed or replaced
+    # by hand is rebuilt. A missing binary prints nothing, which matches no version.
+    - name: Probe the installed version of niri
       ansible.builtin.command:
-        cmd: cargo build --release
-        chdir: "{{ niri_tmp.path }}"
-      changed_when: true
+        argv: [/usr/local/bin/niri, --version]
+      register: niri_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
 
-    - name: Set executable permissions for niri binaries
-      # --check skips the build, so there is no output to install from.
-      when: not ansible_check_mode
-      ansible.builtin.file:
-        path: "{{ item }}"
-        mode: "0755"
-      loop:
-        - "{{ niri_tmp.path }}/resources/niri-session"
-        - "{{ niri_tmp.path }}/target/release/niri"
+    - name: Build and install niri
+      when: >-
+        niri_installed.stdout | default('') is not search(
+          '(^|[^\\w.])v?' ~ (niri_version | regex_replace('^v', '') | regex_escape) ~ '([^\\w.]|$)')
+      block:
+        # Before the download, so a host without a toolchain fails early. Probed as the
+        # account that will build, cargo being per-user.
+        - name: Require the Rust toolchain
+          ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
+          vars:
+            require_tools:
+              - name: cargo
+                probe: cargo --version
+                hint: "It comes from the dev role: make dev -- --tags rust"
 
-    - name: Fix path to niri in niri.service
-      community.general.ini_file:
-        no_extra_spaces: true
-        option: ExecStart
-        path: "{{ niri_tmp.path }}/resources/niri.service"
-        section: Service
-        value: /usr/local/bin/niri --session
-        mode: "0644"
+        - name: Create a temporary directory
+          ansible.builtin.tempfile:
+            state: directory
+          register: niri_tmp
+          check_mode: false
 
-    - name: Create required directories
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        mode: "0755"
-      loop:
-        - /usr/local/share/wayland-sessions
-        - /usr/local/share/xdg-desktop-portal
-        - /usr/local/lib/systemd/user
-      become: true
-      become_user: root
+        - name: Download and unarchive niri
+          ansible.builtin.unarchive:
+            src: https://github.com/niri-wm/niri/archive/refs/tags/{{ niri_version }}.tar.gz
+            dest: "{{ niri_tmp.path }}"
+            remote_src: true
+            extra_opts:
+              - --strip-components
+              - 1
+          register: niri_download
+          retries: 3
+          delay: 5
+          until: niri_download is succeeded
 
-    - name: Copy niri files
-      # --check skips the build, so there is no output to install from.
-      when: not ansible_check_mode
-      ansible.builtin.copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        remote_src: true
-        mode: "{{ item.mode | default('0644') }}"
-      loop:
-        - src: "{{ niri_tmp.path }}/target/release/niri"
-          dest: /usr/local/bin/
-          mode: "0755"
-        - src: "{{ niri_tmp.path }}/resources/niri.desktop"
-          dest: /usr/local/share/wayland-sessions/
-        - src: "{{ niri_tmp.path }}/resources/niri-session"
-          dest: /usr/local/bin/
-          mode: "0755"
-        - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
-          dest: /usr/local/share/xdg-desktop-portal/
-        - src: "{{ niri_tmp.path }}/resources/niri.service"
-          dest: /usr/local/lib/systemd/user/
-        - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
-          dest: /usr/local/lib/systemd/user/
-      become: true
-      become_user: root
+        - name: Build niri
+          ansible.builtin.command:
+            cmd: cargo build --release
+            chdir: "{{ niri_tmp.path }}"
+          changed_when: true
+
+        - name: Set executable permissions for niri binaries
+          # --check skips the build, so there is no output to install from.
+          when: not ansible_check_mode
+          ansible.builtin.file:
+            path: "{{ item }}"
+            mode: "0755"
+          loop:
+            - "{{ niri_tmp.path }}/resources/niri-session"
+            - "{{ niri_tmp.path }}/target/release/niri"
+
+        - name: Fix path to niri in niri.service
+          community.general.ini_file:
+            no_extra_spaces: true
+            option: ExecStart
+            path: "{{ niri_tmp.path }}/resources/niri.service"
+            section: Service
+            value: /usr/local/bin/niri --session
+            mode: "0644"
+
+        - name: Create required directories
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: "0755"
+          loop:
+            - /usr/local/share/wayland-sessions
+            - /usr/local/share/xdg-desktop-portal
+            - /usr/local/lib/systemd/user
+          become: true
+          become_user: root
+
+        - name: Copy niri files
+          # --check skips the build, so there is no output to install from.
+          when: not ansible_check_mode
+          ansible.builtin.copy:
+            src: "{{ item.src }}"
+            dest: "{{ item.dest }}"
+            remote_src: true
+            mode: "{{ item.mode | default('0644') }}"
+          loop:
+            - src: "{{ niri_tmp.path }}/target/release/niri"
+              dest: /usr/local/bin/
+              mode: "0755"
+            - src: "{{ niri_tmp.path }}/resources/niri.desktop"
+              dest: /usr/local/share/wayland-sessions/
+            - src: "{{ niri_tmp.path }}/resources/niri-session"
+              dest: /usr/local/bin/
+              mode: "0755"
+            - src: "{{ niri_tmp.path }}/resources/niri-portals.conf"
+              dest: /usr/local/share/xdg-desktop-portal/
+            - src: "{{ niri_tmp.path }}/resources/niri.service"
+              dest: /usr/local/lib/systemd/user/
+            - src: "{{ niri_tmp.path }}/resources/niri-shutdown.target"
+              dest: /usr/local/lib/systemd/user/
+          become: true
+          become_user: root
+      always:
+        - name: Remove the temporary directory
+          ansible.builtin.file:
+            path: "{{ niri_tmp.path }}"
+            state: absent
+          when: niri_tmp.path is defined
+          become: true
+          become_user: root
+          # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
+          check_mode: false
 
     # CLEANUP (added 2026-09-24): a flags file only Arch's electron wrappers read, which
     # Ubuntu's packages and the flatpaks never do. Delete once every niri host has converged.
@@ -115,14 +140,3 @@
       ansible.builtin.file:
         path: "{{ niri_user_home }}/.config/electron-flags.conf"
         state: absent
-      when: niri_user_home_mounted | bool
-  always:
-    - name: Remove the temporary directory
-      ansible.builtin.file:
-        path: "{{ niri_tmp.path }}"
-        state: absent
-      when: niri_tmp.path is defined
-      become: true
-      become_user: root
-      # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
-      check_mode: false
