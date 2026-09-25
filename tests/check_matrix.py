@@ -4,9 +4,10 @@
 Usage:
   tests/check_matrix.py <base-sha> <head-sha>
 
-Writes `matrix=<json>` and `any=<true|false>` lines for $GITHUB_OUTPUT. An empty,
-all-zero or unknown base (a new branch, a force push, workflow_dispatch) selects every
-entry, as does a change to any path in SHARED.
+Writes `matrix=<json>` and `any=<true|false>` lines for $GITHUB_OUTPUT. The workflow passes
+a pull request's base, or for a push the last commit a push run passed on. An empty,
+all-zero or unknown base (no passing run yet, workflow_dispatch, a commit not fetched) selects
+every entry, as does a change to any path in SHARED.
 """
 
 import json

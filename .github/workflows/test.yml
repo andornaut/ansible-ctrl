@@ -106,6 +106,10 @@ jobs:
     name: Select checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # actions: read for the run history the push base is taken from.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
       any: ${{ steps.select.outputs.any }}
@@ -117,10 +121,24 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # A push is diffed against the last commit a Test run passed on, not the previous push:
+      # a cancelled or failed run's changes stay selected until a run passes. Empty selects
+      # every entry, and is what the branch's first push and a failed lookup give.
+      - name: Find the last commit a push run passed on
+        id: base
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow test.yml \
+            --branch "${GITHUB_REF_NAME}" --event push --status success --limit 1 \
+            --json headSha --jq '.[0].headSha // ""')" || sha=""
+          echo "sha=${sha}" >>"${GITHUB_OUTPUT}"
+
       - name: Select the entries whose paths changed
         id: select
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || steps.base.outputs.sha }}
         run: tests/check_matrix.py "${BASE}" "${GITHUB_SHA}" >>"${GITHUB_OUTPUT}"
 
   # A job of its own rather than a step of lint's, so a red run names which gate failed, and
