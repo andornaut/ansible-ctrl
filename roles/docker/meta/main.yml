@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: andornaut
-  description: Provision Docker CE and Docker Compose, plus optional Docker Registry and Kubernetes utilities, on Ubuntu
+  description: Provision Docker CE and Docker Compose on Ubuntu
   license: MIT
   min_ansible_version: "2.19"
   platforms:
@@ -10,6 +10,5 @@ galaxy_info:
         - noble
   galaxy_tags:
     - docker
-    - kubernetes
     - containers
     - ubuntu
