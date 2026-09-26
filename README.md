@@ -187,15 +187,15 @@ Never run the tests on the host: `identity` and `dispatch` execute unit tests, s
 (or `tests/container/test.sh`), in a container with no network over a read-only copy of the checkout. `make lint`
 runs every other check below.
 
-| Check          | Covers                                                                              |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `ansible-lint` | Ansible content                                                                     |
-| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                |
-| `shell`        | shellcheck on every shell script, templates rendered first                          |
-| `python`       | `ruff check` and `ruff format --check`                                              |
-| `identity`     | Every task declares the account it runs as ([tests/identity.py](tests/identity.py)) |
-| `dispatch`     | Every `tests/test_*.py` but `test_identity.py`                                      |
-| `markdown`     | markdownlint on every `.md` file git does not ignore                                |
+| Check          | Covers                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible-lint` | Ansible content                                                                                                                          |
+| `config`       | `ansible.cfg` keys, since ansible ignores ones it does not recognize                                                                     |
+| `shell`        | shellcheck on every shell script, templates rendered first                                                                               |
+| `python`       | `ruff check` and `ruff format --check`                                                                                                   |
+| `identity`     | Every task that can change a host declares the account it runs as; read-only modules are exempt ([tests/identity.py](tests/identity.py)) |
+| `dispatch`     | Every `tests/test_*.py` but `test_identity.py`                                                                                           |
+| `markdown`     | markdownlint on every `.md` file git does not ignore                                                                                     |
 
 CI ([.github/workflows](.github/workflows)) also runs:
 

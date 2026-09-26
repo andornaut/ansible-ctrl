@@ -58,14 +58,14 @@ MATRIX = (
         "name": "desktop niri",
         "playbook": "desktop",
         # A tiling host needs exactly one display manager; the two entries cover both.
-        "args": "--extra-vars desktop_environment=niri --extra-vars desktop_install_lemurs=true",
+        "args": "--extra-vars desktop_environment=niri --extra-vars desktop_display_manager=lemurs",
         "prepare": TILING_PREPARE,
         "paths": ("desktop.yml", "roles/desktop/", "roles/niri/", *TILING_PREPARE_PATHS),
     },
     {
         "name": "desktop bspwm",
         "playbook": "desktop",
-        "args": "--extra-vars desktop_environment=bspwm --extra-vars desktop_install_ly=true",
+        "args": "--extra-vars desktop_environment=bspwm --extra-vars desktop_display_manager=ly",
         "prepare": TILING_PREPARE,
         "paths": ("desktop.yml", "roles/desktop/", "roles/bspwm/", *TILING_PREPARE_PATHS),
     },

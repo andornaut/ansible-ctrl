@@ -26,7 +26,7 @@
         that: desktop_lemurs_asset in (desktop_lemurs_release.assets | map(attribute='name'))
         fail_msg: >-
           lemurs {{ desktop_lemurs_version }} publishes no {{ desktop_lemurs_asset }} for
-          {{ ansible_facts['architecture'] }}. Set desktop_install_ly instead.
+          {{ ansible_facts['architecture'] }}. Set desktop_display_manager to "ly" instead.
         quiet: true
 
     # Prints "0.4.0", the tag without its v. The configuration, unit and xsetup.sh are fetched

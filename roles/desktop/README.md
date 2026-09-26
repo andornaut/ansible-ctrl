@@ -75,7 +75,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones whose behaviour is not ob
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | gnome                 | GNOME Shell and gdm3, without the tiling tags. No Xorg server; X11 apps run under XWayland                                                             |
 | Tiling hosts          | The _tiling_ tags plus the session tools both tiling sessions use. niri runs the X11 ones under XWayland                                               |
-| Display manager       | A tiling host sets exactly one of `desktop_install_ly` and `desktop_install_lemurs`. A host can move between gnome and a tiling session                |
+| Display manager       | A tiling host sets `desktop_display_manager` to `ly` or `lemurs`. A host can move between gnome and a tiling session                                   |
 | Window manager roles  | Only tools with a per-protocol replacement belong to [bspwm](../bspwm/) (X11) or [niri](../niri/) (Wayland)                                            |
 | User not logged in    | User units are enabled but not started; they start at `desktop_user`'s next graphical login                                                            |
 | Locked encrypted home | The run fails before any change while `desktop_user`'s encrypted home is not mounted. Log in as that user or run `ecryptfs-mount-private`, then re-run |

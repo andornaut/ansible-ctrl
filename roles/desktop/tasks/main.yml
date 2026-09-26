@@ -96,11 +96,11 @@
     - name: Validate display manager configuration
       ansible.builtin.assert:
         that:
-          - (desktop_install_ly | bool | int) + (desktop_install_lemurs | bool | int) == 1
+          - desktop_display_manager in ["ly", "lemurs"]
         # Every other display manager is masked below, so none chosen boots to a console.
         fail_msg: >-
-          A {{ desktop_environment }} host needs exactly one display manager: set one of
-          desktop_install_ly or desktop_install_lemurs to true in host_vars.
+          A {{ desktop_environment }} host needs a display manager: set
+          desktop_display_manager to "ly" or "lemurs" in host_vars.
         success_msg: Display manager configuration is valid
       when: desktop_environment != "gnome"
 
@@ -109,13 +109,13 @@
     # gdm.service or gdm3.service depending on the packaging.
     - name: Set the display manager to keep
       ansible.builtin.set_fact:
-        desktop_display_manager: >-
+        desktop_display_manager_unit: >-
           {{ 'gdm3' if desktop_environment == 'gnome'
-             else 'lemurs' if desktop_install_lemurs | bool
+             else 'lemurs' if desktop_display_manager == 'lemurs'
              else 'ly@tty2' }}
         desktop_display_manager_aliases: >-
           {{ ['gdm.service', 'gdm3.service'] if desktop_environment == 'gnome'
-             else ['lemurs.service'] if desktop_install_lemurs | bool
+             else ['lemurs.service'] if desktop_display_manager == 'lemurs'
              else [] }}
 
     # The kept manager's aliases are excluded with it, so a gnome host keeps gdm.service.
@@ -134,7 +134,7 @@
         and 'Could not find the requested service' not in desktop_display_manager_masked.msg | default('')
       loop: >-
         {{ ['gdm', 'gdm3', 'lightdm', 'lemurs', 'ly@tty2']
-           | reject('in', [desktop_display_manager]
+           | reject('in', [desktop_display_manager_unit]
                           + desktop_display_manager_aliases | map('regex_replace', '[.]service$', '') | list)
            | list }}
       become: true
@@ -170,11 +170,11 @@
 
         - name: Install and configure lemurs display manager
           ansible.builtin.import_tasks: lemurs.yml
-          when: desktop_install_lemurs | bool
+          when: desktop_display_manager == "lemurs"
 
         - name: Install and configure ly display manager
           ansible.builtin.import_tasks: ly.yml
-          when: desktop_install_ly | bool
+          when: desktop_display_manager == "ly"
 
 - name: Install GNOME desktop
   ansible.builtin.import_tasks: gnome.yml

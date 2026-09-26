@@ -42,9 +42,8 @@ desktop_keyboard_configurator_superseded_rules: []
 desktop_wireplumber_node_properties: {}
 # Web browser set as the xdg-settings default: "firefox" or "google-chrome".
 desktop_default_browser: firefox
-# Display manager settings
-desktop_install_ly: false
-desktop_install_lemurs: false
+# A tiling host's display manager: "ly" or "lemurs". Unused on gnome, which takes gdm3.
+desktop_display_manager: ""
 # Must be one of https://ziglang.org/download/community-mirrors.txt
 desktop_zig_mirror: https://ziglang.freetls.fastly.net
 
