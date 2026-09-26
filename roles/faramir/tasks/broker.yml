@@ -214,6 +214,7 @@
     faramir_project_report: "{{ faramir_project.stdout | from_json }}"
   when: faramir_project.stdout | default('') | length > 0
 
+# CLEANUP (added 2026-09-26): remove with tasks/prune.yml; its header names the convergence check.
 # After both, so the record it prunes against is the one this run just wrote.
 - name: Take the stale entries out of the agent rule files
   ansible.builtin.import_tasks: prune.yml

@@ -1,19 +1,8 @@
 ---
-# The config entries that name a file rather than hold a value: paths blocked to the agent's
-# file tools, and credentials read where another tool keeps them. `faramir init` re-asserts
-# both from config.toml once written, so this converges the list and init carries it on.
-#
-# The block entries converge both ways, so `block ls --declared` and defaults/main.yml agree
-# once a run finishes and an entry added on a host by hand does not survive one. The links
-# are adds only: a link grants the broker read and regroups the file, so dropping one changes
-# what the host can serve. Take it out of faramir_links and run the rm by hand.
-#
-# Why each entry is shaped the way it is: README.md.
+# Converges the entries that name a file: blocked paths and linked secrets. Behaviour and
+# shapes: README.md, "Blocked paths and linked secrets".
 
-# A bare string here is the mistake a one-account list invites, and it does not fail as one:
-# the join in vars/main.yml iterates a string per character, so the run reaches faramir with
-# `h/.ssh` and `//.ssh` and fails partway through the adds, with the paths before them already
-# applied. Held to the shape before anything is written.
+# A bare string would be joined per character and fail partway, earlier adds applied.
 - name: Require the shared account homes to be a list of absolute paths
   ansible.builtin.assert:
     that:
@@ -42,47 +31,8 @@
   loop_control:
     label: "{{ item.ref | default('an entry naming no ref') }}"
 
-# One invocation per form rather than one per entry: `--path` and `--command` are repeatable,
-# and an add either writes every entry it names and the rules for them or leaves the host as
-# it was. The form is what has to stay apart, being the flag an entry goes in under and the
-# thing --strict rides on; no form is the default and a bare argument is refused.
-#
-# Two calls rather than one per entry because each one re-renders every agent's rule files,
-# which is the cost that scales with the list and not with what changed. What it gives up is
-# per-entry reporting: the label names the form and a count, `changed` is true where any entry
-# in the call changed, and a single malformed entry fails the whole call.
-#
-# Every path is named whether or not this host has the file. faramir writes the rule for an
-# absent path and it holds when the file appears, which is the window a credential store is
-# worth a rule in: a tool signed in after a converge is covered before the next one. The run
-# warns for each path that is not there, and a path spelled wrong warns the same way.
-#
-# One entry per shape and home, vars/main.yml having joined the list to the operator's home
-# and to each in faramir_shared_user_homes. Most of what that produces is absent, which is the
-# case above: the rule is there to refuse a command naming the path, wherever that command
-# would have reached it.
-#
-# --strict on the path entries alone, the agent being refused one named at all whatever the
-# entry carries. What the flag adds on the brokered route: README.md. A path names one file on
-# this host, so that is a rule whose reach is known when it is written.
-#
-# Not on a command entry, which faramir refuses the flag for, a command entry already being
-# about what a command does.
-#
-# The strictness converges with the entry, an add naming a different one changing the entry
-# rather than writing a second.
-#
-# No check_mode: false, unlike the init tasks. These have no --dry-run, so a --check run
-# skips them rather than writing entries.
-#
-# Each entry command takes its subject under the flag naming its form, --path or --command; no
-# form is the default and a bare argument is refused. Both are idempotent, so the role names
-# every entry on every run rather than diffing the host first: re-applying is what puts back a
-# grant a tool took away by renaming its own file, and a rule an agent's settings dropped.
-#
-# No --agent-user, and none of these takes one: `init` is the only command that names the
-# operator, and each of these reads what it recorded in [server] agent_user. A command that
-# resolved it afresh would rename the host's owner as a side effect of adding an entry.
+# One call per form, not per entry: each add re-renders every agent rule file. No
+# check_mode: false, there being no --dry-run. README.md, "Entry adds".
 - name: Block the declared paths and commands to the agent
   ansible.builtin.command:
     argv: >-

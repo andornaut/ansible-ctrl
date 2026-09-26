@@ -1,10 +1,16 @@
 ---
+# CLEANUP (added 2026-09-26): delete this file, files/prune-agent-rules.py,
+# tests/test_prune_agent_rules.py and the import in broker.yml once every host in the
+# `faramir` group has converged. Converged means a --check run of the script as root on each
+# host (prune-agent-rules.py --check --agent-user <faramir_user> <faramir_config_dir>)
+# lists no file with a non-empty `removed` and has no `note` saying the record is unreadable:
+# every string in each `deny` array of each file keyed in written-rules.json is in that
+# file's record entry. The config directory is refused to the agent, so the operator runs it.
+#
 # Take out of the agent rule files every deny entry faramir's own record does not name.
 #
 # faramir's merge removes a rule the record names and the current render no longer
-# produces. A rule written before that record existed is in neither, so nothing removes it:
-# the file keeps refusing paths nothing declares any more, in spellings that stopped
-# working when a rule's anchoring was corrected. This is the pass that reconciles them.
+# produces. A rule written before that record existed is in neither, so nothing removes it.
 #
 # It deletes a deny rule an operator added to one of these files by hand as well. That is
 # what it is for: after this an agent deny list holds what faramir renders and nothing

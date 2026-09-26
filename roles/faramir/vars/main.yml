@@ -30,7 +30,8 @@ faramir_fleet_account: "{{ ansible_user | default(primary_user) }}"
 faramir_blocked_paths: >-
   {{ ([faramir_user_home] + faramir_shared_user_homes)
      | product(faramir_blocked_home_paths) | map('join', '/')
-     | reject('in', faramir_links | map(attribute='path') | list) | list }}
+     | reject('in', faramir_links | map(attribute='path') | list) | list
+     + faramir_blocked_system_paths }}
 
 # Assets hang off the tag itself, so faramir_release_tag is enough and nothing has to be
 # resolved through the API first. The archive and the checksums.txt it is verified against

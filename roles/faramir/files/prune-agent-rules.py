@@ -30,10 +30,12 @@ import contextlib
 import json
 import os
 import pwd
+import secrets
 import shutil
 import stat
 import sys
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 # What faramir last rendered into each agent file, keyed by that file's absolute path. Its
@@ -100,11 +102,55 @@ def serialise(document):
     non-ASCII Go emits as UTF-8, which is why ensure_ascii is off: left on it escapes every
     non-ASCII character, and a file in that spelling reads as changed on every run for as
     long as a value holds one. The two Go does escape are put back by hand.
+
+    Floats are spelled by go_float instead of by json, which ignores a float subclass's
+    repr: each is swapped for a placeholder string before dumping and the placeholder's
+    quoted form replaced after. The prefix is regenerated until the dump holds none of it,
+    so no string in the document can be mistaken for one.
     """
-    text = json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False)
+    while True:
+        prefix = f"float-{secrets.token_hex(16)}-"
+        numbers = []
+        text = json.dumps(with_placeholders(document, prefix, numbers), indent=2, sort_keys=True, ensure_ascii=False)
+        if text.count(prefix) == len(numbers):
+            break
+    for index, number in enumerate(numbers):
+        text = text.replace(f'"{prefix}{index}"', go_float(number), 1)
     for literal, escaped in (("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
         text = text.replace(literal, escaped)
     return text + "\n"
+
+
+def with_placeholders(value, prefix, numbers):
+    """A copy of value with each number replaced by prefix and its index in numbers.
+
+    Integers too: Go decodes every JSON number into a float64, so one past 2**53 loses
+    precision and one from 1e21 up is written in exponent form.
+    """
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numbers.append(float(value))
+        return f"{prefix}{len(numbers) - 1}"
+    if isinstance(value, dict):
+        return {key: with_placeholders(nested, prefix, numbers) for key, nested in value.items()}
+    if isinstance(value, list):
+        return [with_placeholders(element, prefix, numbers) for element in value]
+    return value
+
+
+def go_float(number):
+    """number as Go's encoding/json writes a float64.
+
+    Shortest round-trip digits, which repr also gives; positional notation, with no
+    fractional part when the value is integral, except below 1e-6 or from 1e21 up, where
+    it is exponent notation with a leading zero dropped from a negative exponent. JSON
+    input holds no NaN or infinity, so neither is handled.
+    """
+    if number != 0 and not 1e-6 <= abs(number) < 1e21:
+        mantissa, exponent = repr(number).split("e")
+        if exponent.startswith("-0"):
+            exponent = "-" + exponent[2:]
+        return f"{mantissa}e{exponent}"
+    return format(Decimal(repr(number)).normalize(), "f")
 
 
 def backup_path(path, stamp):
