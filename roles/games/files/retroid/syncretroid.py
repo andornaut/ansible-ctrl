@@ -713,8 +713,12 @@ def stale_playlists(device, dirs, systems):
         if text is None:
             continue
         try:
-            scanned = json.loads(text).get("scan_content_dir") or ""
+            playlist = json.loads(text)
         except ValueError:
+            continue
+        # Not a playlist this script could have written: leave it alone.
+        scanned = playlist.get("scan_content_dir") if isinstance(playlist, dict) else None
+        if not isinstance(scanned, str):
             continue
         # Boundary-aware, like the generator's commonpath check: a sibling sharing the prefix
         # (.../ROMS_BACKUP) is not inside the ROM dir and is not ours to delete.
