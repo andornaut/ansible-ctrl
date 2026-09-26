@@ -182,12 +182,13 @@
         mode: "0755"
 
     # The prefix is baked in here rather than passed from the entry's Exec: README.md says why.
+    # No validate: it chmods the staged source, which the ssh login account owns, so it fails
+    # when games_user is another account. tests/lint.sh shell checks the rendered template.
     - name: Install the World of Warcraft launch script
       ansible.builtin.template:
         src: world-of-warcraft-launch.sh.j2
         dest: "{{ games_lutris_wow_launch_script }}"
         mode: "0755"
-        validate: sh -n %s
 
     - name: Create the user applications directory
       ansible.builtin.file:

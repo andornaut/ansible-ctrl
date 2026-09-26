@@ -41,10 +41,12 @@
       ansible.builtin.tempfile:
         state: directory
       register: base_tool_tmp
+      changed_when: false
       check_mode: false
 
     # Downloaded under --check too, into the temporary directory only, so unarchive has an
-    # archive to compare against /usr/local/bin.
+    # archive to compare against /usr/local/bin. The temporary directory is scratch, so only
+    # the unarchive reports a change.
     - name: Download {{ base_tool_name }}
       ansible.builtin.get_url:
         url: "{{ base_tool_assets[0].browser_download_url }}"
@@ -55,6 +57,7 @@
       retries: 3
       delay: 5
       until: base_tool_download is succeeded
+      changed_when: false
       check_mode: false
 
     - name: Install {{ base_tool_name }}
@@ -76,4 +79,5 @@
         state: absent
       when: base_tool_tmp.path is defined
       become: true
+      changed_when: false
       check_mode: false

@@ -1,14 +1,21 @@
 ---
-# Install a GitHub release tarball with `make install`, skipped when the probe already reports
-# the latest version.
+# Install a GitHub release tarball with `make install`, skipped when the installed copy's probe
+# prints the same as the extracted release's. The release's own source is the reference, not
+# its tag: a release can ship a version string that lags its tag (ruby-install v0.10.2 prints
+# 0.10.1), and a tag comparison would then reinstall on every run.
 #
 # Required vars:
-#   dev_release_make_name (str): project name, the archive prefix and the probe's output prefix
+#   dev_release_make_name (str): project name, the archive prefix and its top-level directory
 #   dev_release_make_repo (str): "owner/repo"
-#   dev_release_make_probe (list): argv printing "<name>: <version>"
+#   dev_release_make_probe (str): bash script printing the version of the copy rooted at $1,
+#     run against /usr/local and against the extracted source tree, which share a layout
 #   dev_release_make_dir (str): directory to download and extract into
 - name: Download and install {{ dev_release_make_name }}
   become: true
+  vars:
+    dev_release_make_version: "{{ dev_release_make_release.tag_name | replace('v', '') }}"
+    dev_release_make_archive: "{{ dev_release_make_dir }}/{{ dev_release_make_name }}.tar.gz"
+    dev_release_make_src: "{{ dev_release_make_dir }}/{{ dev_release_make_name }}-{{ dev_release_make_version }}"
   block:
     - name: Get the latest release of {{ dev_release_make_name }}
       ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
@@ -16,48 +23,58 @@
         release_repo: "{{ dev_release_make_repo }}"
         release_fact: dev_release_make_release
 
+    # The download and extraction are scratch, into the temporary directory only, so they run
+    # under --check too and report no change.
+    - name: Download the package of {{ dev_release_make_name }}
+      ansible.builtin.get_url:
+        url: >-
+          {{ dev_release_make_release.assets
+          | selectattr('name', 'match', dev_release_make_name ~ '-.*\.tar\.gz$')
+          | map(attribute='browser_download_url') | first }}
+        dest: "{{ dev_release_make_archive }}"
+        mode: "0644"
+      register: dev_release_make_download
+      retries: 3
+      delay: 5
+      until: dev_release_make_download is succeeded
+      changed_when: false
+      check_mode: false
+
+    - name: Extract the archive of {{ dev_release_make_name }}
+      ansible.builtin.unarchive:
+        src: "{{ dev_release_make_archive }}"
+        remote_src: true
+        dest: "{{ dev_release_make_dir }}"
+      changed_when: false
+      check_mode: false
+
+    - name: Probe the extracted version of {{ dev_release_make_name }}
+      ansible.builtin.command:
+        argv:
+          [
+            bash,
+            -c,
+            "{{ dev_release_make_probe }}",
+            bash,
+            "{{ dev_release_make_src }}",
+          ]
+      register: dev_release_make_extracted
+      changed_when: false
+      check_mode: false
+
+    # Fails on a host with nothing installed, which then installs.
     - name: Probe the installed version of {{ dev_release_make_name }}
       ansible.builtin.command:
-        argv: "{{ dev_release_make_probe }}"
+        argv: [bash, -c, "{{ dev_release_make_probe }}", bash, /usr/local]
       register: dev_release_make_installed
       changed_when: false
       failed_when: false
       check_mode: false
 
-    - name: Download and install {{ dev_release_make_name ~ ' ' ~ dev_release_make_release.tag_name }}
-      vars:
-        dev_release_make_version: "{{ dev_release_make_release.tag_name | replace('v', '') }}"
-        dev_release_make_archive: "{{ dev_release_make_dir }}/{{ dev_release_make_name }}.tar.gz"
+    - name: Install {{ dev_release_make_name ~ ' ' ~ dev_release_make_release.tag_name }}
+      community.general.make:
+        chdir: "{{ dev_release_make_src }}"
+        target: install
       when: >-
-        dev_release_make_installed.stdout | default('') | trim !=
-        dev_release_make_name ~ ': ' ~ dev_release_make_version
-      block:
-        - name: Download the package of {{ dev_release_make_name }}
-          ansible.builtin.get_url:
-            url: >-
-              {{ dev_release_make_release.assets
-              | selectattr('name', 'match', dev_release_make_name ~ '-.*\.tar\.gz$')
-              | map(attribute='browser_download_url') | first }}
-            dest: "{{ dev_release_make_archive }}"
-            mode: "0644"
-          register: dev_release_make_download
-          retries: 3
-          delay: 5
-          until: dev_release_make_download is succeeded
-          # Into the temporary directory only, so a --check run downloads too: skipped, the
-          # extraction after it fails on an archive that was never written.
-          check_mode: false
-
-        - name: Extract the archive of {{ dev_release_make_name }}
-          ansible.builtin.unarchive:
-            src: "{{ dev_release_make_archive }}"
-            remote_src: true
-            dest: "{{ dev_release_make_dir }}"
-          # Into the temporary directory only, so a --check run extracts too: skipped, make
-          # fails on a chdir that does not exist.
-          check_mode: false
-
-        - name: Install {{ dev_release_make_name }}
-          community.general.make:
-            chdir: "{{ dev_release_make_dir }}/{{ dev_release_make_name }}-{{ dev_release_make_version }}"
-            target: install
+        dev_release_make_installed.rc != 0
+        or dev_release_make_installed.stdout | trim != dev_release_make_extracted.stdout | trim

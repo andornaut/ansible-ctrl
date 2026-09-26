@@ -50,9 +50,11 @@
       delay: 5
       until: dev_android_sdk_cmdline_tools_download is succeeded
 
+    # -T: a latest/ left without sdkmanager fails here rather than getting the tools nested
+    # inside it.
     - name: Install the Android command line tools
       ansible.builtin.command:
-        cmd: mv {{ dev_android_sdk_tempdir.path }}/cmdline-tools {{ dev_android_sdk_cmdline_tools_dir }}/latest
+        cmd: mv -T {{ dev_android_sdk_tempdir.path }}/cmdline-tools {{ dev_android_sdk_cmdline_tools_dir }}/latest
         creates: "{{ dev_android_sdk_sdkmanager }}"
 
     # sdkmanager writes one hash file per accepted license and installs nothing
