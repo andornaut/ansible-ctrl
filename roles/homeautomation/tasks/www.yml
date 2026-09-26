@@ -9,6 +9,7 @@
     mode: "0755"
   become: true
 
+# Each card's temporary directory is scratch, so only the step writing www/ reports a change.
 - name: Install advanced-camera-card
   block:
     - name: Create a temporary directory
@@ -16,6 +17,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: homeautomation_advanced_camera_card_tmp
+      changed_when: false
       check_mode: false
 
     # GitHub closes some connections without a response, and one failed fetch aborts every
@@ -30,6 +32,7 @@
       retries: 3
       delay: 5
       until: homeautomation_advanced_camera_card_download is succeeded
+      changed_when: false
 
     - name: Create the advanced-camera-card staging directory
       ansible.builtin.file:
@@ -37,6 +40,7 @@
         state: directory
         mode: "0755"
       become: true
+      changed_when: false
 
     # Skipped under --check, where get_url above honours check mode and downloads
     # nothing, so the archive this reads is not there and the task fails rather than
@@ -52,6 +56,7 @@
         # -j flattens the archive's ./dist directory into the destination.
         extra_opts: "-j"
       become: true
+      changed_when: false
 
     - name: Create advanced-camera-card directory
       ansible.builtin.file:
@@ -108,6 +113,7 @@
         state: absent
       when: homeautomation_advanced_camera_card_tmp.path is defined
       become: true
+      changed_when: false
       # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
       check_mode: false
 
@@ -180,6 +186,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: homeautomation_super_text_input_tmp
+      changed_when: false
       check_mode: false
 
     # The project ships no release asset and no built bundle, so the tag's source
@@ -200,6 +207,7 @@
       retries: 3
       delay: 5
       until: homeautomation_super_text_input_unarchive is succeeded
+      changed_when: false
 
     - name: Create the Super Text Input directory
       ansible.builtin.file:
@@ -244,5 +252,6 @@
         state: absent
       when: homeautomation_super_text_input_tmp.path is defined
       become: true
+      changed_when: false
       # check_mode: false with the tempfile above, or every --check leaks its directory into /tmp.
       check_mode: false

@@ -2,7 +2,8 @@
 # Rendered into a staging tree and tested there, so a configuration nginx rejects never reaches
 # the live directory, which the next container recreate or reboot loads. The tree is tested
 # whole: sites include partial/ and use the map 00-default.conf defines, so no one file passes
-# `nginx -t` alone, which rules out a per-file `validate:`.
+# `nginx -t` alone, which rules out a per-file `validate:`. The staging tree is scratch, so only
+# the install into the live directory reports a change.
 - name: Stage, test and install the Nginx configuration
   block:
     # Beside the live config rather than in /tmp: a brokered run has a private /tmp, which
@@ -13,6 +14,7 @@
         suffix: .nginx
         path: "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
       register: letsencrypt_nginx_staging
+      changed_when: false
       check_mode: false
       become: true
 
@@ -29,6 +31,7 @@
         - basicauth
         - partial
         - ssl
+      changed_when: false
       check_mode: false
       become: true
 
@@ -40,6 +43,7 @@
         owner: root
         group: root
       loop: "{{ letsencrypt_nginx_config_partials }}"
+      changed_when: false
       check_mode: false
       become: true
 
@@ -50,6 +54,7 @@
         mode: "0640"
         owner: root
         group: root
+      changed_when: false
       check_mode: false
       become: true
 
@@ -73,6 +78,7 @@
         owner: root
         group: root
       loop: "{{ letsencrypt_nginx_check_crts.results }}"
+      changed_when: false
       check_mode: false
       become: true
       # item.item is the originating website entry: a Cloudflare API token and basicauth credentials.
@@ -148,5 +154,6 @@
         path: "{{ letsencrypt_nginx_staging.path }}"
         state: absent
       when: letsencrypt_nginx_staging.path is defined
+      changed_when: false
       check_mode: false
       become: true
