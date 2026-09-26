@@ -1,0 +1,19 @@
+---
+# Shared by the user-unit restart handlers, called with desktop_restart_unit set to the unit's
+# file name and, optionally, desktop_restart_unit_accepted_rc to exit codes that are not a
+# failure. try-restart, which the systemd module lacks: a unit its session has not started
+# stays stopped.
+- name: Restart {{ desktop_restart_unit }}
+  ansible.builtin.shell:
+    cmd: systemctl --user daemon-reload && systemctl --user try-restart {{ desktop_restart_unit }} # noqa: command-instead-of-module
+  changed_when: true
+  become: true
+  become_user: "{{ desktop_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
+  register: desktop_restart_unit_result
+  failed_when:
+    - desktop_restart_unit_result is failed
+    - desktop_restart_unit_result.rc | default(0) not in desktop_restart_unit_accepted_rc | default([])
+    - "'Failed to connect to bus' not in (desktop_restart_unit_result.stderr | default('')) ~ (desktop_restart_unit_result.msg | default(''))"
+  when: desktop_user_systemd.stat.exists

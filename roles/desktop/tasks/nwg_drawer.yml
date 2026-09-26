@@ -55,7 +55,7 @@
         require_tools:
           - name: go
             probe: /usr/local/go/bin/go version
-            hint: "It comes from the dev role: make dev -- --tags go"
+            hint: "It comes from the dev role: make dev -- --limit {{ inventory_hostname }} --tags go"
 
     # gotk4 is cgo over the GTK 3 headers; the layer-shell binding is a build dependency
     # even where the session is X11.

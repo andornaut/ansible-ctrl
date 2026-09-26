@@ -1,0 +1,28 @@
+---
+# Converge one user override to exactly the arguments given. Reset first, so a grant no
+# longer named goes with the rest; `flatpak override` reports nothing, so `--show` is diffed
+# either side of it.
+#
+# Required vars:
+#   desktop_flatpak_override_app (str): the application ID, or "" for the global override
+#   desktop_flatpak_override_args (list): `flatpak override` arguments, each one option
+#
+# Only for overrides this role alone writes: a reset drops every other role's grants on the
+# same application. The global one is this role's, and no other role's applications are here.
+#
+# Callers put any become/become_user on the enclosing block or import: this inherits and
+# must never set it.
+- name: Converge the flatpak override of {{ desktop_flatpak_override_app or 'every application' }}
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -euo pipefail
+      app=({{ ([desktop_flatpak_override_app] if desktop_flatpak_override_app else []) | map('quote') | join(' ') }})
+      args=({{ desktop_flatpak_override_args | map('quote') | join(' ') }})
+      before="$(flatpak override --user --show "${app[@]}")"
+      flatpak override --user --reset "${app[@]}"
+      [ -z "${args[*]}" ] || flatpak override --user "${args[@]}" "${app[@]}"
+      after="$(flatpak override --user --show "${app[@]}")"
+      [ "$before" = "$after" ] || echo CHANGED
+  register: desktop_flatpak_override
+  changed_when: "'CHANGED' in desktop_flatpak_override.stdout"

@@ -49,24 +49,16 @@
             method: user
 
         # An override is a file of its own, so one is written whether or not the
-        # application it names is installed. `flatpak override` reports nothing, so diff `--show`.
+        # application it names is installed.
         - name: Configure flatpak application permissions
-          ansible.builtin.shell:
-            cmd: |
-              set -e
-              before="$(flatpak override --user --show {{ item | quote }})"
-              flatpak override --user {{ desktop_flatpak_grants | map('quote') | join(' ') }} {{ item | quote }}
-              after="$(flatpak override --user --show {{ item | quote }})"
-              [ "${before}" = "${after}" ] || echo CHANGED
-            executable: /bin/bash
+          ansible.builtin.include_tasks: flatpak_override.yml
           vars:
+            desktop_flatpak_override_app: "{{ item }}"
             # The blanket grants plus this application's own; either may be absent.
-            desktop_flatpak_grants: >-
+            desktop_flatpak_override_args: >-
               {{ (desktop_flatpak_overrides['default'] | default([]))
                  + (desktop_flatpak_overrides[item] | default([])) }}
           loop: "{{ desktop_flatpak_apps }}"
-          register: desktop_flatpak_app_overrides
-          changed_when: "'CHANGED' in desktop_flatpak_app_overrides.stdout"
 
         - name: Uninstall the flatpak applications this host has turned off
           community.general.flatpak:

@@ -47,6 +47,13 @@
       register: desktop_it87_dkms
       changed_when: false
 
+    # Ahead of the build: the "dkms" target ends with `modprobe it87`, which reads it.
+    - name: Configure it87 module options
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/ansible-role-desktop-it87.conf
+        content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
+        mode: "0644"
+
     # The "dkms" target stages /usr/src/it87-<version>, then dkms add/build/install. It
     # removes no earlier version, and its `dkms add` fails on one already registered, so
     # every registered version and its staged copy go first. `dkms remove` takes one
@@ -73,12 +80,6 @@
             cmd: make dkms
             chdir: /usr/src/it87
           changed_when: true
-
-    - name: Configure it87 module options
-      ansible.builtin.copy:
-        dest: /etc/modprobe.d/ansible-role-desktop-it87.conf
-        content: "options it87 force_id=0x8696,0x8883 ignore_resource_conflict=1\n"
-        mode: "0644"
 
     # Probing at systemd-modules-load time fails with ENODEV, so load it later,
     # with retries, before CoolerControl reads the hwmon.

@@ -12,10 +12,24 @@
       delay: 5
       until: desktop_coolercontrol_key_download is succeeded
 
-    - name: Add CoolerControl apt repository
+    # CLEANUP (added 2026-09-25): the same source without arch=, which apt_repository leaves
+    # beside the line below. Delete once every desktop host with the coolercontrol tag has
+    # converged.
+    - name: Remove the CoolerControl repository line without an architecture
       ansible.builtin.apt_repository:
         repo: >-
           deb [signed-by=/usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc]
+          https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/deb/ubuntu
+          {{ ansible_facts['distribution_release'] }} main
+        filename: coolercontrol
+        state: absent
+        update_cache: false
+
+    - name: Add CoolerControl apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ desktop_arch }}
+          signed-by=/usr/share/keyrings/coolercontrol-coolercontrol-archive-keyring.asc]
           https://dl.cloudsmith.io/public/coolercontrol/coolercontrol/deb/ubuntu
           {{ ansible_facts['distribution_release'] }} main
         mode: "0644"

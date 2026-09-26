@@ -14,10 +14,22 @@
       until: desktop_insync_key_download is succeeded
       become: true
 
-    - name: Add Insync apt repository
+    # CLEANUP (added 2026-09-25): the same source without arch=, which apt_repository leaves
+    # beside the line below. Delete once every desktop host with the insync tag has converged.
+    - name: Remove the Insync repository line without an architecture
       ansible.builtin.apt_repository:
         repo: >-
           deb [signed-by=/etc/apt/keyrings/insync.asc]
+          http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
+        filename: insync
+        state: absent
+        update_cache: false
+      become: true
+
+    - name: Add Insync apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ desktop_arch }} signed-by=/etc/apt/keyrings/insync.asc]
           http://apt.insync.io/ubuntu {{ ansible_facts['distribution_release'] }} non-free contrib
         mode: "0644"
         filename: insync

@@ -97,17 +97,11 @@
 
     # Global, so it covers the games role's flatpaks too. GTK_THEME names the theme
     # mounted at ~/.themes; the settings portal would fall back to Adwaita on a name
-    # GTK cannot resolve. `flatpak override` reports nothing, so diff `--show`.
+    # GTK cannot resolve.
     - name: Apply the flatpak theme override
-      ansible.builtin.shell:
-        cmd: |
-          set -e
-          before="$(flatpak override --user --show)"
-          flatpak override --user \
-            --filesystem={{ desktop_gtk_themes_dir | quote }}:ro \
-            --env=GTK_THEME={{ desktop_gtk_theme | quote }}
-          after="$(flatpak override --user --show)"
-          [ "${before}" = "${after}" ] || echo CHANGED
-        executable: /bin/bash
-      register: desktop_flatpak_theme_override
-      changed_when: "'CHANGED' in desktop_flatpak_theme_override.stdout"
+      ansible.builtin.include_tasks: flatpak_override.yml
+      vars:
+        desktop_flatpak_override_app: ""
+        desktop_flatpak_override_args:
+          - --filesystem={{ desktop_gtk_themes_dir }}:ro
+          - --env=GTK_THEME={{ desktop_gtk_theme }}

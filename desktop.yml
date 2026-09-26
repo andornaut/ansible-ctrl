@@ -1,6 +1,23 @@
 ---
 - name: Apply desktop role
   hosts: desktop
+  pre_tasks:
+    # First, so a tiling host missing the toolchains fails before anything is applied. eww
+    # and niri build with the dev role's per-user Rust, nwg-drawer with its Go. The role
+    # asserts desktop_environment itself, so an unset one passes here.
+    - name: Require a tiling host to be in the dev group
+      ansible.builtin.assert:
+        that: >-
+          desktop_environment | default('gnome') == 'gnome'
+          or inventory_hostname in groups['dev'] | default([])
+        fail_msg: >-
+          A {{ desktop_environment }} host builds eww, nwg-drawer and its window manager from
+          source with the dev role's Rust and Go toolchains. Add {{ inventory_hostname }} to
+          the [dev] group in hosts, run make dev -- --limit {{ inventory_hostname }}, then
+          rerun this play.
+        quiet: true
+      become: false
+      tags: always
   roles:
     - desktop
     # WM selected by desktop_environment; --tags niri/bspwm runs just the WM.

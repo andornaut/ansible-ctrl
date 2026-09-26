@@ -9,32 +9,18 @@
 - name: Validate the idle backstop timeout
   ansible.builtin.assert:
     that:
-      - desktop_idle_backstop_minutes | int == 0
-        or desktop_idle_backstop_minutes | int > desktop_screen_blank_minutes | int
+      - desktop_idle_backstop_minutes | int > desktop_screen_blank_minutes | int
+      - desktop_idle_backstop_minutes | int > 0
     fail_msg: >-
-      desktop_idle_backstop_minutes ({{ desktop_idle_backstop_minutes }}) must be 0 or
+      desktop_idle_backstop_minutes ({{ desktop_idle_backstop_minutes }}) must be above 0 and
       above desktop_screen_blank_minutes ({{ desktop_screen_blank_minutes }}). Below the
       blank timeout it would pre-empt the session's own blanking rather than floor it.
     success_msg: >-
-      {{ (desktop_idle_backstop_minutes | int > 0)
-         | ternary('Display powers down after ' ~ desktop_idle_backstop_minutes
-                   ~ 'm of input idle whatever inhibits it', 'Idle backstop disabled') }}
-
-- name: Validate the idle backstop mechanism
-  when: desktop_idle_backstop_enabled | bool
-  ansible.builtin.assert:
-    that:
-      - desktop_idle_backstop_mechanism | length > 0
-    fail_msg: >-
-      desktop_environment "{{ desktop_environment }}" has no way to power the panel down
-      from outside the compositor, so no backstop can be built for it. Set
-      desktop_idle_backstop_minutes to 0 on this host.
-    success_msg: >-
-      Idle backstop powers the display down through "{{ desktop_idle_backstop_mechanism }}"
+      Display powers down after {{ desktop_idle_backstop_minutes }}m of input idle through
+      "{{ desktop_idle_backstop_mechanism }}", whatever inhibits it
 
 # Before the backstop, which exits and waits for a restart while the stamp is missing.
 - name: Install the idle input reader
-  when: desktop_idle_input_managed | bool
   become: true
   block:
     - name: Install the idle input reader command
@@ -62,35 +48,7 @@
         enabled: true
         state: started
 
-# A permanent off switch, not a migration: a host that turns the backstop off would
-# otherwise keep a root service reading every input device for nothing.
-- name: Remove the idle input reader
-  when: not desktop_idle_input_managed | bool
-  become: true
-  block:
-    - name: Disable the idle input reader service
-      ansible.builtin.systemd_service:
-        name: desktop-idle-input.service
-        enabled: false
-        state: stopped
-      register: desktop_idle_input_disable
-      failed_when:
-        - desktop_idle_input_disable is failed
-        - "'Could not find the requested service' not in desktop_idle_input_disable.msg | default('')"
-
-    - name: Remove the idle input reader service
-      ansible.builtin.file:
-        path: "{{ desktop_idle_input_unit }}"
-        state: absent
-      notify: Reload systemd
-
-    - name: Remove the idle input reader command
-      ansible.builtin.file:
-        path: "{{ desktop_idle_input_command }}"
-        state: absent
-
 - name: Install the idle backstop
-  when: desktop_idle_backstop_enabled | bool
   become: true
   block:
     # ddcutil ships the modules-load.d entry that loads i2c-dev and the udev rule that grants
@@ -136,55 +94,3 @@
       vars:
         desktop_enable_unit: desktop-idle-backstop.service
         desktop_enable_unit_wanted_by: graphical-session.target
-
-# A permanent off switch, not a migration: the unit is wanted by graphical-session.target,
-# so leaving it behind would keep powering the panel down on a host that has since set the
-# threshold to 0.
-- name: Remove the idle backstop
-  when: not desktop_idle_backstop_enabled | bool
-  become: true
-  block:
-    # Tolerates a host that never had it.
-    - name: Stop the idle backstop service in the active session
-      ansible.builtin.systemd_service:
-        name: desktop-idle-backstop.service
-        scope: user
-        state: stopped
-      become: true
-      become_user: "{{ desktop_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
-      register: desktop_idle_backstop_stop
-      failed_when:
-        - desktop_idle_backstop_stop is failed
-        - "'Could not find the requested service' not in desktop_idle_backstop_stop.msg | default('')"
-      when: desktop_user_systemd.stat.exists
-
-    # The enable symlink lives in the user's own unit directory, so removing the unit
-    # file alone would leave a dangling one behind.
-    - name: Disable the idle backstop service
-      ansible.builtin.file:
-        path: "{{ desktop_idle_backstop_wants }}"
-        state: absent
-      become: true
-      become_user: "{{ desktop_user }}"
-
-    - name: Remove the idle backstop service
-      ansible.builtin.file:
-        path: "{{ desktop_idle_backstop_unit }}"
-        state: absent
-
-    - name: Remove the idle backstop command
-      ansible.builtin.file:
-        path: "{{ desktop_idle_backstop_command }}"
-        state: absent
-
-    - name: Reload the systemd user manager in the active session
-      ansible.builtin.systemd_service:
-        daemon_reload: true
-        scope: user
-      become: true
-      become_user: "{{ desktop_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ desktop_user_uid }}"
-      when: desktop_user_systemd.stat.exists
