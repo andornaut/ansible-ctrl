@@ -220,3 +220,24 @@ jobs:
         # ARGS unquoted on purpose: it holds whole ansible-playbook arguments, split on
         # whitespace.
         run: tests/check.sh "${PLAYBOOK}" ${ARGS}
+
+  # A matrix leg reports as `Check (<playbook>)`, a name that depends on which playbooks a
+  # change reaches, so no leg can be required. This job reports under one stable name for the
+  # ruleset to require.
+  #
+  # `always()` and not `!cancelled()`, which looks tidier and is a hole: a cancelled run would
+  # skip this job, and GitHub counts a skipped required check as passing, so an unverified
+  # commit becomes mergeable. `skipped` passes for check alone, which is what a change no
+  # entry reads gives; select must have succeeded, or that skip means nothing was selected.
+  check-all:
+    name: Check
+    needs: [select, check]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check that every selected playbook applied
+        env:
+          SELECT: ${{ needs.select.result }}
+          CHECK: ${{ needs.check.result }}
+        run: '[ "${SELECT}" = success ] && { [ "${CHECK}" = success ] || [ "${CHECK}" = skipped ]; }'
