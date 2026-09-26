@@ -21,18 +21,9 @@ cmd_preexec	{{ rsnapshot_preexec_script }}
 {% endif %}
 
 # Retention intervals, ascending order. A null or zero value omits the line and its cron job.
-{% if rsnapshot_retention.hourly %}
-retain	hourly	{{ rsnapshot_retention.hourly }}
-{% endif %}
-{% if rsnapshot_retention.daily %}
-retain	daily	{{ rsnapshot_retention.daily }}
-{% endif %}
-{% if rsnapshot_retention.weekly %}
-retain	weekly	{{ rsnapshot_retention.weekly }}
-{% endif %}
-{% if rsnapshot_retention.monthly %}
-retain	monthly	{{ rsnapshot_retention.monthly }}
-{% endif %}
+{% for interval in ['hourly', 'daily', 'weekly', 'monthly'] if rsnapshot_retention[interval] %}
+retain	{{ interval }}	{{ rsnapshot_retention[interval] }}
+{% endfor %}
 
 verbose		2
 loglevel	3
@@ -47,32 +38,8 @@ rsync_short_args	-az
 # adding to it. Named rather than left implicit so that such a point has something to restate.
 rsync_long_args	{{ rsync_long_args_sudo }}
 
-# Backup points: directories pulled per host, then backup_script output.
-#
-# Remote paths name the login account rather than leaving it to ssh: the cron runs as root,
-# and an unprefixed path would authenticate as root, which no managed host authorizes. It
-# defaults to the inventory ansible_user of the host named by `host`, falling back to
-# primary_user.
-#
-# `host` is the inventory name, which the `name` field is not: that one is the address rsync
-# dials and the directory the snapshot lands in. Required, and asserted in tasks/main.yml: it
-# decides the login, whether the point is read locally, and whether the login has to escalate.
-#
-# A point naming the host this role is running on is read off the local filesystem, with no
-# login prefix. Derived rather than declared, so one inventory renders correctly on every host
-# in the rsnapshot group rather than only on the one a flag was written for.
-#
-# Escalation follows the login, and the line above already carries it. What restates that line
-# is a remote point logging in as root, which has nothing to escalate to: pfSense has no sudo
-# at all. A local point inherits the wrapper and is unaffected by it, rsync ignoring
-# --rsync-path when neither side is remote, so it is left alone rather than given a 4th field
-# to strip a flag that does nothing.
-#
-# A directory may be a mapping of `path` and `exclude` instead of a plain path, which adds
-# an `exclude=` per pattern. --delete-excluded is already in force, so a pattern added here
-# also drops what earlier runs stored. Each pattern is quoted: rsnapshot appends it to
-# rsync_long_args and re-splits on unquoted whitespace, so a bare pattern holding a space
-# excludes neither half and the run reports only a partial-transfer warning.
+# Backup points: directories pulled per host, then backup_script output. Login, locality,
+# escalation and exclude quoting are described in the rsnapshot role README.
 {% for host in rsnapshot_hosts %}
 {% set is_local = host.host == inventory_hostname %}
 {% set host_inventory_vars = hostvars[host.host] %}

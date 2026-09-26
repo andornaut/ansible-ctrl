@@ -7,12 +7,8 @@
       the role README shows an entry.
     quiet: true
 
-# `host` decides the login, whether the point is read locally, and whether that login has to
-# escalate, so the template cannot render an entry without one. hostvars answers for a host
-# outside the inventory with an undefined marker rather than an error, and the template's
-# fallback to primary_user would swallow it: a mistyped `host` renders a backup point that
-# logs in as the wrong account, and nothing reports it until the cron run's rsync fails. Held
-# here instead, where the entry that carries the mistake is named.
+# hostvars yields an undefined marker for a host outside the inventory, which the template's
+# primary_user fallback would render as a login to the wrong account.
 - name: Require each backed-up host to name an inventory host and something to back up
   ansible.builtin.assert:
     that:
