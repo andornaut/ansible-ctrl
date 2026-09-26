@@ -101,6 +101,39 @@
 - name: Install what the broker execs
   ansible.builtin.import_tasks: sops.yml
 
+# Before the install: init refuses a linked file that is not group-readable by the broker, so
+# a file its own tool has rewritten (npm writes 0600) would stop the run before any later
+# repair. Without the broker's group this is a first install, whose config holds no links for
+# init to check, and the chgrp would fail.
+- name: Read the group database
+  ansible.builtin.getent:
+    database: group
+
+# An absent file is not repaired: `link add` warns about it and the broker serves nothing from
+# it, and the file module would fail on it.
+- name: Check for the files the links name
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop: "{{ faramir_links }}"
+  loop_control:
+    label: "{{ item.ref }}"
+  register: faramir_link_stats
+  become: true
+  when: faramir_link_file_group in ansible_facts['getent_group']
+
+- name: Keep the files the links name readable by the broker
+  ansible.builtin.file:
+    path: "{{ item.item.path }}"
+    group: "{{ faramir_link_file_group }}"
+    mode: "{{ faramir_link_file_mode }}"
+    follow: false
+  loop: "{{ faramir_link_stats.results }}"
+  loop_control:
+    label: "{{ item.item.ref }}"
+  register: faramir_link_files
+  become: true
+  when: item.stat.exists | default(false)
+
 - name: Install faramir from release {{ faramir_release_tag }}
   become: true
   block:

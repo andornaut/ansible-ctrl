@@ -48,20 +48,9 @@
     - playbook_dir.startswith(faramir_user_home ~ '/')
   become: true
 
-# `link add` refuses an entry whose file is not there, so tasks/entries.yml has already
-# failed the run if one is missing and there is nothing to guard against here.
-- name: Keep the files the links name readable by the broker
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    group: "{{ faramir_link_file_group }}"
-    mode: "{{ faramir_link_file_mode }}"
-    follow: false
-  loop: "{{ faramir_links }}"
-  loop_control:
-    label: "{{ item.ref }}"
-  register: faramir_link_files
-  become: true
-
+# faramir_link_files is registered in broker.yml, which repairs the files before init checks
+# them.
+#
 # A group or mode change moves neither mtime nor size, which is all the broker fingerprints,
 # so it does not notice one and goes on serving what it read before. What degrades a ref is
 # the file being replaced, which the broker does notice and then fails to read; the change
