@@ -63,7 +63,8 @@
         # three keys are not written at all: a `gamescope: true` the user set in Lutris's own
         # preferences is theirs to keep.
         # DXVK_HUD=0 hides the "Compiling shaders..." indicator proton draws while DXVK fills
-        # its cache. Merged into env, so variables set in Lutris's preferences stay.
+        # its cache. Merged into env, so variables set in Lutris's preferences stay. A game's
+        # own env overrides this one, so the task after this block removes it there.
         games_lutris_desired: >-
           {{ {'game_path': games_lutris_dir,
               'env': (games_lutris_system.env | default({}, true)) | combine({'DXVK_HUD': '0'})}
@@ -79,6 +80,23 @@
         dest: "{{ games_lutris_config_file }}"
         content: "{{ games_lutris_config | combine({'system': games_lutris_merged}) | to_nice_yaml }}"
         mode: "0644"
+
+# Before the World of Warcraft entry is derived below, so it copies Battle.net's config without
+# the variable. Why per game as well as in system.yml: the script's module docstring.
+- name: Remove DXVK_HUD from each Lutris game's own environment
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - run
+      - --command=python3
+      - "{{ games_lutris_app_id }}"
+      - "-"
+    stdin: "{{ lookup('ansible.builtin.file', 'lutris-unset-game-env.py') }}"
+  environment:
+    LUTRIS_UNSET_ENV_CONFIG: "{{ {'config_dir': games_lutris_active_dir, 'names': ['DXVK_HUD']} | to_json }}"
+  register: games_lutris_unset_env
+  changed_when: games_lutris_unset_env.stdout | length > 0
+  when: games_lutris_active_dir | length > 0
 
 # Why the teardown is a host binary rather than a Lutris hook: the launcher's module docstring.
 - name: Install the Lutris game launcher
@@ -184,7 +202,7 @@
         state: directory
         mode: "0755"
 
-    # The prefix is baked in here rather than passed from the entry's Exec: README.md says why.
+    # The prefix is baked in here rather than passed from the entry's Exec: the template's header says why.
     # No validate: it chmods the staged source, which the ssh login account owns, so it fails
     # when games_user is another account. tests/lint.sh shell checks the rendered template.
     - name: Install the World of Warcraft launch script
