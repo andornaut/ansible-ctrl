@@ -42,6 +42,7 @@ See [defaults/main.yml](./defaults/main.yml).
 
 | Variable                          | Purpose                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `base_timezone`                   | System timezone, an IANA name set through `community.general.timezone`. Default `America/Toronto`    |
 | `base_lockdown_ssh_port`          | The sshd port, 22 by default. See [Lockdown](#lockdown)                                              |
 | `base_lockdown_ssh_port_move`     | `true` for the one run that moves sshd off the inventory's `ansible_port`. See [Lockdown](#lockdown) |
 | `base_account_exclude_homes`      | Placeholder homes of service accounts, excluded from the home-mode lockdown and the sweeps           |
