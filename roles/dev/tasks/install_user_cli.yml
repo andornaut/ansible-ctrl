@@ -9,13 +9,26 @@
 # Optional vars:
 #   dev_cli_shell (str): default bash
 #   dev_cli_env (dict): default {}, extra environment for the installer
+# Stat with follow, not `creates`: `creates` counts a dangling symlink as present, so an
+# installer whose link target was removed would never be run again.
+- name: Check for {{ dev_cli_name }}
+  ansible.builtin.stat:
+    # A conditional, not default(): a missing dev_cli_bin must fail as undefined
+    # rather than degrade the check to the ~/.local/bin/ directory itself.
+    path: "{{ dev_cli_creates if dev_cli_creates is defined else dev_user_home ~ '/.local/bin/' ~ dev_cli_bin }}"
+    follow: true
+  register: dev_cli_stat
+  become: true
+  become_user: "{{ dev_user }}"
+
 - name: Install {{ dev_cli_name }} # noqa: command-instead-of-module
   ansible.builtin.shell:
     cmd: set -o pipefail && curl -fsSL {{ dev_cli_url }} | {{ dev_cli_shell | default('bash') }}
-    # A conditional, not default(): a missing dev_cli_bin must fail as undefined
-    # rather than degrade `creates` to the ~/.local/bin/ directory itself.
-    creates: "{{ dev_cli_creates if dev_cli_creates is defined else dev_user_home ~ '/.local/bin/' ~ dev_cli_bin }}"
     executable: /bin/bash
+  when: >-
+    not dev_cli_stat.stat.exists
+    or (dev_cli_creates is not defined and not dev_cli_stat.stat.executable)
+  changed_when: true
   become: true
   become_user: "{{ dev_user }}"
   environment: "{{ {'HOME': dev_user_home} | combine(dev_cli_env | default({})) }}"
