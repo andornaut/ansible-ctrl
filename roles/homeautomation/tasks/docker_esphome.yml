@@ -7,8 +7,13 @@
       - (homeautomation_esphome_username | length > 0) ==
         (homeautomation_esphome_password | length > 0)
     fail_msg: >-
-      One of the ESPHome username/password is set and the other is empty, which
-      would start the dashboard unauthenticated.
+      homeautomation_esphome_username is
+      {{ 'set' if homeautomation_esphome_username | length > 0 else 'empty' }} and
+      homeautomation_esphome_password is
+      {{ 'set' if homeautomation_esphome_password | length > 0 else 'empty' }}; a
+      half pair starts the dashboard unauthenticated. The password comes from
+      host_vars, which maps it to a credential named in faramir.env and injected by
+      faramir run --env-file faramir.env (or read from the sops store on a root run).
 
 # The check above passes on two empties, which is a host that has not been given
 # credentials yet rather than one that asked for none.

@@ -246,8 +246,8 @@ homeautomation_otbr_docker_image: ghcr.io/ownbee/hass-otbr-docker
 homeautomation_otbr_required_volumes:
   data: /var/docker-volumes/homeautomation/otbr/data
 homeautomation_otbr_rest_port: 8081
-# The web UI has no login and can form or leave the Thread network. The REST API stays on
-# every interface: the image hard-codes its listen address.
+# The web UI has no login and can form or leave the Thread network. The REST API listens on
+# every interface (the image hard-codes the address), so an nftables table drops it off loopback.
 homeautomation_otbr_web_bind: "127.0.0.1"
 homeautomation_otbr_web_port: 8080
 

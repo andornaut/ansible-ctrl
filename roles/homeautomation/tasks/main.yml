@@ -11,8 +11,15 @@
           - not (homeautomation_install_avahi | bool and (homeautomation_install_matterjs | bool or homeautomation_install_pythonmatterserver | bool))
           - not (homeautomation_install_matterjs | bool and homeautomation_install_pythonmatterserver | bool)
         fail_msg: >-
-          Cannot enable Avahi alongside Matter/Thread (both run a host mDNS
-          responder, which conflict), nor both Matter servers at once.
+          Set at most one of homeautomation_install_avahi,
+          homeautomation_install_matterjs and homeautomation_install_pythonmatterserver:
+          Avahi and a Matter server (with OTBR) each run a host mDNS responder, which
+          conflict, and the two Matter servers exclude each other. Currently true:
+          {{ [('homeautomation_install_avahi', homeautomation_install_avahi | bool),
+              ('homeautomation_install_matterjs', homeautomation_install_matterjs | bool),
+              ('homeautomation_install_pythonmatterserver',
+               homeautomation_install_pythonmatterserver | bool)]
+             | selectattr(1) | map(attribute=0) | join(', ') }}.
         success_msg: "mDNS configuration validated"
 
     - name: Show the mDNS provisioning plan

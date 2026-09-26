@@ -1,0 +1,20 @@
+# Managed by ansible: roles/homeautomation/tasks/docker_otbr.yml. Edits are lost.
+#
+# Not nftables.service: /etc/nftables.conf starts with "flush ruleset", which would
+# remove Docker's tables along with everything else.
+[Unit]
+Description=Restrict the OTBR REST API to loopback
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target docker.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f {{ homeautomation_otbr_firewall_file }}
+ExecReload=/usr/sbin/nft -f {{ homeautomation_otbr_firewall_file }}
+ExecStop=-/usr/sbin/nft delete table inet homeautomation_otbr
+
+[Install]
+WantedBy=sysinit.target

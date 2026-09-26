@@ -79,3 +79,32 @@
       when: >-
         (homeautomation_ping_group_range_result.content | b64decode).split()
         == [homeautomation_esphome_gid | string] * 2
+
+# Stopped before its files go: ExecStop deletes the table, which removing the files alone
+# would leave loaded until a reboot. The nftables package stays.
+- name: Remove the OTBR firewall without a Matter server
+  when: not (homeautomation_install_matterjs | bool or homeautomation_install_pythonmatterserver | bool)
+  block:
+    - name: Check for the OTBR firewall unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/{{ homeautomation_otbr_firewall_unit }}
+      register: homeautomation_otbr_firewall_unit_stat
+      become: false
+
+    - name: Stop and disable the OTBR firewall unit
+      ansible.builtin.systemd_service:
+        name: "{{ homeautomation_otbr_firewall_unit }}"
+        state: stopped
+        enabled: false
+      become: true
+      when: homeautomation_otbr_firewall_unit_stat.stat.exists
+
+    - name: Remove the OTBR firewall files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/{{ homeautomation_otbr_firewall_unit }}
+        - "{{ homeautomation_otbr_firewall_file }}"
+      become: true
+      notify: Reload systemd

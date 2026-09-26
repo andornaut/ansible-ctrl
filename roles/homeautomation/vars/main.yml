@@ -52,6 +52,9 @@ homeautomation_unprivileged_cap_drop:
 homeautomation_no_new_privileges:
   - no-new-privileges:true
 
+homeautomation_otbr_firewall_file: /etc/nftables.d/homeautomation-otbr.nft
+homeautomation_otbr_firewall_unit: homeautomation-otbr-firewall.service
+
 # Every uid a container here runs as. Each account owns its files exclusively, which holds
 # only if no two share a uid; docker_prerequisites.yml asserts that before any are
 # created.

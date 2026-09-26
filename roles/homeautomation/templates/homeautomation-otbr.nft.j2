@@ -1,0 +1,17 @@
+#!/usr/sbin/nft -f
+# Managed by ansible: roles/homeautomation/tasks/docker_otbr.yml. Edits are lost.
+#
+# The OTBR REST API authenticates nobody and serves the Thread network key, and the
+# image hard-codes its listen address. Only loopback reaches it.
+#
+# Declaring the table before deleting it makes the delete succeed on a first load, so
+# the file replaces this one table atomically and leaves every other table alone.
+table inet homeautomation_otbr
+delete table inet homeautomation_otbr
+
+table inet homeautomation_otbr {
+	chain input {
+		type filter hook input priority filter; policy accept;
+		iifname != "lo" tcp dport {{ homeautomation_otbr_rest_port }} drop
+	}
+}

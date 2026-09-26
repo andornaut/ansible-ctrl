@@ -60,15 +60,16 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 
 ## Installed files
 
-| Path                                                                              | Purpose                                                                                          |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `/usr/local/bin/docker_etc_hosts`, `/etc/systemd/system/docker-etc-hosts.service` | [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). See [Networking](#networking) |
-| `/etc/apparmor.d/docker-ble-policy`                                               | The AppArmor profile the Home Assistant container runs under, for BLE                            |
-| `/etc/sysctl.d/60-esphome-ping.conf`                                              | With ESPHome: `ping_group_range` scoped to the ESPHome gid, for the dashboard's ping             |
-| `/etc/sysctl.conf`                                                                | With either Matter flag: the OTBR forwarding and router-advertisement sysctls                    |
-| `/etc/apt/keyrings/memryx.asc`, `/etc/apt/sources.list.d/memryx.list`             | With MemryX: its apt repository                                                                  |
-| `/usr/local/bin/router-kva-sample`                                                | [Router kernel address space sampler](#router-kernel-address-space-sampler)                      |
-| `/etc/cron.d/ansible-role-homeautomation`                                         | Its hourly cron entry                                                                            |
+| Path                                                                                                  | Purpose                                                                                                         |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `/usr/local/bin/docker_etc_hosts`, `/etc/systemd/system/docker-etc-hosts.service`                     | [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). See [Networking](#networking)                |
+| `/etc/apparmor.d/docker-ble-policy`                                                                   | The AppArmor profile the Home Assistant container runs under, for BLE                                           |
+| `/etc/sysctl.d/60-esphome-ping.conf`                                                                  | With ESPHome: `ping_group_range` scoped to the ESPHome gid, for the dashboard's ping                            |
+| `/etc/sysctl.conf`                                                                                    | With either Matter flag: the OTBR forwarding and router-advertisement sysctls                                   |
+| `/etc/nftables.d/homeautomation-otbr.nft`, `/etc/systemd/system/homeautomation-otbr-firewall.service` | With either Matter flag: the [OTBR REST API firewall](#otbr-rest-api-firewall). Removed with both flags cleared |
+| `/etc/apt/keyrings/memryx.asc`, `/etc/apt/sources.list.d/memryx.list`                                 | With MemryX: its apt repository                                                                                 |
+| `/usr/local/bin/router-kva-sample`                                                                    | [Router kernel address space sampler](#router-kernel-address-space-sampler)                                     |
+| `/etc/cron.d/ansible-role-homeautomation`                                                             | Its hourly cron entry                                                                                           |
 
 ## Networking
 
@@ -90,25 +91,25 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 Internal ports. The `homeautomation_*_port` variables set the published host side of a bridge container's
 mapping, not the internal port listed here.
 
-| Container          | Network | Port  | Protocol | Description                                  |
-| ------------------ | ------- | ----- | -------- | -------------------------------------------- |
-| homeassistant      | host    | 8123  | HTTP     | Web UI and API                               |
-| esphome            | host    | 6052  | HTTP     | Dashboard                                    |
-| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery            |
-| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only   |
-| otbr               | host    | 8081  | REST     | Thread Border Router REST API                |
-| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only      |
-| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                         |
-| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                  |
-| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated), loopback only      |
-| frigate            | bridge  | 8971  | HTTPS    | Web UI (authenticated), loopback only        |
-| frigate            | bridge  | 8554  | RTSP     | RTSP restream, loopback only                 |
-| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                               |
-| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API             |
-| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000 |
-| hamcp              | bridge  | 8086  | HTTP     | MCP server                                   |
-| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback        |
-| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback        |
+| Container          | Network | Port  | Protocol | Description                                              |
+| ------------------ | ------- | ----- | -------- | -------------------------------------------------------- |
+| homeassistant      | host    | 8123  | HTTP     | Web UI and API                                           |
+| esphome            | host    | 6052  | HTTP     | Dashboard                                                |
+| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery                        |
+| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only               |
+| otbr               | host    | 8081  | REST     | Thread Border Router REST API, loopback only by nftables |
+| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only                  |
+| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                                     |
+| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                              |
+| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated), loopback only                  |
+| frigate            | bridge  | 8971  | HTTPS    | Web UI (authenticated), loopback only                    |
+| frigate            | bridge  | 8554  | RTSP     | RTSP restream, loopback only                             |
+| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                                           |
+| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API                         |
+| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000             |
+| hamcp              | bridge  | 8086  | HTTP     | MCP server                                               |
+| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback                    |
+| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback                    |
 
 ## Container hardening
 
@@ -121,7 +122,7 @@ Per-service values are in [defaults/main.yml](./defaults/main.yml).
 | `no-new-privileges` everywhere               | Root included. It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                                                                                    |
 | Closed directories                           | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                           |
 | Loopback listeners                           | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                                                                                                |
-| Unauthenticated listeners on every interface | OTBR's REST API and govee2mqtt's HTTP API: both images hard-code the listen address                                                                                                                                                                                                                                                                                                |
+| Unauthenticated listeners on every interface | govee2mqtt's HTTP API: the image hard-codes the listen address. OTBR's REST API does too, and is dropped off loopback by the [OTBR REST API firewall](#otbr-rest-api-firewall)                                                                                                                                                                                                     |
 | Frigate RTSP from the LAN                    | Home Assistant reaches the restream at `rtsp://frigate.internal:8554/{{ name }}` (the integration's `rtsp_url_template`) over the bridge, so it stays on loopback. Set `homeautomation_frigate_bind_rtsp: "0.0.0.0"` only for an RTSP client off the host                                                                                                                          |
 
 ## llama.cpp models and context
@@ -206,6 +207,21 @@ a new instance cannot reuse that uid until the account is deleted with `userdel`
 | MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
 | adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
 | OTBR sysctls              | Forwarding and router-advertisement acceptance stay in `/etc/sysctl.conf` when both Matter flags are cleared                                                |
+
+## OTBR REST API firewall
+
+The OTBR REST API (`homeautomation_otbr_rest_port`) authenticates nobody: any client that reaches it can read the
+Thread network key (`GET /node/dataset/active`) or replace the dataset. With either Matter flag on, the
+`homeautomation-otbr-firewall` oneshot loads `table inet homeautomation_otbr`, whose input hook drops TCP to that port
+unless it arrives on `lo`.
+
+| Constraint                | Detail                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Home Assistant's OTBR URL | The `otbr` integration is added by hand. Its URL must be `http://127.0.0.1:8081` (or `localhost`): a LAN address arrives on the LAN interface and is dropped. Home Assistant runs with host networking, so loopback reaches it |
+| Not `nftables.service`    | `/etc/nftables.conf` begins with `flush ruleset`, which would also remove Docker's tables. The unit loads and deletes only its own table and never flushes                                                                     |
+| Atomic reload             | The ruleset declares, deletes and recreates its table in one `nft -f` transaction, so a change is applied by `systemctl reload` with no window in which the port is open                                                       |
+| Boot order                | `Before=network-pre.target docker.service`, so the table is loaded before the container listens                                                                                                                                |
+| Removal                   | With both Matter flags cleared, the unit is stopped (deleting the table) and its files removed. The `nftables` package stays                                                                                                   |
 
 ## Notes
 

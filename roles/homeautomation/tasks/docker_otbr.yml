@@ -11,6 +11,60 @@
     mode: "0700"
   become: true
 
+# Before the container, so the REST API never listens unfiltered. Its own table and unit,
+# never nftables.service, whose /etc/nftables.conf flushes Docker's rules with the rest.
+- name: Restrict the OTBR REST API to loopback
+  block:
+    - name: Install nftables
+      ansible.builtin.apt:
+        name: nftables
+        state: latest
+        install_recommends: false
+        update_cache: true
+      become: true
+
+    - name: Create the nftables drop-in directory
+      ansible.builtin.file:
+        path: "{{ homeautomation_otbr_firewall_file | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Install the OTBR REST API ruleset
+      ansible.builtin.template:
+        src: homeautomation-otbr.nft.j2
+        dest: "{{ homeautomation_otbr_firewall_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/sbin/nft -c -f %s
+      become: true
+      notify: Reload the OTBR firewall
+
+    - name: Install the OTBR firewall unit
+      ansible.builtin.template:
+        src: homeautomation-otbr-firewall.service.j2
+        dest: /etc/systemd/system/{{ homeautomation_otbr_firewall_unit }}
+        owner: root
+        group: root
+        mode: "0644"
+      register: homeautomation_otbr_firewall_unit_result
+      become: true
+      notify: Reload the OTBR firewall
+
+    # Every run, not only on a change: a table deleted by hand is loaded again.
+    - name: Enable and start the OTBR firewall unit
+      ansible.builtin.systemd_service:
+        name: "{{ homeautomation_otbr_firewall_unit }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      become: true
+      # Under --check on a host without the unit, the template above was only reported.
+      when: not (ansible_check_mode and homeautomation_otbr_firewall_unit_result is changed)
+
 - name: Start Open Thread Border Router (OTBR) Docker container
   become: true
   vars:
