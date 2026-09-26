@@ -68,7 +68,8 @@ RUN_UMASK = 0o002
 # ansible_local_become_success_timeout (BECOME_PROMPT) in 2.19.
 MIN_ANSIBLE_CORE = (2, 19)
 
-SOPS_FILE = ".config/faramir/secrets/ansible-ctrl.sops.yml"
+STORE_NAME = "ansible-ctrl"
+SOPS_FILE = f".config/faramir/secrets/{STORE_NAME}.sops.yml"
 AGE_KEY_FILE = ".config/faramir/age.key"
 BROKER_KEY = ".config/faramir/id_ed25519"
 
@@ -156,25 +157,67 @@ def root_defaults(home: str, exists: Callable[[str], bool]) -> dict[str, str]:
     return defaults
 
 
+def store_missing(stat: Callable[[str], object], sops_file: str) -> bool:
+    """Whether the store is provably absent: its directory answers stat and the file does not.
+
+    A directory that does not answer, being unsearchable by this account or under a home that
+    is not mounted, proves nothing, and neither does a file stat refuses: both leave the
+    answer to root.
+    """
+    try:
+        stat(str(Path(sops_file).parent))
+    except OSError:
+        return False
+    try:
+        stat(sops_file)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def store_refusal(sops_file: str, playbook: str, missing: bool) -> str:
+    """Why a credential playbook is refused the store, naming how to create it."""
+    if missing:
+        reason = f"{sops_file} does not exist."
+    else:
+        reason = f"{sops_file}: not readable by root, so it is missing or its home is not mounted."
+    return (
+        f"{reason}\nRefusing to run {playbook}.yml: every credential would be undefined and the\n"
+        "first task to read one fails with the rest already applied. Once `make faramir` has run\n"
+        "and the home is mounted, create the store and put the credentials in it:\n"
+        f"  sudo faramir vault add {STORE_NAME}\n"
+        "then list their names in faramir.env."
+    )
+
+
 def secrets_route(
-    playbook: str, env: Mapping[str, str], is_root: bool, readable: bool, decrypts: Callable[[], bool]
+    playbook: str,
+    env: Mapping[str, str],
+    is_root: bool,
+    readable: bool,
+    missing: bool,
+    decrypts: Callable[[], bool],
 ) -> tuple[str, str]:
     """How the run reaches its credentials, "none", "sops", "sudo" or "refuse", and what to
     tell the operator.
 
-    readable is whether this account can read the store. Root that cannot is refused rather
-    than run without: every credential would be undefined, and the first task to read one
-    fails with the tasks before it already applied. Any other playbook reads only optional
-    ones, github_token among them, so it never re-enters or escalates for the store, and
-    takes it only where decrypts, called at most once, says sops can open it: a readable
-    store without the age key, or without sops, would otherwise fail the run outright.
+    readable is whether this account can read the store, and missing whether it is provably
+    absent (store_missing). A credential playbook is refused rather than run without it:
+    every credential would be undefined, and the first task to read one fails with the tasks
+    before it already applied. A missing store is refused without sudo; re-entering as root is
+    left for one that exists or cannot be seen. Any other playbook reads only optional ones,
+    github_token among them, so it never re-enters or escalates for the store, and takes it
+    only where decrypts, called at most once, says sops can open it: a readable store without
+    the age key, or without sops, would otherwise fail the run outright.
     """
     if is_none(env.get("SECRETS")):
         return "none", ""
     if playbook in SECRET_PLAYBOOKS:
         if readable:
             return "sops", ""
-        return ("refuse" if is_root else "sudo"), ""
+        return ("refuse" if is_root or missing else "sudo"), ""
     if not readable:
         return "none", ""
     if decrypts():
@@ -457,16 +500,12 @@ def run(playbook: str, args: list[str]) -> int:
             return 1
         roles = pick_roles(listed.stdout)
 
-    route, warning = secrets_route(
-        playbook, os.environ, root, os.access(sops_file, os.R_OK), lambda: sops_decrypts(sops_file)
-    )
+    readable = os.access(sops_file, os.R_OK)
+    missing = not readable and store_missing(os.stat, sops_file)
+    route, warning = secrets_route(playbook, os.environ, root, readable, missing, lambda: sops_decrypts(sops_file))
     say(warning)
     if route == "refuse":
-        say(
-            f"{sops_file}: not readable by root, so it is missing or its home is\n"
-            f"not mounted. Refusing to run {playbook}.yml: every credential would be undefined\n"
-            "and the first task to read one fails with the rest already applied."
-        )
+        say(store_refusal(sops_file, playbook, missing))
         return 1
     if route == "sudo":
         say(f"Re-entering as root: {sops_file} is not readable by {account}.")

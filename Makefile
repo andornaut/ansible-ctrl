@@ -47,7 +47,7 @@ PLAYBOOK := bin/playbook.py
 FIRST_GOAL = $(or $(firstword $(MAKECMDGOALS)),$(.DEFAULT_GOAL))
 HELP_ECHO = $(if $(filter help,$(FIRST_GOAL)),echo,:)
 
-.PHONY: help clean lint requirements $(PLAYBOOKS)
+.PHONY: help clean lint requirements test $(PLAYBOOKS)
 
 IS_ROOT := $(filter 0,$(shell id -u))
 
@@ -61,8 +61,10 @@ help:
 	@$(HELP_ECHO) "Available targets:"
 	@$(HELP_ECHO) "  clean                 - Remove downloaded collections, lint tooling and the git hooks"
 	@$(HELP_ECHO) "  help                  - Show this help message"
-	@$(HELP_ECHO) "  lint                  - Run every check CI gates on"
+	@$(HELP_ECHO) "  lint                  - Run the static checks on the host; runs no tests"
 	@$(HELP_ECHO) "  requirements          - Install required Ansible collections"
+	@$(HELP_ECHO) "  test                  - Run every check CI gates on, unit tests included, in a"
+	@$(HELP_ECHO) "                          container; never run the tests on the host"
 	@$(HELP_ECHO) ""
 	@$(HELP_ECHO) "Playbook targets:"
 	@$(HELP_ECHO) "  base                  - Configure base system"
@@ -100,10 +102,16 @@ clean:
 	$(if $(filter $@,$(FIRST_GOAL)),rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules,@:)
 	$(if $(filter $@,$(FIRST_GOAL)),[ "$$(git config --local --get core.hooksPath)" != .husky/_ ] || git config --local --unset core.hooksPath,@:)
 
-# The same checks CI runs, from the same script. Depends on requirements:
-# ansible-lint's syntax-check reports every collection module unknown without them.
+# The checks CI runs that execute none of this repository's code, from the same script.
+# Depends on requirements: ansible-lint's syntax-check reports every collection module
+# unknown without them.
 lint: requirements
-	@$(if $(filter $@,$(FIRST_GOAL)),$(AS_OPERATOR) tests/lint.sh,:)
+	@$(if $(filter $@,$(FIRST_GOAL)),$(AS_OPERATOR) tests/lint.sh static,:)
+	@$(if $(filter $@,$(FIRST_GOAL)),echo "Static checks only: make test runs identity and dispatch (the unit tests) in a container",:)
+
+# Every check, the unit tests included, in a container with the checkout mounted read-only.
+test:
+	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/test.sh,:)
 
 # A stamp, not a phony recipe, so a run that goes through make more than once installs the
 # galaxy content once.

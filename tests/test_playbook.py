@@ -129,10 +129,23 @@ def completed(returncode=0, stdout="", stderr=""):
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
-def route(name, env=None, *, root=False, readable=True, decrypts=True):
+def route(name, env=None, *, root=False, readable=True, missing=False, decrypts=True):
     """secrets_route's answer, and how many times it probed the store."""
     probe = mock.Mock(return_value=decrypts)
-    return (*playbook.secrets_route(name, env or {}, root, readable, probe), probe.call_count)
+    return (*playbook.secrets_route(name, env or {}, root, readable, missing, probe), probe.call_count)
+
+
+def stat_of(*present, refused=()):
+    """An os.stat that answers for present paths, refuses refused ones and finds nothing else."""
+
+    def stat(path):
+        if path in refused:
+            raise PermissionError(path)
+        if path not in present:
+            raise FileNotFoundError(path)
+        return object()
+
+    return stat
 
 
 class Secrets(unittest.TestCase):
@@ -166,6 +179,28 @@ class Secrets(unittest.TestCase):
         self.assertEqual(route("msmtp", readable=False)[0], "sudo")
         self.assertEqual(route("msmtp", root=True, readable=False)[0], "refuse")
         self.assertEqual(route("msmtp", root=True)[0], "sops")
+
+    def test_a_missing_store_is_refused_without_re_entering(self):
+        for root in (False, True):
+            self.assertEqual(route("msmtp", root=root, readable=False, missing=True), ("refuse", "", 0))
+        self.assertEqual(route("desktop", readable=False, missing=True), ("none", "", 0))
+
+    def test_the_store_is_missing_only_where_its_directory_answers(self):
+        store = "/home/op/secrets/ansible-ctrl.sops.yml"
+        self.assertTrue(playbook.store_missing(stat_of("/home/op/secrets"), store))
+        self.assertFalse(playbook.store_missing(stat_of("/home/op/secrets", store), store))
+        self.assertFalse(playbook.store_missing(stat_of(), store))
+        self.assertFalse(playbook.store_missing(stat_of(refused=("/home/op/secrets",)), store))
+        self.assertFalse(playbook.store_missing(stat_of("/home/op/secrets", refused=(store,)), store))
+
+    def test_both_refusals_name_how_to_create_the_store(self):
+        for missing in (False, True):
+            message = playbook.store_refusal("/s", "msmtp", missing)
+            self.assertIn("sudo faramir vault add ansible-ctrl", message)
+            self.assertIn("faramir.env", message)
+            self.assertIn("msmtp.yml", message)
+        self.assertIn("does not exist", playbook.store_refusal("/s", "msmtp", True))
+        self.assertIn("not readable by root", playbook.store_refusal("/s", "msmtp", False))
 
     def test_the_decrypt_probe_discards_all_output(self):
         with mock.patch.object(playbook.subprocess, "run", return_value=completed(0)) as run:
@@ -338,6 +373,15 @@ class RunOrder(unittest.TestCase):
         self.assertIsNone(status)
         listed.assert_called_once()
         self.assertIn("PLAYBOOK_LISTED_HOSTS=alpha,bravo", execvp.call_args.args[1])
+
+    def test_a_missing_store_is_refused_before_the_re_entry(self):
+        with mock.patch.object(playbook, "store_missing", return_value=True) as missing:
+            status, _, execvp, child = self.run_playbook("msmtp", root=False)
+        self.assertEqual(status, 1)
+        missing.assert_called_once_with(playbook.os.stat, "/nonexistent/" + playbook.SOPS_FILE)
+        execvp.assert_not_called()
+        child.assert_not_called()
+        self.assertEqual(sum("sudo faramir vault add" in line for line in self.said), 1)
 
     def test_root_behind_the_re_entry_lists_nothing(self):
         env = {"PLAYBOOK_LISTED_HOSTS": "alpha", "PREFLIGHT": "none"}

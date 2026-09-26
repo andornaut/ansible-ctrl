@@ -82,7 +82,8 @@ class Goals(unittest.TestCase):
 
     def test_the_first_goal_still_runs(self):
         self.assertIn("rm -rf", make("clean").stdout)
-        self.assertIn("tests/lint.sh", make("lint").stdout)
+        self.assertIn("tests/lint.sh static", make("lint").stdout)
+        self.assertIn("tests/container/test.sh", make("test").stdout)
         self.assertIn("Available targets", make("help", dry_run=False).stdout)
         self.assertIn("Available targets", make(dry_run=False).stdout)
 

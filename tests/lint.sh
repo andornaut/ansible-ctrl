@@ -2,9 +2,11 @@
 # The checks CI gates on, defined once so a local run and CI check the same things at the
 # same tool versions. The galaxy collections are the exception: requirements.yml pins none,
 # so a local .ansible/collections and CI's cached install can differ.
-# CI and `make lint` both call them all; the argument runs one on its own.
+# CI and `make test` call them all; the argument runs one on its own. `static` is the checks
+# that execute none of this repository's code, and is what `make lint` runs on the host:
+# identity and dispatch run unit tests, which run only in `make test`'s container.
 #
-# Usage: tests/lint.sh [ansible-lint|config|shell|python|identity|dispatch|markdown]   (default: all)
+# Usage: tests/lint.sh [static|ansible-lint|config|shell|python|identity|dispatch|markdown]   (default: all)
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
@@ -153,15 +155,22 @@ check_identity() {
     return "${status}"
 }
 
-# bin/playbook.py, which every playbook target runs: argument forwarding, the re-entries,
-# the preflight and the --ask-become-pass decision, none of which a lint run exercises.
-# stdlib only, so any python3 runs it, apart from the faramir_env plugin's test, which
-# imports ansible as the plugin does.
+# Every tests/test_*.py, found by name so a new test file needs no edit here. They cover
+# logic no lint run exercises: bin/playbook.py's argument forwarding, re-entries, preflight and
+# --ask-become-pass decision, and the pure functions of the scripts the roles copy to hosts.
+# stdlib unittest under any python3, apart from the faramir_env plugin's test, which imports
+# ansible as the plugin does, and lutris-launch-game's configuration read, which skips without
+# PyYAML. test_identity.py is left to check_identity, which runs it under the interpreter it
+# checks for PyYAML.
 check_dispatch() {
-    python3 -m unittest discover -s tests -p test_playbook.py &&
-        python3 -m unittest discover -s tests -p test_makefile.py &&
-        python3 -m unittest discover -s tests -p test_check_matrix.py &&
-        python3 -m unittest discover -s tests -p test_faramir_env.py
+    local test
+    local -a modules=()
+    for test in tests/test_*.py; do
+        [[ ${test} == tests/test_identity.py ]] && continue
+        test=${test#tests/}
+        modules+=("${test%.py}")
+    done
+    PYTHONPATH=tests python3 -m unittest "${modules[@]}"
 }
 
 # markdownlint-cli2 is pinned in package.json and run out of node_modules/,
@@ -190,9 +199,10 @@ main() {
 
     case "${1:-all}" in
     all) checks=(ansible-lint config shell python identity dispatch markdown) ;;
+    static) checks=(ansible-lint config shell python markdown) ;;
     ansible-lint | config | shell | python | identity | dispatch | markdown) checks=("$1") ;;
     *)
-        echo "usage: ${0} [ansible-lint|config|shell|python|identity|dispatch|markdown]" >&2
+        echo "usage: ${0} [static|ansible-lint|config|shell|python|identity|dispatch|markdown]" >&2
         return 2
         ;;
     esac
