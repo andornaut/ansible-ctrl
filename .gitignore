@@ -33,3 +33,6 @@ GEMINI.md
 !.claude/
 .claude/*
 !.claude/skills/
+
+# Other agents' local state.
+.codex/
