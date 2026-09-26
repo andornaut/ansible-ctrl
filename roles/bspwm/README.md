@@ -41,4 +41,4 @@ See [defaults/main.yml](./defaults/main.yml). Each `bspwm_projects` entry takes 
 | Locking               | [desktop](../desktop/README.md#idle-locking-and-suspend) sets the timeouts                                                                                                                    |
 | Session wrapper       | `bspwm-session` holds `graphical-session.target` while bspwm runs; see [desktop](../desktop/README.md#desktop-environments)                                                                   |
 | Locked encrypted home | The run fails before any change while `bspwm_user`'s encrypted home is not mounted. Log in as that user or run `ecryptfs-mount-private`, then re-run                                          |
-| Rebuilt on every run  | `bspwm_projects` build from `HEAD` by default                                                                                                                                                 |
+| Rebuilt on every run  | No installed-version check: every run clones and builds each of `bspwm_projects`                                                                                                              |

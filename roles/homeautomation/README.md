@@ -182,8 +182,7 @@ router over ssh and writes it to `homeautomation_router_kva_sample_entity_id`, u
 Clearing a `homeautomation_install_*` flag removes the component on the next run: the containers and
 host files `homeautomation_teardown` ([vars/main.yml](./vars/main.yml)) lists for it are deleted, such
 as the `ping_group_range` sysctl drop-in ESPHome needs. An ha-mcp instance dropped from
-`homeautomation_hamcp_instances` has its container removed the same way; its host account is kept, so
-a new instance cannot reuse that uid until the account is deleted with `userdel`.
+`homeautomation_hamcp_instances` has its container removed the same way.
 
 | Not removed               | Why                                                                                                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,6 +192,8 @@ a new instance cannot reuse that uid until the account is deleted with `userdel`
 | MemryX                    | The DKMS driver and apt sources are not reversed                                                                                                            |
 | adb-auto-enable           | It is installed on the sets rather than on this host: `adb uninstall com.tpn.adbautoenable`                                                                 |
 | OTBR sysctls              | Forwarding and router-advertisement acceptance stay in `/etc/sysctl.conf` when both Matter flags are cleared                                                |
+| Service accounts          | Each container's host account and group stay, so its uid cannot be reused until the account is deleted with `userdel`                                       |
+| router-kva-sample         | Clearing its flag removes the cron entry; `/usr/local/bin/router-kva-sample` stays                                                                          |
 
 ## OTBR REST API firewall
 

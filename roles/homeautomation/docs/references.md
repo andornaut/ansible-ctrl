@@ -15,9 +15,7 @@ Links for the [homeautomation](../README.md) role.
 - [Wyoming protocol](https://www.home-assistant.io/integrations/wyoming)
 - [Voice Preview Edition (hardware)](https://www.home-assistant.io/voice-pe/) and its
   [documentation](https://support.nabucasa.com/hc/en-us/categories/24451727188125)
-- [microWakeWord](https://github.com/kahrendt/microWakeWord): wake word detection
-- [openWakeWord](https://github.com/dscripka/openWakeWord) and
-  [create your own wake word](https://www.home-assistant.io/voice_control/create_wake_word/)
+- [microWakeWord](https://github.com/kahrendt/microWakeWord): the Voice Preview Edition's on-device wake word detection
 
 ## Matter and Thread
 
@@ -48,6 +46,8 @@ Built-in:
 - [llama.cpp](https://www.home-assistant.io/integrations/llama_cpp): conversation agent backed by the llamacpp
   container
 - [Matter](https://www.home-assistant.io/integrations/matter/)
+- [MQTT](https://www.home-assistant.io/integrations/mqtt/): fed by the [Govee2MQTT](https://github.com/wez/govee2mqtt)
+  container
 - [OTBR](https://www.home-assistant.io/integrations/otbr/)
 - [OpenAI](https://www.home-assistant.io/integrations/openai_conversation)
 - [Roborock](https://www.home-assistant.io/integrations/roborock/)
@@ -62,7 +62,6 @@ Custom:
 - [Envisalink Refactored](https://github.com/ufodone/envisalink_new)
 - [Frigate](https://github.com/blakeblackshear/frigate-hass-integration) and its
   [notifications blueprint](https://github.com/SgtBatten/HA_blueprints/tree/main/Frigate_Camera_Notifications)
-- [Govee2MQTT](https://github.com/wez/govee2mqtt)
 - [Meross](https://github.com/albertogeniola/meross-homeassistant)
 - [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule)
 - [Watchman](https://github.com/dummylabs/thewatchman)

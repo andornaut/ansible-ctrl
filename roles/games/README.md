@@ -12,17 +12,17 @@ make games -- --tags retroarch
 
 ## Tags
 
-| Tag         | Description                                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| app-entries | Desktop entry overrides from `games_app_entry_overrides`, as in the [desktop](../desktop/README.md) role                     |
-| apt         | Native gaming packages                                                                                                       |
-| bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                  |
-| flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                      |
-| gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                   |
-| heroic      | Heroic install path and the store token-refresh timer                                                                        |
-| lutris      | Lutris default install path, gamescope settings, the launcher and the World of Warcraft entry: [Lutris](#lutris)             |
-| retroarch   | Libretro cores, BIOS, settings, per-core overrides, playlists and thumbnails: [RetroArch](#retroarch)                        |
-| retroid     | `syncretroid`, the handheld sync command, installed on the controller: [Handheld sync](#handheld-sync-retroid-pocket-flip-2) |
+| Tag         | Description                                                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| app-entries | Desktop entry overrides from `games_app_entry_overrides`, as in the [desktop](../desktop/README.md) role                                      |
+| apt         | Native gaming packages                                                                                                                        |
+| bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                                   |
+| flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                                       |
+| gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                                    |
+| heroic      | Heroic install path and the store token-refresh timer                                                                                         |
+| lutris      | Lutris default install path, gamescope settings, `DXVK_HUD=0` for every game, the launcher and the World of Warcraft entry: [Lutris](#lutris) |
+| retroarch   | Libretro cores, BIOS, settings, per-core overrides, playlists and thumbnails: [RetroArch](#retroarch)                                         |
+| retroid     | `syncretroid`, the handheld sync command, installed on the controller: [Handheld sync](#handheld-sync-retroid-pocket-flip-2)                  |
 
 ## Variables
 
@@ -167,7 +167,7 @@ when the checkout moves or `games_retroid_library_dir` or `games_retroid_serial`
 1. Set the per-host [variables](#variables) in `host_vars`.
 1. In Battle.net, set "When I launch a game" to exit, or its window stays open behind the game.
 1. In BedrockOnLinux, clear the "Gamescope arguments" setting.
-1. Make the library's thumbnail directory setgid and owned by the library's group.
+1. Create the library's thumbnail directory, setgid and owned by the library's group. The role never creates it.
 
 ## Operations
 

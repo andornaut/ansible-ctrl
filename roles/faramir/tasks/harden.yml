@@ -129,29 +129,21 @@
     block: |
       ## Running playbooks
 
-      Credentials come from the broker and are never visible here. Two routes,
-      the second reaching the controller at the cost of an approval.
+      Credentials come from the broker and are never visible here.
 
       Unprivileged, needing no approval, and unable to configure the controller:
 
           faramir run --env-file faramir.env -- \
               ansible-playbook <playbook>.yml --limit '!faramir_controller'
 
-      `--env-file faramir.env` names every credential this repo uses, by
-      reference. `--limit '!faramir_controller'` excludes the controller because `become`
-      there raises an escalation per task, which would leave the run failing after
-      the rest of it has already applied. It removes the controller as a play host
-      only: a task delegated to `localhost` with `become` still takes the
-      controller's sudo (`games`'s `retroid` tag, `base`'s lockdown on an SSH port
-      move), so a run reaching one of those takes the approved route.
+      The `--limit` keeps the controller out as a play host, where `become` raises an
+      escalation per task. A task delegated to `localhost` with `become` still takes
+      the controller's sudo ([README.md](README.md#secrets) names them), so a run
+      reaching one takes the approved route.
 
-      Approved once, then root for the whole run:
+      Approved once, then root for the whole run, reading the store itself:
 
           faramir run -- sudo make <playbook>
-
-      One approval covers it: no per-task prompt, and no `--ask-become-pass`,
-      which a root run never gets. Root reads the sops store itself, so this
-      route needs no `--env-file`.
 
       `faramir refs` shows the available names.
   # As the operator, whose tree this is: blockinfile follows a symlink, so as root one planted

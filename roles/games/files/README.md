@@ -3,21 +3,22 @@
 The role runs these from `../tasks/retroarch.yml` and `../tasks/lutris.yml`. Each can be run by hand to debug a
 single stage. Each script's module docstring is the reference for its input and edge cases.
 
-| Script                            | Purpose                                                                                          | Input                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| `retroarch-probe-cores.py`        | Reports each installed core's `library_name` and extensions as JSON                              | Cores directory                                     |
-| `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                            | `RETROARCH_GENERATOR_CONFIG`                        |
-| `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com) | `RETROARCH_THUMBNAILS_CONFIG`                       |
-| `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json`. Run by hand when fbneo adds games           | None. Needs network access                          |
-| `lutris-game-prefix.py`           | Prints a Lutris game's wine prefix                                                               | `LUTRIS_PREFIX_CONFIG`                              |
-| `lutris-register-game.py`         | Registers a Lutris game derived from another game's configuration                                | `LUTRIS_REGISTER_CONFIG`                            |
-| `lutris-launch-game.py`           | Clears a stale wine prefix, then launches the Lutris game                                        | Wine prefix, flatpak application ID and Lutris slug |
+| Script                            | Purpose                                                                                          | Input                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `retroarch-probe-cores.py`        | Reports each installed core's `library_name` and extensions as JSON                              | Cores directory                                                               |
+| `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                            | `RETROARCH_GENERATOR_CONFIG`                                                  |
+| `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com) | `RETROARCH_THUMBNAILS_CONFIG`                                                 |
+| `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json`. Run by hand when fbneo adds games           | None. Needs network access                                                    |
+| `lutris-game-prefix.py`           | Prints a Lutris game's wine prefix                                                               | `LUTRIS_PREFIX_CONFIG`                                                        |
+| `lutris-register-game.py`         | Registers a Lutris game derived from another game's configuration                                | `LUTRIS_REGISTER_CONFIG`                                                      |
+| `lutris-unset-game-env.py`        | Removes environment variables from each Lutris game's own `system.env`                           | `LUTRIS_UNSET_ENV_CONFIG`                                                     |
+| `lutris-launch-game.py`           | Clears a stale wine prefix, then launches the Lutris game                                        | Wine prefix, flatpak application ID, Lutris slug and an optional display name |
 
-| Constraint                | Detail                                                                                                                                   |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime order             | probe, then generate, then fetch                                                                                                         |
-| Writes to the ROM library | Only the thumbnail fetcher. Run it on the host whose mount is writable                                                                   |
-| Run inside the sandbox    | The probe and the two Lutris config scripts run inside their flatpak with `flatpak run --command=python3`. The launcher runs on the host |
+| Constraint                | Detail                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime order             | probe, then generate, then fetch                                                                                                           |
+| Writes to the ROM library | Only the thumbnail fetcher. Run it on the host whose mount is writable                                                                     |
+| Run inside the sandbox    | The probe and the three Lutris config scripts run inside their flatpak with `flatpak run --command=python3`. The launcher runs on the host |
 
 ## RetroArch
 

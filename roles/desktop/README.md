@@ -140,7 +140,7 @@ Web filtering is enforced by `nss-malcontent` in the name service switch, not th
 | nwg-drawer                          | `pkill -USR1 -x nwg-drawer` toggles it; the sxhkd dotfile binds it. Its last button, Hobbies, holds every entry no other button matches              |
 | Flatpak overrides are written whole | A manual `flatpak override --user` or Flatseal edit to an application this role manages is lost on the next run                                      |
 | App entry overrides                 | A copy of the packaged entry with one field changed. The dev, games and hobbies roles use the same mechanism                                         |
-| Source builds                       | eww and pavolume rebuild every run; the other source builds only on a new release                                                                    |
+| Source builds                       | eww and pavolume rebuild every run, it87 and nct6687d on a new commit to their branch, the rest only on a new release                                |
 | lemurs                              | x86_64 only                                                                                                                                          |
 
 ## Operations

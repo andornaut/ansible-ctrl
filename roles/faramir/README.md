@@ -194,18 +194,21 @@ Game launchers other than Steam are declared only at their flatpak paths; an apt
 `faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure. They are
 named explicitly because faramir's `auto` covers an agent only after it has run once unguarded.
 
-| Agent       | In this tree                                                                                 | In the operator's home                                                                                | Redaction |
-| ----------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
-| claude      | `PreToolUse` hook and deny rules in `.claude/settings.local.json`, MCP server in `.mcp.json` | deny rules in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                   | full      |
-| codex       | `PreToolUse` hook in `.codex/hooks.json`; credentials section in `AGENTS.md`                 | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`     | full      |
-| opencode    | plugin in `.opencode/plugins/`, MCP server in `opencode.json`                                | deny rules in `.config/opencode/opencode.json`, a credentials section in `.config/opencode/AGENTS.md` | full      |
-| kilocode    | plugin in `.kilo/plugin/`, MCP server in `kilo.json`                                         | deny rules in `.config/kilo/kilo.json`, a credentials section in `.kilocode/rules/faramir.md`         | full      |
-| pi          | extension in `.pi/extensions/`, which carries the deny rules                                 | a credentials section in `.pi/agent/AGENTS.md`                                                        | full      |
-| antigravity | MCP server in `.agents/mcp_config.json`, credentials section in `.agents/rules/faramir.md`   | a credentials section in `.gemini/GEMINI.md`                                                          | none      |
+| Agent       | In this tree                                                                                                  | In the operator's home                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| claude      | routing `PreToolUse` hook and deny rules in `.claude/settings.local.json`; credentials section in `CLAUDE.md` | deny rules and a deny-only `PreToolUse` hook in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                       |
+| codex       | routing `PreToolUse` hook in `.codex/hooks.json`; credentials section in `AGENTS.md`                          | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`                                           |
+| opencode    | nothing                                                                                                       | deny rules in `.config/opencode/opencode.json`, plugin in `.config/opencode/plugin/`, a credentials section in `.config/opencode/AGENTS.md` |
+| kilocode    | nothing                                                                                                       | deny rules in `.config/kilo/kilo.json`, plugin in `.config/kilo/plugin/`, a credentials section in `.kilocode/rules/faramir.md`             |
+| pi          | nothing                                                                                                       | extension in `.pi/agent/extensions/`, a credentials section in `.pi/agent/AGENTS.md`                                                        |
+| antigravity | credentials section in `.agents/rules/faramir.md`                                                             | `PreToolUse` hook in `.gemini/config/hooks.json`, a credentials section in `.gemini/GEMINI.md`                                              |
+
+Every one routes commands through the broker and redacts their output: claude and codex only in an enrolled tree, the
+others everywhere.
 
 | Constraint                   | Detail                                                                                                                                            |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Antigravity is partial       | Its hooks can refuse a tool call but not rewrite it, so its commands are neither brokered nor redacted                                            |
+| Antigravity rules load late  | It reads `.agents/rules/faramir.md` only once it has opened this tree as a project. The account-wide hook holds meanwhile                         |
 | Codex must trust the hook    | Start Codex once and trust the hook before the enrolment has any effect. It must run without its own sandbox                                      |
 | Cursor                       | Not configured by faramir, so a credential one of its commands prints reaches the model                                                           |
 | Bash prompts (claude, codex) | The hook approves every command the deny list does not name                                                                                       |
