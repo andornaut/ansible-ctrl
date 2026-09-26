@@ -4,9 +4,11 @@ set -Eeuo pipefail
 
 DEFAULT_DEVICE_PATHS=({% for i in range(nas_backup_devices|length) %}/dev/mapper/{{ nas_backup_device_name }}{{ '' if i == 0 else i + 1 }}{% if not loop.last %} {% endif %}{% endfor %})
 RETENTION_NUMBER="{{ nas_backup_rsnapshot_retention }}"
-RSNAPSHOT_SOURCE_RELATIVE_PATH="{{ nas_backup_rsnapshot_source_relative_path }}"
-RSNAPSHOT_INTERVAL="{{ nas_backup_rsnapshot_interval }}"
-RSNAPSHOT_LOCKFILE="{{ nas_backup_rsnapshot_lockfile }}"
+# rsnapshot's snapshot_root, relative to SOURCE_DIR.
+RSNAPSHOT_SOURCE_RELATIVE_PATH="rsnapshot"
+RSNAPSHOT_INTERVAL="weekly"
+# Must match the lockfile in the rsnapshot role's rsnapshot.conf.j2.
+RSNAPSHOT_LOCKFILE="/var/run/rsnapshot.pid"
 
 DEVICE_PATH=""
 SOURCE_DIR="{{ nas_backup_source_directory }}"
@@ -188,7 +190,7 @@ backup() {
     local startTime
     startTime=$(date +%s)
     # --delete would otherwise remove the rsnapshot.<date> copies, which exist only on the destination.
-    if rsync --archive --delete --exclude='rsnapshot/' --filter='protect /rsnapshot.????-??-??/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
+    if rsync --archive --delete --exclude="/${RSNAPSHOT_SOURCE_RELATIVE_PATH}/" --filter='protect /rsnapshot.????-??-??/' --human-readable --info=progress2 --stats "${SOURCE_DIR}/" "${MOUNT_DIR}/"; then
         local endTime
         endTime=$(date +%s)
         local duration=$((endTime - startTime))
@@ -210,7 +212,9 @@ backupRsnapshot() {
     fi
     local startTime
     startTime=$(date +%s)
-    if rsync --archive --delete "${linkDestArgs[@]}" --human-readable --info=progress2 --stats "${sourceRsnapshotDir}/" "${rsnapshotDestDir}/"; then
+    # Read through a working directory, which follows the snapshot's inode: a rotation renaming
+    # it mid-copy would otherwise switch the rest of the copy to whichever snapshot takes its name.
+    if (cd -- "${sourceRsnapshotDir}" && rsync --archive --delete "${linkDestArgs[@]}" --human-readable --info=progress2 --stats ./ "${rsnapshotDestDir}/"); then
         local endTime
         endTime=$(date +%s)
         local duration=$((endTime - startTime))
