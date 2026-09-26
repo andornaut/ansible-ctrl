@@ -6,13 +6,22 @@
 # the install into the live directory reports a change.
 - name: Stage, test and install the Nginx configuration
   block:
+    - name: Check for the Nginx volume directory
+      ansible.builtin.stat:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
+      register: letsencrypt_nginx_volume_dir
+      become: true
+
     # Beside the live config rather than in /tmp: a brokered run has a private /tmp, which
-    # dockerd cannot see, and it would mount an empty directory in the tree's place.
+    # dockerd cannot see, and it would mount an empty directory in the tree's place. /tmp on a
+    # fresh host, where docker.yml has yet to create that directory.
     - name: Create the staging directory
       ansible.builtin.tempfile:
         state: directory
         suffix: .nginx
-        path: "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
+        path: >-
+          {{ letsencrypt_nginx_docker_required_volumes.config | dirname
+             if letsencrypt_nginx_volume_dir.stat.isdir | default(false) else omit }}
       register: letsencrypt_nginx_staging
       changed_when: false
       check_mode: false
