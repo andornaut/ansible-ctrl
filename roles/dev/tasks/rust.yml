@@ -8,12 +8,33 @@
     update_cache: true
   become: true
 
-# rustup installs into $HOME and `creates` checks dev_user's, so this must run as
-# dev_user or it reinstalls every run into the wrong home.
-- name: Install Rust toolchain
+# As dev_user, whose $HOME rustup installs into. Every run, so an existing host follows the
+# current stable rather than keeping whichever one it first got; a repo's rust-version can
+# rise past it. --no-self-update: the distribution's rustup is updated by apt.
+- name: Install or update the stable Rust toolchain
+  ansible.builtin.command: rustup update stable --no-self-update
+  register: dev_rust_update
+  changed_when: "' unchanged - ' not in dev_rust_update.stdout"
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+
+- name: Check the default Rust toolchain
+  ansible.builtin.command: rustup default
+  register: dev_rust_default
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+
+- name: Make stable the default Rust toolchain
   ansible.builtin.command: rustup default stable
-  args:
-    creates: "{{ dev_user_home }}/.rustup/toolchains"
+  when: not dev_rust_default.stdout.startswith('stable-')
+  changed_when: true
   become: true
   become_user: "{{ dev_user }}"
   environment:

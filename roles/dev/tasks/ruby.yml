@@ -33,123 +33,29 @@
 - name: Install Ruby tools
   become: true
   block:
-    - name: Download and install chruby
-      block:
-        - name: Get latest chruby release
-          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-          vars:
-            release_repo: postmodern/chruby
-            release_fact: dev_chruby_release
-
-        # chruby is a shell function, so the probe sources it.
-        - name: Probe the installed chruby version
-          ansible.builtin.command:
-            argv:
-              - bash
-              - -c
-              - source /usr/local/share/chruby/chruby.sh && chruby --version
-          register: dev_chruby_installed
-          changed_when: false
-          failed_when: false
-          check_mode: false
-
-        - name: Download and install chruby {{ dev_chruby_release.tag_name }}
-          when: >-
-            dev_chruby_installed.stdout | default('') | trim !=
-            'chruby: ' ~ (dev_chruby_release.tag_name | replace('v', ''))
-          block:
-            - name: Set chruby download URL fact
-              ansible.builtin.set_fact:
-                dev_chruby_download_url: >-
-                  {{ dev_chruby_release.assets
-                  | selectattr('name', 'match', 'chruby-.*\.tar\.gz$')
-                  | map(attribute='browser_download_url') | first }}
-
-            - name: Download chruby package
-              ansible.builtin.get_url:
-                url: "{{ dev_chruby_download_url }}"
-                dest: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
-                mode: "0644"
-              register: dev_chruby_download
-              retries: 3
-              delay: 5
-              until: dev_chruby_download is succeeded
-              # Into the temporary directory only, so a --check run downloads too: skipped, the
-              # extraction after it fails on an archive that was never written.
-              check_mode: false
-
-            - name: Extract chruby archive
-              ansible.builtin.unarchive:
-                src: "{{ dev_tmp_ruby.path }}/chruby.tar.gz"
-                remote_src: true
-                dest: "{{ dev_tmp_ruby.path }}"
-              # Into the temporary directory only, so a --check run extracts too: skipped, make
-              # fails on a chdir that does not exist.
-              check_mode: false
-
-            - name: Install chruby
-              community.general.make:
-                chdir: >-
-                  {{ dev_tmp_ruby.path }}/chruby-{{ dev_chruby_release.tag_name | replace('v', '') }}
-                target: install
-
-    - name: Download and install ruby-install
-      block:
-        - name: Get latest ruby-install release
-          ansible.builtin.include_tasks: ../../base/tasks/get_latest_release.yml
-          vars:
-            release_repo: postmodern/ruby-install
-            release_fact: dev_ruby_install_release
-
-        - name: Probe the installed ruby-install version
-          ansible.builtin.command:
-            argv:
-              - /usr/local/bin/ruby-install
-              - --version
-          register: dev_ruby_install_installed
-          changed_when: false
-          failed_when: false
-          check_mode: false
-
-        - name: Download and install ruby-install {{ dev_ruby_install_release.tag_name }}
-          when: >-
-            dev_ruby_install_installed.stdout | default('') | trim !=
-            'ruby-install: ' ~ (dev_ruby_install_release.tag_name | replace('v', ''))
-          block:
-            - name: Set ruby-install download URL fact
-              ansible.builtin.set_fact:
-                dev_ruby_install_download_url: >-
-                  {{ dev_ruby_install_release.assets
-                  | selectattr('name', 'match', 'ruby-install-.*\.tar\.gz$')
-                  | map(attribute='browser_download_url') | first }}
-
-            - name: Download ruby-install package
-              ansible.builtin.get_url:
-                url: "{{ dev_ruby_install_download_url }}"
-                dest: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
-                mode: "0644"
-              register: dev_ruby_install_download
-              retries: 3
-              delay: 5
-              until: dev_ruby_install_download is succeeded
-              # Into the temporary directory only, so a --check run downloads too: skipped, the
-              # extraction after it fails on an archive that was never written.
-              check_mode: false
-
-            - name: Extract ruby-install archive
-              ansible.builtin.unarchive:
-                src: "{{ dev_tmp_ruby.path }}/ruby-install.tar.gz"
-                remote_src: true
-                dest: "{{ dev_tmp_ruby.path }}"
-              # Into the temporary directory only, so a --check run extracts too: skipped, make
-              # fails on a chdir that does not exist.
-              check_mode: false
-
-            - name: Install ruby-install
-              community.general.make:
-                chdir: >-
-                  {{ dev_tmp_ruby.path }}/ruby-install-{{ dev_ruby_install_release.tag_name | replace('v', '') }}
-                target: install
+    - name: Download and install chruby and ruby-install
+      ansible.builtin.include_tasks: install_release_make.yml
+      vars:
+        dev_release_make_name: "{{ dev_release_make_item.name }}"
+        dev_release_make_repo: "{{ dev_release_make_item.repo }}"
+        dev_release_make_probe: "{{ dev_release_make_item.probe }}"
+        dev_release_make_dir: "{{ dev_tmp_ruby.path }}"
+      loop:
+        - name: chruby
+          repo: postmodern/chruby
+          # chruby is a shell function, so the probe sources it.
+          probe:
+            [
+              bash,
+              -c,
+              source /usr/local/share/chruby/chruby.sh && chruby --version,
+            ]
+        - name: ruby-install
+          repo: postmodern/ruby-install
+          probe: [/usr/local/bin/ruby-install, --version]
+      loop_control:
+        loop_var: dev_release_make_item
+        label: "{{ dev_release_make_item.name }}"
 
     # Both Makefiles install with plain `cp`, which names no mode: a new file takes the
     # run's umask, and an existing one keeps whatever mode it was first created with, so
