@@ -11,14 +11,14 @@ make webservers -- --tags nginx
 
 ## Tags
 
-| Tag                                     | Description                                                                                                                                                                    |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| configuration                           | Regenerate NGINX configuration files                                                                                                                                           |
-| cron                                    | Certificate renewal cron job                                                                                                                                                   |
-| docker                                  | Manage the NGINX Docker container                                                                                                                                              |
-| [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job                                                                                                   |
-| nginx                                   | Everything: `webservers.yml` applies both `nginx` and `letsencrypt` at play level, so either selects every task. Only `configuration`, `cron`, `docker` and `www` narrow a run |
-| www                                     | Set up web root directories and clone site repos                                                                                                                               |
+| Tag                                     | Description                                                                                   |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| configuration                           | Regenerate NGINX configuration files                                                          |
+| cron                                    | Certificate renewal cron job                                                                  |
+| docker                                  | Manage the NGINX Docker container                                                             |
+| [letsencrypt](https://letsencrypt.org/) | Everything: certificates, configuration, container, and the renewal cron job                  |
+| nginx                                   | Everything, like `letsencrypt`. Only `configuration`, `cron`, `docker` and `www` narrow a run |
+| www                                     | Set up web root directories and clone site repos                                              |
 
 ## Variables
 
@@ -50,31 +50,17 @@ Keys of each `letsencrypt_nginx_websites` entry. Only `domain` is required.
 | `default_path`                                | `try_files` fallback for a site with no `proxy_port`                                                                                                                                                                                                                             |
 | `repo`, `version`                             | Git repository cloned into the web root, at `version` (default `HEAD`)                                                                                                                                                                                                           |
 
-## Installed files
-
-| Path                                              | Purpose                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------- |
-| `/usr/local/sbin/letsencrypt-nginx-renew`         | Renewal script, with `letsencrypt_nginx_install_renewal_cron: true` |
-| `/etc/cron.d/ansible-role-letsencrypt_nginx`      | Root job that runs the renewal script                               |
-| `/etc/logrotate.d/ansible-role-letsencrypt_nginx` | Weekly rotation of the renewal log, with the renewal cron           |
-
 ## Certificates
 
-Per entry in `letsencrypt_nginx_websites`:
-
-| Constraint                                                                                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One certificate per `csr_common_name`, or per `domain` where a site names none                    | Sites sharing a common name share one CSR and place one ACME order                                                                                                                                                                                                                                                                                                                                                                  |
-| A certificate covers its common name plus `<domain>` and `www.<domain>` for every site sharing it | Each site renders a server for its `domain` and a `www.` one that redirects to it. A name the common name already covers is not added: a wildcard covers one label below its base, so `example.com` under `*.example.com` gets its own name, as does `www.foo.example.com`                                                                                                                                                          |
-| A site with `cloudflare_api_token` is validated by DNS-01, anything else by HTTP-01               | DNS-01 writes one TXT record per name into `cloudflare_api_zone`, and a wildcard needs it. HTTP-01 writes each name's token under the site's web root, the `www.` name's included: the port-80 server answers both from `/var/www/<domain>`                                                                                                                                                                                         |
-| An HTTP-01 certificate's common name must be some site's `domain`                                 | Asserted before any order: its token is written to `/var/www/<common name>`, which only that site's port-80 server answers from. A wildcard needs DNS-01                                                                                                                                                                                                                                                                            |
-| Challenge material is removed once the orders are completed                                       | The TXT records (by name and value, one per value: a wildcard and its base name share a record name) and HTTP-01 token files written for this run's orders, also when completing fails. That failure still fails the run                                                                                                                                                                                                            |
-| `use_selfsigned_certificate: true` places no order                                                | The site serves the self-signed certificate, as does any site whose certificate has not been issued yet                                                                                                                                                                                                                                                                                                                             |
-| `letsencrypt_nginx_account_email` is required                                                     | Asserted as the role's first task; every order names it                                                                                                                                                                                                                                                                                                                                                                             |
-| `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory              | Set the production directory in `host_vars` for a trusted certificate. An existing certificate is reissued within `letsencrypt_nginx_remaining_days` of expiry, whenever its names differ from its CSR's, and, under a production directory, whenever a staging CA issued it (an issuer containing `(STAGING)`, `Fake LE` or `Pretend`), all read from disk every run. A production certificate is kept under the staging directory |
-| A new or changed server block is loaded before the challenges                                     | An HTTP-01 challenge is answered by the site's own server block                                                                                                                                                                                                                                                                                                                                                                     |
-| Every configuration is tested whole before it is installed                                        | Rendered into a staging directory and tested by `nginx -t` in a throwaway container of `letsencrypt_nginx_docker_image`, pulled first as the live container is, with the live container's volumes, `ssl/` and `basicauth/` included. A configuration nginx rejects fails the run before any live file changes. Under `--check` the test is skipped until the self-signed certificate exists                                         |
-| Every restart first tests the live configuration                                                  | In the same throwaway container, so the test runs whether or not the nginx container does. A failure leaves the container on the configuration it already loaded. `webservers.yml` sets `force_handlers`, so a later task failing does not drop a pending restart                                                                                                                                                                   |
+| Constraint                            | Detail                                                                                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One certificate per `csr_common_name` | Or per `domain` where a site names none. It covers the common name plus `<domain>` and `www.<domain>` of every site sharing it                                              |
+| Validation                            | DNS-01 in `cloudflare_api_zone` for a site with `cloudflare_api_token`, HTTP-01 otherwise. A wildcard needs DNS-01, and an HTTP-01 common name must be some site's `domain` |
+| `letsencrypt_nginx_account_email`     | Required                                                                                                                                                                    |
+| Staging by default                    | `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory. Set the production one in `host_vars`; staging certificates are then reissued         |
+| Reissue                               | Within `letsencrypt_nginx_remaining_days` of expiry, or when a certificate's names change                                                                                   |
+| Before issue                          | A site serves the self-signed certificate until its own is issued, and always with `use_selfsigned_certificate: true`                                                       |
+| Configuration is tested               | A configuration `nginx -t` rejects fails the run before any live file changes                                                                                               |
 
 ## Access control
 
@@ -98,20 +84,18 @@ Per entry in a site's `locations`:
 
 ## Certificate renewal
 
-`letsencrypt_nginx_install_renewal_cron: true` installs the renewal script and its root cron job. Enable it on the
-controller only.
+`letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root cron job
+that runs `make webservers -- --tags letsencrypt`. Enable it on the controller only.
 
-| Constraint                    | Detail                                                                                                                                                                                                                                                                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| What a renewal runs           | `make webservers PREFLIGHT=none -- --tags letsencrypt` as root from `letsencrypt_nginx_renewal_cron_directory`, with `FARAMIR_OPERATOR` naming `letsencrypt_nginx_operator`. Root reads the store itself, so the run needs no escalation or become password, and it reissues any certificate within `letsencrypt_nginx_remaining_days` of expiry |
-| Reachability probe            | Off, so every web server is attempted under ansible's own connect timeout. An unreachable one still fails the run                                                                                                                                                                                                                                |
-| nginx restart                 | A completed challenge restarts nginx, whose configuration names the same certificate path before and after a renewal                                                                                                                                                                                                                             |
-| Inputs in the operator's home | The checkout, `faramir.env`, the sops store, the age key and the broker's SSH key. If any is missing or unreadable, as while an encrypted home is unmounted, the script skips the run and prints the cause on stderr, which cron mails                                                                                                           |
-| Log                           | The playbook's output goes to `letsencrypt_nginx_renewal_cron_log`. A failed run prints its location on stderr, which cron mails                                                                                                                                                                                                                 |
+| Constraint                    | Detail                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No reachability probe         | An unreachable web server fails the run                                                                                                                             |
+| Inputs in the operator's home | The checkout, `faramir.env`, the sops store and the keys. While any is unreadable, as with an unmounted encrypted home, the run is skipped and cron mails the cause |
+| Log                           | `letsencrypt_nginx_renewal_cron_log`. A failed run mails its location                                                                                               |
 
 ## Container ports
 
-The `nginx` container runs with `network_mode: host`, binding directly to the host's network interfaces.
+The `nginx` container uses the host's network.
 
 | Port | Protocol | Description                                       |
 | ---- | -------- | ------------------------------------------------- |

@@ -14,15 +14,14 @@ make homeautomation -- --tags frigate
 
 ## Tags
 
-Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone installs nothing.
-A cleared flag's component is removed under the `docker` and `teardown` tags, not under its own. See
+Every optional service is also gated on its `homeautomation_install_*` flag, so the tag alone installs nothing. See
 [Removing a component](#removing-a-component).
 
 | Tag                                                               | Description                                                                                                                                                                              |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | Installs the newest adb-auto-enable release on each Android TV. See [Android TV adb](docs/troubleshooting.md#android-tv-adb)                                                             |
 | [avahi](https://avahi.org/)                                       | mDNS discovery service                                                                                                                                                                   |
-| bluetooth                                                         | `bluez`, `dbus-broker` and the AppArmor policy a container needs to reach BLE. No flag; always applied                                                                                   |
+| bluetooth                                                         | BLE access for the Home Assistant container. No flag; always applied                                                                                                                     |
 | customizations                                                    | HA custom components, themes, www assets, and `frontend.yaml`                                                                                                                            |
 | docker                                                            | All Docker container tasks                                                                                                                                                               |
 | [esphome](https://esphome.io/)                                    | ESP device firmware and dashboard                                                                                                                                                        |
@@ -32,8 +31,8 @@ A cleared flag's component is removed under the `docker` and `teardown` tags, no
 | llm                                                               | [llama.cpp](https://github.com/ggml-org/llama.cpp) and [Open WebUI](https://github.com/open-webui/open-webui)                                                                            |
 | matter                                                            | [Matter.js](https://github.com/matter-js/matter.js) or [Python Matter Server](https://github.com/matter-js/python-matter-server), and [OTBR](https://openthread.io/guides/border-router) |
 | [memryx](https://memryx.com/)                                     | MemryX MX3 AI accelerator drivers                                                                                                                                                        |
-| [mosquitto](https://mosquitto.org/)                               | The MQTT broker's config and its restart. No flag; also applied by `homeassistant`, which defines the container                                                                          |
-| otbr                                                              | The host sysctls (IPv4/IPv6 forwarding, router advertisements) the border router needs, gated on either Matter flag. The OTBR container is under `matter`                                |
+| [mosquitto](https://mosquitto.org/)                               | The MQTT broker's config. No flag; also applied by `homeassistant`                                                                                                                       |
+| otbr                                                              | Host sysctls the border router needs, gated on either Matter flag. The OTBR container is under `matter`                                                                                  |
 | router-kva-sample                                                 | The [router kernel address space sampler](#router-kernel-address-space-sampler), gated on `homeautomation_install_router_kva_sample`                                                     |
 | teardown                                                          | Remove the containers and host files of components this host does not install                                                                                                            |
 | voice                                                             | [Piper](https://github.com/rhasspy/piper) TTS and [Whisper](https://github.com/OHF-Voice/wyoming-faster-whisper) STT                                                                     |
@@ -45,7 +44,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | Variable                                                   | Purpose                                                                                                                                                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `homeautomation_install_*`                                 | One flag per optional service                                                                                                                                                                    |
-| `homeautomation_*_uid`                                     | Fixed uid of each container's service account; asserted distinct in [tasks/docker_prerequisites.yml](./tasks/docker_prerequisites.yml)                                                           |
+| `homeautomation_*_uid`                                     | Fixed uid of each container's service account, distinct across the role                                                                                                                          |
 | `homeautomation_*_port`                                    | Host port: the published port of a bridge container, or the listen port of a host-network one. See [Container ports](#container-ports)                                                           |
 | `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)                                                                                                |
 | `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                                                                                                                         |
@@ -79,12 +78,9 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | `homeautomation_default` (`br-ha`) bridge | everything else but ha-mcp                                  | Containers reach each other by container name via Docker's DNS. One that must reach a host-networked service uses `extra_hosts: ["host.docker.internal:host-gateway"]`    |
 | `homeautomation-<name>_default` bridge    | the ha-mcp instances                                        | One per instance, created by its compose project, so no other container reaches a server that authenticates nobody. `<name>.internal` still resolves from the Docker host |
 
-| Constraint            | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `.internal` names     | Every container resolves from the Docker host as `{container_name}.internal`, maintained by [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). For a bridge container the name resolves to its bridge IP, so use the internal port: openwebui listens on 8080 and publishes host port 3000                                                                                                                                                                                                                     |
-| Unpublished ports     | Several containers publish no host port. Only llamacpp's task file carries a commented-out mapping to enable for host-port access                                                                                                                                                                                                                                                                                                                                                                                              |
-| Home Assistant's view | Home Assistant uses host networking, so [tasks/docker_homeassistant.yml](./tasks/docker_homeassistant.yml) bind-mounts the host's `/etc/hosts` read-only. `docker_etc_hosts` overwrites the file in place, so a recreated container's new bridge IP is visible without a restart                                                                                                                                                                                                                                               |
-| Task order            | [docker_prerequisites.yml](./tasks/docker_prerequisites.yml) installs docker_etc_hosts, then [teardown.yml](./tasks/teardown.yml) releases the names, ports and devices of removed components, then [mosquitto.yml](./tasks/mosquitto.yml), then [docker_homeassistant.yml](./tasks/docker_homeassistant.yml) creates the bridge network, then [docker_llm.yml](./tasks/docker_llm.yml) (Frigate may depend on llama.cpp), then [docker_otbr.yml](./tasks/docker_otbr.yml) before the Matter server. The rest run in any order |
+| Constraint        | Detail                                                                                                                                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.internal` names | Every container resolves from the Docker host as `{container_name}.internal`, via [docker_etc_hosts](https://github.com/andornaut/docker_etc_hosts). A bridge container's name resolves to its bridge IP, so use the internal port: openwebui listens on 8080 and publishes host port 3000 |
 
 ### Container ports
 
@@ -113,83 +109,73 @@ mapping, not the internal port listed here.
 
 ## Container hardening
 
-Per-service values are in [defaults/main.yml](./defaults/main.yml).
+Per-service values are in [defaults/main.yml](./defaults/main.yml). Each non-root container runs as its own host
+account with a fixed uid, `cap_drop: ALL` and `no-new-privileges`.
 
-| Constraint                                   | Detail                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One host account per non-root container      | Created by [tasks/service_account.yml](./tasks/service_account.yml) with a fixed uid, so a file on a bind mount names the service that wrote it. The uids are collected in [vars/main.yml](./vars/main.yml) and asserted distinct in [tasks/docker_prerequisites.yml](./tasks/docker_prerequisites.yml) before any account is created. mosquitto uses the uid built into its image |
-| `cap_drop: ALL` for non-root uids            | A non-root process cannot use a capability: `cap_add` fills the permitted set, not the ambient set                                                                                                                                                                                                                                                                                 |
-| `no-new-privileges` everywhere               | Root included. It blocks the setuid transition that would make a permitted capability effective                                                                                                                                                                                                                                                                                    |
-| Closed directories                           | Where a service rewrites its own state with its own umask, the directory is closed, not the files. Covers the Zigbee and Thread network keys, the Matter fabric credentials, and the camera configuration and recordings                                                                                                                                                           |
-| Loopback listeners                           | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI and Frigate's RTSP restream authenticate nobody, and Frigate's unauthenticated UI has no login, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy                                                                                                                |
-| Unauthenticated listeners on every interface | govee2mqtt's HTTP API: the image hard-codes the listen address. OTBR's REST API does too, and is dropped off loopback by the [OTBR REST API firewall](#otbr-rest-api-firewall)                                                                                                                                                                                                     |
-| Frigate RTSP from the LAN                    | Home Assistant reaches the restream at `rtsp://frigate.internal:8554/{{ name }}` (the integration's `rtsp_url_template`) over the bridge, so it stays on loopback. Set `homeautomation_frigate_bind_rtsp: "0.0.0.0"` only for an RTSP client off the host                                                                                                                          |
+| Constraint                                   | Detail                                                                                                                                                                                                                                             |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Loopback listeners                           | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI, Frigate's RTSP restream and Frigate's unauthenticated UI authenticate nobody, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy |
+| Unauthenticated listeners on every interface | govee2mqtt's HTTP API, whose image hard-codes the listen address. OTBR's REST API does too, and is firewalled to loopback (see [OTBR REST API firewall](#otbr-rest-api-firewall))                                                                  |
+| Frigate RTSP from the LAN                    | Home Assistant reaches the restream over the bridge. Set `homeautomation_frigate_bind_rtsp: "0.0.0.0"` only for an RTSP client off the host                                                                                                        |
 
 ## llama.cpp models and context
 
-Router mode (`--models-dir /models`) starts a child `llama-server` per model with no `--ctx-size`, so each
-defaults to 4096 tokens. Two variables set what a child runs with:
+Each model runs in its own `llama-server` child, which defaults to a 4096-token context unless set here:
 
-| Variable                                | Scope                       | Holds                                                                                                                                                                               |
-| --------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `homeautomation_llamacpp_env`           | every child, by inheritance | `LLAMA_ARG_CTX_SIZE` for the per-request context, `LLAMA_ARG_N_PARALLEL: "1"` to keep it in one slot, and `LLAMA_ARG_MODELS_MAX: "1"` for how many children stay resident           |
-| `homeautomation_llamacpp_model_presets` | one model                   | Any `llama-server` long option, rendered to `/config/models.ini` and passed as `--models-preset`. A section name must match the model id, which the router takes from the file name |
+| Variable                                | Scope       | Holds                                                                                                                                        |
+| --------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `homeautomation_llamacpp_env`           | every model | `LLAMA_ARG_CTX_SIZE` (per-request context), `LLAMA_ARG_N_PARALLEL: "1"` (one slot) and `LLAMA_ARG_MODELS_MAX: "1"` (models resident at once) |
+| `homeautomation_llamacpp_model_presets` | one model   | Any `llama-server` long option. A section name must match the model id, which is the file name                                               |
 
-| Constraint             | Detail                                                                                                                                                                                                                                                                             |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Context ceiling        | `LLAMA_ARG_CTX_SIZE` must not exceed the smallest `homeautomation_llamacpp_models` entry's native training context, or quality degrades without YaRN. A model that cannot fit it in VRAM sets a lower `c` in its own preset                                                        |
-| KV cache sizing        | Only full-attention layers hold KV cache: a hybrid model such as Qwen3.8-27B, at 16 of 64 layers, needs far less per token than its parameter count suggests. Size a model as weights + KV against the GPU                                                                         |
-| Cache quantization     | Quantize the cache (`cache-type-k`, `cache-type-v`, which need `flash-attn = on`) before reducing context. Keep `cache-type-k` the higher precision of the two                                                                                                                     |
-| `LLAMA_ARG_MODELS_MAX` | `1` because one 27B quant plus its cache fills a 16GB GPU. Raising it lets two children share the GPU and spill to system RAM; at 1 a request naming a different model costs an unload and reload                                                                                  |
-| Preset keys            | The preset parser rejects some options the command line accepts, `reasoning-effort` and `n-parallel` among them (`reasoning` and `reasoning-budget` are accepted). A rejected key fails the router at startup, naming the option and the section, and the container does not start |
+| Constraint             | Detail                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context ceiling        | `LLAMA_ARG_CTX_SIZE` must not exceed the smallest model's native training context. A model that cannot fit it in VRAM sets a lower `c` in its own preset             |
+| KV cache sizing        | Only full-attention layers hold KV cache, so a hybrid model needs far less per token than its parameter count suggests. Size a model as weights + KV against the GPU |
+| Cache quantization     | Quantize the cache (`cache-type-k`, `cache-type-v`, which need `flash-attn = on`) before reducing context. Keep `cache-type-k` the higher precision of the two       |
+| `LLAMA_ARG_MODELS_MAX` | `1` because one 27B quant plus its cache fills a 16GB GPU. At 1 a request naming a different model costs an unload and reload                                        |
+| Preset keys            | Some command-line options are rejected in a preset, `reasoning-effort` and `n-parallel` among them. A rejected key stops the container from starting                 |
 
 ### Conversation agent
 
 Assist talks to llama.cpp through the built-in
 [llama.cpp integration](https://www.home-assistant.io/integrations/llama_cpp) (Home Assistant 2026.8 and later):
-Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trailing `/v1` required. Router mode
-lists every GGUF file in the models directory on `/v1/models`, so several agents can run different models. The role
-downloads `homeautomation_llamacpp_models` there and deletes nothing: a model dropped from the list stays listed until
-its file is removed by hand. An agent sees only entities exposed to Assist, and does not fire
-[sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
+Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trailing `/v1` required. Every model in
+the models directory is listed, so several agents can run different models. The role deletes no model: one dropped
+from `homeautomation_llamacpp_models` stays listed until its file is removed by hand. An agent sees only entities
+exposed to Assist, and does not fire [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
 
 ## Matter and Thread
 
-| Constraint                                 | Detail                                                                                                                                                                                                                                                           |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exactly one Matter server                  | `homeautomation_install_matterjs` or the superseded `homeautomation_install_pythonmatterserver`, asserted not both                                                                                                                                               |
-| The Matter server must use host networking | It discovers Thread devices via the `_matter._tcp` mDNS records OTBR advertises on the LAN, and mDNS multicast does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable                              |
-| Avahi cannot run alongside Matter/Thread   | OTBR and the host-networked Matter server already run mDNS on the host, and a second responder conflicts. With either Matter flag on, the host's `avahi-daemon` units are masked; with neither, they are unmasked only when `homeautomation_install_avahi` is on |
+| Constraint                                 | Detail                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Exactly one Matter server                  | `homeautomation_install_matterjs` or the superseded `homeautomation_install_pythonmatterserver`, asserted not both        |
+| The Matter server must use host networking | mDNS does not cross the Docker bridge: a bridged Matter server resolves no node and every Matter device shows unavailable |
+| Avahi cannot run alongside Matter/Thread   | A second mDNS responder conflicts, so `avahi-daemon` is masked while either Matter flag is on                             |
 
 ## ha-mcp
 
 [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) exposes Home Assistant to AI assistants over the
 [Model Context Protocol](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro). Clients connect to
-`http://<name>.internal:8086/mcp`, the container's internal port on its own bridge network. Setup is under
-[Setup](#setup).
+`http://<name>.internal:8086/mcp`. See [Setup](#setup).
 
-| Constraint                                                                           | Detail                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. Each publishes no MCP port and sits on its own bridge network (see [Networking](#networking))                                                |
-| Each entry needs its own `name` and `uid`                                            | The name becomes both the container name and the service account; the uid must be above 10000 and distinct across every service in this role                                                                            |
-| Any local account on the host can reach it                                           | ha-mcp authenticates nobody, and a Docker bridge network address is routable from the host, so any process on the host can connect to `<name>.internal:8086` and act on Home Assistant with that instance's admin token |
+| Constraint                                                                           | Detail                                                                                                             |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| One instance per Home Assistant an assistant drives, all on the assistant's own host | A remote instance is reached by pointing its `url` at that Home Assistant. No MCP port is published                |
+| Each entry needs its own `name` and `uid`                                            | The name is the container name and the service account; the uid must be above 10000 and distinct across this role  |
+| Any local account on the host can reach it                                           | ha-mcp authenticates nobody, so any process on the host can act on Home Assistant with that instance's admin token |
 
 ## Router kernel address space sampler
 
-`homeautomation_install_router_kva_sample` installs `/usr/local/bin/router-kva-sample` and an hourly cron entry
-that reads `vm.kvm_free` from a pfSense router over ssh and writes it to
-`homeautomation_router_kva_sample_entity_id`. It takes a token from the
-`homeautomation_router_kva_sample_container` container, so none is written to disk.
+`homeautomation_install_router_kva_sample` installs an hourly cron job that reads `vm.kvm_free` from a pfSense
+router over ssh and writes it to `homeautomation_router_kva_sample_entity_id`, using the token of the
+`homeautomation_router_kva_sample_container` ha-mcp container.
 
-It is in this role, not the [router](../router/README.md) role, because it runs on this host, needs the ha-mcp
-container this role installs, and writes a Home Assistant entity.
-
-| Constraint                                      | Detail                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runs as `homeautomation_router_kva_sample_user` | The key that reaches the router and the docker group that reads the token belong to that account. Root's ssh configuration on this host is hand-maintained, not provisioned here                                                                                                                                                                                      |
-| 32-bit routers only                             | A pfSense router's kernel map only advances: the figure falls over an uptime and freed memory returns none of it. At zero every `pfctl -f` blocks in the kernel arena wait channel and rule changes stop loading while the running ruleset keeps filtering. No error is reported, and only a reboot clears it. An amd64 router has a 2 TiB map and never reaches zero |
-| Unchanged readings                              | Posting an identical state and attributes returns 200 and updates only `last_reported`, not `last_changed` or `last_updated`, so a working sampler shows as stale in the UI while the figure is steady                                                                                                                                                                |
-| Threshold                                       | Set in a Home Assistant automation, not here                                                                                                                                                                                                                                                                                                                          |
+| Constraint                                      | Detail                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runs as `homeautomation_router_kva_sample_user` | That account needs the key that reaches the router and membership in the docker group                                                      |
+| 32-bit routers only                             | The kernel map only shrinks over an uptime. At zero, rule changes silently stop loading until a reboot. An amd64 router never reaches zero |
+| Unchanged readings                              | A steady figure updates only `last_reported`, so a working sampler looks stale in the UI                                                   |
+| Threshold                                       | Set in a Home Assistant automation, not here                                                                                               |
 
 ## Removing a component
 
@@ -210,18 +196,11 @@ a new instance cannot reuse that uid until the account is deleted with `userdel`
 
 ## OTBR REST API firewall
 
-The OTBR REST API (`homeautomation_otbr_rest_port`) authenticates nobody: any client that reaches it can read the
-Thread network key (`GET /node/dataset/active`) or replace the dataset. With either Matter flag on, the
-`homeautomation-otbr-firewall` oneshot loads `table inet homeautomation_otbr`, whose input hook drops TCP to that port
-unless it arrives on `lo`.
+The OTBR REST API (`homeautomation_otbr_rest_port`) authenticates nobody and exposes the Thread network key. With
+either Matter flag on, an nftables table drops TCP to that port unless it arrives on `lo`, without touching Docker's
+tables. It is removed when both Matter flags are cleared.
 
-| Constraint                | Detail                                                                                                                                                                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Home Assistant's OTBR URL | The `otbr` integration is added by hand. Its URL must be `http://127.0.0.1:8081` (or `localhost`): a LAN address arrives on the LAN interface and is dropped. Home Assistant runs with host networking, so loopback reaches it |
-| Not `nftables.service`    | `/etc/nftables.conf` begins with `flush ruleset`, which would also remove Docker's tables. The unit loads and deletes only its own table and never flushes                                                                     |
-| Atomic reload             | The ruleset declares, deletes and recreates its table in one `nft -f` transaction, so a change is applied by `systemctl reload` with no window in which the port is open                                                       |
-| Boot order                | `Before=network-pre.target docker.service`, so the table is loaded before the container listens                                                                                                                                |
-| Removal                   | With both Matter flags cleared, the unit is stopped (deleting the table) and its files removed. The `nftables` package stays                                                                                                   |
+Add the `otbr` integration by hand with the URL `http://127.0.0.1:8081` (or `localhost`): a LAN address is dropped.
 
 ## Notes
 

@@ -50,7 +50,7 @@ desktop_idle_backstop_unit: /usr/local/lib/systemd/user/desktop-idle-backstop.se
 # well as input, so it cannot floor a policy: mutter's resets when an idle inhibitor is
 # released, and X11's when any client calls XResetScreenSaver. A system service, because
 # reading the devices as the session's own account would mean putting it in the `input`
-# group. See README.md.
+# group.
 desktop_idle_input_command: /usr/local/bin/desktop-idle-input
 desktop_idle_input_unit: /etc/systemd/system/desktop-idle-input.service
 desktop_idle_input_stamp: /run/desktop-idle-input/stamp

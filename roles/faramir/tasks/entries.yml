@@ -32,7 +32,7 @@
     label: "{{ item.ref | default('an entry naming no ref') }}"
 
 # One call per form, not per entry: each add re-renders every agent rule file. No
-# check_mode: false, there being no --dry-run. README.md, "Entry adds".
+# check_mode: false, there being no --dry-run.
 - name: Block the declared paths and commands to the agent
   ansible.builtin.command:
     argv: >-

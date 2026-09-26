@@ -2,7 +2,7 @@
 - name: Remove snap
   become: true
   block:
-    # Also removes ubuntu-server-minimal, which hard-depends on snapd. See README.
+    # Also removes ubuntu-server-minimal, which hard-depends on snapd.
     - name: Purge and pin snap packages
       ansible.builtin.include_tasks: purge-and-pin.yml
       vars:

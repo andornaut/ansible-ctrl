@@ -1,6 +1,7 @@
 ---
 # Purge apt packages and negatively pin them so apt cannot reinstall them.
-# See README for what the pin buys over a dpkg hold. Include under `become: true`.
+# Unlike a dpkg hold, a pin also blocks the package as another's Recommends or Depends, and
+# `apt dist-upgrade` removes any that return. Include under `become: true`.
 #
 # Required vars:
 #   purge_pin_name (str): /etc/apt/preferences.d/no-<name>, and the label

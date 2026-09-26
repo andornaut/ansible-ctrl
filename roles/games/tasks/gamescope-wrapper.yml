@@ -2,7 +2,7 @@
 # The gamescope wrapper both game launchers run when games_gamescope_enabled is on, in one
 # directory each sandbox is granted read-only and finds first on PATH. Plain gamescope cannot
 # present a game either launcher runs through umu: the wrapper points the game at gamescope's
-# own display. README.md's Gamescope section explains the three files. bedrock.yml and
+# own display. Each file's header comment explains its part. bedrock.yml and
 # lutris.yml write their own application's grant and PATH, and run under the same tags as
 # this: a flag turned off removes the directory, and an override naming it converges beside.
 #

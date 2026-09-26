@@ -87,7 +87,7 @@
         mode: "0755"
 
     # The packaged unit starts at boot with no network ordering and fails
-    # 69/UNAVAILABLE before a resolver answers (README.md).
+    # 69/UNAVAILABLE before a resolver answers.
     - name: Copy the malcontent-webd-update systemd override
       ansible.builtin.copy:
         src: malcontent-webd-update-override.conf

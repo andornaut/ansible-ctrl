@@ -156,7 +156,7 @@ cd "${base_dir}"
 # Text output prints nothing until the run ends, so stream the events instead, one line
 # per tool call. -R + fromjson keeps an unparseable line from exiting jq, which would
 # SIGPIPE claude mid-batch. The result event prints unclipped, the pipe having consumed
-# the only copy of the report. See README.md.
+# the only copy of the report.
 claude --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" \
     | jq --unbuffered -rR --arg cwd "${PWD}" '
         # Collapsed before truncating, or a multi-line command breaks the layout.
