@@ -1,0 +1,21 @@
+QUIET=false
+# Bound a stall: synct and mvt hold a lock throughout, so a hang blocks every later cron
+# run. ssh otherwise waits out the kernel's TCP connect timeout, and once a transfer is
+# under way only TCPKeepAlive notices a dead peer, after ~2 hours.
+# shellcheck disable=SC2034  # unrart makes no ssh connection
+SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+
+# ANSI escapes only on a terminal: under cron this goes to a log or a mail spool.
+# The two streams are tested separately, cron redirecting them independently.
+O_BOLD="" O_BLUE="" O_GREEN="" O_OFF="" E_RED="" E_YELLOW="" E_OFF=""
+[[ -t 1 ]] && { O_BOLD=$'\033[1m'; O_BLUE=$'\033[1;34m'; O_GREEN=$'\033[1;32m'; O_OFF=$'\033[0m'; }
+[[ -t 2 ]] && { E_RED=$'\033[1;31m'; E_YELLOW=$'\033[1;33m'; E_OFF=$'\033[0m'; }
+
+error() { printf ' %s✗%s  %s\n' "${E_RED}" "${E_OFF}" "$*" >&2; exit 1; }
+header() { "${QUIET}" || printf '\n%s%s%s\n\n' "${O_BOLD}" "$*" "${O_OFF}"; }
+info() { "${QUIET}" || printf ' %s•%s  %s\n' "${O_BLUE}" "${O_OFF}" "$*"; }
+# shellcheck disable=SC2120  # ok() is intentionally called with no args (defaults to "OK")
+ok() { "${QUIET}" || printf ' %s✔%s  %s\n' "${O_GREEN}" "${O_OFF}" "${*-OK}"; }
+# Ungated, unlike the others: the cron jobs pass --quiet, and gating this would leave
+# the final error unexplained in the log.
+warn() { printf ' %s!%s  %s\n' "${E_YELLOW}" "${E_OFF}" "$*" >&2; }
