@@ -1,0 +1,36 @@
+{#- Backup point lines, shared by rsnapshot.conf.j2 and rsnapshot-nonblocking-sources.j2 and
+    imported with context for hostvars, inventory_hostname and primary_user. -#}
+{% set rsync_long_args_plain = '--delete --numeric-ids --relative --delete-excluded' %}
+{#- The rsnapshot_nonblocking_mountpoints entry a point is read under, or '' for a point read
+    unconditionally. Only a local point can have one: the mount is this host's. The longest
+    match wins, so a nested mountpoint claims the points beneath it. -#}
+{% macro point_mountpoint(is_local, path) -%}
+{% set ns = namespace(mountpoint='') %}
+{% for mountpoint in rsnapshot_nonblocking_mountpoints if is_local and path is match(mountpoint | regex_escape ~ '(/|$)') and mountpoint | length > ns.mountpoint | length %}
+{% set ns.mountpoint = mountpoint %}
+{% endfor %}
+{{- ns.mountpoint -}}
+{%- endmacro %}
+{#- The backup lines read under `mountpoint`, or with '' those read unconditionally, which
+    include every backup_script. -#}
+{% macro backup_lines(mountpoint) -%}
+{% for host in rsnapshot_hosts %}
+{% set is_local = host.host == inventory_hostname %}
+{% set host_inventory_vars = hostvars[host.host] %}
+{% set host_login = host.user | default(host_inventory_vars.ansible_user | default(primary_user)) %}
+{% set host_sudo = not is_local and host_login != 'root' %}
+{% for directory in host.directories | default((), true) %}
+{% set path = directory.path if directory is mapping else directory %}
+{% if point_mountpoint(is_local, path) == mountpoint %}
+{% set excludes = directory.exclude | default([], true) if directory is mapping else [] %}
+{% set long_args_option = ['rsync_long_args=' ~ rsync_long_args_plain] if not is_local and not host_sudo else [] %}
+{% set point_options = long_args_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
+{% set point_field = ('\t' ~ point_options | join(',')) if point_options else '' %}
+backup	{% if not is_local %}{{ host_login }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
+{% endif %}
+{% endfor %}
+{% for script in host.scripts | default((), true) if not mountpoint %}
+backup_script	{{ script.command }} {{ script.args | default('') }}	{{ host.name }}_{{ script.command|basename }}/
+{% endfor %}
+{% endfor %}
+{%- endmacro %}

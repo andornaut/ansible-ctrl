@@ -23,6 +23,22 @@
   loop_control:
     label: "{{ item.name | default('an entry naming no name') }}"
 
+# Absolute and without a trailing slash, since the template matches points against it by
+# prefix. A mountpoint is either blocking or non-blocking: one in both lists would still abort
+# the whole run while it is unmounted.
+- name: Require each non-blocking mountpoint to be an absolute path that is not also blocking
+  ansible.builtin.assert:
+    that:
+      - item is match('/')
+      - item is not match('.+/$')
+      - item not in rsnapshot_required_mountpoints | map('regex_replace', '(.)/+$', '\1')
+    fail_msg: >-
+      {{ item }} in rsnapshot_nonblocking_mountpoints must be absolute and have no trailing
+      slash. A mountpoint is either blocking or non-blocking, so it must not also be in
+      rsnapshot_required_mountpoints.
+    quiet: true
+  loop: "{{ rsnapshot_nonblocking_mountpoints }}"
+
 - name: Install dependencies
   ansible.builtin.import_tasks: dependencies.yml
 

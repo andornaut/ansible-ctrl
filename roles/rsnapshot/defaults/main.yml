@@ -4,6 +4,11 @@ rsnapshot_hosts: []
 rsnapshot_preexec_script: /usr/local/bin/rsnapshot-preexec
 # Checked before the lowest configured interval. Empty omits cmd_preexec.
 rsnapshot_required_mountpoints: []
+# Required, but not blocking: while one is unmounted, only the local points under it are
+# skipped, with an error cron mails, and the rest of the run continues. Empty omits the
+# include_conf line.
+rsnapshot_nonblocking_mountpoints: []
+rsnapshot_nonblocking_sources_script: /usr/local/bin/rsnapshot-nonblocking-sources
 rsnapshot_retention:
   hourly:
   daily: 7

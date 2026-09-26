@@ -1,0 +1,27 @@
+#!/bin/bash
+{% from 'backup_points.j2' import backup_lines with context %}
+# rsnapshot include_conf command - managed by ansible-role-rsnapshot.
+# rsnapshot reads stdout as configuration each time it parses rsnapshot.conf. For each
+# rsnapshot_nonblocking_mountpoints entry, prints the local backup points under it while it is
+# mounted. While it is not, prints none of them and reports an error, and rsnapshot backs up
+# the rest. A mount test, not a directory test: an unmounted ecryptfs home is a directory of
+# stub files, which rsync --delete would store as the new copy.
+set -euo pipefail
+
+# Straight to stderr, which rsnapshot leaves as the cron job's, so verbose and loglevel do
+# not filter it and cron mails it.
+report_unmounted() {
+    local message="ERROR: $1 is not mounted; its backup points were skipped"
+    logger -p user.err -t rsnapshot -- "${message}" || true
+    echo "${message}" >&2
+}
+
+{% for mountpoint in rsnapshot_nonblocking_mountpoints %}
+if mountpoint -q {{ mountpoint | quote }}; then
+    cat <<'RSNAPSHOT_POINTS'
+{{ backup_lines(mountpoint) -}}
+RSNAPSHOT_POINTS
+else
+    report_unmounted {{ mountpoint | quote }}
+fi
+{% endfor %}

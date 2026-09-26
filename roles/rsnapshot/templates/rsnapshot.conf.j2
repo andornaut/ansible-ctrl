@@ -1,3 +1,4 @@
+{% from 'backup_points.j2' import backup_lines, rsync_long_args_plain with context %}
 # rsnapshot.conf - managed by ansible-role-rsnapshot.
 # Fields are tab-separated; backup directories require a trailing slash.
 
@@ -30,7 +31,6 @@ loglevel	3
 logfile	/var/log/rsnapshot.log
 lockfile	/var/run/rsnapshot.pid
 
-{% set rsync_long_args_plain = '--delete --numeric-ids --relative --delete-excluded' %}
 {% set rsync_long_args_sudo = rsync_long_args_plain ~ " --rsync-path='sudo /usr/bin/rsync'" %}
 rsync_short_args	-az
 # The fleet norm: a login that is not root, escalating to read what it cannot. A point that
@@ -40,20 +40,9 @@ rsync_long_args	{{ rsync_long_args_sudo }}
 
 # Backup points: directories pulled per host, then backup_script output. Login, locality,
 # escalation and exclude quoting are described in the rsnapshot role README.
-{% for host in rsnapshot_hosts %}
-{% set is_local = host.host == inventory_hostname %}
-{% set host_inventory_vars = hostvars[host.host] %}
-{% set host_login = host.user | default(host_inventory_vars.ansible_user | default(primary_user)) %}
-{% set host_sudo = not is_local and host_login != 'root' %}
-{% for directory in host.directories | default((), true) %}
-{% set path = directory.path if directory is mapping else directory %}
-{% set excludes = directory.exclude | default([], true) if directory is mapping else [] %}
-{% set long_args_option = ['rsync_long_args=' ~ rsync_long_args_plain] if not is_local and not host_sudo else [] %}
-{% set point_options = long_args_option + excludes | map('regex_replace', '^(.*)$', 'exclude="\\1"') | list %}
-{% set point_field = ('\t' ~ point_options | join(',')) if point_options else '' %}
-backup	{% if not is_local %}{{ host_login }}@{{ host.name }}:{% endif %}{{ path }}	{{ host.name }}/{{ point_field }}
-{% endfor %}
-{% for script in host.scripts | default((), true) %}
-backup_script	{{ script.command }} {{ script.args | default('') }}	{{ host.name }}_{{ script.command|basename }}/
-{% endfor %}
-{% endfor %}
+{{ backup_lines('') -}}
+{% if rsnapshot_nonblocking_mountpoints %}
+# The local points under rsnapshot_nonblocking_mountpoints, printed by the command for each
+# one mounted when rsnapshot parses this file. An unmounted one is reported as an error.
+include_conf	`{{ rsnapshot_nonblocking_sources_script }}`
+{% endif %}

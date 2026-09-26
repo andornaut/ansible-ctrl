@@ -32,16 +32,39 @@
   become: true
   when: rsnapshot_required_mountpoints | length > 0
 
-# A point naming the play host is read off the local filesystem, as the template decides.
+# rsnapshot runs this command whenever it parses the config, configtest included, so it is
+# in place before the config that names it is validated.
+- name: Install the rsnapshot non-blocking sources script
+  ansible.builtin.template:
+    src: rsnapshot-nonblocking-sources.j2
+    dest: "{{ rsnapshot_nonblocking_sources_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: rsnapshot_nonblocking_mountpoints | length > 0
+
+# A point naming the play host is read off the local filesystem, as the template decides. A
+# point under an rsnapshot_nonblocking_mountpoints entry that is not mounted now is left out:
+# what lies beneath the mountpoint is not what the backup reads.
 - name: Stat the local backup sources
   ansible.builtin.stat:
     path: "{{ item }}"
   register: rsnapshot_local_sources
   loop: >-
+    {%- set mounted = ansible_facts['mounts'] | default([]) | map(attribute='mount') | list -%}
+    {%- set unmounted = rsnapshot_nonblocking_mountpoints | reject('in', mounted) | list -%}
     {%- set paths = [] -%}
     {%- for host in rsnapshot_hosts if host.host == inventory_hostname -%}
     {%- for directory in host.directories | default((), true) -%}
-    {%- set _ = paths.append(directory.path if directory is mapping else directory) -%}
+    {%- set path = directory.path if directory is mapping else directory -%}
+    {%- set ns = namespace(unmounted=false) -%}
+    {%- for mountpoint in unmounted if path is match(mountpoint | regex_escape ~ '(/|$)') -%}
+    {%- set ns.unmounted = true -%}
+    {%- endfor -%}
+    {%- if not ns.unmounted -%}
+    {%- set _ = paths.append(path) -%}
+    {%- endif -%}
     {%- endfor -%}
     {%- endfor -%}
     {{ paths }}
@@ -73,3 +96,11 @@
     state: absent
   become: true
   when: rsnapshot_required_mountpoints | length == 0
+
+# Below the template task, for the same reason.
+- name: Remove the rsnapshot non-blocking sources script
+  ansible.builtin.file:
+    path: "{{ rsnapshot_nonblocking_sources_script }}"
+    state: absent
+  become: true
+  when: rsnapshot_nonblocking_mountpoints | length == 0
