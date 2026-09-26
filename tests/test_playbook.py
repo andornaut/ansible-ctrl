@@ -132,7 +132,8 @@ def completed(returncode=0, stdout="", stderr=""):
 def route(name, env=None, *, root=False, readable=True, missing=False, decrypts=True):
     """secrets_route's answer, and how many times it probed the store."""
     probe = mock.Mock(return_value=decrypts)
-    return (*playbook.secrets_route(name, env or {}, root, readable, missing, probe), probe.call_count)
+    required = playbook.requires_credentials(name)
+    return (*playbook.secrets_route(name, required, env or {}, root, readable, missing, probe), probe.call_count)
 
 
 def stat_of(*present, refused=()):
@@ -488,22 +489,12 @@ class Listing(unittest.TestCase):
 
 
 class Consistency(unittest.TestCase):
-    def test_secret_playbooks_are_the_ones_that_require_credentials(self):
-        requiring = {p.stem for p in playbook.REPO.glob("*.yml") if "tasks/require_credentials.yml" in p.read_text()}
-        self.assertEqual(playbook.SECRET_PLAYBOOKS, requiring)
-
     def test_every_delegation_is_one_the_grep_sees(self):
         for path in playbook.REPO.glob("roles/**/*.yml"):
             for line in path.read_bytes().splitlines():
                 if line.lstrip().startswith((b"delegate_to:", b"local_action:")):
                     with self.subTest(path=str(path), line=line):
                         self.assertTrue(playbook.DELEGATES_LOCALLY.search(line))
-
-    def test_the_makefile_has_a_target_for_every_playbook(self):
-        makefile = (playbook.REPO / "Makefile").read_text().replace("\\\n", " ")
-        declared = next(line for line in makefile.splitlines() if line.startswith("PLAYBOOKS :="))
-        playbooks = {p.stem for p in playbook.REPO.glob("*.yml") if p.name != "requirements.yml"}
-        self.assertEqual(set(declared.split(":=", 1)[1].split()), playbooks)
 
 
 if __name__ == "__main__":

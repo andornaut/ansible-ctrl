@@ -34,9 +34,7 @@ endif
 %:
 	@$(if $(filter $@,$(FIRST_GOAL)),echo "make: no target '$@' (see make help)" >&2; exit 2,:)
 
-PLAYBOOKS := base desktop dev docker faramir \
-             games hobbies homeautomation msmtp nas router rsnapshot torrent upgrade \
-             webservers
+PLAYBOOKS := $(sort $(basename $(filter-out requirements.yml,$(wildcard *.yml))))
 
 PLAYBOOK := bin/playbook.py
 
@@ -66,23 +64,8 @@ help:
 	@$(HELP_ECHO) "  test                  - Run every check CI gates on, unit tests included, in a"
 	@$(HELP_ECHO) "                          container; never run the tests on the host"
 	@$(HELP_ECHO) ""
-	@$(HELP_ECHO) "Playbook targets:"
-	@$(HELP_ECHO) "  base                  - Configure base system"
-	@$(HELP_ECHO) "  desktop               - Configure desktop environment"
-	@$(HELP_ECHO) "  dev                   - Configure development tools"
-	@$(HELP_ECHO) "  docker                - Configure Docker and Kubernetes"
-	@$(HELP_ECHO) "  faramir               - Install the faramir secret broker on every faramir host,"
-	@$(HELP_ECHO) "                          then authorize the controller's SSH key on the managed hosts"
-	@$(HELP_ECHO) "  games                 - Configure gaming packages"
-	@$(HELP_ECHO) "  hobbies               - Configure hobby tools (3D printing, electronics, FPV)"
-	@$(HELP_ECHO) "  homeautomation        - Configure home automation"
-	@$(HELP_ECHO) "  msmtp                 - Configure email forwarding"
-	@$(HELP_ECHO) "  nas                   - Configure NAS server"
-	@$(HELP_ECHO) "  router                - Configure the pfSense router health checks"
-	@$(HELP_ECHO) "  rsnapshot             - Configure rsnapshot backup"
-	@$(HELP_ECHO) "  torrent               - Configure rtorrent host and controller scripts"
-	@$(HELP_ECHO) "  upgrade               - Run system upgrades"
-	@$(HELP_ECHO) "  webservers            - Configure web servers"
+	@$(HELP_ECHO) "Playbook targets, one per playbook (see README.md, Playbooks):"
+	@$(HELP_ECHO) "  $(PLAYBOOKS)" | fold -s -w 88 | sed 's/ $$//; 2,$$s/^/  /'
 	@$(HELP_ECHO) ""
 	@$(HELP_ECHO) "Forward extra ansible-playbook arguments after --, e.g.:"
 	@$(HELP_ECHO) "  make desktop -- --limit example --tags alacritty"

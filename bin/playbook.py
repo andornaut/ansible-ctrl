@@ -25,10 +25,9 @@ REPO = SCRIPT.parent.parent
 # Every name a command-line assignment may take without being refused as a stray argument.
 KNOBS = ("SECRETS", "ASK_PASS", "PREFLIGHT")
 
-# The runs that require a credential, and so the only ones that re-enter as root or are
-# refused to reach the store. Not derived: host_vars binds plain variable names to secrets,
-# so telling these apart needs variable resolution.
-SECRET_PLAYBOOKS = frozenset({"homeautomation", "msmtp", "webservers"})
+# A playbook that includes this requires a credential, and so is the only kind that
+# re-enters as root or is refused to reach the store.
+REQUIRE_CREDENTIALS = "tasks/require_credentials.yml"
 
 # The hosts the unprivileged half listed, carried across the sudo re-entry so root does not
 # list them again.
@@ -177,6 +176,11 @@ def store_missing(stat: Callable[[str], object], sops_file: str) -> bool:
     return False
 
 
+def requires_credentials(playbook: str) -> bool:
+    """Whether the playbook includes the credential assert."""
+    return REQUIRE_CREDENTIALS in (REPO / f"{playbook}.yml").read_text()
+
+
 def store_refusal(sops_file: str, playbook: str, missing: bool) -> str:
     """Why a credential playbook is refused the store, naming how to create it."""
     if missing:
@@ -194,6 +198,7 @@ def store_refusal(sops_file: str, playbook: str, missing: bool) -> str:
 
 def secrets_route(
     playbook: str,
+    required: bool,
     env: Mapping[str, str],
     is_root: bool,
     readable: bool,
@@ -203,8 +208,9 @@ def secrets_route(
     """How the run reaches its credentials, "none", "sops", "sudo" or "refuse", and what to
     tell the operator.
 
-    readable is whether this account can read the store, and missing whether it is provably
-    absent (store_missing). A credential playbook is refused rather than run without it:
+    required is whether the playbook requires a credential (requires_credentials), readable
+    whether this account can read the store, and missing whether it is provably absent
+    (store_missing). A credential playbook is refused rather than run without it:
     every credential would be undefined, and the first task to read one fails with the tasks
     before it already applied. A missing store is refused without sudo; re-entering as root is
     left for one that exists or cannot be seen. Any other playbook reads only optional ones,
@@ -214,7 +220,7 @@ def secrets_route(
     """
     if is_none(env.get("SECRETS")):
         return "none", ""
-    if playbook in SECRET_PLAYBOOKS:
+    if required:
         if readable:
             return "sops", ""
         return ("refuse" if is_root or missing else "sudo"), ""
@@ -502,7 +508,9 @@ def run(playbook: str, args: list[str]) -> int:
 
     readable = os.access(sops_file, os.R_OK)
     missing = not readable and store_missing(os.stat, sops_file)
-    route, warning = secrets_route(playbook, os.environ, root, readable, missing, lambda: sops_decrypts(sops_file))
+    route, warning = secrets_route(
+        playbook, requires_credentials(playbook), os.environ, root, readable, missing, lambda: sops_decrypts(sops_file)
+    )
     say(warning)
     if route == "refuse":
         say(store_refusal(sops_file, playbook, missing))

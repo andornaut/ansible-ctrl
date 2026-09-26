@@ -32,4 +32,10 @@ if ! cmp -s package-lock.json /opt/npm/package-lock.json; then
 fi
 touch -d @0 package-lock.json
 
+# The image pins its own Node, CI the one .nvmrc names.
+if [[ $(node --version) != "$(<.nvmrc)" ]]; then
+    echo ".nvmrc names $(<.nvmrc) and the image has $(node --version): update NODE_VERSION in tests/container/Dockerfile" >&2
+    exit 1
+fi
+
 exec tests/lint.sh "$@"
