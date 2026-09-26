@@ -12,7 +12,9 @@ proxy_buffering off;
 # Pass original request information. The header set outgrows the default hash sizes.
 proxy_headers_hash_max_size 1024;
 proxy_headers_hash_bucket_size 128;
-proxy_set_header Host $http_host;
+# $host, not $http_host: HTTP/3 carries :authority and no Host header, so $http_host is empty
+# there and the upstream rejects the request.
+proxy_set_header Host $host;
 proxy_set_header X-Real-IP $remote_addr;
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;

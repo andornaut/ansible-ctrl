@@ -5,10 +5,13 @@
 # `nginx -t` alone, which rules out a per-file `validate:`.
 - name: Stage, test and install the Nginx configuration
   block:
+    # Beside the live config rather than in /tmp: a brokered run has a private /tmp, which
+    # dockerd cannot see, and it would mount an empty directory in the tree's place.
     - name: Create the staging directory
       ansible.builtin.tempfile:
         state: directory
         suffix: .nginx
+        path: "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
       register: letsencrypt_nginx_staging
       check_mode: false
       become: true
