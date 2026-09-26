@@ -8,8 +8,8 @@ readonly SRC=/src WORK=/work
 
 # Tracked and untracked files, not ignored ones: the set tests/lint.sh itself walks. A
 # tracked file deleted in the work tree is still listed, and skipped here.
-git -c safe.directory="${SRC}" -C "${SRC}" ls-files -z --cached --others --exclude-standard |
-    while IFS= read -r -d '' path; do
+# The NUL-separated file list arrives on stdin from tests/container/test.sh.
+while IFS= read -r -d '' path; do
         [[ -e ${SRC}/${path} || -L ${SRC}/${path} ]] && printf '%s\0' "${path}"
     done |
     tar -C "${SRC}" --null --files-from - -c | tar -C "${WORK}" -x

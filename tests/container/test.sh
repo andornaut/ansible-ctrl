@@ -17,11 +17,14 @@ readonly IMAGE=ansible-ctrl-test
 tar -c tests/container/Dockerfile requirements-dev.txt requirements.yml package.json package-lock.json |
     docker build --quiet --tag "${IMAGE}" --file tests/container/Dockerfile - >/dev/null
 
-exec docker run --rm \
-    --network none \
-    --user 10001:10001 \
-    --group-add "$(stat -c %g .)" \
-    --cap-drop ALL \
-    --security-opt no-new-privileges \
-    --mount "type=bind,source=${PWD},target=/src,readonly" \
-    "${IMAGE}" bash /src/tests/container/run.sh "$@"
+# The file list comes from the host's git, which reads the user's global excludes as well as
+# the repo's: agent state such as .codex/ is ignored only there, and may be unreadable here.
+git ls-files -z --cached --others --exclude-standard |
+    docker run --rm --interactive \
+        --network none \
+        --user 10001:10001 \
+        --group-add "$(stat -c %g .)" \
+        --cap-drop ALL \
+        --security-opt no-new-privileges \
+        --mount "type=bind,source=${PWD},target=/src,readonly" \
+        "${IMAGE}" bash /src/tests/container/run.sh "$@"
