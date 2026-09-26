@@ -62,8 +62,11 @@
         # section. The assert in main.yml is what keeps them paired. With the flag off the
         # three keys are not written at all: a `gamescope: true` the user set in Lutris's own
         # preferences is theirs to keep.
+        # DXVK_HUD=0 hides the "Compiling shaders..." indicator proton draws while DXVK fills
+        # its cache. Merged into env, so variables set in Lutris's preferences stay.
         games_lutris_desired: >-
-          {{ {'game_path': games_lutris_dir}
+          {{ {'game_path': games_lutris_dir,
+              'env': (games_lutris_system.env | default({}, true)) | combine({'DXVK_HUD': '0'})}
              | combine({'gamescope': true,
                         'gamescope_output_res': games_gamescope_resolution,
                         'gamescope_game_res': games_gamescope_resolution}
