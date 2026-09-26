@@ -10,7 +10,7 @@ readonly SRC=/src WORK=/work
 # tracked file deleted in the work tree is still listed, and skipped here.
 # The NUL-separated file list arrives on stdin from tests/container/test.sh.
 while IFS= read -r -d '' path; do
-        [[ -e ${SRC}/${path} || -L ${SRC}/${path} ]] && printf '%s\0' "${path}"
+        if [[ -e ${SRC}/${path} || -L ${SRC}/${path} ]]; then printf '%s\0' "${path}"; fi
     done |
     tar -C "${SRC}" --null --files-from - -c | tar -C "${WORK}" -x
 
