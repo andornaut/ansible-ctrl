@@ -1,5 +1,9 @@
-{#- The file stem (the common name, `*` as `_`) of every issued certificate whose subject
-    alternative names differ from its CSR's. A certificate with no CSR on disk is left out. -#}
+{#- The file stem (the common name, `*` as `_`) of every issued certificate that must be
+    reissued this run: its subject alternative names differ from its CSR's (a certificate with no
+    CSR on disk is not compared), or a staging CA issued it while the directory is production. A
+    production certificate is kept under the staging directory, which is the default. -#}
+{% set production = 'staging' not in letsencrypt_nginx_acme_directory_url | lower %}
+{% set staging_markers = ['(staging)', 'fake le', 'pretend'] %}
 {% set csr_names = {} %}
 {% for result in letsencrypt_nginx_csr_info.results | default([]) if result is not skipped %}
 {% set _ = csr_names.update({(result.item | basename | splitext | first):
@@ -8,8 +12,11 @@
 {% set stems = [] %}
 {% for result in letsencrypt_nginx_crt_info.results | default([]) if result is not skipped %}
 {% set stem = result.item | basename | splitext | first %}
-{% if stem in csr_names
-   and (result.subject_alt_name | default([], true) | map('lower') | unique | sort) != csr_names[stem] %}
+{% set issuer = result.issuer | default({}, true) | dict2items | map(attribute='value')
+   | join(' ') | lower %}
+{% if (stem in csr_names
+       and (result.subject_alt_name | default([], true) | map('lower') | unique | sort) != csr_names[stem])
+   or (production and staging_markers | select('in', issuer) | list | length > 0) %}
 {% set _ = stems.append(stem) %}
 {% endif %}
 {% endfor %}

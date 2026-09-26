@@ -1,6 +1,6 @@
 ---
 # A certificate is otherwise reissued only within remaining_days of expiry, so a name added to
-# its CSR would go unissued until then. Read from disk rather than from this run's changes, so
+# its CSR, or a staging certificate after the switch to production, would wait until then. Read from disk rather than from this run's changes, so
 # a run whose order failed leaves the next one still reissuing. Both calls of an order take the
 # same force: the second, left unforced, finds the current certificate still valid and never
 # finalizes. Looped over files, not sites, whose Cloudflare API tokens a loop item would print.
@@ -16,7 +16,7 @@
   register: letsencrypt_nginx_ssl_files
   become: true
 
-- name: Read the names of the issued certificates
+- name: Read the names and issuers of the issued certificates
   community.crypto.x509_certificate_info:
     path: "{{ item }}"
   loop: >-
@@ -33,7 +33,7 @@
   become: true
 
 # See templates/reissued_certificates.j2.
-- name: List the certificates whose names differ from their CSR's
+- name: List the certificates whose names or issuing directory are out of date
   ansible.builtin.set_fact:
     letsencrypt_nginx_reissued_certificates: >-
       {{ lookup('ansible.builtin.template', 'reissued_certificates.j2') | from_json }}
@@ -51,8 +51,6 @@
     csr: >-
       {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr/{{
       item.csr_common_name | default(item.domain) | replace('*', '_') }}.csr
-    # Replace with `true`, here and in the completing call, when switching between staging
-    # and production.
     force: >-
       {{ (item.csr_common_name | default(item.domain) | replace('*', '_'))
          in letsencrypt_nginx_reissued_certificates }}
@@ -151,7 +149,6 @@
           item.item.csr_common_name | default(item.item.domain)
           | replace('*', '_') }}.csr
         data: "{{ item }}"
-        # Replace with `true` when switching between staging and production, as above.
         force: >-
           {{ (item.item.csr_common_name | default(item.item.domain) | replace('*', '_'))
              in letsencrypt_nginx_reissued_certificates }}
