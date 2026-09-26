@@ -72,7 +72,7 @@
   vars:
     faramir_link_repaired: >-
       {{ faramir_link_files.results | default([]) | selectattr('changed')
-         | map(attribute='item.ref') | list }}
+         | map(attribute='item.item.ref') | list }}
   when: faramir_link_repaired | length > 0
   become: false
 
