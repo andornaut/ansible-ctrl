@@ -50,20 +50,17 @@
   run_once: true
   become: false
 
-# The same mountpoints base/tasks/btrfs.yml snapshots: every btrfs mountpoint in /etc/fstab,
-# less that host's base_btrfs_excluded_mountpoints. findmnt answers 1 for a host with none.
+# Every btrfs mountpoint in /etc/fstab, base_btrfs_excluded_mountpoints included: excluding one
+# stops base snapshotting it and leaves the snapshots already taken, and a block on an absent
+# path costs nothing. findmnt answers 1 for a host with none.
 - name: Find the fleet's btrfs snapshot directories
   ansible.builtin.set_fact:
     faramir_btrfs_snapshot_paths: >-
       {%- set paths = [] -%}
       {%- for result in faramir_btrfs_fstabs.results if result.rc | default(-1) in [0, 1] -%}
-      {%- set excluded = hostvars[result.item].base_btrfs_excluded_mountpoints | default([])
-            | map('regex_replace', '(.)/+$', '\\1') | list -%}
       {%- for fs in ((result.stdout or '{"filesystems": []}') | from_json).filesystems -%}
       {%- set target = fs.target | regex_replace('(.)/+$', '\\1') -%}
-      {%- if target not in excluded -%}
       {%- set _ = paths.append(target | regex_replace('^/$', '') ~ '/.snapshots') -%}
-      {%- endif -%}
       {%- endfor -%}
       {%- endfor -%}
       {{ paths | unique | sort }}

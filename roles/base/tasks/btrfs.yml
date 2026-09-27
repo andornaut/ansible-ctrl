@@ -16,6 +16,21 @@
   become: true
   when: base_btrfs_mountpoints | length > 0
   block:
+    # /etc/default/snapper separates config names with spaces, and two mountpoints sharing a
+    # name, such as / and /root, would write one config file twice.
+    - name: Require distinct snapper config names
+      ansible.builtin.assert:
+        that:
+          - names | unique | length == names | length
+          - names | select('search', '\\s') | length == 0
+        fail_msg: >-
+          The btrfs mountpoints {{ base_btrfs_mountpoints | join(', ') }} give the snapper
+          config names {{ names | join(', ') }}, which must be distinct and contain no
+          whitespace. Add one of each colliding pair to base_btrfs_excluded_mountpoints.
+        quiet: true
+      vars:
+        names: "{{ base_btrfs_mountpoints | map('extract', base_btrfs_snapper_configs) | list }}"
+
     - name: Install btrfs maintenance packages
       ansible.builtin.apt:
         name:

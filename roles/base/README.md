@@ -96,6 +96,9 @@ own.
 | Nested subvolumes are not snapshotted     | A snapshot stops at a subvolume boundary; `.snapshots` is one                                                                                                                                       |
 | `.snapshots` needs the filesystem mounted | Created on a run with it mounted; until then snapper's timeline fails in the journal                                                                                                                |
 | Error counters are cumulative             | A scrub-corrected error on raid1 shows every month until reset with `btrfs device stats -z`                                                                                                         |
+| Config names must be distinct             | Two mountpoints whose names collide (`/` and `/root`), or one containing whitespace, fail the run; exclude one                                                                                      |
+| A swapfile needs its own subvolume        | The kernel refuses to snapshot a subvolume holding an active swapfile: `btrfs subvolume create /swap` and `btrfs filesystem mkswapfile` there                                                       |
+| One mountpoint per subvolume              | fstab cannot show that two lines mount the same subvolume, and the two configs would prune each other's snapshots; exclude one                                                                      |
 
 ```bash
 # List and restore from snapshots

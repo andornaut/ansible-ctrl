@@ -79,9 +79,9 @@ base_ssh_client_alive_count_max: 3
 # GSSAPI first and pays a lookup for it before falling through to publickey.
 base_ssh_client_gssapi: false
 
-# btrfs filesystems in /etc/fstab to leave alone: no scrub, balance or snapshots. For one
-# mounted only now and then, such as a backup device, which the monthly scrub would otherwise
-# report as unmounted.
+# btrfs mountpoints in /etc/fstab to leave alone: no snapshots, and no scrub or balance unless
+# another mountpoint of the same filesystem remains. For one mounted only now and then, such as
+# a backup device, which the monthly scrub would otherwise report as unmounted.
 base_btrfs_excluded_mountpoints: []
 base_btrfs_balance_weekday: "0"
 base_btrfs_balance_hour: "5"
