@@ -1,10 +1,11 @@
 ---
 # Frigate 0.18.0 restarts a stale record process on every watchdog pass, about once a second,
 # with no backoff and no grace period, so the new ffmpeg never lives long enough to write a
-# segment and every restart reopens the camera's stream. The patched module paces those
-# restarts by ffmpeg.retry_interval and grants the enable-time grace period after each one.
-# It replaces the whole module, so it is mounted only over the release it was cut from.
-# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24072 (remove once released)
+# segment and every restart reopens the camera's stream. The patched module grants the
+# 90 second enable-time grace period after each restart, so a stale stream restarts about
+# every 90 seconds. It replaces the whole module, so it is mounted only over the release it
+# was cut from.
+# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 (remove once released)
 - name: Pull the Frigate image
   community.docker.docker_image_pull:
     name: "{{ homeautomation_frigate_docker_image }}"
@@ -23,7 +24,8 @@
       - /opt/frigate/frigate/version.py
   register: homeautomation_frigate_version_py
   changed_when: false
-  failed_when: false
+  # --check does not pull, so the image may be absent there.
+  failed_when: homeautomation_frigate_version_py.rc != 0 and not ansible_check_mode
   check_mode: false
   become: true
 
@@ -35,14 +37,18 @@
     group: root
     mode: "0644"
   when: homeautomation_frigate_record_watchdog_patched | bool
+  # The copy replaces the inode, and a running bind mount keeps serving the old one.
+  notify: Restart frigate
   become: true
 
 - name: Report that the Frigate record watchdog patch no longer applies
   ansible.builtin.debug:
     msg: >-
-      The Frigate image is not {{ homeautomation_frigate_record_watchdog_patch_version }}, so the
-      record watchdog patch is not mounted. Once a release carries
-      https://github.com/blakeblackshear/frigate/pull/24072, delete
-      tasks/patch_frigate_record_watchdog.yml and files/frigate/.
+      {% if homeautomation_frigate_version_py.rc != 0 %}The Frigate image's version could not
+      be read, so the record watchdog patch is not mounted.{% else %}The Frigate image is not
+      {{ homeautomation_frigate_record_watchdog_patch_version }}, so the record watchdog patch
+      is not mounted. Once a release carries
+      https://github.com/blakeblackshear/frigate/pull/24420, delete
+      tasks/patch_frigate_record_watchdog.yml and files/frigate/.{% endif %}
   when: not homeautomation_frigate_record_watchdog_patched | bool
   become: false

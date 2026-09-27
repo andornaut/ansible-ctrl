@@ -26,6 +26,13 @@
     name: mosquitto
     restart: true
 
+- name: Restart frigate
+  # The account that created the container, as every other container task uses.
+  become: true
+  community.docker.docker_container:
+    name: frigate
+    restart: true
+
 - name: Restart llamacpp
   # The account that created the container, as every other container task uses.
   become: true
