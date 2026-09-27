@@ -2,7 +2,8 @@
 # Own playbook so a brokered run does not reach the controller through it: this rewrites the
 # agent's own confinement and restarts the broker, and the controller is the one host where
 # the agent has no root of its own. `--limit '!faramir_controller'`, which every brokered run
-# carries, is what excludes it.
+# carries, is what excludes it. The one exception reads, without become: each faramir host's
+# snapshot blocks come from every host's /etc/fstab, the controller's included.
 #
 # The other faramir hosts are not excluded, and excluding them would buy nothing: the second
 # play grants the ansible account passwordless sudo on every managed host, so a brokered

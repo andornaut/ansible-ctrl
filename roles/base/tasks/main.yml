@@ -292,6 +292,10 @@
   ansible.builtin.import_tasks: storage-space-alert.yml
   tags: storage-space-alert
 
+- name: Import btrfs tasks
+  ansible.builtin.import_tasks: btrfs.yml
+  tags: btrfs
+
 - name: Import sysctl tasks
   ansible.builtin.import_tasks: sysctl.yml
   tags: sysctl

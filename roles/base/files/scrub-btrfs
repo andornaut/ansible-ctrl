@@ -1,0 +1,42 @@
+#!/bin/bash
+# Managed by Ansible (base role).
+#
+# Usage: scrub-btrfs MOUNTPOINT...
+#
+# Cron mails whatever this prints, so a clean run prints nothing and every failure says why.
+# Every mountpoint is scrubbed even after one fails.
+
+set -uo pipefail
+
+status=0
+
+for mountDir in "$@"; do
+    if ! mountpoint -q "${mountDir}"; then
+        echo "scrub-btrfs SKIPPED: ${mountDir} is not mounted, so it was not scrubbed." >&2
+        status=1
+        continue
+    fi
+
+    # The lock btrfsmaintenance's run_task takes, so balance-btrfs waits for this scrub rather
+    # than relocating block groups under it.
+    fsid="$(btrfs filesystem show "${mountDir}" | sed -n -e '/uuid:/ {s/^.*uuid: //;p }')"
+
+    # Exits 3 only for uncorrectable errors. On raid1 a corrected error still means a failing
+    # device, which the device stats below report.
+    if ! output="$(flock "/run/btrfs-maintenance-running.${fsid}" btrfs scrub start -Bd "${mountDir}" 2>&1)"; then
+        echo "scrub-btrfs FAILED on ${mountDir}:" >&2
+        echo "${output}" >&2
+        status=1
+        continue
+    fi
+
+    # The counters are cumulative, so this reports every month until they are reset with
+    # `btrfs device stats -z`.
+    if ! stats="$(btrfs device stats --check "${mountDir}" 2>&1)"; then
+        echo "scrub-btrfs: ${mountDir} has nonzero device error counters:" >&2
+        echo "${stats}" >&2
+        status=1
+    fi
+done
+
+exit "${status}"

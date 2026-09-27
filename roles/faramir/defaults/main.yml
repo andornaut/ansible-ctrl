@@ -184,6 +184,7 @@ faramir_blocked_commands:
   - gopass
   - vault read
   - vault kv get
+  - snapper
 
 faramir_links: []
 

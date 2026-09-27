@@ -1,0 +1,206 @@
+---
+# Every btrfs filesystem in /etc/fstab, not only the mounted ones: a noauto array is often
+# unmounted during a run and is still to be maintained. vars/main.yml derives the lists.
+- name: Read the btrfs filesystems in /etc/fstab
+  ansible.builtin.command:
+    argv:
+      [findmnt, --fstab, --json, --types, btrfs, --output, "SOURCE,TARGET,UUID"]
+  register: base_btrfs_fstab
+  changed_when: false
+  # 1 is findmnt's answer for no match.
+  failed_when: base_btrfs_fstab.rc not in [0, 1]
+  check_mode: false
+  become: false
+
+- name: Maintain the btrfs filesystems
+  become: true
+  when: base_btrfs_mountpoints | length > 0
+  block:
+    - name: Install btrfs maintenance packages
+      ansible.builtin.apt:
+        name:
+          - btrfs-progs
+          - btrfsmaintenance
+          - snapper
+        state: latest
+        install_recommends: false
+        update_cache: true
+      register: base_btrfs_packages
+
+    - name: Install scrub-btrfs and balance-btrfs
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/usr/local/sbin/{{ item }}"
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - scrub-btrfs
+        - balance-btrfs
+
+    # On raid1 a scrub repairs a bad block from the other copy, which only works while the
+    # other copy is still good.
+    - name: Scrub monthly
+      ansible.builtin.cron:
+        name: scrub-btrfs
+        cron_file: /etc/cron.d/ansible-role-base
+        user: root
+        day: "{{ base_btrfs_scrub_day }}"
+        hour: "{{ base_btrfs_scrub_hour }}"
+        minute: "{{ base_btrfs_scrub_minute }}"
+        job: "/usr/local/sbin/scrub-btrfs {{ base_btrfs_filesystems | map('quote') | join(' ') }}"
+
+    # balance-btrfs reads the usage steps from here; it takes its mountpoints as arguments.
+    - name: Configure btrfsmaintenance
+      ansible.builtin.lineinfile:
+        path: /etc/default/btrfsmaintenance
+        line: '{{ item.key }}="{{ item.value }}"'
+        regexp: "^{{ item.key }}="
+      loop: "{{ settings | dict2items }}"
+      vars:
+        settings:
+          BTRFS_BALANCE_MOUNTPOINTS: ""
+          BTRFS_BALANCE_PERIOD: weekly
+          BTRFS_DEFRAG_PERIOD: none
+          BTRFS_LOG_OUTPUT: stdout
+          BTRFS_SCRUB_PERIOD: none
+          BTRFS_TRIM_PERIOD: none
+      when: not (ansible_check_mode and base_btrfs_packages is changed)
+
+    # balance-btrfs prints every step and exits 0, so cron mails every run.
+    - name: Balance weekly
+      ansible.builtin.cron:
+        name: btrfs-balance
+        cron_file: /etc/cron.d/ansible-role-base
+        user: root
+        weekday: "{{ base_btrfs_balance_weekday }}"
+        hour: "{{ base_btrfs_balance_hour }}"
+        minute: "{{ base_btrfs_balance_minute }}"
+        job: "/usr/local/sbin/balance-btrfs {{ base_btrfs_filesystems | map('quote') | join(' ') }}"
+
+    # Only what this file schedules runs: the packaged timers, the path unit that rewrites them
+    # from /etc/default/btrfsmaintenance, and snapper's boot snapshot stay masked.
+    - name: Mask the packaged btrfs units
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: false
+        masked: true
+      loop:
+        - btrfs-balance.timer
+        - btrfs-defrag.timer
+        - btrfs-scrub.timer
+        - btrfs-trim.timer
+        - btrfsmaintenance-refresh.path
+        - snapper-boot.timer
+      when: not (ansible_check_mode and base_btrfs_packages is changed)
+
+    - name: Check which btrfs filesystems are mounted
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ item }}"]
+      loop: "{{ base_btrfs_mountpoints }}"
+      register: base_btrfs_mounted
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # Unmounted, the path is a directory on another filesystem, so this waits for a run with
+    # the filesystem mounted.
+    - name: Create the .snapshots subvolumes
+      ansible.builtin.command:
+        argv:
+          [
+            btrfs,
+            subvolume,
+            create,
+            "{{ item.item | regex_replace('^/$', '') }}/.snapshots",
+          ]
+        creates: "{{ item.item | regex_replace('^/$', '') }}/.snapshots"
+      loop: "{{ base_btrfs_mounted.results | selectattr('rc', 'equalto', 0) }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Restrict the .snapshots subvolumes to root
+      ansible.builtin.file:
+        path: "{{ item.item | regex_replace('^/$', '') }}/.snapshots"
+        owner: root
+        group: root
+        mode: "0750"
+        state: directory
+      loop: "{{ base_btrfs_mounted.results | selectattr('rc', 'equalto', 0) }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # /etc/snapper/configs comes with the package, which --check only reports installing.
+    - name: Install the snapper configs
+      ansible.builtin.template:
+        src: snapper-config.j2
+        dest: "/etc/snapper/configs/{{ base_btrfs_snapper_configs[item] }}"
+        owner: root
+        group: root
+        mode: "0640"
+      loop: "{{ base_btrfs_mountpoints }}"
+      notify: Stop snapperd
+      when: not (ansible_check_mode and base_btrfs_packages is changed)
+
+    - name: Register the snapper configs
+      ansible.builtin.lineinfile:
+        path: /etc/default/snapper
+        line: '{{ item.key }}="{{ item.value }}"'
+        regexp: "^{{ item.key }}="
+      loop: "{{ settings | dict2items }}"
+      vars:
+        settings:
+          SNAPPER_CONFIGS: "{{ base_btrfs_mountpoints | map('extract', base_btrfs_snapper_configs) | join(' ') }}"
+          # The apt hook snapshots a config named root before and after every apt run.
+          DISABLE_APT_SNAPSHOT: "yes"
+      notify: Stop snapperd
+      when: not (ansible_check_mode and base_btrfs_packages is changed)
+
+    - name: Create the snapper-timeline.timer drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/snapper-timeline.timer.d
+        owner: root
+        group: root
+        mode: "0755"
+        state: directory
+      register: base_btrfs_timer_dropin_dir
+
+    # Persistent: a snapshot missed while the host was off is taken at the next boot. Under
+    # --check the directory above is only reported.
+    - name: Take timeline snapshots daily rather than hourly
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/snapper-timeline.timer.d/daily.conf
+        content: |
+          [Timer]
+          OnCalendar=
+          OnCalendar=daily
+          Persistent=true
+        owner: root
+        group: root
+        mode: "0644"
+      when: not (ansible_check_mode and base_btrfs_timer_dropin_dir is changed)
+
+    - name: Enable the snapper timers
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      loop:
+        - snapper-cleanup.timer
+        - snapper-timeline.timer
+      when: not (ansible_check_mode and base_btrfs_packages is changed)
+
+# The cron entries this file rendered from the list go with it. Snapper is left as it is: its
+# configs and timers are the operator's to remove.
+- name: Remove the btrfs cron entries once no filesystem is left
+  ansible.builtin.cron:
+    name: "{{ item }}"
+    cron_file: /etc/cron.d/ansible-role-base
+    user: root
+    state: absent
+  loop:
+    - btrfs-balance
+    - scrub-btrfs
+  when: base_btrfs_mountpoints | length == 0
+  become: true

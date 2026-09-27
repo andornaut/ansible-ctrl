@@ -1,0 +1,52 @@
+#!/bin/bash
+# Managed by Ansible (base role).
+#
+# Usage: balance-btrfs MOUNTPOINT...
+#
+# btrfsmaintenance's filtered balance, over the mountpoints given. Its own btrfs-balance.sh
+# tests a path with stat -f, which reads an unmounted mountpoint as the filesystem holding the
+# directory and balances that one instead, so each mountpoint is checked with mountpoint -q.
+# Every step takes the per-filesystem lock scrub-btrfs holds while it scrubs, so a balance
+# waits for a scrub of the same filesystem to finish.
+#
+# Prints every step and exits 0, as the packaged script does: cron mails each run.
+
+set -o pipefail
+
+# shellcheck source=/dev/null
+. /etc/default/btrfsmaintenance
+# shellcheck source=/dev/null
+. /usr/share/btrfsmaintenance/btrfsmaintenance-functions
+
+exec 2>&1
+
+for MM in "$@"; do
+    if ! mountpoint -q "${MM}"; then
+        echo "Skipping ${MM}: not mounted"
+        continue
+    fi
+
+    echo "Before balance of ${MM}"
+    btrfs filesystem df "${MM}"
+    df -H "${MM}"
+
+    if detect_mixed_bg "${MM}"; then
+        run_task btrfs balance start -musage=0 -dusage=0 "${MM}"
+        for BB in ${BTRFS_BALANCE_MUSAGE}; do
+            run_task btrfs balance start -v -musage="${BB}" -dusage="${BB}" "${MM}"
+        done
+    else
+        run_task btrfs balance start -dusage=0 "${MM}"
+        for BB in ${BTRFS_BALANCE_DUSAGE}; do
+            run_task btrfs balance start -v -dusage="${BB}" "${MM}"
+        done
+        run_task btrfs balance start -musage=0 "${MM}"
+        for BB in ${BTRFS_BALANCE_MUSAGE}; do
+            run_task btrfs balance start -v -musage="${BB}" "${MM}"
+        done
+    fi
+
+    echo "After balance of ${MM}"
+    btrfs filesystem df "${MM}"
+    df -H "${MM}"
+done

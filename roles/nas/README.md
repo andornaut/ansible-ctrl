@@ -1,6 +1,7 @@
 # ansible-role-nas
 
-Installs the mount service, backup script and monthly scrub for encrypted BTRFS RAID arrays on Ubuntu.
+Installs the mount service and backup script for encrypted BTRFS RAID arrays on Ubuntu. The base role's `btrfs` tag scrubs,
+balances and snapshots the array.
 
 ## Usage
 
@@ -14,7 +15,6 @@ make nas -- --tags backupnas
 | Tag       | Description                                                      |
 | --------- | ---------------------------------------------------------------- |
 | backupnas | Configure backup LUKS devices and install the `backupnas` script |
-| scrub     | Install `nas-scrub` and its monthly cron job                     |
 
 ## Variables
 
@@ -27,8 +27,6 @@ See [defaults/main.yml](./defaults/main.yml).
 | `/etc/crypttab`, `/etc/fstab`           | Entries for the RAID and backup devices                                   |
 | `/etc/systemd/system/nas-mount.service` | Unlocks the RAID devices and mounts `nas_raid_mount_directory`            |
 | `/usr/local/bin/backupnas`              | Copies `nas_backup_source_directory` to a backup device (`backupnas` tag) |
-| `/usr/local/sbin/nas-scrub`             | Scrubs the array (`scrub` tag)                                            |
-| `/etc/cron.d/ansible-role-nas`          | Monthly `nas-scrub` entry                                                 |
 
 ## Notes
 
@@ -36,9 +34,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `nas-mount.service`               | Waits for `nas_key_file_mount_unit` when set; otherwise it starts only if the LUKS key file exists                                                                                                                                                                                    |
 | `backupnas`                       | Mirrors the source to the first backup device it finds (deleting what the source no longer has), keeps `nas_backup_rsnapshot_retention` dated copies of the newest `weekly` snapshot, then locks the device. Refuses an empty source or a running rsnapshot. `--help` lists its flags |
-| `nas-scrub`                       | Silent on success, so cron mails only a failure: the array not mounted, uncorrectable errors, or nonzero device error counters                                                                                                                                                        |
-| Error counters are cumulative     | A scrub-corrected error on raid1 still shows in the counters until reset with `btrfs device stats -z`                                                                                                                                                                                 |
-| The backup device is not scrubbed | Scrub it during a backup, before the next one relies on its copies; with a single data copy a scrub detects corruption but cannot repair it. See [Operations](#operations)                                                                                                            |
+| The backup device is not scrubbed | Exclude it with `base_btrfs_excluded_mountpoints` and scrub it during a backup, before the next one relies on its copies; with a single data copy a scrub detects corruption but cannot repair it. See [Operations](#operations)                                                      |
 
 ## Setup
 

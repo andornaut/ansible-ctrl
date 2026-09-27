@@ -31,6 +31,48 @@
   loop_control:
     label: "{{ item.ref | default('an entry naming no ref') }}"
 
+# Snapper's snapshots hold a copy of every file on the filesystem, blocked ones included, under
+# a path no other entry names. An entry is enforced where the command is typed, and every
+# managed host's snapshots are one passwordless `ssh <host> sudo` away, so each faramir host
+# blocks the whole fleet's. Read by delegation, which --limit does not narrow, so a brokered run
+# still blocks the controller's; the read needs no become, so it asks the controller for no sudo.
+# A host that cannot be read keeps its blocks: see the stale removal below.
+- name: Read the fleet's btrfs filesystems
+  ansible.builtin.command:
+    argv: [findmnt, --fstab, --json, --types, btrfs, --output, TARGET]
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] | difference(groups['routers'] | default([])) }}"
+  register: faramir_btrfs_fstabs
+  changed_when: false
+  failed_when: false
+  ignore_unreachable: true
+  check_mode: false
+  run_once: true
+  become: false
+
+# The same mountpoints base/tasks/btrfs.yml snapshots: every btrfs mountpoint in /etc/fstab,
+# less that host's base_btrfs_excluded_mountpoints. findmnt answers 1 for a host with none.
+- name: Find the fleet's btrfs snapshot directories
+  ansible.builtin.set_fact:
+    faramir_btrfs_snapshot_paths: >-
+      {%- set paths = [] -%}
+      {%- for result in faramir_btrfs_fstabs.results if result.rc | default(-1) in [0, 1] -%}
+      {%- set excluded = hostvars[result.item].base_btrfs_excluded_mountpoints | default([])
+            | map('regex_replace', '(.)/+$', '\\1') | list -%}
+      {%- for fs in ((result.stdout or '{"filesystems": []}') | from_json).filesystems -%}
+      {%- set target = fs.target | regex_replace('(.)/+$', '\\1') -%}
+      {%- if target not in excluded -%}
+      {%- set _ = paths.append(target | regex_replace('^/$', '') ~ '/.snapshots') -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ paths | unique | sort }}
+    faramir_btrfs_unreported: >-
+      {{ faramir_btrfs_fstabs.results | rejectattr('rc', 'defined') | map(attribute='item') | list
+         + faramir_btrfs_fstabs.results | selectattr('rc', 'defined') | rejectattr('rc', 'in', [0, 1])
+           | map(attribute='item') | list }}
+  become: false
+
 # One call per form, not per entry: each add re-renders every agent rule file. No
 # check_mode: false, there being no --dry-run.
 - name: Block the declared paths and commands to the agent
@@ -100,9 +142,13 @@
 - name: Find the entries this role no longer declares
   ansible.builtin.set_fact:
     faramir_block_stale:
+      # Every .snapshots entry is kept while a host's /etc/fstab could not be read, the list
+      # then being short of that host's.
       path: >-
-        {{ faramir_block_rows | selectattr('kind', 'equalto', 'path')
-           | map(attribute='entry') | reject('in', faramir_blocked_paths) | list }}
+        {%- set stale = faramir_block_rows | selectattr('kind', 'equalto', 'path')
+              | map(attribute='entry') | reject('in', faramir_blocked_paths) | list -%}
+        {{ stale | reject('match', '.*/[.]snapshots$') | list
+           if faramir_btrfs_unreported | length > 0 else stale }}
       command: >-
         {{ faramir_block_rows | selectattr('kind', 'equalto', 'command')
            | map(attribute='entry') | reject('in', faramir_blocked_commands) | list }}
@@ -111,6 +157,13 @@
     faramir_block_rows: >-
       {{ (faramir_block_ls.stdout | default('[]', true) | from_json)
          | rejectattr('source', 'equalto', 'derived') | list }}
+
+- name: Report the hosts whose snapshot blocks were kept rather than re-derived
+  ansible.builtin.debug:
+    msg: >-
+      {{ faramir_btrfs_unreported | join(', ') }} could not be read for their btrfs filesystems, so
+      no .snapshots block was removed this run.
+  when: faramir_btrfs_unreported | length > 0
 
 # An entry comes back out under the flag it went in under, the form being part of what
 # identifies it, and a removal ends the declaration and no more: README.md.

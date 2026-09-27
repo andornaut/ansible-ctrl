@@ -78,3 +78,16 @@ base_ssh_client_alive_count_max: 3
 # Kerberos, which nothing here runs. Left at the shipped yes, every connection attempt tries
 # GSSAPI first and pays a lookup for it before falling through to publickey.
 base_ssh_client_gssapi: false
+
+# btrfs filesystems in /etc/fstab to leave alone: no scrub, balance or snapshots. For one
+# mounted only now and then, such as a backup device, which the monthly scrub would otherwise
+# report as unmounted.
+base_btrfs_excluded_mountpoints: []
+base_btrfs_balance_weekday: "0"
+base_btrfs_balance_hour: "5"
+base_btrfs_balance_minute: "0"
+base_btrfs_scrub_day: "15"
+base_btrfs_scrub_hour: "4"
+base_btrfs_scrub_minute: "0"
+# One snapshot a day. Deleted data stays on disk until the oldest snapshot holding it is pruned.
+base_btrfs_snapper_daily_limit: 7

@@ -488,13 +488,36 @@ class Listing(unittest.TestCase):
         self.assertIsNone(playbook.listing_refusal("base", 0, "[WARNING]: something\n", ["a"]))
 
 
+def task_keys(lines: list[bytes], index: int) -> list[bytes]:
+    """The keys of the task holding lines[index], at that line's indentation."""
+    indent = len(lines[index]) - len(lines[index].lstrip())
+    start = index
+    while start > 0 and not (
+        lines[start].lstrip().startswith(b"- ") and len(lines[start]) - len(lines[start].lstrip()) == indent - 2
+    ):
+        start -= 1
+    keys = [lines[start].lstrip()[2:]]
+    for line in lines[start + 1 :]:
+        stripped = line.lstrip()
+        if stripped and len(line) - len(stripped) < indent:
+            break
+        if len(line) - len(stripped) == indent:
+            keys.append(stripped)
+    return keys
+
+
 class Consistency(unittest.TestCase):
-    def test_every_delegation_is_one_the_grep_sees(self):
+    def test_every_delegation_is_seen_or_needs_no_sudo(self):
+        """The grep decides whether a run needs the controller's sudo, so a delegation it does
+        not see has to run without become."""
         for path in playbook.REPO.glob("roles/**/*.yml"):
-            for line in path.read_bytes().splitlines():
+            lines = path.read_bytes().splitlines()
+            for index, line in enumerate(lines):
                 if line.lstrip().startswith((b"delegate_to:", b"local_action:")):
                     with self.subTest(path=str(path), line=line):
-                        self.assertTrue(playbook.DELEGATES_LOCALLY.search(line))
+                        self.assertTrue(
+                            playbook.DELEGATES_LOCALLY.search(line) or b"become: false" in task_keys(lines, index)
+                        )
 
 
 if __name__ == "__main__":

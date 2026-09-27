@@ -16,6 +16,7 @@ make base -- --tags filectrl
 
 | Tag                                               | Description                                                                                  |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| btrfs                                             | Scrub, balance and daily snapper snapshots of every btrfs filesystem. See [btrfs](#btrfs)    |
 | cloud-init                                        | Purges and pins `cloud-init`, and removes its state                                          |
 | disk-cleanup                                      | The `disk-cleanup` sweep and its weekly cron entry                                           |
 | fail2ban                                          | fail2ban and the sshd jail, from the `base_fail2ban_*` settings                              |
@@ -40,11 +41,12 @@ No tag: the apt configuration and package set, the motd-news opt-out, the timezo
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable                      | Purpose                                                                                              |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `base_lockdown_ssh_port`      | The sshd port, 22 by default. See [Lockdown](#lockdown)                                              |
-| `base_lockdown_ssh_port_move` | `true` for the one run that moves sshd off the inventory's `ansible_port`. See [Lockdown](#lockdown) |
-| `base_account_exclude_homes`  | Placeholder homes of service accounts, excluded from the home-mode lockdown and the sweeps           |
+| Variable                          | Purpose                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `base_lockdown_ssh_port`          | The sshd port, 22 by default. See [Lockdown](#lockdown)                                                |
+| `base_lockdown_ssh_port_move`     | `true` for the one run that moves sshd off the inventory's `ansible_port`. See [Lockdown](#lockdown)   |
+| `base_account_exclude_homes`      | Placeholder homes of service accounts, excluded from the home-mode lockdown and the sweeps             |
+| `base_btrfs_excluded_mountpoints` | btrfs mountpoints in `/etc/fstab` to leave alone, such as a backup device mounted only during a backup |
 
 ## Shared task files
 
@@ -70,6 +72,37 @@ carries the calling role's prefix.
 
 Each URL is fetched once per play from the controller. Without `github_token` the fleet shares one anonymous limit
 of 60 requests an hour; a rate-limit failure names the reset time.
+
+## btrfs
+
+Applies to every btrfs mountpoint in `/etc/fstab`, mounted or not, less `base_btrfs_excluded_mountpoints`. A host with
+none installs nothing. The scrub and balance act on each filesystem once, through its first mountpoint, keyed by
+filesystem UUID where the device is present; snapper takes every mountpoint, each subvolume being snapshotted on its
+own.
+
+| What                                                                                                                                             | Schedule                                        | Mail                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `/usr/local/sbin/scrub-btrfs`, from `/etc/cron.d/ansible-role-base`                                                                              | Monthly, `base_btrfs_scrub_*`                   | Only on failure: a mountpoint not mounted, uncorrectable errors, or nonzero device error counters |
+| `/usr/local/sbin/balance-btrfs`, btrfsmaintenance's filtered balance, from `/etc/cron.d/ansible-role-base`                                       | Weekly, `base_btrfs_balance_*`                  | Every run: it prints each step and exits 0, so the output is the only signal                      |
+| snapper timeline, one config per mountpoint (`root` for `/`, otherwise the path with dashes), snapshots in `<mountpoint>/.snapshots` (root only) | Daily, keeping `base_btrfs_snapper_daily_limit` | None                                                                                              |
+
+| Constraint                                | Detail                                                                                                                                                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A host with none left                     | Once `base_btrfs_mountpoints` is empty, both cron entries go; snapper's configs and timers stay                                                                                                     |
+| An unmounted filesystem is skipped        | `balance-btrfs` checks each mountpoint with `mountpoint -q`: btrfsmaintenance's own script tests with `stat -f`, which reads an unmounted mountpoint as the filesystem holding it and balances that |
+| Scrub and balance never overlap           | Both take btrfsmaintenance's per-filesystem lock, `/run/btrfs-maintenance-running.<fsid>`, so a balance waits for a scrub of the same filesystem                                                    |
+| Nothing else runs                         | btrfsmaintenance's timers and refresh path unit, and `snapper-boot.timer`, are masked; snapper's apt hook is off (`DISABLE_APT_SNAPSHOT`)                                                           |
+| Snapshots hold deleted data               | A deleted or overwritten file stays on disk until the oldest snapshot referencing it is pruned                                                                                                      |
+| Nested subvolumes are not snapshotted     | A snapshot stops at a subvolume boundary; `.snapshots` is one                                                                                                                                       |
+| `.snapshots` needs the filesystem mounted | Created on a run with it mounted; until then snapper's timeline fails in the journal                                                                                                                |
+| Error counters are cumulative             | A scrub-corrected error on raid1 shows every month until reset with `btrfs device stats -z`                                                                                                         |
+
+```bash
+# List and restore from snapshots
+snapper list-configs
+snapper -c <config> list
+cp -a <mountpoint>/.snapshots/<number>/snapshot/<path> <mountpoint>/<path>
+```
 
 ## Lockdown
 

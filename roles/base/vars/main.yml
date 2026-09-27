@@ -27,3 +27,43 @@ base_unwanted_packages:
   - sssd
   - sssd-common
   - switcheroo-control
+
+# The btrfs lines of /etc/fstab, from the findmnt read in tasks/btrfs.yml, less
+# base_btrfs_excluded_mountpoints. findmnt unescapes the fields; a trailing slash is dropped
+# so /media/nas/ and /media/nas name one mountpoint.
+base_btrfs_fstab_entries: >-
+  {%- set excluded = base_btrfs_excluded_mountpoints | map('regex_replace', '(.)/+$', '\\1') | list -%}
+  {%- set entries = [] -%}
+  {%- for line in (((base_btrfs_fstab.stdout | default('', true)) or '{"filesystems": []}')
+                   | from_json).filesystems -%}
+  {%- set target = line.target | regex_replace('(.)/+$', '\\1') -%}
+  {%- if target not in excluded -%}
+  {%- set _ = entries.append({'target': target, 'fs': line.uuid or line.source}) -%}
+  {%- endif -%}
+  {%- endfor -%}
+  {{ entries }}
+
+# Every btrfs mountpoint, each a subvolume snapper snapshots on its own: a snapshot stops at
+# a subvolume boundary, so / does not cover a sibling @home mounted at /home.
+base_btrfs_mountpoints: "{{ base_btrfs_fstab_entries | map(attribute='target') | unique | list }}"
+
+# One mountpoint per filesystem, for the scrub and balance, which act on the whole
+# filesystem through any of its mountpoints. Keyed by filesystem UUID where the device is
+# present, so a filesystem spelled UUID= on one line and /dev/mapper/... on another counts once.
+base_btrfs_filesystems: >-
+  {%- set seen = [] -%}
+  {%- set mountpoints = [] -%}
+  {%- for entry in base_btrfs_fstab_entries -%}
+  {%- set fs = entry.fs | regex_replace('^UUID=', '') -%}
+  {%- if fs not in seen -%}
+  {%- set _ = seen.append(fs) -%}
+  {%- set _ = mountpoints.append(entry.target) -%}
+  {%- endif -%}
+  {%- endfor -%}
+  {{ mountpoints }}
+
+# Snapper config name per btrfs mountpoint: root for /, otherwise the path with its slashes
+# as dashes (/media/nas is media-nas).
+base_btrfs_snapper_configs: >-
+  {{ dict(base_btrfs_mountpoints | zip(base_btrfs_mountpoints | map('regex_replace', '^/$', 'root')
+  | map('regex_replace', '^/+', '') | map('replace', '/', '-'))) }}
