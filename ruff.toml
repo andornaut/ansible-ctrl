@@ -9,9 +9,10 @@ line-length = 120
 # would forgive a genuine typo in the same breath.
 builtins = ["data", "hass", "logger"]
 
-# The version .python-version pins, which is the only one the gate runs. Left
-# unset ruff falls back to an older default: it holds the syntax it knows about
-# to the target, so a version-dependent rule that should fire here does not.
+# The oldest interpreter the deployed scripts run on, Ubuntu 24.04's, rather than
+# the newer one .python-version pins for the gate: ruff rewrites syntax up to the
+# target. Left unset ruff falls back to an older default, so a version-dependent
+# rule that should fire here does not.
 target-version = "py312"
 
 # A patched copy of an upstream module the Frigate container runs in place of its own. It stays
