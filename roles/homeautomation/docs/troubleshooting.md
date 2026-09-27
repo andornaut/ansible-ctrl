@@ -192,8 +192,13 @@ the container. The Coral.ai USB manufacturer changes from "Global Unichip Corp" 
 ## Reolink doorbell stops working
 
 When two-way audio is enabled via Frigate, the doorbell chime, quick reply, and siren stop working. Use HTTP-FLV
-streams instead of RTSP, disable two-way audio in Frigate, and drive the doorbell through the native Reolink
-integration.
+streams instead of RTSP and disable two-way audio in Frigate.
+
+Leave Home Assistant's Reolink integration uninstalled: its standing HTTP polling adds load to the doorbell's web
+server, which is also what serves the HTTP-FLV streams. Under load that server hangs, accepting TCP connections and
+answering nothing, while RTSP and Baichuan (port 9000) keep answering. Only a reboot clears it, and Baichuan
+still accepts one: reolink-aio's `Host(host, user, password, bc_only=True)`, then `baichuan.login()` and
+`baichuan.send(cmd_id=23)`.
 
 - [Frigate discussion #13904](https://github.com/blakeblackshear/frigate/discussions/13904)
 - [Reolink camera configuration docs](https://docs.frigate.video/configuration/camera_specific/#reolink-cameras)

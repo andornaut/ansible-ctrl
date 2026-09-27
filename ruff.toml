@@ -14,6 +14,11 @@ builtins = ["data", "hass", "logger"]
 # to the target, so a version-dependent rule that should fire here does not.
 target-version = "py312"
 
+# A patched copy of an upstream module the Frigate container runs in place of its own. It stays
+# identical to upstream apart from the patch, so it keeps upstream's style rather than this
+# repository's.
+extend-exclude = ["roles/homeautomation/files/frigate/ffmpeg-*.py"]
+
 [lint]
 # Every rule ruff has, then what is given up and why. The version is pinned in
 # each gate's manifest, so this set only moves when a commit moves it.

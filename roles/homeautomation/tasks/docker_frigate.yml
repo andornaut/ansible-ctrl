@@ -15,14 +15,21 @@
     - "{{ homeautomation_frigate_required_volumes.media }}"
   become: true
 
+- name: Patch the Frigate record watchdog
+  ansible.builtin.import_tasks: patch_frigate_record_watchdog.yml
+
 - name: Start Frigate Docker container
   become: true
   vars:
     frigate_base_volumes:
       - "{{ homeautomation_frigate_required_volumes.config }}:/config"
       - "{{ homeautomation_frigate_required_volumes.media }}:/media/frigate"
+    frigate_patch_volumes: >-
+      {{ [homeautomation_frigate_record_watchdog_patch_path ~ ':/opt/frigate/frigate/video/ffmpeg.py:ro']
+      if homeautomation_frigate_record_watchdog_patched | bool else [] }}
     frigate_volumes: >-
-      {{ homeautomation_common_volumes + frigate_base_volumes + homeautomation_frigate_extra_volumes }}
+      {{ homeautomation_common_volumes + frigate_base_volumes + frigate_patch_volumes
+      + homeautomation_frigate_extra_volumes }}
 
     frigate_tmpfs_volume:
       type: tmpfs # Optional ram-drive to reduce storage wear

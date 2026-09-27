@@ -79,7 +79,10 @@ homeautomation_frigate_port_http_unauthenticated: 5000
 homeautomation_frigate_port_rtsp: 8554
 homeautomation_frigate_port_webrtc: 8555
 homeautomation_frigate_shm_size: "128mb"
-homeautomation_frigate_tmpfs_size_mb: 128
+# /tmp/cache holds each camera's in-flight record segments and the hour's preview frames until
+# they are compiled on the hour; when it fills, every camera stops recording until then. Frigate's
+# documented size: https://docs.frigate.video/frigate/installation/#docker
+homeautomation_frigate_tmpfs_size_mb: 1000
 
 # ha-mcp
 homeautomation_hamcp_docker_image: ghcr.io/homeassistant-ai/ha-mcp:latest
