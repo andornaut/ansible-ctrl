@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Free up disk space. Requires root. Run weekly via /etc/cron.d/ansible-role-base.
 set -euo pipefail
+# Each step's stdout is parsed into one summary line, so its messages must not be translated.
+export LC_ALL=C
 
 # Run an apt command, waiting out another apt process rather than giving up on
 # it. apt-get exits 100 immediately when it cannot take the lock, and
@@ -31,11 +33,35 @@ apt_wait() {
 # skip them for a week.
 apt_wait apt-get clean || true
 
-# Remove orphaned packages and old kernels, purging their config.
-apt_wait apt-get autoremove --purge --yes || true
+# Remove orphaned packages and old kernels, purging their config. The package list is the part
+# of the summary worth reading: autoremove takes whatever nothing depends on any more.
+out=$(apt_wait apt-get autoremove --purge --yes) || true
+packages=$(sed -n 's/^Removing \([^ :]*\).*/\1/p' <<<"${out}" | paste -sd' ')
+if [[ -n ${packages} ]]; then
+    freed=$(sed -n 's/^After this operation, \(.*\) disk space will be freed\.$/\1/p' <<<"${out}")
+    echo "apt autoremove: $(wc -w <<<"${packages}") packages, ${freed}: ${packages}"
+else
+    echo "apt autoremove: nothing to remove"
+fi
 
-# Vacuum journald logs (also enforced continuously by journald.conf).
-journalctl --vacuum-size=500M --vacuum-time=4weeks || true
+# Vacuum journald logs (also enforced continuously by journald.conf). journalctl reports on
+# stderr, one line per journal directory: those are summed, anything else is passed through.
+freed=$(journalctl --vacuum-size=500M --vacuum-time=4weeks 2>&1 | awk '
+    /^Deleted archived journal / { next }
+    /^Vacuuming done, freed / {
+        n = $4 + 0
+        u = substr($4, length($4))
+        if (u == "K") n *= 1024
+        else if (u == "M") n *= 1024 ^ 2
+        else if (u == "G") n *= 1024 ^ 3
+        else if (u == "T") n *= 1024 ^ 4
+        total += n
+        next
+    }
+    { print > "/dev/stderr" }
+    END { printf "%d\n", total }
+') || true
+echo "journal: $(numfmt --to=iec --suffix=B "${freed:-0}")"
 
 # Rotated and compressed logs. logrotate keeps these for its own retention window, which is
 # time the disk pays for; the live files it is still writing are untouched.
@@ -46,10 +72,29 @@ find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -de
 # The binary existing does not mean the daemon is up, and a prune against a stopped dockerd
 # fails: guarded so it cannot take the flatpak and thumbnail sweeps down with it.
 if command -v docker >/dev/null 2>&1; then
-    docker image prune --all --force || true
-    docker builder prune --force || true
-    docker network prune --force || true
+    out=$(docker image prune --all --force) || true
+    echo "docker images: $(sed -n 's/^Total reclaimed space: //p' <<<"${out}")"
+    out=$(docker builder prune --force) || true
+    echo "docker build cache: $(sed -n 's/^Total:[[:space:]]*//p' <<<"${out}")"
+    out=$(docker network prune --force) || true
+    networks=$(awk 'f && NF; /^Deleted Networks:$/ { f = 1 }' <<<"${out}" | paste -sd' ')
+    echo "docker networks: $(wc -w <<<"${networks}")${networks:+ (${networks})}"
 fi
+
+# Uninstall runtimes no installation references and report the refs that went. The listing is
+# compared before and after rather than parsed from uninstall's output, whose layout is for a
+# terminal. Arguments are the command prefix that runs flatpak against one installation.
+flatpak_unused() {
+    local label=$1 before after removed
+    shift
+    before=$("$@" flatpak list --columns=ref </dev/null | sort) || true
+    # Guarded so that a failure against one installation does not skip the rest: the per-user
+    # ones hold the space, and are reached after the system one.
+    "$@" flatpak uninstall --unused --assumeyes </dev/null >/dev/null || true
+    after=$("$@" flatpak list --columns=ref </dev/null | sort) || true
+    removed=$(comm -23 <(echo "${before}") <(echo "${after}") | paste -sd' ')
+    echo "flatpak (${label}): ${removed:-nothing unused}"
+}
 
 # Remove flatpak runtimes and extensions no longer referenced by any app.
 #
@@ -62,19 +107,16 @@ fi
 # decided by the desktop, games and hobbies roles, and this script belongs to
 # base, which does not read their variables.
 if command -v flatpak >/dev/null 2>&1; then
-    # Guarded so that a failure against one installation does not skip the
-    # rest: the per-user ones hold the space, and are reached after this.
-    flatpak uninstall --unused --assumeyes || true
+    flatpak_unused system
 
     while IFS=: read -r name _ uid _ _ home _; do
         [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
         [[ -d ${home}/.local/share/flatpak ]] || continue
         # HOME is named because runuser does not set it, and flatpak reads it
         # to find the installation: unset, it would act on root's again.
-        # stdin is redirected because the loop reads from getent: a child that read it would
-        # swallow passwd lines and silently skip the accounts after this one.
-        runuser -u "${name}" -- env HOME="${home}" \
-            flatpak uninstall --unused --assumeyes </dev/null || true
+        # stdin is redirected inside flatpak_unused because the loop reads from getent: a child
+        # that read it would swallow passwd lines and silently skip the accounts after this one.
+        flatpak_unused "${name}" runuser -u "${name}" -- env HOME="${home}"
     done < <(getent passwd)
 fi
 
