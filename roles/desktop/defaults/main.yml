@@ -40,6 +40,10 @@ desktop_keyboard_configurator_superseded_rules: []
 # audio.format pins a device to a format it can sustain, node.disabled hides one whose
 # exposed node is unusable. Empty removes the drop-in.
 desktop_wireplumber_node_properties: {}
+# CUPS queues, the first the default destination. Each is {name, uri}: name the one `lpstat -e`
+# lists for the printer, uri its ipp:// address. Each queue is driverless and sends raster only.
+# Empty leaves printing unmanaged; see README.md.
+desktop_printers: []
 # Web browser set as the xdg-settings default: "firefox" or "google-chrome".
 desktop_default_browser: firefox
 # A tiling host's display manager: "ly" or "lemurs". Unused on gnome, which takes gdm3.

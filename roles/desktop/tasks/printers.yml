@@ -1,0 +1,204 @@
+---
+# A driverless queue passes PDF (and JPEG) through to the printer, and a printer whose interpreter
+# cannot render a document reports the job completed having printed nothing, or prints an error
+# page. Each queue here is driverless with only its raster filters kept, so CUPS renders every job
+# on this host and the printer receives finished pages. Each queue takes the name the print
+# dialogs derive from the printer's DNS-SD name, so it shadows the driverless destination they
+# would otherwise list beside it.
+- name: Configure printers
+  when: desktop_printers | length > 0
+  # lpstat's output is compared against its English strings.
+  environment:
+    LC_ALL: C
+  vars:
+    # A PPD's filters, as the formats CUPS may hand the printer: raster only, which no printer
+    # interprets, and never a passthrough of anything else.
+    desktop_printers_raster: '^\*cupsFilter2: "\S+ (image/urf|image/pwg-raster) '
+    desktop_printers_passthrough: '^\*cupsFilter2: "(?!\S+ (image/urf|image/pwg-raster) )'
+  block:
+    - name: Install CUPS
+      ansible.builtin.apt:
+        name: [cups, cups-browsed]
+        update_cache: true
+      become: true
+
+    - name: Stop cups-browsed creating driverless queues
+      ansible.builtin.lineinfile:
+        path: /etc/cups/cups-browsed.conf
+        regexp: '^CreateIPPPrinterQueues\s'
+        insertafter: "^# CreateIPPPrinterQueues All"
+        line: CreateIPPPrinterQueues No
+      register: desktop_printers_browsed
+      become: true
+
+    - name: Find the driverless queues cups-browsed made
+      ansible.builtin.command:
+        argv: [lpstat, -v]
+      register: desktop_printers_browsed_queues
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      become: false
+
+    # Before any queue is written: cups-browsed claims a queue under a name it made, so it replaces
+    # one lpadmin rewrites and re-creates one lpadmin deletes. Stopping it deletes its queues, and
+    # it starts with CreateIPPPrinterQueues No making none.
+    - name: Restart cups-browsed
+      ansible.builtin.systemd_service:
+        name: cups-browsed.service
+        state: restarted
+      when: >-
+        desktop_printers_browsed is changed
+        or ': implicitclass://' in desktop_printers_browsed_queues.stdout
+      become: true
+
+    - name: Read the installed printer queues
+      ansible.builtin.command:
+        argv: [lpstat, -v, "{{ item.name }}"]
+      register: desktop_printers_device
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      loop: "{{ desktop_printers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      become: false
+
+    - name: Read the installed printer filters
+      ansible.builtin.command:
+        argv: [grep, '^\*cupsFilter2:', "/etc/cups/ppd/{{ item.name }}.ppd"]
+      register: desktop_printers_filters
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      loop: "{{ desktop_printers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      become: true
+
+    - name: Select the printer queues to create
+      ansible.builtin.set_fact:
+        desktop_printers_stale: >-
+          {{ desktop_printers_stale | default([])
+             + ([item.0] if item.1.stdout != 'device for ' ~ item.0.name ~ ': ' ~ item.0.uri
+                           or item.2.stdout_lines | select('match', desktop_printers_raster) | list | length == 0
+                           or item.2.stdout_lines | select('match', desktop_printers_passthrough) | list | length > 0
+                 else []) }}
+      loop: "{{ desktop_printers | zip(desktop_printers_device.results, desktop_printers_filters.results) | list }}"
+      loop_control:
+        label: "{{ item.0.name }}"
+
+    - name: Create the printer queues
+      when: desktop_printers_stale | length > 0
+      block:
+        - name: Create a temporary directory for the PPDs
+          ansible.builtin.tempfile:
+            state: directory
+            suffix: .desktop-printers
+          register: desktop_printers_tmp
+          check_mode: false
+          become: false
+
+        # cupsd's own IPP Everywhere PPD: libcupsfilters' `driverless` omits the raster filter
+        # entirely from 2.1 on for a printer that accepts PDF.
+        - name: Create the driverless printer queues
+          ansible.builtin.command:
+            argv:
+              - lpadmin
+              - -p
+              - "{{ item.name }}"
+              - -E
+              - -v
+              - "{{ item.uri }}"
+              - -m
+              - everywhere
+              - -o
+              - printer-is-shared=false
+          changed_when: true
+          loop: "{{ desktop_printers_stale }}"
+          loop_control:
+            label: "{{ item.name }}"
+          become: true
+
+        - name: Read the generated PPDs
+          ansible.builtin.command:
+            argv: [cat, "/etc/cups/ppd/{{ item.name }}.ppd"]
+          register: desktop_printers_ppd
+          changed_when: false
+          loop: "{{ desktop_printers_stale }}"
+          loop_control:
+            label: "{{ item.name }}"
+          become: true
+
+        - name: Write the PPDs with only their raster filters
+          ansible.builtin.copy:
+            content: "{{ item.stdout_lines | reject('match', desktop_printers_passthrough) | join('\n') }}\n"
+            dest: "{{ desktop_printers_tmp.path }}/{{ item.item.name }}.ppd"
+            mode: "0644"
+          loop: "{{ desktop_printers_ppd.results }}"
+          loop_control:
+            label: "{{ item.item.name }}"
+          become: false
+
+        - name: Refuse a PPD left with no raster filter
+          ansible.builtin.assert:
+            that: item.stdout_lines | select('match', desktop_printers_raster) | list | length > 0
+            fail_msg: >-
+              {{ item.item.uri }} offers neither URF nor PWG raster, so its queue would have no
+              filter left. Print to it through a vendor driver instead.
+            quiet: true
+          loop: "{{ desktop_printers_ppd.results }}"
+          loop_control:
+            label: "{{ item.item.name }}"
+
+        - name: Keep only the raster filters
+          ansible.builtin.command:
+            argv:
+              [
+                lpadmin,
+                -p,
+                "{{ item.name }}",
+                -P,
+                "{{ desktop_printers_tmp.path }}/{{ item.name }}.ppd",
+              ]
+          changed_when: true
+          loop: "{{ desktop_printers_stale }}"
+          loop_control:
+            label: "{{ item.name }}"
+          become: true
+      always:
+        - name: Remove the temporary PPD directory
+          ansible.builtin.file:
+            path: "{{ desktop_printers_tmp.path }}"
+            state: absent
+          when: desktop_printers_tmp.path is defined
+          check_mode: false
+          become: false
+
+    # `lpoptions -d` run as root writes a Default here that every client reads ahead of cupsd's,
+    # and it outlives the queue it names.
+    - name: Remove the client default printer override
+      ansible.builtin.lineinfile:
+        path: /etc/cups/lpoptions
+        regexp: '^Default\s'
+        state: absent
+      become: true
+
+    # cupsd's own default: lpstat -d answers with the invoking user's, which LPDEST, PRINTER and
+    # ~/.cups/lpoptions override.
+    - name: Read the default printer
+      ansible.builtin.command:
+        argv:
+          [sed, -n, 's/^<DefaultPrinter \(.*\)>$/\1/p', /etc/cups/printers.conf]
+      register: desktop_printers_default
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      become: true
+
+    - name: Set the default printer
+      ansible.builtin.command:
+        argv: [lpadmin, -d, "{{ desktop_printers[0].name }}"]
+      changed_when: true
+      when: desktop_printers_default.stdout != desktop_printers[0].name
+      become: true
