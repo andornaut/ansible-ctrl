@@ -23,6 +23,24 @@
   loop_control:
     label: "{{ item.name | default('an entry naming no name') }}"
 
+# The preexec script passes these to the router's shell unquoted, so they are held to their
+# literal forms.
+- name: Require each woken host to name a remote host, an inventory router, a MAC and a broadcast address
+  ansible.builtin.assert:
+    that:
+      - item.host != inventory_hostname
+      - item.wake.router | default('') in hostvars
+      - item.wake.mac | default('') is match('^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
+      - item.wake.broadcast | default('') is match('^([0-9]{1,3}\.){3}[0-9]{1,3}$')
+    fail_msg: >-
+      The wake of {{ item.name }} needs `router` as a host in the inventory, `mac` as six
+      colon-separated hex pairs and `broadcast` as an IPv4 address, and cannot wake the host
+      running rsnapshot.
+    quiet: true
+  loop: "{{ rsnapshot_wake_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 # Absolute and without a trailing slash, since the template matches points against it by
 # prefix. A mountpoint is either blocking or non-blocking: one in both lists would still abort
 # the whole run while it is unmounted.

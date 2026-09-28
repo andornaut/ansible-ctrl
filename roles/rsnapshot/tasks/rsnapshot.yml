@@ -30,7 +30,7 @@
     group: root
     mode: "0755"
   become: true
-  when: rsnapshot_required_mountpoints | length > 0
+  when: rsnapshot_preexec_enabled
 
 # rsnapshot runs this command whenever it parses the config, configtest included, so it is
 # in place before the config that names it is validated.
@@ -95,7 +95,7 @@
     path: "{{ rsnapshot_preexec_script }}"
     state: absent
   become: true
-  when: rsnapshot_required_mountpoints | length == 0
+  when: not rsnapshot_preexec_enabled
 
 # Below the template task, for the same reason.
 - name: Remove the rsnapshot non-blocking sources script

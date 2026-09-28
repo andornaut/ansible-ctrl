@@ -9,6 +9,8 @@ rsnapshot_required_mountpoints: []
 # include_conf line.
 rsnapshot_nonblocking_mountpoints: []
 rsnapshot_nonblocking_sources_script: /usr/local/bin/rsnapshot-nonblocking-sources
+# Seconds to wait for a woken host's ssh to answer before backing up without it.
+rsnapshot_wake_timeout: 120
 rsnapshot_retention:
   hourly:
   daily: 7

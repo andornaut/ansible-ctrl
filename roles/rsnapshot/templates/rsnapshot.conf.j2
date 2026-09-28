@@ -15,9 +15,9 @@ cmd_rm		/bin/rm
 cmd_rsync	/usr/bin/rsync
 cmd_ssh		/usr/bin/ssh
 cmd_logger	/usr/bin/logger
-{% if rsnapshot_required_mountpoints %}
+{% if rsnapshot_preexec_enabled %}
 # Aborts the run when a required filesystem is missing, rather than snapshotting the
-# empty directory an unmounted path reads as.
+# empty directory an unmounted path reads as, and wakes the hosts that name a wake router.
 cmd_preexec	{{ rsnapshot_preexec_script }}
 {% endif %}
 

@@ -1,0 +1,7 @@
+---
+# Derived from defaults/main.yml, not operator knobs. Role vars outrank host_vars, so
+# a host cannot desync one from its source.
+
+rsnapshot_wake_hosts: "{{ rsnapshot_hosts | selectattr('wake', 'defined') | list }}"
+# cmd_preexec carries both the mountpoint check and the wake, so either one installs it.
+rsnapshot_preexec_enabled: "{{ rsnapshot_required_mountpoints | length > 0 or rsnapshot_wake_hosts | length > 0 }}"

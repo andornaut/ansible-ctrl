@@ -1,11 +1,12 @@
 #!/bin/bash
 # rsnapshot cmd_preexec - managed by ansible-role-rsnapshot.
-# rsnapshot reads an unmounted source as an empty directory, so a run made with one missing
-# replaces the newest snapshot with nothing and rotates the last good copy out. A non-zero
-# exit aborts the run before either happens. rsnapshot runs this for the lowest configured
-# interval only, which is also the only one that reads sources.
+# rsnapshot runs this for the lowest configured interval only, which is also the only one that
+# reads sources. A non-zero exit aborts the run.
 set -euo pipefail
+{% if rsnapshot_required_mountpoints %}
 
+# rsnapshot reads an unmounted source as an empty directory, so a run made with one missing
+# replaces the newest snapshot with nothing and rotates the last good copy out.
 mountpoints=(
 {% for mountpoint in rsnapshot_required_mountpoints %}
     {{ mountpoint | quote }}
@@ -19,4 +20,52 @@ for path in "${mountpoints[@]}"; do
         status=1
     fi
 done
-exit "${status}"
+if ((status != 0)); then
+    exit "${status}"
+fi
+{% endif %}
+{% if rsnapshot_wake_hosts %}
+
+# A host that stays asleep fails only its own backup points, so a failed wake reports an
+# error, which cron mails, and the run continues.
+readonly WAKE_TIMEOUT={{ rsnapshot_wake_timeout | int }}
+
+report() {
+    local message="ERROR: $1"
+    logger -p user.err -t rsnapshot -- "${message}" || true
+    echo "${message}" >&2
+}
+
+reachable() {
+    ssh -o BatchMode=yes -o ConnectTimeout=5 "$1" true >/dev/null 2>&1
+}
+
+# The router sends the magic packet onto the host's own subnet: a broadcast sent from here
+# would not cross into it.
+wake() {
+    local target=$1 router=$2 broadcast=$3 mac=$4
+    if reachable "${target}"; then
+        return 0
+    fi
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=10 "${router}" \
+        /usr/local/bin/wol -i "${broadcast}" "${mac}" >/dev/null; then
+        report "could not send ${target} a wake packet through ${router}"
+        return 0
+    fi
+    local deadline=$((SECONDS + WAKE_TIMEOUT))
+    while ((SECONDS < deadline)); do
+        if reachable "${target}"; then
+            return 0
+        fi
+        sleep 5
+    done
+    report "${target} did not answer within ${WAKE_TIMEOUT}s of its wake packet; its backup points will fail"
+}
+
+{% for host in rsnapshot_wake_hosts %}
+{% set host_login = host.user | default(hostvars[host.host].ansible_user | default(primary_user)) %}
+{% set router_vars = hostvars[host.wake.router] %}
+{% set router_login = router_vars.ansible_user | default(primary_user) %}
+wake {{ (host_login ~ '@' ~ host.name) | quote }} {{ (router_login ~ '@' ~ router_vars.ansible_host | default(host.wake.router)) | quote }} {{ host.wake.broadcast | quote }} {{ host.wake.mac | quote }}
+{% endfor %}
+{% endif %}
