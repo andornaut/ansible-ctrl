@@ -191,6 +191,8 @@ server {
     root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
 
 {% endif %}
+{# A `locations` entry at / serves the whole site, in place of this one. #}
+{% if item.item.locations | default([]) | selectattr('src', 'equalto', '/') | list | length == 0 %}
     location / {
 {% if item.item.proxy_port is defined %}
         include /etc/nginx/conf.d/partial/common_proxy_configuration;
@@ -222,6 +224,7 @@ server {
         proxy_set_header Connection $connection_upgrade;
 {% endif %}
     }
+{% endif %}
 
     include /etc/nginx/conf.d/partial/common_site_configuration;
 }
