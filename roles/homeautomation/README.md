@@ -88,25 +88,25 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 Internal ports. The `homeautomation_*_port` variables set the published host side of a bridge container's
 mapping, not the internal port listed here.
 
-| Container          | Network | Port  | Protocol | Description                                              |
-| ------------------ | ------- | ----- | -------- | -------------------------------------------------------- |
-| homeassistant      | host    | 8123  | HTTP     | Web UI and API                                           |
-| esphome            | host    | 6052  | HTTP     | Dashboard                                                |
-| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery                        |
-| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only               |
-| otbr               | host    | 8081  | REST     | Thread Border Router REST API, loopback only by nftables |
-| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only                  |
-| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                                     |
-| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                              |
-| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated), loopback only                  |
-| frigate            | bridge  | 8971  | HTTPS    | Web UI (authenticated), loopback only                    |
-| frigate            | bridge  | 8554  | RTSP     | RTSP restream, loopback only                             |
-| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                                           |
-| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API                         |
-| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000             |
-| hamcp              | bridge  | 8086  | HTTP     | MCP server                                               |
-| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback                    |
-| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback                    |
+| Container          | Network | Port  | Protocol | Description                                                                        |
+| ------------------ | ------- | ----- | -------- | ---------------------------------------------------------------------------------- |
+| homeassistant      | host    | 8123  | HTTP     | Web UI and API                                                                     |
+| esphome            | host    | 6052  | HTTP     | Dashboard                                                                          |
+| govee2mqtt         | host    | 8056  | HTTP     | Web UI and API; UDP LAN discovery                                                  |
+| otbr               | host    | 8080  | HTTP     | Thread Border Router web UI, loopback only                                         |
+| otbr               | host    | 8081  | REST     | Thread Border Router REST API, loopback only by nftables                           |
+| matterjs           | host    | 5580  | HTTP/WS  | Web UI and WebSocket API, loopback only                                            |
+| pythonmatterserver | host    | 5580  | HTTP/WS  | As matterjs (legacy)                                                               |
+| mosquitto          | bridge  | 1883  | MQTT     | MQTT broker                                                                        |
+| frigate            | bridge  | 5000  | HTTP     | Web UI (unauthenticated), loopback only                                            |
+| frigate            | bridge  | 8971  | HTTPS    | Web UI (authenticated), loopback only                                              |
+| frigate            | bridge  | 8554  | RTSP     | RTSP restream, unauthenticated; loopback unless `homeautomation_frigate_bind_rtsp` |
+| frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                                                                     |
+| llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API                                                   |
+| openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000                                       |
+| hamcp              | bridge  | 8086  | HTTP     | MCP server                                                                         |
+| piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback                                              |
+| whisper            | bridge  | 10300 | Wyoming  | Speech-to-text, also on host loopback                                              |
 
 ## Container hardening
 
