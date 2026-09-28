@@ -3,9 +3,14 @@
 # with no backoff and no grace period, so the new ffmpeg never lives long enough to write a
 # segment and every restart reopens the camera's stream. The patched module grants the
 # 90 second enable-time grace period after each restart, so a stale stream restarts about
-# every 90 seconds. It replaces the whole module, so it is mounted only over the release it
-# was cut from.
-# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 (remove once released)
+# every 90 seconds.
+# It also keeps the record status truthful. Unpatched, a restart publishes "offline" past the
+# status cache, which still reads "online", so recovery is never published and the status
+# stays "offline" until Frigate restarts; the patched module records it, publishes "online"
+# only once the grace period is over, and resends it on its own timer rather than detect's.
+# It replaces the whole module, so it is mounted only over the release it was cut from.
+# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 (remove once released
+# together with the record status fix, whose upstream PR is not yet filed)
 - name: Pull the Frigate image
   community.docker.docker_image_pull:
     name: "{{ homeautomation_frigate_docker_image }}"
@@ -48,7 +53,7 @@
       be read, so the record watchdog patch is not mounted.{% else %}The Frigate image is not
       {{ homeautomation_frigate_record_watchdog_patch_version }}, so the record watchdog patch
       is not mounted. Once a release carries
-      https://github.com/blakeblackshear/frigate/pull/24420, delete
+      https://github.com/blakeblackshear/frigate/pull/24420 and the record status fix, delete
       tasks/patch_frigate_record_watchdog.yml and files/frigate/.{% endif %}
   when: not homeautomation_frigate_record_watchdog_patched | bool
   become: false

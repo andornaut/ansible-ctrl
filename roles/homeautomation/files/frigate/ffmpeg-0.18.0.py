@@ -179,6 +179,7 @@ class CameraWatchdog(threading.Thread):
         self._last_detect_status: str | None = None
         self._last_record_status: str | None = None
         self._last_status_update_time: float = 0.0
+        self._last_record_status_update_time: float = 0.0
 
     def _send_detect_status(self, status: str, now: float) -> None:
         """Send detect status only if changed or retry_interval has elapsed."""
@@ -194,11 +195,11 @@ class CameraWatchdog(threading.Thread):
         """Send record status only if changed or retry_interval has elapsed."""
         if (
             status != self._last_record_status
-            or (now - self._last_status_update_time) >= self.sleeptime
+            or (now - self._last_record_status_update_time) >= self.sleeptime
         ):
             self.requestor.send_data(f"{self.config.name}/status/record", status)
             self._last_record_status = status
-            self._last_status_update_time = now
+            self._last_record_status_update_time = now
 
     def _check_config_updates(self) -> dict[str, list[str]]:
         """Check for config updates and return the update dict."""
@@ -472,6 +473,7 @@ class CameraWatchdog(threading.Thread):
                             self.requestor.send_data(
                                 f"{self.config.name}/status/{role.value}", "offline"
                             )
+                        self._last_record_status = "offline"
 
                         # Give the new process time to write a first segment
                         # before it can be judged stale again.
@@ -479,7 +481,10 @@ class CameraWatchdog(threading.Thread):
                         last_restart_time = now
 
                         continue
-                    elif not stale:
+                    elif not stale and not in_grace_period:
+                        # Not before the grace period ends: a restarted process
+                        # has written nothing yet, and "online" here would end
+                        # every outage after one restart.
                         self._send_record_status("online", now)
                         p["latest_segment_time"] = self.latest_cache_segment_time
 
@@ -490,6 +495,8 @@ class CameraWatchdog(threading.Thread):
                     self.requestor.send_data(
                         f"{self.config.name}/status/{role.value}", "offline"
                     )
+                if "record" in p["roles"]:
+                    self._last_record_status = "offline"
 
                 p["logpipe"].dump()
                 p["process"] = start_or_restart_ffmpeg(
