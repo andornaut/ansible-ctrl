@@ -3,12 +3,13 @@
 # with no backoff and no grace period, so the new ffmpeg never lives long enough to write a
 # segment and every restart reopens the camera's stream. The patched module grants the
 # 90 second enable-time grace period after each restart, so a stale stream restarts about
-# every 90 seconds.
+# every 90 seconds, and paces a crashed record process's restart by the retry interval with
+# the same grace period.
 # It also keeps the record status truthful. Unpatched, a restart publishes "offline" past the
 # status cache, which still reads "online", so recovery is never published and the status
 # stays "offline" until Frigate restarts; the patched module records it, publishes "online"
 # only once the grace period is over, and resends it on its own timer rather than detect's.
-# It replaces the whole module, so it is mounted only over the release it was cut from.
+# It replaces the whole module, so the play fails on any other release.
 # WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 (remove once released
 # together with the record status fix, whose upstream PR is not yet filed)
 - name: Pull the Frigate image
@@ -34,6 +35,25 @@
   check_mode: false
   become: true
 
+# Unmounted, the record status sticks "offline" after every record restart and the watchdog
+# restarts a stale stream every second, with nothing to report either. --check does not pull,
+# so there an unreadable version is no failure.
+- name: Require the Frigate image to be the release the record watchdog patch was cut from
+  ansible.builtin.assert:
+    that: homeautomation_frigate_record_watchdog_patched | bool
+    fail_msg: >-
+      {% if homeautomation_frigate_version_py.rc != 0 %}The Frigate image's version could not be
+      read, so the record watchdog patch cannot be applied.{% else %}The Frigate image is not
+      {{ homeautomation_frigate_record_watchdog_patch_version }}, and the record watchdog patch
+      replaces the whole module, so it cannot be applied. Pin the image to that release, or cut
+      files/frigate/ffmpeg-<version>.py from the new one and set
+      homeautomation_frigate_record_watchdog_patch_version. Once a release carries
+      https://github.com/blakeblackshear/frigate/pull/24420 and the record status fix, delete
+      tasks/patch_frigate_record_watchdog.yml and files/frigate/ instead.{% endif %}
+    quiet: true
+  when: not (ansible_check_mode and homeautomation_frigate_version_py.rc != 0)
+  become: false
+
 - name: Install the patched Frigate record watchdog
   ansible.builtin.copy:
     src: "frigate/ffmpeg-{{ homeautomation_frigate_record_watchdog_patch_version }}.py"
@@ -45,15 +65,3 @@
   # The copy replaces the inode, and a running bind mount keeps serving the old one.
   notify: Restart frigate
   become: true
-
-- name: Report that the Frigate record watchdog patch no longer applies
-  ansible.builtin.debug:
-    msg: >-
-      {% if homeautomation_frigate_version_py.rc != 0 %}The Frigate image's version could not
-      be read, so the record watchdog patch is not mounted.{% else %}The Frigate image is not
-      {{ homeautomation_frigate_record_watchdog_patch_version }}, so the record watchdog patch
-      is not mounted. Once a release carries
-      https://github.com/blakeblackshear/frigate/pull/24420 and the record status fix, delete
-      tasks/patch_frigate_record_watchdog.yml and files/frigate/.{% endif %}
-  when: not homeautomation_frigate_record_watchdog_patched | bool
-  become: false
