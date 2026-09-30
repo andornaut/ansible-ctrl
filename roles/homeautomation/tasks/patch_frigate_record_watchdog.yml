@@ -10,8 +10,8 @@
 # stays "offline" until Frigate restarts; the patched module records it, publishes "online"
 # only once the grace period is over, and resends it on its own timer rather than detect's.
 # It replaces the whole module, so the play fails on any other release.
-# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 (remove once released
-# together with the record status fix, whose upstream PR is not yet filed)
+# WORKAROUND: https://github.com/blakeblackshear/frigate/pull/24420 and
+# https://github.com/blakeblackshear/frigate/pull/24522 (remove once a release carries both)
 - name: Pull the Frigate image
   community.docker.docker_image_pull:
     name: "{{ homeautomation_frigate_docker_image }}"
@@ -48,7 +48,8 @@
       replaces the whole module, so it cannot be applied. Pin the image to that release, or cut
       files/frigate/ffmpeg-<version>.py from the new one and set
       homeautomation_frigate_record_watchdog_patch_version. Once a release carries
-      https://github.com/blakeblackshear/frigate/pull/24420 and the record status fix, delete
+      https://github.com/blakeblackshear/frigate/pull/24420 and
+      https://github.com/blakeblackshear/frigate/pull/24522, delete
       tasks/patch_frigate_record_watchdog.yml and files/frigate/ instead.{% endif %}
     quiet: true
   when: not (ansible_check_mode and homeautomation_frigate_version_py.rc != 0)
