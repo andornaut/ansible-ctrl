@@ -251,3 +251,26 @@
             msg: >-
               WARNING: {{ ansible_failed_result.msg | default('the icon could not be fetched') }}.
               The desktop entry is installed and shows a generic icon until a re-run fetches it.
+
+# Independent of the entry above: Battle.net may hold only versions other than retail.
+# Not fatal, like the icon: Wago being unreachable leaves the installed releases in place.
+- name: Install the World of Warcraft addons
+  when: games_lutris_wow_prefix | length > 0 and games_lutris_wow_addons | length > 0
+  block:
+    - name: Install each World of Warcraft addon's newest release
+      ansible.builtin.command:
+        argv: [python3, "-"]
+        stdin: "{{ lookup('ansible.builtin.file', 'wow-install-addons.py') }}"
+      environment:
+        WOW_ADDONS_CONFIG: >-
+          {{ {'wow_dir': games_lutris_wow_prefix ~ '/drive_c/Program Files (x86)/World of Warcraft',
+              'flavors': games_lutris_wow_flavors,
+              'addons': games_lutris_wow_addons} | to_json }}
+      register: games_lutris_wow_addons_install
+      changed_when: games_lutris_wow_addons_install.stdout | length > 0
+  rescue:
+    - name: Warn when the World of Warcraft addons could not be installed
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ ansible_failed_result.stderr | default(ansible_failed_result.msg, true) }}.
+          Installed addons are unchanged until a re-run succeeds.

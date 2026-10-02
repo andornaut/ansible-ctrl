@@ -67,6 +67,15 @@ games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
 games_lutris_wow_slug: world-of-warcraft
 games_lutris_wow_source_slug: battlenet
 
+# The game version directories under World of Warcraft/, each to the name Wago publishes that
+# version's addon releases under. games_lutris_wow_addons installs into each one present.
+games_lutris_wow_flavors:
+  _retail_: retail
+  _classic_: mop
+  _classic_era_: classic
+  _anniversary_: bc
+  _classic_beta_: forever
+
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.
 games_retroarch_app_id: org.libretro.RetroArch

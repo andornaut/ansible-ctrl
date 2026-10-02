@@ -77,6 +77,12 @@ games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 # tasks/lutris.yml. No override needed: the flatpak already has `home` access.
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
+# World of Warcraft addons, by Wago slug (addons.wago.io/addons/<slug>), kept at their newest
+# release in every game version Battle.net's prefix holds and the addon publishes for. An addon
+# dropped from the list stays installed: remove it in game or by hand.
+games_lutris_wow_addons:
+  - baganator
+
 # How often tasks/heroic.yml's timer exercises the Epic and GOG refresh tokens, as an
 # OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh lands
 # before the machine suspends.

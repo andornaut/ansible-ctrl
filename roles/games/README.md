@@ -12,17 +12,17 @@ make games -- --tags retroarch
 
 ## Tags
 
-| Tag         | Description                                                                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| app-entries | Desktop entry overrides from `games_app_entry_overrides`, as in the [desktop](../desktop/README.md) role                                      |
-| apt         | Native gaming packages                                                                                                                        |
-| bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                                   |
-| flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                                       |
-| gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                                    |
-| heroic      | Heroic install path and the store token-refresh timer                                                                                         |
-| lutris      | Lutris default install path, gamescope settings, `DXVK_HUD=0` for every game, the launcher and the World of Warcraft entry: [Lutris](#lutris) |
-| retroarch   | Libretro cores, BIOS, settings, per-core overrides, playlists and thumbnails: [RetroArch](#retroarch)                                         |
-| retroid     | `syncretroid`, the handheld sync command, installed on the controller: [Handheld sync](#handheld-sync-retroid-pocket-flip-2)                  |
+| Tag         | Description                                                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| app-entries | Desktop entry overrides from `games_app_entry_overrides`, as in the [desktop](../desktop/README.md) role                                                  |
+| apt         | Native gaming packages                                                                                                                                    |
+| bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                                               |
+| flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                                                   |
+| gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                                                |
+| heroic      | Heroic install path and the store token-refresh timer                                                                                                     |
+| lutris      | Lutris default install path, gamescope settings, `DXVK_HUD=0` for every game, the launcher, the World of Warcraft entry and its addons: [Lutris](#lutris) |
+| retroarch   | Libretro cores, BIOS, settings, per-core overrides, playlists and thumbnails: [RetroArch](#retroarch)                                                     |
+| retroid     | `syncretroid`, the handheld sync command, installed on the controller: [Handheld sync](#handheld-sync-retroid-pocket-flip-2)                              |
 
 ## Variables
 
@@ -140,6 +140,21 @@ start.
 | Second click                         | Reports the game as already running, or waits up to thirty seconds for a launch in progress                                                                                                              |
 | Slow first launch                    | The first launch after a GE-Proton release downloads it first; the banner says so                                                                                                                        |
 | Log                                  | `~/.local/state/lutris-launch-game/<slug>.log`. Read it first when a launch does nothing                                                                                                                 |
+
+### World of Warcraft addons
+
+The `lutris` tag installs each addon in `games_lutris_wow_addons` into every game version directory Battle.net's
+prefix holds (`games_lutris_wow_flavors` in [vars/main.yml](./vars/main.yml)), at the newest release Wago publishes for
+that version.
+
+| Constraint         | Detail                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Source             | The addon's Wago page (`addons.wago.io/addons/<slug>`). Wago's API needs a key and CurseForge refuses non-browser clients       |
+| Updates            | Each run compares the release against `Interface/AddOns/.wago-<slug>.json` and replaces the addon's directories when it changed |
+| Saved variables    | Kept: they live under `WTF/`, which is never touched                                                                            |
+| Nothing is removed | An addon dropped from the list stays installed                                                                                  |
+| Unreachable        | A warning; installed releases stay as they are                                                                                  |
+| New game version   | A directory missing from `games_lutris_wow_flavors` gets no addons                                                              |
 
 ## Handheld sync (Retroid Pocket Flip 2)
 
