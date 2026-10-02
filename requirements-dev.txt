@@ -1,7 +1,7 @@
 # The lint gate's own tooling, pinned so a release upstream cannot turn a check
 # red without a commit here. Dependabot proposes the bump through the pip
 # ecosystem.
-ansible-lint==26.8.0
+ansible-lint==26.9.0
 # A dependency of ansible-lint rather than a tool installed on its own, pinned
 # because the config check runs its ansible-config, and ansible-lint runs its
 # ansible-playbook: without this a core release moves under the gate while
