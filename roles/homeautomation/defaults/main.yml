@@ -179,10 +179,6 @@ homeautomation_llamacpp_model_presets:
     top-p: 0.95
     top-k: 20
     min-p: 0.0
-  # Assist and Frigate's review descriptions. 32k fits Assist's exposed-entity prompt, and
-  # against the inherited 128k leaves VRAM to the desktop sharing the card.
-  gemma-4-E4B-it-Q8_0:
-    c: 32768
 homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
   - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-IQ3_XXS.gguf
