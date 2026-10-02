@@ -179,9 +179,19 @@ homeautomation_llamacpp_model_presets:
     top-p: 0.95
     top-k: 20
     min-p: 0.0
+  # Assist and Frigate's review descriptions. 32k fits Assist's exposed-entity prompt, and
+  # against the inherited 128k leaves VRAM to the desktop sharing the card.
+  gemma-4-E4B-it-Q8_0:
+    c: 32768
 homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
   - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-IQ3_XXS.gguf
+# Vision projectors, keyed by model id. Each downloads to <model id>.mmproj.gguf beside
+# the models, which the router skips as a model of its own, and is named in that model's
+# preset section. Upstream names every projector mmproj-F16.gguf, so the file takes the
+# model id instead.
+homeautomation_llamacpp_mmprojs:
+  gemma-4-E4B-it-Q8_0: https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/mmproj-F16.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
   # The model presets, mounted read-only. Its own directory rather than a file, which

@@ -77,6 +77,26 @@
     - (homeautomation_llamacpp_models | length) > 0
     - not item.stat.exists
 
+- name: Check which llama.cpp vision projectors already exist
+  ansible.builtin.stat:
+    path: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item.key }}.mmproj.gguf"
+  become: true
+  loop: "{{ homeautomation_llamacpp_mmprojs | dict2items }}"
+  register: homeautomation_llamacpp_mmproj_stats
+
+- name: Download llama.cpp vision projectors
+  ansible.builtin.get_url:
+    url: "{{ item.item.value }}"
+    dest: "{{ homeautomation_llamacpp_required_volumes.models }}/{{ item.item.key }}.mmproj.gguf"
+    mode: "0644"
+  register: homeautomation_llamacpp_mmprojs_download
+  retries: 3
+  delay: 5
+  until: homeautomation_llamacpp_mmprojs_download is succeeded
+  become: true
+  loop: "{{ homeautomation_llamacpp_mmproj_stats.results }}"
+  when: not item.stat.exists
+
 - name: Start LLM Docker containers
   become: true
   vars:

@@ -41,21 +41,21 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 
 See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per host:
 
-| Variable                                                   | Purpose                                                                                                                                                                                          |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `homeautomation_install_*`                                 | One flag per optional service                                                                                                                                                                    |
-| `homeautomation_*_uid`                                     | Fixed uid of each container's service account, distinct across the role                                                                                                                          |
-| `homeautomation_*_port`                                    | Host port: the published port of a bridge container, or the listen port of a host-network one. See [Container ports](#container-ports)                                                           |
-| `homeautomation_*_bind*`                                   | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)                                                                                                |
-| `homeautomation_hamcp_instances`                           | One entry per [ha-mcp](#ha-mcp) instance                                                                                                                                                         |
-| `homeautomation_otbr_device`, `_backbone_if`               | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted                                                                                                    |
-| `homeautomation_homeassistant_devices`                     | Devices passed to the Home Assistant container. See [Notes](#notes)                                                                                                                              |
-| `homeautomation_adb_auto_enable_hosts`                     | The Android TVs that receive adb-auto-enable                                                                                                                                                     |
-| `homeautomation_llamacpp_models`, `_env`, `_model_presets` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                                                                                 |
-| `homeautomation_homeassistant_extra_module_urls`           | Frontend modules to load from `www/`. See [Notes](#notes)                                                                                                                                        |
-| `homeautomation_router_kva_sample_*`                       | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                                                                                                                  |
-| `homeautomation_esphome_username`, `_password`             | The ESPHome dashboard login. Asserted set unless `homeautomation_esphome_allow_unauthenticated`                                                                                                  |
-| `homeautomation_homeassistant_patch_aioruckus_head`        | Where the Ruckus integration is used: patches aioruckus to send GET instead of HEAD, which aiohttp 3.14+ rejects. WORKAROUND for [aioruckus#14](https://github.com/ms264556/aioruckus/issues/14) |
+| Variable                                                               | Purpose                                                                                                                                                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `homeautomation_install_*`                                             | One flag per optional service                                                                                                                                                                    |
+| `homeautomation_*_uid`                                                 | Fixed uid of each container's service account, distinct across the role                                                                                                                          |
+| `homeautomation_*_port`                                                | Host port: the published port of a bridge container, or the listen port of a host-network one. See [Container ports](#container-ports)                                                           |
+| `homeautomation_*_bind*`                                               | Listen addresses of the loopback-bound listeners. See [Container hardening](#container-hardening)                                                                                                |
+| `homeautomation_hamcp_instances`                                       | One entry per [ha-mcp](#ha-mcp) instance                                                                                                                                                         |
+| `homeautomation_otbr_device`, `_backbone_if`                           | With Matter: the Thread radio, and the LAN interface (default: the default route's). Asserted                                                                                                    |
+| `homeautomation_homeassistant_devices`                                 | Devices passed to the Home Assistant container. See [Notes](#notes)                                                                                                                              |
+| `homeautomation_adb_auto_enable_hosts`                                 | The Android TVs that receive adb-auto-enable                                                                                                                                                     |
+| `homeautomation_llamacpp_models`, `_env`, `_model_presets`, `_mmprojs` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                                                                                 |
+| `homeautomation_homeassistant_extra_module_urls`                       | Frontend modules to load from `www/`. See [Notes](#notes)                                                                                                                                        |
+| `homeautomation_router_kva_sample_*`                                   | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                                                                                                                  |
+| `homeautomation_esphome_username`, `_password`                         | The ESPHome dashboard login. Asserted set unless `homeautomation_esphome_allow_unauthenticated`                                                                                                  |
+| `homeautomation_homeassistant_patch_aioruckus_head`                    | Where the Ruckus integration is used: patches aioruckus to send GET instead of HEAD, which aiohttp 3.14+ rejects. WORKAROUND for [aioruckus#14](https://github.com/ms264556/aioruckus/issues/14) |
 
 ## Installed files
 
@@ -127,6 +127,7 @@ Each model runs in its own `llama-server` child, which defaults to a 4096-token 
 | --------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `homeautomation_llamacpp_env`           | every model | `LLAMA_ARG_CTX_SIZE` (per-request context), `LLAMA_ARG_N_PARALLEL: "1"` (one slot) and `LLAMA_ARG_MODELS_MAX: "1"` (models resident at once) |
 | `homeautomation_llamacpp_model_presets` | one model   | Any `llama-server` long option. A section name must match the model id, which is the file name                                               |
+| `homeautomation_llamacpp_mmprojs`       | one model   | A vision projector URL per model id, downloaded as `<model id>.mmproj.gguf` and named as that model's `mmproj`                               |
 
 | Constraint             | Detail                                                                                                                                                               |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -144,6 +145,12 @@ Settings > Devices & services, URL `http://llamacpp.internal:8080/v1`, the trail
 the models directory is listed, so several agents can run different models. The role deletes no model: one dropped
 from `homeautomation_llamacpp_models` stays listed until its file is removed by hand. An agent sees only entities
 exposed to Assist, and does not fire [sentence triggers](https://www.home-assistant.io/docs/automation/trigger/#sentence-trigger).
+
+### Frigate descriptions
+
+Frigate's [GenAI](https://docs.frigate.video/configuration/genai/config) is set in Frigate's own config, not by this
+role: provider `llamacpp`, base URL `http://llamacpp.internal:8080`, model `gemma-4-E4B-it-Q8_0`. The model needs its
+projector in `homeautomation_llamacpp_mmprojs`; without one, llama.cpp rejects every image.
 
 ## Matter and Thread
 

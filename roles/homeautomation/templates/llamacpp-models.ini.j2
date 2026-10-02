@@ -5,10 +5,14 @@
 ; name without its leading dashes. A section applies to one model, so what it sets
 ; wins over the environment the router hands every child.
 version = 1
-{% for section, options in homeautomation_llamacpp_model_presets.items() %}
+{% for section in (homeautomation_llamacpp_model_presets.keys() | list + homeautomation_llamacpp_mmprojs.keys() | list) | unique %}
+{% set options = homeautomation_llamacpp_model_presets.get(section, {}) %}
 
 [{{ section }}]
 {% for option, value in options.items() %}
 {{ option }} = {{ value | lower if value is boolean else value }}
 {% endfor %}
+{% if section in homeautomation_llamacpp_mmprojs %}
+mmproj = /models/{{ section }}.mmproj.gguf
+{% endif %}
 {% endfor %}
