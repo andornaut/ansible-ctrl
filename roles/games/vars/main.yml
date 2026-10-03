@@ -578,6 +578,11 @@ games_retroarch_controllers:
 games_flatpak_overrides:
   default:
     - --env=XCURSOR_THEME={{ games_cursor_theme }}
+  com.discordapp.Discord:
+    # WORKAROUND: the renderer crashes a few seconds after the camera starts, once the voice
+    # engine opens VA-API on radeonsi, and Discord reloads the window. Without a driver it
+    # encodes and decodes video in software. No upstream issue filed.
+    - --env=LIBVA_DRIVER_NAME=none
   com.heroicgameslauncher.hgl:
     # The game install and wine-prefix location. Without it Heroic cannot stat
     # installed games and reports them unavailable.
