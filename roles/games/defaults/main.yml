@@ -81,7 +81,12 @@ games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 # release in every game version Battle.net's prefix holds and the addon publishes for. An addon
 # dropped from the list stays installed: remove it in game or by hand.
 games_lutris_wow_addons:
+  - auctionator
   - baganator
+  - platynator
+  - plumber
+  # Baganator refuses to start without it, though its TOC lists it as optional.
+  - syndicator
 
 # How often tasks/heroic.yml's timer exercises the Epic and GOG refresh tokens, as an
 # OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh lands
