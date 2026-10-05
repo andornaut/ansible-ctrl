@@ -548,7 +548,7 @@ def run(playbook: str, args: list[str]) -> int:
     status = run_child(argv)
     # Said again, the first telling having scrolled away above the playbook's output.
     if message:
-        say(f"{message}\n{playbook}.yml was not applied to the hosts named above.")
+        say(message)
     return exit_status(status, bool(message))
 
 
