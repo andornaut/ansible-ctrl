@@ -1,7 +1,6 @@
 import contextlib
 import importlib.util
 import io
-import json
 import shlex
 import sys
 import tempfile
@@ -40,6 +39,9 @@ class FakeDevice:
         self.reads = []
         self.removed = []
         self.rmdirs = []
+        # Every write, in order, so a test can check what ran before what.
+        self.ops = []
+        self.pushed = {}
 
     def list_dir(self, path):
         return self.listing.get(path, [])
@@ -58,6 +60,20 @@ class FakeDevice:
 
     def rm(self, path):
         self.removed.append(path)
+        self.ops.append(("rm", path))
+
+    def mkdirs(self, *paths):
+        self.ops.append(("mkdirs", *paths))
+
+    def push(self, local, remote):
+        self.ops.append(("push", remote))
+
+    def push_text(self, text, remote):
+        self.pushed[remote] = text
+        self.ops.append(("push_text", remote))
+
+    def rmdir_empty(self, root):
+        self.ops.append(("rmdir_empty", root))
 
     def rmdir_if_empty(self, path):
         self.rmdirs.append(path)
@@ -90,37 +106,155 @@ class MergeCfg(unittest.TestCase):
 
 
 class StalePlaylists(unittest.TestCase):
-    def stale(self, files, systems=()):
-        listing = {DIRS["playlists"]: [name.rsplit("/", 1)[-1] for name in files]}
-        device = FakeDevice(files=files, listing=listing)
-        return sync.stale_playlists(device, DIRS, set(systems))
+    def test_a_listed_playlist_no_longer_generated_is_stale(self):
+        previous = "Dropped.lpl\nKept.lpl\n"
+        self.assertEqual(sync.stale_playlists(previous, ["Kept.lpl", "New.lpl"]), ["Dropped.lpl"])
+
+    def test_without_a_manifest_nothing_is_stale(self):
+        self.assertEqual(sync.stale_playlists(None, ["Kept.lpl"]), [])
+
+    def test_only_bare_lpl_names_count(self):
+        previous = "../escape.lpl\nsub/dir.lpl\nnotes.txt\n\nGone.lpl\n"
+        self.assertEqual(sync.stale_playlists(previous, []), ["Gone.lpl"])
+
+
+class OverrideConfigDir(unittest.TestCase):
+    CFG = "/data/files/retroarch.cfg"
+
+    def test_the_device_setting_wins(self):
+        cfg = 'rgui_config_directory = "/sdcard/RetroArch/config"\n'
+        self.assertEqual(sync.override_config_dir(cfg, self.CFG), "/sdcard/RetroArch/config")
+
+    def test_default_or_empty_falls_back_beside_retroarch_cfg(self):
+        for value in ('"default"', '""'):
+            with self.subTest(value=value):
+                cfg = f"rgui_config_directory = {value}\n"
+                self.assertEqual(sync.override_config_dir(cfg, self.CFG), "/data/files/config")
+
+
+class SetAltEmulator(unittest.TestCase):
+    BLOCK = "<alternativeEmulator>\n\t<label>Core</label>\n</alternativeEmulator>\n"
+
+    def test_an_existing_block_is_replaced(self):
+        existing = (
+            '<?xml version="1.0"?>\n<alternativeEmulator>\n\t<label>Old</label>\n</alternativeEmulator>\n<gameList />\n'
+        )
+        self.assertEqual(sync.set_alt_emulator(existing, "Core"), f'<?xml version="1.0"?>\n{self.BLOCK}<gameList />\n')
+
+    def test_inserted_after_the_declaration(self):
+        existing = '<?xml version="1.0"?>\n<gameList />\n'
+        self.assertEqual(sync.set_alt_emulator(existing, "Core"), f'<?xml version="1.0"?>\n{self.BLOCK}<gameList />\n')
+
+    def test_a_missing_gamelist_is_created(self):
+        self.assertEqual(sync.set_alt_emulator(None, "Core"), f'<?xml version="1.0"?>\n{self.BLOCK}<gameList />\n')
+
+    def test_an_already_pinned_gamelist_comes_back_identical(self):
+        existing = sync.set_alt_emulator('<?xml version="1.0"?>\n<gameList />\n', "Core")
+        self.assertEqual(sync.set_alt_emulator(existing, "Core"), existing)
+
+
+class ConfigureEsdeCores(unittest.TestCase):
+    def test_only_a_gamelist_that_changes_is_written(self):
+        pinned = sync.set_alt_emulator(None, "Core")
+        device = FakeDevice(files={"/g/a/gamelist.xml": pinned, "/g/b/gamelist.xml": pinned})
+        with contextlib.redirect_stdout(io.StringIO()):
+            sync.configure_esde_cores(device, True, "/g", {"a": "Core", "b": "Other"})
+        self.assertEqual(list(device.pushed), ["/g/b/gamelist.xml"])
+
+
+class Decode(unittest.TestCase):
+    def test_bytes_that_are_not_utf8_round_trip(self):
+        raw = b"caf\xe9\r\n"
+        text = sync.decode(raw)
+        self.assertTrue(text.endswith("\r\n"))
+        self.assertEqual(text.encode("utf-8", "surrogateescape"), raw)
+
+
+class MirrorTrees(unittest.TestCase):
+    """mirror_roms and sync_tree against a real local tree and a FakeDevice listing."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.lib = Path(self.tmp.name)
+
+    def write(self, rel, data=b"abc"):
+        path = self.lib / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
 
     @staticmethod
-    def playlist(scanned):
-        return json.dumps({"scan_content_dir": scanned})
+    def listing(root, files):
+        return "".join(f"{size}\t{root}/{rel}\n" for rel, size in files.items())
 
-    def test_only_a_dropped_system_scanned_inside_the_rom_dir_is_stale(self):
-        files = {
-            "/sd/playlists/Dropped.lpl": self.playlist("/sd/ROMS/dropped"),
-            "/sd/playlists/Root.lpl": self.playlist("/sd/ROMS"),
-            "/sd/playlists/Kept.lpl": self.playlist("/sd/ROMS/kept"),
-            "/sd/playlists/Sibling.lpl": self.playlist("/sd/ROMS_BACKUP/x"),
-            "/sd/playlists/Handmade.lpl": json.dumps({"items": []}),
-            "/sd/playlists/Garbled.lpl": "{not json",
-            "/sd/playlists/notes.txt": self.playlist("/sd/ROMS/x"),
-        }
-        self.assertEqual(self.stale(files, systems={"Kept"}), ["Dropped.lpl", "Root.lpl"])
+    def mirror(self, device):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            sync.mirror_roms(device, True, self.lib, "/sd/ROMS", {"Lib": "dev"})
 
-    def test_a_playlist_of_another_shape_is_skipped(self):
-        files = {
-            "/sd/playlists/Array.lpl": json.dumps(["/sd/ROMS/x"]),
-            "/sd/playlists/Number.lpl": json.dumps({"scan_content_dir": 3}),
-        }
-        self.assertEqual(self.stale(files), [])
+    def test_device_files_the_library_dropped_are_pruned_and_preserved_ones_kept(self):
+        self.write("Lib/keep.rom")
+        device = FakeDevice(
+            find_output=self.listing("/sd/ROMS/dev", {"keep.rom": 3, "dropped.rom": 3, "systeminfo.txt": 9})
+        )
+        self.mirror(device)
+        self.assertEqual(device.removed, ["/sd/ROMS/dev/dropped.rom"])
 
-    def test_a_playlist_gone_between_listing_and_read_is_skipped(self):
-        device = FakeDevice(listing={"/sd/playlists": ["Gone.lpl"]})
-        self.assertEqual(sync.stale_playlists(device, DIRS, set()), [])
+    def test_an_unreadable_library_file_stays_on_the_device_and_fails_the_system(self):
+        self.write("Lib/keep.rom")
+        (self.lib / "Lib/broken.rom").symlink_to(self.lib / "missing")
+        device = FakeDevice(find_output=self.listing("/sd/ROMS/dev", {"keep.rom": 3, "broken.rom": 3}))
+        with self.assertRaises(SystemExit):
+            self.mirror(device)
+        self.assertEqual(device.removed, [])
+
+    def test_an_empty_library_directory_prunes_nothing(self):
+        (self.lib / "Lib").mkdir()
+        device = FakeDevice(find_output=self.listing("/sd/ROMS/dev", {"a.rom": 3}))
+        with self.assertRaises(SystemExit):
+            self.mirror(device)
+        self.assertEqual(device.removed, [])
+
+    def test_emptied_directories_go_before_any_push(self):
+        self.write("Lib/Game (USA).game/disc1.bin")
+        device = FakeDevice(find_output=self.listing("/sd/ROMS/dev", {"Game (usa).game/disc1.bin": 3}))
+        self.mirror(device)
+        kinds = [op[0] for op in device.ops]
+        self.assertLess(kinds.index("rmdir_empty"), kinds.index("push"))
+        self.assertEqual(device.removed, ["/sd/ROMS/dev/Game (usa).game/disc1.bin"])
+
+    def test_only_missing_or_resized_files_are_pushed(self):
+        self.write("Lib/same.rom")
+        self.write("Lib/resized.rom", b"abcd")
+        self.write("Lib/new.rom")
+        device = FakeDevice(find_output=self.listing("/sd/ROMS/dev", {"same.rom": 3, "resized.rom": 3}))
+        self.mirror(device)
+        pushed = [op[1] for op in device.ops if op[0] == "push"]
+        self.assertEqual(pushed, ["/sd/ROMS/dev/new.rom", "/sd/ROMS/dev/resized.rom"])
+
+    def sync_tree(self, device, prune):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            sync.sync_tree(device, True, self.lib, "/sd/thumbs", prune)
+
+    def test_sync_tree_without_prune_never_deletes(self):
+        self.write("a.png")
+        device = FakeDevice(find_output=self.listing("/sd/thumbs", {"a.png": 3, "extra.png": 3}))
+        self.sync_tree(device, prune=False)
+        self.assertEqual(device.removed, [])
+        self.assertNotIn("rmdir_empty", [op[0] for op in device.ops])
+
+    def test_sync_tree_prune_keeps_unreadable_files_and_fails(self):
+        self.write("a.png")
+        (self.lib / "broken.png").symlink_to(self.lib / "missing")
+        device = FakeDevice(find_output=self.listing("/sd/thumbs", {"a.png": 3, "broken.png": 3, "gone.png": 3}))
+        with self.assertRaises(SystemExit):
+            self.sync_tree(device, prune=True)
+        self.assertEqual(device.removed, ["/sd/thumbs/gone.png"])
+
+    def test_sync_tree_refuses_to_prune_against_an_empty_source(self):
+        device = FakeDevice(find_output=self.listing("/sd/thumbs", {"a.png": 3}))
+        with self.assertRaises(SystemExit):
+            self.sync_tree(device, prune=True)
+        self.assertEqual(device.removed, [])
 
 
 class DeviceFirstLines(unittest.TestCase):

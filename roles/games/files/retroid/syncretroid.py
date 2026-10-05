@@ -19,8 +19,9 @@ What it owns, mirroring the role's ownership semantics:
     removed when its first line is the `# Ansible managed` header they are written with.
     Anything without the header, such as the per-game and per-content-directory
     overrides RetroArch saves, is left alone.
-  * playlists: regenerated with device paths, and stale managed .lpl removed.
-    Hand-built playlists are left alone.
+  * playlists: regenerated with device paths. Each run leaves the names it generated in
+    .syncretroid-playlists beside them, and a playlist the previous run listed and this one
+    does not generate is removed. Hand-built playlists are never listed, so never removed.
   * BIOS: additive push from the library, no deletes.
   * shaders: the configured preset's file closure, extracted from the libretro slang
     pack and pushed additively, plus a per-core auto preset for every core whose
@@ -180,20 +181,27 @@ class Device:
         return ["adb"] + (["-s", self.serial] if self.serial else [])
 
     def _run(self, args, check=True, capture=True):
+        # Bytes, decoded here: a name that is not UTF-8 survives as surrogates (and round-trips
+        # back to adb as the same bytes) instead of raising, and no newline translation turns a
+        # lone \r into a line break.
         try:
-            return subprocess.run(
+            result = subprocess.run(
                 self._base() + args,
                 check=check,
-                text=True,
                 stdout=subprocess.PIPE if capture else None,
                 stderr=subprocess.PIPE if capture else None,
             )
+        except subprocess.CalledProcessError as error:
+            error.stdout, error.stderr = decode(error.stdout), decode(error.stderr)
+            raise
         except FileNotFoundError:
             # Only in a dry run, which skips require_adb(): reads still shell out, and
             # report the device absent rather than raising.
             if check:
                 raise
             return subprocess.CompletedProcess(args, 1, "", "")
+        result.stdout, result.stderr = decode(result.stdout), decode(result.stderr)
+        return result
 
     def read_shell(self, command):
         """Run a shell command on the device and return stdout, or "" if it failed or no device (or
@@ -236,7 +244,7 @@ class Device:
 
     def list_dir(self, path):
         out = self.read_shell(f"ls -1 {shq(path)} 2>/dev/null")
-        return [line for line in out.splitlines() if line]
+        return [line for line in out.split("\n") if line]
 
     def pull_text(self, path):
         """Return a device file's contents, or None if it is not there. Exits on a failed read."""
@@ -284,7 +292,7 @@ class Device:
         if self.dry_run:
             print(f"  [dry-run] write {len(text.encode('utf-8'))} bytes -> {remote}")
             return
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", errors="surrogateescape", delete=False) as handle:
             handle.write(text)
             tmp = handle.name
         try:
@@ -333,6 +341,11 @@ class Device:
                     raise
                 print(f"  {description} failed (attempt {attempt}/{attempts}), retrying", file=sys.stderr)
                 self.wait()
+
+
+def decode(data):
+    """adb output as text: UTF-8, with any other byte kept as a surrogate rather than raising."""
+    return data.decode("utf-8", "surrogateescape") if isinstance(data, bytes) else data
 
 
 def shq(path):
@@ -444,7 +457,8 @@ def override_config_dir(existing_cfg, cfg_path):
         match = CFG_LINE.match(line)
         if match and match.group(1) == "rgui_config_directory":
             value = match.group(2).strip().strip('"')
-            if value:
+            # RetroArch writes "default" for a directory key left at its built-in location.
+            if value and value != "default":
                 return value
     return f"{posixpath.dirname(cfg_path)}/config"
 
@@ -703,29 +717,18 @@ def write_core_file(staging_config, library_name, extension, pairs):
 # --------------------------------------------------------------------------- reconcile
 
 
-def stale_playlists(device, dirs, systems):
-    """Device .lpl for a system no longer in the table that we can prove we generated."""
-    stale = []
-    for name in device.list_dir(dirs["playlists"]):
-        if not name.endswith(".lpl") or name[: -len(".lpl")] in systems:
-            continue
-        text = device.pull_text("{}/{}".format(dirs["playlists"], name))
-        if text is None:
-            continue
-        try:
-            playlist = json.loads(text)
-        except ValueError:
-            continue
-        # Not a playlist this script could have written: leave it alone.
-        scanned = playlist.get("scan_content_dir") if isinstance(playlist, dict) else None
-        if not isinstance(scanned, str):
-            continue
-        # Boundary-aware, like the generator's commonpath check: a sibling sharing the prefix
-        # (.../ROMS_BACKUP) is not inside the ROM dir and is not ours to delete.
-        roms = dirs["roms"]
-        if scanned == roms or scanned.startswith(roms + "/"):
-            stale.append(name)
-    return stale
+# Beside the playlists, the names of those the last run generated. RetroArch lists only .lpl.
+PLAYLIST_MANIFEST = ".syncretroid-playlists"
+
+
+def stale_playlists(previous, generated):
+    """The playlists named in the previous run's manifest that this run no longer generates.
+
+    previous is the manifest's text, or None when there is none. Only bare .lpl names count, so a
+    damaged manifest cannot point the removal outside the playlists directory.
+    """
+    listed = {line for line in (previous or "").split("\n") if line.endswith(".lpl") and "/" not in line}
+    return sorted(listed - set(generated))
 
 
 # Upper bound on the quoted paths in one device_first_lines command, well under the device
@@ -790,7 +793,7 @@ def prune_overrides(device, online, config_dir, config_stage):
     out = device.read(f"find {shq(config_dir)} -mindepth 2 -maxdepth 2 -type f \\( {names} \\) 2>/dev/null || true")
     prefix = config_dir.rstrip("/") + "/"
     candidates = [
-        path for path in sorted(out.splitlines()) if path.startswith(prefix) and path[len(prefix) :] not in staged
+        path for path in sorted(out.split("\n")) if path.startswith(prefix) and path[len(prefix) :] not in staged
     ]
     first_lines = device_first_lines(device, candidates)
     for path in candidates:
@@ -828,7 +831,7 @@ def device_file_sizes(device, online, root):
     # failing is left to fail, and it retries rather than reading as an empty directory.
     out = device.read(f"find {shq(root)} -type f -exec stat -c '%s\t%n' {{}} + 2>/dev/null || true")
     sizes = {}
-    for line in out.splitlines():
+    for line in out.split("\n"):
         size, tab, path = line.partition("\t")
         if tab and size.isdigit() and path.startswith(prefix):
             sizes[path[len(prefix) :]] = int(size)
@@ -1075,6 +1078,8 @@ def isolated(failed, name):
 
 
 def main():
+    # Device names arrive with surrogates for bytes that are not UTF-8; print them escaped.
+    sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     # The library mount and the adb serial are site data with no sensible default, so they are inputs:
     # the installed wrapper passes both ahead of "$@", leaving them overridable on the command line.
@@ -1271,11 +1276,14 @@ def main():
         # -- app-private, the Core Updater's to manage.
         section("playlists", "push always + prune")
         with isolated(failed, "playlists"):
+            generated = sorted(path.name for path in playlist_dir.glob("*.lpl"))
+            manifest = "{}/{}".format(dirs["playlists"], PLAYLIST_MANIFEST)
+            previous = device.pull_text(manifest) if online else None
             device.push(f"{playlist_dir}/.", dirs["playlists"])
-            if online:
-                for name in stale_playlists(device, dirs, model["systems"]):
-                    print(f"Removing stale playlist {name}")
-                    device.rm("{}/{}".format(dirs["playlists"], name))
+            for name in stale_playlists(previous, generated):
+                print(f"Removing stale playlist {name}")
+                device.rm("{}/{}".format(dirs["playlists"], name))
+            device.push_text("".join(f"{name}\n" for name in generated), manifest)
 
         if shader_stage.is_dir():
             section("shaders", "push additive")
