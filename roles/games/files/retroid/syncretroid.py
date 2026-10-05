@@ -1029,34 +1029,31 @@ def configure_esde_cores(device, online, gamelists_dir, esde_cores):
 # CLEANUP (added 2026-10-05): the PS2 system and the ARMSX2 and NetherSX2-Turnip find rules once
 # installed by hand under ES-DE/custom_systems. ES-DE bundles them, and a custom copy replaces the
 # bundled one whole. Delete once the handheld has been synced.
-LEGACY_PS2_PACKAGES = ("armsx2", "xyz.aethersx2.tturnip")
+LEGACY_PS2_BLOCKS = (
+    re.compile(
+        r"^[ \t]*<system>(?:(?!</system>).)*?<name>\s*ps2\s*</name>.*?</system>[ \t]*\n?", re.DOTALL | re.MULTILINE
+    ),
+    re.compile(
+        r'^[ \t]*<emulator name="(?:ARMSX2|NETHERSX2-TURNIP)">.*?</emulator>[ \t]*\n?', re.DOTALL | re.MULTILINE
+    ),
+)
 
 
 def strip_legacy_ps2(text):
-    """Return custom_systems XML with the ps2 <system> and the PS2 <emulator> find rules removed.
+    """Return custom_systems XML with the ps2 <system> and the ARMSX2 and NETHERSX2-TURNIP <emulator> find
+    rules cut out as text, so every other line, comments included, stays as it was.
 
-    Returns text unchanged when it holds neither, and None when nothing else is left, so the file
-    goes. Raises ET.ParseError for a file that does not parse, rather than rewrite what it cannot
-    read.
+    Returns text unchanged when it holds none of them, and None when no element is left, so the file
+    goes. Raises ET.ParseError for a file that does not parse, before or after the cut, rather than
+    write what it cannot read.
     """
-    root = ET.fromstring(text)  # noqa: S314
-    doomed = [
-        element
-        for element in root
-        if (element.tag == "system" and (element.findtext("name") or "").strip() == "ps2")
-        or (
-            element.tag == "emulator"
-            and any(package in (entry.text or "") for entry in element.iter("entry") for package in LEGACY_PS2_PACKAGES)
-        )
-    ]
-    if not doomed:
+    ET.fromstring(text)  # noqa: S314
+    updated = text
+    for block in LEGACY_PS2_BLOCKS:
+        updated = block.sub("", updated)
+    if updated == text:
         return text
-    for element in doomed:
-        root.remove(element)
-    if not len(root):
-        return None
-    ET.indent(root, "\t")
-    return '<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+    return updated if len(ET.fromstring(updated)) else None  # noqa: S314
 
 
 def remove_legacy_ps2(device, online, custom_systems_dir):

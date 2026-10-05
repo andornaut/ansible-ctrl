@@ -83,6 +83,8 @@ FIND_RULES = """<?xml version="1.0"?>
 	<emulator name="ARMSX2"><rule type="androidpackage"><entry>com.armsx2/.MainActivity</entry></rule></emulator>
 	<emulator name="NETHERSX2-TURNIP"><rule type="androidpackage">
 		<entry>xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity</entry></rule></emulator>
+	<!-- kept: a PS3 emulator whose activity is named after ARMSX2 -->
+	<emulator name="ARMSX3"><rule type="androidpackage"><entry>com.armsx3/com.armsx2.Main</entry></rule></emulator>
 	<emulator name="CUSTOM"><rule type="androidpackage"><entry>org.example/.Main</entry></rule></emulator>
 </ruleList>
 """
@@ -99,9 +101,20 @@ class StripLegacyPs2(unittest.TestCase):
 
     def test_the_armsx2_and_turnip_rules_go_and_the_others_stay(self):
         out = sync.strip_legacy_ps2(FIND_RULES)
-        self.assertNotIn("armsx2", out)
+        self.assertNotIn('name="ARMSX2"', out)
         self.assertNotIn("tturnip", out)
+        self.assertIn('name="ARMSX3"', out)
         self.assertIn('name="CUSTOM"', out)
+
+    def test_everything_but_the_cut_blocks_is_kept_byte_for_byte(self):
+        out = sync.strip_legacy_ps2(FIND_RULES)
+        cut = ('name="ARMSX2"', "NETHERSX2-TURNIP", "tturnip")
+        kept = [line for line in FIND_RULES.splitlines(keepends=True) if not any(mark in line for mark in cut)]
+        self.assertEqual(out, "".join(kept))
+
+    def test_a_ps2_name_inside_another_system_does_not_pull_it_in(self):
+        out = sync.strip_legacy_ps2(SYSTEMS_PS2_AND_OTHER)
+        self.assertEqual(out.count("<system>"), 1)
 
     def test_a_file_without_ps2_entries_is_returned_unchanged(self):
         text = SYSTEMS_PS2_AND_OTHER.replace("<name>ps2</name>", "<name>psp</name>")
@@ -127,7 +140,7 @@ class RemoveLegacyPs2(unittest.TestCase):
         self.assertEqual(list(device.pushed), [f"{self.DIR}/es_find_rules.xml"])
 
     def test_absent_files_and_files_without_ps2_are_left_alone(self):
-        text = FIND_RULES.replace("armsx2", "other").replace("tturnip", "other")
+        text = FIND_RULES.replace('name="ARMSX2"', 'name="OTHER"').replace("NETHERSX2-TURNIP", "OTHER-TURNIP")
         device = self.run_with({"es_find_rules.xml": text})
         self.assertEqual((device.removed, device.pushed), ([], {}))
 
