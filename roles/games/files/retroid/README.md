@@ -8,8 +8,8 @@ flags, and the module docstring of [`syncretroid.py`](syncretroid.py) what it ow
 ## Prerequisites
 
 Installed on the device by hand: RetroArch, ES-DE, the standalone emulators (Dolphin, ARMSX2, and NetherSX2-Turnip
-as the PS2 fallback), the sdcard folder layout, and the ES-DE custom systems. The ROM library must be mounted on
-this host. `syncretroid` checks the mount, the sdcard, both apps and the adb device before any change.
+as the PS2 fallback), and the sdcard folder layout. The ROM library must be mounted on this host. `syncretroid`
+checks the mount, the sdcard, both apps and the adb device before any change.
 
 ## Verify on the device (once)
 
@@ -73,20 +73,18 @@ adb shell rm -rf "/storage/<uuid>/ROMS/<old>" \
 PS2 runs on ARMSX2 (`com.armsx2`, the sideloaded GitHub build; `come.nanodata.armsx2` is the Play Store build).
 NetherSX2-Turnip (`xyz.aethersx2.tturnip`) is the fallback. The two share no saves or memory cards.
 
-`syncretroid` does not manage the following, and re-copying the custom systems reverts all of it:
+ES-DE's bundled `ps2` system carries both launch labels, `ARMSX2 (Standalone)` and `NetherSX2-Turnip (Standalone)`,
+and its bundled find rules resolve every ARMSX2 build.
 
-| Constraint                                     | Detail                                                                                                                                                                                 |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `es_systems.xml` needs the ARMSX2 command      | `ES-DE/custom_systems/es_systems.xml` replaces ES-DE's `ps2` block, so it must carry an `ARMSX2 (Standalone)` command matching the label in `profile.yml`, or the game does not launch |
-| `es_find_rules.xml` needs the sideloaded build | `ES-DE/custom_systems/es_find_rules.xml` needs an `ARMSX2` entry listing `com.armsx2/.MainActivity`. It replaces the bundled entry, so list the Play package's entries in it too       |
-| NetherSX2-Turnip fallback                      | Its label must match `es_systems.xml`, and its find rule must name `xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity`                                                     |
-| Set in the app by hand                         | The renderer (Vulkan) and the controls                                                                                                                                                 |
-| BIOS                                           | Point ARMSX2's BIOS import at the sdcard `BIOS/pcsx2/bios/` set `syncretroid` pushes                                                                                                   |
+`syncretroid` does not manage the following:
+
+| Constraint             | Detail                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| Set in the app by hand | The renderer (Vulkan) and the controls                                               |
+| BIOS                   | Point ARMSX2's BIOS import at the sdcard `BIOS/pcsx2/bios/` set `syncretroid` pushes |
 
 ```bash
 adb shell pm list packages | grep -E 'armsx2|aethersx2'
-adb shell "grep -A 20 '<name>ps2</name>' /storage/emulated/0/ES-DE/custom_systems/es_systems.xml"
-adb shell "grep -A 9 '<emulator name=\"ARMSX2\">' /storage/emulated/0/ES-DE/custom_systems/es_find_rules.xml"
 adb shell "cmd package query-activities --brief -a android.intent.action.VIEW -d content://x --user 0 \
   | grep -i armsx2"
 ```

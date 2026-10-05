@@ -45,5 +45,5 @@ Run from the controller, where the ROM library is local and the command is on PA
 
 - **Cores are never synced**: storage is mounted `noexec`, so they come from RetroArch's in-app Core Updater and playlists just point `core_path` at the app-private cores dir. That and the other device-side failure modes are in the README's "Gotchas".
 - **ES-DE ROM dirs use North-America short names** (genesis, segacd, sega32xna, tg16, tg-cd, ...), not the library's No-Intro names; the `rom_dir_names` map bridges them.
-- **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match an ES-DE `es_systems.xml` `<command label>` (bundled, or from the installed custom_systems for PS2).
+- **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match a `<command label>` in ES-DE's bundled `es_systems.xml`.
 - Two values `syncretroid` cannot derive and that fail silently: core `library_name`s and the pad rewind/FF indices. See the README's "Verify on the device" section.

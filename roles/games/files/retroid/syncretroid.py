@@ -58,6 +58,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -1025,6 +1026,60 @@ def configure_esde_cores(device, online, gamelists_dir, esde_cores):
         device.push_text(updated, path)
 
 
+# CLEANUP (added 2026-10-05): the PS2 system and the ARMSX2 and NetherSX2-Turnip find rules once
+# installed by hand under ES-DE/custom_systems. ES-DE bundles them, and a custom copy replaces the
+# bundled one whole. Delete once the handheld has been synced.
+LEGACY_PS2_PACKAGES = ("armsx2", "xyz.aethersx2.tturnip")
+
+
+def strip_legacy_ps2(text):
+    """Return custom_systems XML with the ps2 <system> and the PS2 <emulator> find rules removed.
+
+    Returns text unchanged when it holds neither, and None when nothing else is left, so the file
+    goes. Raises ET.ParseError for a file that does not parse, rather than rewrite what it cannot
+    read.
+    """
+    root = ET.fromstring(text)  # noqa: S314
+    doomed = [
+        element
+        for element in root
+        if (element.tag == "system" and (element.findtext("name") or "").strip() == "ps2")
+        or (
+            element.tag == "emulator"
+            and any(package in (entry.text or "") for entry in element.iter("entry") for package in LEGACY_PS2_PACKAGES)
+        )
+    ]
+    if not doomed:
+        return text
+    for element in doomed:
+        root.remove(element)
+    if not len(root):
+        return None
+    ET.indent(root, "\t")
+    return '<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+
+
+def remove_legacy_ps2(device, online, custom_systems_dir):
+    """Remove the legacy PS2 entries from the device's custom_systems files. Offline plans nothing."""
+    if not online:
+        return
+    for name in ("es_systems.xml", "es_find_rules.xml"):
+        path = f"{custom_systems_dir}/{name}"
+        text = device.pull_text(path)
+        if text is None:
+            continue
+        try:
+            updated = strip_legacy_ps2(text)
+        except ET.ParseError as error:
+            sys.exit(f"{path}: {error}; remove its PS2 entries by hand")
+        if updated is None:
+            print(f"Removing {path}")
+            device.rm(path)
+        elif updated != text:
+            print(f"Removing the PS2 entries from {path}")
+            device.push_text(updated, path)
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -1284,6 +1339,11 @@ def main():
     # ES-DE emulator choices and optionally the ROM library. No staging needed, so they run
     # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned
     # writes), or a preview of the destructive ROM-mirror deletes would be silently skipped.
+    # CLEANUP (added 2026-10-05): see remove_legacy_ps2.
+    custom_systems_dir = posixpath.join(posixpath.dirname(profile["esde_gamelists_dir"]), "custom_systems")
+    section("ES-DE custom systems", "remove legacy PS2")
+    with isolated(failed, "ES-DE custom systems"):
+        remove_legacy_ps2(device, online, custom_systems_dir)
     section("ES-DE emulators", "merge")
     with isolated(failed, "ES-DE emulators"):
         configure_esde_cores(device, online, profile["esde_gamelists_dir"], profile["esde_cores"])
