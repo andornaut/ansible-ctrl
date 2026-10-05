@@ -58,7 +58,6 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -781,7 +780,10 @@ def prune_overrides(device, online, config_dir, config_stage):
     if not online:
         print("  no device online; nothing to prune")
         return
-    staged = set(local_file_sizes(config_stage)) if Path(config_stage).is_dir() else set()
+    staged = set()
+    if Path(config_stage).is_dir():
+        files, unreadable = local_file_sizes(config_stage)
+        staged = set(files) | unreadable
     names = " -o ".join(f"-name '*{extension}'" for extension in OVERRIDE_EXTENSIONS)
     # Through read with `|| true`, as device_file_sizes: an absent config_dir lists nothing, and
     # only adb failing is left to fail rather than read as a directory with nothing to prune.
@@ -848,12 +850,16 @@ def raise_error(error):
 
 
 def local_file_sizes(src):
-    """Map every file under a local directory to its size in bytes, matching device_file_sizes.
+    """Map every file under a local directory to its size in bytes, matching device_file_sizes, and
+    return it with the set of entries that could not be read.
 
     A directory that cannot be listed raises rather than reading as empty: the map decides what
-    the prune deletes, so a silently missing subtree would be deleted from the device.
+    the prune deletes, so a silently missing subtree would be deleted from the device. An unreadable
+    entry (a broken symlink, a permission error) is neither pushed nor pruned: the caller keeps it out
+    of the prune and reports the tree as failed.
     """
     files = {}
+    unreadable = set()
     for dirpath, _, names in os.walk(src, onerror=raise_error):
         rel = os.path.relpath(dirpath, src)
         for name in names:
@@ -862,11 +868,9 @@ def local_file_sizes(src):
             try:
                 files[key] = Path(dirpath, name).stat().st_size
             except OSError as error:
-                # A broken symlink or unreadable entry is not a pushable file: warn and skip
-                # rather than let one abort the whole mirror (mirror_roms catches only adb
-                # errors). Leaving it out of the map also keeps the prune off a phantom.
                 print(f"  skip unreadable {key}: {error}", file=sys.stderr)
-    return files
+                unreadable.add(key)
+    return files, unreadable
 
 
 def empty_source_refusal(src, wanted, doomed):
@@ -907,9 +911,13 @@ def mirror_roms(device, online, library_dir, roms_root, rom_dir_names):
         # dead system is left for the next run rather than aborting a several-hour mirror.
         try:
             device.mkdirs(dst)
-            wanted = local_file_sizes(src)
+            wanted, unreadable = local_file_sizes(src)
             have = device_file_sizes(device, online, dst)
-            doomed = [rel for rel in have if posixpath.basename(rel) not in PRESERVE_IN_ROMS and rel not in wanted]
+            doomed = [
+                rel
+                for rel in have
+                if posixpath.basename(rel) not in PRESERVE_IN_ROMS and rel not in wanted and rel not in unreadable
+            ]
             refusal = empty_source_refusal(src, wanted, doomed)
             if refusal:
                 print(refusal, file=sys.stderr)
@@ -917,6 +925,10 @@ def mirror_roms(device, online, library_dir, roms_root, rom_dir_names):
                 continue
             for rel in doomed:
                 device.rm(f"{dst}/{rel}")
+            # Before the pushes: exFAT ignores case, so a directory renamed by case alone would
+            # otherwise be reused by the mkdir below under its old name, and pruned again next run.
+            # It also clears the hidden .dir a dropped multi-disc game leaves once its discs go.
+            device.rmdir_empty(dst)
             need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
             if need:
                 print(f"Mirroring {lib_name} -> {dev_name} ({len(need)} file(s))")
@@ -929,11 +941,7 @@ def mirror_roms(device, online, library_dir, roms_root, rom_dir_names):
                     device.push(src / rel, f"{dst}/{rel}")
             else:
                 print(f"{lib_name} -> {dev_name}: up to date")
-            # A game dropped from the library leaves its hidden .dir behind once the prune
-            # removes the discs inside (device_file_sizes lists files, not dirs), so clear what
-            # the prune emptied and the tree stays an exact mirror.
-            device.rmdir_empty(dst)
-            ok = True
+            ok = not unreadable
         except subprocess.CalledProcessError:
             ok = False
         except OSError as error:
@@ -962,15 +970,18 @@ def sync_tree(device, online, src, root, prune):
     holds files the standalone emulators drop and carries no marker to tell those from library BIOS).
     """
     device.mkdirs(root)
-    wanted = local_file_sizes(src)
+    wanted, unreadable = local_file_sizes(src)
     have = device_file_sizes(device, online, root)
     if prune:
-        doomed = [rel for rel in have if rel not in wanted]
+        doomed = [rel for rel in have if rel not in wanted and rel not in unreadable]
         refusal = empty_source_refusal(src, wanted, doomed)
         if refusal:
             raise SystemExit(refusal)
         for rel in doomed:
             device.rm(f"{root}/{rel}")
+        # Before the pushes, so a directory renamed by case alone is recreated under its new name
+        # rather than reused by the mkdir below (exFAT ignores case).
+        device.rmdir_empty(root)
     need = sorted(rel for rel, size in wanted.items() if have.get(rel) != size)
     if need:
         print(f"  {len(need)} file(s) to push")
@@ -983,9 +994,8 @@ def sync_tree(device, online, src, root, prune):
             device.push(Path(src) / rel, f"{root}/{rel}")
     else:
         print("  up to date")
-    if prune:
-        # Clear the subdirs the prune emptied so the tree stays an exact mirror.
-        device.rmdir_empty(root)
+    if unreadable:
+        raise SystemExit(f"{len(unreadable)} file(s) under {src} could not be read; left on the device unchanged")
 
 
 # --------------------------------------------------------------------------- ES-DE cores
@@ -1020,61 +1030,14 @@ def configure_esde_cores(device, online, gamelists_dir, esde_cores):
     for system, label in sorted(esde_cores.items()):
         system_dir = f"{gamelists_dir}/{system}"
         path = f"{system_dir}/gamelist.xml"
-        updated = set_alt_emulator(device.pull_text(path) if online else None, label)
+        existing = device.pull_text(path) if online else None
+        updated = set_alt_emulator(existing, label)
+        if updated == existing:
+            print(f"{system} -> {label}: up to date")
+            continue
         device.mkdirs(system_dir)
         print(f"{system} -> {label}")
         device.push_text(updated, path)
-
-
-# CLEANUP (added 2026-10-05): the PS2 system and the ARMSX2 and NetherSX2-Turnip find rules once
-# installed by hand under ES-DE/custom_systems. ES-DE bundles them, and a custom copy replaces the
-# bundled one whole. Delete once the handheld has been synced.
-LEGACY_PS2_BLOCKS = (
-    re.compile(
-        r"^[ \t]*<system>(?:(?!</system>).)*?<name>\s*ps2\s*</name>.*?</system>[ \t]*\n?", re.DOTALL | re.MULTILINE
-    ),
-    re.compile(
-        r'^[ \t]*<emulator name="(?:ARMSX2|NETHERSX2-TURNIP)">.*?</emulator>[ \t]*\n?', re.DOTALL | re.MULTILINE
-    ),
-)
-
-
-def strip_legacy_ps2(text):
-    """Return custom_systems XML with the ps2 <system> and the ARMSX2 and NETHERSX2-TURNIP <emulator> find
-    rules cut out as text, so every other line, comments included, stays as it was.
-
-    Returns text unchanged when it holds none of them, and None when no element is left, so the file
-    goes. Raises ET.ParseError for a file that does not parse, before or after the cut, rather than
-    write what it cannot read.
-    """
-    ET.fromstring(text)  # noqa: S314
-    updated = text
-    for block in LEGACY_PS2_BLOCKS:
-        updated = block.sub("", updated)
-    if updated == text:
-        return text
-    return updated if len(ET.fromstring(updated)) else None  # noqa: S314
-
-
-def remove_legacy_ps2(device, online, custom_systems_dir):
-    """Remove the legacy PS2 entries from the device's custom_systems files. Offline plans nothing."""
-    if not online:
-        return
-    for name in ("es_systems.xml", "es_find_rules.xml"):
-        path = f"{custom_systems_dir}/{name}"
-        text = device.pull_text(path)
-        if text is None:
-            continue
-        try:
-            updated = strip_legacy_ps2(text)
-        except ET.ParseError as error:
-            sys.exit(f"{path}: {error}; remove its PS2 entries by hand")
-        if updated is None:
-            print(f"Removing {path}")
-            device.rm(path)
-        elif updated != text:
-            print(f"Removing the PS2 entries from {path}")
-            device.push_text(updated, path)
 
 
 # --------------------------------------------------------------------------- main
@@ -1336,11 +1299,6 @@ def main():
     # ES-DE emulator choices and optionally the ROM library. No staging needed, so they run
     # outside the temp dir's lifetime. Run under --dry-run too (Device prints the planned
     # writes), or a preview of the destructive ROM-mirror deletes would be silently skipped.
-    # CLEANUP (added 2026-10-05): see remove_legacy_ps2.
-    custom_systems_dir = posixpath.join(posixpath.dirname(profile["esde_gamelists_dir"]), "custom_systems")
-    section("ES-DE custom systems", "remove legacy PS2")
-    with isolated(failed, "ES-DE custom systems"):
-        remove_legacy_ps2(device, online, custom_systems_dir)
     section("ES-DE emulators", "merge")
     with isolated(failed, "ES-DE emulators"):
         configure_esde_cores(device, online, profile["esde_gamelists_dir"], profile["esde_cores"])

@@ -40,7 +40,6 @@ class FakeDevice:
         self.reads = []
         self.removed = []
         self.rmdirs = []
-        self.pushed = {}
 
     def list_dir(self, path):
         return self.listing.get(path, [])
@@ -62,95 +61,6 @@ class FakeDevice:
 
     def rmdir_if_empty(self, path):
         self.rmdirs.append(path)
-
-    def push_text(self, text, path):
-        self.pushed[path] = text
-
-
-SYSTEMS_PS2 = """<?xml version="1.0"?>
-<systemList>
-	<system><name>ps2</name><command label="ARMSX2 (Standalone)">%EMULATOR_ARMSX2%</command></system>
-</systemList>
-"""
-SYSTEMS_PS2_AND_OTHER = """<?xml version="1.0"?>
-<systemList>
-	<system><name>ps2</name><command label="ARMSX2 (Standalone)">%EMULATOR_ARMSX2%</command></system>
-	<system><name>ports</name><command label="Custom">%ROM%</command></system>
-</systemList>
-"""
-FIND_RULES = """<?xml version="1.0"?>
-<ruleList>
-	<emulator name="ARMSX2"><rule type="androidpackage"><entry>com.armsx2/.MainActivity</entry></rule></emulator>
-	<emulator name="NETHERSX2-TURNIP"><rule type="androidpackage">
-		<entry>xyz.aethersx2.tturnip/xyz.aethersx2.android.EmulationActivity</entry></rule></emulator>
-	<!-- kept: a PS3 emulator whose activity is named after ARMSX2 -->
-	<emulator name="ARMSX3"><rule type="androidpackage"><entry>com.armsx3/com.armsx2.Main</entry></rule></emulator>
-	<emulator name="CUSTOM"><rule type="androidpackage"><entry>org.example/.Main</entry></rule></emulator>
-</ruleList>
-"""
-
-
-class StripLegacyPs2(unittest.TestCase):
-    def test_a_file_holding_only_ps2_goes(self):
-        self.assertIsNone(sync.strip_legacy_ps2(SYSTEMS_PS2))
-
-    def test_the_ps2_system_goes_and_the_others_stay(self):
-        out = sync.strip_legacy_ps2(SYSTEMS_PS2_AND_OTHER)
-        self.assertNotIn("ps2", out)
-        self.assertIn("<name>ports</name>", out)
-
-    def test_the_armsx2_and_turnip_rules_go_and_the_others_stay(self):
-        out = sync.strip_legacy_ps2(FIND_RULES)
-        self.assertNotIn('name="ARMSX2"', out)
-        self.assertNotIn("tturnip", out)
-        self.assertIn('name="ARMSX3"', out)
-        self.assertIn('name="CUSTOM"', out)
-
-    def test_everything_but_the_cut_blocks_is_kept_byte_for_byte(self):
-        out = sync.strip_legacy_ps2(FIND_RULES)
-        cut = ('name="ARMSX2"', "NETHERSX2-TURNIP", "tturnip")
-        kept = [line for line in FIND_RULES.splitlines(keepends=True) if not any(mark in line for mark in cut)]
-        self.assertEqual(out, "".join(kept))
-
-    def test_a_ps2_name_inside_another_system_does_not_pull_it_in(self):
-        out = sync.strip_legacy_ps2(SYSTEMS_PS2_AND_OTHER)
-        self.assertEqual(out.count("<system>"), 1)
-
-    def test_a_file_without_ps2_entries_is_returned_unchanged(self):
-        text = SYSTEMS_PS2_AND_OTHER.replace("<name>ps2</name>", "<name>psp</name>")
-        self.assertIs(sync.strip_legacy_ps2(text), text)
-
-    def test_a_file_that_does_not_parse_raises(self):
-        with self.assertRaises(sync.ET.ParseError):
-            sync.strip_legacy_ps2("<systemList><system>")
-
-
-class RemoveLegacyPs2(unittest.TestCase):
-    DIR = "/storage/emulated/0/ES-DE/custom_systems"
-
-    def run_with(self, files, online=True):
-        device = FakeDevice(files={f"{self.DIR}/{name}": text for name, text in files.items()})
-        with contextlib.redirect_stdout(io.StringIO()):
-            sync.remove_legacy_ps2(device, online, self.DIR)
-        return device
-
-    def test_an_emptied_file_is_removed_and_a_reduced_one_rewritten(self):
-        device = self.run_with({"es_systems.xml": SYSTEMS_PS2, "es_find_rules.xml": FIND_RULES})
-        self.assertEqual(device.removed, [f"{self.DIR}/es_systems.xml"])
-        self.assertEqual(list(device.pushed), [f"{self.DIR}/es_find_rules.xml"])
-
-    def test_absent_files_and_files_without_ps2_are_left_alone(self):
-        text = FIND_RULES.replace('name="ARMSX2"', 'name="OTHER"').replace("NETHERSX2-TURNIP", "OTHER-TURNIP")
-        device = self.run_with({"es_find_rules.xml": text})
-        self.assertEqual((device.removed, device.pushed), ([], {}))
-
-    def test_offline_plans_nothing(self):
-        device = self.run_with({"es_systems.xml": SYSTEMS_PS2}, online=False)
-        self.assertEqual((device.removed, device.pushed), ([], {}))
-
-    def test_a_file_that_does_not_parse_stops_the_section(self):
-        with self.assertRaises(SystemExit):
-            self.run_with({"es_systems.xml": "<systemList>"})
 
 
 class MergeCfg(unittest.TestCase):
