@@ -93,6 +93,10 @@ def has_deny_list(value):
     return False
 
 
+# Coupled to faramir's MergeJSON (internal/agentcfg/mergejson.go) with no test on either side:
+# change the two together, and verify by comparing bytes against a real `go run` of that encoder
+# over a whole document, not only its deny list. faramir doctor compares parsed documents, so it
+# reports no spelling disagreement.
 def serialise(document):
     """Render a document the way faramir renders one, so the next install rewrites nothing.
 

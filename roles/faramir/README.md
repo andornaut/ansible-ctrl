@@ -24,13 +24,15 @@ membership is read at login.
 `faramir.yml`'s first play installs the broker on the `faramir` group. The second, against `all`, authorizes the
 controller's key and NOPASSWD sudo for the ansible account, pins host keys, then pings the fleet through the broker.
 
-| Constraint                     | Detail                                                                                                                                                            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sudo make faramir`            | Connects with the broker's key, so it reaches only hosts that already authorize it. Run the first install, a key rotation, and a new or rebuilt host unprivileged |
-| No brokered run                | `faramir run -- sudo make faramir` fails: `init` runs a second brokered command, which is refused while the first holds the escalation                            |
-| Unreachable hosts              | Dropped, and each keeps whatever key it already authorized. Re-run once it is up, and run with every host reachable after generating a new key                    |
-| One controller                 | The `faramir_controller` group must hold exactly one host, which must be in `faramir`                                                                             |
-| Removing a host from `faramir` | Does not uninstall it. `faramir init` creates accounts and units that only an operator removes                                                                    |
+| Constraint                            | Detail                                                                                                                                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sudo make faramir`                   | Connects with the broker's key, so it reaches only hosts that already authorize it. Run the first install, a key rotation, and a new or rebuilt host unprivileged                                                         |
+| No brokered run                       | `faramir run -- sudo make faramir` fails: `init` runs a second brokered command, which is refused while the first holds the escalation                                                                                    |
+| Unreachable hosts                     | Dropped, and each keeps whatever key it already authorized. Re-run once it is up, and run with every host reachable after generating a new key                                                                            |
+| One controller                        | The `faramir_controller` group must hold exactly one host, which must be in `faramir`                                                                                                                                     |
+| Removing a host from `faramir`        | Does not uninstall it. `faramir init` creates accounts and units that only an operator removes                                                                                                                            |
+| Play 2 says the controller is missing | Either a `--limit` left it out, or it failed in play 1 and Ansible dropped it from every later play. A typed run carries no `--limit`, so read play 1's output for the controller first                                   |
+| A failed run                          | Block entries converge adds before removes, so a run that fails part-way can leave an entry removed under its old form and not yet added under its new one. Check `faramir block ls` rather than assuming nothing changed |
 
 ## Tags
 

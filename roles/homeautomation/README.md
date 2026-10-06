@@ -176,7 +176,8 @@ projector in `homeautomation_llamacpp_mmprojs`; without one, llama.cpp rejects e
 
 `homeautomation_install_router_kva_sample` installs an hourly cron job that reads `vm.kvm_free` from a pfSense
 router over ssh and writes it to `homeautomation_router_kva_sample_entity_id`, using the token of the
-`homeautomation_router_kva_sample_container` ha-mcp container.
+`homeautomation_router_kva_sample_container` ha-mcp container. It belongs to this role rather than `router`: it runs
+on the Home Assistant host, needs an ha-mcp container and writes an entity, the router being only its data source.
 
 | Constraint                                      | Detail                                                                                                                                     |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |

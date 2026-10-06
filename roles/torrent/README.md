@@ -14,6 +14,7 @@ make torrent -- --limit faramir_controller
 
 [torrent.yml](../../torrent.yml) applies the role to the `torrent` group, then
 [tasks/controller.yml](./tasks/controller.yml) to `faramir_controller`. No tags: select a half with `--limit`.
+The controller half's variables go in the controller's `host_vars`.
 
 ## Variables
 
