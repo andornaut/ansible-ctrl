@@ -89,6 +89,11 @@
   ansible.builtin.import_tasks: oh_my_pi.yml
   tags: pi
 
+- name: Import qemu tasks
+  ansible.builtin.import_tasks: qemu.yml
+  tags: qemu
+  when: dev_install_qemu | bool
+
 - name: Import virtualbox tasks
   ansible.builtin.import_tasks: virtualbox.yml
   tags: virtualbox
