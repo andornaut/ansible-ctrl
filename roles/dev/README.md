@@ -70,6 +70,7 @@ when every repository is clean.
 | apt `nodejs`         | Kept alongside nvm for other users and the Ansible tasks, which do not source nvm                                          |
 | Cursor sandbox       | A dedicated AppArmor profile grants it unprivileged user namespaces; the global restriction stays on                       |
 | VirtualBox off       | Clearing `dev_install_virtualbox` removes the KVM blacklist. The VirtualBox packages and modules stay; remove them by hand |
+| VirtualBox on        | `dev_user` joins `vboxusers`, which USB passthrough requires, from its next login                                          |
 
 ## Operations
 

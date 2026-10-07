@@ -79,6 +79,13 @@
   become: true
   notify: Update initramfs
 
+- name: Add the user to vboxusers, which USB passthrough requires
+  ansible.builtin.user:
+    name: "{{ dev_user }}"
+    groups: vboxusers
+    append: true
+  become: true
+
 - name: Reconcile the virtualbox kernel modules
   become: true
   block:
