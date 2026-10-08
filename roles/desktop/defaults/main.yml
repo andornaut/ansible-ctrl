@@ -36,10 +36,8 @@ desktop_keyboard_configurator_bootloader_ids: []
 # The vendors' own rule files under /etc/udev/rules.d the rule above replaces, by name.
 desktop_keyboard_configurator_superseded_rules: []
 # WirePlumber property overrides, keyed by the PipeWire node.name that `wpctl status`
-# and `pw-cli ls Node` report. Each value is a map of properties to set on that node:
-# audio.format pins a device to a format it can sustain, node.disabled hides one whose
-# exposed node is unusable, session.suspend-timeout-seconds 0 keeps a device's stream open
-# for hardware that fails to come back from a close and reopen. Empty removes the drop-in.
+# and `pw-cli ls Node` report; each value is a map of properties to set on that node.
+# README.md lists the uses. Empty removes the drop-in.
 desktop_wireplumber_node_properties: {}
 # CUPS queues, the first the default destination. Each is {name, uri}: name the one `lpstat -e`
 # lists for the printer, uri its ipp:// address. Each queue is driverless and sends raster only.
