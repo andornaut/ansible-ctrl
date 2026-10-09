@@ -72,7 +72,8 @@
 - name: Get list of valid htpasswd filenames
   ansible.builtin.set_fact:
     letsencrypt_nginx_valid_htpasswd_files: >-
-      {{ (letsencrypt_nginx_websites | map(attribute='domain') | list) +
+      {{ (letsencrypt_nginx_websites | selectattr('credentials', 'defined')
+          | map(attribute='domain') | list) +
          (letsencrypt_nginx_websites
          | selectattr('aliases', 'defined')
          | map(attribute='aliases')
