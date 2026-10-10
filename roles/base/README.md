@@ -47,6 +47,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `base_lockdown_ssh_port_move`     | `true` for the one run that moves sshd off the inventory's `ansible_port`. See [Lockdown](#lockdown)   |
 | `base_account_exclude_homes`      | Placeholder homes of service accounts, excluded from the home-mode lockdown and the sweeps             |
 | `base_btrfs_excluded_mountpoints` | btrfs mountpoints in `/etc/fstab` to leave alone, such as a backup device mounted only during a backup |
+| `base_btrfs_nested_subvolumes`    | Paths created as their own subvolumes, so snapshots skip them. See [btrfs](#btrfs)                     |
 
 ## Shared task files
 
@@ -86,25 +87,38 @@ own.
 | `/usr/local/sbin/balance-btrfs`, btrfsmaintenance's filtered balance, from `/etc/cron.d/ansible-role-base`                                       | Weekly, `base_btrfs_balance_*`                  | Every run: it prints each step and exits 0, so the output is the only signal                      |
 | snapper timeline, one config per mountpoint (`root` for `/`, otherwise the path with dashes), snapshots in `<mountpoint>/.snapshots` (root only) | Daily, keeping `base_btrfs_snapper_daily_limit` | None                                                                                              |
 
-| Constraint                                | Detail                                                                                                                                                                                              |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A host with none left                     | Once `base_btrfs_mountpoints` is empty, both cron entries go; snapper's configs and timers stay                                                                                                     |
-| An unmounted filesystem is skipped        | `balance-btrfs` checks each mountpoint with `mountpoint -q`: btrfsmaintenance's own script tests with `stat -f`, which reads an unmounted mountpoint as the filesystem holding it and balances that |
-| Scrub and balance never overlap           | Both take btrfsmaintenance's per-filesystem lock, `/run/btrfs-maintenance-running.<fsid>`, so a balance waits for a scrub of the same filesystem                                                    |
-| Nothing else runs                         | btrfsmaintenance's timers and refresh path unit, and `snapper-boot.timer`, are masked; snapper's apt hook is off (`DISABLE_APT_SNAPSHOT`)                                                           |
-| Snapshots hold deleted data               | A deleted or overwritten file stays on disk until the oldest snapshot referencing it is pruned                                                                                                      |
-| Nested subvolumes are not snapshotted     | A snapshot stops at a subvolume boundary; `.snapshots` is one                                                                                                                                       |
-| `.snapshots` needs the filesystem mounted | Created on a run with it mounted; until then snapper's timeline fails in the journal                                                                                                                |
-| Error counters are cumulative             | A scrub-corrected error on raid1 shows every month until reset with `btrfs device stats -z`                                                                                                         |
-| Config names must be distinct             | Two mountpoints whose names collide (`/` and `/root`), or one containing whitespace, fail the run; exclude one                                                                                      |
-| A swapfile needs its own subvolume        | The kernel refuses to snapshot a subvolume holding an active swapfile: `btrfs subvolume create /swap` and `btrfs filesystem mkswapfile` there                                                       |
-| One mountpoint per subvolume              | fstab cannot show that two lines mount the same subvolume, and the two configs would prune each other's snapshots; exclude one                                                                      |
+| Constraint                                 | Detail                                                                                                                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A host with none left                      | Once `base_btrfs_mountpoints` is empty, both cron entries go; snapper's configs and timers stay                                                                                                     |
+| An unmounted filesystem is skipped         | `balance-btrfs` checks each mountpoint with `mountpoint -q`: btrfsmaintenance's own script tests with `stat -f`, which reads an unmounted mountpoint as the filesystem holding it and balances that |
+| Scrub and balance never overlap            | Both take btrfsmaintenance's per-filesystem lock, `/run/btrfs-maintenance-running.<fsid>`, so a balance waits for a scrub of the same filesystem                                                    |
+| Nothing else runs                          | btrfsmaintenance's timers and refresh path unit, and `snapper-boot.timer`, are masked; snapper's apt hook is off (`DISABLE_APT_SNAPSHOT`)                                                           |
+| Snapshots hold deleted data                | A deleted or overwritten file stays on disk until the oldest snapshot referencing it is pruned                                                                                                      |
+| Nested subvolumes are not snapshotted      | A snapshot stops at a subvolume boundary; `.snapshots` is one                                                                                                                                       |
+| Churning bulk data needs its own subvolume | List it in `base_btrfs_nested_subvolumes`: otherwise each daily snapshot holds what was deleted since, so a week of rotated camera recordings costs a week of space again. Its parent must exist    |
+| An existing directory is not converted     | A listed path that exists and is not a subvolume fails the run. Convert it by hand with whatever writes there stopped (below)                                                                       |
+| `.snapshots` needs the filesystem mounted  | Created on a run with it mounted; until then snapper's timeline fails in the journal                                                                                                                |
+| Error counters are cumulative              | A scrub-corrected error on raid1 shows every month until reset with `btrfs device stats -z`                                                                                                         |
+| Config names must be distinct              | Two mountpoints whose names collide (`/` and `/root`), or one containing whitespace, fail the run; exclude one                                                                                      |
+| A swapfile needs its own subvolume         | The kernel refuses to snapshot a subvolume holding an active swapfile: `btrfs subvolume create /swap` and `btrfs filesystem mkswapfile` there                                                       |
+| One mountpoint per subvolume               | fstab cannot show that two lines mount the same subvolume, and the two configs would prune each other's snapshots; exclude one                                                                      |
 
 ```bash
 # List and restore from snapshots
 snapper list-configs
 snapper -c <config> list
 cp -a <mountpoint>/.snapshots/<number>/snapshot/<path> <mountpoint>/<path>
+```
+
+```bash
+# Convert a directory into a nested subvolume. The reflink copy shares the data blocks, so it
+# takes seconds and no extra space; the space returns as the snapshots holding the old one are pruned.
+mv <path> <path>.old
+btrfs subvolume create <path>
+chown --reference=<path>.old <path>
+chmod --reference=<path>.old <path>
+cp -a --reflink=always <path>.old/. <path>/
+rm -rf --one-file-system <path>.old
 ```
 
 ## Lockdown

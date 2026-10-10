@@ -83,6 +83,9 @@ base_ssh_client_gssapi: false
 # another mountpoint of the same filesystem remains. For one mounted only now and then, such as
 # a backup device, which the monthly scrub would otherwise report as unmounted.
 base_btrfs_excluded_mountpoints: []
+# Paths created as their own subvolumes, which a snapshot of the enclosing subvolume stops at.
+# For bulk data that churns, such as camera recordings, whose deleted files snapshots would hold.
+base_btrfs_nested_subvolumes: []
 base_btrfs_balance_weekday: "0"
 base_btrfs_balance_hour: "5"
 base_btrfs_balance_minute: "0"

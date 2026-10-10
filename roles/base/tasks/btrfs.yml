@@ -12,6 +12,15 @@
   check_mode: false
   become: false
 
+- name: Require a btrfs filesystem for the nested subvolumes
+  ansible.builtin.assert:
+    that: base_btrfs_nested_subvolumes | length == 0 or base_btrfs_mountpoints | length > 0
+    fail_msg: >-
+      base_btrfs_nested_subvolumes lists {{ base_btrfs_nested_subvolumes | join(', ') }}, but no
+      btrfs mountpoint is in /etc/fstab.
+    quiet: true
+  become: false
+
 - name: Maintain the btrfs filesystems
   become: true
   when: base_btrfs_mountpoints | length > 0
@@ -146,6 +155,30 @@
       loop: "{{ base_btrfs_mounted.results | selectattr('rc', 'equalto', 0) }}"
       loop_control:
         label: "{{ item.item }}"
+
+    - name: Read the nested subvolume paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ base_btrfs_nested_subvolumes }}"
+      register: base_btrfs_nested_paths
+
+    # The root directory of a btrfs subvolume is always inode 256.
+    - name: Require each existing nested subvolume path to be a subvolume
+      ansible.builtin.assert:
+        that: not item.stat.exists or (item.stat.isdir and item.stat.inode == 256)
+        fail_msg: >-
+          {{ item.item }} exists and is not a btrfs subvolume. Convert it by hand, as the
+          role's README describes under btrfs.
+        quiet: true
+      loop: "{{ base_btrfs_nested_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Create the nested subvolumes
+      ansible.builtin.command:
+        argv: [btrfs, subvolume, create, "{{ item }}"]
+        creates: "{{ item }}"
+      loop: "{{ base_btrfs_nested_subvolumes }}"
 
     # /etc/snapper/configs comes with the package, which --check only reports installing.
     - name: Install the snapper configs
