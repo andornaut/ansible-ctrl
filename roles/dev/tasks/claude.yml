@@ -39,7 +39,10 @@
 
 # The apt node is older than chrome-devtools-mcp's engines range, so it installs into
 # dev_node_version's nvm tree and is registered by absolute path, whatever PATH Claude
-# Code starts with. --isolated gives each session a throwaway Chrome profile.
+# Code starts with. --isolated gives each session a throwaway Chrome profile. Without
+# --enable-automation, Chrome no longer reports navigator.webdriver, which sites such as
+# Amazon answer with an interstitial. The two --no flags keep page URLs and usage
+# statistics from being sent to Google.
 - name: Install and register chrome-devtools-mcp
   become: true
   become_user: "{{ dev_user }}"
@@ -52,6 +55,9 @@
     dev_claude_mcp_args:
       - "{{ dev_claude_node_bin }}/chrome-devtools-mcp"
       - --isolated
+      - --ignoreDefaultChromeArg=--enable-automation
+      - --no-usage-statistics
+      - --no-performance-crux
   block:
     - name: Probe for Node {{ dev_node_version }}
       ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
