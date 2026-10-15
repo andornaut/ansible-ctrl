@@ -36,9 +36,9 @@ LISTED_HOSTS_ENV = "PLAYBOOK_LISTED_HOSTS"
 # What the sudo re-entry names again, sudo resetting the environment.
 CARRIED = (*KNOBS, LISTED_HOSTS_ENV)
 
-# The exit status of a run whose probe dropped a host, whether or not the playbook applied
-# to the rest: EX_TEMPFAIL, the host being expected back. Clear of ansible-playbook's own
-# statuses, and outranked by them, a failed play being the more urgent news.
+# The exit status of a run whose probe dropped every host, so nothing was applied:
+# EX_TEMPFAIL, the hosts being expected back. Clear of ansible-playbook's own statuses. A run
+# left with some hosts exits with the playbook's status, the drop named before and after it.
 DROPPED_EXIT = 75
 
 # Also passed with SECRETS=none: the play's pre_tasks assert that credentials arrived, and
@@ -369,13 +369,12 @@ def version_refusal(version_output: str) -> str | None:
     return None
 
 
-def exit_status(status: int, dropped: bool) -> int:
-    """The run's exit status: the playbook's own where it failed, DROPPED_EXIT where it
-    succeeded on what the probe left it. A playbook ended by a signal is 128 plus the
-    signal's number, as a shell reports one."""
+def exit_status(status: int) -> int:
+    """The run's exit status: the playbook's own. A playbook ended by a signal is 128 plus
+    the signal's number, as a shell reports one."""
     if status < 0:
         return 128 - status
-    return status or (DROPPED_EXIT if dropped else 0)
+    return status
 
 
 def sops_command(sops_file: str, argv: list[str]) -> list[str]:
@@ -549,7 +548,7 @@ def run(playbook: str, args: list[str]) -> int:
     # Said again, the first telling having scrolled away above the playbook's output.
     if message:
         say(message)
-    return exit_status(status, bool(message))
+    return exit_status(status)
 
 
 def main(argv: list[str]) -> int:
@@ -566,7 +565,7 @@ def main(argv: list[str]) -> int:
             try:
                 return run(playbook, args)
             except KeyboardInterrupt:
-                return exit_status(-signal.SIGINT, False)
+                return exit_status(-signal.SIGINT)
     print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
     return 2
 

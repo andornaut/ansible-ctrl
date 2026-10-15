@@ -312,15 +312,12 @@ class Preflight(unittest.TestCase):
 
 
 class ExitStatus(unittest.TestCase):
-    def test_a_drop_turns_success_into_its_own_status(self):
-        self.assertEqual(playbook.exit_status(0, True), playbook.DROPPED_EXIT)
-        self.assertEqual(playbook.exit_status(0, False), 0)
-
-    def test_the_playbook_failure_outranks_a_drop(self):
-        self.assertEqual(playbook.exit_status(2, True), 2)
+    def test_the_playbook_status_passes_through(self):
+        self.assertEqual(playbook.exit_status(0), 0)
+        self.assertEqual(playbook.exit_status(2), 2)
 
     def test_a_signal_reads_as_a_shell_reports_it(self):
-        self.assertEqual(playbook.exit_status(-2, False), 130)
+        self.assertEqual(playbook.exit_status(-2), 130)
 
 
 class RunOrder(unittest.TestCase):
@@ -391,9 +388,15 @@ class RunOrder(unittest.TestCase):
         listed.assert_not_called()
         self.assertEqual(child.call_args.args[0][:3], ["sops", "exec-env", "--same-process"])
 
-    def test_a_drop_exits_non_zero_after_a_successful_playbook(self):
-        status, _, _, child = self.run_playbook("desktop", root=False, probe="bravo | UNREACHABLE! => {}\n")
+    def test_a_drop_of_every_host_runs_nothing_and_exits_tempfail(self):
+        probe = "alpha | UNREACHABLE! => {}\nbravo | UNREACHABLE! => {}\n"
+        status, _, _, child = self.run_playbook("desktop", root=False, probe=probe)
         self.assertEqual(status, playbook.DROPPED_EXIT)
+        child.assert_not_called()
+
+    def test_a_drop_exits_zero_after_a_successful_playbook(self):
+        status, _, _, child = self.run_playbook("desktop", root=False, probe="bravo | UNREACHABLE! => {}\n")
+        self.assertEqual(status, 0)
         self.assertEqual(child.call_args.args[0][-2:], ["--limit", "alpha"])
         self.assertEqual(sum("dropped bravo" in line for line in self.said), 2)
 
