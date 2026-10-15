@@ -37,6 +37,59 @@
   environment:
     HOME: "{{ dev_user_home }}"
 
+# The apt node is older than chrome-devtools-mcp's engines range, so it installs into
+# dev_node_version's nvm tree and is registered by absolute path, whatever PATH Claude
+# Code starts with. --isolated gives each session a throwaway Chrome profile.
+- name: Install and register chrome-devtools-mcp
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+    PATH: "{{ dev_claude_node_bin }}:/usr/local/bin:/usr/bin:/bin"
+  vars:
+    dev_claude_node_bin: "{{ dev_user_home }}/.nvm/versions/node/{{ dev_node_version }}/bin"
+    dev_claude_mcp_command: "{{ dev_claude_node_bin }}/node"
+    dev_claude_mcp_args:
+      - "{{ dev_claude_node_bin }}/chrome-devtools-mcp"
+      - --isolated
+  block:
+    - name: Probe for Node {{ dev_node_version }}
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
+      vars:
+        require_tools:
+          - name: node {{ dev_node_version }}
+            probe: test -x {{ dev_claude_mcp_command }}
+            hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
+
+    - name: Install chrome-devtools-mcp
+      community.general.npm:
+        name: chrome-devtools-mcp
+        global: true
+        state: latest
+        executable: "{{ dev_claude_node_bin }}/npm"
+
+    # add-json refuses a name that exists, so a registration whose command or args
+    # differ is removed and added again.
+    - name: Read the chrome-devtools MCP registration
+      ansible.builtin.command:
+        cmd: "{{ dev_user_home }}/.local/bin/claude mcp get chrome-devtools"
+      register: dev_claude_mcp_get
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Register the chrome-devtools MCP server
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: >-
+          {{ dev_user_home }}/.local/bin/claude mcp remove --scope user chrome-devtools;
+          {{ dev_user_home }}/.local/bin/claude mcp add-json --scope user chrome-devtools
+          {{ {'type': 'stdio', 'command': dev_claude_mcp_command, 'args': dev_claude_mcp_args} | to_json | quote }}
+      changed_when: true
+      when: >-
+        ('Command: ' ~ dev_claude_mcp_command) not in dev_claude_mcp_get.stdout_lines | map('trim') | list
+        or ('Args: ' ~ dev_claude_mcp_args | join(' ')) not in dev_claude_mcp_get.stdout_lines | map('trim') | list
+
 # CLEANUP (added 2026-09-24): Claude Desktop came from an unofficial apt repository whose
 # key was trusted for root installs. Delete once every host in the dev group has converged.
 - name: Remove Claude Desktop and its repository
