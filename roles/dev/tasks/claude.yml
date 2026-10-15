@@ -57,8 +57,8 @@
       ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
       vars:
         require_tools:
-          - name: node {{ dev_node_version }}
-            probe: test -x {{ dev_claude_mcp_command }}
+          - name: node {{ dev_node_version }} and its npm
+            probe: "{{ dev_claude_mcp_command }} --version && {{ dev_claude_node_bin }}/npm --version"
             hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
 
     - name: Install chrome-devtools-mcp
