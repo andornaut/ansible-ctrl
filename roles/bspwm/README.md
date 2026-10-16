@@ -26,12 +26,12 @@ See [defaults/main.yml](./defaults/main.yml). Each `bspwm_projects` entry takes 
 
 ## Installed files
 
-| Path                                               | Purpose                                                                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `/usr/local` (binaries, man pages, completions)    | BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects`, built from source |
-| `/usr/local/bin/bspwm-session`                     | The X session command that `bspwm.desktop` names                                                         |
-| `/usr/local/share/xsessions/bspwm.desktop`         | Session entry for the display manager                                                                    |
-| `/usr/local/lib/systemd/user/bspwm-session.target` | Held by `bspwm-session` while bspwm runs                                                                 |
+| Path                                               | Purpose                                                                                                                    |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `/usr/local` (binaries, man pages, completions)    | BSPWM and the [baskerville](https://github.com/baskerville) tools in `bspwm_projects`, built from source                   |
+| `/usr/local/bin/bspwm-session`                     | The X session command that `bspwm.desktop` names                                                                           |
+| `/usr/local/share/xsessions/bspwm.desktop`         | Session entry for the display manager                                                                                      |
+| `/usr/local/lib/systemd/user/bspwm-session.target` | Held by `bspwm-session` while bspwm runs. Binds `graphical-session.target`, so the session units start and stop with bspwm |
 
 ## Notes
 
@@ -39,6 +39,5 @@ See [defaults/main.yml](./defaults/main.yml). Each `bspwm_projects` entry takes 
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | X11-only              | This role owns the X11 tools that [niri](../niri/) replaces (`scrot`, `xsecurelock`, `xss-lock`, `xbacklight`), plus `dex`, `dbus-x11` and `xorg`. Shared tools are in [desktop](../desktop/) |
 | Locking               | [desktop](../desktop/README.md#idle-locking-and-suspend) sets the timeouts                                                                                                                    |
-| Session wrapper       | `bspwm-session` holds `graphical-session.target` while bspwm runs; see [desktop](../desktop/README.md#desktop-environments)                                                                   |
 | Locked encrypted home | The run fails before any change while `bspwm_user`'s encrypted home is not mounted. Log in as that user or run `ecryptfs-mount-private`, then re-run                                          |
 | Rebuilt on every run  | No installed-version check: every run clones and builds each of `bspwm_projects`                                                                                                              |

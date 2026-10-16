@@ -17,7 +17,7 @@ make games -- --tags retroarch
 | app-entries | Desktop entry overrides from `games_app_entry_overrides`, as in the [desktop](../desktop/README.md) role                                                  |
 | apt         | Native gaming packages                                                                                                                                    |
 | bedrock     | Minecraft Bedrock launcher and its desktop entry: [Minecraft (Bedrock)](#minecraft-bedrock)                                                               |
-| flatpak     | Flatpak runtime, flathub remote, applications, extensions and overrides                                                                                   |
+| flatpak     | The flatpak package, flathub remote, applications, extensions and overrides                                                                               |
 | gamemode    | `/etc/gamemode.ini` and `gamemode` group membership: [GameMode](#gamemode)                                                                                |
 | heroic      | Heroic install path and the store token-refresh timer                                                                                                     |
 | lutris      | Lutris default install path, gamescope settings, `DXVK_HUD=0` for every game, the launcher, the World of Warcraft entry and its addons: [Lutris](#lutris) |

@@ -28,9 +28,8 @@ See [defaults/main.yml](./defaults/main.yml).
 | `rsnapshot_retention`                  | Snapshots kept per interval. Null or 0 omits both the `retain` line and the cron job                                                                          |
 | `rsnapshot_schedule`                   | Cron time per interval, keyed to match `rsnapshot_retention`. Longer intervals run first                                                                      |
 
-Each entry in `rsnapshot_hosts` takes `name`, `host`, and at least one of `directories` (trailing
-slash required by rsnapshot) or `scripts` (each a `command` path and optional `args`), plus these
-optional keys:
+Each entry in `rsnapshot_hosts` takes the keys below, and at least one of `directories` (trailing
+slash required by rsnapshot) or `scripts` (each a `command` path and optional `args`):
 
 | Key    | Purpose                                                                                                                                |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |

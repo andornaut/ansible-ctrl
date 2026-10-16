@@ -20,19 +20,19 @@ The controller half's variables go in the controller's `host_vars`.
 
 See [defaults/main.yml](./defaults/main.yml).
 
-| Variable                                               | Purpose                                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `torrent_user`, `torrent_group`                        | Account rtorrent runs as, and the group owning its directories (defaults to `torrent_user`) |
-| `torrent_root_directory`                               | Base directory for all torrent data. Required in each torrent host's `host_vars`            |
-| `torrent_incoming_directory`                           | Where rtorrent downloads to                                                                 |
-| `torrent_session_directory`                            | rtorrent's session directory                                                                |
-| `torrent_download_rate_kib`, `torrent_upload_rate_kib` | Rate limits in KiB/s; 0 is unlimited                                                        |
-| `torrent_pieces_memory_max`                            | Address space for piece data. Page cache, so it need not fit in RAM; minimum 512M           |
-| `torrent_port_range`                                   | Peer port range. The top of the range is also the DHT port                                  |
-| `torrent_local_user`                                   | Controller account that owns the cron jobs                                                  |
-| `torrent_local_incoming_directory`                     | Controller directory for synced downloads. Required                                         |
-| `torrent_local_watch_directories`                      | Controller directories to watch for `.torrent` files. Required                              |
-| `torrent_local_synct_log_file`                         | Log of the `synct` cron job. Not rotated                                                    |
+| Variable                                               | Purpose                                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `torrent_user`, `torrent_group`                        | Account rtorrent runs as, and the group owning its directories (defaults to `torrent_user`)                                                       |
+| `torrent_root_directory`                               | Base directory for all torrent data. Required in each torrent host's `host_vars`: the controller play refuses a torrent host that does not set it |
+| `torrent_incoming_directory`                           | Where rtorrent downloads to                                                                                                                       |
+| `torrent_session_directory`                            | rtorrent's session directory                                                                                                                      |
+| `torrent_download_rate_kib`, `torrent_upload_rate_kib` | Rate limits in KiB/s; 0 is unlimited                                                                                                              |
+| `torrent_pieces_memory_max`                            | Address space for piece data. Page cache, so it need not fit in RAM; minimum 512M                                                                 |
+| `torrent_port_range`                                   | Peer port range. The top of the range is also the DHT port                                                                                        |
+| `torrent_local_user`                                   | Controller account that owns the cron jobs                                                                                                        |
+| `torrent_local_incoming_directory`                     | Controller directory for synced downloads. Required                                                                                               |
+| `torrent_local_watch_directories`                      | Controller directories to watch for `.torrent` files. Required                                                                                    |
+| `torrent_local_synct_log_file`                         | Log of the `synct` cron job. Not rotated                                                                                                          |
 
 ## Installed files
 
@@ -66,11 +66,10 @@ On the controller:
 
 ## Notes
 
-| Constraint                        | Detail                                                                                                                                                            |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scripts cover the whole group     | They name every torrent host, but only a run reaching the controller rewrites them. After adding a torrent host, run `make torrent -- --limit faramir_controller` |
-| `torrent_root_directory` per host | The controller play refuses a torrent host that does not set it                                                                                                   |
-| Templates are ShellChecked        | [tests/lint.sh](../../tests/lint.sh) renders Jinja2 to placeholders with `sed`, so a template Jinja2 cannot render still passes. `${#var}` breaks the render      |
+| Constraint                    | Detail                                                                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scripts cover the whole group | They name every torrent host, but only a run reaching the controller rewrites them. After adding a torrent host, run `make torrent -- --limit faramir_controller` |
+| Templates are ShellChecked    | [tests/lint.sh](../../tests/lint.sh) renders Jinja2 to placeholders with `sed`, so a template Jinja2 cannot render still passes. `${#var}` breaks the render      |
 
 ## Operations
 

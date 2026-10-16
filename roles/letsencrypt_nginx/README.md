@@ -85,7 +85,7 @@ Per entry in a site's `locations`:
 ## Certificate renewal
 
 `letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root cron job
-that runs `make webservers -- --tags letsencrypt`. Enable it on the controller only.
+that runs `make webservers PREFLIGHT=none -- --tags letsencrypt`. Enable it on the controller only.
 
 | Constraint                    | Detail                                                                                                                                                              |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

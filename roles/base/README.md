@@ -133,16 +133,16 @@ rm -rf --one-file-system <path>.old
 
 ## Notes
 
-| Constraint             | Detail                                                                                                                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Caps Lock remap        | Escape, at the console, in X11 and Wayland sessions, in GNOME, and at the device for programs reading raw scan codes. No user setting restores Caps Lock               |
-| Purged packages        | snap, cloud-init, telemetry, crash reporting and the `unwanted` set are pinned at a negative priority, so apt will not reinstall them as another's dependency          |
-| Unwanted set           | In [vars/main.yml](./vars/main.yml), so a host cannot opt out. Nothing a desktop metapackage depends on belongs in it                                                  |
-| Default-branch scripts | cache-command and storage-space-alert are unpinned; every run takes the current file                                                                                   |
-| Weekly sweep           | `disk-cleanup` also deletes rotated logs under `/var/log`, every account's thumbnail cache and unused flatpak runtimes                                                 |
-| Unit start limit       | A unit that fails on every start stops after its second restart                                                                                                        |
-| ssh client timeout     | Applies to ssh started outside Ansible (cron). Bounds the connect and banner exchange only                                                                             |
-| rasdaemon              | Off by default: it needs an EDAC memory controller, which non-ECC hardware lacks. On 0.8.4 `ras-mc-ctl`'s machine-check section fails; read the records with `sqlite3` |
+| Constraint             | Detail                                                                                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caps Lock remap        | Escape, at the console, in X11 and Wayland sessions, in GNOME, and at the device for programs reading raw scan codes. No user setting restores Caps Lock                |
+| Purged packages        | snap, cloud-init, telemetry, crash reporting and the `unwanted` set are pinned at a negative priority, so apt will not reinstall them as another's dependency           |
+| Unwanted set           | In [vars/main.yml](./vars/main.yml), so a host cannot opt out. Nothing a desktop metapackage depends on belongs in it                                                   |
+| Default-branch scripts | cache-command and storage-space-alert are unpinned; every run takes the current file                                                                                    |
+| Weekly sweep           | `disk-cleanup` also deletes rotated logs under `/var/log`, every account's thumbnail cache, unused flatpak runtimes, and unused Docker images, networks and build cache |
+| Unit start limit       | A unit that fails on every start stops after its second restart                                                                                                         |
+| ssh client timeout     | Applies to ssh started outside Ansible (cron). Bounds the connect and banner exchange only                                                                              |
+| rasdaemon              | Off by default: it needs an EDAC memory controller, which non-ECC hardware lacks. On 0.8.4 `ras-mc-ctl`'s machine-check section fails; read the records with `sqlite3`  |
 
 ## Operations
 
