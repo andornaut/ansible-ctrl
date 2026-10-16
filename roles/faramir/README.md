@@ -187,14 +187,14 @@ Game launchers other than Steam are declared only at their flatpak paths; an apt
 
 ### Blocked commands
 
-| Entries                                                                          | Reason                                                                                        | Still allowed                    |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------- |
-| `gh auth token`, `gh auth status`                                                | Print the GitHub CLI's token (`status` with `-t`)                                             |                                  |
-| `gh auth git-credential`                                                         | Returns the token through the git credential helper protocol                                  |                                  |
-| `mrs`                                                                            | The operator's vault manager: `export` and `search` print secrets, `edit` decrypts            | `vault list` and `vault default` |
-| `op read`, `op item get`, `op inject`, `pass show`, `vault read`, `vault kv get` | Print a secret                                                                                |                                  |
-| `gopass`                                                                         | Every subcommand                                                                              |                                  |
-| `snapper`                                                                        | `diff`, `status` and `undochange` read or restore snapshot contents by number, naming no path |                                  |
+| Entries                                                                          | Reason                                                                                        | Still allowed |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------- |
+| `gh auth token`, `gh auth status`                                                | Print the GitHub CLI's token (`status` with `-t`)                                             |               |
+| `gh auth git-credential`                                                         | Returns the token through the git credential helper protocol                                  |               |
+| `mrs`                                                                            | The operator's vault manager: `export` and `search` print secrets, `edit` decrypts            |               |
+| `op read`, `op item get`, `op inject`, `pass show`, `vault read`, `vault kv get` | Print a secret                                                                                |               |
+| `gopass`                                                                         | Every subcommand                                                                              |               |
+| `snapper`                                                                        | `diff`, `status` and `undochange` read or restore snapshot contents by number, naming no path |               |
 
 ## Agents
 

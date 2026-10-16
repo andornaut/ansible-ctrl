@@ -130,7 +130,7 @@ Web filtering is enforced by `nss-malcontent` in the name service switch, not th
 | Empty lists are rejected               | An empty allow list blocks everything, and an empty block list filters nothing                                                                                                                                                      |
 | Turning it off                         | With `desktop_install_parental_controls` false the filters and browser policies are cleared. Also remove the host's `desktop_parental_controls_*` settings: the role fails while `_oars` is set or `_web_filter_type` is not `none` |
 | Firefox policies are host-wide         | `DisablePrivateBrowsing` and DoH off apply to every account on the host                                                                                                                                                             |
-| Flatpak browsers bypass the web filter | A flatpak runtime does not read the host's `/etc/nsswitch.conf`. DNS filtering at the router covers them                                                                                                                            |
+| Flatpak browsers bypass the web filter | A flatpak runtime does not read the host's `/etc/nsswitch.conf`, and Firefox is a flatpak unless `desktop_install_firefox_apt` is true: set it on a filtered host. DNS filtering at the router covers the rest                      |
 | Chrome policy directory                | Files in `/etc/opt/chrome/policies/managed/` that the role did not deploy are removed                                                                                                                                               |
 
 ## Notes

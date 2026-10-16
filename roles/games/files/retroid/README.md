@@ -8,7 +8,7 @@ flags, and the module docstring of [`syncretroid.py`](syncretroid.py) what it ow
 ## Prerequisites
 
 Installed on the device by hand: RetroArch, ES-DE, the standalone emulators (Dolphin, ARMSX2, and NetherSX2-Turnip
-as the PS2 fallback), and the sdcard folder layout. The ROM library must be mounted on this host. `syncretroid`
+as the PS2 fallback). The ROM library must be mounted on this host. `syncretroid`
 checks the mount, the sdcard, both apps and the adb device before any change.
 
 ## Verify on the device (once)

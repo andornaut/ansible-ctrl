@@ -536,8 +536,7 @@ games_retroarch_core_overrides:
 
 # The core's own settings, not RetroArch's, so a different file from
 # games_retroarch_core_overrides: config/<library_name>/<library_name>.opt, with
-# global_core_options false. Only the keys named here are enforced; the README gives the
-# command that lists the available ones.
+# global_core_options false. Only the keys named here are enforced.
 games_retroarch_core_options:
   # The default FM synthesis is MAME's, fast and approximate; Nuked is cycle-accurate.
   # ym2612 is the Mega Drive's chip, ym2413 the Master System's FM add-on.
