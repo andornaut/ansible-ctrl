@@ -2,10 +2,12 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parent.parent / "roles/games/files/retroarch-generate-playlists.py"
 
@@ -120,6 +122,48 @@ class PrunePlaylists(TempDir):
         )
         self.assertTrue((self.root / "builtin/Nested.lpl").exists())
         self.assertIn("kept Handmade.lpl", stderr.getvalue())
+
+
+class CorePath(TempDir):
+    def test_a_named_core_file_replaces_the_suffix_rule_for_that_core_alone(self):
+        self.touch("library/Nintendo - Nintendo 3DS/Game (USA).3ds")
+        self.touch("library/Nintendo - Game Boy/Game (USA).zip")
+        (self.root / "playlists").mkdir()
+        systems = {
+            "Nintendo - Nintendo 3DS": {"core": "azahar", "extensions": ["3ds"]},
+            "Nintendo - Game Boy": {"core": "gambatte", "extensions": ["zip"]},
+        }
+        config = {
+            "library_dir": str(self.root / "library"),
+            "playlist_dir": str(self.root / "playlists"),
+            "cores_dir": "/cores",
+            "info_dir": str(self.root / "info"),
+            "cores": {
+                core: {"library_name": core, "valid_extensions": spec["extensions"], "block_extract": False}
+                for spec in systems.values()
+                for core in [spec["core"]]
+            },
+            "systems": systems,
+            "core_filename_suffix": "_libretro_android.so",
+            "core_filenames": {"azahar": "azahar_libretro.so"},
+        }
+        with (
+            mock.patch.dict(os.environ, {"RETROARCH_GENERATOR_CONFIG": json.dumps(config)}),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            generator.main()
+        core_paths = {
+            system: json.loads((self.root / "playlists" / f"{system}.lpl").read_text())["default_core_path"]
+            for system in systems
+        }
+        self.assertEqual(
+            core_paths,
+            {
+                "Nintendo - Nintendo 3DS": "/cores/azahar_libretro.so",
+                "Nintendo - Game Boy": "/cores/gambatte_libretro_android.so",
+            },
+        )
 
 
 if __name__ == "__main__":
