@@ -159,8 +159,8 @@ check_identity() {
 # logic no lint run exercises: bin/playbook.py's argument forwarding, re-entries, preflight and
 # --ask-become-pass decision, and the pure functions of the scripts the roles copy to hosts.
 # stdlib unittest under any python3, apart from the faramir_env plugin's test, which imports
-# ansible as the plugin does, and lutris-launch-game's configuration read, which skips without
-# PyYAML. test_identity.py is left to check_identity, which runs it under the interpreter it
+# ansible as the plugin does, 3ds-intake's, which imports cryptography as the script does, and
+# lutris-launch-game's configuration read, which skips without PyYAML. test_identity.py is left to check_identity, which runs it under the interpreter it
 # checks for PyYAML.
 check_dispatch() {
     local test

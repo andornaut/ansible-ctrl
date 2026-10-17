@@ -45,3 +45,4 @@ Run from the controller, where the ROM library is local and the command is on PA
 
 - **ES-DE ROM dirs use North-America short names** (genesis, segacd, sega32xna, tg16, tg-cd, ...), not the library's No-Intro names; the `rom_dir_names` map bridges them.
 - **`<alternativeEmulator>` is a second root element** in gamelist.xml (invalid single-root XML), so it is edited as text, and labels must match a `<command label>` in ES-DE's bundled `es_systems.xml`.
+- **Not every Android core is `<core>_libretro_android.so`.** The Core Updater names a core after its buildbot archive less `.zip`, and azahar's is `azahar_libretro.so.zip`. A core like that goes in `profile.yml`'s `core_filenames`, or its playlist entries point at a file that does not exist. Check `https://buildbot.libretro.com/nightly/android/latest/arm64-v8a/.index-extended` when adding a core.

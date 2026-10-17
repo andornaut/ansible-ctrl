@@ -9,6 +9,7 @@ single stage. Each script's module docstring is the reference for its input and 
 | `retroarch-generate-playlists.py` | Regenerates the `.lpl` playlists from the ROM library                                            | `RETROARCH_GENERATOR_CONFIG`                                                  |
 | `retroarch-fetch-thumbnails.py`   | Fills the shared thumbnail cache from [thumbnails.libretro.com](https://thumbnails.libretro.com) | `RETROARCH_THUMBNAILS_CONFIG`                                                 |
 | `gen-fbneo-arcade-names.py`       | Regenerates the committed `fbneo-arcade-names.json`. Run by hand when fbneo adds games           | None. Needs network access                                                    |
+| `3ds-intake.py`                   | Checks a 3DS image against No-Intro, and decrypts a card image or CIA into a `.3ds`. Run by hand | An image. Decryption reads `~/.3ds/aes_keys.txt`, and `seeddb.bin` beside it  |
 | `lutris-game-prefix.py`           | Prints a Lutris game's wine prefix                                                               | `LUTRIS_PREFIX_CONFIG`                                                        |
 | `lutris-register-game.py`         | Registers a Lutris game derived from another game's configuration                                | `LUTRIS_REGISTER_CONFIG`                                                      |
 | `lutris-unset-game-env.py`        | Removes environment variables from each Lutris game's own `system.env`                           | `LUTRIS_UNSET_ENV_CONFIG`                                                     |
@@ -66,4 +67,23 @@ LUTRIS_REGISTER_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'",
   flatpak run --command=python3 net.lutris.Lutris - < lutris-register-game.py
 
 ./lutris-launch-game.py "$HOME/.local/games/Lutris/battlenet" net.lutris.Lutris world-of-warcraft
+```
+
+## 3DS intake
+
+The azahar core loads only decrypted `.3ds` images. Verify the source before decrypting it: the No-Intro DATs hash
+encrypted, untrimmed images.
+
+| Constraint        | Detail                                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keys              | A Citra-format `aes_keys.txt` dumped from a console, at `~/.3ds/aes_keys.txt` or `--keys`. Read only for an encrypted source. Never committed |
+| Seeds             | A digital title whose NCCH uses a seed also needs `seeddb.bin`, at `~/.3ds/seeddb.bin` or `--seeddb`                                          |
+| Output            | Every partition decrypted and its hashes checked, so a wrong key fails the run. Padding after the last partition is dropped                   |
+| CIA               | Contents become the partitions of the same index. An update or DLC CIA, which holds no content 0, is refused                                  |
+| A decrypted image | Never matches the DAT. The `verify` result for its source is the record                                                                       |
+
+```bash
+./3ds-intake.py verify "Game (USA).3ds"
+./3ds-intake.py decrypt "Game (USA).3ds" "/media/nas/games/Nintendo - Nintendo 3DS/Game (USA).3ds"
+./3ds-intake.py decrypt "Game (USA) (eShop).cia" "/media/nas/games/Nintendo - Nintendo 3DS/Game (USA) (eShop).3ds"
 ```

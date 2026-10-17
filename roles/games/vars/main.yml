@@ -220,6 +220,11 @@ games_retroarch_systems:
     # .rvz only: an .iso is converted on intake, and an unconverted one should stay
     # out of the playlist rather than be carried at twice the size.
     extensions: [rvz]
+  # Decrypted .3ds only. The core loads no encrypted image and no .cia, so a card image or
+  # CIA is decrypted into .3ds on intake with files/3ds-intake.py.
+  Nintendo - Nintendo 3DS:
+    core: azahar
+    extensions: [3ds]
   Nintendo - Nintendo 64:
     core: mupen64plus_next
     extensions: [zip]
@@ -491,6 +496,12 @@ games_retroarch_core_overrides:
     input_hold_fast_forward_axis: "nul"
     input_rewind_axis: "nul"
     rewind_enable: "false"
+  # The right stick is the C-stick and the touchscreen pointer. "basic" savestates, so no
+  # rewind.
+  azahar:
+    input_hold_fast_forward_axis: "nul"
+    input_rewind_axis: "nul"
+    rewind_enable: "false"
   # One stick on the pad, so the right stick stays bound. Renderer only.
   flycast:
     video_driver: vulkan
@@ -538,6 +549,13 @@ games_retroarch_core_overrides:
 # games_retroarch_core_overrides: config/<library_name>/<library_name>.opt, with
 # global_core_options false. Only the keys named here are enforced.
 games_retroarch_core_options:
+  # One display, so the default top-above-bottom stack shrinks both 3DS screens to fit its
+  # height. large_screen keeps the bottom screen visible beside a top screen four times its
+  # size, for the touch games. 3x renders the top screen at 1200x720, near a 1080p panel.
+  azahar:
+    citra_layout_option: large_screen
+    citra_resolution_factor: "3"
+
   # The default FM synthesis is MAME's, fast and approximate; Nuked is cycle-accurate.
   # ym2612 is the Mega Drive's chip, ym2413 the Master System's FM add-on.
   genesis_plus_gx:

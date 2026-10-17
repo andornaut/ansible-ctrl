@@ -36,6 +36,10 @@ cores_ref: "/data/user/0/{package}/cores"
 # Android cores land as <core>_libretro_android.so, which is what each playlist's core_path
 # must name.
 core_suffix: _libretro_android.so
+# The cores the buildbot publishes for Android without the suffix, named in full. The Core
+# Updater installs each under its archive's name less .zip.
+core_filenames:
+  azahar: azahar_libretro.so
 info_zip_url: "https://buildbot.libretro.com/assets/frontend/info.zip"
 
 # --- Systems table transforms (over games_retroarch_systems) ---
@@ -162,6 +166,7 @@ rom_dir_names:
   Nintendo - Game Boy Advance: gba
   Nintendo - Game Boy Color: gbc
   Nintendo - GameCube: gc
+  Nintendo - Nintendo 3DS: n3ds
   Nintendo - Nintendo 64: n64
   Nintendo - Nintendo DS: nds
   Nintendo - Nintendo Entertainment System: nes
@@ -199,6 +204,7 @@ esde_cores:
   gba: mGBA
   gbc: Gambatte
   gc: Dolphin (Standalone)
+  n3ds: Azahar
   n64: Mupen64Plus-Next
   nds: melonDS DS
   nes: Mesen
@@ -277,8 +283,10 @@ core_overrides_set:
 
 # N64 swaps ParaLLEl for GLideN64 HLE. Beetle PSX HW is pinned to Vulkan, falling back to
 # software at 1x otherwise, at 2x internal resolution: an 845 collapsed at 4x and the core
-# has no dynarec.
+# has no dynarec. Azahar drops to 2x for the 865.
 core_options_set:
+  azahar:
+    citra_resolution_factor: "2"
   mupen64plus_next:
     mupen64plus-rdp-plugin: gliden64
     mupen64plus-rsp-plugin: hle
@@ -321,6 +329,11 @@ core_probe:
   mupen64plus_next:
     library_name: Mupen64Plus-Next
     valid_extensions: [n64, v64, z64, bin, u1, ndd, zip]
+    block_extract: false
+  azahar:
+    library_name: Azahar
+    valid_extensions:
+      [3ds, 3dsx, z3dsx, elf, axf, cci, zcci, cxi, zcxi, app, bcci, bcxi]
     block_extract: false
   melondsds:
     library_name: melonDS DS

@@ -26,6 +26,8 @@ files/retroid/); absent, a same-host run is unchanged:
 
   * "core_filename_suffix" (default "_libretro.so"): tail of a core's file, used to build
     core_path ("_libretro_android.so" on Android);
+  * "core_filenames" (default {}): core -> its whole file name, for a core whose file breaks the
+    suffix rule (Android's azahar_libretro.so);
   * "emit_library_dir" (default = "library_dir"): library root as the target sees it. Scanning
     still happens at "library_dir", but every emitted path has that prefix rewritten to this;
   * "emit_system_dirs" (default {}): per-system rename of the directory under emit_library_dir,
@@ -264,6 +266,11 @@ def main():
     emit_library_dir = config.get("emit_library_dir", library_dir)
     emit_system_dirs = config.get("emit_system_dirs", {})
     core_suffix = config.get("core_filename_suffix", "_libretro.so")
+    core_filenames = config.get("core_filenames", {})
+
+    def core_file(core):
+        return str(Path(cores_dir) / core_filenames.get(core, f"{core}{core_suffix}"))
+
     # Romset -> title map, applied only to systems whose core is in arcade_name_cores. Both absent
     # by default, so elsewhere the lookup never happens and labels stay the filename.
     arcade_name_cores = set(config.get("arcade_name_cores", []))
@@ -315,7 +322,7 @@ def main():
         # the two for a system whose art the repository publishes under another name.
         playlist_name = f"{system}.lpl"
         db_name = "{}.lpl".format(spec.get("thumbnail_db", system))
-        core_path = str(Path(cores_dir) / f"{core}{core_suffix}")
+        core_path = core_file(core)
         emit_system_dir = str(Path(emit_library_dir) / emit_system_dirs.get(system, system))
         # A missing .info costs only a cosmetic label.
         core_name = core_info_field(info_dir, core, "display_name", default=core)
@@ -323,7 +330,7 @@ def main():
         # label -> (core_path, core_name) for titles this system's core cannot launch.
         game_cores = {
             label: (
-                str(Path(cores_dir) / f"{game_core}{core_suffix}"),
+                core_file(game_core),
                 core_info_field(info_dir, game_core, "display_name", default=game_core),
             )
             for label, game_core in spec.get("game_cores", {}).items()

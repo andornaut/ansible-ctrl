@@ -676,6 +676,7 @@ def generate_playlists(model, library_dir, dirs, profile, cores_ref, info_dir, p
         # The app-private cores dir, the only place RetroArch can dlopen from.
         "cores_dir": cores_ref,
         "core_filename_suffix": profile["core_suffix"],
+        "core_filenames": profile.get("core_filenames") or {},
         "info_dir": str(info_dir),
         "cores": model["probe"],
         "systems": model["systems"],
