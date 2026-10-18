@@ -11,11 +11,14 @@
   become: true
   listen: Reload nginx
 
-# SIGHUP reloads the config and certificates in place: open connections finish on the old
-# workers, where a restart drops every WebSocket and stream.
+# Reloads the config and certificates in place: open connections finish on the old workers,
+# where a restart drops every WebSocket and stream. Signalled from inside the container, since
+# `docker kill`, whatever the signal, marks it manually stopped, and unless-stopped then leaves it
+# down after the next dockerd restart or reboot.
 - name: Reload nginx container
-  ansible.builtin.command:
-    argv: [docker, kill, --signal, HUP, nginx]
+  community.docker.docker_container_exec:
+    container: nginx
+    argv: [nginx, -s, reload]
   changed_when: true
   become: true
   listen: Reload nginx
