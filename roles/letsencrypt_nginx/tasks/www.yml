@@ -44,11 +44,9 @@
       ansible.builtin.command:
         argv:
           - find
-          - "{{ letsencrypt_nginx_docker_required_volumes.www }}"
-          - -mindepth
-          - "2"
+          - "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}"
           - -maxdepth
-          - "2"
+          - "1"
           - -name
           - .well-known
           - -type
@@ -56,5 +54,8 @@
           - -empty
           - -print
           - -delete
+      loop: "{{ letsencrypt_nginx_websites }}"
       register: letsencrypt_nginx_emptied_well_known
       changed_when: letsencrypt_nginx_emptied_well_known.stdout | length > 0
+      # Loop items hold a Cloudflare API token and basicauth credentials.
+      no_log: true
