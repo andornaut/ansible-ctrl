@@ -71,16 +71,16 @@ LUTRIS_REGISTER_CONFIG='{"config_dir": "'"$lutris"'", "data_dir": "'"$lutris"'",
 
 ## 3DS intake
 
-The azahar core loads only decrypted `.3ds` images. Verify the source before decrypting it: the No-Intro DATs hash
-encrypted, untrimmed images.
+The azahar core loads only decrypted `.3ds` images. Verify the decrypted image: the No-Intro card DAT hashes
+decrypted, untrimmed images.
 
-| Constraint        | Detail                                                                                                                                        |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Keys              | A Citra-format `aes_keys.txt` dumped from a console, at `~/.3ds/aes_keys.txt` or `--keys`. Read only for an encrypted source. Never committed |
-| Seeds             | A digital title whose NCCH uses a seed also needs `seeddb.bin`, at `~/.3ds/seeddb.bin` or `--seeddb`                                          |
-| Output            | Every partition decrypted and its hashes checked, so a wrong key fails the run. Padding after the last partition is dropped                   |
-| CIA               | Contents become the partitions of the same index. An update or DLC CIA, which holds no content 0, is refused                                  |
-| A decrypted image | Never matches the DAT. The `verify` result for its source is the record                                                                       |
+| Constraint         | Detail                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keys               | A Citra-format `aes_keys.txt` dumped from a console, at `~/.3ds/aes_keys.txt` or `--keys`. Read only for an encrypted source. Never committed |
+| Seeds              | A digital title whose NCCH uses a seed also needs `seeddb.bin`, at `~/.3ds/seeddb.bin` or `--seeddb`                                          |
+| Output             | Every partition decrypted and its hashes checked, so a wrong key fails the run. The card's full size is kept, padding included                |
+| CIA                | Contents become the partitions of the same index. An update or DLC CIA, which holds no content 0, is refused                                  |
+| An encrypted image | Never matches the card DAT. Decrypt it, then verify the result                                                                                |
 
 ```bash
 ./3ds-intake.py verify "Game (USA).3ds"

@@ -8,14 +8,14 @@ stored as a decrypted .3ds (CCI):
     3ds-intake.py decrypt SOURCE DEST [--keys PATH] [--seeddb PATH]
 
 verify hashes IMAGE as it is and looks it up in the libretro No-Intro DATs, the card set and
-the eShop set unless --dat names others. Run it on the encrypted source: both DATs hash
-encrypted, untrimmed images, so a decrypted or trimmed one never matches. A .cia has no DAT
+the eShop set unless --dat names others. Run it on the decrypted image: the card set hashes
+decrypted, untrimmed images, so an encrypted or trimmed one never matches. A .cia has no DAT
 entry, the eShop set listing its titles as .3ds.
 
 decrypt writes DEST, a CCI with every NCCH partition decrypted, from a card image or a CIA.
-A card image keeps its partitions where they are, less the padding after the last one. A
-CIA's contents become the partitions of the same index (0 the game, 1 the manual, 2 the
-download play child). Each partition's ExHeader, ExeFS and RomFS hashes are checked before
+A card image keeps its full size, padding included, so the result is what the card set
+hashes. A CIA's contents become the partitions of the same index (0 the game, 1 the manual,
+2 the download play child). Each partition's ExHeader, ExeFS and RomFS hashes are checked before
 DEST appears, so a wrong key fails the run rather than producing an image the core rejects.
 DEST must not exist.
 
@@ -320,14 +320,9 @@ def partition_table(ncsd):
 
 
 def decrypt_cci(keys, seeds, src, dst):
-    ncsd = bytearray(src.read(0x200))
-    table = partition_table(ncsd)
-    end = max(offset + size for offset, size in table)
-    copy_range(src, dst, 0, end * MEDIA_UNIT)
-    # The padding after the last partition is dropped, so the recorded size follows.
-    struct.pack_into("<I", ncsd, 0x104, end)
-    dst.seek(0)
-    dst.write(ncsd)
+    table = partition_table(src.read(0x200))
+    # The whole image, padding included: the DAT hashes the untrimmed card.
+    copy_range(src, dst, 0, src.seek(0, 2))
     for offset, size in table:
         if size:
             decrypt_ncch(keys, seeds, dst, offset * MEDIA_UNIT)

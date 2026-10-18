@@ -168,24 +168,30 @@ class Intake(unittest.TestCase):
             intake.decrypt(intake.Keys(keys or self.keys), intake.Seeds(self.seeddb), source, dest)
         return dest.read_bytes()
 
-    def test_card_image_partitions_decrypt_in_place_and_padding_is_dropped(self):
+    def test_card_image_partitions_decrypt_in_place_and_padding_is_kept(self):
         game, game_plain = build_ncch()
         manual, manual_plain = build_ncch(method=0x00, secondary_x="slot0x2CKeyX")
-        out = self.decrypt(build_cci([game, manual]))
+        image = build_cci([game, manual])
+        out = self.decrypt(image)
         first = intake.CCI_FIRST_PARTITION
+        end = first + len(game) + len(manual)
         self.assertEqual(out[first : first + len(game)], game_plain)
-        self.assertEqual(out[first + len(game) :], manual_plain)
-        self.assertEqual(struct.unpack_from("<I", out, 0x104)[0], len(out) // MU)
+        self.assertEqual(out[first + len(game) : end], manual_plain)
+        self.assertEqual(len(out), len(image))
+        self.assertEqual(out[:0x200], image[:0x200])
+        self.assertEqual(out[end:], image[end:])
 
     def test_a_seeded_title_takes_its_seed_from_seeddb(self):
         game, plain = build_ncch(seeded=True)
         out = self.decrypt(build_cci([game]))
-        self.assertEqual(out[intake.CCI_FIRST_PARTITION :], plain)
+        first = intake.CCI_FIRST_PARTITION
+        self.assertEqual(out[first : first + len(plain)], plain)
 
     def test_an_image_in_the_clear_needs_no_key_file(self):
         game, plain = build_ncch(encrypted=False)
         out = self.decrypt(build_cci([game]), keys=self.root / "absent.txt")
-        self.assertEqual(out[intake.CCI_FIRST_PARTITION :], plain)
+        first = intake.CCI_FIRST_PARTITION
+        self.assertEqual(out[first : first + len(plain)], plain)
 
     def test_a_wrong_key_fails_the_hash_check_and_leaves_no_output(self):
         game, _ = build_ncch()
