@@ -1,42 +1,22 @@
 ---
 # A certificate is otherwise reissued only within remaining_days of expiry, so a name added to
-# its CSR, or a staging certificate after the switch to production, would wait until then. Read from disk rather than from this run's changes, so
-# a run whose order failed leaves the next one still reissuing. Both calls of an order take the
-# same force: the second, left unforced, finds the current certificate still valid and never
-# finalizes. Looped over files, not sites, whose Cloudflare API tokens a loop item would print.
-- name: Find the issued certificates and their CSRs
-  ansible.builtin.find:
-    paths:
-      - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt"
-      - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr"
-    patterns:
-      - "*.crt"
-      - "*.csr"
-    file_type: file
-  register: letsencrypt_nginx_ssl_files
-  become: true
-
-- name: Read the names and issuers of the issued certificates
-  community.crypto.x509_certificate_info:
-    path: "{{ item }}"
-  loop: >-
-    {{ letsencrypt_nginx_ssl_files.files | map(attribute='path') | select('match', '.*[.]crt$') | list }}
-  register: letsencrypt_nginx_crt_info
-  become: true
-
-- name: Read the names of the CSRs
-  community.crypto.openssl_csr_info:
-    path: "{{ item }}"
-  loop: >-
-    {{ letsencrypt_nginx_ssl_files.files | map(attribute='path') | select('match', '.*[.]csr$') | list }}
-  register: letsencrypt_nginx_csr_info
-  become: true
-
-# See templates/reissued_certificates.j2.
+# its CSR, or a staging certificate after the switch to production, would wait until then. Read
+# from disk (by ssl.yml) rather than from this run's changes, so a run whose order failed leaves
+# the next one still reissuing. Both calls of an order take the same force: the second, left
+# unforced, finds the current certificate still valid and never finalizes. See
+# templates/reissued_certificates.j2.
 - name: List the certificates whose names or issuing directory are out of date
   ansible.builtin.set_fact:
     letsencrypt_nginx_reissued_certificates: >-
       {{ lookup('ansible.builtin.template', 'reissued_certificates.j2') | from_json }}
+  become: false
+
+# Computed without looping over the sites, whose Cloudflare API tokens a loop item would print.
+# See templates/certificate_orders.j2.
+- name: List the sites that place a certificate order
+  ansible.builtin.set_fact:
+    letsencrypt_nginx_ordering_domains: >-
+      {{ lookup('ansible.builtin.template', 'certificate_orders.j2') | from_json }}
   become: false
 
 - name: Initiate Let's Encrypt DNS or HTTP challenge
@@ -45,7 +25,6 @@
     account_key_src: >-
       {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/acme-account.pem
     acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
-    acme_version: "{{ letsencrypt_nginx_acme_version }}"
     challenge: >-
       {% if item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
     csr: >-
@@ -60,19 +39,8 @@
     remaining_days: "{{ letsencrypt_nginx_remaining_days }}"
     terms_agreed: true
   loop: "{{ letsencrypt_nginx_websites }}"
-  loop_control:
-    index_var: letsencrypt_nginx_website_index
   register: letsencrypt_nginx_challenge
-  # One order per certificate: sites sharing a CSR would each place an order for the same
-  # names, publishing a second set of TXT values the first order does not answer.
-  when:
-    - not item.use_selfsigned_certificate | default(false)
-    - >-
-      item.csr_common_name | default(item.domain) not in
-      (letsencrypt_nginx_websites[:letsencrypt_nginx_website_index]
-      | selectattr('csr_common_name', 'defined') | map(attribute='csr_common_name') | list)
-      + (letsencrypt_nginx_websites[:letsencrypt_nginx_website_index]
-      | selectattr('csr_common_name', 'undefined') | map(attribute='domain') | list)
+  when: item.domain in letsencrypt_nginx_ordering_domains
   become: true
   # Loop items hold Cloudflare API tokens; the challenge data holds the ACME account key.
   no_log: true
@@ -116,7 +84,7 @@
 
     - name: Create HTTP challenge resource directories
       ansible.builtin.file:
-        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource | dirname }}"
+        path: "{{ letsencrypt_nginx_acme_challenge_root }}/{{ item.resource | dirname }}"
         state: directory
         mode: "0755"
       loop: "{{ letsencrypt_nginx_http_resources }}"
@@ -126,7 +94,7 @@
 
     - name: Copy HTTP challenge resources
       ansible.builtin.copy:
-        dest: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
+        dest: "{{ letsencrypt_nginx_acme_challenge_root }}/{{ item.resource }}"
         content: "{{ item.value }}"
         mode: "0644"
       loop: "{{ letsencrypt_nginx_http_resources }}"
@@ -141,7 +109,6 @@
         account_key_src: >-
           {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/acme-account.pem
         acme_directory: "{{ letsencrypt_nginx_acme_directory_url }}"
-        acme_version: "{{ letsencrypt_nginx_acme_version }}"
         challenge: >-
           {% if item.item.cloudflare_api_token | default(false) %}dns-01{% else %}http-01{% endif %}
         csr: >-
@@ -163,19 +130,18 @@
       when:
         - item is not skipped
         - item.changed
-        - not item.item.use_selfsigned_certificate | default(false)
       become: true
       # `data` carries the challenge results, which embed the Cloudflare API token.
       no_log: true
       # The site configuration names the same path before and after a renewal, so nothing
       # else changes to load the new certificate.
-      notify: Restart nginx
+      notify: Reload nginx
   always:
     # Ahead of the Cloudflare calls, whose failure would skip it. A failure here is reported
     # after the one that ended the block, which has already failed the host.
     - name: Delete HTTP challenge resources
       ansible.builtin.file:
-        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.root }}/{{ item.resource }}"
+        path: "{{ letsencrypt_nginx_acme_challenge_root }}/{{ item.resource }}"
         state: absent
       loop: "{{ letsencrypt_nginx_http_resources | default([]) }}"
       loop_control:

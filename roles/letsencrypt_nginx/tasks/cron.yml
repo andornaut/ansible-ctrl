@@ -10,17 +10,29 @@
     success_msg: 'letsencrypt_nginx_operator "{{ letsencrypt_nginx_operator }}" is valid'
   become: false
 
+- name: Require the renewal checkout
+  ansible.builtin.assert:
+    that: letsencrypt_nginx_renewal_cron_directory | default('') | length > 0
+    fail_msg: >-
+      Set letsencrypt_nginx_renewal_cron_directory in host_vars to the checkout the nightly
+      renewal runs from.
+    quiet: true
+  when: letsencrypt_nginx_install_renewal_cron | bool
+  become: false
+
 # The store and age key are in the operator's home and this job runs as root, so
 # resolve the paths: root's own ~ is /root.
 - name: Read the operator's passwd entry
   ansible.builtin.getent:
     database: passwd
     key: "{{ letsencrypt_nginx_operator }}"
+  become: false
 
 - name: Resolve the operator's home
   ansible.builtin.set_fact:
     letsencrypt_nginx_operator_home: >-
       {{ ansible_facts['getent_passwd'][letsencrypt_nginx_operator][4] }}
+  become: false
 
 # cron refuses a command longer than 998 characters and ignores the whole file, so the
 # preflight lives in a script and the job only names it.

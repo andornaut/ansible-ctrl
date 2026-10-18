@@ -1,6 +1,5 @@
 ---
 letsencrypt_nginx_acme_directory_url: https://acme-staging-v02.api.letsencrypt.org/directory
-letsencrypt_nginx_acme_version: 2
 letsencrypt_nginx_csr_country: CA
 letsencrypt_nginx_docker_extra_volumes: []
 letsencrypt_nginx_docker_image: nginx:stable
@@ -25,8 +24,9 @@ letsencrypt_nginx_websites: []
 letsencrypt_nginx_install_renewal_cron: false
 letsencrypt_nginx_renewal_cron_hour: "22"
 letsencrypt_nginx_renewal_cron_minute: "11"
-# Where ansible-playbook runs from, defaulting to this run's checkout.
-letsencrypt_nginx_renewal_cron_directory: "{{ playbook_dir }}"
+# letsencrypt_nginx_renewal_cron_directory, the checkout the renewal runs from, has no default:
+# a run from another checkout would otherwise repoint the job there. Set it in host_vars beside
+# letsencrypt_nginx_install_renewal_cron.
 letsencrypt_nginx_renewal_cron_log: /var/log/ansible-role-letsencrypt_nginx.log
 # The account whose home holds the store. cron.yml resolves the home with getent.
 letsencrypt_nginx_operator: "{{ primary_user }}"

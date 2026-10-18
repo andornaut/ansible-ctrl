@@ -74,3 +74,58 @@
   become: true
   # Under --check a key not yet on disk was only reported, so there is none to sign with.
   when: not (ansible_check_mode and letsencrypt_nginx_keys is changed)
+
+# Looped over files, not sites, whose Cloudflare API tokens a loop item would print.
+- name: Find the issued certificates and their CSRs
+  ansible.builtin.find:
+    paths:
+      - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt"
+      - "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/csr"
+    patterns:
+      - "*.crt"
+      - "*.csr"
+    file_type: file
+  register: letsencrypt_nginx_ssl_files
+  become: true
+
+- name: Read the names, issuers and keys of the issued certificates
+  community.crypto.x509_certificate_info:
+    path: "{{ item }}"
+  loop: >-
+    {{ letsencrypt_nginx_ssl_files.files | map(attribute='path') | select('match', '.*[.]crt$') | list }}
+  register: letsencrypt_nginx_crt_info
+  become: true
+
+- name: Read the names of the CSRs
+  community.crypto.openssl_csr_info:
+    path: "{{ item }}"
+  loop: >-
+    {{ letsencrypt_nginx_ssl_files.files | map(attribute='path') | select('match', '.*[.]csr$') | list }}
+  register: letsencrypt_nginx_csr_info
+  become: true
+
+- name: Read the public key of the certificate key
+  community.crypto.openssl_privatekey_info:
+    path: "{{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/key/private.pem"
+  register: letsencrypt_nginx_private_key_info
+  become: true
+  when: not (ansible_check_mode and letsencrypt_nginx_keys is changed)
+
+# Every site configuration pairs its certificate with private.pem, so one issued for another key
+# fails `nginx -t` on every run, and the reissue check compares names and issuers only.
+- name: Require every issued certificate to match the certificate key
+  ansible.builtin.assert:
+    that: letsencrypt_nginx_mismatched_certificates | length == 0
+    fail_msg: >-
+      {{ letsencrypt_nginx_mismatched_certificates | join(', ') }} in
+      {{ letsencrypt_nginx_docker_required_volumes.config }}/ssl/crt were not issued for
+      ssl/key/private.pem. Delete them and run again: a site with no certificate serves the
+      self-signed one, and its order issues a new certificate.
+    quiet: true
+  vars:
+    letsencrypt_nginx_mismatched_certificates: >-
+      {{ letsencrypt_nginx_crt_info.results
+         | rejectattr('public_key', 'equalto', letsencrypt_nginx_private_key_info.public_key)
+         | map(attribute='item') | map('basename') | list }}
+  when: letsencrypt_nginx_private_key_info is not skipped
+  become: false

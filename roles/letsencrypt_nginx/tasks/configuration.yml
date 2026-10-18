@@ -6,22 +6,26 @@
 # the install into the live directory reports a change.
 - name: Stage, test and install the Nginx configuration
   block:
-    - name: Check for the Nginx volume directory
-      ansible.builtin.stat:
+    - name: Create the Nginx volume directory
+      ansible.builtin.file:
         path: "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
       register: letsencrypt_nginx_volume_dir
       become: true
 
     # Beside the live config rather than in /tmp: a brokered run has a private /tmp, which
-    # dockerd cannot see, and it would mount an empty directory in the tree's place. /tmp on a
-    # fresh host, where docker.yml has yet to create that directory.
+    # dockerd cannot see, and it would mount an empty directory in the tree's place. /tmp only
+    # under --check on a fresh host, which creates no directory and installs nothing.
     - name: Create the staging directory
       ansible.builtin.tempfile:
         state: directory
         suffix: .nginx
         path: >-
-          {{ letsencrypt_nginx_docker_required_volumes.config | dirname
-             if letsencrypt_nginx_volume_dir.stat.isdir | default(false) else omit }}
+          {{ omit if ansible_check_mode and letsencrypt_nginx_volume_dir is changed
+             else letsencrypt_nginx_docker_required_volumes.config | dirname }}
       register: letsencrypt_nginx_staging
       changed_when: false
       check_mode: false
@@ -144,7 +148,7 @@
         label: "{{ item.path }}"
       when: item.path | basename not in letsencrypt_nginx_config_files
       become: true
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Install the tested configuration
       ansible.builtin.copy:
@@ -156,7 +160,7 @@
         group: root
       loop: "{{ letsencrypt_nginx_config_files }}"
       become: true
-      notify: Restart nginx
+      notify: Reload nginx
   always:
     - name: Remove the staging directory
       ansible.builtin.file:

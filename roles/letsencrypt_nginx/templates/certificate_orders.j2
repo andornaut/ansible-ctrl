@@ -1,0 +1,13 @@
+{#- The domain of the one site that places each certificate's order: the first site naming the
+    common name that is not self-signed. Sites sharing a CSR would each place an order for the
+    same names, publishing a second set of TXT values the first order does not answer. -#}
+{% set seen = [] %}
+{% set domains = [] %}
+{% for site in letsencrypt_nginx_websites if not site.use_selfsigned_certificate | default(false) %}
+{% set cn = site.csr_common_name | default(site.domain) %}
+{% if cn not in seen %}
+{% set _ = seen.append(cn) %}
+{% set _ = domains.append(site.domain) %}
+{% endif %}
+{% endfor %}
+{{ domains | to_json }}

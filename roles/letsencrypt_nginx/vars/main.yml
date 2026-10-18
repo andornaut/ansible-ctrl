@@ -4,6 +4,10 @@ letsencrypt_nginx_config_partials:
   - common_site_configuration
   - selfsigned_certificate
 
+# The HTTP-01 token root, /var/www/.acme in the container: every port-80 server answers
+# /.well-known/acme-challenge/ from it, so a token never lands in a site's web root.
+letsencrypt_nginx_acme_challenge_root: "{{ letsencrypt_nginx_docker_required_volumes.www }}/.acme"
+
 # Every file configuration.yml installs, relative to the config volume.
 letsencrypt_nginx_config_files: >-
   {{ ['00-default.conf']

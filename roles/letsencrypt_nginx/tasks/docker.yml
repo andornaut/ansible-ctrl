@@ -10,7 +10,6 @@
     owner: root
     group: root
   loop:
-    # The parent too, which nothing else creates or checks the mode of.
     - "{{ letsencrypt_nginx_docker_required_volumes.config | dirname }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.config }}"
     - "{{ letsencrypt_nginx_docker_required_volumes.www }}"

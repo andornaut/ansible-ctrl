@@ -43,7 +43,7 @@ Keys of each `letsencrypt_nginx_websites` entry. Only `domain` is required.
 | `proxy_https`                                 | Proxy over HTTPS instead of HTTP                                                                                                                                                                                                                                                                                                                                |
 | `proxy_remove_authorization_header`           | Drop the `Authorization` header before proxying                                                                                                                                                                                                                                                                                                                 |
 | `websocket_paths`                             | Paths proxied with the WebSocket upgrade headers, `/` included                                                                                                                                                                                                                                                                                                  |
-| `proxy_content`                               | Raw nginx directives appended to `location /`                                                                                                                                                                                                                                                                                                                   |
+| `proxy_content`                               | Raw nginx directives appended to `location /` and to each `websocket_paths` location                                                                                                                                                                                                                                                                            |
 | `content`                                     | Raw nginx configuration rendered above the site's server blocks                                                                                                                                                                                                                                                                                                 |
 | `hidden_patterns`                             | Regexes answered 404, added to `letsencrypt_nginx_hidden_patterns`                                                                                                                                                                                                                                                                                              |
 | `path`                                        | Subdirectory of the web root to serve, for a site with no `proxy_port`                                                                                                                                                                                                                                                                                          |
@@ -52,15 +52,16 @@ Keys of each `letsencrypt_nginx_websites` entry. Only `domain` is required.
 
 ## Certificates
 
-| Constraint                            | Detail                                                                                                                                                                      |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One certificate per `csr_common_name` | Or per `domain` where a site names none. It covers the common name plus `<domain>` and `www.<domain>` of every site sharing it                                              |
-| Validation                            | DNS-01 in `cloudflare_api_zone` for a site with `cloudflare_api_token`, HTTP-01 otherwise. A wildcard needs DNS-01, and an HTTP-01 common name must be some site's `domain` |
-| `letsencrypt_nginx_account_email`     | Required                                                                                                                                                                    |
-| Staging by default                    | `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory. Set the production one in `host_vars`; staging certificates are then reissued         |
-| Reissue                               | Within `letsencrypt_nginx_remaining_days` of expiry, or when a certificate's names change                                                                                   |
-| Before issue                          | A site serves the self-signed certificate until its own is issued, and always with `use_selfsigned_certificate: true`                                                       |
-| Configuration is tested               | A configuration `nginx -t` rejects fails the run before any live file changes                                                                                               |
+| Constraint                            | Detail                                                                                                                                                                                        |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One certificate per `csr_common_name` | Or per `domain` where a site names none. It covers the common name plus `<domain>` and `www.<domain>` of every site sharing it                                                                |
+| Validation                            | DNS-01 in `cloudflare_api_zone` for a site with `cloudflare_api_token`, HTTP-01 otherwise. A wildcard needs DNS-01. HTTP-01 tokens are served from `/var/www/.acme` on port 80 for every name |
+| `letsencrypt_nginx_account_email`     | Required                                                                                                                                                                                      |
+| Staging by default                    | `letsencrypt_nginx_acme_directory_url` defaults to Let's Encrypt's staging directory. Set the production one in `host_vars`; staging certificates are then reissued                           |
+| Reissue                               | Within `letsencrypt_nginx_remaining_days` of expiry, or when a certificate's names change                                                                                                     |
+| Before issue                          | A site serves the self-signed certificate until its own is issued, and always with `use_selfsigned_certificate: true`                                                                         |
+| One key                               | Every certificate is issued for `ssl/key/private.pem`. One that does not match it fails the run: delete it and run again to reissue it                                                        |
+| Configuration is tested               | A configuration `nginx -t` rejects fails the run before any live file changes                                                                                                                 |
 
 ## Access control
 
@@ -85,7 +86,8 @@ Per entry in a site's `locations`:
 ## Certificate renewal
 
 `letsencrypt_nginx_install_renewal_cron: true` installs `/usr/local/sbin/letsencrypt-nginx-renew` and a root cron job
-that runs `make webservers PREFLIGHT=none -- --tags letsencrypt`. Enable it on the controller only.
+that runs `make webservers PREFLIGHT=none -- --tags letsencrypt` from `letsencrypt_nginx_renewal_cron_directory`, which has no
+default. Enable it on the controller only.
 
 | Constraint                    | Detail                                                                                                                                                              |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

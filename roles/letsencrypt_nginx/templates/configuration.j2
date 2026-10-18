@@ -21,9 +21,9 @@ server {
         return 301 https://{{ item.item.domain }}$request_uri;
     }
 
-    # ACME challenge over HTTP
+    # ACME challenge over HTTP, from the root every port-80 server shares
     location ^~ /.well-known/acme-challenge/ {
-        root /var/www/{{ item.item.domain }};
+        root /var/www/.acme;
         access_log /var/log/nginx/access.log;
         error_log /var/log/nginx/error.log;
         log_not_found on;
@@ -100,14 +100,6 @@ server {
 {% else %}
     ssl_certificate /etc/nginx/conf.d/ssl/crt/{{ item.item.csr_common_name | default(item.item.domain) | replace('*', '_') }}.crt;
     ssl_certificate_key /etc/nginx/conf.d/ssl/key/private.pem;
-
-    location ^~ /.well-known/acme-challenge/ {
-        root /var/www/{{ item.item.domain }};
-        access_log /var/log/nginx/access.log;
-        error_log /var/log/nginx/error.log;
-        log_not_found on;
-        allow all;
-    }
 {% endif %}
 
     # Security headers
@@ -138,6 +130,12 @@ server {
         {% endif %}
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
+{% if item.item.proxy_remove_authorization_header | default(False) %}
+        proxy_set_header Authorization "";
+{% endif %}
+{% if item.item.proxy_content is defined %}
+        {{ item.item.proxy_content }}
+{% endif %}
     }
 {% endif %}
 {% endfor %}
@@ -174,7 +172,7 @@ server {
     }
 {% endfor %}
 
-    # Hide dotfiles (except .well-known, which uses the ^~ prefix)
+    # Hide dotfiles
     location ~ /\. {
         return 404;
     }
@@ -186,9 +184,12 @@ server {
 {% endfor %}
 
 {% if item.item.proxy_port is not defined %}
-    # At server level, so the exact-match locations common_site_configuration adds
-    # (robots.txt, favicon.ico) are served from the site as well.
+    # At server level, so the exact-match locations below are served from the site as well. A
+    # proxied site has no root, so it passes both paths to the upstream instead.
     root /var/www/{{ item.item.domain }}{% if item.item.path is defined %}/{{ item.item.path }}{% endif %};
+
+    location = /robots.txt  { access_log off; log_not_found off; }
+    location = /favicon.ico { access_log off; log_not_found off; }
 
 {% endif %}
 {# A `locations` entry at / serves the whole site, in place of this one. #}

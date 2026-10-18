@@ -28,3 +28,33 @@
       when: item.repo is defined
       # Loop items hold a Cloudflare API token and basicauth credentials.
       no_log: true
+
+    # CLEANUP (added 2026-10-17): HTTP-01 tokens were written into each site's web root. Remove
+    # once no web root on a webservers host has a .well-known/acme-challenge directory.
+    - name: Remove the challenge directories from the site web roots
+      ansible.builtin.file:
+        path: "{{ letsencrypt_nginx_docker_required_volumes.www }}/{{ item.domain }}/.well-known/acme-challenge"
+        state: absent
+      loop: "{{ letsencrypt_nginx_websites }}"
+      # Loop items hold a Cloudflare API token and basicauth credentials.
+      no_log: true
+
+    # CLEANUP (added 2026-10-17): the .well-known directories the task above empties. Remove with it.
+    - name: Remove the emptied .well-known directories
+      ansible.builtin.command:
+        argv:
+          - find
+          - "{{ letsencrypt_nginx_docker_required_volumes.www }}"
+          - -mindepth
+          - "2"
+          - -maxdepth
+          - "2"
+          - -name
+          - .well-known
+          - -type
+          - d
+          - -empty
+          - -print
+          - -delete
+      register: letsencrypt_nginx_emptied_well_known
+      changed_when: letsencrypt_nginx_emptied_well_known.stdout | length > 0

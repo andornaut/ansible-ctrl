@@ -1,5 +1,5 @@
 ---
-# Listed ahead of the restart, and handlers run in the order they are listed: a config nginx
+# Listed ahead of the reload, and handlers run in the order they are listed: a config nginx
 # rejects fails here, leaving the running container on the config it already loaded. A
 # throwaway container, so the live tree is tested whether or not the nginx container is running.
 - name: Validate nginx configuration
@@ -9,11 +9,13 @@
     letsencrypt_nginx_config_test_dir: "{{ letsencrypt_nginx_docker_required_volumes.config }}"
   changed_when: false
   become: true
-  listen: Restart nginx
+  listen: Reload nginx
 
-- name: Restart nginx container
-  community.docker.docker_container:
-    name: nginx
-    restart: true
+# SIGHUP reloads the config and certificates in place: open connections finish on the old
+# workers, where a restart drops every WebSocket and stream.
+- name: Reload nginx container
+  ansible.builtin.command:
+    argv: [docker, kill, --signal, HUP, nginx]
+  changed_when: true
   become: true
-  listen: Restart nginx
+  listen: Reload nginx

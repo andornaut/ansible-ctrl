@@ -4,8 +4,7 @@
 {% set records = [] %}
 {% for result in letsencrypt_nginx_challenge.results
    if result is not skipped and result.changed and result.challenge_data
-   and result.item.cloudflare_api_token is defined
-   and not result.item.use_selfsigned_certificate | default(false) %}
+   and result.item.cloudflare_api_token | default(false) %}
 {% for record, values in result.challenge_data_dns.items() %}
 {% for value in values %}
 {% set _ = records.append({'record': record, 'value': value, 'site': result.item}) %}
