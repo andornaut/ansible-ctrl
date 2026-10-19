@@ -55,7 +55,7 @@ jobs:
       # prettier. package.json pins both, and Dependabot bumps them through the
       # npm ecosystem.
       - name: Set up Node
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
