@@ -25,8 +25,9 @@ RUN set -eu; \
     tar -xJf "/tmp/${tarball}" -C /usr/local --strip-components=1 --no-same-owner; \
     rm "/tmp/${tarball}"
 
-# A non-root account owning nothing on the host, which is the uid the checks run as.
-RUN useradd --uid 10001 --user-group --create-home lint \
+# A non-root account owning nothing on the host, which is the uid the checks run as. Clear of
+# the service account uids the roles allocate upward from 10001.
+RUN useradd --uid 19001 --user-group --create-home lint \
     && install -d -o lint -g lint /work /opt/lint-venv /opt/collections /opt/npm
 USER lint
 

@@ -22,7 +22,7 @@ tar -c tests/container/Dockerfile requirements-dev.txt requirements.yml package.
 git ls-files -z --cached --others --exclude-standard |
     docker run --rm --interactive \
         --network none \
-        --user 10001:10001 \
+        --user 19001:19001 \
         --group-add "$(stat -c %g .)" \
         --cap-drop ALL \
         --security-opt no-new-privileges \

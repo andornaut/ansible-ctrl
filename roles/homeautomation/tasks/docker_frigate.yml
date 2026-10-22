@@ -52,6 +52,18 @@
           # http://frigate:5000
           container_name: frigate
           image: "{{ homeautomation_frigate_docker_image }}"
+          # Root under s6-overlay, which upstream requires, but without the default set's
+          # raw sockets, device nodes, chroot, low ports or capability changes. What stays
+          # is what s6 and its services use to own, signal and switch accounts.
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
+          cap_add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - FOWNER
+            - FSETID
+            - KILL
+            - SETGID
+            - SETUID
           devices: "{{ homeautomation_frigate_devices }}"
           environment: "{{ frigate_env }}"
           group_add:

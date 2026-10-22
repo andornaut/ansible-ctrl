@@ -119,6 +119,7 @@ account with a fixed uid, `cap_drop: ALL` and `no-new-privileges`.
 | Loopback listeners                           | The MQTT broker, Wyoming, the Matter WebSocket API, the OTBR web UI, Frigate's RTSP restream and Frigate's unauthenticated UI authenticate nobody, so all bind to loopback. Frigate's authenticated UI and OpenWebUI are reached through the proxy |
 | Unauthenticated listeners on every interface | govee2mqtt's HTTP API, whose image hard-codes the listen address. OTBR's REST API does too, and is firewalled to loopback (see [OTBR REST API firewall](#otbr-rest-api-firewall))                                                                  |
 | Frigate RTSP from the LAN                    | Home Assistant reaches the restream over the bridge. Set `homeautomation_frigate_bind_rtsp: "0.0.0.0"` only for an RTSP client off the host                                                                                                        |
+| Frigate as root                              | s6-overlay needs root, so Frigate keeps it with `cap_drop: ALL` and only `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `FSETID`, `KILL`, `SETGID` and `SETUID` added back                                                                                     |
 
 ## llama.cpp models and context
 
