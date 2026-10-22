@@ -163,7 +163,7 @@
                 '--env=VISION_TIMEOUT_MS=' ~ (dev_llamacpp_mcp_timeout | int * 1000),
                 '--env=VISION_ALLOWED_ROOTS=' ~ dev_llamacpp_mcp_vision_allowed_roots | join(':')]
              + (dev_llamacpp_mcp_vision_groups
-                | map('extract', ansible_facts['getent_group'])
+                | map('extract', ansible_facts['getent_group'] | default({}))
                 | map(attribute=1) | map('regex_replace', '^', '--group-add=') | list)
              + (dev_llamacpp_mcp_vision_allowed_roots | map('regex_replace', '^(.*)$', '--volume=\1:\1:ro') | list)
              + [dev_llamacpp_mcp_vision_image] }}
