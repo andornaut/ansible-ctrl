@@ -165,8 +165,7 @@ homeautomation_llamacpp_model_presets:
   # No `c`: the inherited 128k fits, but only because of the cache types below. 16 of the
   # 64 layers are full attention and the rest are linear, holding a fixed-size state, so
   # with 4 KV heads at head_dim 256 the cache costs 29KiB per token here against 64KiB at
-  # f16: 3.6GiB at 128k, beside 10.2GiB of weights and a 0.9GiB vision projector on a 16GB
-  # card the desktop shares.
+  # f16: 3.6GiB at 128k, beside 10.2GiB of weights on a 16GB card the desktop shares.
   Qwen3.8-27B-UD-IQ3_XXS:
     # K carries the long-range recall of every full-attention layer and there are few of
     # them, so it keeps the higher precision; V tolerates q5_1.
@@ -180,6 +179,9 @@ homeautomation_llamacpp_model_presets:
     top-p: 0.95
     top-k: 20
     min-p: 0.0
+    # The projector stays in system RAM: on the GPU it would load with every request, text
+    # included, and leave too little for the compute buffers. Image encoding runs on the CPU.
+    no-mmproj-offload: true
 homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
   - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-IQ3_XXS.gguf

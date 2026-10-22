@@ -137,7 +137,7 @@
              + ['--user=' ~ dev_llamacpp_mcp_llm_uid ~ ':' ~ dev_llamacpp_mcp_llm_uid,
                 '--env=LOCAL_BACKEND=openai',
                 '--env=LOCAL_HOST=' ~ dev_llamacpp_mcp_url,
-                '--env=LOCAL_TIMEOUT=' ~ dev_llamacpp_mcp_llm_timeout,
+                '--env=LOCAL_TIMEOUT=' ~ dev_llamacpp_mcp_timeout,
                 dev_llamacpp_mcp_llm_image] }}
       - name: local-embed
         account: mcp-local-embed
@@ -148,7 +148,7 @@
                 '--env=LOCAL_BACKEND=openai',
                 '--env=LOCAL_HOST=' ~ dev_llamacpp_mcp_embed_url,
                 '--env=LOCAL_EMBED_MODEL=' ~ dev_llamacpp_mcp_embed_model,
-                '--env=LOCAL_TIMEOUT=' ~ dev_llamacpp_mcp_llm_timeout,
+                '--env=LOCAL_TIMEOUT=' ~ dev_llamacpp_mcp_timeout,
                 dev_llamacpp_mcp_llm_image] }}
       - name: local-vision
         account: mcp-local-vision
@@ -159,6 +159,8 @@
                 '--env=VISION_MANAGED=0',
                 '--env=VISION_SERVER_URL=' ~ dev_llamacpp_mcp_url,
                 '--env=VISION_MODEL=' ~ dev_llamacpp_mcp_vision_model,
+                '--env=VISION_MAX_TOKENS=' ~ dev_llamacpp_mcp_vision_max_tokens,
+                '--env=VISION_TIMEOUT_MS=' ~ (dev_llamacpp_mcp_timeout | int * 1000),
                 '--env=VISION_ALLOWED_ROOTS=' ~ dev_llamacpp_mcp_vision_allowed_roots | join(':')]
              + (dev_llamacpp_mcp_vision_groups
                 | map('extract', ansible_facts['getent_group'])

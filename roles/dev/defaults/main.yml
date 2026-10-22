@@ -36,13 +36,15 @@ dev_llamacpp_mcp_embed_url: http://llamacpp-embed:8080
 # llamacpp-embed's model id: homeautomation_llamacpp_embed_model's file name without .gguf.
 dev_llamacpp_mcp_embed_model: Qwen3-Embedding-0.6B-Q8_0
 dev_llamacpp_mcp_llm_version: "1.0.3"
-# Seconds. A request naming an unloaded model waits for the router to load it.
-dev_llamacpp_mcp_llm_timeout: "600"
+# Seconds, for every server. A request naming an unloaded model waits for the router to load it.
+dev_llamacpp_mcp_timeout: "600"
 # Upstream publishes no tags or npm package, so it is built at a commit raised by hand.
 dev_llamacpp_mcp_vision_version: d3844e8f7bb8fcead34bff87615b7a85502a709e
-# The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs. The
-# 27B over gemma for detail, at the cost of unloading gemma for every call.
+# The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs, and
+# a call naming it unloads whichever model is resident.
 dev_llamacpp_mcp_vision_model: Qwen3.8-27B-UD-IQ3_XXS
+# Output tokens per call, reasoning included: a thinking model spends them before the answer.
+dev_llamacpp_mcp_vision_max_tokens: "16384"
 # Mounted read-only into local-vision at the same paths, and the only directories it may
 # read. Each gets an ACL letting the container's account traverse it.
 dev_llamacpp_mcp_vision_allowed_roots:

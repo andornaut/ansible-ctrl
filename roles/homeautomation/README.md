@@ -130,13 +130,13 @@ Each model runs in its own `llama-server` child, which defaults to a 4096-token 
 | `homeautomation_llamacpp_model_presets` | one model   | Any `llama-server` long option. A section name must match the model id, which is the file name                                               |
 | `homeautomation_llamacpp_mmprojs`       | one model   | A vision projector URL per model id, downloaded as `<model id>.mmproj.gguf` and named as that model's `mmproj`                               |
 
-| Constraint             | Detail                                                                                                                                                               |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Context ceiling        | `LLAMA_ARG_CTX_SIZE` must not exceed the smallest model's native training context. A model that cannot fit it in VRAM sets a lower `c` in its own preset             |
-| KV cache sizing        | Only full-attention layers hold KV cache, so a hybrid model needs far less per token than its parameter count suggests. Size a model as weights + KV against the GPU |
-| Cache quantization     | Quantize the cache (`cache-type-k`, `cache-type-v`, which need `flash-attn = on`) before reducing context. Keep `cache-type-k` the higher precision of the two       |
-| `LLAMA_ARG_MODELS_MAX` | `1` because one 27B quant plus its cache fills a 16GB GPU. At 1 a request naming a different model costs an unload and reload                                        |
-| Preset keys            | Some command-line options are rejected in a preset, `reasoning-effort` and `n-parallel` among them. A rejected key stops the container from starting                 |
+| Constraint             | Detail                                                                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context ceiling        | `LLAMA_ARG_CTX_SIZE` must not exceed the smallest model's native training context. A model that cannot fit it in VRAM sets a lower `c` in its own preset                                                             |
+| KV cache sizing        | Only full-attention layers hold KV cache, so a hybrid model needs far less per token than its parameter count suggests. Size a model as weights + KV, plus its projector unless `no-mmproj-offload`, against the GPU |
+| Cache quantization     | Quantize the cache (`cache-type-k`, `cache-type-v`, which need `flash-attn = on`) before reducing context. Keep `cache-type-k` the higher precision of the two                                                       |
+| `LLAMA_ARG_MODELS_MAX` | `1` because one 27B quant plus its cache fills a 16GB GPU. At 1 a request naming a different model costs an unload and reload                                                                                        |
+| Preset keys            | Some command-line options are rejected in a preset, `reasoning-effort` and `n-parallel` among them. A rejected key stops the container from starting                                                                 |
 
 ### Conversation agent
 
