@@ -40,6 +40,15 @@
       - "{{ homeautomation_llamacpp_required_volumes.cache }}"
     service_account_mode: "0700"
 
+- name: Create the llama.cpp embeddings service account
+  ansible.builtin.include_tasks: service_account.yml
+  vars:
+    service_account_name: llamacpp-embed
+    service_account_uid: "{{ homeautomation_llamacpp_embed_uid }}"
+    # Its models directory stays root-owned and read-only, and it writes nothing else.
+    service_account_paths: []
+    service_account_mode: "0700"
+
 - name: Create the OpenWebUI service account
   ansible.builtin.include_tasks: service_account.yml
   vars:
@@ -96,6 +105,33 @@
   become: true
   loop: "{{ homeautomation_llamacpp_mmproj_stats.results }}"
   when: not item.stat.exists
+
+- name: Create the llama.cpp embeddings models directory
+  ansible.builtin.file:
+    path: "{{ homeautomation_llamacpp_embed_required_volumes.models }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Check whether the llama.cpp embedding model already exists
+  ansible.builtin.stat:
+    path: "{{ homeautomation_llamacpp_embed_required_volumes.models }}/{{ homeautomation_llamacpp_embed_model | basename }}"
+  become: true
+  register: homeautomation_llamacpp_embed_model_stat
+
+- name: Download the llama.cpp embedding model
+  ansible.builtin.get_url:
+    url: "{{ homeautomation_llamacpp_embed_model }}"
+    dest: "{{ homeautomation_llamacpp_embed_required_volumes.models }}/{{ homeautomation_llamacpp_embed_model | basename }}"
+    mode: "0644"
+  register: homeautomation_llamacpp_embed_model_download
+  retries: 3
+  delay: 5
+  until: homeautomation_llamacpp_embed_model_download is succeeded
+  become: true
+  when: not homeautomation_llamacpp_embed_model_stat.stat.exists
 
 - name: Start LLM Docker containers
   become: true
@@ -163,6 +199,34 @@
           restart: unless-stopped
           security_opt: "{{ homeautomation_no_new_privileges }}"
           volumes: "{{ llamacpp_volumes }}"
+
+        llamacpp-embed:
+          # http://llamacpp-embed.internal:8080
+          container_name: llamacpp-embed
+          image: "{{ homeautomation_llamacpp_embed_docker_image }}"
+          cap_drop: "{{ homeautomation_unprivileged_cap_drop }}"
+          # An embedding input must fit one micro-batch, so both batch sizes match the context.
+          command: >-
+            --host 0.0.0.0 --port 8080 --embeddings
+            --model /models/{{ homeautomation_llamacpp_embed_model | basename }}
+            --alias {{ homeautomation_llamacpp_embed_model | basename | regex_replace('\.gguf$', '') }}
+            --ctx-size {{ homeautomation_llamacpp_embed_ctx_size }}
+            --batch-size {{ homeautomation_llamacpp_embed_ctx_size }}
+            --ubatch-size {{ homeautomation_llamacpp_embed_ctx_size }}
+          user: "{{ homeautomation_llamacpp_embed_uid }}:{{ homeautomation_llamacpp_embed_gid }}"
+          healthcheck:
+            test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
+          logging: "{{ homeautomation_default_logging }}"
+          read_only: true
+          restart: unless-stopped
+          security_opt: "{{ homeautomation_no_new_privileges }}"
+          volumes: >-
+            {{ homeautomation_common_volumes
+               + [homeautomation_llamacpp_embed_required_volumes.models ~ ':/models:ro'] }}
 
         openwebui:
           # http://openwebui.internal:8080

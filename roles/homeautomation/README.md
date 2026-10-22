@@ -52,6 +52,7 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | `homeautomation_homeassistant_devices`                                 | Devices passed to the Home Assistant container. See [Notes](#notes)                                                                                                                              |
 | `homeautomation_adb_auto_enable_hosts`                                 | The Android TVs that receive adb-auto-enable                                                                                                                                                     |
 | `homeautomation_llamacpp_models`, `_env`, `_model_presets`, `_mmprojs` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                                                                                 |
+| `homeautomation_llamacpp_embed_*`                                      | See [Embeddings](#embeddings)                                                                                                                                                                    |
 | `homeautomation_homeassistant_extra_module_urls`                       | Frontend modules to load from `www/`. See [Notes](#notes)                                                                                                                                        |
 | `homeautomation_router_kva_sample_*`                                   | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                                                                                                                  |
 | `homeautomation_esphome_username`, `_password`                         | The ESPHome dashboard login. Asserted set unless `homeautomation_esphome_allow_unauthenticated`                                                                                                  |
@@ -102,6 +103,7 @@ mapping, not the internal port listed here.
 | frigate            | bridge  | 8554  | RTSP     | RTSP restream, unauthenticated; loopback unless `homeautomation_frigate_bind_rtsp` |
 | frigate            | bridge  | 8555  | WebRTC   | WebRTC streams                                                                     |
 | llamacpp           | bridge  | 8080  | HTTP     | Web UI and OpenAI-compatible API                                                   |
+| llamacpp-embed     | bridge  | 8080  | HTTP     | OpenAI-compatible `/v1/embeddings`, CPU only                                       |
 | openwebui          | bridge  | 8080  | HTTP     | Web UI, published on host loopback port 3000                                       |
 | hamcp              | bridge  | 8086  | HTTP     | MCP server                                                                         |
 | piper              | bridge  | 10200 | Wyoming  | Text-to-speech, also on host loopback                                              |
@@ -150,6 +152,18 @@ exposed to Assist, and does not fire [sentence triggers](https://www.home-assist
 Frigate's [GenAI](https://docs.frigate.video/configuration/genai/genai_config) is set in Frigate's own config, not by this
 role: provider `llamacpp`, base URL `http://llamacpp.internal:8080`, model `gemma-4-E4B-it-Q8_0`. The model needs its
 projector in `homeautomation_llamacpp_mmprojs`; without one, llama.cpp rejects every image.
+
+### Embeddings
+
+`llamacpp-embed` serves `homeautomation_llamacpp_embed_model` at `http://llamacpp-embed.internal:8080/v1/embeddings`,
+model id the file name without `.gguf`.
+
+| Constraint      | Detail                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Own container   | `--embeddings` restricts a server to embeddings, and in the router `LLAMA_ARG_MODELS_MAX` would unload the chat model |
+| CPU only        | No devices and no GPU groups, so it never competes with the router for VRAM                                           |
+| Input length    | An input must fit one batch: `homeautomation_llamacpp_embed_ctx_size` sets the context and both batch sizes           |
+| Models location | Its own directory. In the router's, the embedding model would be listed to Assist and Open WebUI as a chat model      |
 
 ## Matter and Thread
 

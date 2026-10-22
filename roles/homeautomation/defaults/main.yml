@@ -196,6 +196,20 @@ homeautomation_llamacpp_required_volumes:
   # $HOME, holding the Mesa/RADV shader caches. Its own directory, so the models
   # stay mounted read-only.
   cache: /var/docker-volumes/homeautomation/llamacpp/cache
+# llama.cpp embeddings: a second llama-server, CPU only, serving one embedding model as
+# llamacpp-embed. A container of its own because --embeddings restricts a server to
+# embeddings, and in the router LLAMA_ARG_MODELS_MAX would unload the chat model for every
+# embedding request. Its model id is the file name without .gguf.
+homeautomation_llamacpp_embed_docker_image: ghcr.io/ggml-org/llama.cpp:server
+homeautomation_llamacpp_embed_model: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf
+# Tokens per request. An embedding input must fit one batch, so this also sets the batch sizes.
+homeautomation_llamacpp_embed_ctx_size: "8192"
+homeautomation_llamacpp_embed_required_volumes:
+  # Not the router's models directory, which would list the model as a chat model.
+  models: /var/docker-volumes/homeautomation/llamacpp-embed/models
+# The image runs as root, but the server writes nothing.
+homeautomation_llamacpp_embed_uid: "10010"
+homeautomation_llamacpp_embed_gid: "10010"
 # The image runs as root, but GPU access comes from the render and video groups.
 homeautomation_llamacpp_uid: "10004"
 homeautomation_llamacpp_gid: "10004"

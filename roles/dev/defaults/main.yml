@@ -25,21 +25,33 @@ dev_bundler_version: "4.0.13"
 # newer one itself when a module asks for one it does not have.
 dev_node_version: "v24.21.0"
 
-# Claude Code MCP servers for the homeautomation role's llama-server: local-llm
-# (mcp-ollama-vllm) and local-vision (mcp-local-vision). See README.
+# Claude Code MCP servers for the homeautomation role's llama.cpp containers, each run per
+# session as a container of its own: local-llm and local-embed (mcp-ollama-vllm) and
+# local-vision (mcp-local-vision). See README.
 dev_install_llamacpp_mcp: false
-dev_llamacpp_mcp_url: http://llamacpp.internal:8080
+# The homeautomation role's bridge network, on which its containers resolve by name.
+dev_llamacpp_mcp_network: homeautomation_default
+dev_llamacpp_mcp_url: http://llamacpp:8080
+dev_llamacpp_mcp_embed_url: http://llamacpp-embed:8080
+# llamacpp-embed's model id: homeautomation_llamacpp_embed_model's file name without .gguf.
+dev_llamacpp_mcp_embed_model: Qwen3-Embedding-0.6B-Q8_0
 dev_llamacpp_mcp_llm_version: "1.0.3"
 # Seconds. A request naming an unloaded model waits for the router to load it.
 dev_llamacpp_mcp_llm_timeout: "600"
-# Upstream publishes no tags or npm package, so it is cloned at a commit and raised by hand.
+# Upstream publishes no tags or npm package, so it is built at a commit raised by hand.
 dev_llamacpp_mcp_vision_version: d3844e8f7bb8fcead34bff87615b7a85502a709e
 # The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs.
 dev_llamacpp_mcp_vision_model: gemma-4-E4B-it-Q8_0
-# The only directories local-vision may read. Upstream reads any file dev_user can when unset.
+# Mounted read-only into local-vision at the same paths, and the only directories it may
+# read. Each gets an ACL letting the container's account traverse it.
 dev_llamacpp_mcp_vision_allowed_roots:
   - "{{ dev_user_home }}/src"
   - "{{ dev_user_home }}/Downloads"
+# One host account per server, gid equal to uid. Clear of the homeautomation role's
+# append-only range, which starts at 10001.
+dev_llamacpp_mcp_llm_uid: "10101"
+dev_llamacpp_mcp_vision_uid: "10102"
+dev_llamacpp_mcp_embed_uid: "10103"
 
 # The editor and the CLI are separate installs from separate sources: the deb comes
 # from Google's apt repository, which serves nothing else and auto-updates it, and agy

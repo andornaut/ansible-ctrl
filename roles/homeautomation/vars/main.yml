@@ -69,6 +69,7 @@ homeautomation_service_account_uids: >-
   {{ {'esphome': homeautomation_esphome_uid,
       'govee2mqtt': homeautomation_govee2mqtt_uid,
       'llamacpp': homeautomation_llamacpp_uid,
+      'llamacpp-embed': homeautomation_llamacpp_embed_uid,
       'matterjs': homeautomation_matterjs_uid,
       'mosquitto': homeautomation_mosquitto_uid,
       'openwebui': homeautomation_openwebui_uid,
@@ -106,7 +107,7 @@ homeautomation_teardown:
     containers: >-
       {{ (['hamcp'] + (homeautomation_hamcp_instances | map(attribute='name') | list)) | unique }}
   - install: "{{ homeautomation_install_llm | bool }}"
-    containers: [llamacpp, openwebui]
+    containers: [llamacpp, llamacpp-embed, openwebui]
   - install: "{{ homeautomation_install_matterjs | bool }}"
     containers: [matterjs]
   - install: "{{ homeautomation_install_pythonmatterserver | bool }}"

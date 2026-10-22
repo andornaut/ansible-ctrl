@@ -47,28 +47,34 @@ See [defaults/main.yml](./defaults/main.yml).
 | `dev_android_sdk_cmdline_tools_build`          | Build number of the Android command line tools archive, raised by hand: Google publishes no alias for the newest            |
 | `dev_ai_maintainer_*`, `dev_ai_attributions_*` | Cron schedule, source directories and flags of the two cron jobs                                                            |
 | `dev_ai_maintainer_project_script_path`        | Local ai-maintainer checkout that is symlinked when present, instead of a download                                          |
-| `dev_llamacpp_mcp_*`                           | llama-server URL, versions, timeout, vision model and readable directories of the [llama.cpp MCP](#llamacpp-mcp) servers    |
+| `dev_llamacpp_mcp_*`                           | Network, URLs, versions, models, readable directories and uids of the [llama.cpp MCP](#llamacpp-mcp) servers                |
 
 ## llama.cpp MCP
 
-Gated on `dev_install_llamacpp_mcp` under the `claude` tag. Two servers are registered at user scope, both talking
-to the [homeautomation](../homeautomation/README.md) role's llama-server at `dev_llamacpp_mcp_url`:
+Gated on `dev_install_llamacpp_mcp` under the `claude` tag. Three servers are registered at user scope for the
+[homeautomation](../homeautomation/README.md) role's llama.cpp containers. Each runs per session as
+`docker run --rm` of a locally built image, under a host account of its own:
 
-| Server         | Project                                                                                  | Tools                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `local-llm`    | [mcp-ollama-vllm](https://github.com/setheerwagen/local-ai-mcp-servers), PyPI, in a venv | `list_models`, `local_ask` and `local_structured` against any model the router lists. Text only |
-| `local-vision` | [mcp-local-vision](https://github.com/jshsakura/mcp-local-vision), cloned at a commit    | `read_image`, `read_pdf` and `vision_doctor` against `dev_llamacpp_mcp_vision_model`            |
+| Server         | Account            | Project                                                                     | Tools                                                                                           |
+| -------------- | ------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `local-llm`    | `mcp-local-llm`    | [mcp-ollama-vllm](https://github.com/setheerwagen/local-ai-mcp-servers)     | `list_models`, `local_ask` and `local_structured` against any model the router lists. Text only |
+| `local-embed`  | `mcp-local-embed`  | The same image, pointed at `llamacpp-embed`                                 | `local_embed` with `dev_llamacpp_mcp_embed_model`                                               |
+| `local-vision` | `mcp-local-vision` | [mcp-local-vision](https://github.com/jshsakura/mcp-local-vision), a commit | `read_image`, `read_pdf` and `vision_doctor` against `dev_llamacpp_mcp_vision_model`            |
 
-| Constraint     | Detail                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Endpoint       | The container's `.internal` name, so the host needs the homeautomation `llm` tag. local-llm refuses a non-private address |
-| Model swap     | `LLAMA_ARG_MODELS_MAX` is 1, so naming a different model unloads the resident one, Assist's and Frigate's included        |
-| Temperature    | `local_ask` sends `temperature: 0` unless the call sets one, overriding a model preset's sampler                          |
-| Embeddings     | `local_embed` fails: llama-server runs without `--embeddings`                                                             |
-| Vision model   | Must have a projector in `homeautomation_llamacpp_mmprojs`, or every image is rejected                                    |
-| Readable paths | `dev_llamacpp_mcp_vision_allowed_roots`, compared without resolving symlinks: a link under a root reaches its target      |
-| Image size     | Downscaled to a 1568px long edge before it is sent                                                                        |
-| New sessions   | A session started before the registration does not list the servers                                                       |
+| Constraint     | Detail                                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confinement    | `--cap-drop=ALL`, `no-new-privileges`, a read-only root filesystem with a `/tmp` tmpfs, and only `dev_llamacpp_mcp_network`                    |
+| File access    | Only local-vision mounts anything: each allowed root, read-only at its own path. Its account reads world-readable files there and nothing else |
+| Root ACLs      | Each allowed root carries `user:mcp-local-vision:--x`, so the account can open a named file but cannot list the root                           |
+| Docker access  | `dev_user` starts the containers, so it must be in the `docker` group                                                                          |
+| Image tags     | The version plus a hash of the Dockerfile. Editing either rebuilds the image and re-registers its servers. Superseded images are not removed   |
+| Model swap     | `LLAMA_ARG_MODELS_MAX` is 1, so naming a different model unloads the resident one, Assist's and Frigate's included                             |
+| Temperature    | `local_ask` sends `temperature: 0` unless the call sets one, overriding a model preset's sampler                                               |
+| local-llm      | Its `local_embed` fails: the router runs without `--embeddings`. Use local-embed                                                               |
+| Vision model   | Must have a projector in `homeautomation_llamacpp_mmprojs`, or every image is rejected                                                         |
+| Readable paths | local-vision compares paths without resolving symlinks, but a link out of a mounted root resolves to nothing in the container                  |
+| Image size     | Downscaled to a 1568px long edge before it is sent                                                                                             |
+| New sessions   | A session started before the registration does not list the servers                                                                            |
 
 ## ai-attributions
 
