@@ -12,26 +12,56 @@
     enabled: true
   become: true
 
-- name: Restart homeassistant
+# Each restart is skipped when its container does not exist: force_handlers runs it after a
+# failure that came before the container was created, and restarting a missing container
+# tries to create one with no image.
+- name: Look up the homeassistant container
+  listen: Restart homeassistant
   # The account that created the container, as every other container task uses.
+  become: true
+  community.docker.docker_container_info:
+    name: homeassistant
+  register: homeautomation_homeassistant_container_info
+
+- name: Restart the homeassistant container
+  listen: Restart homeassistant
   become: true
   community.docker.docker_container:
     name: homeassistant
     restart: true
+  when: homeautomation_homeassistant_container_info.exists
 
-- name: Restart mosquitto
+- name: Look up the mosquitto container
+  listen: Restart mosquitto
   # The account that created the container, as every other container task uses.
+  become: true
+  community.docker.docker_container_info:
+    name: mosquitto
+  register: homeautomation_mosquitto_container_info
+
+- name: Restart the mosquitto container
+  listen: Restart mosquitto
   become: true
   community.docker.docker_container:
     name: mosquitto
     restart: true
+  when: homeautomation_mosquitto_container_info.exists
 
-- name: Restart llamacpp
+- name: Look up the llamacpp container
+  listen: Restart llamacpp
   # The account that created the container, as every other container task uses.
+  become: true
+  community.docker.docker_container_info:
+    name: llamacpp
+  register: homeautomation_llamacpp_container_info
+
+- name: Restart the llamacpp container
+  listen: Restart llamacpp
   become: true
   community.docker.docker_container:
     name: llamacpp
     restart: true
+  when: homeautomation_llamacpp_container_info.exists
 
 # Reload, not restart: ExecReload replaces the table in one transaction, where a restart
 # deletes it first. Skipped under --check, where the unit may not exist yet.
