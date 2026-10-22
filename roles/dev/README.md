@@ -19,7 +19,7 @@ make dev -- --tags rust
 | [antigravity](https://antigravity.google/)                      | Google Antigravity IDE, gated on `dev_install_antigravity`, and the `agy` CLI, gated on `dev_install_antigravity_cli`                                                                                     |
 | app-entries                                                     | Desktop entry overrides from `dev_app_entry_overrides`, the same mechanism as the [desktop](../desktop/README.md) role's. Only where `desktop_environment` is set                                         |
 | apt                                                             | Development tools and build headers: `git` and its helpers, `gh`, `adb`, `jq`, `shellcheck`, `snmp`, `wireshark`, the database clients, `-dev` packages                                                   |
-| [claude](https://code.claude.com/docs)                          | AI coding assistant, with [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) registered at user scope: an `--isolated` Chrome, no telemetry                                     |
+| [claude](https://code.claude.com/docs)                          | AI coding assistant, with [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) registered at user scope: an `--isolated` Chrome, no telemetry. See [llama.cpp MCP](#llamacpp-mcp) |
 | [codex](https://github.com/openai/codex)                        | OpenAI Codex CLI. Not updated once installed: `codex` updates itself                                                                                                                                      |
 | [cursor](https://cursor.com/)                                   | AI code editor (AppImage) and the `cursor-agent` CLI                                                                                                                                                      |
 | [go](https://go.dev/)                                           | Go toolchain                                                                                                                                                                                              |
@@ -47,6 +47,28 @@ See [defaults/main.yml](./defaults/main.yml).
 | `dev_android_sdk_cmdline_tools_build`          | Build number of the Android command line tools archive, raised by hand: Google publishes no alias for the newest            |
 | `dev_ai_maintainer_*`, `dev_ai_attributions_*` | Cron schedule, source directories and flags of the two cron jobs                                                            |
 | `dev_ai_maintainer_project_script_path`        | Local ai-maintainer checkout that is symlinked when present, instead of a download                                          |
+| `dev_llamacpp_mcp_*`                           | llama-server URL, versions, timeout, vision model and readable directories of the [llama.cpp MCP](#llamacpp-mcp) servers    |
+
+## llama.cpp MCP
+
+Gated on `dev_install_llamacpp_mcp` under the `claude` tag. Two servers are registered at user scope, both talking
+to the [homeautomation](../homeautomation/README.md) role's llama-server at `dev_llamacpp_mcp_url`:
+
+| Server         | Project                                                                                  | Tools                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `local-llm`    | [mcp-ollama-vllm](https://github.com/setheerwagen/local-ai-mcp-servers), PyPI, in a venv | `list_models`, `local_ask` and `local_structured` against any model the router lists. Text only |
+| `local-vision` | [mcp-local-vision](https://github.com/jshsakura/mcp-local-vision), cloned at a commit    | `read_image`, `read_pdf` and `vision_doctor` against `dev_llamacpp_mcp_vision_model`            |
+
+| Constraint     | Detail                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint       | The container's `.internal` name, so the host needs the homeautomation `llm` tag. local-llm refuses a non-private address |
+| Model swap     | `LLAMA_ARG_MODELS_MAX` is 1, so naming a different model unloads the resident one, Assist's and Frigate's included        |
+| Temperature    | `local_ask` sends `temperature: 0` unless the call sets one, overriding a model preset's sampler                          |
+| Embeddings     | `local_embed` fails: llama-server runs without `--embeddings`                                                             |
+| Vision model   | Must have a projector in `homeautomation_llamacpp_mmprojs`, or every image is rejected                                    |
+| Readable paths | `dev_llamacpp_mcp_vision_allowed_roots`, compared without resolving symlinks: a link under a root reaches its target      |
+| Image size     | Downscaled to a 1568px long edge before it is sent                                                                        |
+| New sessions   | A session started before the registration does not list the servers                                                       |
 
 ## ai-attributions
 

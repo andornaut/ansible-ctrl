@@ -96,6 +96,94 @@
         ('Command: ' ~ dev_claude_mcp_command) not in dev_claude_mcp_get.stdout_lines | map('trim') | list
         or ('Args: ' ~ dev_claude_mcp_args | join(' ')) not in dev_claude_mcp_get.stdout_lines | map('trim') | list
 
+# Two servers against the homeautomation role's llama-server: local-llm takes any model the
+# router lists and is text only, local-vision reads images and PDFs with one vision model.
+# Their settings go through env(1) as arguments rather than the registration's env map,
+# because `claude mcp get` prints the arguments and not the environment, and the comparison
+# below has to see them change.
+- name: Install and register the llama.cpp MCP servers
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"
+    PATH: "{{ dev_llamacpp_mcp_node_bin }}:/usr/local/bin:/usr/bin:/bin"
+  vars:
+    dev_llamacpp_mcp_node_bin: "{{ dev_user_home }}/.nvm/versions/node/{{ dev_node_version }}/bin"
+    dev_llamacpp_mcp_llm_venv: "{{ dev_user_home }}/.local/share/mcp-ollama-vllm"
+    dev_llamacpp_mcp_vision_dir: "{{ dev_user_home }}/.local/share/mcp-local-vision"
+    dev_llamacpp_mcp_servers:
+      - name: local-llm
+        command: /usr/bin/env
+        args:
+          - LOCAL_BACKEND=openai
+          - LOCAL_HOST={{ dev_llamacpp_mcp_url }}
+          - LOCAL_TIMEOUT={{ dev_llamacpp_mcp_llm_timeout }}
+          - "{{ dev_llamacpp_mcp_llm_venv }}/bin/mcp-ollama-vllm"
+      - name: local-vision
+        command: /usr/bin/env
+        args:
+          - VISION_MANAGED=0
+          - VISION_SERVER_URL={{ dev_llamacpp_mcp_url }}
+          - VISION_MODEL={{ dev_llamacpp_mcp_vision_model }}
+          - VISION_ALLOWED_ROOTS={{ dev_llamacpp_mcp_vision_allowed_roots | join(':') }}
+          - "{{ dev_llamacpp_mcp_node_bin }}/node"
+          - "{{ dev_llamacpp_mcp_vision_dir }}/src/index.mjs"
+  when: dev_install_llamacpp_mcp | bool
+  block:
+    - name: Probe for Node {{ dev_node_version }}
+      ansible.builtin.include_tasks: ../../base/tasks/require_tools.yml
+      vars:
+        require_tools:
+          - name: node {{ dev_node_version }} and its npm
+            probe: "{{ dev_llamacpp_mcp_node_bin }}/node --version && {{ dev_llamacpp_mcp_node_bin }}/npm --version"
+            hint: "It comes from this role's javascript tag: make dev -- --tags javascript"
+
+    - name: Install mcp-ollama-vllm
+      ansible.builtin.pip:
+        name: mcp-ollama-vllm=={{ dev_llamacpp_mcp_llm_version }}
+        virtualenv: "{{ dev_llamacpp_mcp_llm_venv }}"
+        virtualenv_command: python3 -m venv
+
+    - name: Check out mcp-local-vision
+      ansible.builtin.git:
+        repo: https://github.com/jshsakura/mcp-local-vision.git
+        dest: "{{ dev_llamacpp_mcp_vision_dir }}"
+        version: "{{ dev_llamacpp_mcp_vision_version }}"
+
+    - name: Install mcp-local-vision dependencies
+      community.general.npm:
+        path: "{{ dev_llamacpp_mcp_vision_dir }}"
+        production: true
+        executable: "{{ dev_llamacpp_mcp_node_bin }}/npm"
+
+    - name: Read the llama.cpp MCP registrations
+      ansible.builtin.command:
+        cmd: "{{ dev_user_home }}/.local/bin/claude mcp get {{ item.name }}"
+      loop: "{{ dev_llamacpp_mcp_servers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dev_llamacpp_mcp_get
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # add-json refuses a name that exists, so a registration whose command or args
+    # differ is removed and added again.
+    - name: Register the llama.cpp MCP servers
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: >-
+          {{ dev_user_home }}/.local/bin/claude mcp remove --scope user {{ item.item.name }};
+          {{ dev_user_home }}/.local/bin/claude mcp add-json --scope user {{ item.item.name }}
+          {{ {'type': 'stdio', 'command': item.item.command, 'args': item.item.args} | to_json | quote }}
+      loop: "{{ dev_llamacpp_mcp_get.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      changed_when: true
+      when: >-
+        ('Command: ' ~ item.item.command) not in item.stdout_lines | map('trim') | list
+        or ('Args: ' ~ item.item.args | join(' ')) not in item.stdout_lines | map('trim') | list
+
 # CLEANUP (added 2026-09-24): Claude Desktop came from an unofficial apt repository whose
 # key was trusted for root installs. Delete once every host in the dev group has converged.
 - name: Remove Claude Desktop and its repository

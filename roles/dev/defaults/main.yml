@@ -25,6 +25,22 @@ dev_bundler_version: "4.0.13"
 # newer one itself when a module asks for one it does not have.
 dev_node_version: "v24.21.0"
 
+# Claude Code MCP servers for the homeautomation role's llama-server: local-llm
+# (mcp-ollama-vllm) and local-vision (mcp-local-vision). See README.
+dev_install_llamacpp_mcp: false
+dev_llamacpp_mcp_url: http://llamacpp.internal:8080
+dev_llamacpp_mcp_llm_version: "1.0.3"
+# Seconds. A request naming an unloaded model waits for the router to load it.
+dev_llamacpp_mcp_llm_timeout: "600"
+# Upstream publishes no tags or npm package, so it is cloned at a commit and raised by hand.
+dev_llamacpp_mcp_vision_version: d3844e8f7bb8fcead34bff87615b7a85502a709e
+# The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs.
+dev_llamacpp_mcp_vision_model: gemma-4-E4B-it-Q8_0
+# The only directories local-vision may read. Upstream reads any file dev_user can when unset.
+dev_llamacpp_mcp_vision_allowed_roots:
+  - "{{ dev_user_home }}/src"
+  - "{{ dev_user_home }}/Downloads"
+
 # The editor and the CLI are separate installs from separate sources: the deb comes
 # from Google's apt repository, which serves nothing else and auto-updates it, and agy
 # is a self-contained binary from upstream's shell installer that apt never sees.
