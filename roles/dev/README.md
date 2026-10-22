@@ -61,21 +61,21 @@ Gated on `dev_install_llamacpp_mcp` under the `claude` tag. Three servers are re
 | `local-embed`  | `mcp-local-embed`  | The same image, pointed at `llamacpp-embed`                                 | `local_embed` with `dev_llamacpp_mcp_embed_model`                                               |
 | `local-vision` | `mcp-local-vision` | [mcp-local-vision](https://github.com/jshsakura/mcp-local-vision), a commit | `read_image`, `read_pdf` and `vision_doctor` against `dev_llamacpp_mcp_vision_model`            |
 
-| Constraint     | Detail                                                                                                                                                                                        |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Confinement    | `--cap-drop=ALL`, `no-new-privileges`, a read-only root filesystem with a `/tmp` tmpfs, and only `dev_llamacpp_mcp_network`                                                                   |
-| File access    | Only local-vision mounts anything: each allowed root, read-only at its own path. It reads what `other` or `dev_llamacpp_mcp_vision_groups` can, gitignored files in a `dev` checkout included |
-| Root ACLs      | Each allowed root carries `user:mcp-local-vision:--x`, so the account can open a named file in a root it has no group on but cannot list it                                                   |
-| Docker access  | `dev_user` starts the containers, so it must be in the `docker` group                                                                                                                         |
-| Image tags     | The version plus a hash of the Dockerfile. Editing either rebuilds the image and re-registers its servers. Superseded images are not removed                                                  |
-| Model swap     | `LLAMA_ARG_MODELS_MAX` is 1, so naming a different model unloads the resident one, Assist's and Frigate's included                                                                            |
-| Temperature    | `local_ask` sends `temperature: 0` unless the call sets one, overriding a model preset's sampler                                                                                              |
-| Vision sampler | local-vision sends `temperature: 0.1` and `top_p: 0.9`, overriding the model preset's sampler. A thinking model may repeat itself, so `dev_llamacpp_mcp_vision_max_tokens` caps the run       |
-| local-llm      | Its `local_embed` fails: the router runs without `--embeddings`. Use local-embed                                                                                                              |
-| Vision model   | Must have a projector in `homeautomation_llamacpp_mmprojs`, or every image is rejected                                                                                                        |
-| Readable paths | local-vision compares paths without resolving symlinks, but a link out of a mounted root resolves to nothing in the container                                                                 |
-| Image size     | Downscaled to a 1568px long edge before it is sent                                                                                                                                            |
-| New sessions   | A session started before the registration does not list the servers                                                                                                                           |
+| Constraint     | Detail                                                                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confinement    | `--cap-drop=ALL`, `no-new-privileges`, a read-only root filesystem with a `/tmp` tmpfs, and only `dev_llamacpp_mcp_network`                                                                                    |
+| File access    | Only local-vision mounts anything: each allowed root, read-only at its own path. It reads what `other` or a group in `dev_llamacpp_mcp_vision_groups` can, gitignored files in that group's checkouts included |
+| Root ACLs      | Each allowed root carries `user:mcp-local-vision:--x`, so the account can open a named file in a root it has no group on but cannot list it                                                                    |
+| Docker access  | `dev_user` starts the containers, so it must be in the `docker` group                                                                                                                                          |
+| Image tags     | The version plus a hash of the Dockerfile. Editing either rebuilds the image and re-registers its servers. Superseded images are not removed                                                                   |
+| Model swap     | `LLAMA_ARG_MODELS_MAX` is 1, so naming a different model unloads the resident one, Assist's and Frigate's included                                                                                             |
+| Temperature    | `local_ask` sends `temperature: 0` unless the call sets one, overriding a model preset's sampler                                                                                                               |
+| Vision sampler | local-vision sends `temperature: 0.1` and `top_p: 0.9`, overriding the model preset's sampler. A thinking model may repeat itself, so `dev_llamacpp_mcp_vision_max_tokens` caps the run                        |
+| local-llm      | Its `local_embed` fails: the router runs without `--embeddings`. Use local-embed                                                                                                                               |
+| Vision model   | Must have a projector in `homeautomation_llamacpp_mmprojs`, or every image is rejected                                                                                                                         |
+| Readable paths | local-vision compares paths without resolving symlinks, but a link out of a mounted root resolves to nothing in the container                                                                                  |
+| Image size     | Downscaled to a 1568px long edge before it is sent                                                                                                                                                             |
+| New sessions   | A session started before the registration does not list the servers                                                                                                                                            |
 
 ## ai-attributions
 
