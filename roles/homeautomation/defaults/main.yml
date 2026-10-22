@@ -182,9 +182,23 @@ homeautomation_llamacpp_model_presets:
     # The projector stays in system RAM: on the GPU it would load with every request, text
     # included, and leave too little for the compute buffers. Image encoding runs on the CPU.
     no-mmproj-offload: true
+  # Every layer is full attention: 36 layers of 8 KV heads at head_dim 128 cost 144KiB per
+  # token at f16, so the inherited 128k would need 18GiB of cache. 32k at q8_0 is 2.4GiB,
+  # beside 6.3GiB of weights and 1.1GiB of projector, and covers Frigate and Assist prompts.
+  Qwen3-VL-8B-Instruct-Q6_K:
+    c: 32768
+    cache-type-k: q8_0
+    cache-type-v: q8_0
+    flash-attn: "on"
+    # Qwen's sampler for the Instruct model, from its generation_config.json.
+    temp: 0.7
+    top-p: 0.8
+    top-k: 20
+    min-p: 0.0
 homeautomation_llamacpp_models:
   - https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf
   - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-IQ3_XXS.gguf
+  - https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3-VL-8B-Instruct-Q6_K.gguf
 # Vision projectors, keyed by model id. Each downloads to <model id>.mmproj.gguf beside
 # the models, which the router skips as a model of its own, and is named in that model's
 # preset section. Upstream names every projector mmproj-F16.gguf, so the file takes the
@@ -192,6 +206,7 @@ homeautomation_llamacpp_models:
 homeautomation_llamacpp_mmprojs:
   gemma-4-E4B-it-Q8_0: https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/mmproj-F16.gguf
   Qwen3.8-27B-UD-IQ3_XXS: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/mmproj-F16.gguf
+  Qwen3-VL-8B-Instruct-Q6_K: https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-F16.gguf
 homeautomation_llamacpp_required_volumes:
   models: /var/docker-volumes/homeautomation/llamacpp/models
   # The model presets, mounted read-only. Its own directory rather than a file, which
