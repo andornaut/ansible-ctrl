@@ -40,8 +40,9 @@ dev_llamacpp_mcp_llm_version: "1.0.3"
 dev_llamacpp_mcp_llm_timeout: "600"
 # Upstream publishes no tags or npm package, so it is built at a commit raised by hand.
 dev_llamacpp_mcp_vision_version: d3844e8f7bb8fcead34bff87615b7a85502a709e
-# The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs.
-dev_llamacpp_mcp_vision_model: gemma-4-E4B-it-Q8_0
+# The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs. The
+# 27B over gemma for detail, at the cost of unloading gemma for every call.
+dev_llamacpp_mcp_vision_model: Qwen3.8-27B-UD-IQ3_XXS
 # Mounted read-only into local-vision at the same paths, and the only directories it may
 # read. Each gets an ACL letting the container's account traverse it.
 dev_llamacpp_mcp_vision_allowed_roots:
