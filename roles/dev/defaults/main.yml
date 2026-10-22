@@ -47,6 +47,10 @@ dev_llamacpp_mcp_vision_model: gemma-4-E4B-it-Q8_0
 dev_llamacpp_mcp_vision_allowed_roots:
   - "{{ dev_user_home }}/src"
   - "{{ dev_user_home }}/Downloads"
+# Host groups local-vision's container joins, reading what their members can within the
+# allowed roots. dev opens the checkouts under ~/src, which are 710 or 2770 dev.
+dev_llamacpp_mcp_vision_groups:
+  - dev
 # One host account per server, gid equal to uid. Clear of the homeautomation role's
 # append-only range, which starts at 10001.
 dev_llamacpp_mcp_llm_uid: "10101"
