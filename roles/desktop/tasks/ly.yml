@@ -165,6 +165,7 @@
         # propagates into the block, so the tasks that need root name it back: a bare
         # become: true would inherit this user and fail.
         - name: Install ly display manager
+          tags: slow
           become: true
           become_user: "{{ desktop_user }}"
           vars:

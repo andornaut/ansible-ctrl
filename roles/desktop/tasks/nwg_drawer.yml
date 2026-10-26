@@ -43,6 +43,7 @@
 # it back: a bare become: true would inherit this user and fail.
 - name: Build and install nwg-drawer
   when: desktop_nwg_drawer_outdated | bool
+  tags: slow
   become: true
   become_user: "{{ desktop_user }}"
   block:

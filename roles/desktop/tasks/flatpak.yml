@@ -44,6 +44,7 @@
         # No org.gtk.Gtk3theme extensions: flathub's names do not always match the
         # host's theme. theme.yml copies the host's own into ~/.themes.
         - name: Install flatpak applications
+          tags: slow
           community.general.flatpak:
             name: "{{ desktop_flatpak_apps }}"
             method: user

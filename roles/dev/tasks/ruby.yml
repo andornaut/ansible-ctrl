@@ -105,6 +105,7 @@
 # the repositories live. --cleanup clears the tarball and the source tree after
 # a build that succeeds; the always below covers one that does not.
 - name: Install Ruby {{ dev_ruby_version }}
+  tags: slow
   block:
     - name: Build and install Ruby {{ dev_ruby_version }}
       ansible.builtin.command:
@@ -133,6 +134,8 @@
 # resolves. A version is named rather than left to `present`, which the older
 # copy Ruby ships as a default gem already satisfies.
 - name: Install Bundler {{ dev_bundler_version }}
+  # The Ruby built above is its interpreter.
+  tags: slow
   community.general.gem:
     name: bundler
     version: "{{ dev_bundler_version }}"

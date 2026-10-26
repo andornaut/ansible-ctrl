@@ -82,6 +82,9 @@ scripts for it.
 
 Tags that are not playbooks run through the playbook that owns them, e.g. `make dev -- --tags ai_maintainer`.
 
+`slow` marks the source builds and installs that take over a minute, and the tasks that need their output.
+`-- --skip-tags slow` leaves a host's existing builds as they are.
+
 ## Playbooks
 
 | Playbook                                 | Hosts                                 | Role                                                                                                    | Purpose                                                            |
@@ -200,6 +203,7 @@ runs every other check below.
 CI ([.github/workflows](.github/workflows)) also runs:
 
 - **`check`**: applies each Ubuntu playbook whose paths changed to the runner from role defaults
-  ([tests/check/inventory.yml](tests/check/inventory.yml)), then runs it again under `--check --diff`. `faramir`,
-  `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered.
+  ([tests/check/inventory.yml](tests/check/inventory.yml)), skipping the tasks tagged `slow` so each entry fits in
+  five minutes. `faramir`, `torrent`, `router`, `nas`, `rsnapshot` and `upgrade` are not covered, nor are the
+  `bspwm` and `niri` roles.
 - **`ai-attributions`**: rejects commits carrying AI attribution or long dashes, and agent instruction files.

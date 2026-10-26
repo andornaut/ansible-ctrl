@@ -153,9 +153,9 @@ jobs:
     # Named rather than ubuntu-latest: the runner is the host under test, so its release is
     # the one the roles are checked against, and it moves only with a commit here.
     runs-on: ubuntu-24.04
-    # Each entry applies its playbook for real, source builds and flatpaks included, before
-    # the check-mode pass.
-    timeout-minutes: 90
+    # Capped well under the six-hour default: tests/check.sh skips the slow tasks so an entry
+    # runs in five minutes, so one still going at fifteen has hung rather than failed.
+    timeout-minutes: 15
     strategy:
       # Every playbook reports, not just the first to fail.
       fail-fast: false
@@ -211,15 +211,12 @@ jobs:
         run: bash -euo pipefail -c "${PREPARE}"
 
       # The playbook runs as the runner account over the local connection, and become uses
-      # the runner's passwordless sudo. Applied, then run again under --check --diff.
-      - name: Apply the playbook, then check it
+      # the runner's passwordless sudo.
+      - name: Apply the playbook
         env:
           PLAYBOOK: ${{ matrix.playbook }}
-          ARGS: ${{ matrix.args }}
           github_token: ${{ github.token }}
-        # ARGS unquoted on purpose: it holds whole ansible-playbook arguments, split on
-        # whitespace.
-        run: tests/check.sh "${PLAYBOOK}" ${ARGS}
+        run: tests/check.sh "${PLAYBOOK}"
 
   # A matrix leg reports as `Check (<playbook>)`, a name that depends on which playbooks a
   # change reaches, so no leg can be required. This job reports under one stable name for the

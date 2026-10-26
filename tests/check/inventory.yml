@@ -11,7 +11,7 @@ all:
       # The rest is only what a role has no default for. Anything more would hide the pairing
       # failures this run exists to catch: a default that trips its own role's assert.
       primary_user: runner
-      # gnome, the desktop role's own path. CI runs the other two with --extra-vars.
+      # gnome, the desktop role's own path. The tiling environments have no CI entry.
       desktop_environment: gnome
       # games: site data with no default. The workflow creates the library's two directories
       # the role asserts, since it never creates them itself.

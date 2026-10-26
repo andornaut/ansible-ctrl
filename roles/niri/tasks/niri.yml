@@ -28,6 +28,7 @@
       check_mode: false
 
     - name: Build and install niri
+      tags: slow
       when: >-
         niri_installed.stdout | default('') is not search(
           '(^|[^\\w.])v?' ~ (niri_version | regex_replace('^v', '') | regex_escape) ~ '([^\\w.]|$)')

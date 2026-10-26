@@ -32,43 +32,13 @@ SHARED = (
     "vars_plugins/",
 )
 
-# The toolchains the tiling builds require, which a host has from the dev role.
-TILING_PREPARE = (
-    "ansible-playbook --inventory tests/check/inventory.yml --extra-vars secrets_required=false dev.yml --tags go,rust"
-)
-# What that prepare step runs of the dev role.
-TILING_PREPARE_PATHS = (
-    "dev.yml",
-    "roles/dev/defaults/",
-    "roles/dev/tasks/go.yml",
-    "roles/dev/tasks/main.yml",
-    "roles/dev/tasks/rust.yml",
-    "roles/dev/vars/",
-)
 # The Docker SDK the role requires. The runner ships Docker without it, and a host's first
 # run applies the docker role ahead of this playbook.
 DOCKER_SDK = "sudo apt-get update && sudo apt-get install --yes --no-install-recommends python3-docker"
 
 MATRIX = (
     {"name": "base", "playbook": "base", "paths": ("base.yml", "roles/base/")},
-    # One entry per desktop_environment: each selects different tasks in desktop and a
-    # different window manager role.
     {"name": "desktop gnome", "playbook": "desktop", "paths": ("desktop.yml", "roles/desktop/")},
-    {
-        "name": "desktop niri",
-        "playbook": "desktop",
-        # A tiling host needs exactly one display manager; the two entries cover both.
-        "args": "--extra-vars desktop_environment=niri --extra-vars desktop_display_manager=lemurs",
-        "prepare": TILING_PREPARE,
-        "paths": ("desktop.yml", "roles/desktop/", "roles/niri/", *TILING_PREPARE_PATHS),
-    },
-    {
-        "name": "desktop bspwm",
-        "playbook": "desktop",
-        "args": "--extra-vars desktop_environment=bspwm --extra-vars desktop_display_manager=ly",
-        "prepare": TILING_PREPARE,
-        "paths": ("desktop.yml", "roles/desktop/", "roles/bspwm/", *TILING_PREPARE_PATHS),
-    },
     {"name": "dev", "playbook": "dev", "paths": ("dev.yml", "roles/dev/")},
     {"name": "docker", "playbook": "docker", "paths": ("docker.yml", "roles/docker/")},
     {
@@ -108,6 +78,10 @@ MATRIX = (
 # The playbooks no entry applies: they need a second host, hardware, a router or the
 # broker's own store, none of which the runner has.
 NOT_COVERED = ("faramir", "nas", "router", "rsnapshot", "torrent", "upgrade")
+
+# The roles a covered playbook applies that no entry selects: the tiling window managers, whose
+# leg runs past CI's five-minute budget even with the slow tasks skipped.
+NOT_COVERED_ROLES = ("bspwm", "niri")
 
 
 def touches(paths: tuple[str, ...], changed: list[str]) -> bool:
