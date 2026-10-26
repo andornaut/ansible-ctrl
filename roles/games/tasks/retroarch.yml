@@ -237,32 +237,6 @@
   loop_control:
     label: "{{ item.key }}"
 
-# A core's override and options live under config/<library_name>/, what the built core
-# reports at runtime: a third name matching neither the buildbot name this role keys by
-# nor the .info corename, and a property of the build, so a hardcoded one would land
-# where RetroArch never looks.
-#
-# Probed inside the sandbox, where RetroArch loads them and the runtime carries libraries
-# the host lacks. Doubles as the load check: a core that will not load after the refetch
-# above is a broken build.
-- name: Ask the installed cores what they are
-  ansible.builtin.command:
-    argv:
-      - flatpak
-      - run
-      - --command=python3
-      - "{{ games_retroarch_app_id }}"
-      # On stdin rather than ansible.builtin.script, which runs what it transfers
-      # directly; this has to go through flatpak. sys.argv[1:] is unaffected.
-      - "-"
-      - "{{ games_retroarch_cores_dir }}"
-    stdin: "{{ lookup('ansible.builtin.file', 'retroarch-probe-cores.py') }}"
-  register: games_retroarch_core_probe
-  changed_when: false
-  # Read-only, and needed under --check: everything below resolves its configuration
-  # directory from the answer, and a skipped probe hands them an empty one.
-  check_mode: false
-
 # Against the systems table, not the cores that answered: an override for a core no
 # system runs is a dead entry either way.
 - name: Validate the per-core configuration keys
@@ -276,131 +250,161 @@
       name. This host runs {{ games_retroarch_cores }}.
     success_msg: Every configured core is one a system runs
 
-# One directory per core, holding both its .cfg override and its .opt options, which
-# are configured independently: hence the union.
-- name: Create the per-core configuration directories
-  ansible.builtin.file:
-    path: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_core_library_names[item] }}"
-    state: directory
-    mode: "0755"
-  loop: "{{ games_retroarch_configured_cores | sort }}"
+# The core probe runs inside the RetroArch flatpak, and everything after it reads the answer.
+- name: Converge the per-core configuration and the playlists
+  tags: slow
+  block:
+    # A core's override and options live under config/<library_name>/, what the built core
+    # reports at runtime: a third name matching neither the buildbot name this role keys by
+    # nor the .info corename, and a property of the build, so a hardcoded one would land
+    # where RetroArch never looks.
+    #
+    # Probed inside the sandbox, where RetroArch loads them and the runtime carries libraries
+    # the host lacks. Doubles as the load check: a core that will not load after the refetch
+    # above is a broken build.
+    - name: Ask the installed cores what they are
+      ansible.builtin.command:
+        argv:
+          - flatpak
+          - run
+          - --command=python3
+          - "{{ games_retroarch_app_id }}"
+          # On stdin rather than ansible.builtin.script, which runs what it transfers
+          # directly; this has to go through flatpak. sys.argv[1:] is unaffected.
+          - "-"
+          - "{{ games_retroarch_cores_dir }}"
+        stdin: "{{ lookup('ansible.builtin.file', 'retroarch-probe-cores.py') }}"
+      register: games_retroarch_core_probe
+      changed_when: false
+      # Read-only, and needed under --check: everything below resolves its configuration
+      # directory from the answer, and a skipped probe hands them an empty one.
+      check_mode: false
 
-# Owned outright, unlike retroarch.cfg: an override holds only the keys that differ
-# from the global config.
-- name: Write the per-core overrides
-  ansible.builtin.template:
-    src: retroarch-core-override.cfg.j2
-    dest: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_library_name }}/{{ games_retroarch_library_name }}.cfg"
-    mode: "0644"
-  loop: "{{ games_retroarch_core_overrides | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-  vars:
-    games_retroarch_library_name: "{{ games_retroarch_core_library_names[item.key] }}"
-    games_retroarch_core_override: "{{ item.value }}"
+    # One directory per core, holding both its .cfg override and its .opt options, which
+    # are configured independently: hence the union.
+    - name: Create the per-core configuration directories
+      ansible.builtin.file:
+        path: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_core_library_names[item] }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ games_retroarch_configured_cores | sort }}"
 
-# A dropped core, or one whose build renamed itself, would otherwise keep its last
-# override forever. `contains` matches this role's ansible_managed header only, leaving
-# in-app overrides alone, and needs read_whole_file or find anchors it at line start.
-- name: Find the core overrides this role has written
-  ansible.builtin.find:
-    paths: "{{ games_retroarch_core_config_dir }}"
-    patterns: "*.cfg"
-    recurse: true
-    contains: Ansible managed
-    read_whole_file: true
-  register: games_retroarch_written_overrides
+    # Owned outright, unlike retroarch.cfg: an override holds only the keys that differ
+    # from the global config.
+    - name: Write the per-core overrides
+      ansible.builtin.template:
+        src: retroarch-core-override.cfg.j2
+        dest: "{{ games_retroarch_core_config_dir }}/{{ games_retroarch_library_name }}/{{ games_retroarch_library_name }}.cfg"
+        mode: "0644"
+      loop: "{{ games_retroarch_core_overrides | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      vars:
+        games_retroarch_library_name: "{{ games_retroarch_core_library_names[item.key] }}"
+        games_retroarch_core_override: "{{ item.value }}"
 
-- name: Remove the core overrides of cores that are no longer overridden
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ games_retroarch_written_overrides.files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: >-
-    item.path | basename | regex_replace('\.cfg$', '')
-    not in games_retroarch_core_overrides.keys() | map('extract', games_retroarch_core_library_names) | list
+    # A dropped core, or one whose build renamed itself, would otherwise keep its last
+    # override forever. `contains` matches this role's ansible_managed header only, leaving
+    # in-app overrides alone, and needs read_whole_file or find anchors it at line start.
+    - name: Find the core overrides this role has written
+      ansible.builtin.find:
+        paths: "{{ games_retroarch_core_config_dir }}"
+        patterns: "*.cfg"
+        recurse: true
+        contains: Ansible managed
+        read_whole_file: true
+      register: games_retroarch_written_overrides
 
-# A dict of dicts (core -> option -> value), so a loop over a loop, which one task
-# cannot express. subelements() flattens dicts of lists, not dicts of dicts.
-- name: Enforce the RetroArch core options
-  ansible.builtin.include_tasks: retroarch-core-options.yml
-  loop: "{{ games_retroarch_core_options | dict2items }}"
-  loop_control:
-    loop_var: games_retroarch_core
-    label: "{{ games_retroarch_core.key }}"
+    - name: Remove the core overrides of cores that are no longer overridden
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ games_retroarch_written_overrides.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: >-
+        item.path | basename | regex_replace('\.cfg$', '')
+        not in games_retroarch_core_overrides.keys() | map('extract', games_retroarch_core_library_names) | list
 
-# Pruning an override or dropping a core leaves its directory empty. Only empty ones go;
-# one RetroArch still keeps state in is not the role's to remove. Last, or it would delete
-# the directory of a core with options but no override. GNU find, because
-# ansible.builtin.find cannot test emptiness: nlink is 2 either way.
-- name: Remove the per-core configuration directories that are now empty
-  ansible.builtin.command:
-    argv:
-      - find
-      - "{{ games_retroarch_core_config_dir }}"
-      - -mindepth
-      - "1"
-      - -maxdepth
-      - "1"
-      - -type
-      - d
-      - -empty
-      - -print
-      - -delete
-  register: games_retroarch_empty_core_dirs
-  changed_when: games_retroarch_empty_core_dirs.stdout | length > 0
+    # A dict of dicts (core -> option -> value), so a loop over a loop, which one task
+    # cannot express. subelements() flattens dicts of lists, not dicts of dicts.
+    - name: Enforce the RetroArch core options
+      ansible.builtin.include_tasks: retroarch-core-options.yml
+      loop: "{{ games_retroarch_core_options | dict2items }}"
+      loop_control:
+        loop_var: games_retroarch_core
+        label: "{{ games_retroarch_core.key }}"
 
-# ansible.builtin.script below transfers only the generator, so the map it reads has
-# to be copied over first, into RetroArch's config tree with everything else it reads.
-- name: Copy the arcade romset name map for the playlist generator
-  ansible.builtin.copy:
-    src: fbneo-arcade-names.json
-    dest: "{{ games_retroarch_arcade_names_dest }}"
-    mode: "0644"
+    # Pruning an override or dropping a core leaves its directory empty. Only empty ones go;
+    # one RetroArch still keeps state in is not the role's to remove. Last, or it would delete
+    # the directory of a core with options but no override. GNU find, because
+    # ansible.builtin.find cannot test emptiness: nlink is 2 either way.
+    - name: Remove the per-core configuration directories that are now empty
+      ansible.builtin.command:
+        argv:
+          - find
+          - "{{ games_retroarch_core_config_dir }}"
+          - -mindepth
+          - "1"
+          - -maxdepth
+          - "1"
+          - -type
+          - d
+          - -empty
+          - -print
+          - -delete
+      register: games_retroarch_empty_core_dirs
+      changed_when: games_retroarch_empty_core_dirs.stdout | length > 0
 
-# script, not copy + command: it transfers, runs and cleans up, so the role needs no temp
-# directory, and the config goes in the environment for the same reason. One line per
-# playlist rewritten on stdout; skips on stderr.
-- name: Generate the RetroArch playlists
-  ansible.builtin.script:
-    cmd: retroarch-generate-playlists.py
-  environment:
-    RETROARCH_GENERATOR_CONFIG: "{{ games_retroarch_generator_config | to_json }}"
-  register: games_retroarch_playlists
-  changed_when: games_retroarch_playlists.stdout | default('') | length > 0
+    # ansible.builtin.script below transfers only the generator, so the map it reads has
+    # to be copied over first, into RetroArch's config tree with everything else it reads.
+    - name: Copy the arcade romset name map for the playlist generator
+      ansible.builtin.copy:
+        src: fbneo-arcade-names.json
+        dest: "{{ games_retroarch_arcade_names_dest }}"
+        mode: "0644"
 
-# Ansible does not print stderr for a successful task, and a skipped system (no
-# directory in the library, or nothing matching an extension) is worth surfacing.
-- name: Report the systems the playlist generator skipped
-  ansible.builtin.debug:
-    msg: "{{ games_retroarch_playlists.stderr_lines }}"
-  when: games_retroarch_playlists.stderr | default('') | length > 0
+    # script, not copy + command: it transfers, runs and cleans up, so the role needs no temp
+    # directory, and the config goes in the environment for the same reason. One line per
+    # playlist rewritten on stdout; skips on stderr.
+    - name: Generate the RetroArch playlists
+      ansible.builtin.script:
+        cmd: retroarch-generate-playlists.py
+      environment:
+        RETROARCH_GENERATOR_CONFIG: "{{ games_retroarch_generator_config | to_json }}"
+      register: games_retroarch_playlists
+      changed_when: games_retroarch_playlists.stdout | default('') | length > 0
 
-# After the playlists it reads, so a game gets box art in the run that adds it.
-# RetroArch's own downloader queries by filename, and library and repository disagree on
-# where a leading article goes. Only where the mount is writable; the rest read the shared
-# cache. One line per thumbnail on stdout; games left without box art on stderr.
-- name: Fetch the missing RetroArch thumbnails
-  ansible.builtin.script:
-    cmd: retroarch-fetch-thumbnails.py
-  environment:
-    # No systems table: the fetcher reads the playlists just written, which name every
-    # system, game and path.
-    RETROARCH_THUMBNAILS_CONFIG: >-
-      {{ {"playlist_dir": games_retroarch_playlists_dir,
-          "thumbnails_dir": games_retroarch_thumbnails_dir} | to_json }}
-  register: games_retroarch_thumbnails
-  changed_when: games_retroarch_thumbnails.stdout | default('') | length > 0
-  when: games_retroarch_thumbnails_writable | bool
+    # Ansible does not print stderr for a successful task, and a skipped system (no
+    # directory in the library, or nothing matching an extension) is worth surfacing.
+    - name: Report the systems the playlist generator skipped
+      ansible.builtin.debug:
+        msg: "{{ games_retroarch_playlists.stderr_lines }}"
+      when: games_retroarch_playlists.stderr | default('') | length > 0
 
-# ansible does not print stderr for a successful task, and the list asks a human to rename
-# the game the No-Intro way or supply the art. The script fails the play only when the
-# repository was unreachable.
-- name: Report the games with no box art
-  ansible.builtin.debug:
-    msg: "{{ games_retroarch_thumbnails.stderr_lines }}"
-  when:
-    - games_retroarch_thumbnails_writable | bool
-    - games_retroarch_thumbnails.stderr | default('') | length > 0
+    # After the playlists it reads, so a game gets box art in the run that adds it.
+    # RetroArch's own downloader queries by filename, and library and repository disagree on
+    # where a leading article goes. Only where the mount is writable; the rest read the shared
+    # cache. One line per thumbnail on stdout; games left without box art on stderr.
+    - name: Fetch the missing RetroArch thumbnails
+      ansible.builtin.script:
+        cmd: retroarch-fetch-thumbnails.py
+      environment:
+        # No systems table: the fetcher reads the playlists just written, which name every
+        # system, game and path.
+        RETROARCH_THUMBNAILS_CONFIG: >-
+          {{ {"playlist_dir": games_retroarch_playlists_dir,
+              "thumbnails_dir": games_retroarch_thumbnails_dir} | to_json }}
+      register: games_retroarch_thumbnails
+      changed_when: games_retroarch_thumbnails.stdout | default('') | length > 0
+      when: games_retroarch_thumbnails_writable | bool
+
+    # ansible does not print stderr for a successful task, and the list asks a human to rename
+    # the game the No-Intro way or supply the art. The script fails the play only when the
+    # repository was unreachable.
+    - name: Report the games with no box art
+      ansible.builtin.debug:
+        msg: "{{ games_retroarch_thumbnails.stderr_lines }}"
+      when:
+        - games_retroarch_thumbnails_writable | bool
+        - games_retroarch_thumbnails.stderr | default('') | length > 0
