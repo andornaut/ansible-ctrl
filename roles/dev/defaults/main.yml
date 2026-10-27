@@ -42,7 +42,7 @@ dev_llamacpp_mcp_timeout: "600"
 dev_llamacpp_mcp_vision_version: d3844e8f7bb8fcead34bff87615b7a85502a709e
 # The router's model id. It needs a vision projector in homeautomation_llamacpp_mmprojs, and
 # a call naming it unloads whichever model is resident.
-dev_llamacpp_mcp_vision_model: Qwen3.8-27B-UD-IQ3_XXS
+dev_llamacpp_mcp_vision_model: Qwen3-VL-8B-Instruct-Q6_K
 # Output tokens per call, reasoning included: a thinking model spends them before the answer.
 dev_llamacpp_mcp_vision_max_tokens: "16384"
 # Mounted read-only into local-vision at the same paths, and the only directories it may
