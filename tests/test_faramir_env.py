@@ -50,16 +50,16 @@ class DeclaredNames(Base):
             with self.subTest(line=line):
                 faramir_env._names_by_basedir.clear()
                 self.write(f"GOOD\n{line}\n")
-                with self.assertRaisesRegex(AnsibleParserError, r"faramir\.env:2: .* not a usable"):
+                with self.assertRaisesRegex(AnsibleParserError, r"faramir\.env:2: invalid environment variable name"):
                     faramir_env.declared_names(self.basedir)
 
     def test_a_missing_file_stops_the_run_naming_it(self):
-        with self.assertRaisesRegex(AnsibleParserError, r"faramir\.env is not there"):
+        with self.assertRaisesRegex(AnsibleParserError, r"Missing .*faramir\.env"):
             faramir_env.declared_names(self.basedir)
 
     def test_a_file_that_is_not_text_stops_the_run(self):
         self.write("NAME\n\xff\n", encoding="latin-1")
-        with self.assertRaisesRegex(AnsibleParserError, "could not be read"):
+        with self.assertRaisesRegex(AnsibleParserError, "Cannot read"):
             faramir_env.declared_names(self.basedir)
 
     def test_read_once_per_directory(self):

@@ -158,7 +158,7 @@ class Secrets(unittest.TestCase):
     def test_a_store_sops_cannot_decrypt_is_skipped_with_a_warning(self):
         name, warning, probes = route("desktop", decrypts=False)
         self.assertEqual((name, probes), ("none", 1))
-        self.assertIn("github_token is absent", warning)
+        self.assertIn("continuing without optional credentials, including github_token", warning)
         self.assertIn("SECRETS=none", warning)
         self.assertNotIn("\n", warning)
 
@@ -201,7 +201,7 @@ class Secrets(unittest.TestCase):
             self.assertIn("faramir.env", message)
             self.assertIn("msmtp.yml", message)
         self.assertIn("does not exist", playbook.store_refusal("/s", "msmtp", True))
-        self.assertIn("not readable by root", playbook.store_refusal("/s", "msmtp", False))
+        self.assertIn("Root cannot read", playbook.store_refusal("/s", "msmtp", False))
 
     def test_the_decrypt_probe_discards_all_output(self):
         with mock.patch.object(playbook.subprocess, "run", return_value=completed(0)) as run:
@@ -302,7 +302,7 @@ class Preflight(unittest.TestCase):
     def test_stops_when_nothing_is_left(self):
         limit, message = playbook.preflight_outcome("base", ["a"], ["a"], False)
         self.assertIsNone(limit)
-        self.assertIn("nothing left to apply base.yml", message)
+        self.assertIn("no reachable hosts for base.yml", message)
 
     def test_a_root_faramir_run_says_what_a_drop_can_mean(self):
         for root, name, expected in ((True, "faramir", True), (False, "faramir", False), (True, "base", False)):
@@ -407,7 +407,9 @@ class RunOrder(unittest.TestCase):
         execvp.assert_not_called()
         self.decrypts.assert_called_once_with("/nonexistent/" + playbook.SOPS_FILE)
         self.assertEqual(child.call_args.args[0][0], "ansible-playbook")
-        self.assertEqual(sum("github_token is absent" in line for line in self.said), 1)
+        self.assertEqual(
+            sum("continuing without optional credentials, including github_token" in line for line in self.said), 1
+        )
 
     def test_a_store_sops_can_decrypt_is_used(self):
         env = {"PREFLIGHT": "none"}
@@ -475,17 +477,17 @@ class Version(unittest.TestCase):
         self.assertIn("2.19 or later is required", message)
 
     def test_unreadable_output_is_refused(self):
-        self.assertIn("named no ansible-core version", playbook.version_refusal(""))
+        self.assertIn("Cannot determine ansible-core version", playbook.version_refusal(""))
 
 
 class Listing(unittest.TestCase):
     def test_a_failed_listing_stops_the_run_naming_why(self):
         message = playbook.listing_refusal("base", 4, "ERROR! faramir.env is not there\n", [])
         self.assertIn("ERROR! faramir.env is not there", message)
-        self.assertIn("base.yml failed", message)
+        self.assertIn("Cannot list hosts for base.yml", message)
 
     def test_no_host_stops_the_run(self):
-        self.assertIn("No host matched base.yml", playbook.listing_refusal("base", 0, "", []))
+        self.assertIn("No hosts match base.yml", playbook.listing_refusal("base", 0, "", []))
 
     def test_hosts_listed_runs(self):
         self.assertIsNone(playbook.listing_refusal("base", 0, "[WARNING]: something\n", ["a"]))

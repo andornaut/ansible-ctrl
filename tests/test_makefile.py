@@ -60,7 +60,7 @@ class Refusal(unittest.TestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         # ASK_PAS=1 alone: none of ARGS's words is taken for an assignment.
-        self.assertIn("variable assignments rather than forwarding them:\n  ASK_PAS=1\n", result.stderr)
+        self.assertIn("variable assignments:\n  ASK_PAS=1\n", result.stderr)
 
 
 class Goals(unittest.TestCase):

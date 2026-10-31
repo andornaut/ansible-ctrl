@@ -99,19 +99,16 @@ def refusal(target: str, assignments: str, dropped: str) -> str | None:
     stray = stray_assignments(assignments)
     if stray:
         return (
-            "make read these as variable assignments rather than forwarding them:\n"
+            "make interpreted these arguments as variable assignments:\n"
             f"  {' '.join(stray)}\n"
-            "An argument containing = never reaches ansible-playbook. Pass them as one\n"
-            "variable instead:\n"
+            "Pass arguments containing = through ARGS:\n"
             f"  make {target} ARGS='...'"
         )
     if dropped.strip():
         return (
-            "ARGS was set on the command line, so these were dropped rather than\n"
-            "forwarded:\n"
+            "ARGS overrides arguments after --; these were not forwarded:\n"
             f"  {dropped.strip()}\n"
-            "A command-line ARGS outranks the list after --. Pass the whole list as\n"
-            "that variable instead:\n"
+            "Put all arguments in ARGS:\n"
             f"  make {target} ARGS='{dropped.strip()} ...'"
         )
     return None
@@ -186,13 +183,12 @@ def store_refusal(sops_file: str, playbook: str, missing: bool) -> str:
     if missing:
         reason = f"{sops_file} does not exist."
     else:
-        reason = f"{sops_file}: not readable by root, so it is missing or its home is not mounted."
+        reason = f"Root cannot read {sops_file}. Check that the home directory is mounted."
     return (
-        f"{reason}\nRefusing to run {playbook}.yml: every credential would be undefined and the\n"
-        "first task to read one fails with the rest already applied. Once `make faramir` has run\n"
-        "and the home is mounted, create the store and put the credentials in it:\n"
+        f"Cannot run {playbook}.yml without credentials.\n{reason}\n"
+        "Ensure `make faramir` has run and the home directory is mounted, then create the store:\n"
         f"  sudo faramir vault add {STORE_NAME}\n"
-        "then list their names in faramir.env."
+        "List the credential names in faramir.env."
     )
 
 
@@ -229,8 +225,9 @@ def secrets_route(
     if decrypts():
         return "sops", ""
     return "none", (
-        f"sops cannot decrypt the store, so {playbook}.yml runs without it and github_token is absent."
-        " SECRETS=none silences this."
+        f"Cannot decrypt credentials for {playbook}.yml; continuing without optional credentials,"
+        " including github_token."
+        " Use SECRETS=none to skip this check."
     )
 
 
@@ -325,18 +322,17 @@ def preflight_outcome(playbook: str, hosts: list[str], off: list[str], is_root: 
     reachable = [h for h in hosts if h not in off]
     if not reachable:
         lines += [
-            f"Preflight: nothing left to apply {playbook}.yml to.",
-            "A run connects with the invoking account's own ~/.ssh, or the broker's key",
-            "under root. Skip this check with PREFLIGHT=none.",
+            f"Preflight: no reachable hosts for {playbook}.yml.",
+            "SSH uses the invoking account's credentials, or the broker's key when run as root.",
+            "Use PREFLIGHT=none to skip this check.",
         ]
         return None, "\n".join(lines)
     # A root run connects with the key this playbook distributes, so a host that has yet to
     # authorize it reads as off, and the run would skip the host it was meant to configure.
     if is_root and playbook == "faramir":
         lines += [
-            "A root run connects with the broker's key, which this playbook is what",
-            "authorizes, so a host that has yet to authorize it reads the same as one",
-            "that is off. Apply it as the operator: make faramir",
+            "Root uses the broker's SSH key. Hosts that have not authorized it may appear unreachable.",
+            "Run as the operator to authorize the key: make faramir",
         ]
     return ["--limit", ",".join(reachable)], "\n".join(lines)
 
@@ -350,9 +346,9 @@ def listing_refusal(playbook: str, returncode: int, stderr: str, hosts: list[str
     plugin leaving an uninjected one undefined and the play's assert not running.
     """
     if returncode != 0:
-        return f"{stderr.rstrip()}\nListing the hosts of {playbook}.yml failed, so nothing was run."
+        return f"{stderr.rstrip()}\nCannot list hosts for {playbook}.yml. Nothing was run."
     if not hosts:
-        return f"No host matched {playbook}.yml's plays. Check hosts and any --limit; nothing was run."
+        return f"No hosts match {playbook}.yml. Check hosts and --limit. Nothing was run."
     return None
 
 
@@ -362,10 +358,13 @@ def version_refusal(version_output: str) -> str | None:
     required = ".".join(map(str, MIN_ANSIBLE_CORE))
     match = CORE_VERSION.search(version_output.partition("\n")[0])
     if not match:
-        return f"`ansible-playbook --version` named no ansible-core version. {required} or later is required."
+        return (
+            "Cannot determine ansible-core version from `ansible-playbook --version`."
+            f" Version {required} or later is required."
+        )
     if (int(match.group(1)), int(match.group(2))) < MIN_ANSIBLE_CORE:
         installed = match.group(0)[len("[core ") : -1]
-        return f"ansible-core {installed} is installed, and {required} or later is required. Nothing was run."
+        return f"ansible-core {installed} is installed; {required} or later is required. Nothing was run."
     return None
 
 
@@ -515,7 +514,7 @@ def run(playbook: str, args: list[str]) -> int:
         say(store_refusal(sops_file, playbook, missing))
         return 1
     if route == "sudo":
-        say(f"Re-entering as root: {sops_file} is not readable by {account}.")
+        say(f"Running as root because {account} cannot read {sops_file}.")
         argv = sudo_command({**os.environ, LISTED_HOSTS_ENV: ",".join(run_hosts)}, playbook, args)
         os.execvp(argv[0], argv)
 

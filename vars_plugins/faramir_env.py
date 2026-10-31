@@ -88,16 +88,13 @@ def declared_names(basedir):
         lines = path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
         raise AnsibleParserError(
-            f"{path} is not there, and it names the credentials this repository uses, "
-            "so every one of them would be undefined. It is gitignored, so a fresh "
-            "checkout has to be given one. An ad-hoc `ansible` command looks for it in "
-            "the working directory rather than beside a playbook, so run those from the "
-            "repository root."
+            f"Missing {path}. Create it with the credential names required by this repository. "
+            "Run ad-hoc `ansible` commands from the repository root."
         ) from None
     except (OSError, ValueError) as err:
         # ValueError covers UnicodeDecodeError: a file that is not text is a file
         # naming nothing, and silence there would read as no credentials declared.
-        raise AnsibleParserError(f"{path} could not be read: {err}") from None
+        raise AnsibleParserError(f"Cannot read {path}: {err}") from None
     names = []
     for number, raw in enumerate(lines, start=1):
         line = raw.strip()
@@ -110,7 +107,7 @@ def declared_names(basedir):
         name = line.split("=", 1)[0].strip()
         if not ENV_NAME.fullmatch(name):
             # faramir refuses the same line, so the brokered route would not run either.
-            raise AnsibleParserError(f"{path}:{number}: {name!r} is not a usable environment variable name")
+            raise AnsibleParserError(f"{path}:{number}: invalid environment variable name {name!r}")
         names.append(name)
     _names_by_basedir[basedir] = names
     return names
