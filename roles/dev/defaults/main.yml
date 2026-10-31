@@ -159,5 +159,4 @@ dev_ai_maintainer_project_script_path: "{{ dev_ai_maintainer_src_dir }}/ai-maint
 # installs. The map is the whole set for this role: an override it wrote that is not named
 # here is removed, and an id with no entry on the host is skipped. The mechanism and the
 # category names are the desktop role's (roles/desktop/defaults/main.yml).
-dev_app_entry_overrides:
-  # Programming only; the packagers list them under Utility and Office as well.
+dev_app_entry_overrides: {}
