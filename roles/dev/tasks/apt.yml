@@ -15,6 +15,7 @@
       - mercurial
       - mysql-client
       - postgresql-client
+      - reptyr
       - shellcheck
       - snmp
       - wireshark
