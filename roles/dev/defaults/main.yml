@@ -161,4 +161,3 @@ dev_ai_maintainer_project_script_path: "{{ dev_ai_maintainer_src_dir }}/ai-maint
 # category names are the desktop role's (roles/desktop/defaults/main.yml).
 dev_app_entry_overrides:
   # Programming only; the packagers list them under Utility and Office as well.
-  cursor.desktop: { categories: [Development] }

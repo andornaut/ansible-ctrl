@@ -21,7 +21,6 @@ make dev -- --tags rust
 | apt                                                             | Development tools and build headers: `git` and its helpers, `gh`, `adb`, `jq`, `shellcheck`, `snmp`, `wireshark`, the database clients, `-dev` packages                                                   |
 | [claude](https://code.claude.com/docs)                          | AI coding assistant, with [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) registered at user scope: an `--isolated` Chrome, no telemetry. See [llama.cpp MCP](#llamacpp-mcp) |
 | [codex](https://github.com/openai/codex)                        | OpenAI Codex CLI. Not updated once installed: `codex` updates itself                                                                                                                                      |
-| [cursor](https://cursor.com/)                                   | AI code editor (AppImage) and the `cursor-agent` CLI                                                                                                                                                      |
 | [go](https://go.dev/)                                           | Go toolchain                                                                                                                                                                                              |
 | java                                                            | [OpenJDK](https://openjdk.org/) 17 and 21                                                                                                                                                                 |
 | javascript                                                      | [Node.js](https://nodejs.org/en) and [nvm](https://github.com/nvm-sh/nvm), with `dev_node_version` installed under `~/.nvm` and set as the default                                                        |
@@ -99,7 +98,6 @@ when every repository is clean.
 | Two JDKs             | 21 answers a plain `java`. `android_sdk` sets `JAVA_HOME` to 17, which Gradle's Android plugin needs                       |
 | chruby auto-switch   | A host without the exact Ruby `.ruby-version` names has nothing to switch to                                               |
 | apt `nodejs`         | Kept alongside nvm for other users and the Ansible tasks, which do not source nvm                                          |
-| Cursor sandbox       | A dedicated AppArmor profile grants it unprivileged user namespaces; the global restriction stays on                       |
 | VirtualBox off       | Clearing `dev_install_virtualbox` removes the KVM blacklist. The VirtualBox packages and modules stay; remove them by hand |
 | VirtualBox on        | `dev_user` joins `vboxusers`, which USB passthrough requires, from its next login                                          |
 

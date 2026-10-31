@@ -67,10 +67,6 @@
   ansible.builtin.import_tasks: codex.yml
   tags: codex
 
-- name: Import cursor tasks
-  ansible.builtin.import_tasks: cursor.yml
-  tags: cursor
-
 - name: Import kilocode tasks
   ansible.builtin.import_tasks: kilocode.yml
   tags: kilocode
