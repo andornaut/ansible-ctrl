@@ -145,6 +145,7 @@
     # regenerated on every recreate and signing out every session; and STATIC_DIR, which
     # OpenWebUI recopies over at startup. A host env wins.
     openwebui_base_environment:
+      DEFAULT_INTERFACE_SETTINGS: '{"webSearch": "always"}'
       HOME: /app/backend/data
       STATIC_DIR: /app/backend/data/static
       WEBUI_SECRET_KEY_FILE: /app/backend/data/.webui_secret_key
