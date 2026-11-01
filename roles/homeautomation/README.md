@@ -290,7 +290,6 @@ Each TV needs a one-time pairing read off its screen. See
 
 ```bash
 docker exec homeassistant hass --config /config --script check_config
-docker exec homeassistant hass --config /config --script check_config --secrets
 ```
 
 ## Documentation

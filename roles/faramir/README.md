@@ -32,7 +32,7 @@ controller's key and NOPASSWD sudo for the ansible account, pins host keys, then
 | One controller                        | The `faramir_controller` group must hold exactly one host, which must be in `faramir`                                                                                                                                         |
 | Removing a host from `faramir`        | Does not uninstall it. `faramir init` creates accounts and units that only an operator removes                                                                                                                                |
 | Play 2 says the controller is missing | Either a `--limit` left it out, or it failed in play 1 and Ansible dropped it from every later play. A typed run's `--limit` drops only hosts the preflight could not reach, so read play 1's output for the controller first |
-| A failed run                          | Block entries converge adds before removes, so a run that fails part-way can leave an entry removed under its old form and not yet added under its new one. Check `faramir block ls` rather than assuming nothing changed     |
+| A failed run                          | Block additions precede removals; links are added last. A failed run can leave stale blocks, or a block removed before its replacement link is added. Check `faramir block ls` rather than assuming nothing changed           |
 
 ## Tags
 
@@ -76,7 +76,7 @@ See [defaults/main.yml](./defaults/main.yml).
 | `/usr/local/bin/faramir`                                              | From the release named by `faramir_release_tag`                                            |
 | Block and link entries                                                | See [Blocked paths and linked secrets](#blocked-paths-and-linked-secrets)                  |
 | Enrolment (controller)                                                | `faramir enrol` against the checkout                                                       |
-| `AGENTS.md` block (controller)                                        | How to run these playbooks through the broker                                              |
+| Playbook routing instructions (controller)                            | How to run these playbooks through the broker                                              |
 | `/etc/sysctl.d/60-faramir-ptrace.conf`                                | `faramir_ptrace_scope`                                                                     |
 | Agent home, and on the controller each directory down to the checkout | Group `faramir_client_group`, mode `faramir_user_home_mode`                                |
 | Entries directly under `~/.config`                                    | Closed to other, except faramir's own config directory                                     |
@@ -201,22 +201,25 @@ Game launchers other than Steam are declared only at their flatpak paths; an apt
 `faramir_agents` names every agent the [dev role](../dev/README.md) installs that faramir can configure. They are
 named explicitly because faramir's `auto` covers an agent only after it has run once unguarded.
 
-| Agent       | In this tree                                                                                                  | In the operator's home                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| claude      | routing `PreToolUse` hook and deny rules in `.claude/settings.local.json`; credentials section in `CLAUDE.md` | deny rules and a deny-only `PreToolUse` hook in `.claude/settings.json`, a credentials section in `.claude/CLAUDE.md`                       |
-| codex       | routing `PreToolUse` hook in `.codex/hooks.json`; credentials section in `AGENTS.md`                          | a deny-only `PreToolUse` hook in `.codex/hooks.json`, a credentials section in `.codex/AGENTS.md`                                           |
-| opencode    | nothing                                                                                                       | deny rules in `.config/opencode/opencode.json`, plugin in `.config/opencode/plugin/`, a credentials section in `.config/opencode/AGENTS.md` |
-| kilocode    | nothing                                                                                                       | deny rules in `.config/kilo/kilo.json`, plugin in `.config/kilo/plugin/`, a credentials section in `.kilocode/rules/faramir.md`             |
-| pi          | nothing                                                                                                       | extension in `.pi/agent/extensions/`, a credentials section in `.pi/agent/AGENTS.md`                                                        |
-| antigravity | credentials section in `.agents/rules/faramir.md`                                                             | `PreToolUse` hook in `.gemini/config/hooks.json`, a credentials section in `.gemini/GEMINI.md`                                              |
+Enrolment writes one combined credentials section for all enabled harnesses into the project's shared
+instructions. Global instructions keep each harness's native location.
+
+| Agent       | Project hook or rules                                                     | Account-wide hook or rules                                                           |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| claude      | routing `PreToolUse` hook and deny rules in `.claude/settings.local.json` | deny rules and a deny-only hook in `.claude/settings.json`                           |
+| codex       | routing `PreToolUse` hook in `.codex/hooks.json`                          | deny-only hook in `.codex/hooks.json`                                                |
+| opencode    | none                                                                      | deny rules in `.config/opencode/opencode.json`, plugin in `.config/opencode/plugin/` |
+| kilocode    | none                                                                      | deny rules in `.config/kilo/kilo.json`, plugin in `.config/kilo/plugin/`             |
+| pi          | none                                                                      | extension in `.pi/agent/extensions/`                                                 |
+| antigravity | none                                                                      | `PreToolUse` hook in `.gemini/config/hooks.json`                                     |
 
 Every one routes commands through the broker and redacts their output: claude and codex only in an enrolled tree, the
 others everywhere.
 
 | Constraint                   | Detail                                                                                                                                            |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Antigravity rules load late  | It reads `.agents/rules/faramir.md` only once it has opened this tree as a project. The account-wide hook holds meanwhile                         |
-| Codex must trust the hook    | Start Codex once and trust the hook before the enrolment has any effect. It must run without its own sandbox                                      |
+| Antigravity rules load late  | Project instructions load only after the tree is opened as a project. The account-wide hook applies before that                                   |
+| Codex must trust the hook    | Open `/hooks` in each affected project, review and trust new or changed hooks. Codex must run without its own sandbox                             |
 | Cursor                       | Not configured by faramir, so a credential one of its commands prints reaches the model                                                           |
 | Bash prompts (claude, codex) | The hook approves every command the deny list does not name                                                                                       |
 | Deny-list pruning            | Temporary migration (`tasks/prune.yml`): deletes every deny entry faramir's record does not name, hand-added ones included, keeping a `.bak` copy |
