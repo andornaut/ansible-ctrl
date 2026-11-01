@@ -70,18 +70,19 @@ See [defaults/main.yml](./defaults/main.yml).
 
 `faramir init` creates the accounts, age key, `.sops.yaml`, SSH identity, directories, config and units. The role adds:
 
-| Path or step                                                          | Purpose                                                                                    |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| sops                                                                  | From its release `.deb`                                                                    |
-| `/usr/local/bin/faramir`                                              | From the release named by `faramir_release_tag`                                            |
-| Block and link entries                                                | See [Blocked paths and linked secrets](#blocked-paths-and-linked-secrets)                  |
-| Enrolment (controller)                                                | `faramir enrol` against the checkout                                                       |
-| Playbook routing instructions (controller)                            | How to run these playbooks through the broker                                              |
-| `/etc/sysctl.d/60-faramir-ptrace.conf`                                | `faramir_ptrace_scope`                                                                     |
-| Agent home, and on the controller each directory down to the checkout | Group `faramir_client_group`, mode `faramir_user_home_mode`                                |
-| Entries directly under `~/.config`                                    | Closed to other, except faramir's own config directory                                     |
-| Files `faramir_links` names                                           | Group `faramir_link_file_group` (`faramir-broker`), mode `faramir_link_file_mode` (`0640`) |
-| `faramir doctor`                                                      | Run and asserted on. The controller also prints the public key the second play distributes |
+| Path or step                                                          | Purpose                                                                                                                             |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| sops                                                                  | From its release `.deb`                                                                                                             |
+| `/usr/local/bin/faramir`                                              | From the release named by `faramir_release_tag`                                                                                     |
+| Missing project enrolments                                            | After initialization, `faramir unenrol --missing` forgets records for missing directories; mount project filesystems before the run |
+| Block and link entries                                                | See [Blocked paths and linked secrets](#blocked-paths-and-linked-secrets)                                                           |
+| Enrolment (controller)                                                | `faramir enrol` against the checkout                                                                                                |
+| Playbook routing instructions (controller)                            | How to run these playbooks through the broker                                                                                       |
+| `/etc/sysctl.d/60-faramir-ptrace.conf`                                | `faramir_ptrace_scope`                                                                                                              |
+| Agent home, and on the controller each directory down to the checkout | Group `faramir_client_group`, mode `faramir_user_home_mode`                                                                         |
+| Entries directly under `~/.config`                                    | Closed to other, except faramir's own config directory                                                                              |
+| Files `faramir_links` names                                           | Group `faramir_link_file_group` (`faramir-broker`), mode `faramir_link_file_mode` (`0640`)                                          |
+| `faramir doctor`                                                      | Run and asserted on. The controller also prints the public key the second play distributes                                          |
 
 ## Running playbooks
 

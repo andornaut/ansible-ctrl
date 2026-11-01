@@ -216,6 +216,19 @@
   register: faramir_binary_stat
   become: false
 
+- name: Forget enrolments whose project directories are missing
+  ansible.builtin.command:
+    argv: >-
+      {{ [faramir_binary, 'unenrol', '--missing', '--json']
+         + (['--dry-run'] if ansible_check_mode else []) }}
+  environment:
+    FARAMIR_CONFIG: "{{ faramir_config_dir }}/config.toml"
+  become: true
+  register: faramir_missing_projects
+  check_mode: false
+  changed_when: faramir_missing_projects.stdout | length > 0 and (faramir_missing_projects.stdout | from_json).changed
+  when: faramir_binary_stat.stat.exists | default(false)
+
 # After init, which installs the binary these run, and before the enrolment, which renders
 # the entries into this tree's agent files: an enrolment that ran first would write rules
 # naming none of them, and the tree would carry none until the next run.
