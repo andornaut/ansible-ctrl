@@ -41,6 +41,31 @@ curl http://<tv>:9093/api/status     # isPaired true, and currentPort once it ha
 adb shell pm query-receivers --components -a android.intent.action.BOOT_COMPLETED | grep adbautoenable
 ```
 
+### TV cleanup: preserve HDMI playback
+
+Keep the TV viewing app, playback services and input providers installed and enabled for the active user,
+including when using a third-party launcher. Input labels and HDMI-CEC device discovery do not prove that the
+TV can display the video.
+
+| TV          | Protected packages                                                                   |
+| ----------- | ------------------------------------------------------------------------------------ |
+| Sony Bravia | `com.sony.dtv.tvx`, `com.sony.dtv.tvinput.external`, `com.sony.dtv.tvinput.provider` |
+| Hisense     | `com.vt.tv.tvcenter`, `com.vt.tvplayer`, `com.vt.source.external`                    |
+
+Package names vary by model and firmware. Identify the device's viewing app and input services before removing
+packages; do not treat these lists as exhaustive. `pm list packages -d` lists disabled packages, but misses
+packages removed for a user. Check the active user's `installed` and `enabled` state with `dumpsys package`.
+
+Restore a preinstalled package removed for user 0 from its existing system copy:
+
+```bash
+timeout 20 adb -s <device>:5555 shell \
+    cmd package install-existing --user 0 <package>
+```
+
+Verify that the protected packages are installed and enabled, the viewing app opens the intended HDMI input,
+and a powered-on external source produces picture and audio before considering cleanup complete.
+
 ## Avahi and Google Cast
 
 - [Google Cast with Docker: no Google Cast devices found](https://community.home-assistant.io/t/google-cast-with-docker-no-google-cast-devices-found/145331/24)
