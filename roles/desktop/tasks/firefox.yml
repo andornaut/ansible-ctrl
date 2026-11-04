@@ -151,12 +151,18 @@
 # Firefox's own print dialog sends no ColorModel for a colour job, so a queue whose PPD
 # defaults to Gray prints it grayscale. The system dialog sends one. The parental controls
 # policies apply to every account on the host: policies.json has no per-user scope.
+# The system dialog's Print to File otherwise defaults to the sandbox's home, which is
+# discarded on exit; it reads only the per-printer pref, not print.print_to_filename.
 - name: Configure Firefox policies
   when: desktop_install_firefox | bool
   become: true
   vars:
     desktop_firefox_policies:
       UseSystemPrintDialog: true
+      Preferences:
+        print.printer_Print_to_File.print_to_filename:
+          Value: "{{ desktop_user_home }}/Downloads/mozilla.pdf"
+          Status: default
     # DoH resolves past nss-malcontent and the router's DNS filter alike.
     desktop_firefox_family_policies:
       DisablePrivateBrowsing: true
