@@ -54,29 +54,29 @@ log() {
 # One notification, replaced in place as the launch moves on. keep() is called on every poll:
 # the banner is re-sent at NOTIFY_REFRESH_SECONDS, shorter than its expiry, so it stays on
 # screen for as long as the wait does, and at once when its text changes. Each change of
-# text is logged, each re-send is not. The failure asks for the longer banner, being the one
-# worth reading.
+# text is logged, each re-send is not. Every banner is normal urgency: GNOME Shell shows none
+# for a low one. A failure asks for the longer banner, being the one worth reading.
 NOTIFY_ID=""
 NOTIFY_CURRENT=""
 NOTIFY_SENT_AT=0
 notify() {
-    local urgency=$1 summary=$2 body=${3:-} expire=8000
-    [ "$urgency" = low ] || expire=20000
-    if [ "$urgency|$summary|$body" != "$NOTIFY_CURRENT" ]; then
+    local kind=$1 summary=$2 body=${3:-} expire=8000
+    [ "$kind" = progress ] || expire=20000
+    if [ "$kind|$summary|$body" != "$NOTIFY_CURRENT" ]; then
         log "notification: $summary: ${body:-(no body)}"
-        NOTIFY_CURRENT="$urgency|$summary|$body"
+        NOTIFY_CURRENT="$kind|$summary|$body"
     fi
     NOTIFY_SENT_AT=$EPOCHSECONDS
-    local -a opts=(--print-id --app-name=Minecraft --icon=minecraft-bedrock --urgency="$urgency"
+    local -a opts=(--print-id --app-name=Minecraft --icon=minecraft-bedrock --urgency=normal
         --transient --expire-time="$expire")
     [ -n "$NOTIFY_ID" ] && opts+=(--replace-id="$NOTIFY_ID")
     NOTIFY_ID=$(notify-send "${opts[@]}" "$summary" "$body" 2>/dev/null) || true
 }
 keep() {
-    local urgency=$1 summary=$2 body=${3:-}
-    if [ "$urgency|$summary|$body" != "$NOTIFY_CURRENT" ] ||
+    local kind=$1 summary=$2 body=${3:-}
+    if [ "$kind|$summary|$body" != "$NOTIFY_CURRENT" ] ||
         [ $((EPOCHSECONDS - NOTIFY_SENT_AT)) -ge "$NOTIFY_REFRESH_SECONDS" ]; then
-        notify "$urgency" "$summary" "$body"
+        notify "$kind" "$summary" "$body"
     fi
 }
 # Take the banner down now. notify-send cannot; the notification daemon's bus method can.
@@ -219,7 +219,7 @@ if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
         log "lock is held by another launch"
         if window=$(game_window); then
             log "its game has a window ($window); leaving it alone"
-            notify low "Minecraft is already running"
+            notify progress "Minecraft is already running"
             focus_window || true
             exit 0
         fi
@@ -228,10 +228,10 @@ if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
         until flock -n 9; do
             if [ "$EPOCHSECONDS" -ge "$deadline" ]; then
                 log "lock still held after ${LOCK_WAIT_SECONDS}s; giving up"
-                notify normal "Minecraft did not start" "Another launch has held the lock for $LOCK_WAIT_SECONDS seconds."
+                notify failure "Minecraft did not start" "Another launch has held the lock for $LOCK_WAIT_SECONDS seconds."
                 exit 1
             fi
-            keep low "Launching Minecraft" "Another launch is in progress; waiting for it to finish."
+            keep progress "Launching Minecraft" "Another launch is in progress; waiting for it to finish."
             sleep 0.2
         done
         LOCKED=1
@@ -261,7 +261,7 @@ if running_instance; then
     done
     if [ -n "$window" ]; then
         log "its game has a window ($window)"
-        notify low "Minecraft is already running"
+        notify progress "Minecraft is already running"
         # On a Wayland host gamescope's window is a native toplevel xdotool cannot see, so
         # there is nothing to focus and the banner is the whole answer.
         focus_window || log "no host window to focus"
@@ -270,10 +270,10 @@ if running_instance; then
     if running_instance; then
         if [ "$RUNNING_GAME" = 1 ]; then
             log "no window yet; the game may still be starting"
-            notify normal "Minecraft is still starting" "Wait for its window."
+            notify failure "Minecraft is still starting" "Wait for its window."
         else
             log "the BedrockOnLinux launcher is open with no game window; it may be idle or starting the game"
-            notify normal "Minecraft or its launcher is already open" "Switch to it, or close the BedrockOnLinux launcher to launch from here."
+            notify failure "Minecraft or its launcher is already open" "Switch to it, or close the BedrockOnLinux launcher to launch from here."
         fi
         exit 0
     fi
@@ -309,7 +309,7 @@ done
 # process that outlives this script would otherwise keep the lock held and refuse every later
 # launch. Run in the background so the window can be waited for while it runs; it blocks
 # for the game's life, and its exit code is reported at the end.
-notify low "Launching Minecraft" "Starting BedrockOnLinux."
+notify progress "Launching Minecraft" "Starting BedrockOnLinux."
 $FLATPAK_CMD play 9>&- &
 PLAY_PID=$!
 log "started play as pid $PLAY_PID"
@@ -342,15 +342,15 @@ while [ "$EPOCHSECONDS" -lt "$deadline" ]; do
         break
     fi
     if running_instance; then
-        keep low "Launching Minecraft" "Waiting for the game's window."
+        keep progress "Launching Minecraft" "Waiting for the game's window."
     else
-        keep low "Launching Minecraft" "Starting BedrockOnLinux."
+        keep progress "Launching Minecraft" "Starting BedrockOnLinux."
     fi
     sleep "$NOTIFY_REFRESH_SECONDS"
 done
 if [ "$shown" = 0 ] && play_running; then
     log "no window after ${WINDOW_SECONDS}s"
-    notify normal "Minecraft did not start" "No window appeared in ten minutes."
+    notify failure "Minecraft did not start" "No window appeared in ten minutes."
 fi
 release_lock
 
@@ -366,7 +366,7 @@ case "$rc" in
             game_log="$HOME/.var/app/$APP_ID/data/bedrock-on-linux/logs/minecraft.log"
             log "the game's log, $game_log, ends:"
             tail -n 5 "$game_log" 2>/dev/null | while IFS= read -r line; do log "  $line"; done
-            notify normal "Minecraft did not start" "BedrockOnLinux exited without showing a window. See $LOG_FILE."
+            notify failure "Minecraft did not start" "BedrockOnLinux exited without showing a window. See $LOG_FILE."
             rc=1
         fi
         ;;
@@ -375,7 +375,7 @@ case "$rc" in
     143 | 137) log "play was terminated (exit code $rc)" ; rc=0 ;;
     *)
         log "play exited $rc"
-        notify normal "Minecraft did not start" "BedrockOnLinux exited with code $rc."
+        notify failure "Minecraft did not start" "BedrockOnLinux exited with code $rc."
         ;;
 esac
 exit "$rc"

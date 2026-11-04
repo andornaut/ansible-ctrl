@@ -176,11 +176,12 @@ KILL_WAIT_SECONDS = 2.0
 # Proton build is needed; one that outlives this is a download or an unpack.
 PROTON_INSTALL_MIN_SECONDS = 5.0
 
-# Milliseconds each notification's banner asks for, by urgency. Every one is transient, so
-# none is added to the message list: one left there stays until it is dismissed by hand, and
-# a second run cannot replace it, the id reaching no further than the process that got it.
-# The failure asks for the longer banner, being the one worth reading.
-NOTIFY_EXPIRE_MS = {"low": "8000", "normal": "20000"}
+# Every notification is normal urgency: GNOME Shell shows no banner for a low one. Every one is
+# transient, so none is added to the message list: one left there stays until it is dismissed by
+# hand, and a second run cannot replace it, the id reaching no further than the process that got
+# it. A failure asks for the longer banner, being the one worth reading.
+NOTIFY_EXPIRE_MS = 8000
+NOTIFY_FAILURE_EXPIRE_MS = 20000
 
 # The log is per slug and bounded: one launch writes a few hundred lines at most.
 LOG_MAX_BYTES = 1 << 20
@@ -250,10 +251,10 @@ class Notifier:
         self.current = None
         self.sent_at = 0.0
 
-    def show(self, summary, body="", urgency="low"):
-        if (summary, body, urgency) != self.current:
+    def show(self, summary, body="", failure=False):
+        if (summary, body, failure) != self.current:
             log.info("notification: %s: %s", summary, body or "(no body)")
-        self.current = (summary, body, urgency)
+        self.current = (summary, body, failure)
         self.sent_at = time.monotonic()
         argv = [
             "notify-send",
@@ -263,10 +264,10 @@ class Notifier:
             "--icon",
             self.icon,
             "--urgency",
-            urgency,
+            "normal",
             "--transient",
             "--expire-time",
-            NOTIFY_EXPIRE_MS.get(urgency, NOTIFY_EXPIRE_MS["low"]),
+            str(NOTIFY_FAILURE_EXPIRE_MS if failure else NOTIFY_EXPIRE_MS),
         ]
         if self.notification_id:
             argv += ["--replace-id", self.notification_id]
@@ -280,10 +281,10 @@ class Notifier:
         elif result.returncode != 0:
             log.warning("notify-send exited %d: %s", result.returncode, result.stderr.strip())
 
-    def keep(self, summary, body="", urgency="low"):
+    def keep(self, summary, body="", failure=False):
         """Show the banner now if its text changed, otherwise re-send it when it is due."""
-        if (summary, body, urgency) != self.current or time.monotonic() - self.sent_at >= NOTIFY_REFRESH_SECONDS:
-            self.show(summary, body, urgency)
+        if (summary, body, failure) != self.current or time.monotonic() - self.sent_at >= NOTIFY_REFRESH_SECONDS:
+            self.show(summary, body, failure)
 
     def close(self):
         """Take the banner down now. notify-send cannot; the notification daemon's bus method can."""
@@ -722,7 +723,7 @@ def handoff(prefix, launch, notifier):
     if not wineservers:
         log.warning("the prefix's wineserver exited before the hand-off")
         notifier.show(
-            f"{notifier.name} did not start", "The running session ended before it took the launch.", urgency="normal"
+            f"{notifier.name} did not start", "The running session ended before it took the launch.", failure=True
         )
         return 1
     argv = [
@@ -765,7 +766,7 @@ def handoff(prefix, launch, notifier):
         notifier.show(
             f"{notifier.name} did not start",
             f"The running client did not take the launch. See {notifier.log_file or 'the log'}.",
-            urgency="normal",
+            failure=True,
         )
         return 1
     notifier.show(f"Launching {notifier.name}", "The running client is starting it.")
@@ -813,7 +814,7 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
             notifier.show(
                 f"{notifier.name} did not start",
                 f"Lutris exited without the game showing a window. See {notifier.log_file or 'the log'}.",
-                urgency="normal",
+                failure=True,
             )
             return False
 
@@ -837,7 +838,7 @@ def wait_for_window(child, prefix, app_id, notifier, exclude):
         # The probe runs xwininfo once per candidate window, so the poll is the banner's own.
         time.sleep(NOTIFY_REFRESH_SECONDS)
     log.warning("no window after %.0fs", WINDOW_SECONDS)
-    notifier.show(f"{notifier.name} did not start", "No window appeared in ten minutes.", urgency="normal")
+    notifier.show(f"{notifier.name} did not start", "No window appeared in ten minutes.", failure=True)
     return False
 
 
@@ -961,7 +962,7 @@ def main():
         notifier.show(
             f"{name} did not start",
             f"Another launch has held the prefix for {LOCK_WAIT_SECONDS:.0f} seconds.",
-            urgency="normal",
+            failure=True,
         )
         return 1
 
@@ -1009,7 +1010,7 @@ def main():
     if returncode != 0:
         # A window that was shown is a launch that happened, whatever Lutris returned after.
         if not shown:
-            notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", urgency="normal")
+            notifier.show(f"{name} did not start", f"Lutris exited with code {returncode}.", failure=True)
         return returncode
     # A launch the wait already reported as failed is one, whatever Lutris returned.
     return 0 if shown else 1
