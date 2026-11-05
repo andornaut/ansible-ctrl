@@ -74,7 +74,7 @@ games_lutris_wow_flavors:
   _classic_: mop
   _classic_era_: classic
   _anniversary_: bc
-  _classic_beta_: forever
+  _forever_: forever
 
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.

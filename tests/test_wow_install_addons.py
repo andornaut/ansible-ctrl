@@ -72,7 +72,7 @@ class InstallAddons(unittest.TestCase):
         return self.wow_dir / version / "Interface" / "AddOns"
 
     def test_installs_into_each_present_version_with_a_release(self):
-        for version in ("_retail_", "_classic_beta_", "_classic_era_"):
+        for version in ("_retail_", "_forever_", "_classic_era_"):
             (self.wow_dir / version).mkdir()
         zip_v1 = archive({"Bag/Bag.toc": "## Version: 1\n"})
         self.publish(
@@ -85,11 +85,11 @@ class InstallAddons(unittest.TestCase):
             {"r": zip_v1, "f": zip_v1},
         )
         out = self.run_script(
-            {"_retail_": "retail", "_classic_beta_": "forever", "_classic_era_": "classic", "_classic_": "mop"}, ["bag"]
+            {"_retail_": "retail", "_forever_": "forever", "_classic_era_": "classic", "_classic_": "mop"}, ["bag"]
         )
-        self.assertEqual(out.splitlines(), ["bag 1 -> _classic_beta_", "bag 1 -> _retail_"])
+        self.assertEqual(out.splitlines(), ["bag 1 -> _forever_", "bag 1 -> _retail_"])
         self.assertTrue((self.addons("_retail_") / "Bag/Bag.toc").exists())
-        self.assertTrue((self.addons("_classic_beta_") / "Bag/Bag.toc").exists())
+        self.assertTrue((self.addons("_forever_") / "Bag/Bag.toc").exists())
         self.assertFalse(self.addons("_classic_era_").exists())
         self.assertFalse((self.wow_dir / "_classic_").exists())
         # One download serves every version sharing a release.

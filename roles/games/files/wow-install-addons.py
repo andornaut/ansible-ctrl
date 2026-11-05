@@ -4,7 +4,7 @@
 Reads WOW_ADDONS_CONFIG, a JSON document:
 
     {"wow_dir": "/home/user/.local/games/Lutris/battlenet/drive_c/Program Files (x86)/World of Warcraft",
-     "flavors": {"_retail_": "retail", "_classic_beta_": "forever"},
+     "flavors": {"_retail_": "retail", "_forever_": "forever"},
      "addons": ["baganator"]}
 
 `flavors` maps each game version directory under `wow_dir` to the name Wago publishes that
