@@ -2,7 +2,7 @@
 # version the checkout pins, so a run needs no network: rebuilt only when one of the files
 # copied below changes. The build context is those files alone (tests/container/test.sh
 # streams them), so no other edit invalidates the cache.
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
+FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
