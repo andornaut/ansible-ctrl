@@ -2,6 +2,11 @@ import copy
 import importlib.util
 import json
 import unittest
+
+try:
+    from aiohttp import web
+except ModuleNotFoundError:
+    web = None
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -169,8 +174,6 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
 @unittest.skipIf(marketplace.aiohttp is None, "Run transport coverage in the Home Assistant image")
 class MarketplaceTransport(unittest.IsolatedAsyncioTestCase):
     async def test_native_catalog_larger_than_default_frame_limit_converges(self):
-        from aiohttp import web
-
         catalog = [repository(description="x" * (5 * 1024 * 1024))]
         response_size = len(json.dumps(catalog).encode())
         self.assertGreater(response_size, 4 * 1024 * 1024)
@@ -194,9 +197,7 @@ class MarketplaceTransport(unittest.IsolatedAsyncioTestCase):
                     result = catalog
                 else:
                     self.fail(f"Unexpected mutation: {command['type']}")
-                await socket.send_json(
-                    {"id": command["id"], "type": "result", "success": True, "result": result}
-                )
+                await socket.send_json({"id": command["id"], "type": "result", "success": True, "result": result})
             return socket
 
         application = web.Application()

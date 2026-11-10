@@ -270,7 +270,8 @@ def main():
                 {
                     **report,
                     "failed": True,
-                    "error": f"Marketplace communication or configuration failed during {report.get('phase', 'configuration')} "
+                    "error": "Marketplace communication or configuration failed during "
+                    f"{report.get('phase', 'configuration')} "
                     f"({type(error).__name__})",
                 }
             )
