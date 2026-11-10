@@ -29,6 +29,7 @@
   community.docker.docker_container:
     name: homeassistant
     restart: true
+    stop_timeout: "{{ homeautomation_homeassistant_stop_timeout }}"
   when: homeautomation_homeassistant_container_info.exists
 
 - name: Look up the mosquitto container

@@ -69,6 +69,7 @@
         # http://localhost:8123
         container_name: homeassistant
         image: "{{ homeautomation_homeassistant_docker_image }}"
+        stop_grace_period: "{{ homeautomation_homeassistant_stop_timeout }}s"
         cap_add:
           - NET_ADMIN
           - NET_RAW
