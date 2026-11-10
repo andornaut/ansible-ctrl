@@ -3,10 +3,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-HELPER = (
-    Path(__file__).resolve().parents[1]
-    / "roles/homeautomation/files/homeassistant/marketplace.py"
-)
+HELPER = Path(__file__).resolve().parents[1] / "roles/homeautomation/files/homeassistant/marketplace.py"
 spec = importlib.util.spec_from_file_location("marketplace", HELPER)
 marketplace = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(marketplace)
@@ -116,9 +113,7 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
         )
         for info, blocked in cases:
             with self.subTest(info=info, blocked=blocked):
-                store = Store(
-                    [repository(installed=False), repository(id="99", full_name="other/keep")], **info
-                )
+                store = Store([repository(installed=False), repository(id="99", full_name="other/keep")], **info)
                 with self.assertRaises(marketplace.ReconcileError):
                     await marketplace.reconcile(
                         store,
@@ -127,9 +122,7 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(store.installs, [])
 
     async def test_failed_install_stops_before_later_repositories(self):
-        store = Store(
-            [repository(installed=False), repository(id="99", full_name="other/later", installed=False)]
-        )
+        store = Store([repository(installed=False), repository(id="99", full_name="other/later", installed=False)])
         store.fail_install = True
         report = {}
         with self.assertRaises(marketplace.ReconcileError):
@@ -145,7 +138,6 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(report["changed"])
         self.assertTrue(report["restart_required"])
         self.assertFalse(store.repositories[1]["installed"])
-
 
     async def test_resource_migration_preserves_old_id_and_removes_generated_duplicate(self):
         target = "/local/community/button-card/button-card.js"
@@ -168,6 +160,4 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
         count = len(store.calls)
         report = await marketplace.reconcile(store, desired)
         self.assertFalse(report["changed"])
-        self.assertFalse(
-            any(command.endswith(("/update", "/delete")) for command, _ in store.calls[count:])
-        )
+        self.assertFalse(any(command.endswith(("/update", "/delete")) for command, _ in store.calls[count:]))
