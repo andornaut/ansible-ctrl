@@ -22,7 +22,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | Installs the newest adb-auto-enable release on each Android TV. See [Android TV adb](docs/troubleshooting.md#android-tv-adb)                                                             |
 | [avahi](https://avahi.org/)                                       | mDNS reflector between the interfaces in `homeautomation_avahi_interfaces`; installs nothing while that is empty                                                                         |
 | bluetooth                                                         | BLE access for the Home Assistant container. No flag; always applied                                                                                                                     |
-| customizations                                                    | Marketplace integrations and cards, local Python scripts, the compatibility theme, and `frontend.yaml`                                                                                   |
+| customizations                                                    | Marketplace integrations and cards, the compatibility theme, and `frontend.yaml`                                                                                                         |
 | docker                                                            | All Docker container tasks                                                                                                                                                               |
 | [esphome](https://esphome.io/)                                    | ESP device firmware and dashboard                                                                                                                                                        |
 | [frigate](https://github.com/blakeblackshear/frigate)             | Video surveillance with AI detection                                                                                                                                                     |
@@ -189,7 +189,7 @@ administrator token only through the environment of a `no_log` provisioning task
 | Integration setup   | Marketplace installs packages, not integration config entries. Existing entries are retained; configure new integrations in Home Assistant                                                                                 |
 | Removal             | Removing a repository from the desired list or disabling provisioning preserves installed packages, integration entries and devices                                                                                        |
 | Dashboard resources | Known card resource URLs are reconciled through the Lovelace API to `/local/community/<repository-name>/<file>`. Plugin provisioning requires storage-mode Lovelace resources; YAML mode is refused before package changes |
-| Direct installation | IBM1970 remains installed by Ansible because its repository has no `hacs.json` metadata or catalog entry. Local Python scripts, frontend configuration, containers and the aioruckus patch also remain Ansible-owned       |
+| Direct installation | IBM1970 remains installed by Ansible because its repository has no `hacs.json` metadata or catalog entry. Frontend configuration, containers and the aioruckus patch also remain Ansible-owned                             |
 
 ## Matter and Thread
 
