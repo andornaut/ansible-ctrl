@@ -9,6 +9,7 @@ homeautomation_install_govee2mqtt: false
 homeautomation_install_llm: false
 homeautomation_install_matterjs: false
 homeautomation_install_memryx: false
+homeautomation_install_marketplace: false
 homeautomation_install_pythonmatterserver: false
 homeautomation_install_router_kva_sample: false
 homeautomation_install_voice: false
@@ -132,7 +133,38 @@ homeautomation_homeassistant_docker_image: "homeassistant/home-assistant:stable"
 # registered through the UI. card-mod has to load this way: it patches other
 # cards rather than providing one, so it must be present before they render.
 homeautomation_homeassistant_extra_module_urls:
-  - /local/card-mod.js
+  - /local/community/lovelace-card-mod/card-mod.js
+homeautomation_homeassistant_marketplace_url: "http://127.0.0.1:8123"
+homeautomation_homeassistant_marketplace_token: ""
+homeautomation_homeassistant_marketplace_repositories:
+  - repository: greghesp/ha-bambulab
+    category: integration
+  - repository: JeffSteinbok/hass-dreo
+    category: integration
+  - repository: blakeblackshear/frigate-hass-integration
+    category: integration
+  - repository: albertogeniola/meross-homeassistant
+    category: integration
+  - repository: thomasloven/hass-custom_icons
+    category: integration
+  - repository: mampfes/hacs_waste_collection_schedule
+    category: integration
+  - repository: dummylabs/thewatchman
+    category: integration
+  - repository: dermotduffy/advanced-camera-card
+    category: plugin
+  - repository: custom-cards/button-card
+    category: plugin
+  - repository: thomasloven/lovelace-card-mod
+    category: plugin
+  - repository: Nerwyn/custom-card-features
+    category: plugin
+  - repository: custom-cards/decluttering-card
+    category: plugin
+  - repository: thomasloven/lovelace-slider-entity-row
+    category: plugin
+  - repository: skavan/super-text-input
+    category: plugin
 homeautomation_homeassistant_extra_volumes: []
 # tasks/patch_aioruckus_head.yml. Enable where the Ruckus integration is used.
 homeautomation_homeassistant_patch_aioruckus_head: false

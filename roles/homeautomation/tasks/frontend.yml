@@ -1,11 +1,10 @@
 ---
 # configuration.yaml is mostly per-host, so ansible takes the frontend key
-# through an include rather than templating the whole file. www.yml installs
+# through an include rather than templating the whole file. Marketplace installs
 # card-mod.js, but a module is only loaded if extra_module_url names it: a host
 # that has the file and not the setting renders every card_mod block as though
 # it were absent, and reports no error.
-# Home Assistant writes configuration.yaml on its first start, which docker_homeassistant.yml
-# performs after this file runs.
+# Home Assistant writes configuration.yaml on its first start.
 - name: Check for configuration.yaml
   ansible.builtin.stat:
     path: "{{ homeautomation_homeassistant_required_volumes.config }}/configuration.yaml"

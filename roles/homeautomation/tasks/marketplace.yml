@@ -1,0 +1,139 @@
+---
+- name: Report community-content bootstrap mode
+  ansible.builtin.debug:
+    msg: >-
+      Marketplace package convergence is disabled. Onboard Home Assistant, accept the
+      Marketplace notice, configure homeautomation_homeassistant_marketplace_token,
+      and enable homeautomation_install_marketplace to install community content.
+  when: not homeautomation_install_marketplace | bool
+  become: false
+
+- name: Configure Marketplace community content
+  when: homeautomation_install_marketplace | bool
+  block:
+    - name: Require an administrator token for Marketplace provisioning
+      ansible.builtin.assert:
+        that:
+          - homeautomation_homeassistant_marketplace_token | length > 0
+        fail_msg: >-
+          Set homeautomation_homeassistant_marketplace_token to the enrolled instance's
+          administrator token reference. Complete onboarding and accept its Marketplace
+          notice before running community-content provisioning.
+        quiet: true
+      become: false
+
+    - name: Wait for the Home Assistant HTTP endpoint
+      ansible.builtin.uri:
+        url: "{{ homeautomation_homeassistant_marketplace_url }}/manifest.json"
+        status_code: 200
+      register: homeautomation_marketplace_ready
+      until: homeautomation_marketplace_ready.status | default(0) == 200
+      retries: 30
+      delay: 2
+      check_mode: false
+      become: false
+
+    - name: Check for the installed Marketplace reconciler
+      ansible.builtin.stat:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/ansible/marketplace.py"
+      register: homeautomation_marketplace_helper
+      become: true
+
+    - name: Require an installed reconciler for a read-only Marketplace check
+      ansible.builtin.assert:
+        that:
+          - not ansible_check_mode or homeautomation_marketplace_helper.stat.exists
+        fail_msg: >-
+          Marketplace check mode requires the reconciler from a completed provisioning
+          run. No package state was inspected or changed.
+        quiet: true
+      become: false
+
+    - name: Create the Home Assistant provisioning directory
+      ansible.builtin.file:
+        path: "{{ homeautomation_homeassistant_required_volumes.config }}/ansible"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      become: true
+
+    - name: Install the Marketplace reconciler
+      ansible.builtin.copy:
+        src: homeassistant/marketplace.py
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/ansible/marketplace.py"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+
+    - name: Declare the Marketplace repositories
+      ansible.builtin.copy:
+        content: "{{ homeautomation_homeassistant_marketplace_repositories | to_nice_json }}\n"
+        dest: "{{ homeautomation_homeassistant_required_volumes.config }}/ansible/marketplace.json"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+
+    - name: Reconcile the Marketplace repositories
+      community.docker.docker_container_exec:
+        container: homeassistant
+        argv: >-
+          {{ ['python3', '/config/ansible/marketplace.py',
+              '--url', homeautomation_homeassistant_marketplace_url,
+              '--repositories', '-'] + (['--check'] if ansible_check_mode else []) }}
+        stdin: "{{ homeautomation_homeassistant_marketplace_repositories | to_json }}"
+        env:
+          HA_MARKETPLACE_TOKEN: "{{ homeautomation_homeassistant_marketplace_token | string }}"
+      register: homeautomation_marketplace_result
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      no_log: true
+      become: true
+
+    - name: Decode the Marketplace result
+      block:
+        - name: Read the reconciler's structured result
+          ansible.builtin.set_fact:
+            homeautomation_marketplace_report: "{{ homeautomation_marketplace_result.stdout | from_json }}"
+          no_log: true
+          become: false
+
+        - name: Require the Marketplace result contract
+          ansible.builtin.assert:
+            that:
+              - homeautomation_marketplace_report is mapping
+              - homeautomation_marketplace_report.changed is boolean
+              - homeautomation_marketplace_report.restart_required is boolean
+            quiet: true
+          no_log: true
+          become: false
+      rescue:
+        - name: Report an unavailable Marketplace result
+          ansible.builtin.set_fact:
+            homeautomation_marketplace_report:
+              failed: true
+              changed: false
+              restart_required: false
+              error: Marketplace reconciler did not return a valid result. Check that it can run inside Home Assistant.
+          become: false
+
+    - name: Report Marketplace convergence
+      ansible.builtin.debug:
+        msg: "{{ homeautomation_marketplace_report }}"
+      changed_when: homeautomation_marketplace_report.changed | bool
+      notify: >-
+        {{ ['Restart homeassistant']
+           if homeautomation_marketplace_report.restart_required | bool else [] }}
+      become: false
+
+    - name: Require successful Marketplace reconciliation
+      ansible.builtin.assert:
+        that:
+          - homeautomation_marketplace_result.rc | default(1) == 0
+          - not homeautomation_marketplace_report.failed | default(false) | bool
+        fail_msg: "{{ homeautomation_marketplace_report.error | default('Marketplace reconciliation failed.') }}"
+        quiet: true
+      become: false

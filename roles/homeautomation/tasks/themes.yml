@@ -9,8 +9,7 @@
     mode: "0755"
   become: true
 
-# GitHub closes some connections without a response. See
-# tasks/install_github_release_component.yml, which retries the same way.
+# This theme has no Marketplace metadata and remains a direct installation.
 - name: Install IBM1970 theme
   # Under --check on a host without themes/, the directory above was only reported.
   when: not (ansible_check_mode and homeautomation_themes_dir is changed)

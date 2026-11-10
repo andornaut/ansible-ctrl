@@ -100,15 +100,10 @@
 - name: Install customizations
   tags: customizations
   block:
-    - name: Import custom components tasks
-      ansible.builtin.import_tasks: custom_components.yml
+    - name: Import local Python script tasks
+      ansible.builtin.import_tasks: python_scripts.yml
     - name: Import themes tasks
       ansible.builtin.import_tasks: themes.yml
-    - name: Import www tasks
-      ansible.builtin.import_tasks: www.yml
-    # After www.yml, so the modules it names are on disk before HA restarts.
-    - name: Import frontend tasks
-      ansible.builtin.import_tasks: frontend.yml
 
 - name: Configure Docker containers
   tags: docker
@@ -191,6 +186,14 @@
       ansible.builtin.import_tasks: docker_voice.yml
       tags: voice
       when: homeautomation_install_voice | bool
+
+- name: Manage community content through the Marketplace
+  ansible.builtin.import_tasks: marketplace.yml
+  tags: customizations
+
+- name: Configure the frontend after community content is available
+  ansible.builtin.import_tasks: frontend.yml
+  tags: customizations
 
 - name: Import router kernel address space sampler tasks
   ansible.builtin.import_tasks: router_kva_sample.yml

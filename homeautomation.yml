@@ -14,6 +14,7 @@
           - homeautomation_govee2mqtt_env
           - homeautomation_hamcp_env
           - homeautomation_hamcp_instances
+          - homeautomation_homeassistant_marketplace_token
           - homeautomation_llamacpp_env
           - homeautomation_openwebui_env
   roles:
