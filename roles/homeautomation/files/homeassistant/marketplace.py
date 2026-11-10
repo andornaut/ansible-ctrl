@@ -16,6 +16,7 @@ except ModuleNotFoundError:
     aiohttp = None
 
 CATEGORIES = {"integration", "plugin", "theme", "template"}
+MAX_MESSAGE_SIZE = 32 * 1024 * 1024
 LEGACY_RESOURCES = {
     "dermotduffy/advanced-camera-card": "/local/advanced-camera-card/advanced-camera-card.js",
     "custom-cards/button-card": "/local/button-card.js",
@@ -37,8 +38,10 @@ class Marketplace:
     def __init__(self, socket):
         self.socket = socket
         self.sequence = 0
+        self.command = "authentication"
 
     async def call(self, command, **data):
+        self.command = command
         self.sequence += 1
         request_id = self.sequence
         async with asyncio.timeout(180):
@@ -144,7 +147,8 @@ async def reconcile(client, desired, check=False, report=None):
             "Accept the Marketplace warning in Home Assistant using the account owning "
             "HA_MARKETPLACE_TOKEN, then run provisioning again"
         )
-    available = await client.call("marketplace/repositories/list")
+    categories = sorted({item["category"] for item in desired})
+    available = await client.call("marketplace/repositories/list", categories=categories)
     repositories = {item["full_name"].lower(): item for item in available}
     # Check all prerequisites before changing any repository.
     for item in desired:
@@ -173,7 +177,7 @@ async def reconcile(client, desired, check=False, report=None):
             if not check:
                 await client.call("marketplace/repositories/add", repository=name, category=item["category"])
                 report["changed"] = True
-                available = await client.call("marketplace/repositories/list")
+                available = await client.call("marketplace/repositories/list", categories=categories)
                 current = next(
                     (entry for entry in available if entry["full_name"].lower() == name.lower()),
                     None,
@@ -199,7 +203,7 @@ async def reconcile(client, desired, check=False, report=None):
         report["changed"] = True
         report["restart_required"] |= item["category"] == "integration"
         await client.call("marketplace/repository/install", **request)
-        available = await client.call("marketplace/repositories/list")
+        available = await client.call("marketplace/repositories/list", categories=categories)
         installed = next((entry for entry in available if entry["full_name"].lower() == name.lower()), None)
         if not installed or not installed.get("installed"):
             raise ReconcileError(f"Marketplace did not confirm installation of {name}")
@@ -218,7 +222,12 @@ async def run(args, desired, report):
     if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
         raise ReconcileError("Use an HTTP(S) URL without embedded authentication")
     endpoint = urlunsplit(("wss" if parsed.scheme == "https" else "ws", parsed.netloc, "/api/websocket", "", ""))
-    async with aiohttp.ClientSession() as session, session.ws_connect(endpoint) as socket:
+    report["phase"] = "websocket_connect"
+    async with (
+        aiohttp.ClientSession() as session,
+        session.ws_connect(endpoint, max_msg_size=MAX_MESSAGE_SIZE) as socket,
+    ):
+        report["phase"] = "authentication_handshake"
         hello = await socket.receive_json(timeout=30)
         if hello.get("type") != "auth_required":
             raise ReconcileError("Unexpected Home Assistant authentication handshake")
@@ -229,7 +238,13 @@ async def run(args, desired, report):
         await socket.send_json({"type": "auth", "access_token": token})
         if (await socket.receive_json(timeout=30)).get("type") != "auth_ok":
             raise ReconcileError("Home Assistant rejected HA_MARKETPLACE_TOKEN")
-        return await reconcile(Marketplace(socket), desired, args.check, report)
+        client = Marketplace(socket)
+        report["phase"] = "reconciliation"
+        try:
+            return await reconcile(client, desired, args.check, report)
+        except (aiohttp.ClientError, TimeoutError, OSError, ValueError, KeyError, TypeError):
+            report["phase"] = client.command
+            raise
 
 
 def main():
@@ -249,8 +264,17 @@ def main():
     except ReconcileError as error:
         print(json.dumps({**report, "failed": True, "error": str(error)}))
         return 1
-    except (aiohttp.ClientError, TimeoutError, OSError, ValueError, KeyError, TypeError):
-        print(json.dumps({**report, "failed": True, "error": "Marketplace communication or configuration failed"}))
+    except (aiohttp.ClientError, TimeoutError, OSError, ValueError, KeyError, TypeError) as error:
+        print(
+            json.dumps(
+                {
+                    **report,
+                    "failed": True,
+                    "error": f"Marketplace communication or configuration failed during {report.get('phase', 'configuration')} "
+                    f"({type(error).__name__})",
+                }
+            )
+        )
         return 1
     print(json.dumps(result))
     return 0
