@@ -1,7 +1,10 @@
 import copy
 import importlib.util
+import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 HELPER = Path(__file__).resolve().parents[1] / "roles/homeautomation/files/homeassistant/marketplace.py"
 spec = importlib.util.spec_from_file_location("marketplace", HELPER)
@@ -161,3 +164,55 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
         report = await marketplace.reconcile(store, desired)
         self.assertFalse(report["changed"])
         self.assertFalse(any(command.endswith(("/update", "/delete")) for command, _ in store.calls[count:]))
+
+
+@unittest.skipIf(marketplace.aiohttp is None, "Run transport coverage in the Home Assistant image")
+class MarketplaceTransport(unittest.IsolatedAsyncioTestCase):
+    async def test_native_catalog_larger_than_default_frame_limit_converges(self):
+        from aiohttp import web
+
+        catalog = [repository(description="x" * (5 * 1024 * 1024))]
+        response_size = len(json.dumps(catalog).encode())
+        self.assertGreater(response_size, 4 * 1024 * 1024)
+        commands = []
+
+        async def websocket(request):
+            socket = web.WebSocketResponse()
+            await socket.prepare(request)
+            await socket.send_json({"type": "auth_required", "ha_version": "2026.11.1"})
+            authentication = await socket.receive_json()
+            self.assertEqual(authentication["type"], "auth")
+            await socket.send_json({"type": "auth_ok", "ha_version": "2026.11.1"})
+            async for message in socket:
+                if message.type != marketplace.aiohttp.WSMsgType.TEXT:
+                    continue
+                command = message.json()
+                commands.append(command["type"])
+                if command["type"] == "marketplace/info":
+                    result = {"stage": "running", "warning_accepted": True, "github_connected": False}
+                elif command["type"] == "marketplace/repositories/list":
+                    result = catalog
+                else:
+                    self.fail(f"Unexpected mutation: {command['type']}")
+                await socket.send_json(
+                    {"id": command["id"], "type": "result", "success": True, "result": result}
+                )
+            return socket
+
+        application = web.Application()
+        application.router.add_get("/api/websocket", websocket)
+        runner = web.AppRunner(application)
+        await runner.setup()
+        server = web.TCPSite(runner, "127.0.0.1", 0)
+        try:
+            await server.start()
+            port = runner.addresses[0][1]
+            args = SimpleNamespace(url=f"http://127.0.0.1:{port}", check=True)
+            with mock.patch.dict("os.environ", {"HA_MARKETPLACE_TOKEN": "synthetic-test-auth"}):
+                report = await marketplace.run(
+                    args, [{"repository": "example/integration", "category": "integration"}], {}
+                )
+            self.assertFalse(report["changed"])
+            self.assertEqual(commands, ["marketplace/info", "marketplace/repositories/list"])
+        finally:
+            await runner.cleanup()
