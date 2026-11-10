@@ -200,6 +200,11 @@ runs every other check below.
 | `dispatch`     | Every `tests/test_*.py` but `test_identity.py`                                                                                           |
 | `markdown`     | markdownlint on every `.md` file git does not ignore                                                                                     |
 
+WORKAROUND: the Markdown CLI dependency overrides select patched Markdownlint and KaTeX versions for
+[GHSA-gg6h-894w-4m9c](https://github.com/advisories/GHSA-gg6h-894w-4m9c) and
+[GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7). Remove the overrides when the CLI
+requires patched versions itself.
+
 CI ([.github/workflows](.github/workflows)) also runs:
 
 - **`check`**: applies each Ubuntu playbook whose paths changed to the runner from role defaults
