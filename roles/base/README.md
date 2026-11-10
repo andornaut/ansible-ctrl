@@ -28,7 +28,7 @@ make base -- --tags filectrl
 | snap                                              | Purges and pins snapd, and removes what it leaves behind                                     |
 | ssh-client                                        | ssh client defaults: connect timeout, keepalives, GSSAPI                                     |
 | storage-space-alert                               | The alert script and its hourly cron entry                                                   |
-| sysctl                                            | `fs.inotify.max_user_watches`, from `base_inotify_max_user_watches`                          |
+| sysctl                                            | Per-user inotify watch and instance limits, from `base_inotify_max_user_*`                   |
 | systemd                                           | Unit timeout and restart defaults, journald retention, and the `/tmp` age                    |
 | telemetry                                         | Purges and pins the telemetry and crash-reporting packages, and masks the crash-report units |
 | ubuntu-pro                                        | Turns off the apt-news fetch, leaving the client installed                                   |
