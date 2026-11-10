@@ -36,6 +36,7 @@ class Store:
         }
         self.calls = []
         self.fail_install = False
+        self.resources = []
 
     async def call(self, command, **data):
         self.calls.append((command, data))
@@ -52,6 +53,15 @@ class Store:
                 installed_version=data.get("version", entry["available_version"]),
                 pending_upgrade=False,
             )
+            return None
+        if command == "lovelace/resources/list":
+            return copy.deepcopy(self.resources)
+        if command == "lovelace/resources/update":
+            resource = next(item for item in self.resources if item["id"] == data["resource_id"])
+            resource.update(url=data["url"], type=data["res_type"])
+            return copy.deepcopy(resource)
+        if command == "lovelace/resources/delete":
+            self.resources = [item for item in self.resources if item["id"] != data["resource_id"]]
             return None
         raise AssertionError(f"Unexpected Marketplace command: {command}")
 
@@ -80,7 +90,9 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
                 result = await marketplace.reconcile(store, desired)
                 self.assertTrue(result["changed"])
                 self.assertTrue(result["restart_required"])
-                self.assertEqual(store.installs, [{"repository": "42"}])
+                self.assertEqual(
+                    store.installs, [{"repository": "42", "version": store.repositories[0]["available_version"]}]
+                )
                 self.assertTrue(store.repositories[1]["installed"])
                 result = await marketplace.reconcile(store, desired)
                 self.assertFalse(result["changed"])
@@ -119,6 +131,7 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
             [repository(installed=False), repository(id="99", full_name="other/later", installed=False)]
         )
         store.fail_install = True
+        report = {}
         with self.assertRaises(marketplace.ReconcileError):
             await marketplace.reconcile(
                 store,
@@ -126,6 +139,35 @@ class MarketplaceContracts(unittest.IsolatedAsyncioTestCase):
                     {"repository": "example/integration", "category": "integration"},
                     {"repository": "other/later", "category": "integration"},
                 ],
+                report=report,
             )
-        self.assertEqual(store.installs, [{"repository": "42"}])
+        self.assertEqual(store.installs, [{"repository": "42", "version": "v1.0.0"}])
+        self.assertTrue(report["changed"])
+        self.assertTrue(report["restart_required"])
         self.assertFalse(store.repositories[1]["installed"])
+
+
+    async def test_resource_migration_preserves_old_id_and_removes_generated_duplicate(self):
+        target = "/local/community/button-card/button-card.js"
+        store = Store([repository(full_name="custom-cards/button-card", category="plugin")])
+        store.resources = [
+            {"id": "old", "url": "/local/button-card.js?v=1", "type": "module"},
+            {"id": "generated", "url": target, "type": "module"},
+            {"id": "unrelated", "url": "/local/other.js", "type": "module"},
+        ]
+        desired = [{"repository": "custom-cards/button-card", "category": "plugin"}]
+        report = await marketplace.reconcile(store, desired)
+        self.assertTrue(report["changed"])
+        self.assertEqual(
+            store.resources,
+            [
+                {"id": "old", "url": target, "type": "module"},
+                {"id": "unrelated", "url": "/local/other.js", "type": "module"},
+            ],
+        )
+        count = len(store.calls)
+        report = await marketplace.reconcile(store, desired)
+        self.assertFalse(report["changed"])
+        self.assertFalse(
+            any(command.endswith(("/update", "/delete")) for command, _ in store.calls[count:])
+        )
