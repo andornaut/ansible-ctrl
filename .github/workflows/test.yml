@@ -41,64 +41,13 @@ jobs:
           # in .git/config for a later step to read.
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v7.1.0
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v5.7.0
         with:
-          python-version-file: .python-version
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
+          version: v29.9.3
 
-      # The markdown check calls markdownlint-cli2, and the commit hook calls
-      # prettier. package.json pins both, and Dependabot bumps them through the
-      # npm ecosystem.
-      - name: Set up Node
-        uses: actions/setup-node@v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      # requirements.yml pins nothing and the install does not --upgrade, so a
-      # cache hit freezes whatever versions it holds. The month in the key caps
-      # that at a month, and there is no restore-keys fallback, which would carry
-      # a stale tree forward indefinitely.
-      - name: Compute collections cache month
-        id: month
-        run: echo "month=$(date -u +%Y-%m)" >>"${GITHUB_OUTPUT}"
-
-      # ansible.cfg's collections_path, relative to the checkout.
-      - name: Cache Ansible collections
-        uses: actions/cache@v6.1.0
-        with:
-          path: .ansible/collections
-          key: collections-${{ steps.month.outputs.month }}-${{ hashFiles('requirements.yml') }}
-
-      # ansible-lint depends on ansible-core, which the config check's
-      # ansible-config comes from.
-      # From the pinned file rather than the name, so the version this gate
-      # rejects against is the one a commit named, and the same one a local
-      # `make lint` installs.
-      - name: Install ansible-lint
-        run: pip install -r requirements-dev.txt
-
-      # Without them, ansible-lint's own syntax check reports every collection
-      # module as unknown.
-      - name: Install Ansible collections
-        run: ansible-galaxy collection install -r requirements.yml
-
-      # markdownlint-cli2 and prettier, which the markdown check and the commit
-      # hook run out of node_modules/ rather than through npx: a bare npx fetches
-      # whatever is current when nothing is installed, which is a version no
-      # commit here names.
-      - name: Install Node packages
-        run: npm ci
-
-      # Every check in one step. The script runs them all and names each result,
-      # so a failure still says which check failed. markdownlint has no step of
-      # its own here: check_markdown runs markdownlint-cli2 at the version
-      # package-lock.json pins, so this gate and `make lint` cannot gate on
-      # different versions, where the shared action would bundle a second copy.
       - name: Run every check
-        run: tests/lint.sh
+        run: make check
 
   # Which check entries this change reaches: tests/check_matrix.py holds the matrix and the
   # paths each entry reads, and diffs the push or pull request against its base.

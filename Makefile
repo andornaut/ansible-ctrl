@@ -38,14 +38,24 @@ PLAYBOOKS := $(sort $(basename $(filter-out requirements.yml,$(wildcard *.yml)))
 
 PLAYBOOK := bin/playbook.py
 
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := check
 
 # The goal this invocation applies. Every other goal is a forwarded word, and one that
 # names a target (`--tags clean`) must not run it.
 FIRST_GOAL = $(or $(firstword $(MAKECMDGOALS)),$(.DEFAULT_GOAL))
 HELP_ECHO = $(if $(filter help,$(FIRST_GOAL)),echo,:)
 
-.PHONY: help clean lint requirements test $(PLAYBOOKS)
+.PHONY: help clean check check-info lint test build exec requirements $(PLAYBOOKS)
+
+CHECK_TASKS := lint test
+BUILD_OUTPUTS :=
+TEST_OUTPUTS :=
+CHECK_ADMISSION :=
+export CHECK_TASKS BUILD_OUTPUTS TEST_OUTPUTS CHECK_ADMISSION CONTAINER_BUILD_ARGS
+override TEST_ARGS := $(value TEST_ARGS)
+override COMMAND := $(value COMMAND)
+export TEST_ARGS COMMAND
+export CHECK_TIMEOUT_SECONDS CHECK_MEMORY CHECK_SCRATCH_SIZE CHECK_WORK_SIZE CHECK_TMP_SIZE CHECK_NETWORK_LINT CONTAINER_IMAGE
 
 IS_ROOT := $(filter 0,$(shell id -u))
 
@@ -59,10 +69,12 @@ help:
 	@$(HELP_ECHO) "Available targets:"
 	@$(HELP_ECHO) "  clean                 - Remove downloaded collections, lint tooling and the git hooks"
 	@$(HELP_ECHO) "  help                  - Show this help message"
-	@$(HELP_ECHO) "  lint                  - Run the static checks on the host; runs no tests"
+	@$(HELP_ECHO) "  check                 - Run lint and tests in isolated containers (default)"
+	@$(HELP_ECHO) "  check-info            - Report supported checks as versioned JSON"
+	@$(HELP_ECHO) "  exec                  - Run COMMAND in a writable container checkout"
 	@$(HELP_ECHO) "  requirements          - Install required Ansible collections"
-	@$(HELP_ECHO) "  test                  - Run every check CI gates on, unit tests included, in a"
-	@$(HELP_ECHO) "                          container; never run the tests on the host"
+	@$(HELP_ECHO) "  lint                  - Run static checks in an isolated container"
+	@$(HELP_ECHO) "  test                  - Run unit and task-identity tests in an isolated container"
 	@$(HELP_ECHO) ""
 	@$(HELP_ECHO) "Playbook targets, one per playbook (see README.md, Playbooks):"
 	@$(HELP_ECHO) "  $(PLAYBOOKS)" | fold -s -w 88 | sed 's/ $$//; 2,$$s/^/  /'
@@ -78,23 +90,17 @@ help:
 	@$(HELP_ECHO) "  ASK_PASS=1            - Force --ask-become-pass"
 	@$(HELP_ECHO) "  PREFLIGHT=none        - Skip the reachability check, and attempt every host regardless"
 
-# node_modules holds the lint-staged the pre-commit hook runs, so the hooks path husky's
-# `prepare` set goes with it: npx would otherwise fetch an unpinned lint-staged at the next
-# commit. `make lint` runs `npm ci`, whose `prepare` sets it again.
+# node_modules holds the commit tooling; removing it also removes the hooks path
+# that would otherwise fetch an unpinned lint-staged at the next commit.
 clean:
 	$(if $(filter $@,$(FIRST_GOAL)),rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules,@:)
 	$(if $(filter $@,$(FIRST_GOAL)),[ "$$(git config --local --get core.hooksPath)" != .husky/_ ] || git config --local --unset core.hooksPath,@:)
 
-# The checks CI runs that execute none of this repository's code, from the same script.
-# Depends on requirements: ansible-lint's syntax-check reports every collection module
-# unknown without them.
-lint: requirements
-	@$(if $(filter $@,$(FIRST_GOAL)),$(AS_OPERATOR) tests/lint.sh static,:)
-	@$(if $(filter $@,$(FIRST_GOAL)),echo "Static checks only: make test runs identity and dispatch (the unit tests) in a container",:)
+check lint test build exec:
+	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/run $@,:)
 
-# Every check, the unit tests included, in a container with the checkout mounted read-only.
-test:
-	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/test.sh,:)
+check-info:
+	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/run info,:)
 
 # A stamp, not a phony recipe, so a run that goes through make more than once installs the
 # galaxy content once.

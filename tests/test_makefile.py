@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import tempfile
@@ -71,21 +72,25 @@ class Goals(unittest.TestCase):
         self.assertIn("no target 'desktpo'", result.stderr)
 
     def test_a_forwarded_word_naming_a_target_does_not_run_it(self):
-        for word in ("clean", "lint", "help"):
+        for word in ("clean", "lint", "test", "check", "check-info", "build", "exec", "help"):
             with self.subTest(word=word):
                 result = make("desktop", "--", "--tags", word)
                 self.assertEqual(result.returncode, 0)
                 self.assertNotIn("rm -rf", result.stdout)
-                self.assertNotIn("tests/lint.sh", result.stdout)
+                self.assertNotIn("tests/container/run", result.stdout)
                 # help's lines still print under -n, as `:` no-ops rather than echo.
                 self.assertNotIn('echo "Available targets', result.stdout)
 
     def test_the_first_goal_still_runs(self):
         self.assertIn("rm -rf", make("clean").stdout)
-        self.assertIn("tests/lint.sh static", make("lint").stdout)
-        self.assertIn("tests/container/test.sh", make("test").stdout)
+        self.assertIn("tests/container/run lint", make("lint").stdout)
+        self.assertIn("tests/container/run test", make("test").stdout)
         self.assertIn("Available targets", make("help", dry_run=False).stdout)
-        self.assertIn("Available targets", make(dry_run=False).stdout)
+        self.assertIn("tests/container/run check", make().stdout)
+        self.assertEqual(
+            json.loads(make("check-info", dry_run=False).stdout),
+            {"version": 1, "checks": ["lint", "test"]},
+        )
 
 
 class Clean(unittest.TestCase):

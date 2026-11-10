@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /work
+export ANSIBLE_CONFIG=/work/ansible.cfg
+if [[ ${1:-} == exec ]]; then
+    if [[ -z ${COMMAND:-} ]]; then
+        printf '%s\n' 'COMMAND is required for make exec.' >&2
+        exit 2
+    fi
+    exec /bin/sh -ec "${COMMAND}"
+fi
+if [[ ${CHECK_WRITABLE:-0} == 0 ]]; then
+    export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=/work
+    git init --quiet
+    printf '/node_modules\n' >>.git/info/exclude
+fi
+mkdir -p .ansible
+[[ -e .ansible/lint-venv ]] || ln -s /opt/lint-venv .ansible/lint-venv
+[[ -e .ansible/collections ]] || ln -s /opt/collections .ansible/collections
+[[ -e node_modules ]] || ln -s /opt/npm/node_modules node_modules
+if ! cmp -s package-lock.json /opt/npm/package-lock.json; then
+    printf '%s\n' 'package-lock.json differs from the container image.' >&2
+    exit 1
+fi
+touch -d @0 package-lock.json
+if [[ $(node --version) != "$(<.nvmrc)" ]]; then
+    printf '%s\n' '.nvmrc differs from the container image Node version.' >&2
+    exit 1
+fi
+
+action=${1:-check}
+if (( $# )); then shift; fi
+case "${action}" in
+    lint) exec tests/lint.sh static ;;
+    test)
+        if (( $# )); then
+            export PYTHONPATH=tests
+            exec python3 -m unittest "$@"
+        fi
+        result=0
+        tests/lint.sh identity || result=1
+        tests/lint.sh dispatch || result=1
+        exit "${result}"
+        ;;
+    *) printf 'Unsupported container check: %s\n' "${action}" >&2; exit 2 ;;
+esac

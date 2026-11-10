@@ -1,7 +1,7 @@
-# The image `make test` runs tests/lint.sh in. Every tool the checks call is baked in at the
+# syntax=docker/dockerfile:1.25
+# The image used by the isolated Make checks. Every tool the checks call is baked in at the
 # version the checkout pins, so a run needs no network: rebuilt only when one of the files
-# copied below changes. The build context is those files alone (tests/container/test.sh
-# streams them), so no other edit invalidates the cache.
+# copied below changes. tests/container/context declares the build inputs.
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -46,5 +46,6 @@ RUN /opt/lint-venv/bin/ansible-galaxy collection install -r /opt/collections/req
 COPY --chown=lint:lint package.json package-lock.json /opt/npm/
 RUN cd /opt/npm && npm ci --ignore-scripts --no-audit --no-fund --silent
 
-ENV PATH=/opt/lint-venv/bin:${PATH}
+ENV PATH=/opt/lint-venv/bin:/opt/npm/node_modules/.bin:${PATH}
+COPY --chmod=0755 tests/container/check /opt/check/run
 WORKDIR /work

@@ -21,7 +21,8 @@ sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-`make lint` also needs `python3-venv` and Node.js >= 24.21 with npm.
+The development checks need Docker with BuildKit >= 0.31 and Dockerfile frontend >= 1.25.
+Their Python, Node.js and lint dependencies are installed only in the check image.
 
 ## Usage
 
@@ -178,17 +179,24 @@ Check with `faramir doctor`, `faramir status` and `faramir refs`, and end to end
 ## Development
 
 ```bash
-make lint                                                        # Static checks on the host, no tests
-make test                                                        # Every check CI runs, tests included, in a container
-tests/lint.sh python                                             # One static check
-tests/container/test.sh identity                                 # One check, in the container
-ansible-galaxy collection install --upgrade -r requirements.yml # Upgrade collections
-make clean                                                       # Remove collections, lint tooling and git hooks
+make check                                     # Full local gate (also the default)
+make lint                                      # Static checks in a container
+make test                                      # Unit and task-identity checks in a container
+make test TEST_ARGS='test_marketplace'          # Focused unittest module
+make check-info                                # JSON: version 1, lint and test
+make exec COMMAND='ruff format .'              # Format the writable checkout in a container
+make clean                                     # Remove local tooling and git hooks
 ```
 
-Never run the tests on the host: `identity` and `dispatch` execute unit tests, so they run only through `make test`
-(or `tests/container/test.sh`), in a container with no network over a read-only copy of the checkout. `make lint`
-runs every other check below.
+`make check` runs lint and tests in separate non-root containers from the same source snapshot, with no network,
+host home, Docker socket or Git metadata mounted. The source archive is read-only; work and caches live in
+container scratch space. A source change during verification discards the result. Image builds and checks have
+CPU, memory, file-descriptor and time limits. This project has no build artifact, so `make build` fails explicitly.
+
+`make exec` runs `COMMAND` as the current non-root user against the writable checkout, with Git metadata masked.
+Use single quotes for commands containing shell variables so the shell inside the container expands them. Its
+active marker blocks check results until container cleanup is confirmed. The launcher and dispatcher live in
+`tests/container/run` and `tests/container/check`; `tests/container/context` lists the image build inputs.
 
 | Check          | Covers                                                                                                                                   |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

@@ -2,9 +2,8 @@
 # The checks CI gates on, defined once so a local run and CI check the same things at the
 # same tool versions. The galaxy collections are the exception: requirements.yml pins none,
 # so a local .ansible/collections and CI's cached install can differ.
-# CI and `make test` call them all; the argument runs one on its own. `static` is the checks
-# that execute none of this repository's code, and is what `make lint` runs on the host:
-# identity and dispatch run unit tests, which run only in `make test`'s container.
+# The isolated Make checks select static lint or identity and dispatch tests.
+# The argument selects one check; `static` executes no repository code.
 #
 # Usage: tests/lint.sh [static|ansible-lint|config|shell|python|identity|dispatch|markdown]   (default: all)
 set -uo pipefail
@@ -103,7 +102,7 @@ check_shell() {
         fi
     done < <(git ls-files -z --cached --others --exclude-standard)
 
-    "${LINT_BIN_DIR}/shellcheck" "${targets[@]}"
+    "${LINT_BIN_DIR}/shellcheck" -x -P SCRIPTDIR "${targets[@]}"
     status=$?
     rm -rf "${dir}"
     return "${status}"
