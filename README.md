@@ -183,7 +183,6 @@ make check                                     # Full local gate (also the defau
 make lint                                      # Static checks in a container
 make test                                      # Unit and task-identity checks in a container
 make test TEST_ARGS='test_marketplace'          # Focused unittest module
-make check-info                                # JSON: version 1, lint and test
 make exec COMMAND='ruff format .'              # Format the writable checkout in a container
 make clean                                     # Remove local tooling and git hooks
 ```

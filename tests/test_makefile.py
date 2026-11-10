@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import tempfile
@@ -72,7 +71,7 @@ class Goals(unittest.TestCase):
         self.assertIn("no target 'desktpo'", result.stderr)
 
     def test_a_forwarded_word_naming_a_target_does_not_run_it(self):
-        for word in ("clean", "lint", "test", "check", "check-info", "build", "exec", "help"):
+        for word in ("clean", "lint", "test", "check", "build", "exec", "help"):
             with self.subTest(word=word):
                 result = make("desktop", "--", "--tags", word)
                 self.assertEqual(result.returncode, 0)
@@ -87,10 +86,9 @@ class Goals(unittest.TestCase):
         self.assertIn("tests/container/run test", make("test").stdout)
         self.assertIn("Available targets", make("help", dry_run=False).stdout)
         self.assertIn("tests/container/run check", make().stdout)
-        self.assertEqual(
-            json.loads(make("check-info", dry_run=False).stdout),
-            {"version": 1, "checks": ["lint", "test"]},
-        )
+        result = make("check-info", dry_run=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no target 'check-info'", result.stderr)
 
 
 class Clean(unittest.TestCase):

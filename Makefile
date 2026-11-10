@@ -45,7 +45,7 @@ PLAYBOOK := bin/playbook.py
 FIRST_GOAL = $(or $(firstword $(MAKECMDGOALS)),$(.DEFAULT_GOAL))
 HELP_ECHO = $(if $(filter help,$(FIRST_GOAL)),echo,:)
 
-.PHONY: help clean check check-info lint test build exec requirements $(PLAYBOOKS)
+.PHONY: help clean check lint test build exec requirements $(PLAYBOOKS)
 
 CHECK_TASKS := lint test
 BUILD_OUTPUTS :=
@@ -70,7 +70,6 @@ help:
 	@$(HELP_ECHO) "  clean                 - Remove downloaded collections, lint tooling and the git hooks"
 	@$(HELP_ECHO) "  help                  - Show this help message"
 	@$(HELP_ECHO) "  check                 - Run lint and tests in isolated containers (default)"
-	@$(HELP_ECHO) "  check-info            - Report supported checks as versioned JSON"
 	@$(HELP_ECHO) "  exec                  - Run COMMAND in a writable container checkout"
 	@$(HELP_ECHO) "  requirements          - Install required Ansible collections"
 	@$(HELP_ECHO) "  lint                  - Run static checks in an isolated container"
@@ -98,9 +97,6 @@ clean:
 
 check lint test build exec:
 	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/run $@,:)
-
-check-info:
-	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/run info,:)
 
 # A stamp, not a phony recipe, so a run that goes through make more than once installs the
 # galaxy content once.
