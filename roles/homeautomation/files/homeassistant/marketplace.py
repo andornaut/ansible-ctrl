@@ -41,17 +41,22 @@ class Marketplace:
     async def call(self, command, **data):
         self.sequence += 1
         request_id = self.sequence
-        await self.socket.send_json({"id": request_id, "type": command, **data})
-        while True:
-            reply = await self.socket.receive_json(timeout=180)
-            if reply.get("type") != "result" or reply.get("id") != request_id:
-                continue
-            if not reply.get("success"):
-                code = reply.get("error", {}).get("code", "unknown_error")
-                # Server error messages can contain upstream response bodies.
-                safe_code = re.sub(r"[^a-zA-Z0-9_]", "", str(code))[:80]
-                raise ReconcileError(f"{command} failed ({safe_code})")
-            return reply.get("result")
+        async with asyncio.timeout(180):
+            await self.socket.send_json({"id": request_id, "type": command, **data})
+            while True:
+                reply = await self.socket.receive_json()
+                if not isinstance(reply, dict):
+                    raise ReconcileError("Marketplace returned an unexpected WebSocket message")
+                if reply.get("type") in {"auth_invalid", "auth_required"}:
+                    raise ReconcileError("Marketplace WebSocket authentication expired")
+                if reply.get("type") != "result" or reply.get("id") != request_id:
+                    continue
+                if not reply.get("success"):
+                    code = reply.get("error", {}).get("code", "unknown_error")
+                    # Server error messages can contain upstream response bodies.
+                    safe_code = re.sub(r"[^a-zA-Z0-9_]", "", str(code))[:80]
+                    raise ReconcileError(f"{command} failed ({safe_code})")
+                return reply.get("result")
 
 
 def validate_repositories(value):
@@ -123,10 +128,12 @@ async def reconcile_resources(client, desired, report, check):
                 raise ReconcileError(f"Dashboard resource migration was not confirmed for {item['repository']}")
 
 
-async def reconcile(client, desired, check=False):
+async def reconcile(client, desired, check=False, report=None):
     """Add or install declared content, never remove unrelated repositories."""
     desired = validate_repositories(desired)
-    report = {"changed": False, "planned": [], "installed": [], "restart_required": False}
+    if report is None:
+        report = {}
+    report.update({"changed": False, "planned": [], "installed": [], "restart_required": False})
     info = await client.call("marketplace/info")
     if info.get("disabled_reason") or info.get("stage") != "running":
         raise ReconcileError("Marketplace is not ready; wait for startup or resolve its repair")
@@ -149,6 +156,15 @@ async def reconcile(client, desired, check=False):
             )
         if current and current.get("category") != item["category"]:
             raise ReconcileError(f"Marketplace category differs for {item['repository']}")
+        if (
+            current
+            and item["version"] == "latest"
+            and not re.fullmatch(r"v?\d+(?:\.\d+){1,3}", str(current.get("available_version", "")))
+        ):
+            raise ReconcileError(
+                f"{item['repository']} does not offer an unambiguous stable release; "
+                "disable its Marketplace pre-release selection or declare an explicit version"
+            )
     for item in desired:
         name = item["repository"]
         current = repositories.get(name.lower())
@@ -178,24 +194,23 @@ async def reconcile(client, desired, check=False):
             report["changed"] = True
             report["restart_required"] |= item["category"] == "integration"
             continue
-        request = {"repository": str(current["id"])}
-        if version != "latest":
-            request["version"] = version
-        await client.call("marketplace/repository/install", **request)
+        request = {"repository": str(current["id"]), "version": target}
+        # An interrupted or failed install can already have replaced integration files.
         report["changed"] = True
         report["restart_required"] |= item["category"] == "integration"
+        await client.call("marketplace/repository/install", **request)
         available = await client.call("marketplace/repositories/list")
         installed = next((entry for entry in available if entry["full_name"].lower() == name.lower()), None)
         if not installed or not installed.get("installed"):
             raise ReconcileError(f"Marketplace did not confirm installation of {name}")
-        if version != "latest" and not same_version(installed.get("installed_version"), version):
+        if not same_version(installed.get("installed_version"), target):
             raise ReconcileError(f"Marketplace installed an unexpected version of {name}")
         report["installed"].append({"repository": name, "version": installed.get("installed_version")})
     await reconcile_resources(client, desired, report, check)
     return report
 
 
-async def run(args, desired):
+async def run(args, desired, report):
     token = os.environ.get("HA_MARKETPLACE_TOKEN")
     if not token:
         raise ReconcileError("HA_MARKETPLACE_TOKEN is required; finish administrator onboarding first")
@@ -214,7 +229,7 @@ async def run(args, desired):
         await socket.send_json({"type": "auth", "access_token": token})
         if (await socket.receive_json(timeout=30)).get("type") != "auth_ok":
             raise ReconcileError("Home Assistant rejected HA_MARKETPLACE_TOKEN")
-        return await reconcile(Marketplace(socket), desired, args.check)
+        return await reconcile(Marketplace(socket), desired, args.check, report)
 
 
 def main():
@@ -226,17 +241,16 @@ def main():
     if aiohttp is None:
         print(json.dumps({"failed": True, "changed": False, "error": "Run this helper inside Home Assistant"}))
         return 1
+    report = {"changed": False, "planned": [], "installed": [], "restart_required": False}
     try:
         desired = json.loads(sys.stdin.read() if args.repositories == "-" else Path(args.repositories).read_text())
         desired = validate_repositories(desired)
-        result = asyncio.run(run(args, desired))
+        result = asyncio.run(run(args, desired, report))
     except ReconcileError as error:
-        print(json.dumps({"failed": True, "changed": False, "error": str(error)}))
+        print(json.dumps({**report, "failed": True, "error": str(error)}))
         return 1
     except (aiohttp.ClientError, TimeoutError, OSError, ValueError, KeyError, TypeError):
-        print(
-            json.dumps({"failed": True, "changed": False, "error": "Marketplace communication or configuration failed"})
-        )
+        print(json.dumps({**report, "failed": True, "error": "Marketplace communication or configuration failed"}))
         return 1
     print(json.dumps(result))
     return 0
