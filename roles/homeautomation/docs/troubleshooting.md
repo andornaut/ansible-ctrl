@@ -2,6 +2,22 @@
 
 Runbooks for the [homeautomation](../README.md) role.
 
+## Marketplace provisioning
+
+The `customizations` tag uses Home Assistant's built-in Marketplace API, not a separately installed HACS
+integration. See [Marketplace community content](../README.md#marketplace-community-content).
+
+| Result                                              | Action                                                                                                                                                                                                    |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package convergence disabled                        | Complete onboarding, supply `homeautomation_homeassistant_marketplace_token` and enable `homeautomation_install_marketplace`. A skipped phase does not verify installed content                           |
+| Home Assistant unavailable or Marketplace not ready | Start the instance and resolve its startup or repair errors before retrying. Provisioning requires Home Assistant 2026.11 or newer                                                                        |
+| Authentication refused                              | Verify that the injected administrator token belongs to the intended instance. Do not copy a token into a command or inspect credential files                                                             |
+| Marketplace warning pending                         | The token's owner must accept the warning in that instance's Marketplace UI, then rerun provisioning                                                                                                      |
+| Custom repository needs GitHub connection           | Connect GitHub through Marketplace before adding custom repositories. The role's 14 default catalog repositories do not require this                                                                      |
+| No unambiguous stable release                       | Disable the repository's Marketplace pre-release selection or declare an explicit `version`                                                                                                               |
+| Check mode requires an installed reconciler         | Complete a normal provisioning run first. Check mode does not install its own helper or change package state                                                                                              |
+| YAML dashboard resource configuration               | Use storage-mode Lovelace resources before provisioning cards. The helper refuses YAML mode even if URLs have been updated; it updates storage-mode resources through the API and never edits `.storage/` |
+
 ## Android TV adb
 
 Home Assistant reaches an Android TV over adb on port 5555, which exists only while the TV has wireless debugging

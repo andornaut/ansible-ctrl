@@ -22,7 +22,7 @@ Every optional service is also gated on its `homeautomation_install_*` flag, so 
 | [adb_auto_enable](https://github.com/mouldybread/adb-auto-enable) | Installs the newest adb-auto-enable release on each Android TV. See [Android TV adb](docs/troubleshooting.md#android-tv-adb)                                                             |
 | [avahi](https://avahi.org/)                                       | mDNS reflector between the interfaces in `homeautomation_avahi_interfaces`; installs nothing while that is empty                                                                         |
 | bluetooth                                                         | BLE access for the Home Assistant container. No flag; always applied                                                                                                                     |
-| customizations                                                    | HA custom components, themes, www assets, and `frontend.yaml`                                                                                                                            |
+| customizations                                                    | Marketplace integrations and cards, local Python scripts, the compatibility theme, and `frontend.yaml`                                                                                   |
 | docker                                                            | All Docker container tasks                                                                                                                                                               |
 | [esphome](https://esphome.io/)                                    | ESP device firmware and dashboard                                                                                                                                                        |
 | [frigate](https://github.com/blakeblackshear/frigate)             | Video surveillance with AI detection                                                                                                                                                     |
@@ -54,6 +54,9 @@ See [defaults/main.yml](./defaults/main.yml). The ones that need a decision per 
 | `homeautomation_llamacpp_models`, `_env`, `_model_presets`, `_mmprojs` | See [llama.cpp models and context](#llamacpp-models-and-context)                                                                                                                                 |
 | `homeautomation_llamacpp_embed_*`                                      | See [Embeddings](#embeddings)                                                                                                                                                                    |
 | `homeautomation_homeassistant_extra_module_urls`                       | Frontend modules to load from `www/`. See [Notes](#notes)                                                                                                                                        |
+| `homeautomation_install_marketplace`                                   | Enable Marketplace package convergence after onboarding. Default `false` is bootstrap mode, not converged community content                                                                      |
+| `homeautomation_homeassistant_marketplace_token`                       | Administrator token supplied through a credential reference, never a literal in host vars                                                                                                        |
+| `homeautomation_homeassistant_marketplace_repositories`                | Desired `{repository, category, version}` entries; `version` defaults to `latest`                                                                                                                |
 | `homeautomation_router_kva_sample_*`                                   | See [Router kernel address space sampler](#router-kernel-address-space-sampler)                                                                                                                  |
 | `homeautomation_esphome_username`, `_password`                         | The ESPHome dashboard login. Asserted set unless `homeautomation_esphome_allow_unauthenticated`                                                                                                  |
 | `homeautomation_homeassistant_patch_aioruckus_head`                    | Where the Ruckus integration is used: patches aioruckus to send GET instead of HEAD, which aiohttp 3.14+ rejects. WORKAROUND for [aioruckus#14](https://github.com/ms264556/aioruckus/issues/14) |
@@ -166,6 +169,28 @@ model id the file name without `.gguf`.
 | Input length    | An input must fit one batch: `homeautomation_llamacpp_embed_ctx_size` sets the context and both batch sizes           |
 | Models location | Its own directory. In the router's, the embedding model would be listed to Assist and Open WebUI as a chat model      |
 
+## Marketplace community content
+
+Home Assistant's built-in Marketplace (2026.11 or newer) installs the integrations and dashboard cards declared in
+`homeautomation_homeassistant_marketplace_repositories`. The default set contains 14 catalog repositories and
+needs no Marketplace GitHub connection. Adding a custom repository requires that connection first.
+
+The full role runs Marketplace provisioning after container startup. A `--tags customizations` run requires an
+already running, onboarded Home Assistant. The reconciler runs inside its container with aiohttp and receives the
+administrator token only through the environment of a `no_log` provisioning task.
+
+| Constraint          | Detail                                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Onboarding          | Accept the Marketplace warning separately in each instance, signed in as the account that owns the provisioning token. Ansible never accepts it                                                                            |
+| Bootstrap           | With `homeautomation_install_marketplace: false`, the role reports that package convergence is disabled and installs no Marketplace content                                                                                |
+| Versions            | Omit `version` or set `latest` to install Marketplace's available stable release when absent or an upgrade is pending. A release tag pins that repository; a leading `v` is ignored when comparing installed versions      |
+| Check mode          | Reads API state and reports planned package and resource changes without applying them. Requires a reconciler installed by a completed normal run                                                                          |
+| Restart             | Integration installs and updates notify the existing Home Assistant restart handler. Coordinate the run with users of the instance; the helper does not restart Home Assistant itself                                      |
+| Integration setup   | Marketplace installs packages, not integration config entries. Existing entries are retained; configure new integrations in Home Assistant                                                                                 |
+| Removal             | Removing a repository from the desired list or disabling provisioning preserves installed packages, integration entries and devices                                                                                        |
+| Dashboard resources | Known card resource URLs are reconciled through the Lovelace API to `/local/community/<repository-name>/<file>`. Plugin provisioning requires storage-mode Lovelace resources; YAML mode is refused before package changes |
+| Direct installation | IBM1970 remains installed by Ansible because its repository has no `hacs.json` metadata or catalog entry. Local Python scripts, frontend configuration, containers and the aioruckus patch also remain Ansible-owned       |
+
 ## Matter and Thread
 
 | Constraint                                 | Detail                                                                                                                                           |
@@ -231,13 +256,20 @@ Add the `otbr` integration by hand with the URL `http://127.0.0.1:8081` (or `loc
 | Constraint           | Detail                                                                                                                                                                                                                                                                            |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `configuration.yaml` | Hand-maintained per host, except the `frontend:` key: `!include frontend.yaml`, written from [templates/frontend.yaml.j2](./templates/frontend.yaml.j2)                                                                                                                           |
-| Frontend modules     | A module in `www/` loads only if `homeautomation_homeassistant_extra_module_urls` names it. Without the entry, every card that depends on it renders as absent and no error is reported                                                                                           |
+| Frontend modules     | `homeautomation_homeassistant_extra_module_urls` loads modules before dashboard rendering, including `/local/community/lovelace-card-mod/card-mod.js`. Dashboard card resources are registered separately                                                                         |
 | Config ownership     | Everything under `config/` is root-owned, so edit through the container: `docker exec homeassistant <cmd>` runs as root with the config at `/config`                                                                                                                              |
 | Device paths         | `homeautomation_homeassistant_devices` and a `/dev` `homeautomation_otbr_device` go to Docker unchanged, so name a `/dev/serial/by-id/` link. Docker resolves it at each container start and exposes it at the same path inside, which is the path to configure in Home Assistant |
 | `.storage/`          | Home Assistant caches these files and rewrites them on shutdown. Stop it before editing one and start it after, or the edit is overwritten                                                                                                                                        |
 | Dashboards           | `.storage/lovelace*`, cached the same way. Prefer [ha-mcp](#ha-mcp)'s `ha_config_set_dashboard`, which writes one without stopping anything and takes effect immediately                                                                                                          |
 
 ## Setup
+
+### Marketplace
+
+1. Start Home Assistant and complete administrator onboarding with Marketplace provisioning disabled.
+1. Open Marketplace in each instance and accept its warning using the provisioning token's account.
+1. Supply that instance's administrator token through `homeautomation_homeassistant_marketplace_token`, enable
+   `homeautomation_install_marketplace`, then run `make homeautomation -- --tags customizations`.
 
 ### ha-mcp
 
@@ -294,8 +326,8 @@ docker exec homeassistant hass --config /config --script check_config
 
 ## Documentation
 
-| Document                                           | Contents                                                                                                                              |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                                                                                       |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Android TV adb, Avahi and Google Cast, EnvisaLink credentials, Frigate, MemryX, Coral.ai, Reolink, entity cleanup, dependency pinning |
-| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                                                                                       |
+| Document                                           | Contents                                                                                                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/hardware.md](docs/hardware.md)               | Device setup, Matter pairing, firmware flashing                                                                                                    |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Marketplace, Android TV adb, Avahi and Google Cast, EnvisaLink credentials, Frigate, MemryX, Coral.ai, Reolink, entity cleanup, dependency pinning |
+| [docs/references.md](docs/references.md)           | Integrations, custom cards, LLM and voice links                                                                                                    |
