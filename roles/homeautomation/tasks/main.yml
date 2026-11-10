@@ -100,12 +100,6 @@
 - name: Install customizations
   tags: customizations
   block:
-    # CLEANUP (added 2026-11-10): Remove after every homeautomation host lacks python_scripts/set_state.py.
-    - name: Remove the unused state-setting Python script
-      ansible.builtin.file:
-        path: "{{ homeautomation_homeassistant_required_volumes.config }}/python_scripts/set_state.py"
-        state: absent
-      become: true
     - name: Import themes tasks
       ansible.builtin.import_tasks: themes.yml
 
