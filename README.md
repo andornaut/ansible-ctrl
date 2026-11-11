@@ -21,7 +21,7 @@ sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-The development checks need Docker, Bash, Git, Make and Python 3 for archive-header validation.
+The development checks need Docker, Bash, Git and Make.
 Pinned stock Python 3.14 and Node 24.22.2 containers install the check dependencies in disposable scratch space.
 
 ## Usage
@@ -185,18 +185,14 @@ make test                                      # Unit and task-identity checks i
 make clean                                     # Remove local tooling and git hooks
 ```
 
-`make check` runs all seven native checks from one sanitized source snapshot. Dependency preparation has network
-access; actual checks run offline as UID 19001 with CPU, memory, file-descriptor and time limits. The checkout is
-read-only, and work, dependencies and caches live in disposable container scratch space. Host home directories,
-Docker sockets and Git metadata are not mounted. A source change during verification discards the result.
+`make check` runs all seven native checks in stock containers. Python installs the pinned tooling and Galaxy
+collections, then runs Ansible lint, configuration validation, rendered-template ShellCheck, Ruff, task identity
+and unit tests. Node installs the root npm lockfile and runs Markdown lint. The four Galaxy collections in
+`requirements.yml` have no version pins.
 
-Python runs Ansible lint, configuration validation, Ruff, task identity and unit tests. Its separate shell check
-renders Jinja templates before checking original and rendered scripts with the pinned ShellCheck wheel. Node runs
-Markdown lint from the root npm lockfile. The four Galaxy collections in `requirements.yml` have no version pins;
-preparation resolves them for that run, so they are not a frozen dependency graph.
-
-`tests/container/check-stock` coordinates the stock images through the private isolation library.
-`tests/container/check` bootstraps Python dependencies and executes native arguments. This project has no build artifact.
+Each language uses one non-root container with CPU, memory, file-descriptor and time limits. Dependency installation
+has network access. Checks use a read-only copy of Git-visible inputs and writable container scratch; host homes,
+Git metadata and ignored private files are not mounted.
 
 | Check          | Covers                                                                                                                                   |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+mkdir -p /scratch/markdown
+cp package.json package-lock.json /scratch/markdown/
+npm ci --prefix /scratch/markdown --ignore-scripts --no-audit --no-fund --maxsockets=1
+ln -s /scratch/markdown/node_modules node_modules
+touch -d @0 package-lock.json
+exec tests/lint.sh markdown

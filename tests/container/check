@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ ${PWD} != /work || $(id -u) != 19001 || ! ${CHECK_SOURCE_SHA256:-} =~ ^[a-f0-9]{64}$ ]]; then
-    printf '%s\n' 'Native check bootstrap requires an isolated source snapshot.' >&2
-    exit 2
-fi
+cd /work
 export ANSIBLE_CONFIG=/work/ansible.cfg
 export USER=lint LOGNAME=lint
+python3 -m venv /scratch/venv
+/scratch/venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt
+cp requirements-dev.txt /scratch/venv/requirements-dev.txt
 export PATH="/scratch/venv/bin:${PATH}"
-git init --quiet
-printf '/node_modules\n' >>.git/info/exclude
-mkdir -p .ansible
+mkdir -p .ansible /scratch/collections
 ln -s /scratch/venv .ansible/lint-venv
 ln -s /scratch/collections .ansible/collections
-exec "$@"
+ansible-galaxy collection install -r requirements.yml -p /scratch/collections
+git init --quiet
+for phase in "$@"; do tests/lint.sh "${phase}"; done
