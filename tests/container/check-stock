@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+checkout=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+stock_entrypoint_path=${BASH_SOURCE[0]}
+stock_entrypoint_hash=$(sha256sum "${stock_entrypoint_path}" | cut -d ' ' -f1)
+# shellcheck source=tests/container/stock
+source "${checkout}/tests/container/stock"
+action=${1:-check}
+case "${action}" in check|lint|test|ansible-lint|config|shell|python|identity|dispatch|markdown) ;; *) printf 'Unknown stock check: %s\n' "${action}" >&2; exit 2 ;; esac
+if (( $# > 1 )); then printf '%s\n' 'Stock checks do not accept extra arguments.' >&2; exit 2; fi
+: "${PYTHON_IMAGE:?The Makefile declares PYTHON_IMAGE}"
+stock_begin "${checkout}"
+python_image=
+markdown_image=
+if [[ ${action} != markdown ]]; then
+    stock_image python_image "${PYTHON_IMAGE}"
+    stock_prepare "${python_image}" python -- env USER=lint LOGNAME=lint bash -ec '
+        python3 -m venv /scratch/venv >&2
+        /scratch/venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt >&2
+        cp requirements-dev.txt /scratch/venv/requirements-dev.txt
+        mkdir -p /scratch/collections
+        /scratch/venv/bin/ansible-galaxy collection install -r requirements.yml -p /scratch/collections >&2
+        tar --create --file - --directory / scratch/venv scratch/collections
+    '
+fi
+case "${action}" in
+    check|lint) phases=(ansible-lint config shell python) ;;
+    test|markdown) phases=() ;;
+    *) phases=("${action}") ;;
+esac
+for phase in "${phases[@]}"; do
+    stock_run "${python_image}" python -- tests/container/check tests/lint.sh "${phase}"
+done
+if [[ ${action} == check || ${action} == lint || ${action} == markdown ]]; then
+    : "${MARKDOWN_IMAGE:?The Makefile declares MARKDOWN_IMAGE}"
+    stock_image markdown_image "${MARKDOWN_IMAGE}"
+    stock_prepare "${markdown_image}" markdown -- bash -ec '
+        mkdir -p /scratch/markdown
+        cp package.json package-lock.json /scratch/markdown/
+        npm ci --prefix /scratch/markdown --ignore-scripts --no-audit --no-fund --maxsockets=1 >&2
+        tar --create --file - --directory / scratch/markdown
+    '
+    stock_run "${markdown_image}" markdown -- bash -ec '
+        ln -s /scratch/markdown/node_modules node_modules
+        touch -d @0 package-lock.json
+        exec tests/lint.sh markdown
+    '
+fi
+if [[ ${action} == check || ${action} == test ]]; then
+    for phase in identity dispatch; do
+        stock_run "${python_image}" python -- tests/container/check tests/lint.sh "${phase}"
+    done
+fi
+stock_finish

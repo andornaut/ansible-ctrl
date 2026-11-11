@@ -45,24 +45,20 @@ PLAYBOOK := bin/playbook.py
 FIRST_GOAL = $(or $(firstword $(MAKECMDGOALS)),$(.DEFAULT_GOAL))
 HELP_ECHO = $(if $(filter help,$(FIRST_GOAL)),echo,:)
 
-.PHONY: help clean check lint test build exec requirements $(PLAYBOOKS)
+.PHONY: help clean check lint test requirements $(PLAYBOOKS)
 
-CHECK_TASKS := lint test
-BUILD_OUTPUTS :=
-TEST_OUTPUTS :=
-CHECK_ADMISSION :=
-export CHECK_TASKS BUILD_OUTPUTS TEST_OUTPUTS CHECK_ADMISSION CONTAINER_BUILD_ARGS
-override TEST_ARGS := $(value TEST_ARGS)
-override COMMAND := $(value COMMAND)
-export TEST_ARGS COMMAND
-export CHECK_TIMEOUT_SECONDS CHECK_MEMORY CHECK_SCRATCH_SIZE CHECK_WORK_SIZE CHECK_TMP_SIZE CHECK_NETWORK_LINT CONTAINER_IMAGE
+PYTHON_IMAGE := python:$(shell cat .python-version)
+MARKDOWN_IMAGE := node:$(shell sed 's/^v//' .nvmrc)
+export PYTHON_IMAGE MARKDOWN_IMAGE
+
+export CHECK_TIMEOUT_SECONDS CHECK_MEMORY CHECK_SCRATCH_SIZE CHECK_WORK_SIZE CHECK_TMP_SIZE
 
 IS_ROOT := $(filter 0,$(shell id -u))
 
 # Recipes write into the work tree as the operator, so a root run leaves nothing an
 # unprivileged `make` cannot rebuild. A tree checked out by root resolves to root and
 # nothing drops.
-OPERATOR := $(shell $(PLAYBOOK) operator)
+OPERATOR := $(if $(IS_ROOT),$(shell $(PLAYBOOK) operator))
 AS_OPERATOR := $(if $(IS_ROOT),runuser -u $(OPERATOR) --)
 
 help:
@@ -70,7 +66,6 @@ help:
 	@$(HELP_ECHO) "  clean                 - Remove downloaded collections, lint tooling and the git hooks"
 	@$(HELP_ECHO) "  help                  - Show this help message"
 	@$(HELP_ECHO) "  check                 - Run lint and tests in isolated containers (default)"
-	@$(HELP_ECHO) "  exec                  - Run COMMAND in a writable container checkout"
 	@$(HELP_ECHO) "  requirements          - Install required Ansible collections"
 	@$(HELP_ECHO) "  lint                  - Run static checks in an isolated container"
 	@$(HELP_ECHO) "  test                  - Run unit and task-identity tests in an isolated container"
@@ -95,8 +90,8 @@ clean:
 	$(if $(filter $@,$(FIRST_GOAL)),rm -rf .ansible/collections .ansible/.requirements .ansible/lint-venv node_modules,@:)
 	$(if $(filter $@,$(FIRST_GOAL)),[ "$$(git config --local --get core.hooksPath)" != .husky/_ ] || git config --local --unset core.hooksPath,@:)
 
-check lint test build exec:
-	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/run $@,:)
+check lint test:
+	@$(if $(filter $@,$(FIRST_GOAL)),tests/container/check-stock $@,:)
 
 # A stamp, not a phony recipe, so a run that goes through make more than once installs the
 # galaxy content once.

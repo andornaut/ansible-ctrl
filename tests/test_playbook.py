@@ -438,6 +438,7 @@ class Interrupt(unittest.TestCase):
         with (
             mock.patch.object(playbook.os, "umask"),
             mock.patch.object(playbook.os, "chdir"),
+            mock.patch.object(playbook, "operator", return_value="op"),
             mock.patch.object(playbook, "ansible_version", return_value=CURRENT),
             mock.patch.object(playbook, "capture_all", side_effect=KeyboardInterrupt),
             mock.patch.dict(playbook.os.environ, {}, clear=True),
@@ -448,6 +449,7 @@ class Interrupt(unittest.TestCase):
         with (
             mock.patch.object(playbook.os, "umask"),
             mock.patch.object(playbook.os, "chdir"),
+            mock.patch.object(playbook, "operator", return_value="op"),
             mock.patch.object(playbook, "say"),
             mock.patch.object(playbook, "ansible_version", return_value=CURRENT),
             mock.patch.object(playbook, "capture_all", return_value=completed(stdout=LISTING)),

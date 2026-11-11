@@ -21,8 +21,8 @@ sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install ansible
 ```
 
-The development checks need Docker with BuildKit >= 0.31 and Dockerfile frontend >= 1.25.
-Their Python, Node.js and lint dependencies are installed only in the check image.
+The development checks need Docker, Bash, Git, Make and Python 3 for archive-header validation.
+Pinned stock Python 3.14 and Node 24.22.2 containers install the check dependencies in disposable scratch space.
 
 ## Usage
 
@@ -182,20 +182,21 @@ Check with `faramir doctor`, `faramir status` and `faramir refs`, and end to end
 make check                                     # Full local gate (also the default)
 make lint                                      # Static checks in a container
 make test                                      # Unit and task-identity checks in a container
-make test TEST_ARGS='test_marketplace'          # Focused unittest module
-make exec COMMAND='ruff format .'              # Format the writable checkout in a container
 make clean                                     # Remove local tooling and git hooks
 ```
 
-`make check` runs lint and tests in separate non-root containers from the same source snapshot, with no network,
-host home, Docker socket or Git metadata mounted. The source archive is read-only; work and caches live in
-container scratch space. A source change during verification discards the result. Image builds and checks have
-CPU, memory, file-descriptor and time limits. This project has no build artifact, so `make build` fails explicitly.
+`make check` runs all seven native checks from one sanitized source snapshot. Dependency preparation has network
+access; actual checks run offline as UID 19001 with CPU, memory, file-descriptor and time limits. The checkout is
+read-only, and work, dependencies and caches live in disposable container scratch space. Host home directories,
+Docker sockets and Git metadata are not mounted. A source change during verification discards the result.
 
-`make exec` runs `COMMAND` as the current non-root user against the writable checkout, with Git metadata masked.
-Use single quotes for commands containing shell variables so the shell inside the container expands them. Its
-active marker blocks check results until container cleanup is confirmed. The launcher and dispatcher live in
-`tests/container/run` and `tests/container/check`; `tests/container/context` lists the image build inputs.
+Python runs Ansible lint, configuration validation, Ruff, task identity and unit tests. Its separate shell check
+renders Jinja templates before checking original and rendered scripts with the pinned ShellCheck wheel. Node runs
+Markdown lint from the root npm lockfile. The four Galaxy collections in `requirements.yml` have no version pins;
+preparation resolves them for that run, so they are not a frozen dependency graph.
+
+`tests/container/check-stock` coordinates the stock images through the private isolation library.
+`tests/container/check` bootstraps Python dependencies and executes native arguments. This project has no build artifact.
 
 | Check          | Covers                                                                                                                                   |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

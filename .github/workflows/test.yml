@@ -46,14 +46,42 @@ jobs:
         with:
           version: v29.9.3
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4.4.1
-        with:
-          version: v0.38.2
-          driver: docker
-
       - name: Run every check
-        run: make check
+        shell: bash
+        run: |
+          set -euo pipefail
+          source tests/container/stock
+          stock_begin "$PWD"
+          python_image=
+          markdown_image=
+          stock_image python_image "python:$(cat .python-version)"
+          stock_prepare "${python_image}" python -- env USER=lint LOGNAME=lint bash -ec '
+              python3 -m venv /scratch/venv >&2
+              /scratch/venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt >&2
+              cp requirements-dev.txt /scratch/venv/requirements-dev.txt
+              mkdir -p /scratch/collections
+              /scratch/venv/bin/ansible-galaxy collection install -r requirements.yml -p /scratch/collections >&2
+              tar --create --file - --directory / scratch/venv scratch/collections
+          '
+          for phase in ansible-lint config shell python; do
+              stock_run "${python_image}" python -- tests/container/check tests/lint.sh "${phase}"
+          done
+          stock_image markdown_image "node:$(sed 's/^v//' .nvmrc)"
+          stock_prepare "${markdown_image}" markdown -- bash -ec '
+              mkdir -p /scratch/markdown
+              cp package.json package-lock.json /scratch/markdown/
+              npm ci --prefix /scratch/markdown --ignore-scripts --no-audit --no-fund --maxsockets=1 >&2
+              tar --create --file - --directory / scratch/markdown
+          '
+          stock_run "${markdown_image}" markdown -- bash -ec '
+              ln -s /scratch/markdown/node_modules node_modules
+              touch -d @0 package-lock.json
+              exec tests/lint.sh markdown
+          '
+          for phase in identity dispatch; do
+              stock_run "${python_image}" python -- tests/container/check tests/lint.sh "${phase}"
+          done
+          stock_finish
 
   # Which check entries this change reaches: tests/check_matrix.py holds the matrix and the
   # paths each entry reads, and diffs the push or pull request against its base.

@@ -76,16 +76,16 @@ class Goals(unittest.TestCase):
                 result = make("desktop", "--", "--tags", word)
                 self.assertEqual(result.returncode, 0)
                 self.assertNotIn("rm -rf", result.stdout)
-                self.assertNotIn("tests/container/run", result.stdout)
+                self.assertNotIn("tests/container/check-stock", result.stdout)
                 # help's lines still print under -n, as `:` no-ops rather than echo.
                 self.assertNotIn('echo "Available targets', result.stdout)
 
     def test_the_first_goal_still_runs(self):
         self.assertIn("rm -rf", make("clean").stdout)
-        self.assertIn("tests/container/run lint", make("lint").stdout)
-        self.assertIn("tests/container/run test", make("test").stdout)
+        self.assertIn("tests/container/check-stock lint", make("lint").stdout)
+        self.assertIn("tests/container/check-stock test", make("test").stdout)
         self.assertIn("Available targets", make("help", dry_run=False).stdout)
-        self.assertIn("tests/container/run check", make().stdout)
+        self.assertIn("tests/container/check-stock check", make().stdout)
         result = make("check-info", dry_run=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no target 'check-info'", result.stderr)
