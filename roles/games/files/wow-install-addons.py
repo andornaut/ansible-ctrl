@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
-"""Install World of Warcraft addons from Wago into every game version a WoW install holds.
+"""Install World of Warcraft addons from CurseForge into every game version a WoW install holds.
 
 Reads WOW_ADDONS_CONFIG, a JSON document:
 
     {"wow_dir": "/home/user/.local/games/Lutris/battlenet/drive_c/Program Files (x86)/World of Warcraft",
-     "flavors": {"_retail_": "retail", "_forever_": "forever"},
-     "addons": ["baganator"]}
+     "flavors": {"_retail_": 517, "_forever_": 88568},
+     "addons": [{"name": "baganator", "curseforge_id": 914482}]}
 
-`flavors` maps each game version directory under `wow_dir` to the name Wago publishes that
-version's releases under. A directory that is absent is skipped, and so is a version an addon
-publishes no release for.
+`flavors` maps each game version directory under `wow_dir` to the CurseForge gameVersionTypeId
+that version's addon files are tagged with. A directory that is absent is skipped, and so is a
+version an addon publishes no release for. `name` labels the addon's marker and output line;
+`curseforge_id` is the "Project ID" on its curseforge.com page.
 
-The release is read from the addon's Wago page (https://addons.wago.io/addons/<slug>), whose
-Inertia page data carries the newest release per version as `props.metadata.recent_releases`.
-Wago's API needs a key and CurseForge refuses non-browser clients, so the page is the keyless
-route.
+The release is read from CurseForge's site API, which needs no key: the project's file
+listing, newest first, gives per version the newest file whose releaseType is 1 (release, not
+beta or alpha). The site's search endpoint does need a key, hence the numeric project ID.
 
-Each install writes `Interface/AddOns/.wago-<slug>.json`, naming the release and the top-level
-directories it extracted. An install whose marker names the current release and whose
+Each archive is streamed to a temporary file under `wow_dir`, downloaded once per run however
+many versions share it, and deleted once the addon's versions are done.
+
+Each install writes `Interface/AddOns/.curseforge-<name>.json`, naming the file and the
+top-level directories it extracted. An install whose marker names the current file and whose
 directories are all present is left alone; otherwise the directories the marker and the archive
 name are replaced. Nothing outside them is touched, so saved variables under WTF/ survive.
 
 Prints one line per install and nothing when every addon is current.
 """
 
-import html
-import io
 import json
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -36,28 +36,60 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-PAGE_URL = "https://addons.wago.io/addons/{slug}"
-# Cloudflare refuses urllib's own User-Agent.
+FILES_URL = (
+    "https://www.curseforge.com/api/v1/mods/{project}/files"
+    "?pageIndex={page}&pageSize={size}&sort=dateCreated&sortDescending=true&removeAlphas=true"
+)
+DOWNLOAD_URL = "https://www.curseforge.com/api/v1/mods/{project}/files/{file}/download"
+# The listing returns at most 50 files per page whatever pageSize asks for.
+PAGE_SIZE = 50
+RELEASE = 1
 USER_AGENT = "ansible-ctrl"
-PAGE_DATA = re.compile(r'<div id="app" data-page="([^"]*)"')
 
 
-def fetch(url):
-    # The download link comes from the page, so its scheme is checked rather than trusted.
+class HttpsOnlyRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # The download redirects to a CDN URL carrying a CurseForge key, so the refusal names
+        # no URL.
+        if not newurl.startswith("https://"):
+            raise ValueError("refusing a redirect to a non-https URL")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def open_https(url):
     if not url.startswith("https://"):
         raise ValueError(f"refusing to fetch a non-https URL {url!r}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
-        return response.read()
+    return urllib.request.build_opener(HttpsOnlyRedirect).open(request, timeout=60)
 
 
-def releases(page):
-    """Return Wago's newest release per game version from an addon page's HTML."""
-    match = PAGE_DATA.search(page)
-    if match is None:
-        raise ValueError("the page carries no Inertia page data")
-    data = json.loads(html.unescape(match.group(1)))
-    return {flavor: release for flavor, release in data["props"]["metadata"]["recent_releases"].items() if release}
+def fetch_json(url):
+    with open_https(url) as response:
+        return json.load(response)
+
+
+def download(directory, url):
+    """Stream url into a new file in directory and return its path."""
+    with open_https(url) as response, tempfile.NamedTemporaryFile(dir=directory, suffix=".zip", delete=False) as out:
+        shutil.copyfileobj(response, out, 1 << 20)
+    return Path(out.name)
+
+
+def releases(wanted, project):
+    """Return the project's newest release file per gameVersionTypeId in wanted."""
+    found = {}
+    page = 0
+    while True:
+        listing = fetch_json(FILES_URL.format(project=project, page=page, size=PAGE_SIZE))
+        files = listing["data"]
+        for entry in files:
+            if entry["releaseType"] != RELEASE:
+                continue
+            for type_id in wanted.intersection(entry["gameVersionTypeIds"]):
+                found.setdefault(type_id, entry)
+        page += 1
+        if wanted.issubset(found) or not files or page * PAGE_SIZE >= listing["pagination"]["totalCount"]:
+            return found
 
 
 def plain(name):
@@ -75,60 +107,97 @@ def top_level_dirs(archive):
     return sorted(names)
 
 
-def current(addons_dir, marker, label):
+def marker_path(addons_dir, name):
+    return addons_dir / f".curseforge-{name}.json"
+
+
+# CLEANUP (added 2026-11-11): the Wago installer's marker, read once as the addon's previous
+# directories and then removed. Delete once no host in the games group has an
+# Interface/AddOns/.wago-*.json under any game version directory.
+def wago_marker_path(addons_dir, name):
+    return addons_dir / f".wago-{name}.json"
+
+
+def current(addons_dir, name, file_id):
+    marker = marker_path(addons_dir, name)
     if not marker.exists():
         return False
     state = json.loads(marker.read_text())
-    return state.get("label") == label and all((addons_dir / name).is_dir() for name in state.get("dirs", []))
+    return state.get("file") == file_id and all((addons_dir / d).is_dir() for d in state.get("dirs", []))
 
 
-def install(addons_dir, slug, label, payload):
+def previous_dirs(addons_dir, name):
+    for marker in (marker_path(addons_dir, name), wago_marker_path(addons_dir, name)):
+        if marker.exists():
+            dirs = json.loads(marker.read_text()).get("dirs", [])
+            if not all(plain(d) for d in dirs):
+                raise ValueError(f"{marker} names a directory outside {addons_dir}")
+            return dirs
+    return []
+
+
+def install(addons_dir, name, release, archive_path):
     """Replace the addon's directories in addons_dir with the archive's, then write the marker."""
-    marker = addons_dir / f".wago-{slug}.json"
-    archive = zipfile.ZipFile(io.BytesIO(payload))
-    dirs = top_level_dirs(archive)
-    previous = json.loads(marker.read_text()).get("dirs", []) if marker.exists() else []
-    if not all(plain(name) for name in previous):
-        raise ValueError(f"{marker} names a directory outside {addons_dir}")
-    staging = Path(tempfile.mkdtemp(prefix=f".wago-{slug}-", dir=addons_dir.parent))
+    with zipfile.ZipFile(archive_path) as archive:
+        dirs = top_level_dirs(archive)
+        previous = previous_dirs(addons_dir, name)
+        staging = Path(tempfile.mkdtemp(prefix=f".curseforge-{name}-", dir=addons_dir.parent))
+        try:
+            archive.extractall(staging)
+            for d in sorted(set(previous) | set(dirs)):
+                target = addons_dir / d
+                if target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+                elif target.exists() or target.is_symlink():
+                    target.unlink()
+            for d in dirs:
+                (staging / d).rename(addons_dir / d)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+    state = {"file": release["id"], "name": release["displayName"], "dirs": dirs}
+    marker_path(addons_dir, name).write_text(json.dumps(state) + "\n")
+    wago_marker_path(addons_dir, name).unlink(missing_ok=True)
+
+
+def install_addon(wow_dir, present, downloads_dir, name, project):
+    available = releases(set(present.values()), project)
+    downloads = {}
     try:
-        archive.extractall(staging)
-        for name in sorted(set(previous) | set(dirs)):
-            target = addons_dir / name
-            if target.is_dir() and not target.is_symlink():
-                shutil.rmtree(target)
-            elif target.exists() or target.is_symlink():
-                target.unlink()
-        for name in dirs:
-            (staging / name).rename(addons_dir / name)
+        for version, type_id in sorted(present.items()):
+            release = available.get(type_id)
+            if release is None:
+                continue
+            addons_dir = wow_dir / version / "Interface" / "AddOns"
+            if current(addons_dir, name, release["id"]):
+                continue
+            if release["id"] not in downloads:
+                url = DOWNLOAD_URL.format(project=project, file=release["id"])
+                downloads[release["id"]] = download(downloads_dir, url)
+            addons_dir.mkdir(parents=True, exist_ok=True)
+            install(addons_dir, name, release, downloads[release["id"]])
+            print(f"{name} {release['displayName']} -> {version}")
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
-    marker.write_text(json.dumps({"label": label, "dirs": dirs}) + "\n")
+        for path in downloads.values():
+            path.unlink(missing_ok=True)
 
 
 def main():
     cfg = json.loads(os.environ["WOW_ADDONS_CONFIG"])
     wow_dir = Path(cfg["wow_dir"])
-    present = {name: flavor for name, flavor in cfg["flavors"].items() if (wow_dir / name).is_dir()}
+    present = {name: type_id for name, type_id in cfg["flavors"].items() if (wow_dir / name).is_dir()}
     if not present:
         return
-    downloads = {}
-    for slug in cfg["addons"]:
-        available = releases(fetch(PAGE_URL.format(slug=slug)).decode())
-        for name, flavor in sorted(present.items()):
-            release = available.get(flavor)
-            if release is None:
-                continue
-            addons_dir = wow_dir / name / "Interface" / "AddOns"
-            label = release["label"]
-            if current(addons_dir, addons_dir / f".wago-{slug}.json", label):
-                continue
-            # Wago signs one link per version for the same file, so the label keys the cache.
-            if label not in downloads.setdefault(slug, {}):
-                downloads[slug][label] = fetch(release["download_link"])
-            addons_dir.mkdir(parents=True, exist_ok=True)
-            install(addons_dir, slug, label, downloads[slug][label])
-            print(f"{slug} {label} -> {name}")
+    # On the same filesystem as the AddOns directories, so a multi-gigabyte archive never lands
+    # in a tmpfs /tmp.
+    downloads_dir = Path(tempfile.mkdtemp(prefix=".curseforge-downloads-", dir=wow_dir))
+    try:
+        for addon in cfg["addons"]:
+            name = addon["name"]
+            if not plain(name):
+                raise ValueError(f"the addon name {name!r} is not a plain file name")
+            install_addon(wow_dir, present, downloads_dir, name, addon["curseforge_id"])
+    finally:
+        shutil.rmtree(downloads_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

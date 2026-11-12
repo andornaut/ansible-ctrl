@@ -144,17 +144,19 @@ start.
 ### World of Warcraft addons
 
 The `lutris` tag installs each addon in `games_lutris_wow_addons` into every game version directory Battle.net's
-prefix holds (`games_lutris_wow_flavors` in [vars/main.yml](./vars/main.yml)), at the newest release Wago publishes for
-that version.
+prefix holds (`games_lutris_wow_flavors` in [vars/main.yml](./vars/main.yml)), at the newest release CurseForge
+publishes for that version.
 
-| Constraint         | Detail                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Source             | The addon's Wago page (`addons.wago.io/addons/<slug>`). Wago's API needs a key and CurseForge refuses non-browser clients       |
-| Updates            | Each run compares the release against `Interface/AddOns/.wago-<slug>.json` and replaces the addon's directories when it changed |
-| Saved variables    | Kept: they live under `WTF/`, which is never touched                                                                            |
-| Nothing is removed | An addon dropped from the list stays installed                                                                                  |
-| Unreachable        | A warning; installed releases stay as they are                                                                                  |
-| New game version   | A directory missing from `games_lutris_wow_flavors` gets no addons                                                              |
+| Constraint         | Detail                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Source             | CurseForge's site API, which needs no key. Its search does, so each entry carries the project ID                                   |
+| Release            | The newest file marked release (not beta or alpha) for the directory's `gameVersionTypeId`                                         |
+| Updates            | Each run compares the file against `Interface/AddOns/.curseforge-<name>.json` and replaces the addon's directories when it changed |
+| Disk space         | Downloads go to a temporary directory under `World of Warcraft/`, which needs room for the largest archive                         |
+| Saved variables    | Kept: they live under `WTF/`, which is never touched                                                                               |
+| Nothing is removed | An addon dropped from the list stays installed                                                                                     |
+| Unreachable        | A warning; installed releases stay as they are                                                                                     |
+| New game version   | A directory missing from `games_lutris_wow_flavors` gets no addons                                                                 |
 
 ## Handheld sync (Retroid Pocket Flip 2)
 

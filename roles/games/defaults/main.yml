@@ -77,16 +77,40 @@ games_heroic_dir: "{{ games_user_home }}/.local/games/Heroic"
 # tasks/lutris.yml. No override needed: the flatpak already has `home` access.
 games_lutris_dir: "{{ games_user_home }}/.local/games/Lutris"
 
-# World of Warcraft addons, by Wago slug (addons.wago.io/addons/<slug>), kept at their newest
-# release in every game version Battle.net's prefix holds and the addon publishes for. An addon
-# dropped from the list stays installed: remove it in game or by hand.
+# World of Warcraft addons, kept at their newest CurseForge release in every game version
+# Battle.net's prefix holds and the addon publishes for. `curseforge_id` is the "Project ID" on
+# the addon's curseforge.com page; `name` labels its marker file and output line, and renaming
+# it orphans the marker. An addon dropped from the list stays installed: remove it in game or
+# by hand.
 games_lutris_wow_addons:
-  - auctionator
-  - baganator
-  - platynator
-  - plumber
+  - name: auctionator
+    curseforge_id: 6124
+  - name: baganator
+    curseforge_id: 914482
+  - name: platynator
+    curseforge_id: 1361299
+  - name: plumber
+    curseforge_id: 888580
   # Baganator refuses to start without it, though its TOC lists it as optional.
-  - syndicator
+  - name: syndicator
+    curseforge_id: 988370
+  # Spoken: English AI voiceover for quests, gossip, zones and books. Classic Era, Anniversary and Forever only.
+  - name: spoken
+    curseforge_id: 1700375
+  - name: spoken-quests-audio
+    curseforge_id: 1660196
+  - name: spoken-quests-audio-alliance
+    curseforge_id: 1660197
+  - name: spoken-quests-audio-horde
+    curseforge_id: 1660198
+  - name: spoken-quests-audio-shared
+    curseforge_id: 1660199
+  - name: spoken-quests-audio-gossip
+    curseforge_id: 1660202
+  - name: spoken-places-audio
+    curseforge_id: 1636532
+  - name: spoken-readables-audio
+    curseforge_id: 1701520
 
 # How often tasks/heroic.yml's timer exercises the Epic and GOG refresh tokens, as an
 # OnUnitActiveSec value. Under the hosts' 4h idle-suspend threshold, so a refresh lands

@@ -253,7 +253,7 @@
               The desktop entry is installed and shows a generic icon until a re-run fetches it.
 
 # Independent of the entry above: Battle.net may hold only versions other than retail.
-# Not fatal, like the icon: Wago being unreachable leaves the installed releases in place.
+# Not fatal, like the icon: CurseForge being unreachable leaves the installed releases in place.
 - name: Install the World of Warcraft addons
   when: games_lutris_wow_prefix | length > 0 and games_lutris_wow_addons | length > 0
   block:

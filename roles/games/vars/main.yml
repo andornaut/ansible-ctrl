@@ -67,14 +67,16 @@ games_lutris_launcher_path: /usr/local/bin/lutris-launch-game
 games_lutris_wow_slug: world-of-warcraft
 games_lutris_wow_source_slug: battlenet
 
-# The game version directories under World of Warcraft/, each to the name Wago publishes that
-# version's addon releases under. games_lutris_wow_addons installs into each one present.
+# The game version directories under World of Warcraft/, each to the CurseForge
+# gameVersionTypeId that version's addon files are tagged with. games_lutris_wow_addons installs
+# into each one present.
 games_lutris_wow_flavors:
-  _retail_: retail
-  _classic_: mop
-  _classic_era_: classic
-  _anniversary_: bc
-  _forever_: forever
+  _retail_: 517
+  # Mists of Pandaria Classic.
+  _classic_: 79434
+  _classic_era_: 67408
+  _anniversary_: 73246
+  _forever_: 88568
 
 # The per-user tree holding cores, BIOS, playlists, saves, states and retroarch.cfg.
 # Only the thumbnail cache lives outside it.

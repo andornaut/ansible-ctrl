@@ -14,7 +14,7 @@ single stage. Each script's module docstring is the reference for its input and 
 | `lutris-register-game.py`         | Registers a Lutris game derived from another game's configuration                                | `LUTRIS_REGISTER_CONFIG`                                                      |
 | `lutris-unset-game-env.py`        | Removes environment variables from each Lutris game's own `system.env`                           | `LUTRIS_UNSET_ENV_CONFIG`                                                     |
 | `lutris-launch-game.py`           | Clears a stale wine prefix, then launches the Lutris game                                        | Wine prefix, flatpak application ID, Lutris slug and an optional display name |
-| `wow-install-addons.py`           | Installs each World of Warcraft addon's newest Wago release into every game version directory    | `WOW_ADDONS_CONFIG`                                                           |
+| `wow-install-addons.py`           | Installs each World of Warcraft addon's newest CurseForge release into every game version        | `WOW_ADDONS_CONFIG`                                                           |
 
 | Constraint                | Detail                                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
