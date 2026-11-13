@@ -6,6 +6,11 @@
     dev_cli_bin: claude
     dev_cli_url: https://claude.ai/install.sh
 
+- name: Configure Claude Playwright MCP
+  ansible.builtin.import_tasks: playwright_mcp.yml
+  vars:
+    dev_playwright_mcp_harness: claude
+
 - name: Install dependencies for Claude Code sandbox mode
   ansible.builtin.apt:
     name:

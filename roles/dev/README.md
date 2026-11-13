@@ -48,6 +48,15 @@ See [defaults/main.yml](./defaults/main.yml).
 | `dev_ai_maintainer_project_script_path`        | Local ai-maintainer checkout that is symlinked when present, instead of a download                                          |
 | `dev_llamacpp_mcp_*`                           | Network, URLs, versions, models, readable directories and uids of the [llama.cpp MCP](#llamacpp-mcp) servers                |
 
+## Playwright MCP
+
+The `claude` and `codex` tags configure each harness's user-scoped Docker Playwright registration.
+`dev_playwright_mcp_cpus` defaults to four CPUs per container; `dev_playwright_mcp_docker_image`
+pins the image for a missing registration. Existing image versions, network/security arguments and
+other settings are preserved. Other MCP registrations and authentication are unchanged.
+
+This configures future MCP launches. It does not update or restart running containers.
+
 ## llama.cpp MCP
 
 Gated on `dev_install_llamacpp_mcp` under the `claude` tag. Three servers are registered at user scope for the

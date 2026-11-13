@@ -38,3 +38,8 @@
     dev_cli_shell: sh
     dev_cli_env:
       CODEX_NON_INTERACTIVE: "true"
+
+- name: Configure Codex Playwright MCP
+  ansible.builtin.import_tasks: playwright_mcp.yml
+  vars:
+    dev_playwright_mcp_harness: codex

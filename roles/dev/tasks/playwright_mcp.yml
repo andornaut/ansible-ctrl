@@ -1,0 +1,20 @@
+---
+- name: Configure Playwright MCP for {{ dev_playwright_mcp_harness }}
+  ansible.builtin.script:
+    cmd: >-
+      configure-playwright-mcp.py
+      --home {{ dev_user_home | quote }}
+      --harness {{ dev_playwright_mcp_harness | quote }}
+      --cpus {{ dev_playwright_mcp_cpus | int }}
+      --image {{ dev_playwright_mcp_docker_image | quote }}
+      {{ '--check' if ansible_check_mode else '' }}
+    executable: /usr/bin/python3
+  register: dev_playwright_mcp_configuration
+  changed_when: (dev_playwright_mcp_configuration.stdout | from_json).changed
+  check_mode: false
+  no_log: true
+  diff: false
+  become: true
+  become_user: "{{ dev_user }}"
+  environment:
+    HOME: "{{ dev_user_home }}"

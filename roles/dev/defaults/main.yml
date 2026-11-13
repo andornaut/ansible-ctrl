@@ -2,6 +2,9 @@
 # The account the user-scoped tasks act on.
 dev_user: "{{ primary_user }}"
 
+dev_playwright_mcp_cpus: 4
+dev_playwright_mcp_docker_image: mcr.microsoft.com/playwright/mcp:v0.0.83
+
 # The Ruby mdtoc and til name in .ruby-version, installed under ~/.rubies where
 # chruby's auto.sh looks. The role installs chruby and ruby-install either way;
 # without a Ruby under that directory, auto.sh has nothing to switch to and
