@@ -118,6 +118,7 @@ desktop_flatpak_overrides:
     # talk to the bus name, and the portal fallback exists only where the desktop matches
     # gnome-keyring.portal's UseIn=gnome.
     - --talk-name=org.freedesktop.secrets
+    - --filesystem=/run/cups:ro
 
 # Where Firefox reads policies.json. The flatpak mounts its unmaintained systemconfig
 # extension at /app/etc/firefox; flatpak names architectures after the kernel.
