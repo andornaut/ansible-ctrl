@@ -86,7 +86,7 @@
       - >-
         DEVICE={{ otbr_radio_devices[0] if otbr_radio_devices else '/tmp/ttyOTBR' }}
       - FIREWALL=1
-      - FLOW_CONTROL=1
+      - FLOW_CONTROL={{ 1 if otbr_radio_devices else 0 }}
       - NAT64=1
       - OTBR_REST_PORT={{ homeautomation_otbr_rest_port }}
       # The image starts otbr-web only when OTBR_WEB is set; the port alone is
