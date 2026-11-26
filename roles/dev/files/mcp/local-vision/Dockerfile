@@ -1,4 +1,4 @@
-FROM node:24-slim
+FROM node:25-slim
 
 # poppler-utils extracts a PDF's text layer and rasterizes its scanned pages.
 ARG COMMIT
