@@ -5,6 +5,8 @@
 
 Provision Ubuntu workstations and servers with [Ansible](https://www.redhat.com/en/ansible-collaborative).
 
+Find technical references and project work in the [documentation index](docs/README.md).
+
 | Term       | Meaning                                                                                                         |
 | ---------- | --------------------------------------------------------------------------------------------------------------- |
 | controller | The host Ansible runs from, and the only member of `faramir_controller`. The only host whose sudo prompts       |
