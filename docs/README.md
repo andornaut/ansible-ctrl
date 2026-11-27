@@ -1,13 +1,13 @@
 # Ansible Ctrl documentation
 
-| Topic                                            | Reference                                     |
-| ------------------------------------------------ | --------------------------------------------- |
-| Installation, playbook execution, and first runs | [Run playbooks](usage.md)                     |
-| Playbooks, target groups, and roles              | [Playbooks](playbooks.md)                     |
-| Controller, fleet, and per-host settings         | [Fleet inventory](inventory.md)               |
-| Credential setup and broker access               | [Credentials and secret broker](secrets.md)   |
-| Local checks and CI                              | [Development](development.md)                 |
-| Task tracking and landing verification           | [Coordination Kit setup](coordination-kit.md) |
+| Topic                                            | Reference                                            |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| Installation, playbook execution, and first runs | [Run playbooks](usage.md)                            |
+| Playbooks, target groups, and roles              | [Playbooks](playbooks.md)                            |
+| Controller, fleet, and per-host settings         | [Fleet inventory](inventory.md)                      |
+| Credential setup and broker access               | [Credentials and secret broker](credential-setup.md) |
+| Local checks and CI                              | [Development](development.md)                        |
+| Task tracking and landing verification           | [Coordination Kit setup](coordination-kit.md)        |
 
 ## Subfolders
 

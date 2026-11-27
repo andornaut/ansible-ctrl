@@ -41,7 +41,7 @@ A fresh checkout on the controller needs these steps in order.
    `[all:vars]`, the account the broker and the user-scoped roles install for.
 1. `host_vars/<host>.yml` for each Ubuntu host, setting `msmtp_domain` and `msmtp_user`.
 1. `faramir.env` in the repository root, listing `msmtp_password` and, if used, `github_token`, one bare name per
-   line ([Secrets](secrets.md#secrets)). Every target stops without it.
+   line ([Secrets](credential-setup.md#secrets)). Every target stops without it.
 1. `make faramir`, unprivileged: installs sops and the broker, and creates the secrets directory and age key but no
    store.
 1. Log out and back in: the run adds you to the `dev` group, which the broker's socket requires.
