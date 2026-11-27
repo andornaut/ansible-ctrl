@@ -67,13 +67,14 @@
       # api_token is the Cloudflare API token.
       no_log: true
 
-    - name: Pause to allow DNS to update
-      ansible.builtin.pause:
-        # Longer than the 60s DNS TTL so the record propagates to intermediaries.
-        seconds: 300
+    # Evaluate the condition on every host. The first host may have no DNS changes.
+    - name: Wait for DNS challenge records to propagate
+      ansible.builtin.wait_for:
+        timeout: 300
       when: >-
         letsencrypt_nginx_dns_record.results | default([])
         | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0
+      become: false
 
     # The resources carry the token and nothing of the site, whose Cloudflare API token a loop item
     # would print. See templates/http_challenge_resources.j2.
