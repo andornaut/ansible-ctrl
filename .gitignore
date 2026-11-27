@@ -36,3 +36,4 @@ GEMINI.md
 
 # Other agents' local state.
 .codex/
+/.coordination-kit/

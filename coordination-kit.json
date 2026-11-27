@@ -1,0 +1,8 @@
+{
+  "project": {
+    "id": "ansible-ctrl",
+    "roles": ["maintainer"]
+  },
+  "review": "off",
+  "schema": 1
+}
