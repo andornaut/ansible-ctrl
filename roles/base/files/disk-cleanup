@@ -120,14 +120,41 @@ if command -v flatpak >/dev/null 2>&1; then
     done < <(getent passwd)
 fi
 
-# Thumbnail caches, which every file manager regenerates on demand. Per-user, for the same
-# reason the flatpak sweep above is: each account has its own under $HOME.
+empty_home_trash() {
+    local name=$1 home=$2 trash="$2/.local/share/Trash" home_mount mountpoint encoded
+    [[ ${home} == /* && ${home} != / && -d ${trash}/files && -d ${trash}/info ]] || return 0
+    [[ $(realpath -e -- "${trash}") == "${trash}" ]] || return 0
+    [[ ! -L ${trash}/files && ! -L ${trash}/info ]] || return 0
+
+    # Encrypted home directories on the root disk have their own eCryptfs mount.
+    home_mount=$(findmnt -n -r -o ID,FSTYPE --target "${home}") || return 0
+    [[ ${home_mount} == "${root_mount} "* || ${home_mount} == *" ecryptfs" ]] || return 0
+    while IFS= read -r encoded; do
+        printf -v mountpoint '%b' "${encoded}"
+        if [[ ${mountpoint} == "${trash}" || ${mountpoint} == "${trash}/"* ||
+            ( ${mountpoint} == "${home}/"* && ${trash} == "${mountpoint}/"* ) ]]; then
+            return 0
+        fi
+    done <<<"${mount_targets}"
+
+    # Keep restore metadata if the file sweep fails. Leave both directories in place.
+    runuser -u "${name}" -- find "${trash}/files" -xdev -mindepth 1 -delete </dev/null &&
+        runuser -u "${name}" -- find "${trash}/info" -xdev -mindepth 1 -delete </dev/null
+}
+
+root_mount=$(findmnt -n -o ID --target /) || root_mount=
+mount_targets=$(findmnt -l -n -r -o TARGET) || mount_targets=
+
+# Each account has its own default Trash and thumbnail cache. Run deletions as its owner.
 #
 # The path is owned by the account, so it can point anywhere. The deletion runs as the account
 # rather than as root, so a symlink leads it nowhere the account could not already delete, and
 # a symlinked cache directory is skipped outright. stdin is redirected as in the flatpak loop.
 while IFS=: read -r name _ uid _ _ home _; do
     [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
+    if [[ -n ${root_mount} && -n ${mount_targets} ]]; then
+        empty_home_trash "${name}" "${home}" || true
+    fi
     [[ -L ${home}/.cache/thumbnails ]] && continue
     [[ -d ${home}/.cache/thumbnails ]] || continue
     runuser -u "${name}" -- \
