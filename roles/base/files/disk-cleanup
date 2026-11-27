@@ -143,13 +143,15 @@ empty_home_trash() {
 }
 
 root_mount=$(findmnt -n -o ID --target /) || root_mount=
-mount_targets=$(findmnt -l -n -r -o TARGET) || mount_targets=
+mount_targets=$(findmnt -n -r -o TARGET) || mount_targets=
 
 # Each account has its own default Trash and thumbnail cache. Run deletions as its owner.
 #
 # The path is owned by the account, so it can point anywhere. The deletion runs as the account
 # rather than as root, so a symlink leads it nowhere the account could not already delete, and
 # a symlinked cache directory is skipped outright. stdin is redirected as in the flatpak loop.
+# Each account needs to be able to return to find's initial working directory.
+cd /
 while IFS=: read -r name _ uid _ _ home _; do
     [[ ${uid} -ge 1000 && ${uid} -lt 65534 ]] || continue
     if [[ -n ${root_mount} && -n ${mount_targets} ]]; then
