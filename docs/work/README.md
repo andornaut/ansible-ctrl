@@ -6,4 +6,4 @@ approved scope. Commit it with the implementation.
 
 The local task record tracks the candidate, decisions, and landing evidence.
 Use the registered project session to find tasks and check their current state.
-See the [Coordination Kit setup](../coordination-kit.md).
+See the [Coordination Kit setup](../guides/coordination-kit.md).

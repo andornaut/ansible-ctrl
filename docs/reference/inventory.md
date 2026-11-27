@@ -2,12 +2,12 @@
 
 ## Fleet terms
 
-| Term       | Meaning                                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| controller | The host Ansible runs from, and the only member of `faramir_controller`. The only host whose sudo prompts          |
-| fleet      | Every other Ubuntu host, reached over SSH with NOPASSWD sudo                                                       |
-| `faramir`  | Every host running the secret broker, the controller included                                                      |
-| `routers`  | The pfSense routers. FreeBSD, so Ubuntu-only plays are `all:!routers` and [router.yml](../router.yml) reaches them |
+| Term       | Meaning                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| controller | The host Ansible runs from, and the only member of `faramir_controller`. The only host whose sudo prompts             |
+| fleet      | Every other Ubuntu host, reached over SSH with NOPASSWD sudo                                                          |
+| `faramir`  | Every host running the secret broker, the controller included                                                         |
+| `routers`  | The pfSense routers. FreeBSD, so Ubuntu-only plays are `all:!routers` and [router.yml](../../router.yml) reaches them |
 
 ## Inventory
 

@@ -6,13 +6,14 @@ The references below are grouped by project-wide topic and role subsystem.
 
 ## Project-wide references
 
-| Topic                                          | Authoritative reference                          |
-| ---------------------------------------------- | ------------------------------------------------ |
-| Fleet topology and inventory                   | [Inventory](../inventory.md)                     |
-| Playbook preflight, credentials, and execution | [Usage](../usage.md)                             |
-| Secret handling                                | [Secrets](../credential-setup.md)                |
-| Local checks and CI                            | [Development](../development.md)                 |
-| Task ownership and landing                     | [Coordination Kit setup](../coordination-kit.md) |
+| Topic                                          | Authoritative reference                                 |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| Platform and Ansible version requirements      | [Requirements](requirements.md)                         |
+| Fleet topology and inventory                   | [Inventory](../reference/inventory.md)                  |
+| Playbook preflight, credentials, and execution | [Usage](../guides/usage.md)                             |
+| Secret handling                                | [Secrets](../reference/credential-setup.md)             |
+| Local checks and CI                            | [Development](../guides/development.md)                 |
+| Task ownership and landing                     | [Coordination Kit setup](../guides/coordination-kit.md) |
 
 ## Role references
 
