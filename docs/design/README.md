@@ -1,13 +1,17 @@
 # Design
 
+This directory is for current requirements and technical design. Put
+project-wide design here and keep role-specific details in the role READMEs.
+The references below are grouped by project-wide topic and role subsystem.
+
 ## Project-wide references
 
 | Topic                                          | Authoritative reference                          |
 | ---------------------------------------------- | ------------------------------------------------ |
-| Fleet topology and inventory                   | [Inventory](../../README.md#inventory)           |
-| Playbook preflight, credentials, and execution | [Usage](../../README.md#usage)                   |
-| Secret handling                                | [Secrets](../../README.md#secrets)               |
-| Local checks and CI                            | [Development](../../README.md#development)       |
+| Fleet topology and inventory                   | [Inventory](../inventory.md)                     |
+| Playbook preflight, credentials, and execution | [Usage](../usage.md)                             |
+| Secret handling                                | [Secrets](../secrets.md)                         |
+| Local checks and CI                            | [Development](../development.md)                 |
 | Task ownership and landing                     | [Coordination Kit setup](../coordination-kit.md) |
 
 ## Role references
